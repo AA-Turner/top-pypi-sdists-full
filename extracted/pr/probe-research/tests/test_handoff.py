@@ -1,4 +1,6 @@
-"""The frozen hand-off (`probe._shared.handoff`): stage 1 and the lifeboat (plan A1, B1).
+"""The frozen hand-off (`probe._shared.handoff`): stage 1 and the lifeboat (plan A1, B1),
+and v3's rescue of a broken env at any version, the uninstall barrier, and
+generation folders (plan clean-uninstall-reinstall L-T1).
 
 Nothing here installs anything for real or touches this machine's Probe:
 `uv` is a fake on PATH that builds a fake environment (an executable
@@ -32,10 +34,16 @@ HANDOFF = Path(handoff.__file__)
 
 _FAKE_PYTHON = """#!/bin/sh
 if [ "$1" = "-I" ] && [ "$2" = "-c" ]; then
-  # The hand-off's import check (`handoff.starts`), never recorded.
-  [ -n "$FAKE_PY_IMPORT_FAIL" ] && { echo "ModuleNotFoundError: No module named 'probe.core.adopt'" >&2; exit 1; }
+  # The hand-off's import check (`handoff.starts`), never recorded. The
+  # FAKE_PY_IMPORT_* variables reach every env; a marker file in one env
+  # (`_mark`, `<env>/.fake-import-<what>`) makes that env alone fail.
+  here="${0%/bin/python}"
+  if [ -n "$FAKE_PY_IMPORT_FAIL" ] || [ -e "$here/.fake-import-fails" ]; then
+    echo "ModuleNotFoundError: No module named 'probe.core.adopt'" >&2; exit 1
+  fi
   [ -n "$FAKE_PY_IMPORT_SLEEP" ] && exec sleep "$FAKE_PY_IMPORT_SLEEP"
-  [ -n "$FAKE_PY_IMPORT_KILLED" ] && kill -9 $$
+  [ -e "$here/.fake-import-sleeps" ] && exec sleep 5
+  if [ -n "$FAKE_PY_IMPORT_KILLED" ] || [ -e "$here/.fake-import-killed" ]; then kill -9 $$; fi
   exit 0
 fi
 out="${FAKE_PY_OUT:-/dev/null}"
@@ -71,6 +79,10 @@ if args[:2] != ["tool", "install"]:
 if os.environ.get("FAKE_UV_FAIL"):
     print("error: no solution", file=sys.stderr)
     sys.exit(1)
+if os.environ.get("FAKE_UV_OFFLINE"):
+    print("error: Failed to fetch: `https://pypi.org/simple/probe-research/`", file=sys.stderr)
+    print("  Caused by: dns error: failed to lookup address information", file=sys.stderr)
+    sys.exit(2)
 if os.environ.get("FAKE_UV_SLEEP"):
     import time
     time.sleep(float(os.environ["FAKE_UV_SLEEP"]))
@@ -187,7 +199,8 @@ def machine(tmp_path, monkeypatch, server):
                  "UV_TOOL_DIR", "PROBE_UPDATE_ADOPT", "PROBE_INSTALL_LOCK_FD", "PROBE_HANDOFF_NOW",
                  "PROBE_HANDOFF_DROPPED_WITH", "FAKE_UV_FAIL", "FAKE_UV_FAIL_PYTHON", "FAKE_UV_FAIL_WITH",
                  "FAKE_UV_WITH_SAYS", "FAKE_UV_FAIL_IF", "FAKE_UV_NO_RECEIPT", "FAKE_UV_EXIT",
-                 "FAKE_UV_SLEEP", "FAKE_PY_IMPORT_FAIL", "FAKE_PY_IMPORT_SLEEP", "FAKE_PY_IMPORT_KILLED"):
+                 "FAKE_UV_SLEEP", "FAKE_UV_OFFLINE", "FAKE_PY_IMPORT_FAIL", "FAKE_PY_IMPORT_SLEEP",
+                 "FAKE_PY_IMPORT_KILLED"):
         monkeypatch.delenv(name, raising=False)
     tools = tmp_path / "share" / "uv" / "tools"
     fake_env(tools / handoff.DIST, "0.1.0")
@@ -1036,3 +1049,653 @@ def test_an_offline_lifeboat_reads_the_manifest_at_most_hourly(machine):
         assert _lifeboat("session", T0 + 60 * minute).returncode == 0
     assert machine.server.hits == {"/v1/client-version": 1, "/pypi/probe-research/json": 1}
     assert handoff.read_state()["first_seen_behind"] is None
+
+
+# -- v3: a broken env at any version, generations, the uninstall barrier ----------------
+
+
+#: v3 rebuilds only as releases that can take an update over
+#: (`handoff.ADOPT_SINCE`): the active one here, and the next one out.
+V, NEXT = "0.330.0", "0.331.0"
+
+
+def _linked(machine, version: str = V, folder: str | None = None) -> Path:
+    """The tool path as a switch leaves it: a link to `probe-versions/<folder>/
+    probe-research` holding `version` (`folder`: the version's own name, or a
+    generation's), recorded as active."""
+    active = fake_env(machine.root / (folder or version) / handoff.DIST, version)
+    _point_at(machine, active)
+    return active
+
+
+def _point_at(machine, env: Path) -> None:
+    import shutil
+
+    tool = machine.tools / handoff.DIST
+    if tool.is_symlink():
+        tool.unlink()
+    else:
+        shutil.rmtree(tool)
+    tool.symlink_to(env, target_is_directory=True)
+    (machine.root / handoff.ACTIVE_NAME).write_text(json.dumps({"active": str(env)}))
+
+
+def _mark(env: Path, what: str) -> None:
+    """Make this env's import check fail (`fails`), hang (`sleeps`) or die by a signal (`killed`)."""
+    (env / f".fake-import-{what}").write_text("")
+
+
+def _without_dist_info(env: Path, version: str) -> None:
+    import shutil
+
+    shutil.rmtree(env / "lib" / "python3.12" / "site-packages" / f"probe_research-{version}.dist-info")
+
+
+def _real_env(machine, version: str, *, adopt: bool, broken: bool = False) -> Path:
+    """A REAL environment (stdlib `venv` of this interpreter) holding a stub
+    `probe` at `version`, as the active env: `probe.core.run` (every release
+    since 0.274.0), `probe.core.adopt` only with `adopt` (0.328.0 on), and
+    `import probe` itself failing with `broken`. The fake python's marker
+    files cannot tell a module an old release lacks from a broken one; this can."""
+    import venv
+
+    env = machine.root / version / handoff.DIST
+    venv.EnvBuilder(symlinks=True, with_pip=False).create(env)
+    (site,) = env.glob("lib/python3*/site-packages")
+    core = site / "probe" / "core"
+    core.mkdir(parents=True)
+    (site / "probe" / "__init__.py").write_text("raise ImportError('a corrupted install')\n" if broken else "")
+    (core / "__init__.py").write_text("")
+    (core / "run.py").write_text("")
+    if adopt:
+        (core / "adopt.py").write_text("")
+    info = site / f"probe_research-{version}.dist-info"
+    info.mkdir()
+    (info / "METADATA").write_text(f"Metadata-Version: 2.1\nName: probe-research\nVersion: {version}\n")
+    (env / "uv-receipt.toml").write_text("[tool]\n")
+    _point_at(machine, env)
+    return env
+
+
+def test_a_generation_folders_name_is_never_a_release(machine):
+    assert handoff.release(f"{V}+g2") is None and not handoff.newer(f"{V}+g2", "0.1.0")
+    assert handoff.generation_of(f"{V}+g2") == (V, 2)
+    for odd in (V, f"{V}+g", f"{V}+gx", "0.330.0rc1+g2", "+g2", None):
+        assert handoff.generation_of(odd) is None
+    active = _linked(machine, V, folder=f"{V}+g2")
+    layout = handoff.Layout(machine.tools)
+    assert layout.active_version() == V  # its dist-info's
+    _without_dist_info(active, V)
+    assert layout.active_version() is None  # never "0.330.0+g2"
+
+
+def test_the_next_generation_is_one_past_the_highest_of_that_version(machine):
+    layout = handoff.Layout(machine.tools)
+    machine.root.mkdir(parents=True, exist_ok=True)
+    assert layout.next_generation("0.2.0") == "0.2.0+g2"
+    for name in ("0.2.0", "0.2.0+g2", "0.2.0+g5", "0.2.1+g9", "0.2.0+gx", "10.2.0+g7"):
+        (machine.root / name).mkdir()
+    assert layout.next_generation("0.2.0") == "0.2.0+g6"
+
+
+def test_a_broken_env_at_the_latest_is_rebuilt_in_a_new_generation_after_the_ask_window(machine):
+    """R10: the active env's update path does not import, and no version
+    comparison sees it (the machine is AT the latest). The keeper's ask (its
+    periodic check) goes unanswered; 5 minutes on, the env is checked, found
+    broken, and 0.330.0 is rebuilt beside it, in 0.330.0+g2, and handed the
+    update (the switch is release code's): nothing that exists is touched.
+    The release reports it came from `0.330.0+broken`: a change."""
+    machine.server.manifest(V)
+    active = _linked(machine, V)
+    _mark(active, "fails")
+    check_out = machine.tmp / "check.out"
+    machine.write_env(socket=_refusing_socket(machine))
+    assert _lifeboat("keeper", T0, FAKE_PY_OUT=str(check_out)).returncode == 0
+    assert _check_asked(check_out), "(c): the service is asked first"
+    assert handoff.read_state()["env_check"] is None
+    assert _lifeboat("keeper", T0 + 180).returncode == 0  # asked 3 min ago: waits
+    time.sleep(0.5)
+    assert handoff.read_state()["env_check"] is None and machine.uv_calls() == [] and not machine.out.exists()
+
+    assert _lifeboat("keeper", T0 + 360).returncode == 0
+    _wait_for(machine.out)
+    rebuilt = machine.root / f"{V}+g2" / handoff.DIST
+    seen = _parse(machine.out)
+    assert seen["adopt"] == str(rebuilt) and seen["argv"] == "-I -m probe.core.run update"
+    assert seen["trigger"] == handoff.Trigger.LIFEBOAT and seen["from"] == f"{V}+broken" and seen["fd_open"] == "yes"
+    (call,) = machine.uv_calls()
+    assert call["tool_dir"] == str(rebuilt.parent) and f"probe-research[all,daemon]=={V}" in call["argv"]
+    acted = json.loads(handoff.acted_path().read_text())
+    assert acted["reason"] == handoff.Act.BROKEN_ENV and acted["from"] == f"{V}+broken" and acted["to"] == V
+    state = handoff.read_state()
+    assert state["last_act"]["reason"] == "broken_env" and state["last_act"]["to"] == V
+    assert state["env_check"]["broken"] is True and "probe.core.adopt" in state["env_check"]["problem"]
+    assert state["behind_version"] is None, "never behind: the wrapper's known-good fallback stays out of it"
+    assert active.is_dir() and (machine.tools / handoff.DIST).resolve() == active.resolve()
+    assert "rejected" not in handoff.Layout(machine.tools).record()
+
+
+def test_a_deleted_env_is_asked_for_at_once_and_rebuilt(machine):
+    """The env the tool path names is gone (a deleted folder): seen with a
+    stat, so the lifeboat asks at once (nothing answers: there is no python
+    to ask with), and rebuilds once the ask is 5 minutes old."""
+    import shutil
+
+    machine.server.manifest(V)
+    shutil.rmtree(_linked(machine, V))
+    machine.write_env(socket=_refusing_socket(machine))
+    # Its own check was an hour ago: neither due again nor an ask to wait on.
+    handoff.write_state({"v": 1, "last_keeper_check": T0 - 3600})
+    assert _lifeboat("keeper", T0).returncode == 0
+    assert handoff.read_state()["asked_at"] == T0
+    assert _lifeboat("keeper", T0 + 360).returncode == 0
+    _wait_for(machine.out)
+    seen = _parse(machine.out)
+    assert seen["adopt"] == str(machine.root / f"{V}+g2" / handoff.DIST) and seen["from"] == f"{V}+broken"
+    assert json.loads(handoff.acted_path().read_text())["reason"] == "broken_env"
+    assert "which is gone" in handoff.read_state()["env_check"]["problem"]
+
+
+@pytest.mark.parametrize("what, said", [("sleeps", "timed out"), ("killed", "killed by signal 9")])
+def test_an_import_check_that_cannot_finish_rescues_nothing(machine, monkeypatch, what, said):
+    """A timeout (a loaded machine) or a kill (the OOM killer) is the
+    machine's, not the env's: kept, nothing installed, and not checked again
+    for the same ask."""
+    machine.server.manifest(V)
+    active = _linked(machine, V)
+    _mark(active, what)
+    machine.write_env(socket=_refusing_socket(machine))
+    handoff.write_state({"v": 1, "last_keeper_check": T0, "service_down_since": T0 - 60})
+    monkeypatch.setattr(handoff, "IMPORT_TIMEOUT_S", 0.5)
+    started: list = []
+    monkeypatch.setattr(handoff, "_detach", lambda argv, env=None: started.append(argv) or True)
+    monkeypatch.setenv(handoff.NOW_ENV, str(T0 + 360))
+    assert handoff.lifeboat("keeper") == 0
+    state = handoff.read_state()
+    assert state["env_check"]["broken"] is False and said in state["env_check"]["problem"]
+    assert state["last_act"] is None and started == [] and not handoff.acted_path().exists()
+    monkeypatch.setenv(handoff.NOW_ENV, str(T0 + 420))
+    assert handoff.lifeboat("keeper") == 0
+    assert handoff.read_state()["env_check"]["at"] == T0 + 360, "once per ask"
+    assert started == [] and machine.uv_calls() == [] and handoff.complete(active, V)
+
+
+def test_a_healthy_env_at_the_latest_is_checked_once_and_left_alone(machine):
+    machine.server.manifest(V)
+    _linked(machine, V)
+    check_out = machine.tmp / "check.out"
+    machine.write_env(socket=_refusing_socket(machine))
+    for minute in (0, 6, 10, 40):
+        assert _lifeboat("keeper", T0 + 60 * minute, FAKE_PY_OUT=str(check_out)).returncode == 0
+    time.sleep(0.5)
+    state = handoff.read_state()
+    assert state["env_check"]["broken"] is False and state["env_check"]["at"] == T0 + 360
+    assert state["last_act"] is None and state["asked_at"] is None
+    assert not handoff.acted_path().exists() and machine.uv_calls() == []
+
+
+def test_an_env_whose_service_answered_after_the_ask_is_never_checked(machine):
+    """The service answered after the ask: it started, so its env does."""
+    machine.server.manifest(V)
+    _mark(_linked(machine, V), "fails")
+    refusing = _refusing_socket(machine)
+    machine.write_env(socket=refusing)
+    assert _lifeboat("keeper", T0, FAKE_PY_OUT=str(machine.tmp / "check.out")).returncode == 0
+    machine.write_env(socket=_answering_socket(machine))
+    assert _lifeboat("keeper", T0 + 60).returncode == 0
+    machine.write_env(socket=refusing)  # idle again
+    for minute in (6, 10):
+        assert _lifeboat("keeper", T0 + 60 * minute).returncode == 0
+    time.sleep(0.5)
+    assert handoff.read_state()["env_check"] is None and machine.uv_calls() == [] and not machine.out.exists()
+
+
+def test_a_rescue_is_tried_again_no_sooner_than_an_hour_for_the_same_release(machine):
+    """The rebuild a minute ago did not take (its switch failed, nothing
+    held): the same 0.330.0 is not tried again within ACT_RETRY_S -- not
+    asked, not checked -- then the lifeboat asks again, and rebuilds 5
+    minutes after."""
+    machine.server.manifest(V)
+    _mark(_linked(machine, V), "fails")
+    machine.write_env(socket=_refusing_socket(machine))
+    handoff.write_state({
+        "v": 1, "last_keeper_check": T0 - 360, "service_down_since": T0 - 600, "asked_at": None,
+        "last_act": {"at": T0 - 60, "reason": "broken_env", "from": V, "to": V},
+        "env_check": {"at": T0 - 60, "ask": T0 - 360, "broken": True, "problem": "x", "target": V}})
+    for at in (T0, T0 + 1800, T0 + handoff.ACT_RETRY_S - 120):
+        assert _lifeboat("keeper", at).returncode == 0
+    time.sleep(0.5)
+    state = handoff.read_state()
+    assert state["last_act"]["at"] == T0 - 60 and state["asked_at"] is None
+    assert machine.uv_calls() == [] and not machine.out.exists()
+
+    check_out = machine.tmp / "check.out"
+    assert _lifeboat("keeper", T0 + handoff.ACT_RETRY_S, FAKE_PY_OUT=str(check_out)).returncode == 0
+    assert _check_asked(check_out), "past the hour: asked first"
+    assert handoff.read_state()["asked_at"] == T0 + handoff.ACT_RETRY_S
+    assert machine.uv_calls() == [] and not machine.out.exists()
+    assert _lifeboat("keeper", T0 + handoff.ACT_RETRY_S + 360).returncode == 0
+    _wait_for(machine.out)
+    assert _parse(machine.out)["adopt"] == str(machine.root / f"{V}+g2" / handoff.DIST)
+    assert handoff.read_state()["last_act"]["at"] == T0 + handoff.ACT_RETRY_S + 360
+
+
+@pytest.mark.parametrize("setting", [{"auto_update": False}, {"managed": False}])
+def test_a_broken_env_is_never_rebuilt_with_updates_off_or_on_a_cli_it_does_not_manage(machine, setting):
+    import shutil
+
+    machine.server.manifest(V)
+    shutil.rmtree(_linked(machine, V))
+    machine.write_env(socket=_refusing_socket(machine), **setting)
+    for minute in (0, 6, 40):
+        assert _lifeboat("keeper", T0 + 60 * minute).returncode == 0
+    time.sleep(0.5)
+    assert not handoff.state_path().exists() and machine.uv_calls() == [] and not machine.out.exists()
+
+
+def test_a_second_rebuild_of_the_same_release_takes_the_next_generation(machine, no_exec):
+    """The env rebuilt as 0.330.0+g2 broke too, and the 0.330.0 folder beside
+    it still does not start: neither is replaced, 0.330.0+g3 is installed."""
+    machine.server.manifest(V)
+    active = _linked(machine, V, folder=f"{V}+g2")
+    _mark(active, "fails")
+    first = fake_env(machine.root / V / handoff.DIST, V)
+    _mark(first, "fails")
+    with pytest.raises(Execd) as caught:
+        handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    rebuilt = machine.root / f"{V}+g3" / handoff.DIST
+    assert caught.value.env[handoff.ADOPT_ENV] == str(rebuilt)
+    assert caught.value.env[handoff.FROM_ENV] == f"{V}+broken"
+    (call,) = machine.uv_calls()
+    assert call["tool_dir"] == str(rebuilt.parent)
+    assert handoff.complete(active, V) and handoff.complete(first, V)
+
+
+def test_a_rebuild_whose_switch_never_happened_is_used_again_not_downloaded_again(machine, no_exec):
+    """0.330.0+g2 was rebuilt an hour ago and handed the update, but the
+    release's switch did not happen (it failed, nothing rejected): the next
+    rescue execs that same complete copy, never one more download an hour."""
+    machine.server.manifest(V)
+    _mark(_linked(machine, V), "fails")
+    left = fake_env(machine.root / f"{V}+g2" / handoff.DIST, V)
+    with pytest.raises(Execd) as caught:
+        handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    assert caught.value.env[handoff.ADOPT_ENV] == str(left) and machine.uv_calls() == []
+
+
+def test_a_rebuild_uses_the_versions_own_folder_when_there_is_none(machine, no_exec):
+    """The active env is 0.330.0+g2, broken; the 0.330.0 folder beside it is
+    gone (pruned): 0.330.0 is installed in its own folder again."""
+    machine.server.manifest(V)
+    _mark(_linked(machine, V, folder=f"{V}+g2"), "fails")
+    with pytest.raises(Execd) as caught:
+        handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    assert caught.value.env[handoff.ADOPT_ENV] == str(machine.root / V / handoff.DIST)
+
+
+def test_a_half_finished_own_folder_is_left_alone_and_a_generation_used(machine, no_exec):
+    """The 0.330.0 folder is there but half-finished (no receipt): most often
+    it is active.json's `previous`, so it is never deleted or installed over;
+    0.330.0+g3 goes beside it."""
+    machine.server.manifest(V)
+    _mark(_linked(machine, V, folder=f"{V}+g2"), "fails")
+    half = fake_env(machine.root / V / handoff.DIST, V, receipt=False)
+    with pytest.raises(Execd) as caught:
+        handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    assert caught.value.env[handoff.ADOPT_ENV] == str(machine.root / f"{V}+g3" / handoff.DIST)
+    assert (half / "bin" / "python").exists() and not (half / "uv-receipt.toml").exists()
+
+
+def test_a_broken_env_whose_version_cannot_be_read_is_rebuilt_as_the_newest(machine, no_exec):
+    """v2 answered `unknown_active` here for good: a generation folder's name
+    is no version, and its dist-info went with the rest of it. The report
+    names what it was by the folder: `0.330.0+broken`, never nothing."""
+    import shutil
+
+    machine.server.manifest(NEXT)
+    shutil.rmtree(_linked(machine, V, folder=f"{V}+g2"))
+    assert handoff.stage1("cli")["result"] == handoff.Result.UNKNOWN_ACTIVE  # an update alone: as before
+    with pytest.raises(Execd) as caught:
+        handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    assert caught.value.env[handoff.ADOPT_ENV] == str(machine.root / NEXT / handoff.DIST)
+    assert caught.value.env[handoff.FROM_ENV] == f"{V}+broken"
+
+
+def test_a_rescue_finding_the_env_starts_after_all_changes_nothing(machine, no_exec):
+    machine.server.manifest(V)
+    _linked(machine, V)
+    answer = handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    assert answer["result"] == handoff.Result.HEALTHY and machine.uv_calls() == []
+
+
+# -- v3: older releases are never "broken", nor rebuilt as themselves ---------------------
+
+
+def test_a_release_older_than_adopt_is_never_rebuilt_as_itself():
+    assert handoff.takes_over(handoff.ADOPT_SINCE) and handoff.takes_over(V)
+    assert not handoff.takes_over("0.327.0") and not handoff.takes_over(None)
+    assert handoff.rescue_version(None, "0.320.0", {}) is None
+    assert handoff.rescue_version("0.320.0", None, {}) is None
+    assert handoff.rescue_version(V, "0.320.0", {}) == V  # the newest instead
+    rejected = {"rejected": {V: {"at": time.time(), "reason": "x"}}}
+    assert handoff.rescue_version(V, "0.320.0", rejected) is None
+
+
+def test_a_healthy_older_release_is_not_broken_by_lacking_what_came_later(machine, no_exec):
+    """A REAL env: 0.320.0 has `probe.core.run` and no `probe.core.adopt`
+    (0.328.0 brought it). Its check asks only for what every release has, so
+    it reads healthy -- where a check for adopt read it broken and rebuilt it
+    every hour. A 0.330.0 without adopt is broken: that one should have it."""
+    machine.server.manifest(V)
+    old = _real_env(machine, "0.320.0", adopt=False)
+    assert handoff.Layout(machine.tools).broken() == (None, False)
+    assert handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)["result"] == handoff.Result.HEALTHY
+    assert machine.uv_calls() == [] and old.is_dir()
+
+    _real_env(machine, V, adopt=False)
+    problem, broken = handoff.Layout(machine.tools).broken()
+    assert broken and "probe.core.adopt" in problem
+
+
+def test_a_machine_switched_back_to_an_older_release_is_left_alone(machine):
+    """The P0 of review #3509, with real envs: the guard switched this
+    machine back to 0.320.0, the newest (0.330.0) is rejected for 24 h, the
+    service idles. Healthy or even broken, 0.320.0 is never rebuilt as
+    itself (it cannot take an update over) and the newest is held off: over
+    hours of keeper runs, nothing is installed."""
+    machine.server.manifest(V)
+    _real_env(machine, "0.320.0", adopt=False, broken=True)  # broken: still nothing to rebuild it as
+    (machine.root / handoff.ACTIVE_NAME).write_text(json.dumps({
+        "active": str(machine.root / "0.320.0" / handoff.DIST),
+        "rejected": {V: {"at": T0 - 3600, "reason": "the new service did not answer"}}}))
+    machine.write_env(socket=_refusing_socket(machine))
+    check_out = machine.tmp / "check.out"
+    for minute in (0, 6, 10, 70, 140, 300):
+        assert _lifeboat("keeper", T0 + 60 * minute, FAKE_PY_OUT=str(check_out)).returncode == 0
+    time.sleep(0.5)
+    state = handoff.read_state()
+    assert state["last_act"] is None and state["env_check"] is None and state["asked_at"] is None
+    assert machine.uv_calls() == [] and not machine.out.exists() and not handoff.acted_path().exists()
+
+
+def test_a_fresh_rebuild_of_the_active_version_that_does_not_start_is_held_off_for_a_day(machine, monkeypatch):
+    """The copy this rescue installed afresh does not start either (the
+    release, or this machine's Python): the next would fail the same way, so
+    0.330.0 is not rebuilt again for 24 h (`L/rebuilds.json`) -- not asked
+    for, not checked, and a rescue says it is held and until when -- then it
+    is."""
+    machine.server.manifest(V)
+    _mark(_linked(machine, V), "fails")
+    monkeypatch.setenv(handoff.NOW_ENV, str(T0))
+    monkeypatch.setenv("FAKE_PY_IMPORT_FAIL", "1")
+    answer = handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    assert answer["result"] == handoff.Result.INSTALL_FAILED and "does not start" in answer["detail"]
+    assert handoff.held_rebuilds() == {V: T0} and not (machine.root / f"{V}+g2").exists()
+    monkeypatch.delenv("FAKE_PY_IMPORT_FAIL")
+    held = handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    assert held["result"] == handoff.Result.HELD and len(machine.uv_calls()) == 1
+    assert held["detail"] == f"{V} is held after a rebuild that did not start, until 2027-01-16 08:00 UTC"
+    machine.write_env(socket=_refusing_socket(machine))
+    handoff.write_state({
+        "v": 1, "last_keeper_check": T0 - 360, "service_down_since": T0 - 600,
+        "env_check": {"at": T0 - 60, "ask": T0 - 3600, "broken": True, "problem": "x", "target": V}})
+    check_out = str(machine.tmp / "check.out")  # (c)'s own periodic checks still run
+    for hours in (1, 6, 23):
+        assert _lifeboat("keeper", T0 + hours * 3600, FAKE_PY_OUT=check_out).returncode == 0
+    time.sleep(0.5)
+    assert handoff.read_state()["asked_at"] is None and machine.uv_calls() and not machine.out.exists()
+    calls = len(machine.uv_calls())
+    # The day is over: asked again (and rebuilt 5 minutes on, as any rescue).
+    assert _lifeboat("keeper", T0 + 24 * 3600 + 60, FAKE_PY_OUT=check_out).returncode == 0
+    assert handoff.read_state()["asked_at"] == T0 + 24 * 3600 + 60 and len(machine.uv_calls()) == calls
+
+
+def test_a_failed_rebuild_as_a_newer_release_is_not_held(machine, no_exec, monkeypatch):
+    """Rebuilding as the newest (the active version unread) is an install
+    the hour's retry tries again, as every rescue of the newest."""
+    import shutil
+
+    machine.server.manifest(NEXT)
+    shutil.rmtree(_linked(machine, V, folder=f"{V}+g2"))
+    monkeypatch.setenv("FAKE_UV_FAIL", "1")
+    assert handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)["result"] == handoff.Result.INSTALL_FAILED
+    assert handoff.held_rebuilds() == {}
+
+
+def _offline(machine, m) -> None:
+    machine.server.manifest(None, status=503)
+    machine.server.pypi(None, status=503)
+    m.setenv("FAKE_UV_OFFLINE", "1")
+
+
+@pytest.mark.parametrize("why, said", [
+    ("offline", "dns error"), ("uv_timeout", "timed out"), ("no_uv", "uv was not found"),
+    ("out_of_time", "ran out")])
+def test_a_rebuild_that_failed_for_a_passing_reason_is_not_held(machine, no_exec, monkeypatch, why, said):
+    """The CLI is broken at the latest, and the rescue's install fails for a
+    reason of the moment: the laptop is offline, uv hangs, uv is not there,
+    the install's time ran out. Nothing is held: back online (uv back, time
+    to spare), the next rescue rebuilds it -- not a day later."""
+    machine.server.manifest(V)
+    _mark(_linked(machine, V), "fails")
+    monkeypatch.setenv(handoff.NOW_ENV, str(T0))
+    with monkeypatch.context() as m:
+        if why == "offline":
+            _offline(machine, m)
+        elif why == "uv_timeout":
+            m.setattr(handoff, "UV_TIMEOUT_S", 0.5)
+            m.setenv("FAKE_UV_SLEEP", "5")
+        elif why == "no_uv":
+            m.setattr(handoff, "find_uv", lambda recorded, env: None)
+        else:
+            m.setattr(handoff, "INSTALL_BUDGET_S", 0)
+        answer = handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+        assert answer["result"] == handoff.Result.INSTALL_FAILED and said in answer["detail"]
+    assert handoff.held_rebuilds() == {} and not handoff.rebuilds_path().exists()
+    machine.server.manifest(V)
+    with pytest.raises(Execd) as caught:
+        handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    assert caught.value.env[handoff.ADOPT_ENV] == str(machine.root / f"{V}+g2" / handoff.DIST)
+
+
+def test_a_copy_already_there_that_does_not_start_is_not_held(machine, no_exec, monkeypatch):
+    """The rescue used a complete copy an earlier rescue left (0.330.0+g2),
+    which started when it was picked and not at its hand-over: this run
+    installed nothing, so nothing it did would fail the same way again --
+    kept, and not held."""
+    machine.server.manifest(V)
+    _mark(_linked(machine, V), "fails")
+    left = fake_env(machine.root / f"{V}+g2" / handoff.DIST, V)
+    real_starts, seen = handoff.starts, []
+
+    def breaks_after_it_was_picked(env, modules=handoff.UPDATE_MODULES):
+        if Path(env) == left:
+            seen.append(env)
+            if len(seen) > 1:
+                return "ImportError: cannot import name 'adopt'", True
+        return real_starts(env, modules)
+
+    monkeypatch.setattr(handoff, "starts", breaks_after_it_was_picked)
+    answer = handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    assert answer["result"] == handoff.Result.INSTALL_FAILED and "does not start" in answer["detail"]
+    assert len(seen) == 2 and machine.uv_calls() == []
+    assert handoff.held_rebuilds() == {} and handoff.complete(left, V)
+
+
+def test_a_rescue_with_nothing_to_rebuild_names_why(machine, no_exec, monkeypatch):
+    """`rejected` only for a release that was switched back from; an older
+    release is `too_old`; each one passed over is named in the detail."""
+    machine.server.manifest(V)
+    _mark(_linked(machine, "0.320.0"), "fails")
+    (machine.root / handoff.ACTIVE_NAME).write_text(json.dumps({"rejected": {V: {"at": time.time(), "reason": "x"}}}))
+    answer = handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)
+    assert answer["result"] == handoff.Result.REJECTED
+    assert answer["detail"] == (f"{V} was rejected less than 24 h ago; 0.320.0 is older than "
+                                f"{handoff.ADOPT_SINCE} and cannot take an update over")
+    machine.server.manifest("0.320.0")
+    assert handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)["result"] == handoff.Result.TOO_OLD
+    assert machine.uv_calls() == []
+
+
+# -- v3: the uninstall barrier ------------------------------------------------------------
+
+
+def _barrier(phase: str | None, *, alive: bool) -> None:
+    """S/uninstall/barrier.json, its owner this (live) test process, or one
+    gone (the same pid with another start time: a recycled pid); `phase`
+    None: no phase at all."""
+    path = handoff.barrier_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    start = handoff.proc_start(os.getpid()) if alive else "0"
+    data = {"v": 1, "pid": os.getpid(), "start": start, "at": T0, "plan": str(path.parent / "plan.json")}
+    if phase is not None:
+        data["phase"] = phase
+    path.write_text(json.dumps(data))
+
+
+def _unreadable_barrier(age_s: float) -> None:
+    path = handoff.barrier_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('{"v": 1, "pid": ')  # cut short
+    at = time.time() - age_s
+    os.utime(path, (at, at))
+
+
+@pytest.mark.parametrize("phase, alive", [
+    ("planned", True), ("draining", True), ("server", False), ("integrations", False), ("state", False),
+    ("finishing", False), ("a-phase-from-a-newer-uninstall", False), (None, False), ("unreadable", False)])
+def test_a_live_uninstall_barrier_stops_everything_even_the_ask(machine, no_exec, phase, alive):
+    """While an uninstall runs (its owner alive), or once it is at any phase
+    but the first three (`server` on, one this copy does not know, none),
+    whoever owns it, or while a barrier it cannot read is under an hour old,
+    the lifeboat and stage 1 do nothing: no clock written, no manifest read,
+    no ask, no lock, no install -- with a broken env and a newer release both
+    waiting."""
+    import shutil
+
+    machine.server.manifest(NEXT)
+    shutil.rmtree(_linked(machine, V))
+    machine.write_env(socket=_refusing_socket(machine))
+    if phase == "unreadable":
+        _unreadable_barrier(age_s=300)
+    else:
+        _barrier(phase, alive=alive)
+    assert handoff.uninstalling()
+    check_out = machine.tmp / "check.out"
+    for trigger, at in (("keeper", T0), ("keeper", T0 + 360), ("session", T0 + 13 * 3600)):
+        assert _lifeboat(trigger, at, FAKE_PY_OUT=str(check_out)).returncode == 0
+    assert handoff.stage1("cli")["result"] == handoff.Result.UNINSTALLING
+    assert handoff.stage1(handoff.Trigger.LIFEBOAT, rescue=True)["result"] == handoff.Result.UNINSTALLING
+    time.sleep(0.5)
+    assert not handoff.state_path().exists() and machine.server.hits == {} and not check_out.exists()
+    assert machine.uv_calls() == [] and not machine.out.exists() and not handoff.acted_path().exists()
+    assert not handoff.lock_path(machine.root).exists()
+
+
+@pytest.mark.parametrize("phase", ["planned", "stopping", "draining", "unreadable"])
+def test_a_stale_uninstall_barrier_is_ignored(machine, no_exec, phase):
+    """Its owner gone before the point of no return, or a barrier that cannot
+    be read and is over an hour old: an install may clear it, and nothing
+    waits on it."""
+    if phase == "unreadable":
+        _unreadable_barrier(age_s=2 * 3600)
+    else:
+        _barrier(phase, alive=False)
+    assert handoff.uninstalling() is None
+    with pytest.raises(Execd):
+        handoff.stage1("cli")
+    assert _lifeboat("session", T0).returncode == 0
+    assert handoff.read_state()["behind_version"] == "0.2.0"
+
+
+def test_an_uninstall_that_begins_during_a_lifeboat_run_stops_it_before_it_writes(machine, monkeypatch):
+    """The run read the network and asked the socket (up to a minute or
+    more) while the uninstall wrote its barrier: it writes no clock and asks
+    nothing after all."""
+    started: list = []
+    monkeypatch.setattr(handoff, "_detach", lambda argv, env=None: started.append(argv) or True)
+
+    def silent_while_an_uninstall_begins(socket_path, **_):
+        _barrier("planned", alive=True)
+        return False
+
+    monkeypatch.setattr(handoff, "service_answers", silent_while_an_uninstall_begins)
+    monkeypatch.setenv(handoff.NOW_ENV, str(T0))
+    assert handoff.lifeboat("keeper") == 0
+    assert started == [] and not handoff.state_path().exists()
+
+
+def test_an_uninstall_that_begins_during_stage_1s_install_gets_nothing_handed_over(machine, no_exec, monkeypatch):
+    """The install took minutes and an uninstall began meanwhile (it waits
+    for the lock this holds): nothing is exec'd, and the env this run
+    installed goes -- the uninstall's list of what to delete predates it."""
+    real_starts = handoff.starts
+
+    def check_while_an_uninstall_begins(env, modules=handoff.UPDATE_MODULES):
+        _barrier("planned", alive=True)
+        return real_starts(env, modules)
+
+    monkeypatch.setattr(handoff, "starts", check_while_an_uninstall_begins)
+    answer = handoff.stage1("cli")
+    assert answer["result"] == handoff.Result.UNINSTALLING
+    assert len(machine.uv_calls()) == 1 and not (machine.root / "0.2.0").exists()
+
+
+# -- the copies already deployed, on a generation layout ---------------------------------
+
+
+#: Byte copies of the hand-off as released (`known-good/` keeps the copy
+#: before `current/`'s, and a machine the newest release has not reached
+#: runs its own): HANDOFF_VERSION 1 (CLI 0.328.0) and 2 (CLI 0.329.1).
+DEPLOYED = Path(__file__).resolve().parent / "fixtures" / "handoff_deployed"
+DEPLOYED_DIGESTS = {
+    1: "46dea4b6613ba332d09bd0508d2c23d964cb00c5431c2213f7b59a01a0da81af",
+    2: "4ca1fabf2b99ea060ae414387ad621e1b336aafec0dd00bb8ac753e739523438",
+}
+
+
+def _deployed(version: int) -> Path:
+    import hashlib
+
+    copy = DEPLOYED / f"v{version}" / "handoff.py"
+    assert hashlib.sha256(copy.read_bytes()).hexdigest() == DEPLOYED_DIGESTS[version], "not the released copy"
+    return copy
+
+
+def _run_copy(copy: Path, *args: str, at: float | None = None) -> subprocess.CompletedProcess:
+    env = {**os.environ, **({handoff.NOW_ENV: str(at)} if at is not None else {})}
+    return subprocess.run([sys.executable, "-I", str(copy), *args], env=env, capture_output=True, text=True,
+                          timeout=60, stdin=subprocess.DEVNULL)
+
+
+@pytest.mark.parametrize("version", sorted(DEPLOYED_DIGESTS))
+def test_a_deployed_copy_reads_a_generation_layout_by_its_dist_info(machine, version):
+    """A v1 or v2 copy on a machine v3 rebuilt (the tool path names
+    0.2.0+g2): it reads the active version from the env's dist-info, so it
+    is current at 0.2.0, and installs 0.3.0 the usual way once that is out."""
+    copy = _deployed(version)
+    _linked(machine, "0.2.0", folder="0.2.0+g2")
+    machine.server.manifest("0.2.0")
+    done = _run_copy(copy, "--stage1", "--trigger", "cli")
+    assert done.returncode == 0 and "'result': 'current'" in done.stderr and "'active': '0.2.0'" in done.stderr
+    assert _run_copy(copy, "--lifeboat", "--trigger", "session", at=T0).returncode == 0
+    assert handoff.read_state()["behind_version"] is None and machine.uv_calls() == []
+
+    machine.server.manifest("0.3.0")
+    assert _run_copy(copy, "--stage1", "--trigger", "cli").returncode == 0
+    seen = _parse(machine.out)
+    assert seen["adopt"] == str(machine.root / "0.3.0" / handoff.DIST) and seen["from"] == "0.2.0"
+    (call,) = machine.uv_calls()
+    assert call["tool_dir"] == str(machine.root / "0.3.0")
+
+
+@pytest.mark.parametrize("version", sorted(DEPLOYED_DIGESTS))
+def test_a_deployed_copy_never_reads_a_generation_name_as_a_version(machine, version):
+    """The 0.2.0+g2 env lost its dist-info: v1 and v2 fall back to the
+    folder's name, which is no release, and change nothing."""
+    copy = _deployed(version)
+    _without_dist_info(_linked(machine, "0.2.0", folder="0.2.0+g2"), "0.2.0")
+    machine.server.manifest("0.3.0")
+    done = _run_copy(copy, "--stage1", "--trigger", "cli")
+    assert done.returncode == 0 and "'result': 'unknown_active'" in done.stderr
+    assert machine.uv_calls() == [] and not machine.out.exists()

@@ -3,221 +3,226 @@
 #define _PROTON_PROTOCOL_H 1
 
 #include "proton/type_compat.h"
-#define OPEN_CONTAINER_ID (0)
-#define OPEN_HOSTNAME (1)
-#define OPEN_MAX_FRAME_SIZE (2)
-#define OPEN_MAX_FRAME_SIZE_DEFAULT (4294967295) /* uint */
-#define OPEN_CHANNEL_MAX (3)
-#define OPEN_CHANNEL_MAX_DEFAULT (65535) /* ushort */
-#define OPEN_IDLE_TIME_OUT (4)
-#define OPEN_OUTGOING_LOCALES (5)
-#define OPEN_INCOMING_LOCALES (6)
-#define OPEN_OFFERED_CAPABILITIES (7)
-#define OPEN_DESIRED_CAPABILITIES (8)
-#define OPEN_PROPERTIES (9)
-#define BEGIN_REMOTE_CHANNEL (0)
-#define BEGIN_NEXT_OUTGOING_ID (1)
-#define BEGIN_INCOMING_WINDOW (2)
-#define BEGIN_OUTGOING_WINDOW (3)
-#define BEGIN_HANDLE_MAX (4)
-#define BEGIN_HANDLE_MAX_DEFAULT (4294967295) /* uint */
-#define BEGIN_OFFERED_CAPABILITIES (5)
-#define BEGIN_DESIRED_CAPABILITIES (6)
-#define BEGIN_PROPERTIES (7)
-#define ATTACH_NAME (0)
-#define ATTACH_HANDLE (1)
-#define ATTACH_ROLE (2)
-#define ATTACH_SND_SETTLE_MODE (3)
-#define ATTACH_RCV_SETTLE_MODE (4)
-#define ATTACH_SOURCE (5)
-#define ATTACH_TARGET (6)
-#define ATTACH_UNSETTLED (7)
-#define ATTACH_INCOMPLETE_UNSETTLED (8)
-#define ATTACH_INITIAL_DELIVERY_COUNT (9)
-#define ATTACH_MAX_MESSAGE_SIZE (10)
-#define ATTACH_OFFERED_CAPABILITIES (11)
-#define ATTACH_DESIRED_CAPABILITIES (12)
-#define ATTACH_PROPERTIES (13)
-#define FLOW_NEXT_INCOMING_ID (0)
-#define FLOW_INCOMING_WINDOW (1)
-#define FLOW_NEXT_OUTGOING_ID (2)
-#define FLOW_OUTGOING_WINDOW (3)
-#define FLOW_HANDLE (4)
-#define FLOW_DELIVERY_COUNT (5)
-#define FLOW_LINK_CREDIT (6)
-#define FLOW_AVAILABLE (7)
-#define FLOW_DRAIN (8)
-#define FLOW_ECHO (9)
-#define FLOW_PROPERTIES (10)
-#define TRANSFER_HANDLE (0)
-#define TRANSFER_DELIVERY_ID (1)
-#define TRANSFER_DELIVERY_TAG (2)
-#define TRANSFER_MESSAGE_FORMAT (3)
-#define TRANSFER_SETTLED (4)
-#define TRANSFER_MORE (5)
-#define TRANSFER_RCV_SETTLE_MODE (6)
-#define TRANSFER_STATE (7)
-#define TRANSFER_RESUME (8)
-#define TRANSFER_ABORTED (9)
-#define TRANSFER_BATCHABLE (10)
-#define DISPOSITION_ROLE (0)
-#define DISPOSITION_FIRST (1)
-#define DISPOSITION_LAST (2)
-#define DISPOSITION_SETTLED (3)
-#define DISPOSITION_STATE (4)
-#define DISPOSITION_BATCHABLE (5)
-#define DETACH_HANDLE (0)
-#define DETACH_CLOSED (1)
-#define DETACH_ERROR (2)
-#define END_ERROR (0)
-#define CLOSE_ERROR (0)
-#define ERROR_CONDITION (0)
-#define ERROR_DESCRIPTION (1)
-#define ERROR_INFO (2)
-#define HEADER_DURABLE (0)
-#define HEADER_PRIORITY (1)
-#define HEADER_PRIORITY_DEFAULT (4) /* ubyte */
-#define HEADER_TTL (2)
-#define HEADER_FIRST_ACQUIRER (3)
-#define HEADER_DELIVERY_COUNT (4)
-#define HEADER_DELIVERY_COUNT_DEFAULT (0) /* uint */
-#define PROPERTIES_MESSAGE_ID (0)
-#define PROPERTIES_USER_ID (1)
-#define PROPERTIES_TO (2)
-#define PROPERTIES_SUBJECT (3)
-#define PROPERTIES_REPLY_TO (4)
-#define PROPERTIES_CORRELATION_ID (5)
-#define PROPERTIES_CONTENT_TYPE (6)
-#define PROPERTIES_CONTENT_ENCODING (7)
-#define PROPERTIES_ABSOLUTE_EXPIRY_TIME (8)
-#define PROPERTIES_CREATION_TIME (9)
-#define PROPERTIES_GROUP_ID (10)
-#define PROPERTIES_GROUP_SEQUENCE (11)
-#define PROPERTIES_REPLY_TO_GROUP_ID (12)
-#define RECEIVED_SECTION_NUMBER (0)
-#define RECEIVED_SECTION_OFFSET (1)
-#define REJECTED_ERROR (0)
-#define MODIFIED_DELIVERY_FAILED (0)
-#define MODIFIED_UNDELIVERABLE_HERE (1)
-#define MODIFIED_MESSAGE_ANNOTATIONS (2)
-#define SOURCE_ADDRESS (0)
-#define SOURCE_DURABLE (1)
-#define SOURCE_EXPIRY_POLICY (2)
-#define SOURCE_EXPIRY_POLICY_DEFAULT ("session-end") /* symbol */
-#define SOURCE_TIMEOUT (3)
-#define SOURCE_TIMEOUT_DEFAULT (0) /* uint */
-#define SOURCE_DYNAMIC (4)
-#define SOURCE_DYNAMIC_NODE_PROPERTIES (5)
-#define SOURCE_DISTRIBUTION_MODE (6)
-#define SOURCE_FILTER (7)
-#define SOURCE_DEFAULT_OUTCOME (8)
-#define SOURCE_OUTCOMES (9)
-#define SOURCE_CAPABILITIES (10)
-#define TARGET_ADDRESS (0)
-#define TARGET_DURABLE (1)
-#define TARGET_EXPIRY_POLICY (2)
-#define TARGET_EXPIRY_POLICY_DEFAULT ("session-end") /* symbol */
-#define TARGET_TIMEOUT (3)
-#define TARGET_TIMEOUT_DEFAULT (0) /* uint */
-#define TARGET_DYNAMIC (4)
-#define TARGET_DYNAMIC_NODE_PROPERTIES (5)
-#define TARGET_CAPABILITIES (6)
-#define COORDINATOR_CAPABILITIES (0)
-#define DECLARE_GLOBAL_ID (0)
-#define DISCHARGE_TXN_ID (0)
-#define DISCHARGE_FAIL (1)
-#define DECLARED_TXN_ID (0)
-#define TRANSACTIONAL_STATE_TXN_ID (0)
-#define TRANSACTIONAL_STATE_OUTCOME (1)
-#define SASL_MECHANISMS_SASL_SERVER_MECHANISMS (0)
-#define SASL_INIT_MECHANISM (0)
-#define SASL_INIT_INITIAL_RESPONSE (1)
-#define SASL_INIT_HOSTNAME (2)
-#define SASL_CHALLENGE_CHALLENGE (0)
-#define SASL_RESPONSE_RESPONSE (0)
-#define SASL_OUTCOME_CODE (0)
-#define SASL_OUTCOME_ADDITIONAL_DATA (1)
-#define OPEN_SYM ("amqp:open:list")
-#define OPEN ((uint64_t) 16)
-#define BEGIN_SYM ("amqp:begin:list")
-#define BEGIN ((uint64_t) 17)
-#define ATTACH_SYM ("amqp:attach:list")
-#define ATTACH ((uint64_t) 18)
-#define FLOW_SYM ("amqp:flow:list")
-#define FLOW ((uint64_t) 19)
-#define TRANSFER_SYM ("amqp:transfer:list")
-#define TRANSFER ((uint64_t) 20)
-#define DISPOSITION_SYM ("amqp:disposition:list")
-#define DISPOSITION ((uint64_t) 21)
-#define DETACH_SYM ("amqp:detach:list")
-#define DETACH ((uint64_t) 22)
-#define END_SYM ("amqp:end:list")
-#define END ((uint64_t) 23)
-#define CLOSE_SYM ("amqp:close:list")
-#define CLOSE ((uint64_t) 24)
-#define ERROR_SYM ("amqp:error:list")
-#define ERROR ((uint64_t) 29)
-#define HEADER_SYM ("amqp:header:list")
-#define HEADER ((uint64_t) 112)
-#define PROPERTIES_SYM ("amqp:properties:list")
-#define PROPERTIES ((uint64_t) 115)
-#define RECEIVED_SYM ("amqp:received:list")
-#define RECEIVED ((uint64_t) 35)
-#define ACCEPTED_SYM ("amqp:accepted:list")
-#define ACCEPTED ((uint64_t) 36)
-#define REJECTED_SYM ("amqp:rejected:list")
-#define REJECTED ((uint64_t) 37)
-#define RELEASED_SYM ("amqp:released:list")
-#define RELEASED ((uint64_t) 38)
-#define MODIFIED_SYM ("amqp:modified:list")
-#define MODIFIED ((uint64_t) 39)
-#define SOURCE_SYM ("amqp:source:list")
-#define SOURCE ((uint64_t) 40)
-#define TARGET_SYM ("amqp:target:list")
-#define TARGET ((uint64_t) 41)
-#define DELETE_ON_CLOSE_SYM ("amqp:delete-on-close:list")
-#define DELETE_ON_CLOSE ((uint64_t) 43)
-#define DELETE_ON_NO_LINKS_SYM ("amqp:delete-on-no-links:list")
-#define DELETE_ON_NO_LINKS ((uint64_t) 44)
-#define DELETE_ON_NO_MESSAGES_SYM ("amqp:delete-on-no-messages:list")
-#define DELETE_ON_NO_MESSAGES ((uint64_t) 45)
-#define DELETE_ON_NO_LINKS_OR_MESSAGES_SYM ("amqp:delete-on-no-links-or-messages:list")
-#define DELETE_ON_NO_LINKS_OR_MESSAGES ((uint64_t) 46)
-#define COORDINATOR_SYM ("amqp:coordinator:list")
-#define COORDINATOR ((uint64_t) 48)
-#define DECLARE_SYM ("amqp:declare:list")
-#define DECLARE ((uint64_t) 49)
-#define DISCHARGE_SYM ("amqp:discharge:list")
-#define DISCHARGE ((uint64_t) 50)
-#define DECLARED_SYM ("amqp:declared:list")
-#define DECLARED ((uint64_t) 51)
-#define TRANSACTIONAL_STATE_SYM ("amqp:transactional-state:list")
-#define TRANSACTIONAL_STATE ((uint64_t) 52)
-#define SASL_MECHANISMS_SYM ("amqp:sasl-mechanisms:list")
-#define SASL_MECHANISMS ((uint64_t) 64)
-#define SASL_INIT_SYM ("amqp:sasl-init:list")
-#define SASL_INIT ((uint64_t) 65)
-#define SASL_CHALLENGE_SYM ("amqp:sasl-challenge:list")
-#define SASL_CHALLENGE ((uint64_t) 66)
-#define SASL_RESPONSE_SYM ("amqp:sasl-response:list")
-#define SASL_RESPONSE ((uint64_t) 67)
-#define SASL_OUTCOME_SYM ("amqp:sasl-outcome:list")
-#define SASL_OUTCOME ((uint64_t) 68)
-#define DELIVERY_ANNOTATIONS_SYM ("amqp:delivery-annotations:map")
-#define DELIVERY_ANNOTATIONS ((uint64_t) 113)
-#define MESSAGE_ANNOTATIONS_SYM ("amqp:message-annotations:map")
-#define MESSAGE_ANNOTATIONS ((uint64_t) 114)
-#define APPLICATION_PROPERTIES_SYM ("amqp:application-properties:map")
-#define APPLICATION_PROPERTIES ((uint64_t) 116)
-#define DATA_SYM ("amqp:data:binary")
-#define DATA ((uint64_t) 117)
-#define AMQP_SEQUENCE_SYM ("amqp:amqp-sequence:list")
-#define AMQP_SEQUENCE ((uint64_t) 118)
-#define AMQP_VALUE_SYM ("amqp:amqp-value:*")
-#define AMQP_VALUE ((uint64_t) 119)
-#define FOOTER_SYM ("amqp:footer:map")
-#define FOOTER ((uint64_t) 120)
 
+/* Field constants */
+#define AMQP_FIELD_OPEN_CONTAINER_ID (0)
+#define AMQP_FIELD_OPEN_HOSTNAME (1)
+#define AMQP_FIELD_OPEN_MAX_FRAME_SIZE (2)
+#define AMQP_OPEN_MAX_FRAME_SIZE_DEFAULT (4294967295) /* uint */
+#define AMQP_FIELD_OPEN_CHANNEL_MAX (3)
+#define AMQP_OPEN_CHANNEL_MAX_DEFAULT (65535) /* ushort */
+#define AMQP_FIELD_OPEN_IDLE_TIME_OUT (4)
+#define AMQP_FIELD_OPEN_OUTGOING_LOCALES (5)
+#define AMQP_FIELD_OPEN_INCOMING_LOCALES (6)
+#define AMQP_FIELD_OPEN_OFFERED_CAPABILITIES (7)
+#define AMQP_FIELD_OPEN_DESIRED_CAPABILITIES (8)
+#define AMQP_FIELD_OPEN_PROPERTIES (9)
+#define AMQP_FIELD_BEGIN_REMOTE_CHANNEL (0)
+#define AMQP_FIELD_BEGIN_NEXT_OUTGOING_ID (1)
+#define AMQP_FIELD_BEGIN_INCOMING_WINDOW (2)
+#define AMQP_FIELD_BEGIN_OUTGOING_WINDOW (3)
+#define AMQP_FIELD_BEGIN_HANDLE_MAX (4)
+#define AMQP_BEGIN_HANDLE_MAX_DEFAULT (4294967295) /* uint */
+#define AMQP_FIELD_BEGIN_OFFERED_CAPABILITIES (5)
+#define AMQP_FIELD_BEGIN_DESIRED_CAPABILITIES (6)
+#define AMQP_FIELD_BEGIN_PROPERTIES (7)
+#define AMQP_FIELD_ATTACH_NAME (0)
+#define AMQP_FIELD_ATTACH_HANDLE (1)
+#define AMQP_FIELD_ATTACH_ROLE (2)
+#define AMQP_FIELD_ATTACH_SND_SETTLE_MODE (3)
+#define AMQP_FIELD_ATTACH_RCV_SETTLE_MODE (4)
+#define AMQP_FIELD_ATTACH_SOURCE (5)
+#define AMQP_FIELD_ATTACH_TARGET (6)
+#define AMQP_FIELD_ATTACH_UNSETTLED (7)
+#define AMQP_FIELD_ATTACH_INCOMPLETE_UNSETTLED (8)
+#define AMQP_FIELD_ATTACH_INITIAL_DELIVERY_COUNT (9)
+#define AMQP_FIELD_ATTACH_MAX_MESSAGE_SIZE (10)
+#define AMQP_FIELD_ATTACH_OFFERED_CAPABILITIES (11)
+#define AMQP_FIELD_ATTACH_DESIRED_CAPABILITIES (12)
+#define AMQP_FIELD_ATTACH_PROPERTIES (13)
+#define AMQP_FIELD_FLOW_NEXT_INCOMING_ID (0)
+#define AMQP_FIELD_FLOW_INCOMING_WINDOW (1)
+#define AMQP_FIELD_FLOW_NEXT_OUTGOING_ID (2)
+#define AMQP_FIELD_FLOW_OUTGOING_WINDOW (3)
+#define AMQP_FIELD_FLOW_HANDLE (4)
+#define AMQP_FIELD_FLOW_DELIVERY_COUNT (5)
+#define AMQP_FIELD_FLOW_LINK_CREDIT (6)
+#define AMQP_FIELD_FLOW_AVAILABLE (7)
+#define AMQP_FIELD_FLOW_DRAIN (8)
+#define AMQP_FIELD_FLOW_ECHO (9)
+#define AMQP_FIELD_FLOW_PROPERTIES (10)
+#define AMQP_FIELD_TRANSFER_HANDLE (0)
+#define AMQP_FIELD_TRANSFER_DELIVERY_ID (1)
+#define AMQP_FIELD_TRANSFER_DELIVERY_TAG (2)
+#define AMQP_FIELD_TRANSFER_MESSAGE_FORMAT (3)
+#define AMQP_FIELD_TRANSFER_SETTLED (4)
+#define AMQP_FIELD_TRANSFER_MORE (5)
+#define AMQP_FIELD_TRANSFER_RCV_SETTLE_MODE (6)
+#define AMQP_FIELD_TRANSFER_STATE (7)
+#define AMQP_FIELD_TRANSFER_RESUME (8)
+#define AMQP_FIELD_TRANSFER_ABORTED (9)
+#define AMQP_FIELD_TRANSFER_BATCHABLE (10)
+#define AMQP_FIELD_DISPOSITION_ROLE (0)
+#define AMQP_FIELD_DISPOSITION_FIRST (1)
+#define AMQP_FIELD_DISPOSITION_LAST (2)
+#define AMQP_FIELD_DISPOSITION_SETTLED (3)
+#define AMQP_FIELD_DISPOSITION_STATE (4)
+#define AMQP_FIELD_DISPOSITION_BATCHABLE (5)
+#define AMQP_FIELD_DETACH_HANDLE (0)
+#define AMQP_FIELD_DETACH_CLOSED (1)
+#define AMQP_FIELD_DETACH_ERROR (2)
+#define AMQP_FIELD_END_ERROR (0)
+#define AMQP_FIELD_CLOSE_ERROR (0)
+#define AMQP_FIELD_ERROR_CONDITION (0)
+#define AMQP_FIELD_ERROR_DESCRIPTION (1)
+#define AMQP_FIELD_ERROR_INFO (2)
+#define AMQP_FIELD_HEADER_DURABLE (0)
+#define AMQP_FIELD_HEADER_PRIORITY (1)
+#define AMQP_HEADER_PRIORITY_DEFAULT (4) /* ubyte */
+#define AMQP_FIELD_HEADER_TTL (2)
+#define AMQP_FIELD_HEADER_FIRST_ACQUIRER (3)
+#define AMQP_FIELD_HEADER_DELIVERY_COUNT (4)
+#define AMQP_HEADER_DELIVERY_COUNT_DEFAULT (0) /* uint */
+#define AMQP_FIELD_PROPERTIES_MESSAGE_ID (0)
+#define AMQP_FIELD_PROPERTIES_USER_ID (1)
+#define AMQP_FIELD_PROPERTIES_TO (2)
+#define AMQP_FIELD_PROPERTIES_SUBJECT (3)
+#define AMQP_FIELD_PROPERTIES_REPLY_TO (4)
+#define AMQP_FIELD_PROPERTIES_CORRELATION_ID (5)
+#define AMQP_FIELD_PROPERTIES_CONTENT_TYPE (6)
+#define AMQP_FIELD_PROPERTIES_CONTENT_ENCODING (7)
+#define AMQP_FIELD_PROPERTIES_ABSOLUTE_EXPIRY_TIME (8)
+#define AMQP_FIELD_PROPERTIES_CREATION_TIME (9)
+#define AMQP_FIELD_PROPERTIES_GROUP_ID (10)
+#define AMQP_FIELD_PROPERTIES_GROUP_SEQUENCE (11)
+#define AMQP_FIELD_PROPERTIES_REPLY_TO_GROUP_ID (12)
+#define AMQP_FIELD_RECEIVED_SECTION_NUMBER (0)
+#define AMQP_FIELD_RECEIVED_SECTION_OFFSET (1)
+#define AMQP_FIELD_REJECTED_ERROR (0)
+#define AMQP_FIELD_MODIFIED_DELIVERY_FAILED (0)
+#define AMQP_FIELD_MODIFIED_UNDELIVERABLE_HERE (1)
+#define AMQP_FIELD_MODIFIED_MESSAGE_ANNOTATIONS (2)
+#define AMQP_FIELD_SOURCE_ADDRESS (0)
+#define AMQP_FIELD_SOURCE_DURABLE (1)
+#define AMQP_FIELD_SOURCE_EXPIRY_POLICY (2)
+#define AMQP_SOURCE_EXPIRY_POLICY_DEFAULT ("session-end") /* symbol */
+#define AMQP_FIELD_SOURCE_TIMEOUT (3)
+#define AMQP_SOURCE_TIMEOUT_DEFAULT (0) /* uint */
+#define AMQP_FIELD_SOURCE_DYNAMIC (4)
+#define AMQP_FIELD_SOURCE_DYNAMIC_NODE_PROPERTIES (5)
+#define AMQP_FIELD_SOURCE_DISTRIBUTION_MODE (6)
+#define AMQP_FIELD_SOURCE_FILTER (7)
+#define AMQP_FIELD_SOURCE_DEFAULT_OUTCOME (8)
+#define AMQP_FIELD_SOURCE_OUTCOMES (9)
+#define AMQP_FIELD_SOURCE_CAPABILITIES (10)
+#define AMQP_FIELD_TARGET_ADDRESS (0)
+#define AMQP_FIELD_TARGET_DURABLE (1)
+#define AMQP_FIELD_TARGET_EXPIRY_POLICY (2)
+#define AMQP_TARGET_EXPIRY_POLICY_DEFAULT ("session-end") /* symbol */
+#define AMQP_FIELD_TARGET_TIMEOUT (3)
+#define AMQP_TARGET_TIMEOUT_DEFAULT (0) /* uint */
+#define AMQP_FIELD_TARGET_DYNAMIC (4)
+#define AMQP_FIELD_TARGET_DYNAMIC_NODE_PROPERTIES (5)
+#define AMQP_FIELD_TARGET_CAPABILITIES (6)
+#define AMQP_FIELD_COORDINATOR_CAPABILITIES (0)
+#define AMQP_FIELD_DECLARE_GLOBAL_ID (0)
+#define AMQP_FIELD_DISCHARGE_TXN_ID (0)
+#define AMQP_FIELD_DISCHARGE_FAIL (1)
+#define AMQP_FIELD_DECLARED_TXN_ID (0)
+#define AMQP_FIELD_TRANSACTIONAL_STATE_TXN_ID (0)
+#define AMQP_FIELD_TRANSACTIONAL_STATE_OUTCOME (1)
+#define AMQP_FIELD_SASL_MECHANISMS_SASL_SERVER_MECHANISMS (0)
+#define AMQP_FIELD_SASL_INIT_MECHANISM (0)
+#define AMQP_FIELD_SASL_INIT_INITIAL_RESPONSE (1)
+#define AMQP_FIELD_SASL_INIT_HOSTNAME (2)
+#define AMQP_FIELD_SASL_CHALLENGE_CHALLENGE (0)
+#define AMQP_FIELD_SASL_RESPONSE_RESPONSE (0)
+#define AMQP_FIELD_SASL_OUTCOME_CODE (0)
+#define AMQP_FIELD_SASL_OUTCOME_ADDITIONAL_DATA (1)
+
+/* Descriptors */
+#define AMQP_DESC_OPEN_SYM ("amqp:open:list")
+#define AMQP_DESC_OPEN ((uint64_t) 16)
+#define AMQP_DESC_BEGIN_SYM ("amqp:begin:list")
+#define AMQP_DESC_BEGIN ((uint64_t) 17)
+#define AMQP_DESC_ATTACH_SYM ("amqp:attach:list")
+#define AMQP_DESC_ATTACH ((uint64_t) 18)
+#define AMQP_DESC_FLOW_SYM ("amqp:flow:list")
+#define AMQP_DESC_FLOW ((uint64_t) 19)
+#define AMQP_DESC_TRANSFER_SYM ("amqp:transfer:list")
+#define AMQP_DESC_TRANSFER ((uint64_t) 20)
+#define AMQP_DESC_DISPOSITION_SYM ("amqp:disposition:list")
+#define AMQP_DESC_DISPOSITION ((uint64_t) 21)
+#define AMQP_DESC_DETACH_SYM ("amqp:detach:list")
+#define AMQP_DESC_DETACH ((uint64_t) 22)
+#define AMQP_DESC_END_SYM ("amqp:end:list")
+#define AMQP_DESC_END ((uint64_t) 23)
+#define AMQP_DESC_CLOSE_SYM ("amqp:close:list")
+#define AMQP_DESC_CLOSE ((uint64_t) 24)
+#define AMQP_DESC_ERROR_SYM ("amqp:error:list")
+#define AMQP_DESC_ERROR ((uint64_t) 29)
+#define AMQP_DESC_HEADER_SYM ("amqp:header:list")
+#define AMQP_DESC_HEADER ((uint64_t) 112)
+#define AMQP_DESC_PROPERTIES_SYM ("amqp:properties:list")
+#define AMQP_DESC_PROPERTIES ((uint64_t) 115)
+#define AMQP_DESC_RECEIVED_SYM ("amqp:received:list")
+#define AMQP_DESC_RECEIVED ((uint64_t) 35)
+#define AMQP_DESC_ACCEPTED_SYM ("amqp:accepted:list")
+#define AMQP_DESC_ACCEPTED ((uint64_t) 36)
+#define AMQP_DESC_REJECTED_SYM ("amqp:rejected:list")
+#define AMQP_DESC_REJECTED ((uint64_t) 37)
+#define AMQP_DESC_RELEASED_SYM ("amqp:released:list")
+#define AMQP_DESC_RELEASED ((uint64_t) 38)
+#define AMQP_DESC_MODIFIED_SYM ("amqp:modified:list")
+#define AMQP_DESC_MODIFIED ((uint64_t) 39)
+#define AMQP_DESC_SOURCE_SYM ("amqp:source:list")
+#define AMQP_DESC_SOURCE ((uint64_t) 40)
+#define AMQP_DESC_TARGET_SYM ("amqp:target:list")
+#define AMQP_DESC_TARGET ((uint64_t) 41)
+#define AMQP_DESC_DELETE_ON_CLOSE_SYM ("amqp:delete-on-close:list")
+#define AMQP_DESC_DELETE_ON_CLOSE ((uint64_t) 43)
+#define AMQP_DESC_DELETE_ON_NO_LINKS_SYM ("amqp:delete-on-no-links:list")
+#define AMQP_DESC_DELETE_ON_NO_LINKS ((uint64_t) 44)
+#define AMQP_DESC_DELETE_ON_NO_MESSAGES_SYM ("amqp:delete-on-no-messages:list")
+#define AMQP_DESC_DELETE_ON_NO_MESSAGES ((uint64_t) 45)
+#define AMQP_DESC_DELETE_ON_NO_LINKS_OR_MESSAGES_SYM ("amqp:delete-on-no-links-or-messages:list")
+#define AMQP_DESC_DELETE_ON_NO_LINKS_OR_MESSAGES ((uint64_t) 46)
+#define AMQP_DESC_COORDINATOR_SYM ("amqp:coordinator:list")
+#define AMQP_DESC_COORDINATOR ((uint64_t) 48)
+#define AMQP_DESC_DECLARE_SYM ("amqp:declare:list")
+#define AMQP_DESC_DECLARE ((uint64_t) 49)
+#define AMQP_DESC_DISCHARGE_SYM ("amqp:discharge:list")
+#define AMQP_DESC_DISCHARGE ((uint64_t) 50)
+#define AMQP_DESC_DECLARED_SYM ("amqp:declared:list")
+#define AMQP_DESC_DECLARED ((uint64_t) 51)
+#define AMQP_DESC_TRANSACTIONAL_STATE_SYM ("amqp:transactional-state:list")
+#define AMQP_DESC_TRANSACTIONAL_STATE ((uint64_t) 52)
+#define AMQP_DESC_SASL_MECHANISMS_SYM ("amqp:sasl-mechanisms:list")
+#define AMQP_DESC_SASL_MECHANISMS ((uint64_t) 64)
+#define AMQP_DESC_SASL_INIT_SYM ("amqp:sasl-init:list")
+#define AMQP_DESC_SASL_INIT ((uint64_t) 65)
+#define AMQP_DESC_SASL_CHALLENGE_SYM ("amqp:sasl-challenge:list")
+#define AMQP_DESC_SASL_CHALLENGE ((uint64_t) 66)
+#define AMQP_DESC_SASL_RESPONSE_SYM ("amqp:sasl-response:list")
+#define AMQP_DESC_SASL_RESPONSE ((uint64_t) 67)
+#define AMQP_DESC_SASL_OUTCOME_SYM ("amqp:sasl-outcome:list")
+#define AMQP_DESC_SASL_OUTCOME ((uint64_t) 68)
+#define AMQP_DESC_DELIVERY_ANNOTATIONS_SYM ("amqp:delivery-annotations:map")
+#define AMQP_DESC_DELIVERY_ANNOTATIONS ((uint64_t) 113)
+#define AMQP_DESC_MESSAGE_ANNOTATIONS_SYM ("amqp:message-annotations:map")
+#define AMQP_DESC_MESSAGE_ANNOTATIONS ((uint64_t) 114)
+#define AMQP_DESC_APPLICATION_PROPERTIES_SYM ("amqp:application-properties:map")
+#define AMQP_DESC_APPLICATION_PROPERTIES ((uint64_t) 116)
+#define AMQP_DESC_DATA_SYM ("amqp:data:binary")
+#define AMQP_DESC_DATA ((uint64_t) 117)
+#define AMQP_DESC_AMQP_SEQUENCE_SYM ("amqp:amqp-sequence:list")
+#define AMQP_DESC_AMQP_SEQUENCE ((uint64_t) 118)
+#define AMQP_DESC_AMQP_VALUE_SYM ("amqp:amqp-value:*")
+#define AMQP_DESC_AMQP_VALUE ((uint64_t) 119)
+#define AMQP_DESC_FOOTER_SYM ("amqp:footer:map")
+#define AMQP_DESC_FOOTER ((uint64_t) 120)
+
+/* Described type field descriptions */
 #include <stddef.h>
 
 typedef struct {
@@ -232,132 +237,132 @@ extern const uint16_t FIELD_FIELDS[];
 
 struct FIELD_STRINGS {
   const char STRING0[sizeof("")];
-  const char FIELD_STRINGS_outcome[sizeof("outcome")];
-  const char FIELD_STRINGS_additional_data[sizeof("additional-data")];
-  const char FIELD_STRINGS_max_frame_size[sizeof("max-frame-size")];
-  const char FIELD_STRINGS_error[sizeof("error")];
-  const char FIELD_STRINGS_disposition[sizeof("disposition")];
-  const char FIELD_STRINGS_amqp_sequence[sizeof("amqp-sequence")];
-  const char FIELD_STRINGS_rcv_settle_mode[sizeof("rcv-settle-mode")];
-  const char FIELD_STRINGS_global_id[sizeof("global-id")];
-  const char FIELD_STRINGS_challenge[sizeof("challenge")];
-  const char FIELD_STRINGS_sasl_init[sizeof("sasl-init")];
-  const char FIELD_STRINGS_incomplete_unsettled[sizeof("incomplete-unsettled")];
-  const char FIELD_STRINGS_distribution_mode[sizeof("distribution-mode")];
-  const char FIELD_STRINGS_priority[sizeof("priority")];
-  const char FIELD_STRINGS_begin[sizeof("begin")];
-  const char FIELD_STRINGS_description[sizeof("description")];
-  const char FIELD_STRINGS_remote_channel[sizeof("remote-channel")];
-  const char FIELD_STRINGS_last[sizeof("last")];
-  const char FIELD_STRINGS_expiry_policy[sizeof("expiry-policy")];
-  const char FIELD_STRINGS_attach[sizeof("attach")];
   const char FIELD_STRINGS_application_properties[sizeof("application-properties")];
-  const char FIELD_STRINGS_delete_on_no_messages[sizeof("delete-on-no-messages")];
-  const char FIELD_STRINGS_link_credit[sizeof("link-credit")];
-  const char FIELD_STRINGS_detach[sizeof("detach")];
-  const char FIELD_STRINGS_drain[sizeof("drain")];
-  const char FIELD_STRINGS_hostname[sizeof("hostname")];
-  const char FIELD_STRINGS_user_id[sizeof("user-id")];
-  const char FIELD_STRINGS_received[sizeof("received")];
-  const char FIELD_STRINGS_delete_on_close[sizeof("delete-on-close")];
-  const char FIELD_STRINGS_amqp_value[sizeof("amqp-value")];
-  const char FIELD_STRINGS_target[sizeof("target")];
-  const char FIELD_STRINGS_sasl_mechanisms[sizeof("sasl-mechanisms")];
-  const char FIELD_STRINGS_code[sizeof("code")];
-  const char FIELD_STRINGS_coordinator[sizeof("coordinator")];
-  const char FIELD_STRINGS_mechanism[sizeof("mechanism")];
-  const char FIELD_STRINGS_aborted[sizeof("aborted")];
-  const char FIELD_STRINGS_sasl_challenge[sizeof("sasl-challenge")];
-  const char FIELD_STRINGS_next_outgoing_id[sizeof("next-outgoing-id")];
-  const char FIELD_STRINGS_header[sizeof("header")];
-  const char FIELD_STRINGS_declared[sizeof("declared")];
-  const char FIELD_STRINGS_delete_on_no_links[sizeof("delete-on-no-links")];
-  const char FIELD_STRINGS_container_id[sizeof("container-id")];
-  const char FIELD_STRINGS_message_annotations[sizeof("message-annotations")];
-  const char FIELD_STRINGS_released[sizeof("released")];
-  const char FIELD_STRINGS_durable[sizeof("durable")];
-  const char FIELD_STRINGS_delivery_id[sizeof("delivery-id")];
-  const char FIELD_STRINGS_fail[sizeof("fail")];
-  const char FIELD_STRINGS_first[sizeof("first")];
-  const char FIELD_STRINGS_dynamic[sizeof("dynamic")];
-  const char FIELD_STRINGS_flow[sizeof("flow")];
-  const char FIELD_STRINGS_more[sizeof("more")];
-  const char FIELD_STRINGS_properties[sizeof("properties")];
-  const char FIELD_STRINGS_handle[sizeof("handle")];
-  const char FIELD_STRINGS_next_incoming_id[sizeof("next-incoming-id")];
-  const char FIELD_STRINGS_outgoing_locales[sizeof("outgoing-locales")];
-  const char FIELD_STRINGS_settled[sizeof("settled")];
-  const char FIELD_STRINGS_rejected[sizeof("rejected")];
-  const char FIELD_STRINGS_sasl_response[sizeof("sasl-response")];
-  const char FIELD_STRINGS_content_encoding[sizeof("content-encoding")];
-  const char FIELD_STRINGS_section_number[sizeof("section-number")];
-  const char FIELD_STRINGS_resume[sizeof("resume")];
-  const char FIELD_STRINGS_condition[sizeof("condition")];
-  const char FIELD_STRINGS_response[sizeof("response")];
-  const char FIELD_STRINGS_timeout[sizeof("timeout")];
-  const char FIELD_STRINGS_filter[sizeof("filter")];
-  const char FIELD_STRINGS_delivery_tag[sizeof("delivery-tag")];
-  const char FIELD_STRINGS_channel_max[sizeof("channel-max")];
-  const char FIELD_STRINGS_data[sizeof("data")];
   const char FIELD_STRINGS_handle_max[sizeof("handle-max")];
-  const char FIELD_STRINGS_message_id[sizeof("message-id")];
-  const char FIELD_STRINGS_default_outcome[sizeof("default-outcome")];
-  const char FIELD_STRINGS_close[sizeof("close")];
-  const char FIELD_STRINGS_group_sequence[sizeof("group-sequence")];
-  const char FIELD_STRINGS_delivery_annotations[sizeof("delivery-annotations")];
-  const char FIELD_STRINGS_delivery_count[sizeof("delivery-count")];
-  const char FIELD_STRINGS_outcomes[sizeof("outcomes")];
-  const char FIELD_STRINGS_correlation_id[sizeof("correlation-id")];
-  const char FIELD_STRINGS_absolute_expiry_time[sizeof("absolute-expiry-time")];
-  const char FIELD_STRINGS_dynamic_node_properties[sizeof("dynamic-node-properties")];
-  const char FIELD_STRINGS_transactional_state[sizeof("transactional-state")];
+  const char FIELD_STRINGS_header[sizeof("header")];
   const char FIELD_STRINGS_discharge[sizeof("discharge")];
-  const char FIELD_STRINGS_end[sizeof("end")];
-  const char FIELD_STRINGS_closed[sizeof("closed")];
-  const char FIELD_STRINGS_info[sizeof("info")];
-  const char FIELD_STRINGS_delete_on_no_links_or_messages[sizeof("delete-on-no-links-or-messages")];
-  const char FIELD_STRINGS_open[sizeof("open")];
-  const char FIELD_STRINGS_unsettled[sizeof("unsettled")];
+  const char FIELD_STRINGS_received[sizeof("received")];
+  const char FIELD_STRINGS_disposition[sizeof("disposition")];
+  const char FIELD_STRINGS_distribution_mode[sizeof("distribution-mode")];
+  const char FIELD_STRINGS_initial_delivery_count[sizeof("initial-delivery-count")];
+  const char FIELD_STRINGS_settled[sizeof("settled")];
+  const char FIELD_STRINGS_sasl_outcome[sizeof("sasl-outcome")];
+  const char FIELD_STRINGS_drain[sizeof("drain")];
+  const char FIELD_STRINGS_delivery_tag[sizeof("delivery-tag")];
   const char FIELD_STRINGS_address[sizeof("address")];
   const char FIELD_STRINGS_state[sizeof("state")];
-  const char FIELD_STRINGS_undeliverable_here[sizeof("undeliverable-here")];
-  const char FIELD_STRINGS_delivery_failed[sizeof("delivery-failed")];
-  const char FIELD_STRINGS_accepted[sizeof("accepted")];
-  const char FIELD_STRINGS_txn_id[sizeof("txn-id")];
-  const char FIELD_STRINGS_reply_to[sizeof("reply-to")];
-  const char FIELD_STRINGS_incoming_window[sizeof("incoming-window")];
-  const char FIELD_STRINGS_initial_response[sizeof("initial-response")];
-  const char FIELD_STRINGS_initial_delivery_count[sizeof("initial-delivery-count")];
-  const char FIELD_STRINGS_batchable[sizeof("batchable")];
-  const char FIELD_STRINGS_desired_capabilities[sizeof("desired-capabilities")];
-  const char FIELD_STRINGS_modified[sizeof("modified")];
-  const char FIELD_STRINGS_max_message_size[sizeof("max-message-size")];
-  const char FIELD_STRINGS_group_id[sizeof("group-id")];
-  const char FIELD_STRINGS_sasl_server_mechanisms[sizeof("sasl-server-mechanisms")];
-  const char FIELD_STRINGS_footer[sizeof("footer")];
-  const char FIELD_STRINGS_capabilities[sizeof("capabilities")];
   const char FIELD_STRINGS_ttl[sizeof("ttl")];
-  const char FIELD_STRINGS_offered_capabilities[sizeof("offered-capabilities")];
-  const char FIELD_STRINGS_message_format[sizeof("message-format")];
-  const char FIELD_STRINGS_first_acquirer[sizeof("first-acquirer")];
-  const char FIELD_STRINGS_reply_to_group_id[sizeof("reply-to-group-id")];
+  const char FIELD_STRINGS_sasl_server_mechanisms[sizeof("sasl-server-mechanisms")];
+  const char FIELD_STRINGS_expiry_policy[sizeof("expiry-policy")];
+  const char FIELD_STRINGS_flow[sizeof("flow")];
+  const char FIELD_STRINGS_first[sizeof("first")];
+  const char FIELD_STRINGS_absolute_expiry_time[sizeof("absolute-expiry-time")];
+  const char FIELD_STRINGS_outcome[sizeof("outcome")];
+  const char FIELD_STRINGS_closed[sizeof("closed")];
+  const char FIELD_STRINGS_response[sizeof("response")];
+  const char FIELD_STRINGS_durable[sizeof("durable")];
+  const char FIELD_STRINGS_modified[sizeof("modified")];
+  const char FIELD_STRINGS_delivery_failed[sizeof("delivery-failed")];
+  const char FIELD_STRINGS_detach[sizeof("detach")];
   const char FIELD_STRINGS_outgoing_window[sizeof("outgoing-window")];
-  const char FIELD_STRINGS_available[sizeof("available")];
-  const char FIELD_STRINGS_echo[sizeof("echo")];
-  const char FIELD_STRINGS_section_offset[sizeof("section-offset")];
-  const char FIELD_STRINGS_name[sizeof("name")];
-  const char FIELD_STRINGS_incoming_locales[sizeof("incoming-locales")];
-  const char FIELD_STRINGS_role[sizeof("role")];
-  const char FIELD_STRINGS_transfer[sizeof("transfer")];
-  const char FIELD_STRINGS_subject[sizeof("subject")];
-  const char FIELD_STRINGS_creation_time[sizeof("creation-time")];
-  const char FIELD_STRINGS_sasl_outcome[sizeof("sasl-outcome")];
-  const char FIELD_STRINGS_source[sizeof("source")];
-  const char FIELD_STRINGS_declare[sizeof("declare")];
+  const char FIELD_STRINGS_attach[sizeof("attach")];
+  const char FIELD_STRINGS_sasl_challenge[sizeof("sasl-challenge")];
+  const char FIELD_STRINGS_rcv_settle_mode[sizeof("rcv-settle-mode")];
+  const char FIELD_STRINGS_capabilities[sizeof("capabilities")];
+  const char FIELD_STRINGS_global_id[sizeof("global-id")];
+  const char FIELD_STRINGS_begin[sizeof("begin")];
+  const char FIELD_STRINGS_delete_on_no_messages[sizeof("delete-on-no-messages")];
+  const char FIELD_STRINGS_desired_capabilities[sizeof("desired-capabilities")];
+  const char FIELD_STRINGS_dynamic_node_properties[sizeof("dynamic-node-properties")];
+  const char FIELD_STRINGS_reply_to[sizeof("reply-to")];
+  const char FIELD_STRINGS_unsettled[sizeof("unsettled")];
+  const char FIELD_STRINGS_group_id[sizeof("group-id")];
+  const char FIELD_STRINGS_footer[sizeof("footer")];
   const char FIELD_STRINGS_idle_time_out[sizeof("idle-time-out")];
-  const char FIELD_STRINGS_snd_settle_mode[sizeof("snd-settle-mode")];
+  const char FIELD_STRINGS_reply_to_group_id[sizeof("reply-to-group-id")];
+  const char FIELD_STRINGS_mechanism[sizeof("mechanism")];
+  const char FIELD_STRINGS_delete_on_close[sizeof("delete-on-close")];
+  const char FIELD_STRINGS_released[sizeof("released")];
+  const char FIELD_STRINGS_transactional_state[sizeof("transactional-state")];
+  const char FIELD_STRINGS_batchable[sizeof("batchable")];
+  const char FIELD_STRINGS_filter[sizeof("filter")];
+  const char FIELD_STRINGS_role[sizeof("role")];
+  const char FIELD_STRINGS_remote_channel[sizeof("remote-channel")];
+  const char FIELD_STRINGS_outgoing_locales[sizeof("outgoing-locales")];
+  const char FIELD_STRINGS_group_sequence[sizeof("group-sequence")];
+  const char FIELD_STRINGS_txn_id[sizeof("txn-id")];
+  const char FIELD_STRINGS_last[sizeof("last")];
+  const char FIELD_STRINGS_offered_capabilities[sizeof("offered-capabilities")];
+  const char FIELD_STRINGS_undeliverable_here[sizeof("undeliverable-here")];
+  const char FIELD_STRINGS_next_outgoing_id[sizeof("next-outgoing-id")];
+  const char FIELD_STRINGS_more[sizeof("more")];
+  const char FIELD_STRINGS_creation_time[sizeof("creation-time")];
+  const char FIELD_STRINGS_target[sizeof("target")];
+  const char FIELD_STRINGS_max_frame_size[sizeof("max-frame-size")];
+  const char FIELD_STRINGS_end[sizeof("end")];
+  const char FIELD_STRINGS_source[sizeof("source")];
+  const char FIELD_STRINGS_incoming_window[sizeof("incoming-window")];
+  const char FIELD_STRINGS_dynamic[sizeof("dynamic")];
+  const char FIELD_STRINGS_first_acquirer[sizeof("first-acquirer")];
+  const char FIELD_STRINGS_code[sizeof("code")];
+  const char FIELD_STRINGS_aborted[sizeof("aborted")];
+  const char FIELD_STRINGS_error[sizeof("error")];
+  const char FIELD_STRINGS_info[sizeof("info")];
+  const char FIELD_STRINGS_delete_on_no_links[sizeof("delete-on-no-links")];
+  const char FIELD_STRINGS_resume[sizeof("resume")];
+  const char FIELD_STRINGS_user_id[sizeof("user-id")];
+  const char FIELD_STRINGS_data[sizeof("data")];
+  const char FIELD_STRINGS_initial_response[sizeof("initial-response")];
+  const char FIELD_STRINGS_delete_on_no_links_or_messages[sizeof("delete-on-no-links-or-messages")];
+  const char FIELD_STRINGS_condition[sizeof("condition")];
+  const char FIELD_STRINGS_additional_data[sizeof("additional-data")];
+  const char FIELD_STRINGS_description[sizeof("description")];
+  const char FIELD_STRINGS_default_outcome[sizeof("default-outcome")];
+  const char FIELD_STRINGS_message_annotations[sizeof("message-annotations")];
+  const char FIELD_STRINGS_next_incoming_id[sizeof("next-incoming-id")];
+  const char FIELD_STRINGS_declared[sizeof("declared")];
+  const char FIELD_STRINGS_container_id[sizeof("container-id")];
+  const char FIELD_STRINGS_sasl_init[sizeof("sasl-init")];
+  const char FIELD_STRINGS_correlation_id[sizeof("correlation-id")];
+  const char FIELD_STRINGS_coordinator[sizeof("coordinator")];
+  const char FIELD_STRINGS_sasl_mechanisms[sizeof("sasl-mechanisms")];
+  const char FIELD_STRINGS_handle[sizeof("handle")];
+  const char FIELD_STRINGS_timeout[sizeof("timeout")];
+  const char FIELD_STRINGS_open[sizeof("open")];
+  const char FIELD_STRINGS_available[sizeof("available")];
+  const char FIELD_STRINGS_max_message_size[sizeof("max-message-size")];
+  const char FIELD_STRINGS_section_number[sizeof("section-number")];
+  const char FIELD_STRINGS_section_offset[sizeof("section-offset")];
+  const char FIELD_STRINGS_message_format[sizeof("message-format")];
   const char FIELD_STRINGS_to[sizeof("to")];
+  const char FIELD_STRINGS_delivery_id[sizeof("delivery-id")];
+  const char FIELD_STRINGS_properties[sizeof("properties")];
+  const char FIELD_STRINGS_accepted[sizeof("accepted")];
+  const char FIELD_STRINGS_content_encoding[sizeof("content-encoding")];
+  const char FIELD_STRINGS_name[sizeof("name")];
+  const char FIELD_STRINGS_link_credit[sizeof("link-credit")];
+  const char FIELD_STRINGS_amqp_value[sizeof("amqp-value")];
+  const char FIELD_STRINGS_outcomes[sizeof("outcomes")];
+  const char FIELD_STRINGS_incomplete_unsettled[sizeof("incomplete-unsettled")];
+  const char FIELD_STRINGS_amqp_sequence[sizeof("amqp-sequence")];
+  const char FIELD_STRINGS_challenge[sizeof("challenge")];
+  const char FIELD_STRINGS_subject[sizeof("subject")];
+  const char FIELD_STRINGS_hostname[sizeof("hostname")];
+  const char FIELD_STRINGS_transfer[sizeof("transfer")];
+  const char FIELD_STRINGS_rejected[sizeof("rejected")];
+  const char FIELD_STRINGS_delivery_annotations[sizeof("delivery-annotations")];
+  const char FIELD_STRINGS_channel_max[sizeof("channel-max")];
+  const char FIELD_STRINGS_delivery_count[sizeof("delivery-count")];
+  const char FIELD_STRINGS_snd_settle_mode[sizeof("snd-settle-mode")];
+  const char FIELD_STRINGS_priority[sizeof("priority")];
+  const char FIELD_STRINGS_fail[sizeof("fail")];
   const char FIELD_STRINGS_content_type[sizeof("content-type")];
+  const char FIELD_STRINGS_declare[sizeof("declare")];
+  const char FIELD_STRINGS_echo[sizeof("echo")];
+  const char FIELD_STRINGS_message_id[sizeof("message-id")];
+  const char FIELD_STRINGS_close[sizeof("close")];
+  const char FIELD_STRINGS_incoming_locales[sizeof("incoming-locales")];
+  const char FIELD_STRINGS_sasl_response[sizeof("sasl-response")];
 };
 
 extern const struct FIELD_STRINGS FIELD_STRINGPOOL;
@@ -365,132 +370,132 @@ extern const struct FIELD_STRINGS FIELD_STRINGPOOL;
 
 const struct FIELD_STRINGS FIELD_STRINGPOOL = {
   "",
-  "outcome",
-  "additional-data",
-  "max-frame-size",
-  "error",
-  "disposition",
-  "amqp-sequence",
-  "rcv-settle-mode",
-  "global-id",
-  "challenge",
-  "sasl-init",
-  "incomplete-unsettled",
-  "distribution-mode",
-  "priority",
-  "begin",
-  "description",
-  "remote-channel",
-  "last",
-  "expiry-policy",
-  "attach",
   "application-properties",
-  "delete-on-no-messages",
-  "link-credit",
-  "detach",
-  "drain",
-  "hostname",
-  "user-id",
-  "received",
-  "delete-on-close",
-  "amqp-value",
-  "target",
-  "sasl-mechanisms",
-  "code",
-  "coordinator",
-  "mechanism",
-  "aborted",
-  "sasl-challenge",
-  "next-outgoing-id",
-  "header",
-  "declared",
-  "delete-on-no-links",
-  "container-id",
-  "message-annotations",
-  "released",
-  "durable",
-  "delivery-id",
-  "fail",
-  "first",
-  "dynamic",
-  "flow",
-  "more",
-  "properties",
-  "handle",
-  "next-incoming-id",
-  "outgoing-locales",
-  "settled",
-  "rejected",
-  "sasl-response",
-  "content-encoding",
-  "section-number",
-  "resume",
-  "condition",
-  "response",
-  "timeout",
-  "filter",
-  "delivery-tag",
-  "channel-max",
-  "data",
   "handle-max",
-  "message-id",
-  "default-outcome",
-  "close",
-  "group-sequence",
-  "delivery-annotations",
-  "delivery-count",
-  "outcomes",
-  "correlation-id",
-  "absolute-expiry-time",
-  "dynamic-node-properties",
-  "transactional-state",
+  "header",
   "discharge",
-  "end",
-  "closed",
-  "info",
-  "delete-on-no-links-or-messages",
-  "open",
-  "unsettled",
+  "received",
+  "disposition",
+  "distribution-mode",
+  "initial-delivery-count",
+  "settled",
+  "sasl-outcome",
+  "drain",
+  "delivery-tag",
   "address",
   "state",
-  "undeliverable-here",
-  "delivery-failed",
-  "accepted",
-  "txn-id",
-  "reply-to",
-  "incoming-window",
-  "initial-response",
-  "initial-delivery-count",
-  "batchable",
-  "desired-capabilities",
-  "modified",
-  "max-message-size",
-  "group-id",
-  "sasl-server-mechanisms",
-  "footer",
-  "capabilities",
   "ttl",
-  "offered-capabilities",
-  "message-format",
-  "first-acquirer",
-  "reply-to-group-id",
+  "sasl-server-mechanisms",
+  "expiry-policy",
+  "flow",
+  "first",
+  "absolute-expiry-time",
+  "outcome",
+  "closed",
+  "response",
+  "durable",
+  "modified",
+  "delivery-failed",
+  "detach",
   "outgoing-window",
-  "available",
-  "echo",
-  "section-offset",
-  "name",
-  "incoming-locales",
-  "role",
-  "transfer",
-  "subject",
-  "creation-time",
-  "sasl-outcome",
-  "source",
-  "declare",
+  "attach",
+  "sasl-challenge",
+  "rcv-settle-mode",
+  "capabilities",
+  "global-id",
+  "begin",
+  "delete-on-no-messages",
+  "desired-capabilities",
+  "dynamic-node-properties",
+  "reply-to",
+  "unsettled",
+  "group-id",
+  "footer",
   "idle-time-out",
-  "snd-settle-mode",
+  "reply-to-group-id",
+  "mechanism",
+  "delete-on-close",
+  "released",
+  "transactional-state",
+  "batchable",
+  "filter",
+  "role",
+  "remote-channel",
+  "outgoing-locales",
+  "group-sequence",
+  "txn-id",
+  "last",
+  "offered-capabilities",
+  "undeliverable-here",
+  "next-outgoing-id",
+  "more",
+  "creation-time",
+  "target",
+  "max-frame-size",
+  "end",
+  "source",
+  "incoming-window",
+  "dynamic",
+  "first-acquirer",
+  "code",
+  "aborted",
+  "error",
+  "info",
+  "delete-on-no-links",
+  "resume",
+  "user-id",
+  "data",
+  "initial-response",
+  "delete-on-no-links-or-messages",
+  "condition",
+  "additional-data",
+  "description",
+  "default-outcome",
+  "message-annotations",
+  "next-incoming-id",
+  "declared",
+  "container-id",
+  "sasl-init",
+  "correlation-id",
+  "coordinator",
+  "sasl-mechanisms",
+  "handle",
+  "timeout",
+  "open",
+  "available",
+  "max-message-size",
+  "section-number",
+  "section-offset",
+  "message-format",
   "to",
+  "delivery-id",
+  "properties",
+  "accepted",
+  "content-encoding",
+  "name",
+  "link-credit",
+  "amqp-value",
+  "outcomes",
+  "incomplete-unsettled",
+  "amqp-sequence",
+  "challenge",
+  "subject",
+  "hostname",
+  "transfer",
+  "rejected",
+  "delivery-annotations",
+  "channel-max",
+  "delivery-count",
+  "snd-settle-mode",
+  "priority",
+  "fail",
   "content-type",
+  "declare",
+  "echo",
+  "message-id",
+  "close",
+  "incoming-locales",
+  "sasl-response",
 };
 
 /* This is an array of offsets into FIELD_STRINGPOOL */

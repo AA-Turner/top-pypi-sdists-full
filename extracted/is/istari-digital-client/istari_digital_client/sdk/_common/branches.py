@@ -11,16 +11,44 @@ from typing import TYPE_CHECKING, Any, List
 
 from istari_digital_client.sdk._base import Page, _Manager
 from istari_digital_client.sdk._common.resource_types import Resource, TrackedResource
+from istari_digital_client.sdk._common.dependency_types import (
+    FolderUpdates,
+    Preview,
+    Publications,
+    Requirements,
+    dependency_update,
+)
 from istari_digital_client.sdk._common.system_types import Branch, Subsystem
 
 if TYPE_CHECKING:
     from istari_digital_client.sdk._engine import _Engine
     from istari_digital_client.sdk._common.systems import Systems
-from istari_digital_client.sdk._generated.v2.models.new_snapshot_tag import NewSnapshotTag
-from istari_digital_client.sdk._generated.v2.models.new_system_configuration import NewSystemConfiguration
-from istari_digital_client.sdk._generated.v2.models.new_tracked_file import NewTrackedFile
-from istari_digital_client.sdk._generated.v2.models.tracked_file_specifier_type import (
-    TrackedFileSpecifierType,
+from istari_digital_client.sdk._generated.v2.models.new_snapshot_tag import (
+    NewSnapshotTag,
+)
+from istari_digital_client.sdk._generated.v2.models.branch_commit_dto import (
+    BranchCommitDto,
+)
+from istari_digital_client.sdk._generated.v2.models.branch_file_change import (
+    BranchFileChange,
+)
+from istari_digital_client.sdk._generated.v2.models.dependencies_manifest import (
+    DependenciesManifest,
+)
+from istari_digital_client.sdk._generated.v2.models.dependency_resolve_request import (
+    DependencyResolveRequest,
+)
+from istari_digital_client.sdk._generated.v2.models.manifest_input_dependencies_manifest import (
+    ManifestInputDependenciesManifest,
+)
+from istari_digital_client.sdk._generated.v2.models.manifest_input_publications_manifest import (
+    ManifestInputPublicationsManifest,
+)
+from istari_digital_client.sdk._generated.v2.models.publications_manifest import (
+    PublicationsManifest,
+)
+from istari_digital_client.sdk._generated.v2.models.resolved_folder_dto import (
+    ResolvedFolderDto,
 )
 from istari_digital_client.sdk._generated.v2.models.update_tag import UpdateTag
 from istari_digital_client.sdk._exceptions import IstariError, NotFoundError
@@ -85,6 +113,8 @@ def _content_row(r: Resource, max_chars_per_file: int | None) -> dict:
     Text/JSON resources get their decoded content inline; binary resources get
     ``content=None``. When ``max_chars_per_file`` is set, oversized content is
     truncated to a preview with a marker naming the resource id to read in full.
+    ``has_children`` says whether anything was extracted from (or produced by) the
+    resource, so a binary row with no content is not mistaken for an empty one.
     """
     content: str | None = None
     if _is_text_mime(r.mime):
@@ -114,14 +144,17 @@ def _content_row(r: Resource, max_chars_per_file: int | None) -> dict:
         "mime": r.mime,
         "size": r.size,
         "content": content,
+        "has_children": bool(getattr(r, "has_children", False)),
     }
 
 
 class Branches(_Manager):
-    """Manage branches (snapshot tags) for a system: list, get, create, commit, archive, restore.
+    """Manage branches (snapshot tags) for a system: list, get, create, commit, preview, archive, restore.
 
     Reached via ``istari.systems.branches``. All methods take ``system_id`` as
     the first positional argument.
+
+    :meth:`commit` is the one write, and :meth:`preview` plans what it would install.
 
     Sub-managers: none (branches are a leaf collection).
 
@@ -262,31 +295,28 @@ class Branches(_Manager):
         *,
         add: List[Any] | None = None,
         remove: List[Any] | None = None,
+        folders: dict[str, str | None] | None = None,
+        publications: str | PublicationsManifest | Publications | None = None,
+        dependencies: str | DependenciesManifest | Requirements | None = None,
+        resolve: bool = False,
+        update: FolderUpdates | None = None,
+        preview_id: str | None = None,
+        message: str | None = None,
     ) -> Branch:
-        """Advance a branch by committing a new set of file revisions onto it.
+        """Commit to this branch's reviewed snapshot in one write.
 
         Mutates: true
-
-        This is the primary mutation operation for a branch. The current tracked-file
-        list is read, ``add`` and ``remove`` are applied, and a new configuration
-        snapshot is created. The branch pointer is then updated to that snapshot.
-
-        ``add``: a list of revision objects identified by ``.id`` (str, the
-        revision id) — e.g. objects returned by ``istari.resources.revisions`` or
-        ``branch.resources()``. Each object is added to the branch as a LOCKED tracked
-        file, meaning the branch is pinned to that exact revision rather than
-        floating to the latest.
-
-        ``remove``: a list of objects that expose ``.id`` (str). Any currently
-        tracked file whose ``current_file_revision_id`` matches an object's ``.id``
-        is dropped from the new configuration. Pass a revision object obtained from
-        ``resources()`` or a resource revision.
-
-        Both lists are optional and can be combined in a single call.
-
-        Returns the updated Branch with the new snapshot pointer. Fields: id (str),
-        tag (str — the branch name), snapshot_id (str), is_baseline (bool),
-        archive_status (str: "ACTIVE" | "ARCHIVED"), created (datetime).
+        ``add`` takes revision objects and pins them; replacing a file preserves its
+        folder. ``remove`` takes objects with a ``file_id``. ``folders`` maps added
+        revision IDs to slash-separated relative folders (None moves a file to the root).
+        ``publications`` and ``dependencies`` replace a manifest, as YAML text or a typed
+        manifest. ``resolve`` installs the branch's requirements, leaving each ``1.x`` folder at
+        the version it holds unless a requirement needs a newer one; ``update`` (which implies
+        ``resolve``) also moves ``1.x`` folders to the newest release of their line: ``"all"``, or
+        folder rows from :meth:`Dependencies.updates`. Pass the
+        ``preview_id`` from :meth:`preview` to refuse a commit that would install other
+        versions than the ones reviewed. Files tracking latest take their newest revision, as
+        on every commit; pinned files and the existing lock stay put unless changed here.
         """
         if getattr(branch, "_pinned", False):
             raise IstariError(
@@ -294,73 +324,120 @@ class Branches(_Manager):
                 "would rebuild the child from the pinned snapshot and drop later changes. "
                 "Commit via system().get_branch(name) instead."
             )
-        system_id = branch._system_id
-        snapshot = self._call(self._engine.v2_api.get_snapshot, branch.snapshot_id)
-        current_files = self._all_tracked_resources(snapshot.configuration_id)
-        remove_ids = {r.id for r in (remove or [])}
-        new_tracked: list[NewTrackedFile] = [
-            NewTrackedFile(
-                specifier_type=tf.specifier_type,
-                file_id=tf.file_id,
-                pinned_file_revision_id=tf.pinned_file_revision_id,
+        if preview_id is not None and not resolve and update is None:
+            raise ValueError("commit(preview_id=...) requires resolve=True or update=")
+        placements = folders or {}
+        changes = []
+        for revision in add or []:
+            revision_id = getattr(revision, "file_revision_id", None) or getattr(
+                revision, "id", None
             )
-            for tf in current_files
-            if tf.current_file_revision_id not in remove_ids
-        ]
-        for rev in add or []:
-            new_tracked.append(
-                NewTrackedFile(
-                    specifier_type=TrackedFileSpecifierType.LOCKED,
-                    file_id=self._owning_file_id(rev),
-                    pinned_file_revision_id=rev.id,
-                )
-            )
-        cfg = self._call(
-            self._engine.v2_api.create_configuration,
-            system_id,
-            NewSystemConfiguration(
-                name=f"{branch.tag}-commit",
-                tracked_files=new_tracked,
+            if revision_id is None:
+                raise ValueError("commit(add=...) expects resource or revision objects")
+            change = BranchFileChange(file_revision_id=revision_id)
+            if revision_id in placements:
+                change.folder_path = placements[revision_id]
+            changes.append(change)
+        result = self._call(
+            self._engine.v2_api.commit_branch,
+            branch._system_id,
+            self._commit_body(
+                branch,
+                put=changes,
+                remove=[self._owning_file_id(revision) for revision in remove or []],
+                publications=publications,
+                dependencies=dependencies,
+                resolve=resolve,
+                update=update,
+                preview_id=preview_id,
+                message=message,
             ),
         )
-        try:
-            snap_page = self._call(
-                self._engine.v2_api.list_snapshots,
-                configuration_id=cfg.id,
-                size=1,
-                sort="-created",
-            )
-            if not snap_page.items:
-                raise RuntimeError(f"No snapshot created for configuration {cfg.id!r}")
-            updated = self._call(
-                self._engine.v2_api.update_tag,
-                branch.id,
-                UpdateTag(snapshot_id=snap_page.items[0].id),
-            )
-        except Exception:
-            # If post-creation steps fail, archive the orphaned configuration and re-raise
-            try:
-                self._call(self._engine.v2_api.archive_configuration, cfg.id)
-            except Exception:
-                pass  # Best-effort cleanup; original exception is more important
-            raise
         return Branch._bind_with_system(
-            updated, mgr=self, system_id=system_id, systems_mgr=self._systems_mgr
+            branch.model_copy(update={"snapshot_id": result.new_snapshot_id}),
+            mgr=self,
+            system_id=branch._system_id,
+            systems_mgr=self._systems_mgr,
+        )
+
+    def preview(
+        self,
+        branch: Branch,
+        *,
+        dependencies: str | DependenciesManifest | Requirements | None = None,
+        update: FolderUpdates | None = None,
+    ) -> Preview:
+        """Plan what :meth:`commit` would install, without writing.
+
+        The :class:`Preview` lists the package folders and placements that would change
+        against the branch head, counts after the commit, warnings, and errors.
+        ``update`` is as for :meth:`commit`. ``preview.commit()`` commits exactly that plan.
+        """
+        if update is not None and not isinstance(update, (str, ResolvedFolderDto)):
+            # The preview sends it now and preview.commit() sends it again, so a one-shot
+            # iterator must be read only once.
+            update = list(update)
+        dto = self._call(
+            self._engine.v2_api.preview_branch_commit,
+            branch._system_id,
+            self._commit_body(
+                branch, dependencies=dependencies, resolve=True, update=update
+            ),
+        )
+        return Preview._bind_preview(
+            dto, mgr=self, branch=branch, dependencies=dependencies, update=update
         )
 
     @staticmethod
-    def _owning_file_id(rev: Any) -> str:
-        """Internal plumbing: the storage File id the v2 tracked-file API keys on.
+    def _commit_body(
+        branch: Branch,
+        *,
+        put: List[BranchFileChange] | None = None,
+        remove: List[str] | None = None,
+        publications: str | PublicationsManifest | Publications | None = None,
+        dependencies: str | DependenciesManifest | Requirements | None = None,
+        resolve: bool = False,
+        update: FolderUpdates | None = None,
+        preview_id: str | None = None,
+        message: str | None = None,
+    ) -> BranchCommitDto:
+        if isinstance(publications, Publications):
+            publications = publications.to_manifest()
+        if isinstance(dependencies, Requirements):
+            dependencies = dependencies.to_manifest()
+        body = BranchCommitDto(
+            branch_id=branch.id,
+            expected_head_snapshot_id=branch.snapshot_id,
+            put=put or [],
+            remove=remove or [],
+            commit_message=message,
+        )
+        if publications is not None:
+            body.publications = (
+                ManifestInputPublicationsManifest(raw_yaml=publications)
+                if isinstance(publications, str)
+                else ManifestInputPublicationsManifest(manifest=publications)
+            )
+        if dependencies is not None:
+            body.dependencies = (
+                ManifestInputDependenciesManifest(raw_yaml=dependencies)
+                if isinstance(dependencies, str)
+                else ManifestInputDependenciesManifest(manifest=dependencies)
+            )
+        if resolve or update is not None:
+            body.resolve = DependencyResolveRequest(
+                update=dependency_update(update) if update is not None else None,
+                preview_id=preview_id,
+            )
+        return body
 
-        Callers pass rich revision/resource objects identified by ``.id`` (the
-        revision id) and never deal with file ids. The v2 configuration API still
-        needs the owning File id, which every rich resource/revision object carries,
-        so we read it here rather than exposing it in ``commit``'s public contract.
-        """
+    @staticmethod
+    def _owning_file_id(rev: Any) -> str:
+        """Identify the tracked file to remove, independent of its pinned revision."""
         file_id = getattr(rev, "file_id", None)
         if not file_id:
             raise ValueError(
-                "commit(add=...) expects revision or resource objects "
+                "commit(remove=...) expects revision or resource objects "
                 "(e.g. from istari.resources.revisions or branch.resources()); "
                 f"got {rev!r}"
             )
@@ -446,21 +523,28 @@ class Branches(_Manager):
         (``resources.get(id).read_text()`` returns the entire file uncapped).
 
         Set ``include_extracted=True`` to make the survey COMPLETE for content
-        search: any tracked resource that is a connected-file pointer (DOORS,
+        search. Two kinds of tracked resource hold their substance in children
+        rather than in their own bytes: a connected-file pointer (DOORS,
         Confluence, SharePoint, Teamwork Cloud, Jira — see
-        :attr:`Resource.is_connected_pointer`) holds only a stub, while its real
-        content lives in the resources Istari extracted from it. With this flag
-        those extracted children are read and appended as their own rows, each
-        carrying ``extracted_from`` = the pointer's ``resource_id``. This is the
-        one call to make BEFORE concluding a fact is absent: a branch listing shows
-        only tracked resources, so the answer is often invisible without it. Bound
-        it with ``max_chars_per_file`` and let the reader judge every row
-        semantically — do NOT keyword-filter the survey yourself; a substring grep
-        misses a requirement phrased differently than the query.
+        :attr:`Resource.is_connected_pointer`) is a stub whose real content is
+        the records Istari extracted from it, and an uploaded model (a SysML
+        ``.mdzip``, a CAD archive, a PDF) is a binary whose extraction job
+        produced artifacts — requirements, element lists, diagrams, part trees.
+        With this flag, every resource that has children (``has_children``) has
+        them read and appended as their own rows, each carrying
+        ``extracted_from`` = the parent's ``resource_id``. This is the one call to
+        make BEFORE concluding a fact is absent or a binary is opaque: a branch
+        listing shows only tracked resources, so the answer is often invisible
+        without it. Bound it with ``max_chars_per_file`` and let the reader judge
+        every row semantically — do NOT keyword-filter the survey yourself; a
+        substring grep misses a requirement phrased differently than the query.
 
         Each row: ``{resource_id, name, resource_type, description, path, mime,
-        size, content}`` (extracted rows add ``extracted_from``). Use
-        :meth:`resources` instead when you only need the listing.
+        size, content, has_children}`` (extracted rows add ``extracted_from``). A
+        row with ``content=None`` and ``has_children=True`` is a binary whose
+        extracted artifacts exist and were not read; never report it as having
+        nothing inside or offer to extract it. Use :meth:`resources` instead when
+        you only need the listing.
 
         Aliases: summarize summary overview describe tell-me-about whats-in read-all
         search find grep scan where-is locate full-text sweep across everything
@@ -470,7 +554,9 @@ class Branches(_Manager):
         rows: List[dict] = []
         for r in self.resources(branch, name=name):
             rows.append(_content_row(r, max_chars_per_file))
-            if include_extracted and r.is_connected_pointer:
+            if include_extracted and (
+                r.is_connected_pointer or getattr(r, "has_children", False)
+            ):
                 for child in r.extracted():
                     child_row = _content_row(child, max_chars_per_file)
                     child_row["extracted_from"] = r.resource_id

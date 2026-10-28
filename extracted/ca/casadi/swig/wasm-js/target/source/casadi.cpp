@@ -1921,6 +1921,11 @@ SWIGINTERN int SWIG_AsVal_bool (void* p, bool* val) {
       // Treat Null
       if (is_null(p)) return false;
 
+
+
+
+
+
       // Standard typemaps
       if (SWIG_IsOK(SWIG_AsVal_bool (p, m ? *m : 0))) return true;
 
@@ -2407,6 +2412,17 @@ SWIGINTERN int SWIG_AsVal_double (void* p, double* val) {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
       {
         emscripten::val v = emscripten::val::take_ownership(
             reinterpret_cast< ::emscripten::EM_VAL >(p));
@@ -2577,7 +2593,44 @@ SWIGINTERN int SWIG_AsVal_double (void* p, double* val) {
     };
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     template<typename M> casadi_emval_struct* from_ptr(const std::vector<M> *a) {
+
+
+
+
+
 
 
 
@@ -2717,6 +2770,12 @@ SWIGINTERN int SWIG_AsVal_double (void* p, double* val) {
 
 
 
+
+
+
+
+
+
       // Treat Null
       if (is_null(p)) return false;
 
@@ -2773,6 +2832,13 @@ SWIGINTERN int SWIG_AsVal_double (void* p, double* val) {
       case OT_VECTOR: return from_tmp(a->as_vector());
       case OT_FUNCTION: return from_tmp(a->as_function());
       case OT_FUNCTIONVECTOR: return from_tmp(a->as_function_vector());
+
+
+
+
+
+
+
 
 
 
@@ -3115,7 +3181,6 @@ SWIGINTERN int SWIG_AsVal_double (void* p, double* val) {
 
 
 
-
       emscripten::val obj = emscripten::val::object();
       for (typename std::map<std::string, M>::const_iterator it=a->begin(); it!=a->end(); ++it) {
         casadi_emval_struct* e = from_ptr(&it->second);
@@ -3155,6 +3220,11 @@ SWIGINTERN int SWIG_AsVal_double (void* p, double* val) {
 
 
     template<typename M1, typename M2> bool to_ptr(casadi_emval_struct *p, std::pair<M1, M2>** m) {
+
+
+
+
+
 
 
 
@@ -3343,6 +3413,45 @@ SWIGINTERN int SWIG_AsVal_double (void* p, double* val) {
  
 
   namespace casadi {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     bool to_ptr(casadi_emval_struct *p, DM** m) {
       // Treat Null
       if (is_null(p)) return false;
@@ -3371,6 +3480,10 @@ SWIGINTERN int SWIG_AsVal_double (void* p, double* val) {
           return true;
         }
       }
+
+
+
+
 
 
 
@@ -3676,9 +3789,9 @@ namespace casadi {
 
 
   namespace casadi {
-    /*@SWIG:/local/swig/casadi.i,4568,SPARSITY_INTERFACE_ALL@*/
-/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
+    /*@SWIG:/local/swig/casadi.i,4884,SPARSITY_INTERFACE_ALL@*/
+/*@SWIG:/local/swig/casadi.i,4917,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4726,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline Sparsity casadi_horzcat(const std::vector< Sparsity > &v) {
@@ -3807,6 +3920,33 @@ namespace casadi {
  return sum1(x);
  }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*@SWIG@*/
 
       inline Sparsity casadi_sum(const Sparsity& x, casadi_int dim) {
@@ -3820,8 +3960,8 @@ namespace casadi {
       }
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/casadi.i,4917,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4726,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline MX casadi_horzcat(const std::vector< MX > &v) {
@@ -3950,6 +4090,33 @@ namespace casadi {
  return sum1(x);
  }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*@SWIG@*/
 
       inline MX casadi_sum(const MX& x, casadi_int dim) {
@@ -3963,8 +4130,8 @@ namespace casadi {
       }
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/casadi.i,4917,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4726,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline Matrix<double> casadi_horzcat(const std::vector< Matrix<double> > &v) {
@@ -4093,6 +4260,33 @@ namespace casadi {
  return sum1(x);
  }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*@SWIG@*/
 
       inline Matrix<double> casadi_sum(const Matrix<double>& x, casadi_int dim) {
@@ -4106,8 +4300,8 @@ namespace casadi {
       }
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4600,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/casadi.i,4437,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/casadi.i,4917,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,4726,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
  inline Matrix<SXElem> casadi_horzcat(const std::vector< Matrix<SXElem> > &v) {
@@ -4236,6 +4430,33 @@ namespace casadi {
  return sum1(x);
  }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*@SWIG@*/
 
       inline Matrix<SXElem> casadi_sum(const Matrix<SXElem>& x, casadi_int dim) {
@@ -4250,8 +4471,8 @@ namespace casadi {
 
   /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,5085,GENERIC_EXPRESSION_ALL@*/
-/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5406,GENERIC_EXPRESSION_ALL@*/
+/*@SWIG:/local/swig/casadi.i,5351,GENERIC_EXPRESSION_FUN@*/
 
 inline MX casadi_plus(const MX& x, const MX& y) { return x+y; }
 inline MX casadi_minus(const MX& x, const MX& y) { return x-y; }
@@ -4305,7 +4526,7 @@ inline MX casadi_copysign(const MX& x, const MX& y) { return copysign(x, y); }
 inline MX casadi_constpow(const MX& x, const MX& y) { using casadi::constpow; return constpow(x, y); }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5351,GENERIC_EXPRESSION_FUN@*/
 
 inline Matrix<double> casadi_plus(const Matrix<double>& x, const Matrix<double>& y) { return x+y; }
 inline Matrix<double> casadi_minus(const Matrix<double>& x, const Matrix<double>& y) { return x-y; }
@@ -4359,7 +4580,7 @@ inline Matrix<double> casadi_copysign(const Matrix<double>& x, const Matrix<doub
 inline Matrix<double> casadi_constpow(const Matrix<double>& x, const Matrix<double>& y) { using casadi::constpow; return constpow(x, y); }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5351,GENERIC_EXPRESSION_FUN@*/
 
 inline Matrix<SXElem> casadi_plus(const Matrix<SXElem>& x, const Matrix<SXElem>& y) { return x+y; }
 inline Matrix<SXElem> casadi_minus(const Matrix<SXElem>& x, const Matrix<SXElem>& y) { return x-y; }
@@ -4413,7 +4634,7 @@ inline Matrix<SXElem> casadi_copysign(const Matrix<SXElem>& x, const Matrix<SXEl
 inline Matrix<SXElem> casadi_constpow(const Matrix<SXElem>& x, const Matrix<SXElem>& y) { using casadi::constpow; return constpow(x, y); }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,5030,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5351,GENERIC_EXPRESSION_FUN@*/
 
 inline double casadi_plus(const double& x, const double& y) { return x+y; }
 inline double casadi_minus(const double& x, const double& y) { return x-y; }
@@ -4468,8 +4689,8 @@ inline double casadi_constpow(const double& x, const double& y) { using casadi::
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,5024,GENERIC_MATRIX_ALL@*/
-/*@SWIG:/local/swig/casadi.i,4616,GENERIC_MATRIX_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5345,GENERIC_MATRIX_ALL@*/
+/*@SWIG:/local/swig/casadi.i,4933,GENERIC_MATRIX_FUN@*/
 
 inline MX casadi_mpower(const MX& x, const MX& n) {
   return mpower(x, n);
@@ -4624,6 +4845,10 @@ inline MX casadi_unite(const MX& A, const MX& B) {
 
 inline MX casadi_densify(const MX& x) {
   return densify(x);
+}
+
+inline MX casadi_densify(const MX& x, const MX& val) {
+  return densify(x, val);
 }
 
 inline MX casadi_project(const MX& A, const Sparsity& sp, bool intersect=false) {
@@ -4876,7 +5101,7 @@ inline MX casadi_blockcat(const std::vector< std::vector< MX > > &v) {
 }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4616,GENERIC_MATRIX_FUN@*/
+/*@SWIG:/local/swig/casadi.i,4933,GENERIC_MATRIX_FUN@*/
 
 inline Matrix<double> casadi_mpower(const Matrix<double>& x, const Matrix<double>& n) {
   return mpower(x, n);
@@ -5031,6 +5256,10 @@ inline Matrix<double> casadi_unite(const Matrix<double>& A, const Matrix<double>
 
 inline Matrix<double> casadi_densify(const Matrix<double>& x) {
   return densify(x);
+}
+
+inline Matrix<double> casadi_densify(const Matrix<double>& x, const Matrix<double>& val) {
+  return densify(x, val);
 }
 
 inline Matrix<double> casadi_project(const Matrix<double>& A, const Sparsity& sp, bool intersect=false) {
@@ -5283,7 +5512,7 @@ inline Matrix<double> casadi_blockcat(const std::vector< std::vector< Matrix<dou
 }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,4616,GENERIC_MATRIX_FUN@*/
+/*@SWIG:/local/swig/casadi.i,4933,GENERIC_MATRIX_FUN@*/
 
 inline Matrix<SXElem> casadi_mpower(const Matrix<SXElem>& x, const Matrix<SXElem>& n) {
   return mpower(x, n);
@@ -5438,6 +5667,10 @@ inline Matrix<SXElem> casadi_unite(const Matrix<SXElem>& A, const Matrix<SXElem>
 
 inline Matrix<SXElem> casadi_densify(const Matrix<SXElem>& x) {
   return densify(x);
+}
+
+inline Matrix<SXElem> casadi_densify(const Matrix<SXElem>& x, const Matrix<SXElem>& val) {
+  return densify(x, val);
 }
 
 inline Matrix<SXElem> casadi_project(const Matrix<SXElem>& A, const Sparsity& sp, bool intersect=false) {
@@ -5691,8 +5924,8 @@ inline Matrix<SXElem> casadi_blockcat(const std::vector< std::vector< Matrix<SXE
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,5218,MATRIX_ALL@*/
-/*@SWIG:/local/swig/casadi.i,5092,MATRIX_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5539,MATRIX_ALL@*/
+/*@SWIG:/local/swig/casadi.i,5413,MATRIX_FUN@*/
 
 inline Matrix<double> casadi_all(const Matrix<double>& x) {
   return all(x);
@@ -5817,7 +6050,7 @@ inline Matrix<double> casadi_eig_symbolic(const Matrix<double>& m) {
 
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/casadi.i,5092,MATRIX_FUN@*/
+/*@SWIG:/local/swig/casadi.i,5413,MATRIX_FUN@*/
 
 inline Matrix<SXElem> casadi_all(const Matrix<SXElem>& x) {
   return all(x);
@@ -5943,8 +6176,8 @@ inline Matrix<SXElem> casadi_eig_symbolic(const Matrix<SXElem>& m) {
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/casadi.i,5311,MX_ALL@*/
-/*@SWIG:/local/swig/casadi.i,5223,MX_FUN@*/
+    /*@SWIG:/local/swig/casadi.i,5632,MX_ALL@*/
+/*@SWIG:/local/swig/casadi.i,5544,MX_FUN@*/
 
 inline MX casadi_find(const MX& x) {
   return find(x);
@@ -6032,6 +6265,15 @@ inline MX casadi_kron_contract(const MX& m, const MX& x, bool inner) {
 
 /*@SWIG@*/
 /*@SWIG@*/
+  }
+
+
+  namespace casadi {
+    inline DM casadi_bspline_dual(const std::vector<double>& x,
+        const std::vector< std::vector<double> >& knots,
+        const std::vector<casadi_int>& degree, const Dict& opts=Dict()) {
+      return MX::bspline_dual(x, knots, degree, opts);
+    }
   }
 
 
@@ -23141,23 +23383,7 @@ EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_0() {
 fail:
   return 0;
 }
-EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_1(const char* obj0) {
-  {
-  std::string * arg1;
-  std::string m1;
-  {
-    
-  m1 = std::string(obj0);
-  arg1 = &m1;
-
-  }
-    casadi::Function* _outv = new casadi::Function(*arg1);
-    return _outv;
-  }
-fail:
-  return 0;
-}
-EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_2(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3) {
+EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_1(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3) {
   {
   std::string * arg1;
   std::string m1;
@@ -23194,7 +23420,7 @@ EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_2(const char* ob
 fail:
   return 0;
 }
-EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_3(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3, EM_VAL obj4, EM_VAL obj5) {
+EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_2(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3, EM_VAL obj4, EM_VAL obj5) {
   {
   std::string * arg1;
   std::string m1;
@@ -23245,7 +23471,7 @@ EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_3(const char* ob
 fail:
   return 0;
 }
-EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_4(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3, EM_VAL obj4) {
+EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_3(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3, EM_VAL obj4) {
   {
   std::string * arg1;
   std::string m1;
@@ -23289,7 +23515,7 @@ EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_4(const char* ob
 fail:
   return 0;
 }
-EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_5(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3) {
+EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_4(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3) {
   {
   std::string * arg1;
   std::string m1;
@@ -23326,7 +23552,7 @@ EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_5(const char* ob
 fail:
   return 0;
 }
-EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_6(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3, EM_VAL obj4, EM_VAL obj5) {
+EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_5(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3, EM_VAL obj4, EM_VAL obj5) {
   {
   std::string * arg1;
   std::string m1;
@@ -23377,7 +23603,7 @@ EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_6(const char* ob
 fail:
   return 0;
 }
-EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_7(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3, EM_VAL obj4) {
+EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_6(const char* obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3, EM_VAL obj4) {
   {
   std::string * arg1;
   std::string m1;
@@ -27923,7 +28149,7 @@ EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_Function_info_0(EM_VAL self_handle) {
 fail:
   return (EM_VAL)0;
 }
-EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_8(EM_VAL obj0) {
+EMSCRIPTEN_KEEPALIVE casadi::Function* swig_casadi_Function_new_7(EM_VAL obj0) {
   {
   casadi::Function * arg1;
   casadi::Function m1;
@@ -40159,6 +40385,31 @@ EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_densify_0(EM_VAL obj0) {
 fail:
   return (EM_VAL)0;
 }
+EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_densify_1(EM_VAL obj0, EM_VAL obj1) {
+  {
+  casadi::MX * arg1;
+  casadi::MX m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "MX" "'.");
+  }
+  casadi::MX * arg2;
+  casadi::MX m2;
+  {
+    arg2 = &m2;
+  if (!casadi::to_ptr(obj1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "MX" "'.");
+  }
+  casadi::MX result;
+  result = casadi::casadi_densify(*arg1, *arg2);
+  EM_VAL _outv;
+  if(!(_outv = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  
+  
+  return _outv;
+  }
+fail:
+  return (EM_VAL)0;
+}
 EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_project_0(EM_VAL obj0, EM_VAL obj1, int obj2) {
   {
   casadi::MX * arg1;
@@ -42926,7 +43177,7 @@ EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_unite_1(EM_VAL obj0, EM_VAL obj1)
 fail:
   return (EM_VAL)0;
 }
-EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_densify_1(EM_VAL obj0) {
+EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_densify_2(EM_VAL obj0) {
   {
   casadi::Matrix< double > * arg1;
   casadi::Matrix< double > m1;
@@ -42938,6 +43189,31 @@ EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_densify_1(EM_VAL obj0) {
   result = casadi::casadi_densify(*arg1);
   EM_VAL _outv;
   if(!(_outv = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "DM" "'.");
+  
+  return _outv;
+  }
+fail:
+  return (EM_VAL)0;
+}
+EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_densify_3(EM_VAL obj0, EM_VAL obj1) {
+  {
+  casadi::Matrix< double > * arg1;
+  casadi::Matrix< double > m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "DM" "'.");
+  }
+  casadi::Matrix< double > * arg2;
+  casadi::Matrix< double > m2;
+  {
+    arg2 = &m2;
+  if (!casadi::to_ptr(obj1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "DM" "'.");
+  }
+  casadi::Matrix< double > result;
+  result = casadi::casadi_densify(*arg1, *arg2);
+  EM_VAL _outv;
+  if(!(_outv = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "DM" "'.");
+  
   
   return _outv;
   }
@@ -45589,7 +45865,7 @@ EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_unite_2(EM_VAL obj0, EM_VAL obj1)
 fail:
   return (EM_VAL)0;
 }
-EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_densify_2(EM_VAL obj0) {
+EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_densify_4(EM_VAL obj0) {
   {
   casadi::Matrix< casadi::SXElem > * arg1;
   casadi::Matrix< casadi::SXElem > m1;
@@ -45601,6 +45877,31 @@ EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_densify_2(EM_VAL obj0) {
   result = casadi::casadi_densify(*arg1);
   EM_VAL _outv;
   if(!(_outv = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "SX" "'.");
+  
+  return _outv;
+  }
+fail:
+  return (EM_VAL)0;
+}
+EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_densify_5(EM_VAL obj0, EM_VAL obj1) {
+  {
+  casadi::Matrix< casadi::SXElem > * arg1;
+  casadi::Matrix< casadi::SXElem > m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "SX" "'.");
+  }
+  casadi::Matrix< casadi::SXElem > * arg2;
+  casadi::Matrix< casadi::SXElem > m2;
+  {
+    arg2 = &m2;
+  if (!casadi::to_ptr(obj1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "SX" "'.");
+  }
+  casadi::Matrix< casadi::SXElem > result;
+  result = casadi::casadi_densify(*arg1, *arg2);
+  EM_VAL _outv;
+  if(!(_outv = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "SX" "'.");
+  
   
   return _outv;
   }
@@ -49603,6 +49904,45 @@ EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_no_grad_0(EM_VAL obj0) {
   result = casadi::casadi_no_grad(*arg1);
   EM_VAL _outv;
   if(!(_outv = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  
+  return _outv;
+  }
+fail:
+  return (EM_VAL)0;
+}
+EMSCRIPTEN_KEEPALIVE EM_VAL swig_casadi_casadi_bspline_dual_0(EM_VAL obj0, EM_VAL obj1, EM_VAL obj2, EM_VAL obj3) {
+  {
+  std::vector< double > * arg1;
+  std::vector< double > m1;
+  {
+    arg1 = &m1;
+  if (!casadi::to_ptr(obj0, &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "[" "float" "]" "'.");
+  }
+  std::vector< std::vector< double > > * arg2;
+  std::vector< std::vector< double > > m2;
+  {
+    arg2 = &m2;
+  if (!casadi::to_ptr(obj1, &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "[" "[" "float" "]" "]" "'.");
+  }
+  std::vector< casadi_int > * arg3;
+  std::vector< casadi_int > m3;
+  {
+    arg3 = &m3;
+  if (!casadi::to_ptr(obj2, &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "[" "int" "]" "'.");
+  }
+  casadi::Dict * arg4;
+  std::map< std::string,casadi::GenericType > m4;
+  {
+    arg4 = &m4;
+  if (!casadi::to_ptr(obj3, &arg4)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 4 to type '" "dict" "'.");
+  }
+  casadi::DM result;
+  result = casadi::casadi_bspline_dual(*arg1, *arg2, *arg3, *arg4);
+  EM_VAL _outv;
+  if(!(_outv = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "DM" "'.");
+  
+  
+  
   
   return _outv;
   }

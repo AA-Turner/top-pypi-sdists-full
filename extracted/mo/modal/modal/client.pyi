@@ -12,13 +12,20 @@ import typing
 import typing_extensions
 
 class _OAuthCredentials:
-    """_OAuthCredentials(refresh_token: str, client_id: str, client_secret: str)"""
+    """_OAuthCredentials(refresh_token: str, client_id: str, client_secret: str | None = None, jwt_key: str | None = None)"""
 
     refresh_token: str
     client_id: str
-    client_secret: str
+    client_secret: typing.Optional[str]
+    jwt_key: typing.Optional[str]
 
-    def __init__(self, refresh_token: str, client_id: str, client_secret: str) -> None:
+    def __init__(
+        self,
+        refresh_token: str,
+        client_id: str,
+        client_secret: typing.Optional[str] = None,
+        jwt_key: typing.Optional[str] = None,
+    ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
@@ -80,7 +87,7 @@ class _Client:
         server_url: str,
         client_type: int,
         credentials: typing.Optional[tuple[str, str]],
-        version: str = "1.6.2",
+        version: str = "1.6.3",
         *,
         oauth_credentials: typing.Optional[_OAuthCredentials] = None,
     ):
@@ -190,7 +197,12 @@ class _Client:
 
     @classmethod
     async def from_oauth_credentials(
-        cls, refresh_token: str, *, oauth_client_id: str, oauth_client_secret: str
+        cls,
+        refresh_token: str,
+        *,
+        oauth_client_id: str,
+        oauth_client_secret: typing.Optional[str] = None,
+        oauth_jwt_key: typing.Optional[str] = None,
     ) -> _Client:
         """Constructor based on OAuth credentials; useful for managing Modal on behalf of third-party users.
 
@@ -198,6 +210,8 @@ class _Client:
             refresh_token: OAuth refresh token returned by Modal's token endpoint.
             oauth_client_id: Modal-issued OAuth client ID, with an `oc-` prefix.
             oauth_client_secret: Modal-issued OAuth client secret, with an `ov-` prefix.
+            oauth_jwt_key: Unencrypted RSA private key encoded as PEM, with literal or escaped newlines.
+                Requires `modal[oauth]`.
 
         Returns:
             An authenticated `Client` with its connection opened.
@@ -290,7 +304,7 @@ class Client:
         server_url: str,
         client_type: int,
         credentials: typing.Optional[tuple[str, str]],
-        version: str = "1.6.2",
+        version: str = "1.6.3",
         *,
         oauth_credentials: typing.Optional[_OAuthCredentials] = None,
     ):
@@ -490,13 +504,23 @@ class Client:
     from_credentials: typing.ClassVar[__from_credentials_spec]
 
     class __from_oauth_credentials_spec(typing_extensions.Protocol):
-        def __call__(self, /, refresh_token: str, *, oauth_client_id: str, oauth_client_secret: str) -> Client:
+        def __call__(
+            self,
+            /,
+            refresh_token: str,
+            *,
+            oauth_client_id: str,
+            oauth_client_secret: typing.Optional[str] = None,
+            oauth_jwt_key: typing.Optional[str] = None,
+        ) -> Client:
             """Constructor based on OAuth credentials; useful for managing Modal on behalf of third-party users.
 
             Args:
                 refresh_token: OAuth refresh token returned by Modal's token endpoint.
                 oauth_client_id: Modal-issued OAuth client ID, with an `oc-` prefix.
                 oauth_client_secret: Modal-issued OAuth client secret, with an `ov-` prefix.
+                oauth_jwt_key: Unencrypted RSA private key encoded as PEM, with literal or escaped newlines.
+                    Requires `modal[oauth]`.
 
             Returns:
                 An authenticated `Client` with its connection opened.
@@ -514,13 +538,23 @@ class Client:
             """
             ...
 
-        async def aio(self, /, refresh_token: str, *, oauth_client_id: str, oauth_client_secret: str) -> Client:
+        async def aio(
+            self,
+            /,
+            refresh_token: str,
+            *,
+            oauth_client_id: str,
+            oauth_client_secret: typing.Optional[str] = None,
+            oauth_jwt_key: typing.Optional[str] = None,
+        ) -> Client:
             """Constructor based on OAuth credentials; useful for managing Modal on behalf of third-party users.
 
             Args:
                 refresh_token: OAuth refresh token returned by Modal's token endpoint.
                 oauth_client_id: Modal-issued OAuth client ID, with an `oc-` prefix.
                 oauth_client_secret: Modal-issued OAuth client secret, with an `ov-` prefix.
+                oauth_jwt_key: Unencrypted RSA private key encoded as PEM, with literal or escaped newlines.
+                    Requires `modal[oauth]`.
 
             Returns:
                 An authenticated `Client` with its connection opened.

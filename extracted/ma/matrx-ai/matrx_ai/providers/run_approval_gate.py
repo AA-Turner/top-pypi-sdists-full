@@ -6,10 +6,19 @@ Same seam and the same shape as the usage gate (``providers/usage_gate.py``):
 
 * it runs at ``UnifiedAIClient._dispatch_with_billing_net`` — the one place every paid
   provider call passes — right after the usage gate, BEFORE any money is spent;
-* the decision is made ONCE, at a request's first paid call, from the host's MEMORY
-  (a synchronous resolver; never a database read). Every later paid call of the same
-  ``AppContext.request_id`` — sub-agents, workflow steps, tool loops — is admitted
-  without asking again, so a running run is never cut in half. A RUN is a request;
+* the decision is made from the host's MEMORY (a synchronous resolver; never a database read),
+  ONCE per request tree (``tree_request_id``) for the subjects the tree's first paid call runs as.
+  The host names those subjects with the SAME derivation its resolver judges (the ``subjects``
+  reader of :func:`set_run_approval_resolver`: mandate, agent, trigger, schedule, workflow,
+  factory door, coding session). Every later paid call of the tree whose subjects were all
+  admitted rides that admission — sub-agents, workflow steps, tool loops — so a running run is
+  never cut in half: a subject the tree already runs as that crosses its threshold mid-run is
+  held for its NEXT run, never stopped in this one. A subject NEW to the tree (a workflow step
+  running another mandate, a sub-agent with its own agent id) is refused only when the host
+  already holds that subject (``refusal_among``: a person's rejection, a waiting approval, an
+  expired one); otherwise it joins the tree's admission. Before 2026-10-27 the memo was the tree
+  alone, so the code-built News monitor's first paid call (a search API, no held subject)
+  admitted every later mandate of the run, Arman's rejections included;
 * a refusal is a CALLER refusal (``is_caller_refusal``): never retried, rerouted or
   filed as a provider failure, and its message names the approval and links to it.
 
@@ -131,21 +140,38 @@ class RunApprovalRequiredError(Exception):
 
 
 Resolver = Callable[[Any], "RunApprovalRequiredError | None"]
+#: ``ctx -> [(subject_kind, subject_id), ...]``: the subjects the resolver judges this call as.
+SubjectsReader = Callable[[Any], "list[tuple[str, str]]"]
+#: ``(ctx, subjects) -> refusal | None``: the host's hold among exactly ``subjects`` (a new subject
+#: inside an admitted tree; the run-level checks already passed at the tree's first paid call).
+RefusalAmong = Callable[[Any, "list[tuple[str, str]]"], "RunApprovalRequiredError | None"]
 AgentDrivenPredicate = Callable[[Any], bool]
 
 #: Route prefix of every AI Dream MCP tool call (``mcp:agent_run``, ``mcp:coding_session_bridge``…).
 AGENT_ROUTE_PREFIX = "mcp:"
 
 _resolver: Resolver | None = None
+_subjects_reader: SubjectsReader | None = None
+_refusal_among: RefusalAmong | None = None
 _agent_driven: AgentDrivenPredicate | None = None
 _unwired_announced = False
-_admitted: OrderedDict[str, None] = OrderedDict()
+#: tree key -> the subjects that tree was admitted for (empty when the host names none).
+_admitted: OrderedDict[str, set[tuple[str, str]]] = OrderedDict()
 
 
-def set_run_approval_resolver(resolver: Resolver | None) -> None:
-    """Host wiring: a SYNCHRONOUS ``ctx -> RunApprovalRequiredError | None`` memory read."""
-    global _resolver
+def set_run_approval_resolver(
+    resolver: Resolver | None,
+    *,
+    subjects: SubjectsReader | None = None,
+    refusal_among: RefusalAmong | None = None,
+) -> None:
+    """Host wiring: a SYNCHRONOUS ``ctx -> RunApprovalRequiredError | None`` memory read, plus the
+    subjects reader and the per-subject refusal it is built from (one derivation). Without a
+    subjects reader a tree is admitted as a whole at its first paid call."""
+    global _resolver, _subjects_reader, _refusal_among
     _resolver = resolver
+    _subjects_reader = subjects if resolver is not None else None
+    _refusal_among = refusal_among if resolver is not None else None
 
 
 def set_agent_driven_predicate(predicate: AgentDrivenPredicate | None) -> None:
@@ -182,9 +208,9 @@ def reset_run_approval_gate_state() -> None:
     _admitted.clear()
 
 
-def _remember(request_id: str) -> None:
-    _admitted[request_id] = None
-    _admitted.move_to_end(request_id)
+def _remember(tree_key: str, subjects: list[tuple[str, str]]) -> None:
+    _admitted.setdefault(tree_key, set()).update(subjects)
+    _admitted.move_to_end(tree_key)
     while len(_admitted) > _ADMITTED_MEMO_MAX:
         _admitted.popitem(last=False)
 
@@ -217,32 +243,68 @@ def refusal_for(ctx: Any) -> RunApprovalRequiredError | None:
         return None
 
 
+def _read_subjects(ctx: Any) -> list[tuple[str, str]]:
+    """The host's subjects for this call (its resolver's own derivation), or [] when none is wired."""
+    if _subjects_reader is None:
+        return []
+    try:
+        return [(str(k), str(i)) for k, i in (_subjects_reader(ctx) or [])]
+    except Exception as exc:  # noqa: BLE001 — a broken read admits like a broken resolver, loudly
+        vcprint(
+            f"[RunApprovalGate] subjects reader raised ({type(exc).__name__}: {exc}) — "
+            "judging the tree as a whole.",
+            color="red",
+            log_level="ERROR",
+        )
+        return []
+
+
+def _refuse(refusal: RunApprovalRequiredError, request_id: str) -> None:
+    vcprint(
+        f"[RunApprovalGate] refused request={request_id[:8]}… {refusal.subject_kind}="
+        f"{refusal.subject_id} ({refusal.status}) — {refusal.approval_url}",
+        color="yellow",
+        log_level="WARNING",
+    )
+    raise refusal
+
+
 def admit_run_approval() -> None:
-    """Admit or refuse the paid call about to be made. Raises only at a request's FIRST paid call."""
+    """Admit or refuse the paid call about to be made (see the module docstring for the memo)."""
     from matrx_ai.context.app_context import try_get_app_context
 
     ctx = try_get_app_context()
     if ctx is None:
         return
     request_id = str(getattr(ctx, "request_id", "") or "")
-    # Admitted by its TREE (``tree_request_id``): a child agent run owns its own turn
-    # id, and a helper or fan-out sibling of an admitted run is never judged afresh.
     from matrx_connect.context.app_context import tree_request_id_of
 
     tree_key = tree_request_id_of(ctx)
-    if (tree_key and tree_key in _admitted) or (request_id and request_id in _admitted):
-        return  # a running run is never stopped
+    subjects = _read_subjects(ctx)
+    admitted = _admitted.get(tree_key) if tree_key else None
+    if admitted is not None:
+        new = [s for s in subjects if s not in admitted]
+        if not new:
+            return  # a running run is never stopped
+        if _refusal_among is not None and not is_person_driven(ctx):
+            try:
+                refusal = _refusal_among(ctx, new)
+            except Exception as exc:  # noqa: BLE001 — a broken memory read never blocks a run
+                vcprint(
+                    f"[RunApprovalGate] refusal_among raised ({type(exc).__name__}: {exc}) — admitted.",
+                    color="red",
+                    log_level="ERROR",
+                )
+                refusal = None
+            if refusal is not None:
+                _refuse(refusal, request_id)
+        _remember(tree_key, new)
+        return
     refusal = refusal_for(ctx)
     if refusal is not None:
-        vcprint(
-            f"[RunApprovalGate] refused request={request_id[:8]}… {refusal.subject_kind}="
-            f"{refusal.subject_id} ({refusal.status}) — {refusal.approval_url}",
-            color="yellow",
-            log_level="WARNING",
-        )
-        raise refusal
+        _refuse(refusal, request_id)
     if tree_key:
-        _remember(tree_key)
+        _remember(tree_key, subjects)
 
 
 def run_approval_refusal_in(source: Any, *, _max_depth: int = 16) -> RunApprovalRequiredError | None:

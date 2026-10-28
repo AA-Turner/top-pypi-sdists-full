@@ -908,23 +908,26 @@ def test_a_configured_suffix_delimiter_reaches_the_peel() -> None:
     # question it is borrowing. Two routes into that answer, neither
     # reachable from the other's input, so both are pinned: a
     # delimiter WITHOUT whitespace leaves one token no core equals
-    # ("PhD/MD"), admitted by splits_into_suffixes, while a
+    # ("PhD+MD"), admitted by splits_into_suffixes, while a
     # whitespace-padded one surfaces as a standalone token ("-"),
     # admitted by plain core membership. Each peels only with its
     # delimiter configured; the bare-policy line under each is the
     # baseline that says so.
     lex = _LEX_TAILS.add(suffix_words={"v"},
                          suffix_acronyms={"md", "phd"})
-    slash = Policy(extra_suffix_delimiters=frozenset({"/"}))
-    assert _texts(_run("田中さん, PhD/MD", policy=slash,
-                       lexicon=lex)) == ["田中", "さん", "PhD/MD"]
-    assert _texts(_run("田中さん, PhD/MD", policy=_HANGUL,
-                       lexicon=lex)) == ["田中さん", "PhD/MD"]
-    dash = Policy(extra_suffix_delimiters=frozenset({" - "}))
-    assert _texts(_run("田中さん, Jr. - V.", policy=dash,
-                       lexicon=lex)) == ["田中", "さん", "Jr.", "-", "V."]
-    assert _texts(_run("田中さん, Jr. - V.", policy=_HANGUL,
-                       lexicon=lex)) == ["田中さん", "Jr.", "-", "V."]
+    # not '/': a word joined by a slash or a hyphen whose every chunk
+    # is listed reads as a suffix with no delimiter configured (#752)
+    plus = Policy(extra_suffix_delimiters=frozenset({"+"}))
+    assert _texts(_run("田中さん, PhD+MD", policy=plus,
+                       lexicon=lex)) == ["田中", "さん", "PhD+MD"]
+    assert _texts(_run("田中さん, PhD+MD", policy=_HANGUL,
+                       lexicon=lex)) == ["田中さん", "PhD+MD"]
+    # ' | ', not ' - ': a hyphen standing alone is built in (#889)
+    pipe = Policy(extra_suffix_delimiters=frozenset({" | "}))
+    assert _texts(_run("田中さん, Jr. | V.", policy=pipe,
+                       lexicon=lex)) == ["田中", "さん", "Jr.", "|", "V."]
+    assert _texts(_run("田中さん, Jr. | V.", policy=_HANGUL,
+                       lexicon=lex)) == ["田中さん", "Jr.", "|", "V."]
 
 
 def test_an_empty_first_run_still_reaches_the_second() -> None:

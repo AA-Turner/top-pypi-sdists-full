@@ -219,7 +219,7 @@ async def test_the_bound_step_sends_the_kinds_schema_and_returns_the_KIND_as_its
 
     # 2. The node's payload IS the kind — not the run envelope.
     assert outcome.status == "success"
-    assert outcome.result.model_dump() == _ANSWER
+    assert outcome.result.model_dump() == {"__kind": _KIND, **_ANSWER}
 
     # 3. Spend is declared on the engine plane, because a strict kind has
     #    nowhere to carry a usage block.
@@ -330,3 +330,156 @@ async def test_a_mandate_step_on_a_host_with_no_pipeline_refuses(monkeypatch, ag
     with pytest.raises(ExecutionError, match="does not run unbound"):
         await agent_produce(_ctx(_KIND), AgentProduceInput(mandate_key="education.x", topic="t"))
     assert "request" not in sent, "a paid call ran unbound"
+
+
+# ── Run Typed Agent: the step's GOAL is graded (Arman, 2026-10-27) ──────────
+
+
+def _bind_any_kind(monkeypatch):
+    from matrx_ai.config.response_format import OutputSchemaEnvelope, ResponseFormatJsonSchema
+    from matrx_ai.graph_nodes import agent_produce_action
+
+    async def _binding(slug: str):
+        return ResponseFormatJsonSchema(
+            type="json_schema",
+            json_schema=OutputSchemaEnvelope.model_validate(
+                {"name": slug, "schema": {"type": "object", "properties": {}}, "strict": True}
+            ),
+        )
+
+    monkeypatch.setattr(agent_produce_action, "response_format_for_kind", _binding)
+
+
+async def _settle() -> None:
+    import asyncio
+
+    for _ in range(20):
+        await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_a_typed_step_hands_its_answer_and_GOAL_to_the_hosts_judge(monkeypatch, agent_host):
+    from matrx_ai import _ext
+    from matrx_ai.graph_nodes.agent_produce_action import TYPED_STEP_JUDGE_EXT, TypedAgentConfig
+
+    _bind_any_kind(monkeypatch)
+    _stub_completion(monkeypatch, structured_output=_ANSWER)
+    graded: list[dict[str, Any]] = []
+
+    async def _judge(**kw: Any) -> None:
+        graded.append(kw)
+
+    monkeypatch.setitem(_ext._registry, TYPED_STEP_JUDGE_EXT, _judge)
+    ctx = _ctx(_KIND)
+    outcome = await agent_produce(
+        ctx,
+        AgentProduceInput(agent_id=_HOLDER, source_feature="education.flashcards"),
+        TypedAgentConfig(goal="Cards a student can drill from.", goal_grounding="V", required_output_keys=["title"]),
+    )
+    await _settle()
+    assert outcome.status == "success" and outcome.result.model_dump() == {"__kind": _KIND, **_ANSWER}
+    [call] = graded
+    assert call["goal"] == "Cards a student can drill from." and call["goal_grounding"] == "V"
+    assert call["required_output_keys"] == ["title"]
+    assert call["output_kind"] == _KIND and call["artifact"] == {"__kind": _KIND, **_ANSWER}
+    assert call["node_id"] == "flashcards" and call["run_id"] == "run-produce" and call["agent_id"] == _HOLDER
+    # Cost attribution rides on the step's own source_feature.
+    sent, _ = agent_host
+    assert sent["request"].source_feature == "education.flashcards"
+
+
+@pytest.mark.asyncio
+async def test_the_step_never_waits_for_a_slow_judge(monkeypatch, agent_host):
+    import asyncio
+    import time
+
+    from matrx_ai import _ext
+    from matrx_ai.graph_nodes.agent_produce_action import TYPED_STEP_JUDGE_EXT, TypedAgentConfig
+
+    _bind_any_kind(monkeypatch)
+    _stub_completion(monkeypatch, structured_output=_ANSWER)
+    finished: list[int] = []
+
+    async def _slow(**_kw: Any) -> None:
+        await asyncio.sleep(3)
+        finished.append(1)
+
+    monkeypatch.setitem(_ext._registry, TYPED_STEP_JUDGE_EXT, _slow)
+    started = time.monotonic()
+    outcome = await agent_produce(_ctx(_KIND), AgentProduceInput(agent_id=_HOLDER), TypedAgentConfig(goal="g"))
+    assert outcome.status == "success" and time.monotonic() - started < 1.0 and finished == []
+
+
+@pytest.mark.asyncio
+async def test_a_goal_less_step_still_reaches_the_judge_and_a_broken_judge_never_sinks_it(monkeypatch, agent_host):
+    from matrx_ai import _ext
+    from matrx_ai.graph_nodes.agent_produce_action import TYPED_STEP_JUDGE_EXT, TypedAgentConfig
+
+    _bind_any_kind(monkeypatch)
+    _stub_completion(monkeypatch, structured_output=_ANSWER)
+    calls: list[dict[str, Any]] = []
+
+    async def _broken(**kw: Any) -> None:
+        calls.append(kw)
+        raise RuntimeError("judge down")
+
+    monkeypatch.setitem(_ext._registry, TYPED_STEP_JUDGE_EXT, _broken)
+    no_goal = await agent_produce(_ctx(_KIND), AgentProduceInput(agent_id=_HOLDER), TypedAgentConfig())
+    await _settle()
+    assert no_goal.status == "success" and calls[0]["goal"] == "" and calls[0]["goal_grounding"] == "A"
+
+
+@pytest.mark.asyncio
+async def test_a_TEXT_step_answers_in_the_text_kind(monkeypatch, agent_host):
+    from matrx_ai.graph_nodes.agent_produce_action import TypedAgentConfig
+
+    result = _stub_completion(monkeypatch, structured_output=None)
+    result.final_text = "A two-host script about tides."
+    sent, _ = agent_host
+    outcome = await agent_produce(_ctx("text"), AgentProduceInput(agent_id=_HOLDER), TypedAgentConfig())
+    assert outcome.status == "success"
+    assert outcome.result.model_dump() == {"__kind": "text", "text": "A two-host script about tides."}
+    assert "response_format" not in (getattr(sent["request"], "config_overrides", None) or {})
+
+
+@pytest.mark.asyncio
+async def test_a_step_with_no_node_kind_takes_the_kind_from_its_SETTING_and_marks_the_answer(
+    monkeypatch, agent_host
+):
+    """A reusable workflow names the agent, the kind and the goal as run inputs: the kind arrives
+    as the step setting ``output_kind`` (``{'$input': 'output_kind'}``), the model is bound to it,
+    and the answer carries ``__kind`` so the scheduler validates it against that kind."""
+    from matrx_ai.graph_nodes import agent_produce_action
+    from matrx_ai.graph_nodes.agent_produce_action import TypedAgentConfig
+
+    seen: list[str] = []
+
+    async def _binding(slug: str):
+        from matrx_ai.config.response_format import OutputSchemaEnvelope, ResponseFormatJsonSchema
+
+        seen.append(slug)
+        return ResponseFormatJsonSchema(
+            type="json_schema",
+            json_schema=OutputSchemaEnvelope.model_validate(
+                {"name": slug, "schema": {"type": "object", "properties": {}}, "strict": True}
+            ),
+        )
+
+    monkeypatch.setattr(agent_produce_action, "response_format_for_kind", _binding)
+    _stub_completion(monkeypatch, structured_output=_ANSWER)
+    sent, _ = agent_host
+    outcome = await agent_produce(
+        _ctx(None), AgentProduceInput(agent_id=_HOLDER), TypedAgentConfig(output_kind=_KIND)
+    )
+    assert seen == [_KIND]
+    assert sent["request"].config_overrides["response_format"]["json_schema"]["name"] == _KIND
+    assert outcome.status == "success"
+    assert outcome.result.model_dump() == {"__kind": _KIND, **_ANSWER}
+
+
+@pytest.mark.asyncio
+async def test_a_step_with_neither_a_node_kind_nor_a_kind_setting_still_refuses(agent_host):
+    from matrx_ai.graph_nodes.agent_produce_action import TypedAgentConfig
+
+    with pytest.raises(ExecutionError, match="declares no output"):
+        await agent_produce(_ctx(None), AgentProduceInput(agent_id=_HOLDER), TypedAgentConfig(output_kind=""))

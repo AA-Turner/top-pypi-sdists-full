@@ -110,6 +110,15 @@ pub enum CodeBlockToolsDocsAction {
 enum Commands {
     /// Lint Markdown files and print warnings/errors
     Check(CheckArgs),
+    /// Find assets unreferenced in complete Markdown source directories (report only)
+    CheckAssets(commands::check_assets::CheckAssetsArgs),
+    /// Experimental interfaces; compatibility is not guaranteed
+    #[cfg(any(feature = "native", feature = "wasi"))]
+    #[command(hide = true)]
+    Experimental {
+        #[command(subcommand)]
+        action: commands::experimental::Action,
+    },
     /// Format Markdown files and apply fixes with formatter-style exit codes
     ///
     /// Accepts `format` as an undocumented alias so the spelling used by other
@@ -322,6 +331,16 @@ fn main() -> Result<(), Box<dyn Error>> {
             exit::tool_error();
         }
     }
+    if matches!(cli.command, Commands::CheckAssets(_)) && (!cli.config.is_empty() || cli.no_config || cli.isolated) {
+        eprintln!("error: check-assets uses explicit scan arguments and does not accept configuration flags");
+        exit::tool_error();
+    }
+    #[cfg(any(feature = "native", feature = "wasi"))]
+    if matches!(cli.command, Commands::Experimental { .. }) && (!cli.config.is_empty() || cli.no_config || cli.isolated)
+    {
+        eprintln!("error: experimental commands use explicit arguments and do not accept configuration flags");
+        exit::tool_error();
+    }
     let config_path: Option<String> = config_path.map(|p| p.to_string_lossy().into_owned());
 
     // Catch panics and print a message, exit 1
@@ -344,6 +363,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                     yes,
                 );
             }
+            #[cfg(any(feature = "native", feature = "wasi"))]
+            Commands::Experimental { action } => commands::experimental::handle(action),
+            Commands::CheckAssets(args) => commands::check_assets::handle(args),
             Commands::Check(mut args) => {
                 args.fix_mode = if args.fix { FixMode::CheckFix } else { FixMode::Check };
                 args.fail_on_mode = args.fail_on;

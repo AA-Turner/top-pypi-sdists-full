@@ -41,6 +41,9 @@ _LEX = Lexicon(
     # no run either.
     suffix_acronyms=frozenset({"md", "vd", "ma"}),
     suffix_acronyms_ambiguous=frozenset({"ma"}),
+    # and `ma` is a given name written short too (Filipino María, #789),
+    # read so only period-marked at the head of the given part
+    given_name_abbreviations=frozenset({"ma"}),
     conjunctions=frozenset({"y"}),
     bound_given_names=frozenset({"abdul"}),
 )
@@ -1054,13 +1057,13 @@ def test_a_marker_the_policy_names_as_a_delimiter_parts_the_run() -> None:
 
 def test_a_dropped_core_parts_two_entries() -> None:
     """The `parted` conjunct, dropped-core half (#206). Drop it and
-    'John Doe, MD - PhD - FACS' renders 'MD PhD FACS' under this
+    'John Doe, MD | PhD | FACS' renders 'MD PhD FACS' under this
     policy. Moved here from test_group.py's
     test_extra_suffix_delimiter_splits_tail_entries with #436: the
     core is dropped in group and the entry it separates is decided
     here."""
-    dash = Policy(extra_suffix_delimiters=frozenset({" - "}))
-    assert _entry_tags("John Doe, MD - PhD - FACS", dash) == [
+    dash = Policy(extra_suffix_delimiters=frozenset({" | "}))
+    assert _entry_tags("John Doe, MD | PhD | FACS", dash) == [
         ("MD", False), ("PhD", False), ("FACS", False)]
 
 
@@ -1076,7 +1079,7 @@ def test_a_surviving_name_word_parts_two_entries() -> None:
     stood as name words between the post-nominals; a credential now
     starts a run to the end of the part, taking them in."""
     for policy in (Policy(),
-                   Policy(extra_suffix_delimiters=frozenset({" - "}))):
+                   Policy(extra_suffix_delimiters=frozenset({" | "}))):
         assert _entry_tags("Smith, Jane abd Jones PhD", policy) == [
             ("abd", False), ("PhD", False)]
 
@@ -1159,11 +1162,15 @@ def test_p6_declines_a_credential_lean_class_member() -> None:
     """P6 keys on VOCABULARY, not role, so assign's suffix role would
     otherwise be silently overridden -- verified by running the
     change's assign half alone, which left 'Doe, John DO' family
-    'DO Doe'."""
+    'DO Doe'. Its capitals settle the credential (rules/S6, #785), which
+    silences the report and must not touch the particle reading P6
+    asks about: a retag did, giving family 'DO Doe' again."""
     name = parse("Doe, John DO")
     assert name.suffix == "DO"
     assert name.family == "Doe"
-    assert [a.kind.value for a in name.ambiguities] == ["suffix-or-name"]
+    assert name.ambiguities == ()
+    # the Title-case twin, which no writing settles: P6 attaches it
+    assert parse("Doe, John Do").family == "Do Doe"
 
 
 def test_p6_still_claims_an_unambiguous_suffix_particle() -> None:

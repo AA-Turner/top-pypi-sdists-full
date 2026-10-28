@@ -16,6 +16,7 @@ from typing import (
 from typing_extensions import TypedDict
 
 from langsmith import client as ls_client
+from langsmith.address import AgentAddress
 from langsmith import run_helpers
 from langsmith._internal._ls_agent_type import apply_default_ls_agent_type
 
@@ -366,6 +367,7 @@ class TracingExtra(TypedDict, total=False):
     metadata: Optional[Mapping[str, Any]]
     tags: Optional[list[str]]
     client: Optional[ls_client.Client]
+    address: Optional[AgentAddress]
 
 
 def wrap_openai(
@@ -386,7 +388,9 @@ def wrap_openai(
 
     Args:
         client: The client to patch.
-        tracing_extra: Extra tracing information.
+        tracing_extra: Extra tracing information. Set `address` to an
+            `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
+            client's runs to that agent environment instead of a project.
         chat_name: The run name for the chat completions endpoint.
         completions_name: The run name for the completions endpoint.
 

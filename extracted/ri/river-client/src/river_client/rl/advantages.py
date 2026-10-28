@@ -80,10 +80,18 @@ class Batchwise:
 
 
 def reward_values(groups, truncation):
+    """Extract per-member scores independently of the advantage estimator."""
     rewards = []
     for group in groups:
         values = []
         for traj in group:
+            if traj.dropped:
+                if not traj.done or traj.reward is not None:
+                    raise ValueError(
+                        "dropped trajectories must be terminal and unscored"
+                    )
+                values.append(None)
+                continue
             if not traj.done or traj.reward is None or not np.isfinite(traj.reward):
                 raise ValueError(
                     "only completed, scored trajectories can enter training"
@@ -97,6 +105,20 @@ def reward_values(groups, truncation):
                 else traj.reward
             )
         rewards.append(values)
+    return rewards
+
+
+def _training_rewards(groups, truncation, *, estimator, min_members):
+    rewards = reward_values(groups, truncation)
+    if isinstance(estimator, GroupCentered):
+        for group, values in zip(groups, rewards, strict=True):
+            if (
+                any(traj.dropped for traj in group)
+                and sum(value is not None for value in values) < min_members
+            ):
+                # Error handling must not silently switch an undersized group to
+                # a batch baseline. Healthy groups retain their normal semantics.
+                values[:] = [None] * len(group)
     return rewards
 
 
@@ -118,15 +140,23 @@ def build_batch(
         raise ValueError(
             "normalize must be explicitly 'token', 'prompt', 'sequence', 'batch', or 'sum'"
         )
-    rewards = reward_values(groups, truncation)
+    rewards = _training_rewards(
+        groups, truncation, estimator=estimator, min_members=min_members
+    )
     if advantages is None:
         advantages = estimator(rewards, min_members=min_members)
     records, ages, stale, total = [], [], 0, 0
     group_token_counts = []
-    for group, group_advantages in zip(groups, advantages, strict=True):
+    for group, group_advantages, group_rewards in zip(
+        groups, advantages, rewards, strict=True
+    ):
         group_index = len(group_token_counts)
         group_token_counts.append(0)
-        for traj, advantage in zip(group, group_advantages, strict=True):
+        for traj, advantage, reward in zip(
+            group, group_advantages, group_rewards, strict=True
+        ):
+            if traj.dropped:
+                continue
             for span in traj.spans:
                 if span.kind == "generated":
                     age = current_step - span.policy_step
@@ -138,10 +168,7 @@ def build_batch(
                     total += len(span)
                     if max_staleness is not None and age > max_staleness:
                         stale += len(span)
-            if truncation.policy(traj.truncated) in {
-                "drop",
-                "drop_and_exclude_from_baseline",
-            }:
+            if reward is None or truncation.policy(traj.truncated) == "drop":
                 continue
             data = traj.to_data(
                 advantage,
@@ -179,13 +206,29 @@ def build_batch(
             datum["advantages"] = [a / denominator for a in datum["advantages"]]
     signal = "loss_mask" if include_loss_mask else "advantages"
     data = [d for record in records for d in record[0] if any(d[signal])]
-    flat_rewards = [t.reward for group in groups for t in group]
     flat = [t for group in groups for t in group]
+    flat_rewards = [t.reward for t in flat if not t.dropped]
+    scored_advantages = [
+        values
+        for values, scores in zip(advantages, rewards, strict=True)
+        if any(score is not None for score in scores)
+    ]
     metrics = {
+        "reward/count": float(len(flat_rewards)),
+        "rollout/dropped": float(sum(t.dropped for t in flat)),
+        "rollout/dropped_generated_tokens": float(
+            sum(t.generated_tokens for t in flat if t.dropped)
+        ),
+        "train/error_excluded_groups": float(
+            sum(
+                any(t.dropped for t in group) and not any(r is not None for r in values)
+                for group, values in zip(groups, rewards, strict=True)
+            )
+        ),
         "reward/mean": float(np.mean(flat_rewards)) if flat_rewards else 0.0,
         "reward/std": float(np.std(flat_rewards)) if flat_rewards else 0.0,
-        "reward/zero_variance_group_frac": sum(not any(a) for a in advantages)
-        / max(1, len(groups)),
+        "reward/zero_variance_group_frac": sum(not any(a) for a in scored_advantages)
+        / max(1, len(scored_advantages)),
         "staleness/span_age_p50": float(np.percentile(ages, 50)) if ages else 0.0,
         "staleness/span_age_p99": float(np.percentile(ages, 99)) if ages else 0.0,
         "staleness/frac_masked": stale / max(1, total),
@@ -269,7 +312,9 @@ def accumulation_scale(
     """Finalize positive global factors after all rewards and lengths are known."""
     scale = 1.0
     if isinstance(estimator, GroupCentered) and estimator.standardize == "batch":
-        rewards = reward_values(groups, truncation)
+        rewards = _training_rewards(
+            groups, truncation, estimator=estimator, min_members=min_members
+        )
         raw = GroupCentered(eps=estimator.eps)(rewards, min_members=min_members)
         values = [
             a

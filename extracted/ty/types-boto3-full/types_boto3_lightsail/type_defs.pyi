@@ -452,6 +452,7 @@ __all__ = (
     "ImportKeyPairResultTypeDef",
     "InputOriginTypeDef",
     "InstanceAccessDetailsTypeDef",
+    "InstanceAttributeUpdatesTypeDef",
     "InstanceEntryTypeDef",
     "InstanceHardwareTypeDef",
     "InstanceHealthSummaryTypeDef",
@@ -1337,6 +1338,9 @@ class PasswordDataTypeDef(TypedDict):
     ciphertext: NotRequired[str]
     keyPairName: NotRequired[str]
 
+class InstanceAttributeUpdatesTypeDef(TypedDict):
+    bundleId: NotRequired[str]
+
 class InstanceHealthSummaryTypeDef(TypedDict):
     instanceName: NotRequired[str]
     instanceHealth: NotRequired[InstanceHealthStateType]
@@ -1465,9 +1469,6 @@ class SetupInstanceHttpsRequestTypeDef(TypedDict):
 
 class StartGUISessionRequestTypeDef(TypedDict):
     resourceName: str
-
-class StartInstanceRequestTypeDef(TypedDict):
-    instanceName: str
 
 class StartRelationalDatabaseRequestTypeDef(TypedDict):
     relationalDatabaseName: str
@@ -2201,6 +2202,10 @@ class InstanceAccessDetailsTypeDef(TypedDict):
     instanceName: NotRequired[str]
     username: NotRequired[str]
     hostKeys: NotRequired[list[HostKeyAttributesTypeDef]]
+
+class StartInstanceRequestTypeDef(TypedDict):
+    instanceName: str
+    attributeUpdates: NotRequired[InstanceAttributeUpdatesTypeDef]
 
 class InstanceNetworkingTypeDef(TypedDict):
     monthlyTransfer: NotRequired[MonthlyTransferTypeDef]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Optional
 from typing_extensions import Literal
 
 from ..types import agent_list_params, agent_create_params, agent_update_params, agent_retrieve_params
@@ -47,7 +48,7 @@ class AgentsResource(SyncAPIResource):
         self,
         *,
         id: str,
-        source_type: Literal["LSD", "MDA", "EXTERNAL", "FLEET"],
+        source_type: Literal["LSD", "MDA", "EXTERNAL", "FLEET"] = "EXTERNAL",
         agent_type: Literal["CUSTOM", "CODING"] | Omit = omit,
         name: str | Omit = omit,
         production_only: bool | Omit = omit,
@@ -62,14 +63,15 @@ class AgentsResource(SyncAPIResource):
 
         Returns 409 if the ID already
         exists. Creates all four environments unless production_only is set for a FLEET
-        agent. agent_type defaults to CUSTOM. Requires permission to create projects.
-        The response does not include runtime bindings.
+        agent. agent_type defaults to CUSTOM. The authenticated user becomes the owner
+        when available. Requires permission to create projects. The response does not
+        include runtime bindings.
 
         Args:
           id: Unique agent identifier: 1-63 lowercase letters, digits, or hyphens, starting
               with a letter and ending with a letter or digit.
 
-          source_type: Agent runtime kind. Use EXTERNAL for an application hosted outside LangSmith.
+          source_type: Agent runtime kind. Defaults to EXTERNAL for an application hosted outside LangSmith.
 
           agent_type: AgentType defaults to CUSTOM when omitted.
 
@@ -154,6 +156,7 @@ class AgentsResource(SyncAPIResource):
         *,
         agent_type: Literal["CUSTOM", "CODING"] | Omit = omit,
         name: str | Omit = omit,
+        owner_id: Optional[str] | Omit = omit,
         source_type: Literal["LSD", "MDA", "EXTERNAL", "FLEET"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -162,18 +165,23 @@ class AgentsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Agent:
-        """Updates an Agent's name, source_type, or agent_type.
+        """Updates an Agent's name, source_type, agent_type, or owner_id.
 
-        Omitted fields keep their
-        values. Changing agent_type requires workspaces:manage in addition to project
-        update access; repeating the current type is a no-op. Source type can change
-        only for an EXTERNAL Agent without runtime bindings. The id is immutable and is
-        rejected when present. Requires update permission on every environment project.
+        Omitted fields
+        keep their values. Changing or clearing owner_id additionally requires
+        workspaces:manage; assigning an owner also requires workspaces:read and active
+        workspace membership. Fleet ownership cannot be changed through this endpoint.
+        Changing agent_type requires workspaces:manage in addition to project update
+        access; repeating the current type is a no-op. Source type can change only for
+        an EXTERNAL Agent without runtime bindings. The id is immutable and is rejected
+        when present. Requires update permission on every environment project.
 
         Args:
           agent_type: New classification. Omit to keep the current classification.
 
           name: New display name. Omit to keep the current name.
+
+          owner_id: Omit to leave the owner unchanged; null clears it.
 
           source_type: New runtime kind. Only EXTERNAL agents without runtime bindings can change kind.
 
@@ -193,6 +201,7 @@ class AgentsResource(SyncAPIResource):
                 {
                     "agent_type": agent_type,
                     "name": name,
+                    "owner_id": owner_id,
                     "source_type": source_type,
                 },
                 agent_update_params.AgentUpdateParams,
@@ -335,7 +344,7 @@ class AsyncAgentsResource(AsyncAPIResource):
         self,
         *,
         id: str,
-        source_type: Literal["LSD", "MDA", "EXTERNAL", "FLEET"],
+        source_type: Literal["LSD", "MDA", "EXTERNAL", "FLEET"] = "EXTERNAL",
         agent_type: Literal["CUSTOM", "CODING"] | Omit = omit,
         name: str | Omit = omit,
         production_only: bool | Omit = omit,
@@ -350,14 +359,15 @@ class AsyncAgentsResource(AsyncAPIResource):
 
         Returns 409 if the ID already
         exists. Creates all four environments unless production_only is set for a FLEET
-        agent. agent_type defaults to CUSTOM. Requires permission to create projects.
-        The response does not include runtime bindings.
+        agent. agent_type defaults to CUSTOM. The authenticated user becomes the owner
+        when available. Requires permission to create projects. The response does not
+        include runtime bindings.
 
         Args:
           id: Unique agent identifier: 1-63 lowercase letters, digits, or hyphens, starting
               with a letter and ending with a letter or digit.
 
-          source_type: Agent runtime kind. Use EXTERNAL for an application hosted outside LangSmith.
+          source_type: Agent runtime kind. Defaults to EXTERNAL for an application hosted outside LangSmith.
 
           agent_type: AgentType defaults to CUSTOM when omitted.
 
@@ -442,6 +452,7 @@ class AsyncAgentsResource(AsyncAPIResource):
         *,
         agent_type: Literal["CUSTOM", "CODING"] | Omit = omit,
         name: str | Omit = omit,
+        owner_id: Optional[str] | Omit = omit,
         source_type: Literal["LSD", "MDA", "EXTERNAL", "FLEET"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -450,18 +461,23 @@ class AsyncAgentsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Agent:
-        """Updates an Agent's name, source_type, or agent_type.
+        """Updates an Agent's name, source_type, agent_type, or owner_id.
 
-        Omitted fields keep their
-        values. Changing agent_type requires workspaces:manage in addition to project
-        update access; repeating the current type is a no-op. Source type can change
-        only for an EXTERNAL Agent without runtime bindings. The id is immutable and is
-        rejected when present. Requires update permission on every environment project.
+        Omitted fields
+        keep their values. Changing or clearing owner_id additionally requires
+        workspaces:manage; assigning an owner also requires workspaces:read and active
+        workspace membership. Fleet ownership cannot be changed through this endpoint.
+        Changing agent_type requires workspaces:manage in addition to project update
+        access; repeating the current type is a no-op. Source type can change only for
+        an EXTERNAL Agent without runtime bindings. The id is immutable and is rejected
+        when present. Requires update permission on every environment project.
 
         Args:
           agent_type: New classification. Omit to keep the current classification.
 
           name: New display name. Omit to keep the current name.
+
+          owner_id: Omit to leave the owner unchanged; null clears it.
 
           source_type: New runtime kind. Only EXTERNAL agents without runtime bindings can change kind.
 
@@ -481,6 +497,7 @@ class AsyncAgentsResource(AsyncAPIResource):
                 {
                     "agent_type": agent_type,
                     "name": name,
+                    "owner_id": owner_id,
                     "source_type": source_type,
                 },
                 agent_update_params.AgentUpdateParams,

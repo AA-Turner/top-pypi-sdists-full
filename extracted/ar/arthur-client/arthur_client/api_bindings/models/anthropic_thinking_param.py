@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.anthropic_thinking_block_binding import AnthropicThinkingBlockBinding
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -29,7 +30,8 @@ class AnthropicThinkingParam(BaseModel):
     type: Optional[StrictStr] = None
     budget_tokens: Optional[StrictInt] = None
     display: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["type", "budget_tokens", "display"]
+    block_binding: Optional[AnthropicThinkingBlockBinding] = None
+    __properties: ClassVar[List[str]] = ["type", "budget_tokens", "display", "block_binding"]
 
     @field_validator('type')
     def type_validate_enum(cls, value):
@@ -90,6 +92,9 @@ class AnthropicThinkingParam(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of block_binding
+        if self.block_binding:
+            _dict['block_binding'] = self.block_binding.to_dict()
         return _dict
 
     @classmethod
@@ -104,7 +109,8 @@ class AnthropicThinkingParam(BaseModel):
         _obj = cls.model_validate({
             "type": obj.get("type"),
             "budget_tokens": obj.get("budget_tokens"),
-            "display": obj.get("display")
+            "display": obj.get("display"),
+            "block_binding": AnthropicThinkingBlockBinding.from_dict(obj["block_binding"]) if obj.get("block_binding") is not None else None
         })
         return _obj
 

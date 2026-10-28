@@ -5,13 +5,12 @@ import string
 import sys
 import warnings
 from collections.abc import Callable
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Literal, TypeAlias, TypeGuard
 
-import jsonschema_rs
-
 from schemathesis.core.errors import InternalError
-from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS
+from schemathesis.core.jsonschema import pattern_matcher
 
 # Unicode property escape translations (PCRE/Java/JS -> Python approximations)
 # These cover Latin-based scripts which handle the majority of real-world APIs
@@ -245,6 +244,7 @@ def _serialize_range(low: int, high: int) -> str:
 
 
 _BRACE_HEX_DIGITS = re.compile(r"[0-9A-Fa-f]{1,6}\Z")
+_CLASS_ESCAPES = frozenset({r"\d", r"\D", r"\w", r"\W", r"\s", r"\S"})
 
 
 def _inline_unicode_in_classes(pattern: str) -> str | None:
@@ -252,6 +252,8 @@ def _inline_unicode_in_classes(pattern: str) -> str | None:
     out: list[str] = []
     i = 0
     in_class = False
+    # Length of `out` once the atom closing a range around a class escape is written; a hyphen right after it is literal.
+    range_end = -1
     n = len(pattern)
     while i < n:
         ch = pattern[i]
@@ -298,9 +300,10 @@ def _inline_unicode_in_classes(pattern: str) -> str | None:
                 out.append(f"\\u{code:04x}" if code <= 0xFFFF else f"\\U{code:08x}")
                 i = end + 1
                 continue
-            # Other escapes (`\[`, `\]`, `\\`, unknown `\p{Greek}`) pass through unchanged.
-            out.append(pattern[i : i + 2])
-            i += 2
+            # Other escapes (`\[`, `\]`, `\\`, unknown `\p{Greek}`) pass through unchanged, each as one atom.
+            width = 4 if next_ch == "x" else 6 if next_ch == "u" else 2
+            out.append(pattern[i : i + width])
+            i += width
             continue
         # These doubled characters are literals in ECMA classes, but Python warns that they may
         # become set operators. Escaping each member preserves the class while keeping compilation quiet.
@@ -324,6 +327,20 @@ def _inline_unicode_in_classes(pattern: str) -> str | None:
                 out.append(raw)
                 i = end + 2
                 continue
+        # ECMA reads a hyphen beside a class escape like `\w` as a literal, while Python refuses the range.
+        if (
+            in_class
+            and ch == "-"
+            and pattern[i + 1 : i + 2] != "]"
+            and (
+                (out and out[-1] in _CLASS_ESCAPES) or len(out) == range_end or pattern[i + 1 : i + 3] in _CLASS_ESCAPES
+            )
+        ):
+            if len(out) != range_end:
+                range_end = len(out) + 2
+            out.append(r"\-")
+            i += 1
+            continue
         if in_class and ch == "[":
             out.append(r"\[")
             i += 1
@@ -436,14 +453,9 @@ def normalize_regex(pattern: object) -> str | None:
 _POSIX_CLASS_RE = re.compile(r"\[\[:\^?[a-zA-Z]+:\]")
 
 
-@lru_cache(maxsize=256)
 def is_valid_jsonschema_rs_regex(pattern: str) -> bool:
     """Whether the engine behind validation and canonicalization can compile the pattern."""
-    try:
-        jsonschema_rs.Draft202012Validator({"pattern": pattern}, pattern_options=FANCY_REGEX_OPTIONS)
-        return True
-    except jsonschema_rs.ValidationError:
-        return False
+    return pattern_matcher(pattern) is not None
 
 
 def enforced_pattern(pattern: object) -> str | None:
@@ -1880,3 +1892,98 @@ def pin_pattern_length(pattern: str, min_length: int | None, max_length: int | N
         return updated
     except (re.error, InternalError):
         return pattern
+
+
+_CATEGORY_TEXT = {
+    sre.CATEGORY_DIGIT: r"\d",
+    sre.CATEGORY_NOT_DIGIT: r"\D",
+    sre.CATEGORY_SPACE: r"\s",
+    sre.CATEGORY_NOT_SPACE: r"\S",
+    sre.CATEGORY_WORD: r"\w",
+    sre.CATEGORY_NOT_WORD: r"\W",
+}
+
+
+def _single_char_text(node: _Node) -> str | None:
+    """Regex text for a node that matches exactly one character, or `None` for any other node."""
+    op, value = node
+    if op == LITERAL:
+        return re.escape(chr(value))
+    if op == NOT_LITERAL:
+        return f"[^{re.escape(chr(value))}]"
+    if op != IN:
+        return None
+    parts = []
+    for item_op, item in value:
+        if item_op == sre.NEGATE:
+            parts.append("^")
+        elif item_op == LITERAL:
+            parts.append(re.escape(chr(item)))
+        elif item_op == sre.RANGE:
+            parts.append(f"{re.escape(chr(item[0]))}-{re.escape(chr(item[1]))}")
+        else:
+            # ASCII patterns without flags hold only these four item kinds inside a class.
+            parts.append(_CATEGORY_TEXT[item])
+    return f"[{''.join(parts)}]"
+
+
+def _anywhere_char_text(assertion: _Node) -> str | None:
+    """The character class of a `(?=.*X)` / `(?!.*X)` body, or `None` for any other lookaround."""
+    direction, subpattern = assertion
+    nodes = list(subpattern)
+    if direction != 1 or len(nodes) != 2:
+        return None
+    (repeat_op, repeat), char = nodes
+    if repeat_op not in (sre.MIN_REPEAT, sre.MAX_REPEAT) or repeat[:2] != (0, MAXREPEAT):
+        return None
+    if list(repeat[2]) != [(sre.ANY, None)]:
+        return None
+    return _single_char_text(char)
+
+
+@dataclass(frozen=True)
+class CharacterRules:
+    """A pattern of the `^(?=.*[a-z])(?!.*[@])[a-zA-Z0-9]{m,n}$` shape, split into the characters it asks for."""
+
+    # Classes each match must hold at least one character of.
+    required: tuple[str, ...]
+    # Classes no character of a match may belong to.
+    forbidden: tuple[str, ...]
+    # The class every character comes from.
+    body: str
+    min_size: int
+    max_size: int | None
+
+
+@lru_cache(maxsize=256)
+def character_rules(pattern: str) -> CharacterRules | None:
+    """Split `pattern` into per-character rules, or `None` when it is not one class repeated behind lookaheads."""
+    nodes = _parse_regex(pattern) or []
+    if nodes and nodes[0] in ((sre.AT, sre.AT_BEGINNING), (sre.AT, sre.AT_BEGINNING_STRING)):
+        nodes = nodes[1:]
+    if nodes and nodes[-1] == (sre.AT, sre.AT_END_STRING):
+        nodes = nodes[:-1]
+    if len(nodes) < 2:
+        return None
+    *lookarounds, last = nodes
+    required: list[str] = []
+    forbidden: list[str] = []
+    for op, assertion in lookarounds:
+        text = _anywhere_char_text(assertion) if op in (sre.ASSERT, sre.ASSERT_NOT) else None
+        if text is None:
+            return None
+        (required if op == sre.ASSERT else forbidden).append(text)
+    op, value = last
+    if op not in (sre.MIN_REPEAT, sre.MAX_REPEAT) or len(value[2]) != 1:
+        return None
+    min_size, max_size, (char,) = value
+    body = _single_char_text(char)
+    if body is None:
+        return None
+    return CharacterRules(
+        required=tuple(required),
+        forbidden=tuple(forbidden),
+        body=body,
+        min_size=min_size,
+        max_size=None if max_size == MAXREPEAT else max_size,
+    )

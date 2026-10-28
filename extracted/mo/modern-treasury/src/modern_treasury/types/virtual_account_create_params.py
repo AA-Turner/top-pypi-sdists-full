@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Dict, Iterable, Optional
 from typing_extensions import Literal, Required, TypedDict
 
+from .shared_params.address_request import AddressRequest
 from .shared_params.ledger_account_create_request import LedgerAccountCreateRequest
 
 __all__ = ["VirtualAccountCreateParams", "AccountDetails", "AccountDetail", "RoutingDetails", "RoutingDetail"]
@@ -40,6 +41,9 @@ class VirtualAccountCreateParams(TypedDict, total=False):
     description: str
     """An optional description for internal use."""
 
+    external_id: Optional[str]
+    """A user-defined identifier for the virtual account."""
+
     ledger_account: LedgerAccountCreateRequest
     """Specifies a ledger account object that will be created with the virtual account.
 
@@ -56,6 +60,12 @@ class VirtualAccountCreateParams(TypedDict, total=False):
     Both the key and value must be strings.
     """
 
+    party_address: AddressRequest
+    """The address of the owner of the virtual account.
+
+    When absent, the internal account's party address is used.
+    """
+
     routing_details: Iterable[RoutingDetail]
     """An array of routing detail objects."""
 
@@ -68,7 +78,9 @@ class AccountDetail(TypedDict, total=False):
     """The account number for the bank account."""
 
     account_number_type: Literal[
+        "arbitrum_address",
         "au_number",
+        "avalanche_address",
         "base_address",
         "card_token",
         "clabe",
@@ -82,11 +94,11 @@ class AccountDetail(TypedDict, total=False):
         "polygon_address",
         "sg_number",
         "solana_address",
-        "wallet_address",
     ]
-    """One of `iban`, `clabe`, `wallet_address`, or `other`.
+    """The type of the account number.
 
-    Use `other` if the bank account number is in a generic format.
+    For wallet addresses, use the chain-specific type (e.g. `ethereum_address`). Use
+    `other` if the account number is in a generic format.
     """
 
 
@@ -122,6 +134,7 @@ class RoutingDetail(TypedDict, total=False):
             "se_bankgiro_clearing_code",
             "sg_interbank_clearing_code",
             "swift",
+            "vasp",
             "za_national_clearing_code",
         ]
     ]

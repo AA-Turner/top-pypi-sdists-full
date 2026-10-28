@@ -12,7 +12,7 @@ include(GNUInstallDirs)
 
 include(${CMAKE_CURRENT_LIST_DIR}/../cmake/epilogue.cmake)
 
-find_package(pybind11 REQUIRED)
+find_package(pybind11 3.1 REQUIRED)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../simpleble ${CMAKE_BINARY_DIR}/simpleble)
 
 pybind11_add_module(
@@ -21,10 +21,12 @@ pybind11_add_module(
     src/wrap_adapter.cpp
     src/wrap_backend.cpp
     src/wrap_advanced.cpp
+    src/wrap_local.cpp
     src/wrap_peripheral.cpp
     src/wrap_service.cpp
     src/wrap_characteristic.cpp
     src/wrap_descriptor.cpp
+    src/wrap_errors.cpp
     src/wrap_types.cpp
     src/wrap_config.cpp
     src/wrap_logging.cpp
@@ -37,9 +39,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT SIMPLEBLE_PLAIN)
     set(SIMPLEPYBLE_HAS_MACOS_ADVANCED 1)
 endif()
 
+set(SIMPLEPYBLE_HAS_LINUX_ADVANCED 0)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT SIMPLEBLE_PLAIN)
+    set(SIMPLEPYBLE_HAS_LINUX_ADVANCED 1)
+endif()
+
 target_compile_definitions(_simplepyble PRIVATE
     "-DSIMPLEPYBLE_VERSION=\"${SIMPLEPYBLE_VERSION}\""
-    SIMPLEPYBLE_HAS_MACOS_ADVANCED=${SIMPLEPYBLE_HAS_MACOS_ADVANCED})
+    SIMPLEPYBLE_HAS_MACOS_ADVANCED=${SIMPLEPYBLE_HAS_MACOS_ADVANCED}
+    SIMPLEPYBLE_HAS_LINUX_ADVANCED=${SIMPLEPYBLE_HAS_LINUX_ADVANCED})
 
 set_target_properties(
     _simplepyble PROPERTIES

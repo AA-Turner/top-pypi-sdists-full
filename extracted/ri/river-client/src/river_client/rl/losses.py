@@ -301,11 +301,29 @@ class _LossBinding:
             raise ValueError("max_importance_weight must be finite and positive")
         if any(not math.isfinite(v) or v < 0 for v in self.config.values()):
             raise ValueError("loss configuration values must be finite and nonnegative")
-        if self.requirements.unfiltered_sampling and (
-            engine.top_p != 1.0 or engine.top_k not in (-1, 0)
-        ):
+        filtered = engine.filtered_sampling
+        # Greedy rollouts draw one token with certainty: there is no sampling
+        # distribution to train on, built-in or custom (evaluation engines,
+        # which bind no loss, may still decode greedily).
+        if engine.top_k == 1:
+            raise ValueError(
+                "top_k=1 is greedy decoding; training losses need stochastic sampling"
+            )
+        if self.requirements.unfiltered_sampling and filtered:
             raise ValueError(
                 "this loss requires unfiltered sampling (top_p=1, top_k=-1 or 0)"
+            )
+        # A custom graph cannot rebuild the sampler's filter set, so its
+        # gradient would train the unfiltered policy instead of the sampled one.
+        if self.is_custom and filtered:
+            raise ValueError(
+                "CustomLoss requires unfiltered sampling (top_p=1, top_k=-1 or 0)"
+            )
+        # The proximal forward pass scores the unfiltered policy; exact
+        # filtered ratios would also need the proximal policy's mass.
+        if self.requires_proximal_forward and filtered:
+            raise ValueError(
+                "DecoupledPPO requires unfiltered sampling (top_p=1, top_k=-1 or 0)"
             )
         count = self.requirements.top_logprobs
         if count is not None:
@@ -320,6 +338,12 @@ class _LossBinding:
             engine.top_logprobs = count
         if not self.is_custom:
             self.config.setdefault("logprob_temperature", engine.temperature)
+            # Built-in losses differentiate the filtered policy the sampler
+            # drew from; the defaults (no filter) add no keys.
+            if engine.top_k > 0:
+                self.config["logprob_top_k"] = engine.top_k
+            if engine.top_p < 1.0:
+                self.config["logprob_top_p"] = engine.top_p
 
     def encode_metadata(self, data):
         if self.is_custom:

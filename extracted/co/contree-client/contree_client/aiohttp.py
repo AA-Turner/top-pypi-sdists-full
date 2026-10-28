@@ -203,7 +203,16 @@ class ContreeAsyncClient(base.ContreeAsyncClient):
                             {k.lower(): v for k, v in response.headers.items()},
                             body,
                         )
-                async for chunk in response.content.iter_chunked(CHUNK_SIZE):
+                source = response.content.iter_chunked(CHUNK_SIZE)
+                while True:
+                    timeout = remaining_timeout(spec.deadline, None)
+                    try:
+                        if timeout is None:
+                            chunk = await anext(source)
+                        else:
+                            chunk = await asyncio.wait_for(anext(source), timeout)
+                    except StopAsyncIteration:
+                        return
                     remaining_timeout(spec.deadline, None)
                     yield chunk
 

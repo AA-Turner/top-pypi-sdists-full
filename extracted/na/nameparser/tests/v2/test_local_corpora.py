@@ -21,6 +21,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import time
 import types
 import unicodedata
@@ -34,7 +35,13 @@ from typing import Any
 
 import pytest
 
-from ._differential_fixtures import _Response, load_tool, own_cache, plant_corpus
+from ._differential_fixtures import (
+    _Response,
+    checkout_copy,
+    load_tool,
+    own_cache,
+    plant_corpus,
+)
 
 local = load_tool("local_corpora")
 snapshot = load_tool("snapshot")
@@ -2112,7 +2119,7 @@ def test_a_nepal_corpus_holds_both_scripts_names_for_the_snapshot(
     assert local.load(_NEPAL).meta["names"] == 6
     assert snapshot.main(["--local", _NEPAL, "--record"]) == 0
     recorded = _own_cache / "local" / _NEPAL / "snapshot.jsonl"
-    assert len(recorded.read_text().splitlines()) == 6
+    assert snapshot.row_count(recorded.read_text()) == 6
 
 
 def test_a_nepal_name_keeps_its_vowel_signs_virama_and_joiners(
@@ -3661,9 +3668,10 @@ def test_the_pairs_view_counts_the_pairs_whose_spellings_share_a_surname() -> No
         ("PEDRO ALVES FH", "PEDRO ALVES FILHO"), ("ANA SOUZA", "ANA SOUZA"),
         ("ANA", "ANNA"), ("BO WU", "")),
         agreement=True)
-    # FH is too unlike FILHO to be its misspelling.
+    # FH is too unlike FILHO to be its misspelling, and both read as the
+    # agnomen since #843 listed the abbreviation, so the pair shares ALVES.
     assert found.agreement == {"words left out": (1, 1), "words shortened": (1, 1),
-                               "mostly the same words": (0, 1),
+                               "mostly the same words": (1, 1),
                                "words misspelled": (0, 1)}
     report = local.format_pairs(found, top=15)
     assert "(one surname in 0%)" in report
@@ -3727,15 +3735,15 @@ def test_snapshot_reads_a_local_corpus_against_its_own_snapshot(
         snapshot.main(["--local", _SOURCE])
     assert snapshot.main(["--local", _SOURCE, "--record"]) == 0
     recorded = _folder(tmp_path) / "snapshot.jsonl"
-    assert len(recorded.read_text().splitlines()) == 2
+    assert snapshot.row_count(recorded.read_text()) == 2
     assert snapshot.main(["--local", _SOURCE]) == 0
     assert "matches the snapshot" in capsys.readouterr().out
 
     # A reading that moved, as a change to the parser would move it.
-    rows = recorded.read_text().splitlines()
+    header, *rows = recorded.read_text().splitlines()
     row = json.loads(rows[0])
     row["family"] = "Moved"
-    recorded.write_text("\n".join([json.dumps(row)] + rows[1:]) + "\n")
+    recorded.write_text("\n".join([header, json.dumps(row)] + rows[1:]) + "\n")
     assert snapshot.main(["--local", _SOURCE]) == 1
     out = capsys.readouterr().out
     assert out.startswith("ClinicalTrials.gov (NLM) study officials, data as of")
@@ -3765,7 +3773,7 @@ def test_snapshot_records_a_local_snapshot_where_out_says(
     _fetched(monkeypatch, tmp_path)
     out = tmp_path / "elsewhere.jsonl"
     assert snapshot.main(["--local", _SOURCE, "--record", "--out", str(out)]) == 0
-    assert len(out.read_text().splitlines()) == 2
+    assert snapshot.row_count(out.read_text()) == 2
     assert json.loads((tmp_path / "elsewhere.jsonl.source.json").read_text())[
         "data_date"] == _DATE
     assert not (_folder(tmp_path) / "snapshot.jsonl").exists()
@@ -3843,7 +3851,8 @@ def test_a_local_snapshot_does_not_read_the_facade(
     folder = _fetched(monkeypatch, tmp_path, "Ph. D., John")
     assert "facade" in snapshot.read([("Ph. D., John", None)])[0]
     assert snapshot.main(["--local", _SOURCE, "--record"]) == 0
-    assert "facade" not in json.loads((folder / "snapshot.jsonl").read_text())
+    assert not any("facade" in r for r in snapshot.load(
+        (folder / "snapshot.jsonl").read_text()).values())
 
 
 def test_a_local_snapshot_recorded_with_the_facade_compares_without_it(
@@ -3853,7 +3862,7 @@ def test_a_local_snapshot_recorded_with_the_facade_compares_without_it(
     assert snapshot.main(["--local", _SOURCE, "--record"]) == 0
     recorded = folder / "snapshot.jsonl"
     rows = [json.loads(r) for r in recorded.read_text().splitlines()]
-    rows[0]["facade"] = {"last": "Elsewhere"}
+    rows[1]["facade"] = {"last": "Elsewhere"}  # rows[0] is the header
     recorded.write_text("".join(json.dumps(r) + "\n" for r in rows))
     capsys.readouterr()
     assert snapshot.main(["--local", _SOURCE]) == 0
@@ -3868,7 +3877,7 @@ def test_a_sample_reads_against_a_snapshot_of_its_own(
         capsys: pytest.CaptureFixture[str]) -> None:
     folder = _fetched(monkeypatch, tmp_path, *_MANY)
     assert snapshot.main(["--local", _SOURCE, "--record", "--sample", "3"]) == 0
-    kept = (folder / "snapshot.sample-3.jsonl").read_text().splitlines()
+    kept = snapshot.load((folder / "snapshot.sample-3.jsonl").read_text())
     assert 0 < len(kept) < len(_MANY)
     assert not (folder / "snapshot.jsonl").exists()
     capsys.readouterr()
@@ -3905,7 +3914,7 @@ def test_a_local_recording_and_check_run_in_workers(
     folder = _fetched(monkeypatch, tmp_path, *_MANY)
     monkeypatch.setattr(snapshot, "PARALLEL_FLOOR", 1)
     assert snapshot.main(["--local", _SOURCE, "--record", "--jobs", "2"]) == 0
-    serial = [json.loads(r) for r in (folder / "snapshot.jsonl").read_text().splitlines()]
+    serial = list(snapshot.load((folder / "snapshot.jsonl").read_text()).values())
     assert serial == snapshot.read([(n, None) for n in sorted(_MANY)], facade=False)
     capsys.readouterr()
     assert snapshot.main(["--local", _SOURCE, "--jobs", "2"]) == 0
@@ -4091,6 +4100,164 @@ def test_the_source_digest_follows_a_symlinked_subpackage(tmp_path: Path) -> Non
     assert digests[0] != digests[1]
 
 
+# -- snapshot.py --local --base -------------------------------------------------
+
+def _shared(folder: Path) -> dict[str, tuple[int, bytes]]:
+    """The shared snapshot's files beside a local corpus, as mtime and
+    bytes, for a check that --base left them alone."""
+    return {p.name: (p.stat().st_mtime_ns, p.read_bytes())
+            for p in sorted(folder.glob("snapshot*"))}
+
+
+def test_a_base_check_reports_a_change_planted_in_the_base_and_none_across_a_copy(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    # The harness must be able to report a difference: a base read from
+    # the head's tree by mistake would show no move across a planted one.
+    folder = _fetched(monkeypatch, tmp_path)
+    planted = checkout_copy(tmp_path / "planted", planted=True)
+    assert snapshot.main(["--local", _SOURCE, "--base", str(planted)]) == 1
+    out = capsys.readouterr().out
+    assert f"base: {planted.resolve()}, nameparser/ " in out and "recorded it now" in out
+    assert "2 entries differ from the base" in out
+    # The control: an unplanted copy is the head's package byte for byte.
+    copy = checkout_copy(tmp_path / "copy")
+    assert snapshot.main(["--local", _SOURCE, "--base", str(copy)]) == 0
+    out = capsys.readouterr().out
+    assert "matches the base" in out and "byte-identical" in out
+    assert len(_baselines(folder)) == 2
+
+
+def test_a_base_check_never_touches_the_shared_snapshot(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    folder = _fetched(monkeypatch, tmp_path)
+    base = checkout_copy(tmp_path / "base", planted=True)
+    assert snapshot.main(["--local", _SOURCE, "--base", str(base)]) == 1
+    assert not _shared(folder)  # none was there, and none was written
+    assert snapshot.main(["--local", _SOURCE, "--record"]) == 0
+    before = _shared(folder)
+    assert set(before) == {"snapshot.jsonl", "snapshot.jsonl.source.json"}
+    # A shared snapshot that would read as a move, ignored by --base.
+    (folder / "snapshot.jsonl").write_text("")
+    before = _shared(folder)
+    copy = checkout_copy(tmp_path / "copy")
+    assert snapshot.main(["--local", _SOURCE, "--base", str(copy)]) == 0
+    assert snapshot.main(["--local", _SOURCE, "--base", str(copy), "--sample", "2"]) == 0
+    assert _shared(folder) == before
+    assert not list((folder / "baselines").glob(".base-*"))  # the child's scratch is gone
+
+
+def test_a_kept_base_is_reused_without_reading_it_again(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    _fetched(monkeypatch, tmp_path)
+    base = checkout_copy(tmp_path / "base", planted=True)
+    assert snapshot.main(["--local", _SOURCE, "--base", str(base)]) == 1
+    capsys.readouterr()
+
+    def unrecorded(*args: object) -> None:
+        raise AssertionError("recorded the base again")
+    monkeypatch.setattr(snapshot, "_record_base", unrecorded)
+    assert snapshot.main(["--local", _SOURCE, "--base", str(base)]) == 1
+    out = capsys.readouterr().out
+    assert "reused the kept baseline" in out and "2 entries differ" in out
+    # An edit to the base keys it as another package, read again.
+    (base / "nameparser" / "_edited.py").write_text("")
+    with pytest.raises(AssertionError, match="recorded the base again"):
+        snapshot.main(["--local", _SOURCE, "--base", str(base)])
+
+
+def test_a_base_check_composes_with_a_sample(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    folder = _fetched(monkeypatch, tmp_path, *(f"Ann Lee{n}, MD" for n in range(12)))
+    base = checkout_copy(tmp_path / "base", planted=True)
+    assert snapshot.main(["--local", _SOURCE, "--base", str(base), "--sample", "2"]) == 1
+    out = capsys.readouterr().out
+    held = int(re.search(r"a 1-in-2 sample: (\d+) of 12 entries", out)[1])  # type: ignore[index]
+    assert 0 < held < 12 and f"{held} entries differ from the base" in out
+    [kept] = _baselines(folder)
+    assert kept.name.endswith("-sample-2.jsonl.gz")
+
+
+def test_a_base_that_is_the_tree_read_or_no_checkout_is_refused(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _fetched(monkeypatch, tmp_path)
+    with pytest.raises(SystemExit, match="is the tree being read"):
+        snapshot.main(["--local", _SOURCE, "--base", str(snapshot.REPO_ROOT)])
+    other = checkout_copy(tmp_path / "other")
+    with pytest.raises(SystemExit, match="is the tree being read"):
+        snapshot.main(["--local", _SOURCE, "--base", str(other), "--tree", str(other)])
+    with pytest.raises(SystemExit, match="no nameparser package"):
+        snapshot.main(["--local", _SOURCE, "--base", str(tmp_path / "empty")])
+    assert not _baselines(_folder(tmp_path))
+
+
+def test_a_base_whose_import_fails_is_refused_with_the_childs_output(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _fetched(monkeypatch, tmp_path)
+    base = checkout_copy(tmp_path / "base")
+    with open(base / "nameparser" / "__init__.py", "a", encoding="utf-8") as f:
+        f.write("\nraise ImportError('planted')\n")
+    with pytest.raises(SystemExit, match="(?s)recording the base .* failed.*planted"):
+        snapshot.main(["--local", _SOURCE, "--base", str(base)])
+    assert not _baselines(_folder(tmp_path))
+
+
+def test_a_base_child_is_started_without_the_import_path_overrides(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # A unit check, not an end-to-end one: --tree's sys.path entry already
+    # outranks a PYTHONPATH entry in the child, so no decoy can show the
+    # strip; it is kept as compare.py's worker keeps it, against an
+    # import made before the insert.
+    monkeypatch.setenv("PYTHONPATH", "/decoy")
+    monkeypatch.setenv("PYTHONHOME", "/decoy")
+    env = snapshot.child_env()
+    assert "PYTHONPATH" not in env and "PYTHONHOME" not in env and env
+
+
+def test_a_kept_baseline_another_run_pruned_is_read_as_none_kept(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    # Pruned between a lookup and the open, it is not damage to delete:
+    # read as damage, its unlink raised on the file already gone.
+    kept = tmp_path / "gone.jsonl.gz"
+    with gzip.open(kept, "wt", encoding="utf-8") as f:
+        f.write("{}\n{}\n")
+    real_open = gzip.open
+
+    def pruned_first(path: Path, mode: str, encoding: str) -> object:
+        Path(path).unlink()
+        return real_open(path, mode, encoding=encoding)
+    monkeypatch.setattr(snapshot.gzip, "open", pruned_first)
+    assert snapshot._reused(kept, 2) is None
+    assert "deleted the kept baseline" not in capsys.readouterr().out
+
+
+def test_a_scratch_folder_a_killed_run_left_is_swept_once_stale(tmp_path: Path) -> None:
+    stale, fresh = snapshot.scratch(tmp_path), snapshot.scratch(tmp_path)
+    (stale / "base.jsonl").write_text("x\n")
+    os.utime(stale, (1_000_000, 1_000_000))
+    snapshot._prune(tmp_path)
+    assert not stale.exists() and fresh.exists()
+
+
+@pytest.mark.parametrize("extra", [["--record"], ["--out", "x.jsonl"]])
+def test_a_base_check_refuses_to_record(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str], extra: list[str]) -> None:
+    _fetched(monkeypatch, tmp_path)
+    with pytest.raises(SystemExit) as raised:
+        snapshot.main(["--local", _SOURCE, "--base", str(tmp_path), *extra])
+    assert raised.value.code == 2 and "--base compares" in capsys.readouterr().err
+
+
+def test_a_base_check_needs_a_local_corpus(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as raised:
+        snapshot.main(["--base", "."])
+    assert raised.value.code == 2 and "--base reads a local corpus" in capsys.readouterr().err
+
+
 def test_a_baseline_another_run_pruned_is_not_reported_as_unkept(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
         capsys: pytest.CaptureFixture[str]) -> None:
@@ -4104,3 +4271,228 @@ def test_a_baseline_another_run_pruned_is_not_reported_as_unkept(
     monkeypatch.setattr(snapshot, "_mtime", vanished)
     assert snapshot.main(["--local", _SOURCE, "--record"]) == 0
     assert "not kept" not in capsys.readouterr().out
+
+
+# -- the views in workers, and alike against a base ----------------------------------
+
+#: Two pairs that read alike and one that does not (a title on one side).
+_NEPAL_RECORDS = [{"name": "Ram Thapa", "devanagari": "राम थापा"},
+                  {"name": "Sita Kumari Rai", "devanagari": "सीता कुमारी राई"},
+                  {"name": "Dr Hari Shrestha", "devanagari": "हरि श्रेष्ठ"}]
+
+
+def _spelled(*spellings: tuple[str, str]) -> object:
+    """A jrc-names corpus holding each (entity, name) of `spellings`."""
+    return local.Local(local.JRC, {}, [{"entity": e, "name": n, "script": "Latin"}
+                                       for e, n in spellings])
+
+
+def _by_name_snapshot() -> types.ModuleType:
+    """The snapshot module local_corpora imports by its bare name, whose
+    PARALLEL_FLOOR decides whether a view reads in workers."""
+    return importlib.import_module("snapshot")
+
+
+def _nepal(monkeypatch: pytest.MonkeyPatch, records: list[dict[str, str]] = _NEPAL_RECORDS
+           ) -> None:
+    # The election pinned as the real source pins it: a --base child
+    # loads the corpus under the real Source and its check.
+    plant_corpus(monkeypatch, local, _NEPAL, records, "2026-10-24", "name pairs",
+                 {"election": importlib.import_module("local_nepal").NEPAL_ELECTION})
+
+
+def test_each_source_that_pairs_spellings_has_an_alike_kind() -> None:
+    entity = _spelled(("1", "Ann Lee"), ("1", "Анна Ли"))
+    assert local.alike_kind(entity) == "entity"
+    assert local.alike_kind(local.Local(_NEPAL, {}, _NEPAL_RECORDS)) == "devanagari"
+    assert local.alike_kind(_paired(("ANA SILVA", "ANA DA SILVA"))) == "registry"
+    with pytest.raises(local.Ungroupable, match="pair no two spellings"):
+        local.alike_kind(local.Local(_SOURCE, {}, [{"name": "Ann Lee"}]))
+
+
+def test_alike_reads_each_kind_of_pair() -> None:
+    # A person read alike and one read apart, of each kind; a person
+    # spelled once and a pair spelled the same are no one's to count.
+    entity = local.alike_flags(_spelled(("1", "Ann Lee"), ("1", "Анна Ли"),
+                                        ("2", "Dr. Bo Wu"), ("2", "Bo Wu"), ("3", "Cy Fox")))
+    assert entity == {"1": True, "2": False}
+    assert local.alike_flags(local.Local(_NEPAL, {}, _NEPAL_RECORDS)) == {
+        "0": True, "1": True, "2": False}
+    registry = local.alike_flags(_paired(("ANA SILVA", "ANA DA SILVA"),
+                                         ("ANA SILVA", "ANA SOUZA"), ("BO WU", "BO WU"),
+                                         ("CY FOX", "")))
+    assert registry == {"0": True, "1": False}
+    # A pair with no second spelling is no one's to count, either way.
+    blank = local.alike_flags(local.Local(_NEPAL, {}, [*_NEPAL_RECORDS,
+                                                       {"name": "Ram Rai", "devanagari": " "}]))
+    assert set(blank) == {"0", "1", "2"}
+
+
+def test_the_views_read_in_workers_as_they_read_in_process(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    grouped = _spelled(("1", "Ann Lee"), ("1", "Анна Ли"), ("2", "Dr. Bo Wu"), ("2", "Bo Wu"))
+    paired = _paired(("ANA SILVA", "ANA DA SILVA"), ("ANA SILVA", "ANA SOUZA"),
+                     ("JOSÉ SILVA RÁ", "JOSE SILVA RA"))
+    nepal = local.Local(_NEPAL, {}, _NEPAL_RECORDS)
+    serial = (local.group_counts(grouped), local.pair_counts(paired, agreement=True),
+              local.alike_flags(grouped), local.alike_flags(paired), local.alike_flags(nepal))
+    monkeypatch.setattr(_by_name_snapshot(), "PARALLEL_FLOOR", 1)
+    assert (local.group_counts(grouped, jobs=2), local.pair_counts(paired, agreement=True, jobs=2),
+            local.alike_flags(grouped, jobs=2), local.alike_flags(paired, jobs=2),
+            local.alike_flags(nepal, jobs=2)) == serial
+
+
+def test_a_view_whose_worker_read_another_nameparser_aborts(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # The negative control for snapshot.parallel's check, through a view:
+    # the workers import the real package, so a parent that believes it
+    # imported another sees every chunk come back from elsewhere.
+    import nameparser
+    monkeypatch.setattr(_by_name_snapshot(), "PARALLEL_FLOOR", 1)
+    monkeypatch.setattr(nameparser, "__file__", "/elsewhere/nameparser/__init__.py")
+    with pytest.raises(SystemExit, match="a worker imported nameparser from"):
+        local.alike_flags(local.Local(_NEPAL, {}, _NEPAL_RECORDS), jobs=2)
+
+
+def _alike_kept(cache: Path) -> list[Path]:
+    return sorted((cache / "local" / _NEPAL / local.ALIKE_KEPT).glob("*.json"))
+
+
+def test_alike_against_a_planted_base_reports_moves_and_none_across_a_copy(
+        monkeypatch: pytest.MonkeyPatch, _own_cache: Path, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    # The harness must be able to report a difference: a base read with
+    # the head's tree by mistake would show no move across a planted one.
+    _nepal(monkeypatch)
+    planted = checkout_copy(tmp_path / "planted", planted=True)
+    assert local.main(["alike", _NEPAL, "--base", str(planted)]) == 1
+    out = capsys.readouterr().out
+    assert f"base: {planted.resolve()}, nameparser/ " in out and "read it now" in out
+    assert "2 of 3 pairs read alike" in out
+    assert "0 pairs now alike, 0 now apart" not in out
+    for record in _NEPAL_RECORDS:  # counts only
+        assert record["name"] not in out and record["devanagari"] not in out
+    copy = checkout_copy(tmp_path / "copy")
+    assert local.main(["alike", _NEPAL, "--base", str(copy)]) == 0
+    out = capsys.readouterr().out
+    assert "0 pairs now alike, 0 now apart" in out and "byte-identical" in out
+    assert len(_alike_kept(_own_cache)) == 2
+
+
+def test_a_kept_base_is_reused_and_a_damaged_one_read_again(
+        monkeypatch: pytest.MonkeyPatch, _own_cache: Path, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    _nepal(monkeypatch)
+    base = checkout_copy(tmp_path / "base", planted=True)
+    assert local.main(["alike", _NEPAL, "--base", str(base)]) == 1
+    [kept] = _alike_kept(_own_cache)
+    recorded = kept.read_bytes()
+    capsys.readouterr()
+    real = local._alike_base
+
+    def unread(*args: object) -> None:
+        raise AssertionError("read the base again")
+    monkeypatch.setattr(local, "_alike_base", unread)
+    assert local.main(["alike", _NEPAL, "--base", str(base)]) == 1
+    assert "reused the kept flags" in capsys.readouterr().out
+    body = json.loads(recorded)
+    for damage in ("not json", json.dumps({**body, "count": body["count"] + 1}),
+                   json.dumps({**body, "flags": {k: 1 for k in body["flags"]}}),
+                   json.dumps({**body, "flags": list(body["flags"])}),
+                   json.dumps({**body, "raw_sha256": "0" * 64}),
+                   json.dumps({**body, "code": "another"})):
+        kept.write_text(damage)
+        with pytest.raises(AssertionError, match="read the base again"):
+            local.main(["alike", _NEPAL, "--base", str(base)])
+        assert "deleted the kept flags" in capsys.readouterr().out
+        monkeypatch.setattr(local, "_alike_base", real)
+        assert local.main(["alike", _NEPAL, "--base", str(base)]) == 1
+        assert kept.read_bytes() == recorded
+        assert not list(kept.parent.glob(".base-*"))  # the child's scratch is gone
+        monkeypatch.setattr(local, "_alike_base", unread)
+
+
+def test_a_base_that_changed_while_it_was_read_keeps_no_flags(
+        monkeypatch: pytest.MonkeyPatch, _own_cache: Path, tmp_path: Path) -> None:
+    _nepal(monkeypatch)
+    base = checkout_copy(tmp_path / "base", planted=True)
+    answers = ["a" * 64, "b" * 64]
+    published: list[bool] = []
+
+    def digest(root: Path) -> str:
+        if not answers:
+            return "c" * 64
+        if len(answers) == 1:  # the check after the read: nothing kept yet
+            published.append(bool(_alike_kept(_own_cache)))
+        return answers.pop(0)
+    monkeypatch.setattr(_by_name_snapshot(), "_source_digest", digest)
+    with pytest.raises(SystemExit, match="changed while it was read"):
+        local.main(["alike", _NEPAL, "--base", str(base)])
+    assert published == [False]
+    assert not _alike_kept(_own_cache)
+    assert not list((_own_cache / "local" / _NEPAL / local.ALIKE_KEPT).glob(".base-*"))
+
+
+def test_alike_refuses_a_tree_it_did_not_import_and_a_base_with_no_package(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _nepal(monkeypatch)
+    monkeypatch.setattr(sys, "path", list(sys.path))  # --tree puts the tree on it
+    with pytest.raises(SystemExit, match="not from the source package"):
+        local.main(["alike", _NEPAL, "--tree", str(tmp_path)])
+    with pytest.raises(SystemExit, match="no nameparser package"):
+        local.main(["alike", _NEPAL, "--base", str(tmp_path)])
+
+
+def test_an_alike_base_whose_import_fails_is_refused_with_the_childs_output(
+        monkeypatch: pytest.MonkeyPatch, _own_cache: Path, tmp_path: Path) -> None:
+    _nepal(monkeypatch)
+    base = checkout_copy(tmp_path / "base")
+    with open(base / "nameparser" / "__init__.py", "a", encoding="utf-8") as f:
+        f.write("\nraise ImportError('planted')\n")
+    with pytest.raises(SystemExit, match="(?s)reading the base .* failed.*planted"):
+        local.main(["alike", _NEPAL, "--base", str(base)])
+    assert not _alike_kept(_own_cache)
+
+
+
+
+def test_the_alike_key_lists_everything_its_functions_call_and_read() -> None:
+    # _ALIKE_CODE is kept by hand, as _FOLD_CODE is: a helper the view
+    # starts calling left off it leaves a kept base's key unmoved by a
+    # change to that helper, and the base reads as the old code read it.
+    import inspect
+    module = vars(local)
+    read = set().union(*(_globals_read(inspect.unwrap(module[name]).__code__)
+                         for name in local._ALIKE_CODE))
+    unlisted = set()
+    for name in read & module.keys():
+        value = module[name]
+        if isinstance(value, types.ModuleType) or name.startswith("__"):
+            continue
+        if getattr(value, "__module__", None) != local.__name__ and not name.isupper() \
+                and not name.startswith("_"):
+            continue  # imported: Counter
+        if name in (*local._ALIKE_CODE, *local._ALIKE_CONSTANTS, "Reading", "_Read",
+                    "Ungroupable"):
+            continue
+        unlisted.add(name)
+    assert unlisted == set()
+
+
+@pytest.mark.parametrize("change", [*local._ALIKE_CODE, *local._ALIKE_CONSTANTS])
+def test_each_thing_the_alike_key_lists_moves_it(monkeypatch: pytest.MonkeyPatch,
+                                                 change: str) -> None:
+    before = local.alike_fingerprint()
+    monkeypatch.setattr(local, change, _another(change))
+    assert local.alike_fingerprint() != before
+
+
+def test_alike_against_a_base_counts_each_direction_apart() -> None:
+    nepal = local.Local(_NEPAL, {}, _NEPAL_RECORDS)
+    assert local.format_alike(nepal, {"0": True, "1": True}, {"0": False, "1": True}) == [
+        "2 of 2 pairs read alike (1 in the base)", "1 pairs now alike, 0 now apart"]
+    assert local.format_alike(nepal, {"0": False, "1": True}, {"0": True, "1": True}) == [
+        "1 of 2 pairs read alike (2 in the base)", "0 pairs now alike, 1 now apart"]
+    assert local.format_alike(nepal, {"0": True}) == ["1 of 1 pairs read alike"]
+    with pytest.raises(SystemExit, match="other persons"):
+        local.format_alike(nepal, {"0": True, "1": True}, {"0": True})

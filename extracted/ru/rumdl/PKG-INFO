@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.3.0
+Version: 0.3.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -21,7 +21,6 @@ License-File: LICENSE
 Summary: A fast Markdown linter and formatter written in Rust
 Home-Page: https://rumdl.dev
 Author-email: "Ruben J. Jongejan" <ruben.jongejan@gmail.com>
-License: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Documentation, https://rumdl.dev
@@ -100,7 +99,7 @@ caching, and editor integration in a single tool.
 It offers:
 
 - ⚡️ **Built for fast feedback** with a native Rust binary and result caching
-- 🔍 **<!-- RULE_COUNT -->89<!-- /RULE_COUNT --> lint rules** covering common Markdown issues
+- 🔍 **<!-- RULE_COUNT -->90<!-- /RULE_COUNT --> lint rules** covering common Markdown issues
 - 🛠️ **Automatic formatting** with `--fix` for files and stdin/stdout
 - 🦀 **[Rust doc comments](https://rumdl.dev/rust-doc-comments/)** - lint and fix the Markdown in `///` and `//!` comments
 - 📦 **Zero dependencies** - single binary with no runtime requirements
@@ -151,6 +150,7 @@ With intelligent caching, subsequent runs are even faster - rumdl only re-lints 
 - [Command-line Interface](#command-line-interface)
   - [Commands](#commands)
     - [`check [PATHS...]`](#check-paths)
+    - [`check-assets`](#check-assets)
     - [`fmt [PATHS...]`](#fmt-paths)
     - [`init [OPTIONS]`](#init-options)
     - [`import <FILE> [OPTIONS]`](#import-file-options)
@@ -257,7 +257,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.3.0
+mise use rumdl@0.3.1
 ```
 
 ### Using Nix (macOS/Linux)
@@ -489,7 +489,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: rumdl      # Lint only; add args [--fix] to auto-fix
       - id: rumdl-fmt  # Pure format, exits 0 on violations
@@ -505,7 +505,7 @@ This mirrors the `ruff` + `ruff-format` split: the linter hook reports by defaul
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: rumdl
         args: [--fix]  # Auto-fix violations in place
@@ -522,7 +522,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -622,7 +622,7 @@ rumdl is also embedded out of the box in [MegaLinter](https://megalinter.io/), a
 
 ## Rules
 
-rumdl implements <!-- RULE_COUNT -->89<!-- /RULE_COUNT --> lint rules for Markdown files. Here are some key rule categories:
+rumdl implements <!-- RULE_COUNT -->90<!-- /RULE_COUNT --> lint rules for Markdown files. Here are some key rule categories:
 
 | Category       | Description                              | Example Rules       |
 | -------------- | ---------------------------------------- | ------------------- |
@@ -724,6 +724,18 @@ Lint Markdown files and print warnings/errors (main subcommand)
 - `--stdin-batch`: Read repeated UTF-8 `path\0content\0` pairs from stdin
 - `--stdin-batch-closed-world`: Resolve relative links only within the supplied batch
 - `--stdin-batch-targets <FILE>`: Read NUL-terminated paths that exist as link targets but are not linted
+
+#### `check-assets`
+
+Find assets unreferenced in complete Markdown source directories without modifying files:
+
+```bash
+rumdl check-assets --root docs --source docs --assets docs/images
+```
+
+Use `--keep` for assets referenced outside Markdown, such as images used by CSS
+or templates. See [the asset scan documentation](docs/check-assets.md) for
+scan boundaries, reference handling, include/keep globs, and JSON output.
 
 #### `fmt [PATHS...]`
 

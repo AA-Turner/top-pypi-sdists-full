@@ -34,6 +34,7 @@ urlpatterns = [
     path("favicon.ico", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "favicon.ico"}),
     path("docs/", RedirectView.as_view(url="https://github.com/ArchiveBox/ArchiveBox/wiki"), name="Docs"),
     *agent_urlpatterns,
+    path("admin/importers/", include("archivebox.importers.urls")),
     path("public/search-stream/", public_snapshot_search_stream_view, name="public-search-stream"),
     path("public/", PublicIndexView.as_view(), name="public-index"),
     path("public.html", RedirectView.as_view(url="/public/"), name="public-index-html"),
@@ -69,6 +70,8 @@ urlpatterns = [
     path("accounts/login/", RedirectView.as_view(url="/admin/login/", query_string=True)),
     path("accounts/logout/", RedirectView.as_view(url="/admin/logout/", query_string=True)),
     path("accounts/", include("django.contrib.auth.urls")),
+    # Polling contract: read-only DB/cache, <100 ms, no archive/persona file I/O
+    # or reconciliation. Keep this route on the shared live_progress_view.
     path("progress.json", live_progress_view, name="live_progress"),
     path("admin/", archivebox_admin.urls),
     path("api/", include("archivebox.api.urls"), name="api"),

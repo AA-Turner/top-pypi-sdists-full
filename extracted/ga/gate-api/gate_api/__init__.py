@@ -14,7 +14,7 @@
 
 from __future__ import absolute_import
 
-__version__ = "7.2.161"
+__version__ = "7.2.167"
 
 # import apis into sdk package
 from gate_api.api.activity_api import ActivityApi
@@ -36,6 +36,7 @@ from gate_api.api.delivery_api import DeliveryApi
 from gate_api.api.earn_api import EarnApi
 from gate_api.api.flash_swap_api import FlashSwapApi
 from gate_api.api.futures_api import FuturesApi
+from gate_api.api.launch_api import LaunchApi
 from gate_api.api.margin_api import MarginApi
 from gate_api.api.multi_collateral_loan_api import MultiCollateralLoanApi
 from gate_api.api.options_api import OptionsApi
@@ -56,10 +57,16 @@ from gate_api.exceptions import ApiValueError
 from gate_api.exceptions import ApiKeyError
 from gate_api.exceptions import ApiException
 # import models into sdk package
+from gate_api.models.ai_hub_contract_martingale_configuration import AIHubContractMartingaleConfiguration
 from gate_api.models.ai_hub_create_data import AIHubCreateData
 from gate_api.models.ai_hub_create_success_response import AIHubCreateSuccessResponse
 from gate_api.models.ai_hub_discover_data import AIHubDiscoverData
 from gate_api.models.ai_hub_discover_success_response import AIHubDiscoverSuccessResponse
+from gate_api.models.ai_hub_futures_combo_asset import AIHubFuturesComboAsset
+from gate_api.models.ai_hub_futures_combo_create_params import AIHubFuturesComboCreateParams
+from gate_api.models.ai_hub_futures_combo_create_request import AIHubFuturesComboCreateRequest
+from gate_api.models.ai_hub_martingale_price_rule import AIHubMartingalePriceRule
+from gate_api.models.ai_hub_portfolio_asset_position import AIHubPortfolioAssetPosition
 from gate_api.models.ai_hub_portfolio_base_info import AIHubPortfolioBaseInfo
 from gate_api.models.ai_hub_portfolio_detail_data import AIHubPortfolioDetailData
 from gate_api.models.ai_hub_portfolio_detail_success_response import AIHubPortfolioDetailSuccessResponse
@@ -71,7 +78,13 @@ from gate_api.models.ai_hub_portfolio_running_success_response import AIHubPortf
 from gate_api.models.ai_hub_portfolio_stop_data import AIHubPortfolioStopData
 from gate_api.models.ai_hub_portfolio_stop_request import AIHubPortfolioStopRequest
 from gate_api.models.ai_hub_portfolio_stop_success_response import AIHubPortfolioStopSuccessResponse
+from gate_api.models.ai_hub_rebalance_asset import AIHubRebalanceAsset
+from gate_api.models.ai_hub_rebalance_create_params import AIHubRebalanceCreateParams
+from gate_api.models.ai_hub_rebalance_create_request import AIHubRebalanceCreateRequest
+from gate_api.models.ai_hub_rebalance_stop_options import AIHubRebalanceStopOptions
 from gate_api.models.ai_hub_recommendation import AIHubRecommendation
+from gate_api.models.ai_hub_spot_martingale_configuration import AIHubSpotMartingaleConfiguration
+from gate_api.models.ai_hub_stop_progress import AIHubStopProgress
 from gate_api.models.account_balance import AccountBalance
 from gate_api.models.account_book_response import AccountBookResponse
 from gate_api.models.account_detail import AccountDetail
@@ -148,6 +161,17 @@ from gate_api.models.broker_transaction_history import BrokerTransactionHistory
 from gate_api.models.cancel_batch_order import CancelBatchOrder
 from gate_api.models.cancel_order import CancelOrder
 from gate_api.models.cancel_order_result import CancelOrderResult
+from gate_api.models.candy_drop_v4_activity_cd01 import CandyDropV4ActivityCd01
+from gate_api.models.candy_drop_v4_activity_rules_cd03 import CandyDropV4ActivityRulesCd03
+from gate_api.models.candy_drop_v4_airdrop_record_cd06 import CandyDropV4AirdropRecordCd06
+from gate_api.models.candy_drop_v4_error_cd01 import CandyDropV4ErrorCd01
+from gate_api.models.candy_drop_v4_participation_record_cd05 import CandyDropV4ParticipationRecordCd05
+from gate_api.models.candy_drop_v4_prize_pool_cd03 import CandyDropV4PrizePoolCd03
+from gate_api.models.candy_drop_v4_register_req_cd02 import CandyDropV4RegisterReqCd02
+from gate_api.models.candy_drop_v4_register_resp_cd02 import CandyDropV4RegisterRespCd02
+from gate_api.models.candy_drop_v4_task_cd03 import CandyDropV4TaskCd03
+from gate_api.models.candy_drop_v4_task_progress_cd04 import CandyDropV4TaskProgressCd04
+from gate_api.models.candy_drop_v4_task_progress_item_cd04 import CandyDropV4TaskProgressItemCd04
 from gate_api.models.categories import Categories
 from gate_api.models.categories_data import CategoriesData
 from gate_api.models.categories_data_list import CategoriesDataList
@@ -179,6 +203,7 @@ from gate_api.models.convert_small_balance import ConvertSmallBalance
 from gate_api.models.countdown_cancel_all_futures_task import CountdownCancelAllFuturesTask
 from gate_api.models.countdown_cancel_all_options_task import CountdownCancelAllOptionsTask
 from gate_api.models.countdown_cancel_all_spot_task import CountdownCancelAllSpotTask
+from gate_api.models.coupon_detail_extra_item import CouponDetailExtraItem
 from gate_api.models.create_chase_order_req import CreateChaseOrderReq
 from gate_api.models.create_chase_order_resp import CreateChaseOrderResp
 from gate_api.models.create_earn_fixed_term_lend_response import CreateEarnFixedTermLendResponse
@@ -189,6 +214,7 @@ from gate_api.models.create_order import CreateOrder
 from gate_api.models.create_order2 import CreateOrder2
 from gate_api.models.create_order2_data import CreateOrder2Data
 from gate_api.models.create_order_detail import CreateOrderDetail
+from gate_api.models.create_order_v4 import CreateOrderV4
 from gate_api.models.create_param import CreateParam
 from gate_api.models.create_trail_order import CreateTrailOrder
 from gate_api.models.create_trail_order_response import CreateTrailOrderResponse
@@ -376,6 +402,12 @@ from gate_api.models.get_transaction_details_request import GetTransactionDetail
 from gate_api.models.get_user_coupon_detail_response import GetUserCouponDetailResponse
 from gate_api.models.get_user_coupon_detail_response_data import GetUserCouponDetailResponseData
 from gate_api.models.get_user_identity_error import GetUserIdentityError
+from gate_api.models.hodler_airdrop_v4_error_response import HodlerAirdropV4ErrorResponse
+from gate_api.models.hodler_airdrop_v4_order_request import HodlerAirdropV4OrderRequest
+from gate_api.models.hodler_airdrop_v4_order_response import HodlerAirdropV4OrderResponse
+from gate_api.models.hodler_airdrop_v4_project_item import HodlerAirdropV4ProjectItem
+from gate_api.models.hodler_airdrop_v4_user_airdrop_record import HodlerAirdropV4UserAirdropRecord
+from gate_api.models.hodler_airdrop_v4_user_order_record import HodlerAirdropV4UserOrderRecord
 from gate_api.models.i18n_txt import I18nTxt
 from gate_api.models.index_constituent import IndexConstituent
 from gate_api.models.infinite_grid_create_params import InfiniteGridCreateParams
@@ -388,6 +420,12 @@ from gate_api.models.klines import Klines
 from gate_api.models.klines_data import KlinesData
 from gate_api.models.klines_data_list import KlinesDataList
 from gate_api.models.ladder_apr import LadderApr
+from gate_api.models.launch_pool_v4_create_order_response import LaunchPoolV4CreateOrderResponse
+from gate_api.models.launch_pool_v4_error_response import LaunchPoolV4ErrorResponse
+from gate_api.models.launch_pool_v4_pledge_record import LaunchPoolV4PledgeRecord
+from gate_api.models.launch_pool_v4_project import LaunchPoolV4Project
+from gate_api.models.launch_pool_v4_reward_pool import LaunchPoolV4RewardPool
+from gate_api.models.launch_pool_v4_reward_record import LaunchPoolV4RewardRecord
 from gate_api.models.ledger_record import LedgerRecord
 from gate_api.models.leverage_failed_currencies import LeverageFailedCurrencies
 from gate_api.models.liquidate_order import LiquidateOrder
@@ -630,6 +668,8 @@ from gate_api.models.rebate_user_info import RebateUserInfo
 from gate_api.models.recommend import Recommend
 from gate_api.models.recommend_v2_scheme import RecommendV2Scheme
 from gate_api.models.recommend_v2_strategy import RecommendV2Strategy
+from gate_api.models.redeem_launch_pool_response import RedeemLaunchPoolResponse
+from gate_api.models.redeem_v4 import RedeemV4
 from gate_api.models.repay_currency_res import RepayCurrencyRes
 from gate_api.models.repay_multi_loan import RepayMultiLoan
 from gate_api.models.repay_record_currency import RepayRecordCurrency
@@ -720,6 +760,7 @@ from gate_api.models.trail_order_change_log_response import TrailOrderChangeLogR
 from gate_api.models.trail_order_detail_response import TrailOrderDetailResponse
 from gate_api.models.trail_order_list_response import TrailOrderListResponse
 from gate_api.models.trail_order_response import TrailOrderResponse
+from gate_api.models.transaction_config import TransactionConfig
 from gate_api.models.transaction_id import TransactionID
 from gate_api.models.transaction_item import TransactionItem
 from gate_api.models.transaction_list import TransactionList

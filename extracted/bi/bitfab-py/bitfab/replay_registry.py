@@ -313,13 +313,19 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--code-change",
-        metavar="working-tree|last-branch|default-branch|skip|manual",
+        metavar="working-tree|last-branch|default-branch|ref|skip|manual",
         help=(
             "Required: the code change this run tests. working-tree is the "
             "uncommitted changes vs HEAD, last-branch the diff against the "
             "branch this one was cut from, default-branch the diff against the "
-            "default branch, skip none, manual the edits in --code-change-file."
+            "default branch, ref the diff against --code-change-base, skip "
+            "none, manual the edits in --code-change-file."
         ),
+    )
+    parser.add_argument(
+        "--code-change-base",
+        metavar="BRANCH|COMMIT",
+        help="With --code-change ref: the branch or commit to diff against.",
     )
     parser.add_argument(
         "--code-change-file",
@@ -475,6 +481,8 @@ def _resume_command(args: argparse.Namespace, experiment_id: str) -> str:
     carried: list[str] = ["--code-change", args.code_change]
     if args.code_change_file is not None:
         carried += ["--code-change-file", args.code_change_file]
+    if args.code_change_base is not None:
+        carried += ["--code-change-base", args.code_change_base]
     if args.mock is not None:
         carried += ["--mock", args.mock]
     if args.params is not None:
@@ -1019,6 +1027,7 @@ def _require_code_change(args: argparse.Namespace) -> None:
     if args.code_change is None:
         raise ValueError(
             f"--code-change is required: {CODE_CHANGE_CHOICES}. "
+            '"ref" takes the branch or commit from --code-change-base, and '
             '"manual" takes the edits from --code-change-file PATH.'
         )
     if not is_code_change_type(args.code_change):
@@ -1030,6 +1039,11 @@ def _require_code_change(args: argparse.Namespace) -> None:
         raise ValueError(
             "--code-change-file goes with --code-change manual, and "
             "--code-change manual needs --code-change-file PATH."
+        )
+    if (args.code_change == "ref") != (args.code_change_base is not None):
+        raise ValueError(
+            "--code-change-base goes with --code-change ref, and "
+            "--code-change ref needs --code-change-base BRANCH|COMMIT."
         )
 
 
@@ -1160,6 +1174,8 @@ def run_replay_cli(
             options["db_branch"] = False
 
     options["code_change"] = args.code_change
+    if args.code_change_base is not None:
+        options["code_change_base"] = args.code_change_base
     code_change = _load_code_change(args.code_change_file)
     if code_change is not None:
         options["code_change_description"] = code_change["description"]

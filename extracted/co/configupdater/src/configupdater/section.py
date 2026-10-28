@@ -1,14 +1,15 @@
 """Sections are intermediate containers in **ConfigUpdater**'s data model for
 configuration files.
 
-They are at the same time :class:`containers <Container>` that hold :mod:`options
-<Option>` and :class:`blocks <Block>` nested inside the top level configuration
+They are at the same time :class:`containers <Container>` that hold :class:`options
+<Option>` and :class:`blocks <Block>` nested inside the top-level configuration
 :class:`~configupdater.document.Document`.
 
 Note:
-    Please remember that :meth:`Section.get` method is implemented to mirror the
-    :meth:`ConfigParser API <configparser.ConfigParser.set>` and do not correspond to
-    the more usual :meth:`~collections.abc.Mapping.get` method of *dict-like* objects.
+    :meth:`Section.get` works like the :meth:`~collections.abc.Mapping.get` method of
+    *dict-like* objects. Like ``section[key]``, it returns an :class:`Option` object,
+    whereas the sections of :class:`~configparser.ConfigParser` return the value as a
+    string.
 """
 
 from __future__ import annotations
@@ -70,6 +71,14 @@ class Section(Block, Container[Content], MutableMapping[str, Option]):
             entry (Option): key value pair as Option object
         """
         entry.attach(self)
+
+        # Ensure a newline before the new option if the last block
+        # doesn't end with one (e.g. file without trailing newline)
+        if self._structure and not str(self._structure[-1]).endswith("\n"):
+            space = Space(container=self)
+            space.add_line("\n")
+            self._structure.append(space)
+
         self._structure.append(entry)
         return self
 
@@ -96,7 +105,7 @@ class Section(Block, Container[Content], MutableMapping[str, Option]):
         Used during initial parsing mainly
 
         Args:
-            line (str): one line that defines the space, maybe whitespaces
+            line (str): one line that defines the space, possibly containing whitespace
         """
         if isinstance(self.last_block, Space):
             space = self.last_block
@@ -184,8 +193,7 @@ class Section(Block, Container[Content], MutableMapping[str, Option]):
             else:
                 curr_option.value = value
         else:  # Append a new option
-            option.attach(self)
-            self._structure.append(option)
+            self.add_option(option)
 
     def __delitem__(self, key: str) -> None:
         key = self.document.optionxform(key)

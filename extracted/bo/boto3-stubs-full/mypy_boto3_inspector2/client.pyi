@@ -43,6 +43,7 @@ from .paginator import (
     ListFindingAggregationsPaginator,
     ListFindingsPaginator,
     ListMembersPaginator,
+    ListOnDemandScansPaginator,
     ListUsageTotalsPaginator,
     SearchVulnerabilitiesPaginator,
 )
@@ -125,6 +126,8 @@ from .type_defs import (
     GetFindingsReportStatusResponseTypeDef,
     GetMemberRequestTypeDef,
     GetMemberResponseTypeDef,
+    GetOnDemandScanStatusRequestTypeDef,
+    GetOnDemandScanStatusResponseTypeDef,
     GetSbomExportRequestTypeDef,
     GetSbomExportResponseTypeDef,
     ListAccountPermissionsRequestTypeDef,
@@ -161,6 +164,8 @@ from .type_defs import (
     ListFindingsResponseTypeDef,
     ListMembersRequestTypeDef,
     ListMembersResponseTypeDef,
+    ListOnDemandScansRequestTypeDef,
+    ListOnDemandScansResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListUsageTotalsRequestTypeDef,
@@ -173,6 +178,8 @@ from .type_defs import (
     StartCisSessionRequestTypeDef,
     StartCodeSecurityScanRequestTypeDef,
     StartCodeSecurityScanResponseTypeDef,
+    StartOnDemandScanRequestTypeDef,
+    StartOnDemandScanResponseTypeDef,
     StopCisSessionRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
@@ -662,6 +669,16 @@ class Inspector2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#get_member)
         """
 
+    def get_on_demand_scan_status(
+        self, **kwargs: Unpack[GetOnDemandScanStatusRequestTypeDef]
+    ) -> GetOnDemandScanStatusResponseTypeDef:
+        """
+        Retrieves the status of a specific on-demand scan for a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_on_demand_scan_status.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#get_on_demand_scan_status)
+        """
+
     def get_sbom_export(
         self, **kwargs: Unpack[GetSbomExportRequestTypeDef]
     ) -> GetSbomExportResponseTypeDef:
@@ -845,6 +862,16 @@ class Inspector2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#list_members)
         """
 
+    def list_on_demand_scans(
+        self, **kwargs: Unpack[ListOnDemandScansRequestTypeDef]
+    ) -> ListOnDemandScansResponseTypeDef:
+        """
+        Lists the on-demand scans for a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/list_on_demand_scans.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#list_on_demand_scans)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -921,6 +948,17 @@ class Inspector2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/start_code_security_scan.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#start_code_security_scan)
+        """
+
+    def start_on_demand_scan(
+        self, **kwargs: Unpack[StartOnDemandScanRequestTypeDef]
+    ) -> StartOnDemandScanResponseTypeDef:
+        """
+        Starts an on-demand scan of the specified resource, such as an Amazon Machine
+        Image (AMI).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/start_on_demand_scan.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#start_on_demand_scan)
         """
 
     def stop_cis_session(self, **kwargs: Unpack[StopCisSessionRequestTypeDef]) -> dict[str, Any]:
@@ -1230,6 +1268,17 @@ class Inspector2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_members"]
     ) -> ListMembersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_on_demand_scans"]
+    ) -> ListOnDemandScansPaginator:
         """
         Create a paginator for an operation.
 

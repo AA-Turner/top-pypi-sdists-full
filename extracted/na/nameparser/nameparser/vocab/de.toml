@@ -15,8 +15,7 @@ salutation = { gender = "f", after_given = true }
 
 [[word]]
 text = "herr"
-salutation = { gender = "m", excluded = { after_given = "a surname (Census 2010 HERR), and middle names are drawn from surnames" } }
-given = { wikidata = 3, as_of = 2026-10-24 }
+salutation = { gender = "m", excluded = { after_given = "a surname (Census 2010 HERR), and middle names are drawn from surnames" }, note = "borne as a given name: Wikidata 3 people (2026-10-24); kept here, not as a `given` reading, which would make the title one only inside a title phrase (rules/H9)" }
 family = { us_census_2010 = 11980, wikidata = 135, as_of = 2026-10-24 }
 
 [[word]]
@@ -29,8 +28,8 @@ salutation = { gender = "m", same_as = "herr", excluded = { after_given = "endin
 
 [[word]]
 text = "herren"
-salutation = { gender = "m", expands = "the plural of Herr", excluded = { after_given = "a surname (Census 2010 HERREN), and middle names are drawn from surnames" } }
-family = { us_census_2010 = 4466, wikidata = 37, as_of = 2026-10-24 }
+family = { us_census_2010 = 4466, wikidata = 37, as_of = 2026-10-27, note = "Wikidata bearers by citizenship: Switzerland 9, the United States 5, Germany 4" }
+excluded = { salutation = { reason = "the plural of Herr: a plural addresses several people (Herren Müller und Schmidt) and never stands before one person's name, so as a title it only took the first word of a surname-first name (Herren Hans read title 'Herren', family 'Hans'); borne as a surname by more than any word shipped under the graf class, decisions/salutation-titles (the counts on its family reading)", issue = 766 } }
 
 [[word]]
 text = "dipl.-ing"
@@ -82,9 +81,9 @@ nobility = { gender = "f", expands = "baroness" }
 
 [[word]]
 text = "freiherr"
+given = { note = "carries the particle's may-be-given reading, the C-i default (the particle's note argues the chain, not a given name); no source counts it as a given name (2026-10-25)" }
 nobility = { gender = "m", expands = "baron" }
 [word.rank]
-may_be_given = true
 issue = 18
 expands = "baron"
 gender = "m"
@@ -123,6 +122,10 @@ text = "ritter"
 nobility = { gender = "m", expands = "knight" }
 
 [[word]]
+text = "i"
+generation = { default = false, expands = "the regnal ordinal written with its period: Wilhelm I.", issue = 752, note = "the default reads I as a numeral only bare (mul.toml); written with its period it is exactly how an initial is written (rules/T5), so no default reads the ordinal; a German pack turns it on" }
+
+[[word]]
 text = "mda"
 credential = { issue = 18, expands = "Mitglied des Abgeordnetenhauses" }
 
@@ -156,7 +159,8 @@ preposition = { may_be_given = false, issue = 18, expands = "upon: \"auf der Hei
 
 [[word]]
 text = "tho"
-preposition = { may_be_given = true, issue = 18, expands = "to, Low German zu" }
+given = { us_ssa = 52, as_of = 2026-10-25, note = "US SSA births summed over both sexes; nam_dict band 8 in Vietnam" }
+preposition = { issue = 18, expands = "to, Low German zu" }
 
 [[word]]
 text = "vom"
@@ -164,8 +168,8 @@ preposition = { may_be_given = false, expands = "from the, von dem contracted" }
 
 [[word]]
 text = "von"
+given = { us_ssa = 6011, wikidata = 46, as_of = 2026-10-25, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
 [word.preposition]
-may_be_given = true
 expands = "of, from"
 note = "Von Miller: a real given name, so this stays ambiguous even though \"von Braun\" is misparsed today. The case that shows a word can look like a pure particle, BE misparsed as one, and still have a bearer"
 
@@ -179,7 +183,8 @@ article = { may_be_given = false, issue = 18, expands = "the, dative" }
 
 [[word]]
 text = "den"
-article = { may_be_given = true, expands = "the: \"von den Steinen\"" }
+given = { us_ssa = 17, wikidata = 5, as_of = 2026-10-25, note = "male births only; Wikidata is a lower bound" }
+article = { expands = "the: \"von den Steinen\"" }
 
 [[word]]
 text = "der"
@@ -187,8 +192,8 @@ article = { may_be_given = false, expands = "the: \"von der Leyen\"" }
 
 [[word]]
 text = "freiherrin"
+given = { note = "carries the particle's may-be-given reading, as freiherr does; no source counts it as a given name (2026-10-25)" }
 [word.rank]
-may_be_given = true
 issue = 18
 expands = "baroness"
 gender = "f"

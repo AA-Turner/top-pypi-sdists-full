@@ -5,13 +5,9 @@ Utility functions for working with the X.690 and related standards.
 from binascii import hexlify, unhexlify
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
 from .exc import X690Error
-
-if TYPE_CHECKING:  # pragma: no cover
-    # pylint: disable=unused-import, cyclic-import
-    from typing import Dict, List, Tuple, Union
 
 #: String to be used for indenting nested items during "pretty()" calls
 INDENT_STRING = "  "
@@ -26,6 +22,14 @@ class Length(str, Enum):
 
 
 class TypeClass(str, Enum):
+    """
+    The class of an X.690 type, taken from the two top bits of the
+    identifier octet.
+
+    The members are strings, so they compare equal to their lower-case
+    names. See :class:`TypeInfo`.
+    """
+
     UNIVERSAL = "universal"
     APPLICATION = "application"
     CONTEXT = "context"
@@ -33,17 +37,37 @@ class TypeClass(str, Enum):
 
 
 class TypeNature(str, Enum):
+    """
+    Whether an X.690 value is primitive or constructed, taken from bit 6
+    of the identifier octet.
+
+    A constructed value contains further encoded values, a primitive value
+    does not. See :class:`TypeInfo`.
+    """
+
     PRIMITIVE = "primitive"
     CONSTRUCTED = "constructed"
 
 
 class LengthInfo(NamedTuple):
+    """
+    The result of :func:`decode_length`.
+    """
+
+    #: The length of the value in octets, or ``-1`` if it is indefinite
     length: int
+    #: The number of octets used by the length information itself
     offset: int
 
 
 class ValueMetaData(NamedTuple):
+    """
+    The result of :func:`get_value_slice`.
+    """
+
+    #: The location of the value's content octets in the data stream
     bounds: slice
+    #: The index at which the next value in the data stream starts
     next_value_index: int
 
 
@@ -61,7 +85,7 @@ class TypeInfo:
         The typeclass (a value taken from :py:class:`~.TypeClass`)
 
     nature
-        A value taken from :py:`~.TypeNature`
+        A value taken from :py:class:`~.TypeNature`
 
     tag
         The actual type identifier.
@@ -77,14 +101,19 @@ class TypeInfo:
     _raw_value = None
 
     @staticmethod
-    def from_bytes(data):
-        # type: ( Union[int, bytes] ) -> TypeInfo
+    def from_bytes(data: int | bytes) -> "TypeInfo":
         """
         Given one octet, extract the separate fields and return a TypeInfo
         instance::
 
             >>> TypeInfo.from_bytes(b'\\x30')
             TypeInfo(cls=<TypeClass.UNIVERSAL: 'universal'>, nature=<TypeNature.CONSTRUCTED: 'constructed'>, tag=16)
+
+        :param data: The identifier octet, either as a single byte or as
+            the equivalent integer.
+        :returns: The decoded class, nature and tag.
+        :raises NotImplementedError: If the octet is ``0xff`` (long
+            identifier types are not supported).
         """
         # pylint: disable=attribute-defined-outside-init
         # pylint: disable=protected-access
@@ -93,7 +122,7 @@ class TypeInfo:
             data = int.from_bytes(data, "big")
         if data == 0b11111111:
             raise NotImplementedError(
-                "Long identifier types are not yet " "implemented"
+                "Long identifier types are not yet implemented"
             )
         cls_hint = (data & 0b11000000) >> 6
         pc_hint = (data & 0b00100000) >> 5
@@ -113,11 +142,10 @@ class TypeInfo:
         nature = TypeNature.CONSTRUCTED if pc_hint else TypeNature.PRIMITIVE
 
         instance = TypeInfo(cls, nature, value)
-        instance._raw_value = data
+        instance._raw_value = data  # type: ignore[assignment]
         return instance
 
-    def __bytes__(self):
-        # type: () -> bytes
+    def __bytes__(self) -> bytes:
         # pylint: disable=invalid-name
         if self.cls == TypeClass.UNIVERSAL:
             cls = 0b00
@@ -141,8 +169,7 @@ class TypeInfo:
         return bytes([output])
 
 
-def encode_length(value):
-    # type: (int) -> bytes
+def encode_length(value: int) -> bytes:
     """
     This function encodes the length of a variable into bytes conforming to the
     rules defined in :term:`X.690`: The "length" field must be specially
@@ -166,6 +193,10 @@ def encode_length(value):
         b'\\x10'
         >>> encode_length(200)   # > 127, needs to be specially encoded.
         b'\\x81\\xc8'
+
+    :param value: The length to encode, or ``Length.INDEFINITE`` to
+        produce the indefinite form.
+    :returns: The encoded length octets.
     """
     if value == Length.INDEFINITE:  # type: ignore
         return bytes([0b10000000])
@@ -173,7 +204,7 @@ def encode_length(value):
     if value < 127:
         return bytes([value])
 
-    output = []  # type: List[int]
+    output: list[int] = []
     while value > 0:
         value, remainder = value // 256, value % 256
         output.insert(0, remainder)
@@ -190,6 +221,15 @@ def get_value_slice(data: bytes, index: int = 0) -> ValueMetaData:
 
     The function returns both a slice at which a value can be found, and the
     index at which the next value can be found.
+
+    :param data: The data stream containing one or more TLV values.
+    :param index: Position of the first octet (the type octet) of the value
+        to locate.
+    :returns: The slice covering the value's content octets and the index
+        at which the next value starts. For indefinite lengths, the slice
+        starts after the length octet and ends at the first end-of-contents
+        marker (two zero octets).
+    :raises X690Error: If the announced length exceeds the available data.
     """
     length, offset = decode_length(data, index + 1)
     if length == -1:
@@ -208,8 +248,7 @@ def get_value_slice(data: bytes, index: int = 0) -> ValueMetaData:
     return ValueMetaData(value_slice, nex_index)
 
 
-def decode_length(data, index=0):
-    # type: ( bytes, int ) -> LengthInfo
+def decode_length(data: bytes, index: int = 0) -> LengthInfo:
     """
     Given a bytes object, which starts with the length information of a TLV
     value, returns a namedtuple with the length and the number of bytes which
@@ -226,6 +265,14 @@ def decode_length(data, index=0):
 
     The second argument (*index*) tells the function at which position to
     look for the length information.
+
+    :param data: Data containing the length information.
+    :param index: Position of the first length octet.
+    :returns: The decoded length and the number of octets used to encode
+        it. For the indefinite form the length is ``-1`` and the offset is
+        ``-1``.
+    :raises NotImplementedError: If the first length octet is ``0xff``,
+        which X.690 reserves.
 
     Examples::
 
@@ -262,10 +309,13 @@ def decode_length(data, index=0):
     return LengthInfo(output, offset)
 
 
-def visible_octets(data):
-    # type: ( bytes ) -> str
+def visible_octets(data: bytes) -> str:
     """
     Returns a geek-friendly (hexdump)  output of a bytes object.
+
+    :param data: The octets to display.
+    :returns: A multi-line string with 16 octets per line, followed by
+        their printable ASCII representation.
 
     Developer note:
         This is not super performant. But it's not something that's supposed to
@@ -310,7 +360,13 @@ def visible_octets(data):
 
 def wrap(text: str, header: str, depth: int) -> str:
     """
-    Wraps *text* in a border with a *header* and indented by *indent*.
+    Wraps *text* in a border with a *header*, indented by *depth* levels.
+
+    :param text: The (possibly multi-line) text to put into the box.
+    :param header: Title shown in the first row of the box.
+    :param depth: Nesting level; each level indents by
+        :data:`INDENT_STRING`.
+    :returns: The boxed text.
     """
     prefix = INDENT_STRING * depth
     box_width = max(len(header), max(len(x) for x in text.splitlines()))

@@ -264,3 +264,30 @@ def test_reduce_response_events_keeps_failed_response():
 
 def test_reduce_response_events_without_terminal_event():
     assert _reduce_response_events([]) == {}
+
+
+def test_wrap_openai_tracing_extra_address_reaches_the_run():
+    from unittest import mock
+
+    import langsmith as ls
+    from langsmith import Client
+    from langsmith.wrappers._openai import _get_wrapper
+
+    address = ls.agent_address("support", "production")
+    client = Client(session=mock.MagicMock(), api_key="test", api_url="http://x")
+    seen = {}
+
+    def create(**kwargs):
+        seen["address"] = run_helpers.get_current_run_tree().address
+        return {}
+
+    wrapped = _get_wrapper(
+        create,
+        "ChatOpenAI",
+        lambda chunks: {},
+        tracing_extra={"client": client, "address": address},
+    )
+    with ls.tracing_context(enabled=True):
+        wrapped(model="gpt-4o-mini")
+
+    assert seen["address"] == address

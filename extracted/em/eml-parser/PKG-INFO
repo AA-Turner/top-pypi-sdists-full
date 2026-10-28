@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: eml_parser
-Version: 4.4.0
+Version: 4.6.0
 Summary: Python EML parser library
 Project-URL: Homepage, https://github.com/GOVCERT-LU/eml_parser
 Project-URL: Documentation, https://eml-parser.readthedocs.io/
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Communications :: Email
 Requires-Python: >=3.11
 Requires-Dist: charset-normalizer
+Requires-Dist: idna>=3.20
 Requires-Dist: publicsuffixlist
 Requires-Dist: python-dateutil
 Requires-Dist: regex>=2026

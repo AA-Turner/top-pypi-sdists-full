@@ -9,7 +9,7 @@
 # modified, propagated, or distributed except according to the terms contained
 # in the LICENSE file.
 
-import appdirs
+import platformdirs
 import argparse
 import bitcoin
 import logging
@@ -23,7 +23,7 @@ import otsclient
 import otsclient.cache
 import otsclient.cmds
 
-APPDIRS = appdirs.AppDirs('ots','opentimestamps')
+APPDIRS = platformdirs.PlatformDirs('ots','opentimestamps')
 
 def make_common_options_arg_parser():
     parser = argparse.ArgumentParser(description="OpenTimestamps client.")
@@ -187,6 +187,9 @@ def parse_ots_args(raw_args):
     parser_upgrade.add_argument('-c', '--calendar', metavar='URL', dest='calendar_urls', action='append', type=str,
                                 default=[],
                                 help='Override calendars in timestamp')
+    parser_upgrade.add_argument("--timeout", type=int, default=5,
+                                help="Timeout before giving up on a calendar. "
+                                     "Default: %(default)d")
     parser_upgrade.add_argument('-n', '--dry-run', action='store_true', default=False,
                                 help='Perform a trial upgrade without modifying the existing timestamp.')
     parser_upgrade.add_argument('files', metavar='FILE', type=argparse.FileType('rb'),
@@ -204,6 +207,10 @@ def parse_ots_args(raw_args):
     verify_target_group.add_argument('-d', metavar='DIGEST', dest='hex_digest', type=str,
                                      default=None,
                                      help='Verify a (hex-encoded) digest rather than a file')
+
+    parser_verify.add_argument("--timeout", type=int, default=5,
+                               help="Timeout before giving up on a calendar. "
+                                    "Default: %(default)d")
 
     parser_verify.add_argument('timestamp_fd', metavar='TIMESTAMP', type=argparse.FileType('rb'),
                                help='Timestamp filename')

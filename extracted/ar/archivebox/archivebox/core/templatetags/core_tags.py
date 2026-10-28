@@ -1,12 +1,11 @@
 import hashlib
 import logging
-import math
 import os
 import re
 from html import unescape
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlsplit, urlunsplit
 
 from django import template
 from django.utils import timezone
@@ -15,6 +14,7 @@ from django.utils.safestring import mark_safe
 from django.utils.text import Truncator
 
 from archivebox.config import CONSTANTS
+from archivebox.misc.logging_util import printable_filesize
 from archivebox.core.routes_util import (
     build_snapshot_detail_url,
     build_snapshot_files_url,
@@ -29,13 +29,25 @@ from archivebox.core.setup_wizard import get_base_url_mismatch_context, get_setu
 from archivebox.plugins.discovery import (
     get_plugin_catalog,
     get_plugin_icon,
+    get_plugin_icon_sprite,
     get_plugin_name,
     get_plugin_template,
     plugin_card_is_interactive,
+    plugin_has_custom_full_response,
 )
 
 register = template.Library()
 register.filter("plugin_card_is_interactive", plugin_card_is_interactive)
+
+
+@register.filter
+def plugin_has_full_preview(result) -> bool:
+    """Match the generic preview route's installed full-template selection."""
+    if not result or result.status != "succeeded":
+        return False
+    plugin = get_plugin_name(result.plugin)
+    return bool(get_plugin_template(plugin, "full", fallback=False)) and not plugin_has_custom_full_response(plugin)
+
 
 # Preview cards are clipped windows onto their content, never scroll areas.
 # Apply inside the document too: parent overflow cannot constrain an iframe.
@@ -433,28 +445,14 @@ def index(value, position):
 
 @register.filter
 def file_size(num_bytes: float, decimal_places: int = 1) -> str:
-    for count in ["Bytes", "KB", "MB", "GB"]:
-        if num_bytes > -1024.0 and num_bytes < 1024.0:
-            if num_bytes >= 0:
-                precision = 10 ** max(0, int(decimal_places))
-                num_bytes = math.ceil(num_bytes * precision) / precision
-            return f"{num_bytes:.{decimal_places}f} {count}"
-        num_bytes /= 1024.0
-    if num_bytes >= 0:
-        precision = 10 ** max(0, int(decimal_places))
-        num_bytes = math.ceil(num_bytes * precision) / precision
-    return f"{num_bytes:.{decimal_places}f} TB"
+    return printable_filesize(num_bytes, decimal_places)
 
 
 @register.filter
 def grid_file_size(num_bytes: float | None) -> str:
     if not num_bytes or num_bytes <= 0:
         return ""
-    if num_bytes < 1024**2:
-        return f"{max(1, num_bytes / 1024):.0f}kb"
-    if num_bytes < 1024**3:
-        return f"{num_bytes / 1024**2:.0f}mb"
-    return f"{num_bytes / 1024**3:.1f}gb"
+    return printable_filesize(num_bytes)
 
 
 @register.filter
@@ -477,10 +475,17 @@ def result_list(context, cl):
     if config is not None:
         for obj in results:
             obj._runtime_config = config
+    # Cards of running snapshots hide their icons, so draw the shared icon
+    # sprite once above all cards rather than inside the first card's icons.
+    icon_sprite = ""
+    if request is not None and not request.__dict__.get("_archivebox_icon_sprite_sent"):
+        request._archivebox_icon_sprite_sent = True
+        icon_sprite = get_plugin_icon_sprite()
     return {
         "cl": cl,
         "num_sorted_fields": num_sorted_fields,
-        "results": results,
+        "results": [(obj, cl.model_admin.files(obj)) for obj in results],
+        "icon_sprite": icon_sprite,
         "request": request,
         "CONFIG": config,
     }
@@ -593,7 +598,8 @@ def system_warnings_banner(context):
 @register.simple_tag(takes_context=True)
 def url_replace(context, **kwargs):
     dict_ = context["request"].GET.copy()
-    dict_.update(**kwargs)
+    for key, value in kwargs.items():
+        dict_[key] = value
     return dict_.urlencode()
 
 
@@ -712,7 +718,9 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
 
     from archivebox.plugins.output_groups import snapshot_thumbnail_result
 
-    results = snapshot.__dict__.get("_snapshot_card_results")
+    # List pages pick the card with their batch of results (list_results_util).
+    precomputed = "_snapshot_thumbnail_result" in snapshot.__dict__
+    results = () if precomputed else snapshot.__dict__.get("_snapshot_card_results")
     if results is None:
         results = snapshot.__dict__.get("_admin_output_results")
     if results is None:
@@ -741,7 +749,8 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
             "core/snapshot_thumbnail.html",
             {
                 **context.flatten(),
-                "card_result": snapshot_thumbnail_result(results),
+                "card_result": snapshot.__dict__["_snapshot_thumbnail_result"] if precomputed else snapshot_thumbnail_result(results),
+                "card_modified_at": snapshot.modified_at,
                 "host": host,
                 "initial": host[:1].upper(),
                 "hue": hue,
@@ -882,6 +891,12 @@ def snapshot_preview_url(context, snapshot, path: str = "", result=None) -> str:
 
 
 @register.simple_tag
+def plugin_icon_sprite() -> str:
+    """Every list-row plugin icon's SVG, drawn once per page (see get_plugin_list_icon)."""
+    return get_plugin_icon_sprite()
+
+
+@register.simple_tag
 def plugin_icon(plugin: str) -> str:
     """
     Render the icon for a plugin.
@@ -892,6 +907,17 @@ def plugin_icon(plugin: str) -> str:
     return mark_safe(
         f'<span class="abx-plugin-icon" style="display:inline-flex; width:20px; height:20px; align-items:center; justify-content:center;">{icon_html}</span>',
     )
+
+
+def _version_card_url(context, result, url: str) -> str:
+    """Keep warm cards reusable, but invalidate their assets after a recapture."""
+    if context.get("STATIC_EXPORT"):
+        return url
+    modified = context.get("card_modified_at") or result.modified_at
+    revision = f"{int(modified.timestamp())}.{modified.microsecond:06d}"
+    parts = urlsplit(url)
+    query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key != "_abx_rev"]
+    return urlunsplit(parts._replace(query=urlencode([*query, ("_abx_rev", revision)])))
 
 
 @register.simple_tag(takes_context=True)
@@ -917,18 +943,32 @@ def plugin_card(context, result) -> str:
         # The cover and expanded stack both embed this one card document. Run
         # plugin code on the snapshot origin so it can read saved files without
         # exposing raw archives or the admin session to the collection page.
+        # snapshot_id is on the row already; result.snapshot would load the
+        # whole parent Snapshot once per list row just to read its id.
         card_url = build_snapshot_url(
-            str(_snapshot_id(result.snapshot)),
+            str(result.snapshot_id),
             f"_card/{result.id}",
             request=context.get("request"),
             config=context.get("CONFIG"),
         )
         return mark_safe(
-            f'<iframe src="{escape(card_url)}" title="{escape(plugin)} card" '
+            f'<iframe src="{escape(_version_card_url(context, result, card_url))}" title="{escape(plugin)} card" '
             'loading="lazy" fetchpriority="low" sandbox="allow-scripts allow-same-origin" '
             'style="width:100% !important;height:100% !important;transform:none !important;border:0"></iframe>',
         )
     return render_plugin_card_document(context, result)
+
+
+@register.simple_tag
+def snapshot_results(snapshot, plugins: str):
+    """Load the named plugins' manifests once for reuse across template loops."""
+    names = {name.strip() for name in plugins.split(",") if name.strip()}
+    prefetched = snapshot.__dict__.get("_prefetched_objects_cache", {}).get("archiveresult_set")
+    if prefetched is not None:
+        return [result for result in prefetched if result.plugin in names]
+    # The reverse manager needs snapshot_id to attach its known parent without
+    # fetching that deferred field separately for every result.
+    return snapshot.archiveresult_set.filter(plugin__in=names).only("snapshot_id", "plugin", "output_files")
 
 
 def render_plugin_card_document(context, result) -> str:
@@ -939,7 +979,7 @@ def render_plugin_card_document(context, result) -> str:
 
     # Use embed_path() for the display path
     raw_output_path = result.embed_path() or ""
-    output_url = _snapshot_url_for_context(context, result.snapshot, raw_output_path or "")
+    output_url = _version_card_url(context, result, _snapshot_url_for_context(context, result.snapshot, raw_output_path or ""))
 
     icon_html = get_plugin_icon(plugin)
     media_files = _list_media_files(result, include_filesystem_fallback=bool(context.get("STATIC_EXPORT")))
@@ -957,7 +997,7 @@ def render_plugin_card_document(context, result) -> str:
     if media_files:
         for item in media_files:
             path = item.get("path") or ""
-            item["url"] = _snapshot_url_for_context(context, result.snapshot, path) if path else ""
+            item["url"] = _version_card_url(context, result, _snapshot_url_for_context(context, result.snapshot, path)) if path else ""
 
     output_lower = (raw_output_path or "").lower()
     force_text_preview = output_lower.endswith(_TEXT_PREVIEW_EXTS)
@@ -1018,7 +1058,7 @@ def render_plugin_card_document(context, result) -> str:
             plugin=plugin,
         )
         return mark_safe(
-            f'<iframe src="{escape(preview_url)}" title="{escape(plugin)} preview" '
+            f'<iframe src="{escape(_version_card_url(context, result, preview_url))}" title="{escape(plugin)} preview" '
             'loading="lazy" fetchpriority="low" sandbox="allow-scripts allow-same-origin" '
             'style="border:0;pointer-events:none"></iframe>',
         )

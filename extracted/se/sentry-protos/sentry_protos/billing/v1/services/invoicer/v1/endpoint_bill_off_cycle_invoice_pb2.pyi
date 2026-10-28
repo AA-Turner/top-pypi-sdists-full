@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.stripe_verification_pb2
+import sentry_protos.billing.v1.services.contract.ledger.v1.ledger_deposit_pb2
 import sentry_protos.billing.v1.services.contract.v1.invoice_pb2
 import typing
 
@@ -31,6 +32,7 @@ class BillOffCycleInvoiceRequest(google.protobuf.message.Message):
     LINE_ITEMS_FIELD_NUMBER: builtins.int
     DESCRIPTION_FIELD_NUMBER: builtins.int
     FAILURE_POLICY_FIELD_NUMBER: builtins.int
+    LEDGER_DEPOSIT_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     client_id: builtins.str
     """Names the requesting service, which owns what non-payment means."""
@@ -51,6 +53,12 @@ class BillOffCycleInvoiceRequest(google.protobuf.message.Message):
         line's type, so type must be unset.
         """
 
+    @property
+    def ledger_deposit(self) -> sentry_protos.billing.v1.services.contract.ledger.v1.ledger_deposit_pb2.LedgerDeposit:
+        """Required. The credit the invoice buys. The deposit exists before the
+        charge starts.
+        """
+
     def __init__(
         self,
         *,
@@ -60,9 +68,10 @@ class BillOffCycleInvoiceRequest(google.protobuf.message.Message):
         line_items: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.invoice_pb2.InvoiceLineItem] | None = ...,
         description: builtins.str | None = ...,
         failure_policy: sentry_protos.billing.v1.services.contract.v1.invoice_pb2.FailurePolicy.ValueType = ...,
+        ledger_deposit: sentry_protos.billing.v1.services.contract.ledger.v1.ledger_deposit_pb2.LedgerDeposit | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_description", b"_description", "description", b"description"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_description", b"_description", "client_id", b"client_id", "description", b"description", "failure_policy", b"failure_policy", "idempotency_key", b"idempotency_key", "line_items", b"line_items", "organization_id", b"organization_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_description", b"_description", "description", b"description", "ledger_deposit", b"ledger_deposit"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_description", b"_description", "client_id", b"client_id", "description", b"description", "failure_policy", b"failure_policy", "idempotency_key", b"idempotency_key", "ledger_deposit", b"ledger_deposit", "line_items", b"line_items", "organization_id", b"organization_id"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_description", b"_description"]) -> typing.Literal["description"] | None: ...
 
 global___BillOffCycleInvoiceRequest = BillOffCycleInvoiceRequest

@@ -978,6 +978,7 @@ class Client:
         "compressed_traces",
         "_data_available_event",
         "_futures",
+        "_futures_lock",
         "_run_ops_buffer",
         "_run_ops_buffer_lock",
         "otel_exporter",
@@ -1313,7 +1314,8 @@ class Client:
         atexit.register(self._atexit_handler)
         self.compressed_traces: Optional[CompressedTraces] = None
         self._data_available_event: Optional[threading.Event] = None
-        self._futures: Optional[weakref.WeakSet[cf.Future]] = None
+        self._futures: weakref.WeakSet[cf.Future] = weakref.WeakSet()
+        self._futures_lock = threading.Lock()
         self._run_ops_buffer: list[tuple[str, dict, dict[str, Any]]] = []
         self._run_ops_buffer_lock = threading.Lock()
         self.otel_exporter: Optional[OTELExporter] = None
@@ -1620,7 +1622,7 @@ class Client:
 
     @property
     def sessions(self) -> AsyncSessionsResource:
-        """(beta) Access the sessions resource (resolve an address to its project)."""
+        """Access the sessions resource (resolve an address to its project)."""
         _check_backend_version(self.info.version, min_version="0.18.0")
         return self._get_langsmith_api().sessions
 
@@ -2473,13 +2475,10 @@ class Client:
                 embedding, prompt, or parser.
             project_name (Optional[str]): The project name of the run.
             revision_id (Optional[Union[UUID, str]]): The revision ID of the run.
-            address (Optional[AgentAddress]): (beta) An `AgentAddress`, such as
+            address (Optional[AgentAddress]): An `AgentAddress`, such as
                 `ls.agent_address(id, environment)`, to send the run to instead of a project.
                 Cannot be combined with `project_name` / `session_id` in the
                 same call. Defaults to the `LANGSMITH_AGENT_*` env vars.
-                This is in beta and enabled per workspace; a
-                workspace without it rejects the run, so the trace is lost
-                rather than falling back to a project.
             api_key (Optional[str]): The API key to use for this specific run.
             api_url (Optional[str]): The API URL to use for this specific run.
             service_key (Optional[str]): The service JWT key for service-to-service auth.
@@ -2926,9 +2925,7 @@ class Client:
 
         try:
             future = LANGSMITH_CLIENT_THREAD_POOL.submit(_process_buffered_run_ops_batch, self, batch_to_process)
-            # Track the future if we have a futures set
-            if self._futures is not None:
-                self._futures.add(future)
+            self._track_future(future)
         except RuntimeError:
             # Thread pool is shut down, process synchronously as fallback
             _process_buffered_run_ops_batch(self, batch_to_process)
@@ -3667,12 +3664,6 @@ class Client:
             cookie (Optional[str]): The Cookie header value.
             **kwargs (Any): Ignored, except `address`.
 
-                !!! warning "Experimental"
-                    `address` is in beta. It sends the patch to an address,
-                    and must match the post it belongs to: an update that
-                    names none is resolved by run id, as every update was
-                    before. It may change without notice.
-
         Returns:
             None
 
@@ -3926,51 +3917,33 @@ class Client:
         if self.compressed_traces is None:
             return
 
-        if self._futures is None:
-            raise ValueError("Run compression is enabled but request pool futures is not set")
-
         # Attempt to drain and send any remaining data
-        from langsmith._internal._background_thread import (
-            LANGSMITH_CLIENT_THREAD_POOL,
-            _tracing_thread_drain_compressed_buffer,
-        )
+        from langsmith._internal._background_thread import _drain_and_send_compressed
 
-        (
-            final_data_stream,
-            compressed_traces_info,
-            destinations,
-        ) = _tracing_thread_drain_compressed_buffer(self, size_limit=1, size_limit_bytes=1)
+        _drain_and_send_compressed(self, size_limit=1, size_limit_bytes=1, attempts=attempts)
+        self._wait_for_futures(timeout)
 
-        if final_data_stream is not None:
-            # We have data to send
-            future = None
-            try:
-                future = LANGSMITH_CLIENT_THREAD_POOL.submit(
-                    self._send_compressed_multipart_req,
-                    final_data_stream,
-                    compressed_traces_info,
-                    destinations=destinations,
-                    attempts=attempts,
-                )
-                self._futures.add(future)
-            except RuntimeError:
-                # In case the ThreadPoolExecutor is already shutdown
-                self._send_compressed_multipart_req(
-                    final_data_stream,
-                    compressed_traces_info,
-                    destinations=destinations,
-                    attempts=attempts,
-                )
+    def _track_future(self, future: cf.Future) -> None:
+        """Register a thread pool job so flush() waits for it."""
+        with self._futures_lock:
+            self._futures.add(future)
 
-        # If we got a future, wait for it to complete
-        if self._futures:
+    def _wait_for_futures(self, timeout: Optional[float] = None) -> None:
+        """Wait for in-flight thread pool jobs (buffered run ops, compressed sends)."""
+        # Other threads add futures concurrently; iterating the set unlocked
+        # raises "Set changed size during iteration".
+        with self._futures_lock:
             futures = list(self._futures)
+        if futures:
             done, _ = cf.wait(futures, timeout=timeout)
-            # Remove completed futures
-            self._futures.difference_update(done)
+            with self._futures_lock:
+                self._futures.difference_update(done)
 
     def flush(self, timeout: Optional[float] = None) -> None:
         """Flush the tracing queue and compressed buffer.
+
+        With ``process_buffered_run_ops`` set, this also waits for the callback
+        to finish on the buffered runs, so a slow callback uses up the timeout.
 
         Args:
             timeout: Maximum seconds to wait for pending traces to drain.
@@ -3983,6 +3956,9 @@ class Client:
             with self._run_ops_buffer_lock:
                 if self._run_ops_buffer:
                     self._flush_run_ops_buffer()
+            # The pool job is what enqueues the processed runs; wait for it
+            # before draining the queue and the compressed buffer.
+            self._wait_for_futures(max(0.0, deadline - time.monotonic()) if deadline is not None else None)
 
         if self.tracing_queue is not None:
             if deadline is None:
@@ -4652,7 +4628,7 @@ class Client:
             run (RunBase): The run.
             project_name (Optional[str]): The name of the project.
             project_id (Optional[Union[UUID, str]]): The ID of the project.
-            address (Optional[Address]): (beta) An address that names the run's
+            address (Optional[Address]): An address that names the run's
                 project, such as the `AgentAddress` the run was sent to or an
                 `ExperimentAddress`, for a run that names no project. It is
                 resolved to its project with one request, which needs LangSmith
@@ -7041,6 +7017,8 @@ class Client:
         metadata: Optional[dict] = None,
         filter: Optional[str] = None,
         include_attachments: bool = False,
+        select: Optional[Sequence[str]] = None,
+        exclude_default_fields: bool = False,
         **kwargs: Any,
     ) -> Iterator[ls_schemas.Example]:
         r"""Retrieve the example rows of the specified dataset.
@@ -7064,6 +7042,12 @@ class Client:
                 the examples.
             include_attachments (bool, default=False): Whether to include the
                 attachments in the response.
+            select (Optional[Sequence[str]]): Fields to include in each example,
+                such as "id" or "outputs".
+            exclude_default_fields (bool, default=False): Return only the fields
+                in ``select``, plus ``id``. Other default fields (``created_at``,
+                ``modified_at``, ``inputs``, ``name``, ``dataset_id``) are absent
+                unless selected. Select ``dataset_id`` if you need ``Example.url``.
             **kwargs (Any): Additional keyword arguments are ignored.
 
         Yields:
@@ -7128,8 +7112,13 @@ class Client:
             params["dataset"] = dataset_id
         else:
             pass
+        select_fields = [select] if isinstance(select, str) else list(select or [])
         if include_attachments:
-            params["select"] = ["attachment_urls", "outputs", "metadata"]
+            select_fields += [f for f in ("attachment_urls", "outputs", "metadata") if f not in select_fields]
+        if select_fields:
+            params["select"] = select_fields
+        if exclude_default_fields:
+            params["exclude_default_fields"] = True
         for i, example in enumerate(self._get_paginated_list("/examples", params=params)):
             attachments = _convert_stored_attachments_to_attachments_dict(
                 example, attachments_key="attachment_urls", api_url=self.api_url
@@ -7899,12 +7888,9 @@ class Client:
             To enable feedback to be batch uploaded in the background you must
             specify `trace_id`. *We highly encourage this for latency-sensitive environments.*
 
-        !!! warning "Experimental"
-            `address` is in beta. It is enabled per workspace; a
-            workspace without it rejects the feedback, so it is lost rather
-            than falling back to a project. The address must already exist --
-            unlike run ingestion, a feedback part never creates one. It may
-            change without notice.
+        !!! note "Addressed feedback"
+            The `address` must already exist -- unlike run ingestion, a feedback
+            part never creates one.
 
         Args:
             key (str):

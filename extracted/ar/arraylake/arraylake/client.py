@@ -36,7 +36,7 @@ from arraylake.asyn import async_gather_tasks, asyncio_run, sync
 from arraylake.compute.services import AsyncComputeClient, ComputeClient
 from arraylake.compute.types import ServiceType
 from arraylake.config import config as arraylake_config
-from arraylake.config import default_service_uri
+from arraylake.config import default_service_uri, default_token
 from arraylake.credentials import (
     _get_hmac_credentials,
     _is_r2_bucket,
@@ -63,7 +63,7 @@ from arraylake.repos.icechunk.virtual import (
     warn_authorize_virtual_chunk_access_method_deprecated,
     warn_if_authorize_virtual_chunk_access_passed,
 )
-from arraylake.token import get_auth_handler
+from arraylake.token import get_auth_handler, get_fresh_id_token
 from arraylake.types import (
     ICECHUNK_ANY_CREDENTIAL,
     URI,
@@ -73,6 +73,7 @@ from arraylake.types import (
     BucketNickname,
     BucketPrefix,
     BucketResponse,
+    DatasetFilter,
     ExplicitVirtualChunkAccessPolicyResponse,
     GSCredentials,
     IcebergNamespaceResponse,
@@ -88,14 +89,17 @@ from arraylake.types import (
     OrgResponse,
     Platform,
     RepoActions,
+    RepoClaimBody,
     RepoKind,
     RepoMetadataT,
     RepoName,
     RepoOperationMode,
     RepoOperationStatusResponse,
+    RepoSubscribeBody,
     RepoVisibility,
     S3Credentials,
     StorageOptions,
+    SubscriptionType,
     TempCredentials,
     VirtualChunkCredentials,
     validate_name,
@@ -130,10 +134,6 @@ def _validate_service_uri(service_uri: str) -> None:
         raise ValueError("service uri must start with http")
 
 
-def _default_token() -> str | None:
-    return arraylake_config.get("token", None)
-
-
 class AsyncClient:
     """Asyncio Client for interacting with ArrayLake
 
@@ -160,8 +160,8 @@ class AsyncClient:
 
         self._service_uri = service_uri
 
-        if token is None:
-            token = _default_token()
+        # A blank token (e.g. ARRAYLAKE_TOKEN="") means "not set": fall back to the configured token or cached login.
+        token = (token or "").strip() or default_token()
 
         if token is not None and (not token.startswith("ema_") and not token.startswith("ey")):
             # Ignore telling the user they can use JWT tokens, shhhh
@@ -254,6 +254,14 @@ class AsyncClient:
         """
         mstore = HttpMetastore(HttpMetastoreConfig(self.service_uri, "", self.token))
         return await mstore.get_orgs()
+
+    async def list_orgs(self) -> list[OrgResponse]:
+        """List all organizations for the authenticated user. Alias of #get_orgs.
+
+        Returns:
+            List of OrgResponse objects for all orgs the user belongs to
+        """
+        return await self.get_orgs()
 
     def _credential_cache_key(
         self,
@@ -1218,7 +1226,7 @@ class AsyncClient:
                     raise ValueError(
                         "This repo exists, but does not have a bucket config attached. Please remove the bucket_config_nickname argument."
                     )
-                elif bucket_config_nickname != repo.bucket.nickname:
+                elif bucket_config_nickname.lower() != repo.bucket.nickname.lower():
                     raise ValueError(
                         f"This repo exists, but the provided {bucket_config_nickname=} "
                         f"does not match the configured bucket_config_nickname {repo.bucket.nickname!r}."
@@ -1452,6 +1460,107 @@ class AsyncClient:
             # If the repo fails to create, we need to delete the repo model
             await mstore.delete_database(repo_name, imsure=True, imreallysure=True, immediate=True, retain_data=True)
             raise
+
+    async def subscribe_to_listing(
+        self,
+        name: OrgAndRepoName,
+        listing_id: str,
+        *,
+        subscription_type: SubscriptionType = SubscriptionType.DIRECT,
+        target_filter: DatasetFilter | None = None,
+        bucket_config_nickname: BucketNickname | None = None,
+        prefix: str | None = None,
+        description: str | None = None,
+        metadata: RepoMetadataT | None = None,
+    ) -> RepoModel:
+        """Subscribe to an exchange listing, creating a new subscriber repo.
+
+        Example usage:
+
+            ```python
+            from arraylake import AsyncClient
+            from arraylake.types import DatasetFilter, NodeFilter, SubscriptionType
+
+            aclient = AsyncClient()
+            await aclient.subscribe_to_listing("my-org/era5", "<listing-id>")
+            await aclient.subscribe_to_listing(
+                "my-org/era5-temperature",
+                "<listing-id>",
+                subscription_type=SubscriptionType.FILTERED,
+                target_filter=DatasetFilter(nodes=NodeFilter(include_paths=["/temperature"])),
+                bucket_config_nickname="my-bucket",
+            )
+            ```
+
+        Args:
+            name: Full name of the subscriber repo to create (of the form [ORG]/[REPO]).
+            listing_id: ID of the exchange listing to subscribe to.
+            subscription_type: `direct` reads the provider's data in place and is the only type
+                free listings allow. `filtered` and `private` copy data into your own bucket and
+                require a paid listing.
+            target_filter: Groups and arrays to copy. Required for `filtered` and `private`,
+                not allowed for `direct`.
+            bucket_config_nickname: Bucket for the copied data. Used by `filtered` and `private`.
+                Defaults to the org's default bucket.
+            prefix: Optional prefix in the bucket. If not provided, one is generated.
+            description: Optional description for the repo.
+            metadata: Optional dictionary of metadata to tag the repo with.
+                Dictionary values can be a scalar (string, int, float, bool, or None) or a list of scalars.
+
+        Returns:
+            The subscriber repo. `filtered` and `private` data arrives in the background, so the
+            repo can be empty right after this call returns. Open it with `get_repo`.
+        """
+        org, repo_name = _parse_org_and_repo(name)
+        body = RepoSubscribeBody(
+            name=repo_name,
+            exchange_listing_id=listing_id,
+            subscription_type=subscription_type,
+            target_filter=target_filter,
+            bucket_nickname=bucket_config_nickname,
+            prefix=prefix,
+            description=description,
+            metadata=metadata,
+        )
+        return await self._metastore_for_org(org).subscribe_to_listing(body)
+
+    async def claim_subscription(
+        self,
+        name: OrgAndRepoName,
+        claim_code: str,
+        *,
+        bucket_config_nickname: BucketNickname | None = None,
+        prefix: str | None = None,
+        description: str | None = None,
+        metadata: RepoMetadataT | None = None,
+    ) -> RepoModel:
+        """Redeem a subscription claim code, creating a new subscriber repo.
+
+        A provider issues a claim code for a subscription they set up for you.
+
+        Args:
+            name: Full name of the subscriber repo to create (of the form [ORG]/[REPO]).
+            claim_code: The claim code from the provider.
+            bucket_config_nickname: Bucket for the copied data when the subscription is `filtered`
+                or `private`. Defaults to the org's default bucket.
+            prefix: Optional prefix in the bucket. If not provided, one is generated.
+            description: Optional description for the repo.
+            metadata: Optional dictionary of metadata to tag the repo with.
+                Dictionary values can be a scalar (string, int, float, bool, or None) or a list of scalars.
+
+        Returns:
+            The subscriber repo. Open it with `get_repo`.
+        """
+        org, repo_name = _parse_org_and_repo(name)
+        body = RepoClaimBody(
+            name=repo_name,
+            claim_code=claim_code,
+            bucket_nickname=bucket_config_nickname,
+            prefix=prefix,
+            description=description,
+            metadata=metadata,
+        )
+        return await self._metastore_for_org(org).claim_subscription(body)
 
     async def _get_icechunk_storage_from_repo_model(
         self,
@@ -1742,7 +1851,7 @@ class AsyncClient:
         bucket_configs = await self.list_bucket_configs(org=org)
 
         for prefix, nickname in authorize_virtual_chunk_access.items():
-            matching_bucket_configs = [bucket for bucket in bucket_configs if bucket.nickname == nickname]
+            matching_bucket_configs = [bucket for bucket in bucket_configs if bucket.nickname.lower() == nickname.lower()]
 
             if not matching_bucket_configs:
                 raise ValueError(f"No existing bucket config found in org {org} with nickname {nickname}")
@@ -1860,7 +1969,7 @@ class AsyncClient:
 
     async def _bucket_id_for_nickname(self, mstore: HttpMetastore, nickname: BucketNickname) -> UUID:
         buckets = await mstore.list_bucket_configs()
-        bucket_id = next((b.id for b in buckets if b.nickname == nickname), None)
+        bucket_id = next((b.id for b in buckets if b.nickname.lower() == nickname.lower()), None)
         if not bucket_id:
             raise BucketNotFoundError(nickname)
         return bucket_id
@@ -2182,6 +2291,20 @@ class AsyncClient:
         handler = get_auth_handler(api_endpoint=self.service_uri)
         await handler.logout()
 
+    async def get_auth_headers(self) -> dict[str, str]:
+        """HTTP headers that authenticate a request to Arraylake as this client.
+
+        Uses the client's API token if set (``token=`` or ``ARRAYLAKE_TOKEN``), otherwise the
+        cached ``al auth login`` session, refreshed first if it has expired or is about to.
+        Use these for direct HTTP calls (e.g. compute services, SQL drivers) rather than
+        reading token files. Call again for each request batch: login tokens expire.
+
+        Returns:
+            dict: Request headers of the form ``{"Authorization": "Bearer <token>"}``.
+        """
+        token = self.token or await asyncio.to_thread(get_fresh_id_token, self.service_uri)
+        return {"Authorization": f"Bearer {token}"}
+
     async def get_api_client_from_token(self, org: OrgName, token: str) -> ApiClientResponse:
         """Fetch the user corresponding to the provided token"""
         mstore = self._metastore_for_org(org)
@@ -2295,6 +2418,14 @@ class Client:
             List of OrgResponse objects for all orgs the user belongs to
         """
         return sync(self.aclient.get_orgs)
+
+    def list_orgs(self) -> list[OrgResponse]:
+        """List all organizations for the authenticated user. Alias of #get_orgs.
+
+        Returns:
+            List of OrgResponse objects for all orgs the user belongs to
+        """
+        return self.get_orgs()
 
     def get_repo_object(self, name: OrgAndRepoName) -> RepoModel:
         """Get the repo configuration object.
@@ -2704,6 +2835,105 @@ class Client:
             metadata=metadata,
             authorize_virtual_chunk_access=authorize_virtual_chunk_access,
             storage_options=storage_options,
+        )
+
+    def subscribe_to_listing(
+        self,
+        name: OrgAndRepoName,
+        listing_id: str,
+        *,
+        subscription_type: SubscriptionType = SubscriptionType.DIRECT,
+        target_filter: DatasetFilter | None = None,
+        bucket_config_nickname: BucketNickname | None = None,
+        prefix: str | None = None,
+        description: str | None = None,
+        metadata: RepoMetadataT | None = None,
+    ) -> RepoModel:
+        """Subscribe to an exchange listing, creating a new subscriber repo.
+
+        Example usage:
+
+            ```python
+            from arraylake import Client
+            from arraylake.types import DatasetFilter, NodeFilter, SubscriptionType
+
+            client = Client()
+            client.subscribe_to_listing("my-org/era5", "<listing-id>")
+            client.subscribe_to_listing(
+                "my-org/era5-temperature",
+                "<listing-id>",
+                subscription_type=SubscriptionType.FILTERED,
+                target_filter=DatasetFilter(nodes=NodeFilter(include_paths=["/temperature"])),
+                bucket_config_nickname="my-bucket",
+            )
+            ```
+
+        Args:
+            name: Full name of the subscriber repo to create (of the form [ORG]/[REPO]).
+            listing_id: ID of the exchange listing to subscribe to.
+            subscription_type: `direct` reads the provider's data in place and is the only type
+                free listings allow. `filtered` and `private` copy data into your own bucket and
+                require a paid listing.
+            target_filter: Groups and arrays to copy. Required for `filtered` and `private`,
+                not allowed for `direct`.
+            bucket_config_nickname: Bucket for the copied data. Used by `filtered` and `private`.
+                Defaults to the org's default bucket.
+            prefix: Optional prefix in the bucket. If not provided, one is generated.
+            description: Optional description for the repo.
+            metadata: Optional dictionary of metadata to tag the repo with.
+                Dictionary values can be a scalar (string, int, float, bool, or None) or a list of scalars.
+
+        Returns:
+            The subscriber repo. `filtered` and `private` data arrives in the background, so the
+            repo can be empty right after this call returns. Open it with `get_repo`.
+        """
+        return sync(
+            self.aclient.subscribe_to_listing,
+            name,
+            listing_id,
+            subscription_type=subscription_type,
+            target_filter=target_filter,
+            bucket_config_nickname=bucket_config_nickname,
+            prefix=prefix,
+            description=description,
+            metadata=metadata,
+        )
+
+    def claim_subscription(
+        self,
+        name: OrgAndRepoName,
+        claim_code: str,
+        *,
+        bucket_config_nickname: BucketNickname | None = None,
+        prefix: str | None = None,
+        description: str | None = None,
+        metadata: RepoMetadataT | None = None,
+    ) -> RepoModel:
+        """Redeem a subscription claim code, creating a new subscriber repo.
+
+        A provider issues a claim code for a subscription they set up for you.
+
+        Args:
+            name: Full name of the subscriber repo to create (of the form [ORG]/[REPO]).
+            claim_code: The claim code from the provider.
+            bucket_config_nickname: Bucket for the copied data when the subscription is `filtered`
+                or `private`. Defaults to the org's default bucket.
+            prefix: Optional prefix in the bucket. If not provided, one is generated.
+            description: Optional description for the repo.
+            metadata: Optional dictionary of metadata to tag the repo with.
+                Dictionary values can be a scalar (string, int, float, bool, or None) or a list of scalars.
+
+        Returns:
+            The subscriber repo. Open it with `get_repo`.
+        """
+        return sync(
+            self.aclient.claim_subscription,
+            name,
+            claim_code,
+            bucket_config_nickname=bucket_config_nickname,
+            prefix=prefix,
+            description=description,
+            metadata=metadata,
         )
 
     def get_icechunk_storage(self, name: OrgAndRepoName, *, credentials_override: icechunk.AnyCredential | None = None) -> icechunk.Storage:
@@ -3119,6 +3349,19 @@ class Client:
         """Log out of ArrayLake."""
         return sync(self.aclient.logout)
 
+    def get_auth_headers(self) -> dict[str, str]:
+        """HTTP headers that authenticate a request to Arraylake as this client.
+
+        Uses the client's API token if set (``token=`` or ``ARRAYLAKE_TOKEN``), otherwise the
+        cached ``al auth login`` session, refreshed first if it has expired or is about to.
+        Use these for direct HTTP calls (e.g. compute services, SQL drivers) rather than
+        reading token files. Call again for each request batch: login tokens expire.
+
+        Returns:
+            dict: Request headers of the form ``{"Authorization": "Bearer <token>"}``.
+        """
+        return sync(self.aclient.get_auth_headers)
+
     def get_services(self, org: OrgName) -> ComputeClient:
         """Get the compute client services for the given org.
 
@@ -3134,6 +3377,10 @@ class Client:
         an authenticated ``openeo.Connection``. Requires the optional ``openeo``
         dependency (``pip install 'arraylake[openeo]'``) and an enabled openEO
         service (``Client().get_services(org).enable("openeo", sku_code="s")``).
+
+        Authenticates with the client's API token if set, otherwise with the cached
+        ``al auth login`` session, which is refreshed as needed on each request so
+        long-running sessions don't fail when the login token expires.
 
         Args:
             org: Name of the org.
@@ -3157,17 +3404,22 @@ class Client:
                 f"Org {org!r} has no openEO service. Enable one with Client().get_services({org!r}).enable('openeo', sku_code='s')."
             )
 
-        token = self.aclient.token
-        if not token:
-            handler = get_auth_handler(self.aclient.service_uri)
-            if handler.tokens is not None:
-                token = handler.tokens.id_token.get_secret_value()
-        if not token:
+        from openeo.rest.auth.auth import BearerAuth
+
+        from arraylake.compute.openeo_connection import CachedLoginBearerAuth, silence_unknown_dimension_warning
+
+        auth: BearerAuth
+        if self.aclient.token:
+            auth = BearerAuth(bearer=self.aclient.token)
+        elif get_auth_handler(self.aclient.service_uri).tokens is not None:
+            auth = CachedLoginBearerAuth(self.aclient.service_uri)
+        else:
             raise ValueError(
                 "An Arraylake API token is required to authenticate to openEO. "
-                "Provide one via Client(token=...) or log in with `arraylake auth login`."
+                "Provide one via Client(token=...) or log in with `al auth login`."
             )
 
+        silence_unknown_dimension_warning()
         connection = openeo.connect(deployments[0].url)
-        connection.authenticate_bearer_token(token)
+        connection.auth = auth
         return connection

@@ -37,6 +37,7 @@
 
 use regex::Regex;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::sync::LazyLock;
 
 /// The name of an HTML tag: a letter, then letters, digits and hyphens.
@@ -189,13 +190,29 @@ fn custom_id_at_end(line: &str) -> Option<(usize, String)> {
 /// display text.
 pub fn heading_text_end(line: &str) -> usize {
     let mut end = line.len();
+    let mut anchors = None;
     loop {
         end = line[..end].trim_end().len();
-        if let Some((attr_list_start, _)) = custom_id_at_end(&line[..end]) {
+        if line[..end].ends_with('}')
+            && let Some((attr_list_start, _)) = custom_id_at_end(&line[..end])
+        {
+            // Removing a closer can expose anchors inside an earlier code span,
+            // image, comment or tag. Plain attribute lists cannot change those
+            // ranges, so keep the cache when no such delimiter was removed.
+            if anchors.is_some()
+                && line.as_bytes()[attr_list_start..end]
+                    .iter()
+                    .any(|byte| matches!(byte, b'`' | b'>' | b']' | b')'))
+            {
+                anchors = None;
+            }
             end = attr_list_start;
-        } else if let Some((range, _)) = empty_anchor_elements(&line[..end]).pop()
+        } else if let Some((range, _)) = anchors.get_or_insert_with(|| empty_anchor_elements(&line[..end])).pop()
             && range.end == end
         {
+            // A recognized trailing anchor cannot close an opaque range that
+            // starts before it: its opening tag would have been inside that range.
+            // Earlier anchors therefore remain valid when this one is removed.
             end = range.start;
         } else {
             return end;
@@ -238,17 +255,30 @@ fn display_text(slug_text: &str, seams: &[usize]) -> String {
     if seams.is_empty() {
         return slug_text.trim().to_string();
     }
-    let mut text = slug_text.to_string();
+    let bytes = slug_text.as_bytes();
+    let mut reversed = Vec::with_capacity(bytes.len());
+    let mut end = bytes.len();
+    // Seams are source-ordered and may repeat for adjacent anchors. Build from
+    // the right so each seam sees the suffix left by the seams after it, without
+    // shifting that suffix every time a blank is removed.
     for &seam in seams.iter().rev() {
-        if seam == 0 || seam >= text.len() {
+        if seam == 0 || seam >= bytes.len() {
             continue;
         }
+        reversed.extend(bytes[seam..end].iter().rev());
+        end = seam;
         let is_blank = |byte: u8| matches!(byte, b' ' | b'\t');
-        if is_blank(text.as_bytes()[seam - 1]) && is_blank(text.as_bytes()[seam]) {
-            text.remove(seam);
+        if is_blank(bytes[seam - 1]) && reversed.last().is_some_and(|&byte| is_blank(byte)) {
+            reversed.pop();
         }
     }
-    text.trim().to_string()
+    reversed.extend(bytes[..end].iter().rev());
+    reversed.reverse();
+    // Only ASCII blanks were removed, so restoring byte order preserves UTF-8.
+    String::from_utf8(reversed)
+        .expect("removing ASCII blanks preserves UTF-8")
+        .trim()
+        .to_string()
 }
 
 /// The targets of the empty `<a>` elements in `text`, in source order.
@@ -278,11 +308,23 @@ fn empty_anchor_elements(text: &str) -> Vec<(std::ops::Range<usize>, &str)> {
     }
 
     let opaque = opaque_ranges(text);
+    // Opaque ranges are disjoint and source-ordered, as are the tag matches.
+    let mut opaque_index = 0;
     let mut anchors = Vec::new();
     let mut pos = 0;
     while let Some(tag) = HTML_OPEN_TAG.captures_at(text, pos) {
         let open_tag = tag.get(0).unwrap();
-        if is_within(&opaque, open_tag.start()) || is_backslash_escaped(text, open_tag.start()) {
+        while opaque
+            .get(opaque_index)
+            .is_some_and(|&(_, end)| end <= open_tag.start())
+        {
+            opaque_index += 1;
+        }
+        if opaque
+            .get(opaque_index)
+            .is_some_and(|&(start, _)| start <= open_tag.start())
+            || is_backslash_escaped(text, open_tag.start())
+        {
             pos = open_tag.start() + 1;
             continue;
         }
@@ -312,13 +354,16 @@ fn empty_anchor_elements(text: &str) -> Vec<(std::ops::Range<usize>, &str)> {
 fn opaque_ranges(text: &str) -> Vec<(usize, usize)> {
     let bytes = text.as_bytes();
     let mut ranges = Vec::new();
+    let mut backticks = BacktickLookup::default();
+    let mut brackets = DelimiterLookup::default();
+    let mut parentheses = DelimiterLookup::default();
     let mut pos = 0;
 
     while pos < bytes.len() {
         if bytes[pos] == b'`' {
             let run_end = pos + bytes[pos..].iter().take_while(|&&b| b == b'`').count();
             let run_len = run_end - pos;
-            match closing_backtick_run(bytes, run_end, run_len) {
+            match backticks.find(bytes, run_end, run_len) {
                 Some(close_start) => {
                     ranges.push((pos, close_start + run_len));
                     pos = close_start + run_len;
@@ -334,7 +379,7 @@ fn opaque_ranges(text: &str) -> Vec<(usize, usize)> {
         } else if bytes[pos..].starts_with(b"![")
             && !is_backslash_escaped(text, pos)
             && !is_backslash_escaped(text, pos + 1)
-            && let Some(end) = image_end(text, pos)
+            && let Some(end) = image_end(text, pos, &mut brackets, &mut parentheses)
         {
             ranges.push((pos, end));
             pos = end;
@@ -353,13 +398,59 @@ fn opaque_ranges(text: &str) -> Vec<(usize, usize)> {
 /// destination is `(...)` with balanced parentheses or a `[label]`. A bare
 /// `![text]` is a collapsed or shortcut reference image only if the document
 /// defines the label, which this text-level scan cannot see, so it stays text.
-fn image_end(text: &str, start: usize) -> Option<usize> {
+fn image_end(
+    text: &str,
+    start: usize,
+    brackets: &mut DelimiterLookup,
+    parentheses: &mut DelimiterLookup,
+) -> Option<usize> {
     let bytes = text.as_bytes();
-    let description_end = balanced_end(bytes, start + 2, b'[', b']')?;
+    let description_end = brackets.find(bytes, start + 2, b'[', b']')?;
     match bytes.get(description_end) {
-        Some(b'(') => balanced_end(bytes, description_end + 1, b'(', b')'),
-        Some(b'[') => balanced_end(bytes, description_end + 1, b'[', b']'),
+        Some(b'(') => parentheses.find(bytes, description_end + 1, b'(', b')'),
+        Some(b'[') => brackets.find(bytes, description_end + 1, b'[', b']'),
         _ => None,
+    }
+}
+
+/// Reuse one instance for one input and delimiter pair. Ordinary image ranges
+/// do not overlap, so they need no index. Malformed images can expose nested
+/// openers inside an already searched range, including successfully closed
+/// descriptions with no destination. Allow two input lengths of scanning before
+/// indexing: isolated malformed openers stay cheap, and total scanning is linear.
+#[derive(Default)]
+struct DelimiterLookup {
+    scanned_bytes: usize,
+    pairs: Option<HashMap<usize, usize>>,
+}
+
+impl DelimiterLookup {
+    fn find(&mut self, bytes: &[u8], from: usize, open: u8, close: u8) -> Option<usize> {
+        if self.pairs.is_none() && self.scanned_bytes >= bytes.len().saturating_mul(2) {
+            let mut pairs = HashMap::new();
+            let mut stack = Vec::new();
+            let mut pos = 0;
+            while pos < bytes.len() {
+                match bytes[pos] {
+                    b'\\' => pos += 1,
+                    byte if byte == open => stack.push(pos + 1),
+                    byte if byte == close => {
+                        if let Some(start) = stack.pop() {
+                            pairs.insert(start, pos + 1);
+                        }
+                    }
+                    _ => {}
+                }
+                pos += 1;
+            }
+            self.pairs = Some(pairs);
+        }
+        if let Some(pairs) = &self.pairs {
+            return pairs.get(&from).copied();
+        }
+        let end = balanced_end(bytes, from, open, close);
+        self.scanned_bytes = self.scanned_bytes.saturating_add(end.unwrap_or(bytes.len()) - from);
+        end
     }
 }
 
@@ -385,6 +476,44 @@ fn balanced_end(bytes: &[u8], from: usize, open: u8, close: u8) -> Option<usize>
     None
 }
 
+/// Look up successors of complete backtick runs in one input. Like image
+/// delimiters, ordinary code spans need no index. Distinct unmatched lengths
+/// can repeatedly search the suffix, so bound direct scanning before indexing.
+#[derive(Default)]
+struct BacktickLookup {
+    scanned_bytes: usize,
+    successors: Option<HashMap<usize, usize>>,
+}
+
+impl BacktickLookup {
+    fn find(&mut self, bytes: &[u8], from: usize, run_len: usize) -> Option<usize> {
+        if self.successors.is_none() && self.scanned_bytes >= bytes.len().saturating_mul(2) {
+            let mut successors = HashMap::new();
+            let mut previous_by_length = HashMap::new();
+            let mut pos = 0;
+            while pos < bytes.len() {
+                if bytes[pos] != b'`' {
+                    pos += 1;
+                    continue;
+                }
+                let start = pos;
+                pos += bytes[pos..].iter().take_while(|&&byte| byte == b'`').count();
+                if let Some(previous_end) = previous_by_length.insert(pos - start, pos) {
+                    successors.insert(previous_end, start);
+                }
+            }
+            self.successors = Some(successors);
+        }
+        if let Some(successors) = &self.successors {
+            return successors.get(&from).copied();
+        }
+        let close = closing_backtick_run(bytes, from, run_len);
+        let scanned_to = close.map_or(bytes.len(), |start| start + run_len);
+        self.scanned_bytes = self.scanned_bytes.saturating_add(scanned_to - from);
+        close
+    }
+}
+
 /// Start of the first backtick run of exactly `run_len` after `from`, if any.
 fn closing_backtick_run(bytes: &[u8], from: usize, run_len: usize) -> Option<usize> {
     let mut pos = from;
@@ -400,10 +529,6 @@ fn closing_backtick_run(bytes: &[u8], from: usize, run_len: usize) -> Option<usi
         pos = run_end;
     }
     None
-}
-
-fn is_within(ranges: &[(usize, usize)], pos: usize) -> bool {
-    ranges.iter().any(|&(start, end)| start <= pos && pos < end)
 }
 
 /// Whether the character at byte `pos` of `text` is backslash-escaped.
@@ -551,6 +676,238 @@ pub fn extract_standalone_attr_list_id(line: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn backtick_lookup_matches_independent_scans() {
+        let tokens = ["x", "`", "``", "```", "\\", "é", "<!--", "-->", "![", "](x)"];
+        for pattern in 0..tokens.len().pow(4) {
+            let mut digits = pattern;
+            let mut text = String::new();
+            for _ in 0..4 {
+                text.push_str(tokens[digits % tokens.len()]);
+                digits /= tokens.len();
+            }
+            let bytes = text.as_bytes();
+            let mut runs = Vec::new();
+            let mut pos = 0;
+            while pos < bytes.len() {
+                if bytes[pos] == b'`' {
+                    let end = pos + bytes[pos..].iter().take_while(|&&byte| byte == b'`').count();
+                    runs.push((end, end - pos));
+                    pos = end;
+                } else {
+                    pos += 1;
+                }
+            }
+            for reverse in [false, true] {
+                let mut queries = runs.clone();
+                if reverse {
+                    queries.reverse();
+                }
+                let mut lookup = BacktickLookup::default();
+                for &(from, len) in queries.iter().cycle().take(queries.len() * 8) {
+                    assert_eq!(
+                        lookup.find(bytes, from, len),
+                        closing_backtick_run(bytes, from, len),
+                        "{text:?}, {from}, {len}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn indexed_backticks_preserve_opaque_anchor_ranges() {
+        let prefix = "`x ``x ```x ````x ";
+        for suffix in [
+            "`````<a id=hidden></a>````` <a id=live></a>",
+            "<!-- `````<a id=hidden></a> --> <a id=live></a>",
+            "![`````<a id=hidden></a>](image) <a id=live></a>",
+            r"\`````<a id=hidden></a>````` <a id=live></a>",
+        ] {
+            let text = format!("{prefix}{suffix}");
+            assert_eq!(extract_html_anchor_ids(&text), ["live"], "{text:?}");
+        }
+    }
+
+    #[test]
+    fn delimiter_lookup_matches_independent_scans() {
+        let tokens = ["[", "]", "(", ")", "\\", "é"];
+        for pattern in 0..tokens.len().pow(6) {
+            let mut digits = pattern;
+            let mut text = String::new();
+            for _ in 0..6 {
+                text.push_str(tokens[digits % tokens.len()]);
+                digits /= tokens.len();
+            }
+            for (open, close) in [(b'[', b']'), (b'(', b')')] {
+                let offsets: Vec<_> = text
+                    .bytes()
+                    .enumerate()
+                    .filter(|&(pos, byte)| byte == open && !is_backslash_escaped(&text, pos))
+                    .map(|(pos, _)| pos + 1)
+                    .collect();
+                for reverse in [false, true] {
+                    let mut queries = offsets.clone();
+                    if reverse {
+                        queries.reverse();
+                    }
+                    let mut lookup = DelimiterLookup::default();
+                    for &from in queries.iter().cycle().take(queries.len() * 3) {
+                        assert_eq!(
+                            lookup.find(text.as_bytes(), from, open, close),
+                            balanced_end(text.as_bytes(), from, open, close),
+                            "{text:?}, {from}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn malformed_outer_images_preserve_inner_images_and_live_anchors() {
+        for text in [
+            "![![<a id=hidden></a>](image) <a id=live></a>",
+            "![outer]( ![<a id=hidden></a>](image) <a id=live></a>",
+            "![outer][ ![<a id=hidden></a>][label] <a id=live></a>",
+            "![![<a id=hidden></a>](image) <a id=live></a>]",
+            r"![outer\] ![<a id=hidden></a>](image) <a id=live></a>",
+        ] {
+            assert_eq!(extract_html_anchor_ids(text), ["live"], "{text:?}");
+        }
+    }
+
+    #[test]
+    fn display_text_matches_sequential_removal() {
+        fn sequential(slug_text: &str, seams: &[usize]) -> String {
+            let mut text = slug_text.to_string();
+            for &seam in seams.iter().rev() {
+                if seam == 0 || seam >= text.len() {
+                    continue;
+                }
+                let is_blank = |byte: u8| matches!(byte, b' ' | b'\t');
+                if is_blank(text.as_bytes()[seam - 1]) && is_blank(text.as_bytes()[seam]) {
+                    text.remove(seam);
+                }
+            }
+            text.trim().to_string()
+        }
+
+        let tokens = ["a", "é🙂", " ", "\t", "\u{2003}"];
+        for first in tokens {
+            for second in tokens {
+                for third in tokens {
+                    let text = format!("{first}{second}{third}");
+                    let offsets = [0, first.len(), first.len() + second.len(), text.len(), text.len() + 10];
+                    // Zero, one or two anchors at every boundary, including seams
+                    // beyond the text after a trailing attribute list is removed.
+                    for pattern in 0..3_usize.pow(offsets.len() as u32) {
+                        let mut digits = pattern;
+                        let mut seams = Vec::new();
+                        for offset in offsets {
+                            seams.extend(std::iter::repeat_n(offset, digits % 3));
+                            digits /= 3;
+                        }
+                        assert_eq!(
+                            display_text(&text, &seams),
+                            sequential(&text, &seams),
+                            "{text:?} {seams:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn display_text_preserves_anchor_spacing_and_slug() {
+        for (source, text, slug) in [
+            ("é <a></a> 🙂", "é 🙂", "é  🙂"),
+            ("a <a></a><a></a>  b", "a b", "a   b"),
+            ("a\t<a></a>\tb", "a\tb", "a\t\tb"),
+            ("a\u{2003}<a></a>\u{2003}b", "a\u{2003}\u{2003}b", "a\u{2003}\u{2003}b"),
+            ("a  <a></a>   b", "a    b", "a     b"),
+            ("a <a></a> {#id <a></a>}", "a", "a"),
+            ("a<a></a>b", "ab", "ab"),
+        ] {
+            let heading = extract_heading_text(source);
+            assert_eq!(heading.text, text, "{source:?}");
+            assert_eq!(heading.slug_text, slug, "{source:?}");
+        }
+    }
+
+    #[test]
+    fn heading_text_end_matches_rescanning() {
+        fn rescanning(line: &str) -> usize {
+            let mut end = line.len();
+            loop {
+                end = line[..end].trim_end().len();
+                if let Some((start, _)) = custom_id_at_end(&line[..end]) {
+                    end = start;
+                } else if let Some((range, _)) = empty_anchor_elements(&line[..end]).pop()
+                    && range.end == end
+                {
+                    end = range.start;
+                } else {
+                    return end;
+                }
+            }
+        }
+
+        // Complete and incomplete constructs deliberately meet at token boundaries.
+        let tokens = [
+            "",
+            "é🙂\u{2003}",
+            " ",
+            "\t",
+            "<a id=x></a>",
+            "<A name='y'> </A>",
+            "<a></a><a></a>",
+            "\\<a></a>",
+            "`",
+            "``",
+            "<!--",
+            "-->",
+            "![",
+            "](x)",
+            "<span title=\"",
+            "\">",
+            "{#id}",
+            "{#bad!}",
+            "{#id x=`}",
+            "{#id x=\">}",
+            "<a></a> {#id} <a></a>",
+            "{#id .class data='value'}",
+            "{#id x=(}",
+            "{#id x=[}",
+            "{#id x=]}",
+            "{#id x=)}",
+            "{#id x=-->}",
+            "{#id x='<'}",
+        ];
+        for first in tokens {
+            for second in tokens {
+                for third in tokens {
+                    let text = format!("# Word {first}{second}{third}");
+                    assert_eq!(heading_text_end(&text), rescanning(&text), "{text:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn heading_text_end_rescans_after_attribute_list() {
+        for (text, visible) in [
+            ("`<a id=live></a> {#id x=`}", "`"),
+            ("<a></a> `<a></a> {#id x=`} <a></a>", "<a></a> `"),
+            ("<span title=\"<a id=x></a> {#id x=\">} <a></a>", "<span title=\""),
+            ("![<a id=x></a> {#id x=](image)} <a></a>", "!["),
+        ] {
+            let expected = visible.len();
+            assert_eq!(heading_text_end(text), expected, "{text:?}");
+        }
+    }
 
     #[test]
     fn test_kramdown_format_extraction() {

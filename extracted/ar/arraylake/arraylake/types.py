@@ -69,6 +69,7 @@ RESERVED_REPO_NAMES = frozenset(
 MAX_BUCKET_PREFIX_LENGTH = 256
 # S3 bucket names are capped at 63 by AWS; GCS and Azure containers have similar limits.
 MAX_BUCKET_NAME_LENGTH = 63
+BUCKET_NICKNAME_IMMUTABLE = "A bucket nickname cannot be changed after the bucket is created."
 MAX_REPO_DESCRIPTION_LENGTH = 255
 MAX_REPO_METADATA_BYTES = 4 * 1024
 
@@ -1050,7 +1051,6 @@ class BucketModifyRequest(BaseModel):
     """A request with optional fields to modify a bucket's config on a per-field
     basis."""
 
-    nickname: BucketNickname | None = None
     platform: Platform | None = None
     name: BucketName | None = None
     prefix: BucketPrefix | None = None
@@ -1058,6 +1058,13 @@ class BucketModifyRequest(BaseModel):
     auth_config: AuthConfigPatch | None = Field(default=None, discriminator="method")
     # Only super admins may toggle the Earthmover-managed flag
     em_managed: bool | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_nickname(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "nickname" in data:
+            raise ValueError(BUCKET_NICKNAME_IMMUTABLE)
+        return data
 
     @field_validator("name")
     @classmethod
@@ -1583,7 +1590,8 @@ class OauthTokensResponse(BaseModel):
     id_token: SecretStr
     refresh_token: SecretStr | None = None
     expires_in: int
-    token_type: str
+    # Some refresh responses omit token_type; Auth0 tokens are always bearer tokens.
+    token_type: str = "Bearer"
 
     def dict(self, **kwargs) -> dict[str, Any]:
         """custom dict that drops default values"""

@@ -15,6 +15,8 @@ import json
 from typing import Any, Optional
 from typing_extensions import Self
 
+from istari_digital_client._transfer.errors import TransferFailed
+
 class OpenApiException(Exception):
     """The base exception class for all OpenAPIExceptions"""
 
@@ -257,6 +259,34 @@ class IstariError(Exception):
         return self.response
 
 
+class TransferRetriesExhaustedError(IstariError):
+    """A transfer exhausted its transient retry budget; no outer retry is automatic.
+
+    ``token`` is the original content token when available, or ``None``. To retry
+    an upload, pass ``salt=error.token.salt`` with the same content to preserve
+    resumability. Retry a download with its original content and destination
+    arguments, not with the upload salt workflow. Terminal failures such as
+    cancellation or changed local files are not retry exhaustion.
+    """
+
+    retries_exhausted = True
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        token: Any = None,
+        status_code: int | None = None,
+        request_id: str | None = None,
+        response: Any = None,
+    ) -> None:
+        """Keep the transfer token and optional HTTP metadata without copying."""
+        super().__init__(
+            message, status_code=status_code, request_id=request_id, response=response
+        )
+        self.token = token
+
+
 class DetachedInstanceError(IstariError):
     """A server operation was attempted on an object detached from its client.
 
@@ -338,6 +368,14 @@ def map_api_error(exc):
     headers = getattr(exc, "headers", None) or {}
     request_id = headers.get("x-request-id") if hasattr(headers, "get") else None
     body = getattr(exc, "body", None) or getattr(exc, "reason", None) or str(exc)
+    if isinstance(exc, TransferFailed):
+        return TransferRetriesExhaustedError(
+            str(body),
+            token=getattr(exc, "token", None),
+            status_code=status,
+            request_id=request_id,
+            response=body,
+        )
     cls = _STATUS_MAP.get(status)
     if cls is None:
         if isinstance(status, int) and status >= 500:

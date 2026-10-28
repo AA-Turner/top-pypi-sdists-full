@@ -165,6 +165,14 @@ class PaymentOrderCreateAsyncParams(TypedDict, total=False):
     will be truncated.
     """
 
+    originating_secondary_party_name: Optional[str]
+    """Secondary name for the legal entity making the payment.
+
+    Can be used for e.g. check signatures where the originating party wishes to
+    retain their company's display name but use an employee's name for the
+    signature.
+    """
+
     priority: Literal["high", "normal"]
     """Either `normal` or `high`.
 
@@ -352,7 +360,9 @@ class ReceivingAccountAccountDetail(TypedDict, total=False):
     account_number: Required[str]
 
     account_number_type: Literal[
+        "arbitrum_address",
         "au_number",
+        "avalanche_address",
         "base_address",
         "card_token",
         "clabe",
@@ -366,7 +376,6 @@ class ReceivingAccountAccountDetail(TypedDict, total=False):
         "polygon_address",
         "sg_number",
         "solana_address",
-        "wallet_address",
     ]
 
 
@@ -401,6 +410,7 @@ class ReceivingAccountRoutingDetail(TypedDict, total=False):
             "se_bankgiro_clearing_code",
             "sg_interbank_clearing_code",
             "swift",
+            "vasp",
             "za_national_clearing_code",
         ]
     ]

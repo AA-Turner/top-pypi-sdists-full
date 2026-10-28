@@ -1254,6 +1254,48 @@ thread_local! {
     static THREAD_ACTIVE_EVENT_TRACE_CONTEXT: RefCell<Option<W3cTraceContext>> = const { RefCell::new(None) };
 }
 
+pub use nemo_relay_types::api::scope::{ScopeStackEntry, ScopeStackSnapshot};
+
+/// Return detached identities from the calling context's explicitly active stack.
+///
+/// Returns None without creating or activating a stack when no override, task,
+/// or explicit thread binding exists. Includes implicit and synthetic entries.
+/// Lock poisoning returns an error; no live handles escape the read.
+pub fn current_scope_stack_snapshot() -> Result<Option<ScopeStackSnapshot>> {
+    let stack = current_context_scope_stack().or_else(explicit_thread_scope_stack);
+    stack.as_ref().map(scope_stack_snapshot).transpose()
+}
+
+/// Return the explicitly installed thread-local scope stack.
+pub fn explicit_thread_scope_stack() -> Option<ScopeStackHandle> {
+    THREAD_SCOPE_STACK_EXPLICIT.with(|explicit| {
+        explicit
+            .get()
+            .then(|| THREAD_SCOPE_STACK.with(|stack| stack.borrow().clone()))
+    })
+}
+
+/// Project a selected binding to detached values under a single read lock.
+///
+/// Foreign language and worker adapters select their exact execution binding
+/// before calling this helper. Serialization and callbacks occur after return.
+#[doc(hidden)]
+pub fn scope_stack_snapshot(stack: &ScopeStackHandle) -> Result<ScopeStackSnapshot> {
+    let guard = stack
+        .read()
+        .map_err(|error| FlowError::Internal(error.to_string()))?;
+    Ok(ScopeStackSnapshot {
+        scopes: guard
+            .scopes()
+            .iter()
+            .map(|scope| ScopeStackEntry {
+                scope_id: scope.uuid,
+                scope_type: scope.scope_type,
+            })
+            .collect(),
+    })
+}
+
 /// Return the scope stack visible to the current execution context.
 ///
 /// This resolves task-local scope state first and otherwise falls back to the
@@ -1297,14 +1339,28 @@ pub fn with_scope_stack<T>(handle: ScopeStackHandle, f: impl FnOnce() -> T) -> T
 
     impl Drop for OverrideGuard {
         fn drop(&mut self) {
-            let previous = self.previous.take();
-            SCOPE_STACK_OVERRIDE.with(|stack| *stack.borrow_mut() = previous);
+            restore_scope_stack_override(self.previous.take());
         }
     }
 
-    let previous = SCOPE_STACK_OVERRIDE.with(|stack| stack.replace(Some(handle)));
+    let previous = install_scope_stack_override(handle);
     let _guard = OverrideGuard { previous };
     f()
+}
+
+/// Return the scope stack override installed on the current thread.
+pub fn current_scope_stack_override() -> Option<ScopeStackHandle> {
+    SCOPE_STACK_OVERRIDE.with(|stack| stack.borrow().clone())
+}
+
+/// Install `handle` as the scope stack override and return the previous one.
+pub fn install_scope_stack_override(handle: ScopeStackHandle) -> Option<ScopeStackHandle> {
+    SCOPE_STACK_OVERRIDE.with(|stack| stack.replace(Some(handle)))
+}
+
+/// Restore an override returned by [`install_scope_stack_override`].
+pub fn restore_scope_stack_override(previous: Option<ScopeStackHandle>) {
+    SCOPE_STACK_OVERRIDE.with(|stack| *stack.borrow_mut() = previous);
 }
 
 /// Install an explicit scope stack for the current thread.

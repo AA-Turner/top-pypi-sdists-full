@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: presidio_analyzer
-Version: 2.2.365
+Version: 2.2.366
 Summary: Presidio Analyzer package
 License-Expression: MIT
 Keywords: presidio_analyzer
 Author: Presidio
 Author-email: presidio@dataprivacystack.org
-Requires-Python: >=3.10,<3.15
+Requires-Python: >=3.11,<3.15
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -29,7 +28,7 @@ Requires-Dist: azure-identity (>=1.18.0,<2.0.0) ; extra == "langextract"
 Requires-Dist: azure-identity (>=1.25.3,<2.0.0) ; extra == "ahds"
 Requires-Dist: click (>=8.1.0,<9.0.0)
 Requires-Dist: flask (>=1.1,<4.0.0) ; extra == "server"
-Requires-Dist: gliner (>=0.2.26,<1.0.0) ; extra == "gliner"
+Requires-Dist: gliner (>=0.2.29,<1.0.0) ; extra == "gliner"
 Requires-Dist: gunicorn (>=20.0.0,<26.0.0) ; (platform_system != "Windows") and (extra == "server")
 Requires-Dist: huggingface_hub (>=0.20.0,<2.0.0) ; extra == "transformers"
 Requires-Dist: huggingface_hub ; extra == "gliner"
@@ -37,8 +36,7 @@ Requires-Dist: jinja2 (>=3.0.0,<4.0.0) ; extra == "langextract"
 Requires-Dist: langextract (>=1.0.0,<2.0.0) ; extra == "langextract"
 Requires-Dist: more-itertools (>=10.0.0,<12.0.0) ; extra == "langextract"
 Requires-Dist: numpy (>=1.19.0,<2.5.0)
-Requires-Dist: onnxruntime (>=1.19) ; (python_version > "3.10") and (extra == "gliner")
-Requires-Dist: onnxruntime (>=1.19,<1.24.1) ; (python_version == "3.10") and (extra == "gliner")
+Requires-Dist: onnxruntime (>=1.19) ; extra == "gliner"
 Requires-Dist: openai (>=1.50.0,<3.0.0) ; extra == "langextract"
 Requires-Dist: phonenumbers (>=9.0.28,<10.0.0)
 Requires-Dist: preshed (<3.0.14)
@@ -47,11 +45,10 @@ Requires-Dist: pyyaml (>=6.0.3,<7.0.0)
 Requires-Dist: regex (>=2023.0.0)
 Requires-Dist: spacy (>=3.4.4,!=3.7.0,!=3.8.14,<4.0.0) ; python_version >= "3.14"
 Requires-Dist: spacy (>=3.4.4,!=3.7.0,<4.0.0) ; python_version < "3.14"
-Requires-Dist: spacy_huggingface_pipelines (>=0.0.4,<1.0.0) ; extra == "transformers"
 Requires-Dist: stanza (>=1.11.1,<2.0.0) ; extra == "stanza"
 Requires-Dist: tldextract (>=5.3.1,<6.0.0)
-Requires-Dist: transformers (>=4.0.0,<6.0.0) ; extra == "transformers"
-Requires-Dist: transformers ; extra == "gliner"
+Requires-Dist: transformers (>=4.28.0,<6.0.0) ; extra == "transformers"
+Requires-Dist: transformers (>=4.51.3,<5.17.0) ; extra == "gliner"
 Requires-Dist: waitress (>=2.0.0,<4.0.0) ; (platform_system == "Windows") and (extra == "server")
 Project-URL: Homepage, https://github.com/data-privacy-stack/presidio
 Description-Content-Type: text/markdown

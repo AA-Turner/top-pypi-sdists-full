@@ -25,7 +25,7 @@ from schemathesis.core.errors import (
 )
 from schemathesis.core.result import Err, Ok, Result
 from schemathesis.core.spec import Scheduler
-from schemathesis.engine import Status, events
+from schemathesis.engine import Status, StopReason, events
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.engine.run import UNIT_PHASES, PhaseName, PhaseSkipReason
 from schemathesis.engine.run.unit._direct_executor import run_driver
@@ -182,6 +182,7 @@ def execute(engine: EngineContext, phase: Phase, *, only: frozenset[str] | None 
             raise exc.__context__ from None
 
     yield from _report_outage(engine, phase.name, progress)
+    yield from _report_unreached(engine, scheduler, phase.name, suite_started.id)
     status = _final_status(phase, progress)
     # NOTE: Right now there is just one suite, hence two events go one after another
     yield events.SuiteFinished(id=suite_started.id, phase=phase.name, status=status)
@@ -254,6 +255,19 @@ def _report_outage(engine: EngineContext, phase: PhaseName, progress: _SuiteProg
         yield outage
 
 
+def _report_unreached(
+    engine: EngineContext, scheduler: Scheduler, phase: PhaseName, suite_id: uuid.UUID
+) -> events.EventGenerator:
+    """Skip the operations the time limit kept this phase from; a repeated pass already reached them once."""
+    if engine.stop_reason is not StopReason.MAX_TIME or engine.cycle_index > 0:
+        return
+    while (result := scheduler.next_operation()) is not None:
+        if isinstance(result, Ok):
+            yield from events.iter_skipped_scenario(
+                result.ok().label, phase, suite_id, skip_reason=StopReason.MAX_TIME.skip_explanation
+            )
+
+
 def _final_status(phase: Phase, progress: _SuiteProgress) -> Status:
     if not progress.is_executed:
         phase.skip_reason = PhaseSkipReason.NOTHING_TO_TEST
@@ -310,6 +324,10 @@ def _run_operation(
 ) -> None:
     """Test one operation in this phase, or report why it is skipped."""
     ctx.take_operation_slice()
+    for error in operation.schema_errors:
+        events_queue.put(
+            events.NonFatalError(error=error, phase=phase, label=operation.label, related_to_operation=True)
+        )
     verdict = _scheduling_verdict(ctx, operation, phase)
     if verdict.directive is SchedulingDirective.SKIP:
         events.put_skipped_scenario(

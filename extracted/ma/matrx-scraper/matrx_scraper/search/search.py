@@ -22,6 +22,16 @@ def _note_failure(query: str, reason: str) -> None:
     _FAILURE_REASONS[query] = reason
 
 
+#: Marker in ``brave_failure_reason`` for a throttle that outlasted every retry — a caller
+#: tells "the provider is rate-limiting; try again" apart from any other failure with it.
+RATE_LIMITED_REASON = "the search engine is rate-limiting us (HTTP 429)"
+
+
+def rate_limit_backoff_seconds(attempt: int) -> float:
+    """Back-off before throttle retry ``attempt`` (1-based), without jitter: 5 s, 7 s, 9 s, …"""
+    return 3.0 + 2.0 * attempt
+
+
 def brave_failure_reason(query: str) -> str | None:
     """Why the last `async_brave_search` for `query` returned None, or None when it did not fail."""
     return _FAILURE_REASONS.get(query)
@@ -157,9 +167,15 @@ async def async_brave_search(
     extra_snippets: bool = True,
     safe_search: str | None = None,
     freshness: str | None = None,
+    max_retries: int = 2,
 ) -> dict[str, Any] | None:
+    """One Brave web search, or ``None`` on a real failure (``brave_failure_reason`` says why).
+
+    A throttle (HTTP 429) is retried ``max_retries`` times with a growing back-off
+    (``rate_limit_backoff_seconds``); the host passes its knob, the package keeps 2.
+    """
     client = get_client()
-    max_retries = 2
+    max_retries = max(0, int(max_retries))
     retry_count = 0
 
     while retry_count <= max_retries:
@@ -195,9 +211,7 @@ async def async_brave_search(
             # so a transient rate limit can never masquerade as an empty search.
             if retry_count < max_retries:
                 retry_count += 1
-                base_delay = 3 + (retry_count * 2)
-                jitter = random.uniform(0, 1.0)
-                retry_delay = base_delay + jitter
+                retry_delay = rate_limit_backoff_seconds(retry_count) + random.uniform(0, 1.0)
                 vcprint(
                     f"[brave_search] THROTTLED (429) — retrying in {retry_delay:.1f}s "
                     f"(attempt {retry_count}/{max_retries}): {e}",
@@ -214,7 +228,7 @@ async def async_brave_search(
                 title="Brave throttled",
                 color="red",
             )
-            _note_failure(query, "the search engine is rate-limiting us (HTTP 429)")
+            _note_failure(query, RATE_LIMITED_REASON)
             return None
 
         except Exception as e:

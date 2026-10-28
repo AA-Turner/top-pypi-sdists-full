@@ -14,8 +14,8 @@ class AgentCreateParams(TypedDict, total=False):
     with a letter and ending with a letter or digit.
     """
 
-    source_type: Required[Literal["LSD", "MDA", "EXTERNAL", "FLEET"]]
-    """Agent runtime kind. Use EXTERNAL for an application hosted outside LangSmith."""
+    source_type: Literal["LSD", "MDA", "EXTERNAL", "FLEET"]
+    """Agent runtime kind. Defaults to EXTERNAL for an application hosted outside LangSmith."""
 
     agent_type: Literal["CUSTOM", "CODING"]
     """AgentType defaults to CUSTOM when omitted."""

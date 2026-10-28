@@ -20,8 +20,14 @@ from typing import TYPE_CHECKING, TypeVar
 
 from nameparser._lexicon import Lexicon
 from nameparser._policy import Policy
-from nameparser._types import (SHAPE_ACRONYM_TAG, AmbiguityKind,
-                               Role, Segmenter, Span)
+from nameparser._types import AmbiguityKind, Segmenter, Span
+# re-exported for _vocab, which layering keeps off _types
+from nameparser._types import ReadingKind as ReadingKind
+from nameparser._types import ReadingSource as ReadingSource
+from nameparser._types import Role as Role
+from nameparser._types import SHAPE_ACRONYM_TAG as SHAPE_ACRONYM_TAG
+from nameparser._types import SPLIT_CREDENTIAL_TAG as SPLIT_CREDENTIAL_TAG
+from nameparser._types import SPLIT_MEMBER_TAG as SPLIT_MEMBER_TAG
 
 if TYPE_CHECKING:
     from nameparser._pipeline._pieces import TailRead
@@ -86,6 +92,27 @@ _NEVER_FLIPPED = frozenset({"vocab:bound-given", "initial"})
 #: reader ever finds.
 AMBIGUOUS_ACRONYM_TAG = "vocab:suffix-ambiguous"
 
+#: Beside `AMBIGUOUS_ACRONYM_TAG` on a suffix WORD that is also a name
+#: (`Lexicon.suffix_words_ambiguous`, rules/S11): the class is the
+#: same, and so is every site that weighs it, but the writing leans the
+#: other way -- lower case in a mixed-case name is the suffix, where an
+#: acronym's capitals are (`_vocab.ambiguous_lean`). `AGNOMEN_TAG`
+#: rides beside both on an agnomen, whose writing leans nowhere.
+AMBIGUOUS_WORD_TAG = "vocab:suffix-word-ambiguous"
+AGNOMEN_TAG = "vocab:agnomen"
+
+#: On a word of `Lexicon.titles_ambiguous` whichever way classify read
+#: it (rules/H9): read as a title it carries "vocab:title" too, read
+#: out of the title it carries this alone, which is how assign finds
+#: the fork to report where the word opens the name.
+TITLE_AMBIGUOUS_TAG = "vocab:title-ambiguous"
+
+#: On a word of `Lexicon.given_name_abbreviations`, a given name written
+#: short ('Chas.', 'Ma.'): rules/H2's shape test declines a word
+#: carrying it, so the given reading outranks the shape-derived title
+#: (`_pieces.is_leading_title`, `_vocab.is_title_shaped`).
+GIVEN_ABBREVIATION_TAG = "vocab:given-abbreviation"
+
 #: EITHER way a token joins the ambiguous credential class -- the
 #: vocabulary's claim and the writing's. The two emitters that report
 #: a fork the peel called and declined ask exactly this: `_group`'s
@@ -98,6 +125,9 @@ AMBIGUOUS_ACRONYM_TAG = "vocab:suffix-ambiguous"
 #: with no Python frame, on a branch every chained name reaches.
 _AMBIGUOUS_CREDENTIAL_TAGS = frozenset(
     {AMBIGUOUS_ACRONYM_TAG, SHAPE_ACRONYM_TAG})
+
+# SPLIT_CREDENTIAL_TAG and SPLIT_MEMBER_TAG are defined and explained in
+# _types beside SHAPE_ACRONYM_TAG, case repair reading them too.
 
 #: The roles that make a piece a name word (rules/P6's walk), and
 #: the roles of a word not yet read as one: a suffix, or nothing yet
@@ -149,6 +179,62 @@ class PendingAmbiguity:
     indices: tuple[int, ...] = ()
     origin: int | None = None
     field_tail: str | None = None
+    alternative: PendingReading | None = None
+
+
+class Deferred(Enum):
+    """A PendingReading field its emitter cannot name yet."""
+
+    #: O5's: a lone name word read as one of the two primary fields
+    #: would be read as the other, named from its FINAL role by
+    #: assemble, since H1 or a rotation may still move it after the
+    #: emitter (#626's reason for ``field_tail``).
+    OTHER_PRIMARY = auto()
+    #: classify's connective: the letter read as a connective would
+    #: join the name words on either side into one, whose field assign
+    #: names once it has positions -- the positional read's, where the
+    #: join would merge two pieces, and the letter's own piece's
+    #: (`Beside`), where both words are already in it.
+    JOINED = auto()
+    #: group's particle chain: the particle it chained would stand as a
+    #: name word of its own in front of the piece, named by assign.
+    UNCHAINED = auto()
+
+
+@dataclass(frozen=True, slots=True)
+class Beside:
+    """A PendingReading field named from another token's: the reading
+    lands where the token at `index` lands, named by assemble from that
+    token's final role -- a word the name piece in front would take in
+    (a particle chain, which runs to the end of the name words, or a
+    bound given name), or a connective whose join stays inside its own
+    piece. Where P6 then attached that token to the family
+    (`FOLDED_TAG`), which it would not have done with a word behind
+    it, `unfolded`, the field the word held when the report was made,
+    stands instead."""
+
+    index: int
+    unfolded: Role | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PendingReading:
+    """The reading a report's decision did not take, as its emitter
+    knows it; assemble turns it into the public Reading.
+
+    ``role`` is the field the first referent would hold under that
+    reading, with every other word of the name read as the parse read
+    it, a `Deferred` form for a stage that runs before the field is
+    known, or `Beside` for a field another token's final role names.
+    A JOINED or UNCHAINED form assign leaves unresolved -- a referent
+    that ends outside every name position -- surfaces as no
+    alternative rather than a guess. Assemble also folds a MIDDLE into
+    the family under ``middle_as_family``, the one later rule that
+    moves a field whatever word stands in it."""
+
+    kind: ReadingKind
+    source: ReadingSource
+    role: Role | Deferred | Beside
 
 
 #: How a report names the field a word was read into, by final role.
@@ -184,8 +270,10 @@ class ParseState:
     assign -> the remaining token roles AND `order`, the effective
     order it read them under, AND the folded-middle tag on the
     particles P6's attachment joins after a family comma (#613);
-    post_rules -> roles again, and the ambiguity P6's no-comma
-    attachment reports (#467).
+    post_rules -> roles again (a delimited member S13 settles becomes
+    the suffix, #810), and the ambiguity P6's no-comma attachment
+    reports (#467) and SUFFIX_OR_NICKNAME on a member it leaves a
+    nickname.
     Ambiguities are recorded by every stage that DECIDES one --
     extract (resolved to a token index by tokenize), segment,
     script_segment, classify, group, assign, and post_rules -- since a
@@ -330,7 +418,7 @@ def _copyable_fields(cls: type) -> tuple[str, ...]:
 #: here rather than in a parse, and `copy_with` copies nothing else.
 _COPY_FIELDS: Mapping[type, tuple[str, ...]] = MappingProxyType({
     cls: _copyable_fields(cls)
-    for cls in (WorkToken, PendingAmbiguity, ParseState)})
+    for cls in (WorkToken, PendingAmbiguity, PendingReading, ParseState)})
 
 _T = TypeVar("_T")
 

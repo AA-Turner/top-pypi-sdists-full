@@ -5,6 +5,9 @@ the blinding check (``ai_visibility_design.scan_text``), answer mentions
 (``providers.dataforseo.ai_answers.answer_mentions_target``) and coverage
 (``coverage.term_hits``). "Stream", "Workers", "Render", "Remote", "Square" are names only when
 written as names; the ordinary word is never a mention and never a leak.
+
+The dictionary and the cue rules live ONCE in :mod:`matrx_utils.proper_names` (also used by
+``matrx_graph.text_match``); this module feeds them the live knob lists.
 """
 
 from __future__ import annotations
@@ -15,61 +18,49 @@ import unicodedata
 from collections.abc import Callable, Iterable
 from typing import Any
 
+# A module import (not ``from``): the floor guard reads ``from`` imports against PUBLISHED tags, and
+# proper_names ships in the next matrx-utils release, whose bump refreshes this package's floor.
+import matrx_utils.proper_names as _shared
+
+LIST_MARKER_BEFORE = _shared.LIST_MARKER_BEFORE
+NAME_CONTEXT = _shared.NAME_CONTEXT
+NAME_CONTEXT_BEFORE = _shared.NAME_CONTEXT_BEFORE
+common_english_words = _shared.common_english_words
+everyday_word_terms = _shared.everyday_word_terms
+is_word = _shared.is_word
+reads_as_proper_name = _shared.reads_as_proper_name
+
+__all__ = [
+    "LIST_MARKER_BEFORE",
+    "NAME_CONTEXT",
+    "NAME_CONTEXT_BEFORE",
+    "NAME_PRODUCT_CONTEXT_WORDS",
+    "NAME_VERB_CUES",
+    "common_english_words",
+    "common_word_names",
+    "configure_name_context_words",
+    "configure_name_verb_cues",
+    "is_flagged",
+    "is_word",
+    "name_context_words",
+    "name_verb_cues",
+    "proper_name_match",
+]
+
 logger = logging.getLogger(__name__)
-
-_COMMON_WORDS: frozenset[str] | None = None
-
-
-def common_english_words() -> frozenset[str]:
-    """Lower-case English words (Webster's 2nd, public domain; ``data/``), loaded once."""
-    global _COMMON_WORDS
-    if _COMMON_WORDS is None:
-        import gzip
-        from importlib import resources
-
-        raw = resources.files("matrx_seo").joinpath("data/common_english_words.txt.gz")
-        with raw.open("rb") as fh:
-            _COMMON_WORDS = frozenset(gzip.decompress(fh.read()).decode("utf-8").split())
-    return _COMMON_WORDS
 
 
 def common_word_names(terms: Iterable[Any]) -> list[str]:
-    """The names that are also an everyday word: one alphabetic token whose lower-case form is an
-    English word ("Render", "Remote", "Workers", "Stream")."""
-    words = common_english_words()
-    out: list[str] = []
-    for term in terms:
-        text = str(term).strip()
-        if re.fullmatch(r"[^\W\d_]+", text) and is_word(text.casefold(), words):
-            if text not in out:
-                out.append(text)
-    return out
-
-
-def is_word(word: str, words: frozenset[str]) -> bool:
-    """``word`` or its singular is an English word (the list holds singulars: "workers")."""
-    if word in words:
-        return True
-    singulars = []
-    if word.endswith("ies"):
-        singulars.append(word[:-3] + "y")
-    if word.endswith("es"):
-        singulars.append(word[:-2])
-    if word.endswith("s"):
-        singulars.append(word[:-1])
-    return any(len(w) >= 3 and w in words for w in singulars)
+    """The names that are also an everyday word ("Render", "Remote", "Workers", "Stream") — THE
+    shared rule, :func:`matrx_utils.proper_names.everyday_word_terms`."""
+    return everyday_word_terms(terms)
 
 
 #: Verbs that, right after a capitalised everyday word opening a sentence or list item, mark it as
 #: a name ("Render offers …", "Acme is one option"). The SEED of platform.feature_knob
 #: "seo.name_matching" "name_verb_cues" (aidream migration 1530). The live list is the knob row,
 #: handed in by the host through :func:`configure_name_verb_cues`; see :func:`name_verb_cues`.
-NAME_VERB_CUES: tuple[str, ...] = (
-    "is", "are", "was", "were", "has", "have", "had", "offers", "offered", "provides", "provided",
-    "lets", "gives", "supports", "includes", "features", "makes", "allows", "enables", "helps",
-    "charges", "costs", "uses", "runs", "hosts", "sells", "ships", "focuses", "specializes",
-    "specialises", "stands", "remains", "delivers", "excels", "leads", "integrates", "works",
-)
+NAME_VERB_CUES: tuple[str, ...] = _shared.NAME_VERB_CUES
 
 #: The host's live source for the verb cues (a synchronous read of the knob row from its process
 #: cache). Unset — a standalone install, or a test — means the seed above, announced once.
@@ -122,15 +113,7 @@ def name_verb_cues() -> tuple[str, ...]:
 #: "Linear is fine" have none). The SEED of platform.feature_knob "seo.name_matching"
 #: "name_product_context_words" (aidream migration 1536), handed in through
 #: :func:`configure_name_context_words`; see :func:`name_context_words`.
-NAME_PRODUCT_CONTEXT_WORDS: tuple[str, ...] = (
-    "alternative", "alternatives", "api", "app", "apps", "brand", "cdn", "cloud", "companies", "company",
-    "competitor", "competitors", "crm", "customers", "dashboard", "database", "deploy", "deploys",
-    "deployment", "enterprise", "eor", "feature", "features", "hosted", "hosting", "integration",
-    "integrations", "managed", "option", "options", "payroll", "plan", "plans", "platform", "platforms",
-    "price", "priced", "pricing", "product", "products", "provider", "providers", "saas", "sdk",
-    "service", "services", "software", "solution", "solutions", "startup", "subscription", "tier",
-    "tool", "tools", "vendor", "vendors",
-)
+NAME_PRODUCT_CONTEXT_WORDS: tuple[str, ...] = _shared.NAME_PRODUCT_CONTEXT_WORDS
 
 _context_source: Callable[[], Iterable[str]] | None = None
 
@@ -162,44 +145,6 @@ def name_context_words() -> tuple[str, ...]:
         return NAME_PRODUCT_CONTEXT_WORDS
 
 
-#: Words that put a capitalised everyday word in a naming context when it opens a sentence.
-NAME_CONTEXT = re.compile(
-    r"^\s*(?:/|,|&|\+|\(|\)|'s\b|\.(?:com|io|co|app|dev|net|org)\b|vs\.?\b|versus\b|or\b|and\b"
-    r"|alternatives?\b|pricing\b|review"
-    # "Render: good", "Render — managed hosting", "Render - fast", "**Render**:"
-    r"|\**\s*:|\**\s+[-\u2013\u2014]\s|\**\s*[\u2013\u2014])",
-    re.IGNORECASE,
-)
-NAME_CONTEXT_BEFORE = re.compile(r"(?:/|,|&|\+|\bvs\.?|\bversus|\bor|\band|\blike)\s*$", re.I)
-#: A list marker opening the line: "1. ", "2) ", "- ", "* ", "• ", optionally bold ("- **").
-LIST_MARKER_BEFORE = re.compile(r"(?:^|\n)[ \t]*(?:\d{1,3}[.)]|[-*\u2022+])[ \t]+\**$")
-
-
-def _verb_cue(after: str, verbs: Iterable[str]) -> bool:
-    m = re.match(r"\**\s+([^\W\d_]+)\b", after)
-    return m is not None and m.group(1).casefold() in {v.casefold() for v in verbs}
-
-
-def _second_signal(
-    name: str, text: str, after: str, context_words: Iterable[str], co_terms: Iterable[str]
-) -> bool:
-    """What a verb cue needs beside it before an everyday word counts as the name: a product word
-    in the same sentence, the name written as a domain anywhere, or another tracked name in the text."""
-    sentence = re.split(r"[.!?\n]", after, maxsplit=1)[0]
-    words = {w.casefold() for w in re.findall(r"[^\W\d_]+", sentence)}
-    if words & {w.casefold() for w in context_words}:
-        return True
-    if re.search(r"(?<![\w.])" + re.escape(name) + r"\.(?:com|io|co|app|dev|net|org|ai)\b", text, re.IGNORECASE):
-        return True
-    for other in co_terms:
-        other = unicodedata.normalize("NFKC", str(other)).strip()
-        if not other or other.casefold() == name.casefold():
-            continue
-        if re.search(r"(?<!\w)" + re.escape(other) + r"(?!\w)", text):
-            return True
-    return False
-
-
 def proper_name_match(
     term: str,
     text: str,
@@ -223,22 +168,11 @@ def proper_name_match(
     context = name_context_words() if context_words is None else tuple(context_words)
     co_terms = tuple(co_terms)
     for m in re.finditer(r"(?<!\w)" + re.escape(name) + r"(?!\w)", folded, flags=re.IGNORECASE):
-        found = m.group(0)
-        if not found[:1].isupper():
-            continue
-        before = folded[: m.start()]
-        opens = not before.strip() or re.search(r"[.!?:\n\"“(\[*-]\s*$", before) is not None
-        if not opens:
-            return found
-        after = folded[m.end() :]
-        if re.search(r"[\"“'\[]\s*$", before) and re.match(r"\s*[\"”'\]]", after):
-            return found  # the whole value of a quoted or listed item: a name, not a word
-        if NAME_CONTEXT.match(after) or NAME_CONTEXT_BEFORE.search(before):
-            return found
-        if _verb_cue(after, cues) and _second_signal(name, folded, after, context, co_terms):
-            return found
-        if LIST_MARKER_BEFORE.search(before) and re.match(r"\**[ \t]*(?:\n|$|\()", after):
-            return found  # a list item that is the name alone
+        if reads_as_proper_name(
+            folded, m.start(), m.end(),
+            name=name, verbs=cues, context_words=context, co_terms=co_terms,
+        ):
+            return m.group(0)
     return None
 
 

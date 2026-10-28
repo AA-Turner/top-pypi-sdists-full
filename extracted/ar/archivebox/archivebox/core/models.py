@@ -16,7 +16,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, models, transaction
 from django.db.models import F, Q, QuerySet, Sum, Value
 from django.db.models.fields.json import KT
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Greatest
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -42,7 +42,9 @@ from archivebox.misc.util import (
     domain as url_domain,
 )
 from archivebox.misc.util import (
+    equivalent_urls,
     htmldecode,
+    iri_to_uri,
     parse_date,
     sanitize_html_text,
     to_json,
@@ -54,7 +56,7 @@ from archivebox.plugins.discovery import (
     get_plugin_name,
     get_plugins,
 )
-from archivebox.uuid_compat import CompactUUIDField, uuid7
+from archivebox.uuid_compat import CompactUUIDField, compact_uuid, uuid7
 from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS, RETRY_AT_MAX, ModelWithQueue
 
 if TYPE_CHECKING:
@@ -538,6 +540,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     crawl_id: uuid.UUID
     parent_snapshot_id: uuid.UUID | None
     _prefetched_objects_cache: dict[str, Any]
+    _imported_tag_names: list[str]
 
     objects = SnapshotManager()
     archiveresult_set: models.Manager["ArchiveResult"]
@@ -577,6 +580,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["-bookmarked_at", "-created_at"], name="snapshot_public_order_idx"),
             models.Index(fields=["crawl", "status", "modified_at"], name="snapshot_progress_idx"),
+            # Cross-crawl incremental API polls must seek into their time window,
+            # not read every historical row with the requested status.
+            models.Index(fields=["status", "modified_at"], name="snapshot_status_modified_idx"),
         ]
         constraints: ClassVar[list[models.BaseConstraint]] = [
             # Allow same URL in different crawls, but not duplicates within same crawl
@@ -591,11 +597,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def output_paths_for_delete(self) -> tuple[Path, ...]:
         current = self.get_storage_path_for_version(self.fs_version)
         paths = [Path(self.output_dir), current, CONSTANTS.ARCHIVE_DIR / self.timestamp]
-        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
-            paths.append(current.with_name(str(uuid.UUID(hex=self.id.hex))))
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
+            paths.append(current.with_name(str(uuid.UUID(str(self.id)))))
         if self.crawl_id:
             domain_dir = self.crawl.output_dir / CONSTANTS.SNAPSHOTS_DIR_NAME / self.extract_domain_from_url(self.url)
-            paths.extend((domain_dir / str(self.id), domain_dir / str(uuid.UUID(hex=self.id.hex))))
+            paths.extend((domain_dir / compact_uuid(self.id).hex, domain_dir / str(uuid.UUID(str(self.id)))))
         return tuple(dict.fromkeys(paths))
 
     def delete(self, using=None, keep_parents=False):
@@ -621,14 +627,17 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return super().delete(using=using, keep_parents=keep_parents)
 
     @classmethod
-    def delete_requested(cls, *, batch_size=100):
+    def delete_requested(cls, *, batch_size=100, drain: bool = False):
         # Finish the bounded read before touching files: even an open SELECT
         # cursor can hold a SQLite read lock for the duration of slow cleanup.
-        pending = list(cls.objects.filter(status=cls.DELETING_STATE).select_related("crawl__created_by")[:batch_size])
+        queryset = cls.objects.filter(status=cls.DELETING_STATE).select_related("crawl__created_by").order_by("pk")
+        # The daemon's existing filesystem job can drain successive pages.
+        # Keyset iteration advances past failed rows, attempting each only once.
+        pending = queryset.paged_iterator(chunk_size=batch_size) if drain else list(queryset[:batch_size])
         for snapshot in pending:
             try:
                 snapshot.delete()
-            except OSError:
+            except (OSError, ValueError):
                 logging.getLogger(__name__).exception("Snapshot %s file deletion failed; keeping its database row", snapshot.pk)
 
     @classmethod
@@ -773,7 +782,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             self.refresh_from_db()
             parent_status = Crawl.objects.filter(id=self.crawl_id).values_list("status", flat=True).first()
             if parent_status == Crawl.StatusChoices.SEALED and self.status != self.StatusChoices.SEALED:
-                self.seal()
+                self.cancel()
             return True
 
         if parent_status == Crawl.StatusChoices.PAUSED and self.status not in (self.StatusChoices.PAUSED, self.StatusChoices.SEALED):
@@ -836,27 +845,30 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self.refresh_from_db()
         return updated == 1
 
-    def seal(self) -> bool:
-        """Atomically finalize this Snapshot and reconcile its output metadata."""
+    def seal(self, *, modified_at: datetime | None = None) -> bool:
+        """Project a terminal snapshot state after its lifecycle has settled.
+
+        This method does not run cleanup. abx-dl owns that phase, including
+        failed attempts; its completion projector must remain a short DB write.
+        Putting filesystem work here either seals before that work finishes or
+        blocks unrelated hook result writes behind a slow archive mount.
+        A publisher supplies the date already written in its canonical record;
+        direct terminal transitions otherwise use the current time.
+        """
         if self.status == self.StatusChoices.SEALED:
             return True
-        now = timezone.now()
+        now = modified_at or timezone.now()
         updated = (
             type(self)
-            .objects.filter(
-                pk=self.pk,
-                retry_at=self.retry_at,
-                status__in=self.OPEN_STATES,
-            )
-            .update(
-                status=self.StatusChoices.SEALED,
-                retry_at=None,
-                modified_at=now,
-            )
+            .objects.filter(pk=self.pk, retry_at=self.retry_at, status__in=self.OPEN_STATES)
+            .update(status=self.StatusChoices.SEALED, retry_at=None, modified_at=Greatest("modified_at", now))
         )
         self.refresh_from_db()
         if updated == 1:
-            self.finalize_output_metadata()
+            # The atomic state projection bypasses Model.save()/post_save.
+            from signal_webhooks.handlers import webhook_handler
+
+            webhook_handler(instance=self, method="UPDATE")
         return updated == 1
 
     def advance_lifecycle(self) -> bool:
@@ -872,6 +884,21 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def cancel(self) -> None:
         if self.status != self.StatusChoices.SEALED:
+            # Explicit cancellation also accepts old, partially captured rows
+            # with no live downloader. Preserve their existing metadata cleanup
+            # before the seal; normal execution instead does this in abx-dl's
+            # cleanup phase. This removes stale archive metadata, not processes:
+            # only the downloader owns stopping its running hooks.
+            never_started = (
+                self.status == self.StatusChoices.QUEUED
+                and self.downloaded_at is None
+                and not self.output_size
+                and not self.archiveresult_set.exists()
+            )
+            # Untouched bulk queue entries have nothing to reconcile. In
+            # particular, cancellation must not stat/glob remote archive paths.
+            if not never_started:
+                self.finalize_output_metadata()
             self.seal()
 
     def get_delete_after_config_value(self):
@@ -890,7 +917,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     @classmethod
     def is_archivebox_internal_url(cls, url: str, *, config: Mapping[str, Any] | Any | None = None) -> bool:
-        parsed = urlparse((url or "").strip())
+        # Compare the host browsers and hooks actually connect to: IDNA folds
+        # fullwidth/Unicode spellings (ａｄｍｉｎ.…, １２７.０.０.１) to ASCII.
+        parsed = urlparse(iri_to_uri((url or "").strip()))
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
             return False
 
@@ -905,20 +934,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         if config is None:
             config = get_config()
-        elif isinstance(config, Mapping):
-            route_config = config
-
-            class RouteConfig:
-                BIND_ADDR = str(route_config.get("BIND_ADDR") or "")
-                BASE_URL = str(route_config.get("BASE_URL") or "")
-                CSRF_TRUSTED_ORIGINS = str(route_config.get("CSRF_TRUSTED_ORIGINS") or "")
-                SERVER_SECURITY_MODE = str(route_config.get("SERVER_SECURITY_MODE") or "")
-
-                @property
-                def USES_SUBDOMAIN_ROUTING(self) -> bool:
-                    return self.SERVER_SECURITY_MODE == "safe-subdomains-fullreplay"
-
-            config = RouteConfig()
         host = parsed.hostname.lower().strip(".")
         port = str(parsed.port) if parsed.port else None
         protected_subdomains = {"admin", "web", "api"}
@@ -1015,21 +1030,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             raise ValidationError({"url": "ArchiveBox cannot archive its own admin, web, api, or snapshot URLs."})
 
     def save(self, *args, **kwargs):
+        creating = self._state.adding
         update_fields = kwargs.get("update_fields")
         validate_url_field = self._state.adding or update_fields is None or "url" in update_fields
-        crawl_config_for_save = None
-        crawl_permissions_for_save = None
-        if self.crawl_id and validate_url_field:
-            crawl_row = Crawl.objects.filter(pk=self.crawl_id).values("config", "permissions").first()
-            if crawl_row:
-                crawl_config_for_save = crawl_row.get("config") or {}
-                crawl_permissions_for_save = crawl_row.get("permissions")
-
-        if self.ensure_permissions_config(crawl_permissions=crawl_permissions_for_save) and update_fields is not None:
+        if self.ensure_permissions_config() and update_fields is not None:
             kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "config"]))
 
         if validate_url_field:
-            self.validate_url_for_archiving(config=crawl_config_for_save if self.crawl_id else None)
+            self.validate_url_for_archiving()
 
         if not self.bookmarked_at:
             self.bookmarked_at = self.created_at or timezone.now()
@@ -1041,33 +1049,28 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if self._state.adding or update_fields is None or "notes" in update_fields:
             self.notes = sanitize_html_text(self.notes)
 
-        super().save(*args, **kwargs)
+        if not creating:
+            super().save(*args, **kwargs)
+            return
 
-        from django.db import transaction
-
-        def finish_snapshot_save():
-            crawl = Crawl.objects.filter(pk=self.crawl_id).first()
-            if crawl is None:
-                return
-            crawl_tag_names = crawl.current_tag_names()
-            if crawl_tag_names:
-                # Snapshots can be created by parser hook side-effect records,
-                # direct ORM creates, or legacy crawl URL expansion. Crawl tags
-                # are user-facing metadata on the whole import, so attach them
-                # at the Snapshot.save() boundary instead of relying on every
-                # caller to remember to duplicate this fanout logic.
-                tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=crawl_tag_names)}
-                missing_tags = [Tag(name=name) for name in crawl_tag_names if name not in tags_by_name]
-                if missing_tags:
-                    Tag.objects.bulk_create(missing_tags, ignore_conflicts=True)
-                    tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=crawl_tag_names)}
-                self.add_tag_ids([tag.pk for name in crawl_tag_names if (tag := tags_by_name.get(name))])
-            # Crawl.urls remains the original submitted source. Snapshot rows
-            # are the normalized work queue and discovery projection.
-
-        # get_or_create/update_or_create wrap save() in atomic(); attach inherited
-        # tags after that write commits. Filesystem projections belong to the runner.
-        transaction.on_commit(finish_snapshot_save)
+        # Copy defaults once, before callers can edit tags. A deferred callback
+        # would resurrect tags cleared later in the same creation transaction.
+        # Imported captures use their saved tags (even an empty set), not the
+        # source crawl's defaults, which may have changed since capture time.
+        tag_names = getattr(self, "_imported_tag_names", None)
+        if tag_names is None:
+            # Ordinary queue inserts stay in autocommit. Only filesystem
+            # recovery needs the atomic row/tag boundary below for resumability.
+            super().save(*args, **kwargs)
+            self.save_tags(self.crawl.current_tag_names())
+            return
+        # Commit the row and tags together so a resumed import never needs to
+        # union stale disk tags over user edits. All archive I/O happens outside
+        # this short transaction; ordinary status/title saves bypass it entirely.
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            self.save_tags(tag_names)
+        self.__dict__.pop("_imported_tag_names", None)
 
     # =========================================================================
     # Filesystem Migration Methods
@@ -1076,7 +1079,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     @staticmethod
     def _fs_current_version() -> str:
         """Get current ArchiveBox filesystem layout version."""
-        return "0.9.4"
+        return "0.9.5"
 
     _FS_VERSION_MIGRATION_PATHS: ClassVar[dict[str, str]] = {
         "0.7.0": "0.9.0",
@@ -1086,6 +1089,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         "0.9.1": "0.9.4",
         "0.9.2": "0.9.4",
         "0.9.3": "0.9.4",
+        # 0.9.5: 0.9.4-era imports could store a row under its hyphenated id.
+        # Bumping the layout lets lazy maintenance move those folders, so
+        # request handlers can trust the DB path for every 0.9.5 row.
+        "0.9.4": "0.9.5",
     }
 
     @property
@@ -1127,17 +1134,35 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         current = self.fs_version
         target = self._fs_current_version()
         cleanup: tuple[Path, Path] | None = None
+
+        if current == "0.9.4" and target == "0.9.5" and source_dir is None:
+            # WHY: every row created before 0.9.5 takes this step lazily, usually
+            # against remote archive storage. A canonical folder costs one
+            # existence check (plus one for its crawl); only a real hyphenated
+            # folder is renamed, verified, and relinked. No index rescans, and
+            # result files are read only for rows whose DB metadata is missing.
+            cleanup = self._fs_migrate_from_0_9_4_to_0_9_5()
+            if cleanup:
+                old_dir, new_dir = cleanup
+                if not self._cleanup_old_migration_dir(old_dir, new_dir):
+                    raise SnapshotMigrationError(f"Could not clean up verified migration directory: {old_dir}")
+            self.hydrate_archiveresult_output_metadata(snapshot_dir=self.get_storage_path_for_version(target))
+            self.fs_version = target
+            if self.pk:
+                now = timezone.now()
+                type(self).objects.filter(pk=self.pk).update(fs_version=target, modified_at=now)
+                self.modified_at = now
+            if cleanup:
+                self.reconcile_filesystem_links()
+            return
+
         runtime_config = config or get_config()
 
         if current == target:
             current_dir = self.get_storage_path_for_version(target)
             legacy_dir = Path(source_dir) if source_dir else CONSTANTS.ARCHIVE_DIR / self.timestamp
             cleanup = self._fs_migrate_legacy_to_0_9_0(source_dir=legacy_dir, target_dir=current_dir)
-            crawl_dir = self.crawl.output_dir
-            old_crawl_dir = crawl_dir.with_name(str(uuid.UUID(hex=self.crawl.id.hex)))
-            if old_crawl_dir.exists() and not crawl_dir.exists() and not old_crawl_dir.is_symlink():
-                crawl_dir.parent.mkdir(parents=True, exist_ok=True)
-                old_crawl_dir.rename(crawl_dir)
+            self.crawl.migrate_legacy_output_dir()
             if current_dir.exists():
                 self.hydrate_archiveresult_output_metadata(snapshot_dir=current_dir)
             if cleanup:
@@ -1157,6 +1182,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 ("0.9.1", "0.9.4"): self._fs_migrate_from_0_9_0_to_0_9_4,
                 ("0.9.2", "0.9.4"): self._fs_migrate_from_0_9_0_to_0_9_4,
                 ("0.9.3", "0.9.4"): self._fs_migrate_from_0_9_0_to_0_9_4,
+                ("0.9.4", "0.9.5"): self._fs_migrate_from_0_9_4_to_0_9_5,
             }
 
             migration = migrations.get((current, next_ver))
@@ -1193,11 +1219,18 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         runtime_config = config or get_config()
         target_dir = self.get_storage_path_for_version("0.9.4")
         cleanup = self._fs_migrate_legacy_to_0_9_0(source_dir=source_dir or self.output_dir, target_dir=target_dir, config=runtime_config)
-        crawl_dir = self.crawl.output_dir
-        old_crawl_dir = crawl_dir.with_name(str(uuid.UUID(hex=self.crawl.id.hex)))
-        if old_crawl_dir.exists() and not crawl_dir.exists() and not old_crawl_dir.is_symlink():
-            crawl_dir.parent.mkdir(parents=True, exist_ok=True)
-            old_crawl_dir.rename(crawl_dir)
+        self.crawl.migrate_legacy_output_dir()
+        return cleanup
+
+    def _fs_migrate_from_0_9_4_to_0_9_5(self, source_dir: Path | None = None, config: "ArchiveBoxBaseConfig | None" = None):
+        """Move a hyphenated snapshot folder and expose its crawl at the canonical path."""
+        target_dir = self.get_storage_path_for_version("0.9.5")
+        legacy_dir = Path(source_dir) if source_dir else target_dir.with_name(str(uuid.UUID(str(self.id))))
+        cleanup = None
+        # The single per-snapshot existence check; canonical rows stop here.
+        if source_dir is not None or legacy_dir.is_dir():
+            cleanup = self._fs_migrate_legacy_to_0_9_0(source_dir=legacy_dir, target_dir=target_dir, config=config)
+        self.crawl.migrate_legacy_output_dir()
         return cleanup
 
     def hydrate_archiveresult_output_metadata(self, snapshot_dir: Path | None = None) -> int:
@@ -1408,7 +1441,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if version in ("0.7.0", "0.8.0", "0.8.5"):
             return CONSTANTS.ARCHIVE_DIR / self.timestamp
 
-        elif version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+        elif version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
             username = self.created_by.username
 
             date_base = self.bookmarked_at or self.created_at
@@ -1416,7 +1449,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
             domain = self.extract_domain_from_url(self.url)
 
-            return CONSTANTS.USERS_DIR / username / CONSTANTS.SNAPSHOTS_DIR_NAME / date_str / domain / str(self.id)
+            # WHY compact_uuid: rows built from disk imports carry a hyphenated str
+            # or uuid.UUID id until reloaded; the on-disk name must not depend on it.
+            return CONSTANTS.USERS_DIR / username / CONSTANTS.SNAPSHOTS_DIR_NAME / date_str / domain / compact_uuid(self.id).hex
         else:
             # Unknown version - use current
             return self.get_storage_path_for_version(self._fs_current_version())
@@ -1504,6 +1539,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # Look up existing (try exact match first, then fuzzy match for truncated timestamps)
         try:
             snapshot = cls.objects.select_related("crawl__created_by").get(url=url, timestamp=timestamp)
+            if data.get("id") and uuid.UUID(str(data["id"])) != snapshot.pk:
+                raise ValueError("existing snapshot has a different UUID for this URL and timestamp")
             return snapshot
         except cls.DoesNotExist:
             # Try fuzzy match - index.json may have truncated timestamp
@@ -1597,9 +1634,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if not timestamp:
             return None
 
-        # Ensure uniqueness (reuses existing logic from create_or_update_from_dict)
-        if not preserve_identity:
-            timestamp = cls._ensure_unique_timestamp(url, timestamp)
+        # A copied capture retains its identity; a collision needs resolution,
+        # not a newly issued timestamp that disguises it as another capture.
+        if cls.objects.filter(timestamp=timestamp).exists():
+            raise ValueError("timestamp belongs to another snapshot")
 
         # Detect version
         fs_version = cls._detect_fs_version_from_index(data)
@@ -1626,8 +1664,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "fs_version": fs_version,
             "crawl": catchall_crawl,
         }
+        if data.get("id"):
+            snapshot_kwargs["id"] = data["id"]
         if preserve_identity:
             snapshot_kwargs.update({key: data[key] for key in ("id", "depth", "config", "notes") if key in data})
+        if data.get("downloaded_at"):
+            snapshot_kwargs["downloaded_at"] = parse_date(data["downloaded_at"])
         try:
             bookmarked_at = parse_date(data.get("bookmarked_at") or timestamp)
         except (TypeError, ValueError, OSError):
@@ -1641,9 +1683,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if created_at:
             snapshot_kwargs["created_at"] = created_at
 
-        return cls(
-            **snapshot_kwargs,
-        )
+        snapshot = cls(**snapshot_kwargs)
+        snapshot._imported_tag_names = Crawl.parse_tag_names(data.get("tags") or "")
+        snapshot._imported_dates = {key: parse_date(data[key]) for key in ("created_at", "modified_at") if data.get(key)}
+        return snapshot
 
     @staticmethod
     def _select_best_timestamp(index_timestamp: object | None, folder_name: str) -> str | None:
@@ -1715,7 +1758,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         Merge index.json/index.jsonl with DB. DB is source of truth.
 
         - Title: longest non-URL
-        - Tags: union
+        - Tags: preserve DB edits (imported atomically when the row is created)
         - ArchiveResults: keep both (by plugin+start_ts)
 
         Converts index.json to index.jsonl if needed, then writes back in JSONL format.
@@ -1752,8 +1795,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # Merge title
         self._merge_title_from_index(index_data)
 
-        # Merge tags
-        self._merge_tags_from_index(index_data)
+        # Index files are projections, not subsequent tag-edit commands. In
+        # particular, an empty DB tag set may mean the user deliberately cleared
+        # it. Only initial directory import is allowed to restore tags from disk.
 
         # Merge ArchiveResults
         self._merge_archive_results_from_index(index_data, update_existing=update_existing_archive_results)
@@ -1791,19 +1835,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 self.title = best_title
         elif self.title:
             self.title = None
-
-    def _merge_tags_from_index(self, index_data: dict):
-        """Merge tags - union of both sources."""
-        index_tags = set(index_data.get("tags", "").split(",")) if index_data.get("tags") else set()
-        index_tags = {t.strip() for t in index_tags if t.strip()}
-
-        db_tags = set(self.tags.values_list("name", flat=True))
-
-        new_tags = index_tags - db_tags
-        if new_tags:
-            for tag_name in new_tags:
-                tag, _ = Tag.get_or_create_by_name(tag_name)
-                self.add_tag_ids([tag.pk])
 
     def _merge_archive_results_from_index(self, index_data: dict, update_existing: bool = True):
         """Merge ArchiveResults one row per hook; retries update the existing row."""
@@ -1869,6 +1900,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         status = ArchiveResult.normalize_status(result_data.get("status") or ArchiveResult.StatusChoices.FAILED)
         process = None
         cmd = result_data.get("cmd") or []
+        # Old extractors recorded descriptions such as fetch_page_title(...) as
+        # strings. Preserve them verbatim: they are not shell command lines.
+        if isinstance(cmd, str):
+            cmd = [cmd]
         pwd = result_data.get("pwd") or ""
         output_files = ArchiveResult._normalize_output_files(result_data.get("output_files"))
         output_size = ArchiveResult._coerce_output_file_size(result_data.get("output_size"))
@@ -1876,6 +1911,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         output_mimetypes = result_data.get("output_mimetypes", "")
 
         hook_name = result_data.get("hook_name", "")
+        preserve_identity = preserve_identity or bool(result_data.get("id"))
         existing_result = existing.get((plugin, hook_name))
         if existing_result:
             if not update_existing:
@@ -1910,6 +1946,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 existing_result.save(update_fields=[*update_fields, "modified_at"])
             return
 
+        if plugin.startswith("search_backend_"):
+            # A source collection's search index is not part of the capture.
+            # Keep the hook pending until the destination runs --index-only.
+            status = ArchiveResult.StatusChoices.QUEUED
+
         # Machine.current() can probe the host and sanitize config. Do that before
         # atomic() so the transaction below only covers the two related row writes.
         machine = Machine.current() if (cmd or pwd) and not preserve_identity else None
@@ -1942,10 +1983,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 end_ts=end_ts,
                 process=process,
             )
-            if preserve_identity:
-                dates = {key: parse_date(result_data[key]) for key in ("created_at", "modified_at") if result_data.get(key)}
-                if dates:
-                    ArchiveResult.objects.filter(pk=archiveresult.pk).update(**dates)
+        # Filesystem hydration must stay outside the insert transaction. Restore
+        # historical dates afterward so deriving missing sizes cannot redate it.
+        dates = {key: parse_date(result_data[key]) for key in ("created_at", "modified_at") if result_data.get(key)}
+        if dates:
+            if not archiveresult.output_files:
+                archiveresult.update_output_metadata_from_filesystem()
+            ArchiveResult.objects.filter(pk=archiveresult.pk).update(**dates)
+            for key, value in dates.items():
+                setattr(archiveresult, key, value)
         existing[(plugin, hook_name)] = archiveresult
 
     def write_index_json(self):
@@ -1980,7 +2026,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         with open(index_path, "w") as f:
             json.dump(data, f, indent=2, sort_keys=True)
 
-    def write_index_jsonl(self, output_dir: Path | None = None):
+    def write_index_jsonl(self, output_dir: Path | None = None, *, snapshot_record: dict | None = None):
         """
         Write index.jsonl in flat JSONL format.
 
@@ -2002,7 +2048,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # without a corresponding DB row can be retained byte-for-byte.
         binaries_seen = set()
         processes_seen = set()
-        records = [self.to_json(), self.crawl.to_json()]
+        # Sealing publishes its intended terminal record before committing that
+        # status to the DB. The DB lease remains authoritative until that commit.
+        records = [snapshot_record if snapshot_record is not None else self.to_json(), self.crawl.to_json()]
         for ar in archive_results:
             process = ar.process_record
             if process and process.binary and process.binary_id not in binaries_seen:
@@ -2018,18 +2066,21 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         }
         preserved_lines = []
         if index_path.exists():
-            for line in index_path.read_text(encoding="utf-8").splitlines(keepends=True):
-                try:
-                    existing_record = json.loads(line)
-                except json.JSONDecodeError:
-                    preserved_lines.append(line)
-                    continue
-                if existing_record.get("type") == "Snapshot":
-                    records[0] = {**existing_record, **records[0]}
-                    continue
-                key = (existing_record.get("type"), str(existing_record.get("id")))
-                if existing_record.get("id") is None or key not in canonical_keys:
-                    preserved_lines.append(line)
+            # Iterate physical JSONL lines: splitlines() also splits valid
+            # Unicode string contents and would corrupt retained evidence.
+            with index_path.open(encoding="utf-8") as source:
+                for line in source:
+                    try:
+                        existing_record = json.loads(line)
+                    except json.JSONDecodeError:
+                        preserved_lines.append(line)
+                        continue
+                    if existing_record.get("type") == "Snapshot":
+                        records[0] = {**existing_record, **records[0]}
+                        continue
+                    key = (existing_record.get("type"), str(existing_record.get("id")))
+                    if existing_record.get("id") is None or key not in canonical_keys:
+                        preserved_lines.append(line)
 
         tmp_index_path = index_path.with_name(f".{index_path.name}.tmp")
         with open(tmp_index_path, "w", encoding="utf-8") as f:
@@ -2131,6 +2182,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # Handle 0.8.x/0.9.x format (archive_results list)
         for result_data in data.get("archive_results", []):
             ar_record = {
+                **{key: result_data[key] for key in ("id", "created_at", "modified_at") if result_data.get(key)},
                 "type": "ArchiveResult",
                 "snapshot_id": str(self.id),
                 "plugin": result_data.get("plugin", ""),
@@ -2157,6 +2209,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     continue
                 for result_data in result_list:
                     ar_record = {
+                        **{key: result_data[key] for key in ("id", "created_at", "modified_at") if result_data.get(key)},
                         "type": "ArchiveResult",
                         "snapshot_id": str(self.id),
                         "plugin": result_data.get("plugin") or result_data.get("extractor") or plugin,
@@ -2392,6 +2445,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         compact_icons = self.__dict__.get("_icons_compact", False)
 
         def calc_icons():
+            from archivebox.core.list_results_util import ListResult
             from archivebox.plugins.output_groups import (
                 OUTPUT_GROUPS,
                 display_plugin_name,
@@ -2404,7 +2458,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             precomputed_archive_results = self.__dict__.get("_icons_archive_results")
             if precomputed_archive_results is not None and compact_icons:
                 archive_results = {
-                    plugin: result if isinstance(result, ArchiveResult) else True
+                    plugin: result if isinstance(result, (ArchiveResult, ListResult)) else True
                     for plugin, result in (
                         precomputed_archive_results.items()
                         if isinstance(precomputed_archive_results, dict)
@@ -2433,76 +2487,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 running = int(progress_stats.get("running") or 0)
                 completed = succeeded + failed + skipped + noresults
                 percent = int((completed / total * 100) if total > 0 else 0)
-                icons_by_group: dict[str, list[dict[str, object]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
-                for plugin in ordered_plugins:
-                    if plugin_icon_is_hidden(plugin):
-                        continue
-                    icon = get_plugin_icon(plugin)
-                    if str(icon).strip():
-                        group_id = output_group_for_plugin(plugin)
-                        icons_by_group[group_id].append({"plugin": plugin, "icon": mark_safe(icon)})
-                plugin_icon_piles = []
-                for group_id, label, _ in OUTPUT_GROUPS:
-                    icons = icons_by_group[group_id]
-                    if icons:
-                        top = icons[0]
-                        front_index = 0
-                        pile_column = len(plugin_icon_piles)
-                        top_html = format_html(
-                            '<span class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-front-index:{}">{}</span>',
-                            top["plugin"],
-                            label,
-                            label,
-                            front_index,
-                            top["icon"],
-                        )
-                        members = []
-                        for index, item in enumerate(icons):
-                            row = index // 5
-                            member_top = 26 + row * 18
-                            row_offset = (5 - min(5, len(icons) - row * 5)) * 11 + 3
-                            member_left = 3 + row_offset + (index % 5) * 22 - pile_column * 22
-                            members.append(
-                                format_html(
-                                    '<span class="files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-index:{};--files-icon-row:{};--files-icon-column:{};--files-icon-row-offset:{}px;--files-icon-member-left:{}px;--files-icon-member-top:{}px">{}</span>',
-                                    item["plugin"],
-                                    display_plugin_name(item["plugin"]),
-                                    item["plugin"],
-                                    index,
-                                    row,
-                                    index % 5,
-                                    row_offset,
-                                    member_left,
-                                    member_top,
-                                    item["icon"],
-                                ),
-                            )
-                        pile_contents = format_html(
-                            '<span class="files-icon-pile-backplate" aria-hidden="true"></span><span class="files-icon-pile-hover-bridge" aria-hidden="true"></span>{}{}',
-                            top_html,
-                            mark_safe("".join(str(icon) for icon in members)),
-                        )
-                        plugin_icon_piles.append(
-                            format_html(
-                                '<span class="files-icon-pile files-icon-pile--{}" role="group" aria-label="{} saved outputs" style="--files-icon-count:{};--files-icon-pile-column:{};--files-icon-front-index:{};--files-icon-popup-left:{}px;--files-icon-front-offset:{}px;--files-icon-bridge-start:{}px;--files-icon-bridge-end:{}px;--files-icon-rows:{};--files-icon-card-height:{}px;--files-icon-card-width:{}px">{}</span>',
-                                group_id,
-                                label,
-                                len(icons),
-                                pile_column,
-                                front_index,
-                                pile_column * -22,
-                                front_index * 2,
-                                pile_column * 22 + front_index * 2,
-                                pile_column * 22 + front_index * 2 + 16,
-                                (len(icons) + 4) // 5,
-                                ((len(icons) + 4) // 5) * 18 + 8,
-                                116,
-                                pile_contents,
-                            ),
-                        )
                 successful_icons = format_html(
                     '<div class="snapshot-successful-plugin-icons files-icons">{}</div>',
-                    mark_safe("".join(str(pile) for pile in plugin_icon_piles)),
+                    mark_safe(self._compact_icon_piles(ordered_plugins, archive_results, linked=False)),
                 )
                 return format_html(
                     '<div class="snapshot-files-progress" title="{} of {} hooks complete" style="min-width: 96px;">'
@@ -2529,6 +2516,21 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     successful_icons,
                 )
 
+            if compact_icons:
+                return format_html(
+                    '<span class="files-icons" style="font-size: 1em;">{}</span>',
+                    mark_safe(
+                        self._compact_icon_piles(
+                            ordered_plugins,
+                            archive_results,
+                            linked=True,
+                            archive_path=path or self.archive_path_from_db,
+                            prefix=prefix,
+                            quote_paths=quote_paths,
+                        ),
+                    ),
+                )
+
             archive_path = path or self.archive_path_from_db
             icons_by_group: dict[str, list[dict[str, object]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
 
@@ -2548,7 +2550,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 if not icon.strip():
                     continue
 
-                embed_path = result.embed_path() if isinstance(result, ArchiveResult) else f"{plugin}/"
+                embed_path = result.embed_path() if isinstance(result, (ArchiveResult, ListResult)) else f"{plugin}/"
                 if not embed_path or str(embed_path).strip() in (".", "/", "./"):
                     continue
                 output_path = Path(str(embed_path))
@@ -2643,6 +2645,93 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             )
 
         return calc_icons()
+
+    @staticmethod
+    def _compact_icon_piles(
+        ordered_plugins: list[str],
+        archive_results: dict[str, Any],
+        *,
+        linked: bool,
+        archive_path: str = "",
+        prefix: str = "/",
+        quote_paths: bool = False,
+    ) -> str:
+        """Render list-row file icon piles (public index) as plain strings.
+
+        A page renders ~2,000 icons, so this skips format_html's lazy escaping
+        (html.escape gives the same text) and writes only the CSS variables
+        public_index.html/admin.css read, leaving out values equal to their
+        var() fallback. That keeps every icon, link, label and position while
+        cutting the row HTML that dominated page size and render time.
+        """
+        from html import escape
+
+        from archivebox.core.list_results_util import ListResult
+        from archivebox.core.routes_util import build_snapshot_detail_path, build_snapshot_index_path, get_snapshot_output_anchor
+        from archivebox.plugins.discovery import get_plugin_list_icon
+        from archivebox.plugins.output_groups import OUTPUT_GROUPS, display_plugin_name, output_group_for_plugin, plugin_icon_is_hidden
+
+        build_path = build_snapshot_index_path if quote_paths else build_snapshot_detail_path
+        icons_by_group: dict[str, list[tuple[str, str, str]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
+        for plugin in ordered_plugins:
+            if plugin_icon_is_hidden(plugin):
+                continue
+            result = archive_results.get(plugin)
+            href = ""
+            if linked and not (result is True or (result and result.status == "succeeded")):
+                continue
+            if not str(get_plugin_icon(plugin)).strip():
+                continue
+            # The page draws each icon's SVG once (see get_plugin_list_icon).
+            icon = str(get_plugin_list_icon(plugin))
+            if linked:
+                embed_path = result.embed_path() if isinstance(result, (ArchiveResult, ListResult)) else f"{plugin}/"
+                if not embed_path or str(embed_path).strip() in (".", "/", "./"):
+                    continue
+                href = build_path(archive_path, output_path=get_snapshot_output_anchor(plugin, embed_path), prefix=prefix)
+            icons_by_group[output_group_for_plugin(plugin)].append((plugin, icon, escape(href)))
+
+        tag = "a" if linked else "span"
+        piles = []
+        for group_id, label, _ in OUTPUT_GROUPS:
+            icons = icons_by_group[group_id]
+            if not icons:
+                continue
+            column = len(piles)
+            rows = (len(icons) + 4) // 5
+            label = escape(label)
+            pile_vars = []
+            if column:
+                pile_vars += [
+                    f"--files-icon-popup-left:{column * -22}px",
+                    f"--files-icon-bridge-start:{column * 22}px",
+                    f"--files-icon-bridge-end:{column * 22 + 16}px",
+                ]
+            if rows > 1:
+                pile_vars.append(f"--files-icon-rows:{rows}")
+            pile_style = f' style="{";".join(pile_vars)}"' if pile_vars else ""
+            top_plugin, top_icon, top_href = icons[0]
+            href_attr = f' href="{top_href}"' if linked else ""
+            parts = [
+                f'<span class="files-icon-pile files-icon-pile--{escape(group_id)}" role="group" aria-label="{label} saved outputs"{pile_style}>',
+                '<span class="files-icon-pile-backplate" aria-hidden="true"></span><span class="files-icon-pile-hover-bridge" aria-hidden="true"></span>',
+                f'<{tag}{href_attr} class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{escape(top_plugin)}" aria-label="{label}" data-tooltip="{label}">{top_icon}</{tag}>',
+            ]
+            for index, (plugin, icon, href) in enumerate(icons):
+                row = index // 5
+                row_offset = (5 - min(5, len(icons) - row * 5)) * 11 + 3
+                member_vars = [f"--files-icon-index:{index}"] if index else []
+                if row:
+                    member_vars.append(f"--files-icon-row:{row}")
+                member_vars.append(f"--files-icon-member-left:{3 + row_offset + (index % 5) * 22 - column * 22}px")
+                href_attr = f' href="{href}"' if linked else ""
+                parts.append(
+                    f'<{tag}{href_attr} class="files-icon-plugin--{escape(plugin)}" aria-label="{escape(display_plugin_name(plugin))}" '
+                    f'data-tooltip="{escape(plugin)}" style="{";".join(member_vars)}">{icon}</{tag}>',
+                )
+            parts.append("</span>")
+            piles.append("".join(parts))
+        return "".join(piles)
 
     @property
     def api_url(self) -> str:
@@ -2764,11 +2853,19 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         current_path = self.get_storage_path_for_version(self.fs_version)
 
+        # WHY: once a row is at the latest layout, `archivebox update --rescan
+        # --migrate-only` (or the orchestrator's lazy migration) has already
+        # moved its files here, so trust the DB. The probes below are remote
+        # round trips on FUSE-mounted archive storage and are only a last-resort
+        # fallback for rows still awaiting migration.
+        if self.fs_version == self._fs_current_version():
+            return current_path
+
         if current_path.exists():
             return current_path
 
-        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
-            hyphen_path = current_path.with_name(str(uuid.UUID(hex=self.id.hex)))
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
+            hyphen_path = current_path.with_name(str(uuid.UUID(str(self.id))))
             if hyphen_path.exists():
                 return hyphen_path
 
@@ -2798,11 +2895,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 crawl = Crawl.objects.filter(id=self.crawl_id).select_related("created_by").first()
             if not crawl:
                 return
+            # Keep a historical crawl tree in place behind its canonical alias
+            # before creating this snapshot's projection; never merge whole trees.
+            crawl.migrate_legacy_output_dir()
             crawl_dir = Path(crawl.output_dir)
 
         domain = self.extract_domain_from_url(self.url)
 
-        link_path = Path(crawl_dir) / CONSTANTS.SNAPSHOTS_DIR_NAME / domain / str(self.id)
+        link_path = Path(crawl_dir) / CONSTANTS.SNAPSHOTS_DIR_NAME / domain / compact_uuid(self.id).hex
         link_parent = link_path.parent
         link_parent.mkdir(parents=True, exist_ok=True)
 
@@ -2859,7 +2959,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     ) -> str:
         """Build the public detail path without consulting the filesystem."""
         legacy_path = f"{CONSTANTS.ARCHIVE_DIR_NAME}/{timestamp}"
-        if fs_version not in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+        if fs_version not in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
             return legacy_path
 
         date_base = bookmarked_at or created_at
@@ -2875,7 +2975,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def archive_path_from_db(self) -> str:
         """Best-effort public URL path derived from DB fields only."""
         username = "web"
-        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
             crawl = self.crawl if self.crawl_id else None
             if crawl and crawl.created_by_id:
                 username = crawl.created_by.username
@@ -2892,7 +2992,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     @cached_property
     def url_path(self) -> str:
         """URL path matching the current snapshot output_dir layout."""
-        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
             return self.archive_path_from_db
 
         output_dir = Path(self.output_dir).resolve()
@@ -2970,7 +3070,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """
         Clean up background ArchiveResult hooks and empty results.
 
-        Called after entering the sealed state.
+        Called before entering the sealed state.
         Reconcile late background outputs and hydrate result metadata.
         """
         # Clean up .pid files from output directory.
@@ -3014,6 +3114,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "bookmarked_at": self.bookmarked_at.isoformat() if self.bookmarked_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "modified_at": self.modified_at.isoformat() if self.modified_at else None,
+            "downloaded_at": self.downloaded_at.isoformat() if self.downloaded_at else None,
             "config": redact_sensitive_config(self.config),
             "notes": self.notes,
             "timestamp": self.timestamp,
@@ -3132,13 +3233,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 )
                 rprint(f"[red]⚠️  Snapshot.from_json auto-created new crawl {crawl.id} for url={url}[/red]", file=sys.stderr)
 
-        # Parser hooks emit child Snapshot records through this generic
-        # dispatcher after crawling an internal import root. Those child rows
-        # must inherit crawl-level tags just like direct Crawl.urls snapshots;
-        # otherwise `archivebox add --tag ... < bookmarks.html` loses the tag
-        # unless the parser format also happened to provide its own tags.
+        # Snapshot.save copies crawl defaults only on creation. Rediscovery
+        # can supply explicit metadata, but must not restore removed defaults.
         tags_raw = record.get("tags", "")
-        tag_list = list(crawl.current_tag_names()) if crawl else []
+        tag_list = []
         if isinstance(tags_raw, list):
             tag_list.extend(tag.strip() for tag in tags_raw if tag.strip())
         elif tags_raw:
@@ -3146,8 +3244,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         tag_list = list(dict.fromkeys(tag_list))
 
         # Check for existing snapshot with same URL in same crawl
-        # (URLs can exist in multiple crawls, but should be unique within a crawl)
-        snapshot = Snapshot.objects.filter(url=url, crawl=crawl).order_by("-created_at").first()
+        # (URLs can exist in multiple crawls, but should be unique within a crawl).
+        # Its IRI/URI spellings (/über vs /%C3%BCber) are the same URL.
+        snapshot = Snapshot.objects.filter(url__in=equivalent_urls(url), crawl=crawl).order_by("-created_at").first()
 
         title = record.get("title")
         timestamp = record.get("timestamp")
@@ -3335,20 +3434,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if self.downloaded_at or self.status == self.StatusChoices.SEALED:
             return True
 
-        output_paths = (
-            self.domain,
-            "output.html",
-            "output.pdf",
-            "screenshot.png",
-            "singlefile.html",
-            "readability/content.html",
-            "mercury/content.html",
-            "htmltotext.txt",
-            "media",
-            "git",
-        )
-        output_dir = Path(self.output_dir)
-        return any((output_dir / path).exists() for path in output_paths)
+        # WHY: DB-only. This is rendered per row in list views (snapshot grid);
+        # the old fallback stat'd ~10 legacy output paths per unfinished row,
+        # each a remote round trip on FUSE-mounted archive storage. A succeeded
+        # ArchiveResult is the indexed record of the same fact.
+        succeeded = self.archiveresult_set.model.StatusChoices.SUCCEEDED
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("archiveresult_set")
+        if prefetched is not None:
+            return any(result.status == succeeded for result in prefetched)
+        return self.archiveresult_set.filter(status=succeeded).exists()
 
     # =========================================================================
     # Date/Time Properties (migrated from Link schema)
@@ -3458,7 +3552,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             lower = (path or "").lower()
             return lower.endswith(text_exts)
 
-        if filesystem_index is not None:
+        if filesystem_index is not None and not filesystem_index:
             filesystem_index.update(ArchiveResult._scan_output_file_map(snap_dir))
         hashes_index = filesystem_index if filesystem_index is not None else (self.hashes_index if include_filesystem_fallback else {})
         if include_filesystem_fallback and not hashes_index and filesystem_index is None:
@@ -3667,7 +3761,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     ) -> dict[str, Any]:
         """Build the one context used by both served and on-disk snapshot pages."""
         from archivebox.config.common import get_request_config
-        from archivebox.core.permissions import get_snapshot_permissions
+        from archivebox.core.permissions import discoverable_snapshots_queryset, get_snapshot_permissions
         from archivebox.core.widgets import TagEditorWidget
         from archivebox.misc.logging_util import printable_filesize
         from archivebox.progressmonitor.views import progress_endpoint
@@ -3677,15 +3771,29 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self._runtime_config = runtime_config
         snapshot_permissions = get_snapshot_permissions(self)
         archive_results = list(self.archiveresult_set.all().order_by("start_ts"))
+        # WHY: cards, sizes and folder links share these freshly loaded rows.
+        # Normalize once per render, as list views do, without caching live
+        # runner-owned results or keeping metadata across subsequent renders.
+        for result in archive_results:
+            result._render_output_file_map = result.output_file_map()
         tags = list(self.tags.all())
         self.__dict__["_admin_archiveresults"] = archive_results
         self.__dict__["_tags_str_cached"] = ",".join(sorted(tag.name for tag in tags))
         self.__dict__["num_outputs_cached"] = sum(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in archive_results)
         self.__dict__["num_failures_cached"] = sum(result.status == ArchiveResult.StatusChoices.FAILED for result in archive_results)
+        # WHY: the same Snapshot can render again after a hook finishes. Refresh
+        # the cached properties as well as their precomputed count inputs.
+        self.__dict__.pop("num_outputs", None)
+        self.__dict__.pop("num_failures", None)
 
         # Static exports must reflect files that still exist even when the
         # saved hash manifest is incomplete or stale.
         filesystem_index = {} if discover_files or static_export_dir is not None else None
+        # Live discovery (every detail-page view) of a sealed snapshot reads its
+        # hashes manifest instead of walking the output dir, which on remote
+        # archive storage stat'd every captured file per view.
+        if discover_files and static_export_dir is None and self.status == self.StatusChoices.SEALED and self.hashes_index:
+            filesystem_index = dict(self.hashes_index)
         outputs = [
             output
             for output in self.discover_outputs(
@@ -3726,8 +3834,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             current = outputs_by_name.get(output["name"])
             if current is None or (output.get("size") or 0) > (current.get("size") or 0):
                 outputs_by_name[output["name"]] = output
-        # Several hooks can report the same plugin directory. Count overlapping
-        # files once, while retaining every result ID for the existing delete action.
+        # Multiple hooks can report the same files; count each path once per
+        # plugin. Retain every result ID for the existing delete action.
         output_sizes = plugin_output_sizes(archive_results)
         for name, output in outputs_by_name.items():
             output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))
@@ -3747,6 +3855,24 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         )
         ordered_outputs = order_snapshot_outputs(list(outputs_by_name.values()))
         best_result = ordered_outputs[0] if ordered_outputs else {"path": "about:blank", "result": None}
+        # Start with a responsive saved document, not a screenshot covering a
+        # replay that may never work in an embedded browser. Card ordering stays
+        # unchanged; the browser can promote WACZ only after it actually loads.
+        best_result = next(
+            (
+                outputs_by_name[name]
+                for name in (
+                    "singlefile",
+                    "chrome_extension_singlefile",
+                    "chrome_mhtml",
+                    "screenshot",
+                    "chrome_extension_screenshot",
+                    "chrome_extension_viewport",
+                )
+                if name in outputs_by_name
+            ),
+            best_result,
+        )
 
         archive_dates = [result.start_ts for result in archive_results if result.start_ts]
         output_size = sum(int(output.get("size") or 0) for output in ordered_outputs)
@@ -3765,9 +3891,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             status_label, status_color = status_label_by_state.get(snapshot_status, ("not yet archived", "danger"))
 
         related_snapshots = list(
-            type(self)
-            .objects.filter(url=self.url)
-            .exclude(id=self.id)
+            discoverable_snapshots_queryset(request, type(self).objects.filter(url=self.url).exclude(id=self.id))
             .select_related("crawl__created_by")
             .only(
                 "id",
@@ -4417,7 +4541,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             return 0
 
     def output_file_map(self) -> dict[str, dict[str, Any]]:
-        # List views opt into this cache on their read-only, request-local rows.
+        # Views opt into this cache on their read-only, request-local rows.
         # Runner-owned results must still reflect metadata changed during a hook.
         if "_render_output_file_map" in self.__dict__:
             return self._render_output_file_map
@@ -4432,25 +4556,34 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         output_file_map: dict[str, dict[str, Any]] | None = None,
     ) -> str | None:
         """Resolve an output_files key to its snapshot-relative path."""
+        output_file_map = output_file_map if output_file_map is not None else self.output_file_map()
+        return self._resolve_output_file_path(self.plugin, path, output_file_map)
+
+    @staticmethod
+    def _resolve_output_file_path(plugin: str, path: str, output_file_map: dict[str, dict[str, Any]]) -> str | None:
         requested_path = str(path or "")
         if not requested_path or requested_path.startswith("/") or ".." in Path(requested_path).parts:
             return None
 
-        output_file_map = output_file_map if output_file_map is not None else self.output_file_map()
-        plugin_relative_path = requested_path.removeprefix(f"{self.plugin}/")
-        plugin_path = f"{self.plugin}/{plugin_relative_path}"
+        plugin_relative_path = requested_path.removeprefix(f"{plugin}/")
+        plugin_path = f"{plugin}/{plugin_relative_path}"
         for candidate in dict.fromkeys((requested_path, plugin_relative_path, plugin_path)):
             file_info = output_file_map.get(candidate)
             if not isinstance(file_info, dict):
                 continue
             if file_info.get("root_relative"):
-                return candidate.removeprefix(f"{self.plugin}/")
-            return candidate if candidate.startswith(f"{self.plugin}/") else f"{self.plugin}/{candidate}"
+                return candidate.removeprefix(f"{plugin}/")
+            return candidate if candidate.startswith(f"{plugin}/") else f"{plugin}/{candidate}"
         return None
 
     def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True, full_scan: bool = False) -> bool:
         from abx_dl.output_files import OutputManifest, output_file_from_path
 
+        # Running and cancelled attempts have no new capture outcome to hydrate.
+        # Shared plugin directories may contain another hook's or an earlier
+        # attempt's files; only a new result event may replace this row's output.
+        if self.status in {self.StatusChoices.QUEUED, self.StatusChoices.STARTED, self.StatusChoices.SKIPPED}:
+            return False
         if self.plugin == "title":
             return False
 
@@ -4525,49 +4658,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 return False
         return False
 
-    def _existing_output_path(self, raw_output: str | None) -> str | None:
-        value = str(raw_output or "").strip()
-        if not value:
-            return None
-
-        output_path = Path(value)
-        snapshot_dir = Path(self.snapshot_dir).resolve(strict=False)
-        candidates: list[str] = []
-
-        if output_path.is_absolute():
-            try:
-                candidates.append(str(output_path.resolve(strict=False).relative_to(snapshot_dir)))
-            except (OSError, ValueError):
-                return None
-        elif value.startswith(f"{self.plugin}/"):
-            candidates.append(value)
-        elif len(output_path.parts) == 1:
-            candidates.append(f"{self.plugin}/{value}")
-        else:
-            candidates.append(value)
-
-        output_file_map = self.output_file_map()
-        hashes_index = self.snapshot.hashes_index
-        for relative_path in candidates:
-            if relative_path in hashes_index:
-                return relative_path
-
-            if relative_path in output_file_map:
-                return relative_path
-
-            plugin_relative = relative_path.removeprefix(f"{self.plugin}/")
-            if plugin_relative in output_file_map:
-                return relative_path
-
-            candidate = snapshot_dir / relative_path
-            try:
-                if candidate.is_file():
-                    return relative_path
-            except OSError:
-                continue
-
-        return None
-
     @staticmethod
     def _fallback_output_file_path(
         output_file_paths: Sequence[str],
@@ -4577,13 +4667,17 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         ignored = {"stdout.log", "stderr.log", "hook.pid", "listener.pid"}
         # Responses/wget manifests can contain thousands of paths. Parse each
         # once instead of rebuilding Path objects for every preferred filename
-        # and extension group, each time a list row selects a preview.
+        # and extension group, each time a list row selects a preview. Keys are
+        # normalized relative POSIX paths, so plain string splitting yields
+        # Path.name/Path.suffix without constructing thousands of Path objects
+        # per list page.
         candidates = []
         names = {}
         extensions = {}
         for path in output_file_paths:
-            parsed_path = Path(path)
-            name, extension = parsed_path.name, parsed_path.suffix.lower()
+            name = path.rstrip("/").rpartition("/")[2]
+            dot = name.rfind(".")
+            extension = name[dot:].lower() if 0 < dot < len(name) - 1 else ""
             if name in ignored or extension in (".pid", ".log", ".sh"):
                 continue
             candidates.append(path)
@@ -4638,47 +4732,78 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         file_map: dict[str, dict[str, Any]] = {}
 
         def scan_error(error):
+            # Queued snapshots have no output directory until capture starts.
+            # An absent preview root is empty; other storage errors must surface.
+            if isinstance(error, FileNotFoundError) and Path(error.filename) == dir_path:
+                return
             raise error
 
         scanned = 0
-        for parent, directories, filenames in os.walk(dir_path, onerror=scan_error, followlinks=False):
-            directories[:] = [name for name in directories if not name.startswith(".")]
-            for name in filenames:
-                scanned += 1
-                if max_scan is not None and scanned > max_scan:
-                    return file_map
-                file_path = Path(parent) / name
-                if file_path.is_symlink() or name.startswith("."):
-                    continue
-                file_map[str(file_path.relative_to(dir_path))] = {"size": file_path.stat().st_size}
+        pending = [dir_path]
+        while pending:
+            parent = pending.pop()
+            directories = []
+            try:
+                # WHY: os.walk discards DirEntry metadata, causing another
+                # lstat + stat per file on remote/FUSE archives. Reuse it here.
+                with os.scandir(parent) as entries:
+                    for entry in entries:
+                        # WHY: an unlimited discovery never needs the target
+                        # type of excluded aliases/hidden entries. Keep limited
+                        # scans' historical file-count cutoff unchanged.
+                        if max_scan is None and (entry.name.startswith(".") or entry.is_symlink()):
+                            continue
+                        try:
+                            is_directory = entry.is_dir()
+                        except OSError:
+                            # Match os.walk: inaccessible symlink targets are
+                            # files here, then excluded below without reading.
+                            is_directory = False
+                        if is_directory:
+                            if not entry.name.startswith(".") and not entry.is_symlink():
+                                directories.append(Path(entry.path))
+                            continue
+                        scanned += 1
+                        if max_scan is not None and scanned > max_scan:
+                            return file_map
+                        if entry.is_symlink() or entry.name.startswith("."):
+                            continue
+                        file_map[os.path.relpath(entry.path, dir_path)] = {"size": entry.stat().st_size}
+            except OSError as error:
+                scan_error(error)
+            pending.extend(reversed(directories))
         return file_map
-
-    @staticmethod
-    def _find_best_output_file(dir_path: Path, plugin_name: str | None = None) -> Path | None:
-        if not dir_path.exists() or not dir_path.is_dir():
-            return None
-        file_map = ArchiveResult._scan_output_file_map(dir_path, max_scan=500)
-        fallback_path = ArchiveResult._fallback_output_file_path(list(file_map.keys()), plugin_name, file_map)
-        if not fallback_path:
-            return None
-        return dir_path / fallback_path
 
     def embed_path_db(self, output_file_map: dict[str, dict[str, Any]] | None = None) -> str | None:
         output_file_map = output_file_map if output_file_map is not None else self.output_file_map()
 
         output_str = "" if "output_str" in self.get_deferred_fields() else self.output_str
+        return self.resolve_embed_path(self.plugin, output_str, output_file_map)
+
+    @classmethod
+    def resolve_embed_path(
+        cls,
+        plugin: str,
+        output_str: str | None,
+        output_file_map: dict[str, dict[str, Any]],
+    ) -> str | None:
+        """Pick the output file that represents a result, from DB fields only.
+
+        A classmethod so list pages can resolve plain value rows without
+        instantiating a model per result (see archivebox.core.list_results_util).
+        """
         if output_str:
             raw_output = str(output_str).strip()
-            if self._looks_like_output_path(raw_output, self.plugin):
+            if cls._looks_like_output_path(raw_output, plugin):
                 output_path = Path(raw_output)
                 if output_path.is_absolute():
                     return None
 
                 candidates: list[str] = []
-                if raw_output.startswith(f"{self.plugin}/"):
+                if raw_output.startswith(f"{plugin}/"):
                     candidates.append(raw_output)
                 elif len(output_path.parts) == 1:
-                    candidates.append(f"{self.plugin}/{raw_output}")
+                    candidates.append(f"{plugin}/{raw_output}")
                     candidates.append(raw_output)
                 else:
                     candidates.append(raw_output)
@@ -4697,15 +4822,15 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                     return candidates[0] if ".." not in output_path.parts else None
 
                 for relative_path in candidates:
-                    resolved_path = self.output_file_path(relative_path, output_file_map=output_file_map)
+                    resolved_path = cls._resolve_output_file_path(plugin, relative_path, output_file_map)
                     if resolved_path:
                         return resolved_path
 
         output_file_paths = list(output_file_map.keys())
         if output_file_paths:
-            fallback_path = self._fallback_output_file_path(output_file_paths, self.plugin, output_file_map)
+            fallback_path = cls._fallback_output_file_path(output_file_paths, plugin, output_file_map)
             if fallback_path:
-                return self.output_file_path(fallback_path, output_file_map=output_file_map)
+                return cls._resolve_output_file_path(plugin, fallback_path, output_file_map)
 
         return None
 
@@ -4765,7 +4890,10 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     def cmd(self) -> list:
         """Command array (from Process)."""
         process = self.process_record
-        return process.cmd if process else []
+        cmd = process.cmd if process else []
+        # Already-imported legacy descriptions must satisfy the same array
+        # contract without rewriting historical rows during an API read.
+        return [cmd] if isinstance(cmd, str) and cmd else cmd or []
 
     @property
     def cmd_version(self) -> str:

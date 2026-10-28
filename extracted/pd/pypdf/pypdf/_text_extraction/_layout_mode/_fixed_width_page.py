@@ -223,20 +223,18 @@ def recurse_to_target_op(
                     bt_groups.append(bt_group(tj_ops[bt_idx], _text, last_displaced_tx))
                 text_state_mgr.reset_tm()
             break
-        if op == b"q":
+        if op == b"q" or (op == b"BT" and end_target == b"Q"):
             bts, tjs = recurse_to_target_op(
-                ops, text_state_mgr, b"Q", fonts, strip_rotated
+                ops, text_state_mgr, b"ET" if op == b"BT" else b"Q", fonts, strip_rotated
             )
             bt_groups.extend(bts)
             tj_ops.extend(tjs)
         elif op == b"cm":
             text_state_mgr.add_cm(*operands)
         elif op == b"BT":
-            bts, tjs = recurse_to_target_op(
-                ops, text_state_mgr, b"ET", fonts, strip_rotated
-            )
-            bt_groups.extend(bts)
-            tj_ops.extend(tjs)
+            # text objects cannot be nested and end at the first ET: a BT inside
+            # one only resets the text matrix, as in plain mode
+            text_state_mgr.reset_tm()
         elif op == b"Tj" and operands and isinstance(operands[0], (str, bytes)):
             tj_ops.append(text_state_mgr.text_state_params(operands[0]))
         elif op == b"TJ" and operands and isinstance(operands[0], ArrayObject):
@@ -263,7 +261,9 @@ def recurse_to_target_op(
             text_state_mgr.reset_trm()
             if op == b"Tm":
                 text_state_mgr.reset_tm()
-            elif op == b"TD":
+            elif op == b"TD" and len(operands) >= 2 and isinstance(operands[1], (int, float)):
+                # a missing or non-numeric ty leaves the leading unchanged; the
+                # translation itself is handled like Td below
                 text_state_mgr.set_state_param(b"TL", -operands[1])
             elif op == b"T*":
                 operands = [0, -text_state_mgr.TL]

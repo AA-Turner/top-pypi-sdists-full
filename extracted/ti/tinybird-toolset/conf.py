@@ -113,13 +113,6 @@ def apply_patches():
     # trimBoth/trimLeft/trimRight calls, so the output is compatible with CH < 25.2
     apply_patch("patches/trim_format.patch")
 
-    # Builds the functions needed by validate_ttl into libclickhouse_ttl_functions.a,
-    # which is linked with --whole-archive/-force_load (see extra_libs).
-    # NOTE: after editing this patch (or any other), the early-return above skips the
-    # ClickHouse build; delete ch_build/src/Functions/libclickhouse_ttl_functions.a
-    # (or the whole ch_build) to force it to run again.
-    apply_patch("patches/dbmsfunctions.patch")
-
     # Range-check narrow-integer Field inserts so JSON/Dynamic paths widen instead of
     # silently wrapping (1944 -> -104). Backport of the ColumnVector::tryInsert fix;
     # remove once the fix lands in the pinned ClickHouse submodule.
@@ -130,17 +123,29 @@ def apply_patches():
     apply_patch("patches/ttl_result_type_compat.patch")
 
 
+# Archives from the ClickHouse build tree that must exist before the toolset is linked
+# (see the comment on their build step in ClickHouseBuildExt.run). They also decide
+# whether that step can be skipped, so every one of them has to be listed here.
+CLICKHOUSE_FUNCTIONS_DEPS_LIBS = (
+    'src/Functions/JSONPath/libclickhouse_functions_jsonpath.a',
+    'contrib/libfarmhash/lib_farmhash.a',
+    'contrib/murmurhash/lib_murmurhash.a',
+    'contrib/libmetrohash/lib_metrohash.a',
+    'src/Functions/divide/libdivide_impl.a',
+)
+
+
 class ClickHouseBuildExt(build_ext):
     def run(self):
 
         if not os.path.exists(os.path.join(CLICKHOUSE_PATH, 'CMakeLists.txt')):
             raise RuntimeError('Git submodules are not initialized. Run: `git submodule update --init --recursive`.')
 
-        # One of the libraries, chosen randomly (+ the TTL functions one, added later)
-        if os.path.isfile(os.path.join(CLICKHOUSE_BUILD_PATH,
-                                       'src/AggregateFunctions/libclickhouse_aggregate_functions.a')) \
-                and os.path.isfile(os.path.join(CLICKHOUSE_BUILD_PATH,
-                                                'src/Functions/libclickhouse_ttl_functions.a')):
+        # TTL functions are now built by ToolsetBuildWithFromCH
+        # (functions/CMakeLists.txt), not here - see that class.
+        if all(os.path.isfile(os.path.join(CLICKHOUSE_BUILD_PATH, lib))
+               for lib in ('src/AggregateFunctions/libclickhouse_aggregate_functions.a',
+                           *CLICKHOUSE_FUNCTIONS_DEPS_LIBS)):
             return
 
         apply_patches()
@@ -238,13 +243,23 @@ class ClickHouseBuildExt(build_ext):
                               ['--config', 'Release',
                                '--target', 'src/AggregateFunctions/libclickhouse_aggregate_functions.a'])
 
-        # Functions for TTL validation, also with MinSize as performance is not a concern.
-        # This library is linked with --whole-archive/-force_load (see extra_libs) so that
-        # its REGISTER_FUNCTION static registrars run and DB::registerFunctions() can
-        # register all of them without listing them one by one.
+        # These all used to get built as an accidental side effect of clickhouse_ttl_functions
+        # depending on them (directly or transitively via Functions/CMakeLists.txt's
+        # PUBLIC_LIBS/PRIVATE_LIBS) when that target was built from a patched
+        # Functions/CMakeLists.txt inside the ClickHouse build tree. Now that it's built
+        # from chtoolset's own functions/CMakeLists.txt instead (a separate CMake project,
+        # see ToolsetBuildWithFromCH), nothing in the ClickHouse build graph depends on
+        # them anymore, so each needs to be requested explicitly here:
+        # - libclickhouse_functions_jsonpath.a: JSONPathQuery.h (chtoolset's own code,
+        #   unrelated to TTL validation) links against DB::ParserJSONPath.
+        # - lib_farmhash.a, lib_murmurhash.a, lib_metrohash.a, libdivide_impl.a (which
+        #   pulls in its _sse2/_avx2 variants): the hashing/integer-division functions
+        #   glob'd into clickhouse_ttl_functions (cityHash64, murmurHash*, intDiv, ...)
+        #   call into these directly.
         subprocess.check_call([cmake_cmd, '--build', CLICKHOUSE_BUILD_PATH] +
                               ['--config', 'Release',
-                               '--target', 'src/Functions/libclickhouse_ttl_functions.a'])
+                               *[arg for lib in CLICKHOUSE_FUNCTIONS_DEPS_LIBS
+                                 for arg in ('--target', lib)]])
 
         # Now build with Release just the parser, which is where we want speed
         subprocess.check_call([cmake_cmd, CLICKHOUSE_PATH] + cmake_args + ['-DCMAKE_BUILD_TYPE=Release'],
@@ -292,6 +307,51 @@ class CustomBuildWithFromCH(build_ext):
              f'{ninja_path} -A 9 | grep {which}'], shell=True,
             stdout=subprocess.PIPE)
         return list(task.stdout.read().decode('utf-8').split())[2:]
+
+    @staticmethod
+    def ninja_extractor_functions(which):
+        # Same idea as ninja_extractor_other, but scraped from a Functions/*.cpp
+        # compile rule instead of a dbms one - used for the clickhouse_ttl_functions
+        # target (functions/CMakeLists.txt), which compiles ClickHouse's own Functions/
+        # sources directly (no patch against ClickHouse's Functions/CMakeLists.txt).
+        ninja_path = os.path.join(CLICKHOUSE_BUILD_PATH, "build.ninja")
+        task = subprocess.Popen(
+            ['grep "build src/Functions/CMakeFiles/clickhouse_functions_obj.dir/plus.cpp.o" '
+             f'{ninja_path} -A 9 | grep {which}'], shell=True,
+            stdout=subprocess.PIPE)
+        return list(task.stdout.read().decode('utf-8').split())[2:]
+
+    @staticmethod
+    def function_extra_includes():
+        # Raw tokens from ninja: -I<path> is glued (one token), but -isystem <path>
+        # is two separate tokens - must consume them as a pair.
+        raw_tokens = CustomBuildWithFromCH.ninja_extractor_functions('INCLUDES')
+        dirs = []
+        i = 0
+        while i < len(raw_tokens):
+            tok = raw_tokens[i]
+            if tok == '-isystem':
+                i += 1
+                if i < len(raw_tokens):
+                    dirs.append(raw_tokens[i])
+            elif tok.startswith('-isystem'):
+                dirs.append(tok[len('-isystem'):])
+            elif tok.startswith('-I'):
+                dirs.append(tok[len('-I'):])
+            i += 1
+        # Passed to CMake as a plain include-dirs list (via target_include_directories
+        # ... BEFORE), not as raw flags, so it is correctly prepended ahead of the
+        # global (dbms-scraped) include list instead of just being appended textually
+        # after it - some paths (e.g. murmurhash vs. datasketches-cpp, which both ship
+        # a MurmurHash3.h) must win over the global ones, not just be present somewhere
+        # on the command line.
+        dirs = list(map(transform_path, dirs))
+        return ';'.join(d for d in dirs if d)
+
+    @staticmethod
+    def function_extra_defines():
+        defines_list = CustomBuildWithFromCH.ninja_extractor_functions('DEFINES')
+        return ';'.join(flag[2:] for flag in defines_list if flag.startswith('-D'))
 
     @staticmethod
     def cflags():
@@ -369,7 +429,9 @@ class CustomBuildWithFromCH(build_ext):
     def extra_libs():
         ch_libs = [f"{TOOLSET_BUILD_PATH}/{f}"
                    for f in listdir(TOOLSET_BUILD_PATH)
-                   if isfile(join(TOOLSET_BUILD_PATH, f)) and f.endswith(".a")]
+                   if isfile(join(TOOLSET_BUILD_PATH, f)) and f.endswith(".a")
+                   # force-loaded explicitly below instead - must not also be linked normally
+                   and f != "libclickhouse_ttl_functions.a"]
         ch_libs += CustomBuildWithFromCH.ninja_extractor_ldflags('LINK_LIBRARIES')
         ch_libs = map(transform_path, ch_libs)
         # Several changes:
@@ -384,7 +446,7 @@ class CustomBuildWithFromCH(build_ext):
         # Force-load the TTL validation functions so their REGISTER_FUNCTION static
         # registrars run even though nothing references their symbols directly.
         # DB::registerFunctions() (called from ValidateTTL.cpp) registers all of them.
-        ttl_functions_lib = os.path.join(CLICKHOUSE_BUILD_PATH, 'src/Functions/libclickhouse_ttl_functions.a')
+        ttl_functions_lib = os.path.join(TOOLSET_BUILD_PATH, 'libclickhouse_ttl_functions.a')
         if sys.platform == 'darwin':
             ch_libs = [f'-Wl,-force_load,{ttl_functions_lib}'] + ch_libs
         else:
@@ -461,6 +523,12 @@ class ToolsetBuildWithFromCH(CustomBuildWithFromCH):
             f'-DCMAKE_C_COMPILER={COMPILER_CC}',
             f'-DCMAKE_CXX_COMPILER={COMPILER_CXX}',
             f'-DCMAKE_CXX_FLAGS={self.cflags()}',
+            # Compiles clickhouse_ttl_functions straight from the ClickHouse submodule
+            # source tree (see functions/CMakeLists.txt), with no patch against its own
+            # CMakeLists.txt.
+            f'-DCLICKHOUSE_FUNCTIONS_PATH={os.path.join(CLICKHOUSE_PATH, "src", "Functions")}',
+            f'-DCLICKHOUSE_FUNCTIONS_EXTRA_INCLUDES={self.function_extra_includes()}',
+            f'-DCLICKHOUSE_FUNCTIONS_EXTRA_DEFINES={self.function_extra_defines()}',
             '-G',
             'Ninja']
 

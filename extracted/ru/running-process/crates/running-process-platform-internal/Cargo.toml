@@ -52,7 +52,7 @@ conpty-sidecar = [
 [dependencies]
 miniz_oxide = { version = "0.8", optional = true }
 prost = { version = "0.14", optional = true }
-running-process-protocol = { version = "=4.10.17", path = "../running-process-protocol", optional = true }
+running-process-protocol = { version = "=4.10.20", path = "../running-process-protocol", optional = true }
 tokio = { version = "1", default-features = false, features = ["io-util", "macros", "process", "rt"], optional = true }
 sysinfo = { version = "0.30", optional = true }
 interprocess = { version = "2", optional = true }
@@ -81,7 +81,7 @@ png = { version = "0.17", optional = true }
 [target.'cfg(windows)'.dependencies]
 sha2 = { version = "0.10", optional = true }
 ureq = { version = "2", default-features = false, features = ["tls"], optional = true }
-zstd = { version = "0.13", default-features = false, optional = true }
+zstd = { version = "0.14", default-features = false, optional = true }
 tar = { version = "0.4", default-features = false, optional = true }
 windows-sys = { version = "0.61", features = [
     "Wdk_System_Threading",
@@ -99,5 +99,5 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_Registry",
     "Win32_System_Threading",
 ] }
-winapi = { version = "0.3", features = ["consoleapi", "errhandlingapi", "fileapi", "handleapi", "ioapiset", "jobapi2", "minwindef", "namedpipeapi", "processenv", "processthreadsapi", "psapi", "securitybaseapi", "shellapi", "synchapi", "tlhelp32", "winbase", "wincon", "wincontypes", "windef", "winerror", "winnt", "winuser"] }
+winapi = { version = "0.3", features = ["consoleapi", "errhandlingapi", "fileapi", "handleapi", "ioapiset", "jobapi2", "minwindef", "namedpipeapi", "processenv", "processthreadsapi", "psapi", "securitybaseapi", "shellapi", "stringapiset", "synchapi", "tlhelp32", "winnls", "winbase", "wincon", "wincontypes", "windef", "winerror", "winnt", "winuser"] }
 widestring = "1"

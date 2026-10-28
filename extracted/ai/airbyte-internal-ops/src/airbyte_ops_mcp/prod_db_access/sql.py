@@ -173,23 +173,25 @@ SELECT_ORG_ADMIN_CONTACTS = sqlalchemy.text(
 
 SELECT_ORG_USER_LAST_CONNECTION_EVENT = sqlalchemy.text(
     """
+    WITH org_connections AS MATERIALIZED (
+        SELECT connection.id
+        FROM workspace
+        JOIN actor
+          ON actor.workspace_id = workspace.id
+        JOIN connection
+          ON connection.source_id = actor.id
+        WHERE workspace.organization_id = :organization_id
+    )
     SELECT
-         workspace.organization_id,
+         CAST(:organization_id AS uuid) AS organization_id,
          connection_timeline_event.user_id,
          MAX(connection_timeline_event.created_at) AS last_connection_event_at
-    FROM workspace
-    JOIN actor
-      ON actor.workspace_id = workspace.id
-    JOIN connection
-      ON connection.source_id = actor.id
+    FROM org_connections
     JOIN connection_timeline_event
-      ON connection_timeline_event.connection_id = connection.id
-    WHERE workspace.organization_id = :organization_id
-      AND connection_timeline_event.user_id = ANY(CAST(:user_ids AS uuid[]))
-      AND connection_timeline_event.created_at >= :cutoff_date
-    GROUP BY
-         workspace.organization_id,
-         connection_timeline_event.user_id
+      ON connection_timeline_event.connection_id = org_connections.id
+     AND connection_timeline_event.created_at >= :cutoff_date
+    WHERE connection_timeline_event.user_id = ANY(CAST(:user_ids AS uuid[]))
+    GROUP BY connection_timeline_event.user_id
     """
 )
 

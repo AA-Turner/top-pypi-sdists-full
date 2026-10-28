@@ -149,9 +149,7 @@ ListUnmigratedBodiesOpt = Annotated[
         "combined with any other check.",
     ),
 ]
-BaseRefOpt = Annotated[
-    str, typer.Option("--base-ref", help="Base git reference for comparison (default: origin/main)")
-]
+BaseRefOpt = Annotated[str, typer.Option("--base-ref", help="Base git reference for comparison")]
 SinceOpt = Annotated[
     str | None, typer.Option("--since", help="Shortcut for --base-ref (default: none)")
 ]
@@ -213,6 +211,16 @@ ExtraObjectsOpt = Annotated[
         help="With --check-live-drift: 'all' reports every stray schema, extension, policy, … "
         "as a warning extra_object; 'declared' (default) only those of a kind the DDL "
         "declares, as info. Also drift.extra_objects in the config",
+    ),
+]
+ExcludeOpt = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--exclude",
+        metavar="PATTERN",
+        help="With --check-live-drift: leave the relations matching this pattern out of the "
+        "comparison, on both sides — `name` in any schema, `schema.name` in that one, each "
+        "part a case-sensitive glob (repeatable; adds to diff.exclude in the config)",
     ),
 ]
 CheckSignaturesOpt = Annotated[
@@ -453,6 +461,7 @@ def migrate_validate(
     check_live_drift: CheckLiveDriftOpt = False,
     ignore_column_order: IgnoreColumnOrderOpt = False,
     extra_objects: ExtraObjectsOpt = None,
+    exclude: ExcludeOpt = None,
     check_signatures: CheckSignaturesOpt = False,
     check_imports: CheckImportsOpt = False,
     check_body: CheckBodyOpt = False,
@@ -526,7 +535,7 @@ def migrate_validate(
       --check-signatures takes both a singular --schema and a plural --schemas:
         --schema FILE       Path to a *SQL file* to compare function signatures against.
                             If omitted, schema is auto-built from db/schema/ DDL files.
-        --schemas LIST      Comma-separated list of *database schema names* (default: public)
+        --schemas LIST      Comma-separated list of *database schema names*
                             to scan in the live DB for stale overloads.
         They're different things — file path vs. DB schema names — and both flags can
         appear in the same invocation.
@@ -595,6 +604,7 @@ def migrate_validate(
         check_live_drift=check_live_drift,
         ignore_column_order=ignore_column_order,
         extra_objects=extra_objects,
+        exclude=tuple(exclude or ()),
         check_signatures=check_signatures,
         check_body_views=check_body_views,
         check_body_replay=check_body_replay,

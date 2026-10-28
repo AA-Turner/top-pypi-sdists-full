@@ -1,8 +1,8 @@
 """Stage: group.
 
 Consumes: tokens (classified), segments, structure, one_case, extracted
-(the role + inner span per delimited region, for the #329 pass below --
-the only stage after tokenize that reads it); and, through
+(the role + inner span per delimited region, for the #329 pass below;
+post_rules reads it too, for S13); and, through
 `_comma.decide`, comma_offsets (the own-words span of the name's case
 contrast) and dropped, which decide extends.
 Produces: structure -- its head decides a comma form once the words
@@ -25,7 +25,8 @@ which assign places and reports rather than peeling again.
 Reads: token tags (from classify), Lexicon.given_name_titles (the
 P5 licence, #369) and Policy.extra_suffix_delimiters, whose
 delimiter-core tokens part a tail segment as a comma would and are
-dropped (v1 suffix_delimiter parity, #549); and, through
+dropped (v1 suffix_delimiter parity, #549), as the built-in cores'
+are (rules/C10, #889); and, through
 `_comma.decide`, what that module's own header lists
 (Policy.lenient_comma_suffixes and Policy.unlisted_caps_suffixes among
 them). The v1
@@ -67,30 +68,34 @@ from typing import assert_never
 
 from nameparser._lexicon import _run_addresses_by_given
 from nameparser._pipeline._pieces import (
+    split_credential_report,
     Peel, TailRead, chain_lead, chain_run_end, is_conj_piece, is_leading_title, is_prefix_piece,
     is_suffix_piece, is_title_piece, join_connectives, joined_tags,
     leading_titles, merge_particle_runs, merge_pieces, peel_walk,
-    read_trailing_run, tail_reading, trailing_candidates,
+    read_trailing_run, settled_by_case, tail_reading, trailing_candidates,
     trailing_run_start, trailing_start,
     trailing_start_past_titles,
 )
 from nameparser._pipeline._state import (
-    ParseState, PendingAmbiguity, Structure,
-    WorkToken, _AMBIGUOUS_CREDENTIAL_TAGS, copy_with,
+    AMBIGUOUS_ACRONYM_TAG, SPLIT_CREDENTIAL_TAG, SPLIT_MEMBER_TAG, ParseState,
+    Deferred, PendingAmbiguity, Structure, WorkToken,
+    _AMBIGUOUS_CREDENTIAL_TAGS, copy_with,
 )
 import nameparser._pipeline._comma as _comma
-from nameparser._pipeline._vocab import D, PH
 from nameparser._pipeline._vocab import (
-    comma_follows_marker, delimiter_cores, reads_as_a_reported_numeral,
+    comma_follows_marker, delimiter_cores, name_reading,
+    reads_as_a_reported_numeral, suffix_reading,
 )
 from nameparser._types import AmbiguityKind, Role
 
-# the credential-pair regexes live in _vocab, whose own
-# is_wholly_suffix merges the same pair, as `_comma._pieces` does --
-# and that predicate's callers stay in sync with it: `_comma.decide`'s
-# reading of the part after the comma, segment's C2 flag on a tail
-# part, and script_segment's decline of a wholly-suffix post-comma
-# run, all of which see the merged reading
+# the split credential is `_vocab.split_pair`, which classify asks of
+# every adjacent pair and writes on the pair's first word, and which
+# is_wholly_suffix asks to merge the same Ph./D. pair, as
+# `_comma._pieces` reads the tag -- so that predicate's callers read
+# what this stage merges: `_comma.decide`'s reading of the part after
+# the comma, segment's C2 flag on a tail part, and script_segment's
+# decline of a wholly-suffix post-comma run, all of which see the
+# merged reading
 
 Piece = list[int]
 #: What the marker pass took out of a segment: the marker's TOKEN
@@ -327,42 +332,61 @@ def _maiden_take(pieces: Sequence[Sequence[int]],
         end = c + (e - m)
         released = [(j, Role.TITLE if m + (j - c) in titles
                      else Role.SUFFIX) for j in range(end, len(pieces))]
+        # rules/S12: "where the count takes the pair, the reading is reported" --
+        # the clause-free reading took it, and the take binds it here
+        for j, role in released:
+            if "split" in ptags[j] and role is Role.SUFFIX:
+                ambiguities.append(
+                    split_credential_report(
+                        pieces[j], tokens,
+                        name_reading(tokens[pieces[j][0]], Role.MAIDEN)))
         # mechanisms.md#AMBIGUITY-AT-THE-DECISION-SITE: "Emit at the
         # site that takes the branch, not where an ambiguous tag sits"
         # -- the take consumed the run, so the forks the reading called
         # on it are reported here, where assign will never see them
         consumed = {i for j in range(end, len(pieces)) for i in pieces[j]}
         for piece in (*vpeel.picks, *vpeel.absorbed,
-                      *(() if vpeel.numeral is None
-                        else (vpeel.numeral,))):
+                      *vpeel.numerals):
             if piece[0] in consumed:
                 ambiguities.append(PendingAmbiguity(
                     AmbiguityKind.SUFFIX_OR_NAME,
                     f"{tokens[piece[0]].text!r} after the maiden name "
                     f"reads as a suffix; it may be a name word",
-                    tuple(piece)))
+                    tuple(piece),
+                    # a name word there ends the clause's maiden name
+                    alternative=name_reading(tokens[piece[0]],
+                                             Role.MAIDEN)))
     # ...and the member the clause KEEPS as its last word: the reading
     # left it a name word, which is a fork too
     last = pieces[end - 1]
     word = tokens[last[0]]
-    if not word.tags.isdisjoint(_AMBIGUOUS_CREDENTIAL_TAGS):
+    # a one-word member: a split credential the clause keeps is one the
+    # count declined, which reports nothing (rules/S12), and its first
+    # word is not the clause's last
+    if len(last) == 1 and not word.tags.isdisjoint(_AMBIGUOUS_CREDENTIAL_TAGS):
         ambiguities.append(PendingAmbiguity(
             AmbiguityKind.SUFFIX_OR_NAME,
             f"{word.text!r} ending the maiden name is also a "
             f"post-nominal; the maiden marker's clause keeps it rather "
-            f"than reading it as one", tuple(last)))
+            f"than reading it as one", tuple(last),
+            alternative=suffix_reading(word)))
     elif tuple(last) in picked:
         # rules/S10: "either reading is reported" -- a numeral the read
-        # declined for want of words to spare, which the clause keeps
+        # declined, for want of words to spare or for its Title case,
+        # which the clause keeps
+        why = ("but the name has no other word to spare for it"
+               if len(word.text.rstrip(".")) == 1
+               else "but written in Title case it leans to the name")
         ambiguities.append(PendingAmbiguity(
             AmbiguityKind.SUFFIX_OR_NAME,
             f"{word.text!r} ending the maiden name is a roman numeral, "
-            f"but the name has no other word to spare for it; the "
-            f"maiden marker's clause keeps it rather than reading it as "
-            f"a generational suffix", tuple(last)))
+            f"{why}; the maiden marker's clause keeps it rather than "
+            f"reading it as a generational suffix", tuple(last),
+            alternative=suffix_reading(word)))
     elif (released and len(last) == 1 and end - 2 >= lo
           and reads_as_a_reported_numeral(
-              word.text, tokens[pieces[end - 2][0]].text, one_case)):
+              word.text, word.tags, tokens[pieces[end - 2][0]].text,
+              one_case)):
         # rules/S10: "a one-letter numeral before a credential is the
         # family name, and the reading is reported" -- the clause's
         # twin of assign's report (#721's review): the clause keeps the
@@ -372,7 +396,7 @@ def _maiden_take(pieces: Sequence[Sequence[int]],
             f"{word.text!r} ending the maiden name is a roman numeral, "
             f"but a post-nominal follows it; the maiden marker's clause "
             f"keeps it rather than reading it as a generational suffix",
-            tuple(last)))
+            tuple(last), alternative=suffix_reading(word)))
     return (list(range(m, lo)),
             [(j, Role.MAIDEN) for j in range(lo, end)] + released)
 
@@ -574,6 +598,28 @@ def _between_name_words(k: int, lo: int, hi: int,
             and not is_title_piece(pieces[right], ptags[right], tokens))
 
 
+# rules/S12: "where the count declines it, the pair is the two words
+# it is written as" -- after the trailing read, which is where the
+# count is asked in a main segment
+def _settle_splits(pieces: list[Piece], ptags: list[set[str]]) -> None:
+    """Split every merged split credential left in `pieces` back into
+    its two words, in place: a pair the trailing read declined reads
+    as it reads unmerged. One a connective join took into a wider piece
+    keeps the join and loses the tag (the only shape that reaches it
+    is a pair beside a connective, 'Pharm D and')."""
+    k = 0
+    while k < len(pieces):
+        if "split" in ptags[k]:
+            if len(pieces[k]) == 2 and ptags[k] == {"split"}:
+                a, b = pieces[k]
+                pieces[k:k + 1] = [[a], [b]]
+                ptags[k:k + 1] = [set(), set()]
+                k += 2
+                continue
+            ptags[k] = ptags[k] - {"split"}
+        k += 1
+
+
 def _group_segment(seg: tuple[int, ...], additional: int,
                    tokens: Sequence[WorkToken],
                    bound_join: BoundJoin = BoundJoin.STRICT,
@@ -636,16 +682,46 @@ def _group_segment(seg: tuple[int, ...], additional: int,
     # here, because "the first piece of the name" cannot be computed
     # before this merge: `is_leading_title` is true of `Ph.` itself,
     # so the scan would step over the very piece being judged.
+    #
+    # Every other split credential ('Pharm. D.', `_vocab.split_pair`'s
+    # "split" answer) merges under the same head test as a member of
+    # the ambiguous class, where a rule reads such a member: in a main
+    # segment, where S2's read below decides it by the count, kept
+    # whole where the read takes it and split back into its two words
+    # where it does not (`_settle_splits`), so a declined pair reads
+    # exactly as the two words read; and in the given part after a
+    # family comma behind the given word, where S5's walk reads it,
+    # merged ahead of the joins so the particle chain stops in front of
+    # it and P5's bound join declines it as it declines a suffix word,
+    # and a pair declined there is middle-name text whole or split.
+    # (A connective beside a pair keeps it from merging at all, in
+    # classify.)
+    # Not in the part before a family comma, which reads no member as
+    # a suffix ('Smith MA, John'). Classify tagged each pair's first
+    # word, so the test here is a tag.
+    splits = False
+    given_from: int | None = None
     k = 0
     while k < len(pieces) - 1:
         a, b = pieces[k], pieces[k + 1]
-        if (not (opens_the_name and k == 0 and a[0] == 0)
-                and len(a) == 1 and len(b) == 1
-                and PH.fullmatch(tokens[a[0]].text)
-                and D.fullmatch(tokens[b[0]].text)):
-            merge_pieces(pieces, ptags, k, k + 2, add={"suffix"})
-        else:
-            k += 1
+        tags = tokens[a[0]].tags
+        if (len(a) == 1 and len(b) == 1
+                and not (opens_the_name and k == 0 and a[0] == 0)):
+            if SPLIT_CREDENTIAL_TAG in tags:
+                merge_pieces(pieces, ptags, k, k + 2, add={"suffix"})
+                continue
+            if SPLIT_MEMBER_TAG in tags:
+                if site is ClauseSite.TRAILING:
+                    merge_pieces(pieces, ptags, k, k + 2, add={"split"})
+                    splits = True
+                    continue
+                if site is ClauseSite.GIVEN_SLOT:
+                    if given_from is None:
+                        given_from = leading_titles(pieces, ptags, tokens)
+                    if k > given_from:
+                        merge_pieces(pieces, ptags, k, k + 2, add={"split"})
+                        continue
+        k += 1
 
     # rules/M2: "A marker that counts takes the words after it as
     # the maiden name, and is itself dropped" (history:
@@ -681,6 +757,10 @@ def _group_segment(seg: tuple[int, ...], additional: int,
     read: TailRead | None = None
     tail_pieces: list[Piece] = []
     tail_ptags: list[set[str]] = []
+    # too few pieces for the read: a split credential has no words to
+    # spare (rules/S4)
+    if splits and len(pieces) + additional < 3:
+        _settle_splits(pieces, ptags)
     if len(pieces) + additional >= 3:
         # rules/P3: "A connective that is also generational
         # vocabulary joins only where a name word stands on each side
@@ -792,6 +872,10 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                 tail_pieces, tail_ptags = pieces[start:], ptags[start:]
                 del pieces[start:]
                 del ptags[start:]
+            # the read has decided every split credential: one it took
+            # left with the run, and one still here is two name words
+            if splits:
+                _settle_splits(pieces, ptags)
         # rules/S2: "a trailing word of the suffix vocabulary reads as a
         # suffix" -- on a main segment the run read above decides it
         # and is split off already; elsewhere the chain stops where
@@ -887,7 +971,8 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                     k += 1
                     continue
                 j = chain_run_end(k, pieces, ptags, tokens,
-                                  len(pieces) - tail)
+                                  len(pieces) - tail,
+                                  one_case if given_slot else None)
                 # The other half of PARTICLE_OR_GIVEN. _assign reports the
                 # fork when an ambiguous particle stays a lone leading piece
                 # ("Van Johnson" -> given under the default order, family
@@ -953,7 +1038,11 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                             f"{tokens[i].text!r} was chained onto the "
                             f"following name piece; it is also a given "
                             f"name in other names",
-                            (i,)))
+                            (i,),
+                            # where it would stand unchained is
+                            # assign's to name
+                            alternative=name_reading(tokens[i],
+                                                     Deferred.UNCHAINED)))
                 # rules/S4: "A BARE ambiguous acronym is consumed
                 # only when the name has words to spare — as the second
                 # of two words it stays the family name — and at the
@@ -991,7 +1080,8 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                         f"and an ordinary name; the particle chain took "
                         f"it into the name rather than reading it as a "
                         f"post-nominal",
-                        tuple(last)))
+                        tuple(last),
+                        alternative=suffix_reading(tokens[last[0]])))
                     took.add(tuple(last))
                 merge_pieces(pieces, ptags, k, j, drop={"prefix"})
                 k += 1
@@ -1041,7 +1131,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                 # built, not `_replace`d: two frames a call
                 peel = read.peel
                 read = TailRead(read.tail, read.titles, read.run_titles, Peel(
-                    peel.names, peel.numeral,
+                    peel.names, peel.numerals,
                     tuple([p for p in peel.picks if p not in took]),
                     peel.anchors, peel.run_titles, peel.absorbed))
         # rules/P5: "a recognized bound given-name word joins the
@@ -1085,9 +1175,23 @@ def _group_segment(seg: tuple[int, ...], additional: int,
             # Smith, Jr., abdul Dr. Smith', #640). A title word standing
             # in the name is a name word and joins ('abdul Sir Smith
             # Berg', 'Berg, abdul Prof. Ali').
+            # A credential split across a space (rules/S12) is declined
+            # as its one-word spelling is: merged in the given part
+            # before this join, so the particle chain stops in front of
+            # it too ('Rahman, Abdul MB ChB', 'Smith, John van Pharm D')
+            # After a family comma a member its capitals settle as the
+            # credential (rules/S6) is declined as a suffix word is: the
+            # join would read it as the given name's second word, where
+            # the given part's trailing slot or the run S8 starts takes
+            # it ('Smith, Abdul MA'); with no comma nothing would, and
+            # the join stands ('Abdul MA Smith')
             nxt, nxt_tags = pieces[fk + 1], ptags[fk + 1]
             if (_is_maiden_marker_piece(nxt, tokens)
                     or is_suffix_piece(nxt, nxt_tags, tokens)
+                    or "split" in nxt_tags
+                    or (bound_join is BoundJoin.LENIENT and len(nxt) == 1
+                        and AMBIGUOUS_ACRONYM_TAG in tokens[nxt[0]].tags
+                        and settled_by_case(tokens[nxt[0]], one_case))
                     or ((site is ClauseSite.TAIL
                          or bound_join is BoundJoin.LENIENT)
                         and is_title_piece(nxt, nxt_tags, tokens)
@@ -1224,7 +1328,8 @@ def group(state: ParseState) -> ParseState:
     additional = 1 if state.structure is Structure.FAMILY_COMMA else 0
     # v1 expand_suffix_delimiter parity (#206): tail segments (wholly
     # consumed as suffixes by assign) are cut at their delimiter-core
-    # tokens, which land in `dropped` as the maiden marker does
+    # tokens, which land in `dropped` as the maiden marker does; the
+    # built-in cores, which no v1 release read, cut them too (#889)
     cores = delimiter_cores(state.policy.extra_suffix_delimiters)
     tail_start = {Structure.SUFFIX_COMMA: 1,
                   Structure.FAMILY_COMMA: 2}.get(state.structure)

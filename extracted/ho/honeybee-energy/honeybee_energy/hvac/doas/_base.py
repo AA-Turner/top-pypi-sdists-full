@@ -45,10 +45,10 @@ class _DOASBase(_TemplateSystem):
             Rooms. (Default: False).
         doas_availability_schedule: An optional On/Off discrete schedule to set when
             the dedicated outdoor air system (DOAS) shuts off. This will not only
-            prevent any outdoor air from flowing thorough the system but will also
-            shut off the fans, which can result in more energy savings when spaces
-            served by the DOAS are completely unoccupied. If None, the DOAS will be
-            always on. (Default: None).
+            minimize heating and cooling load by preventing any outdoor air from
+            flowing thorough the system but will also shut off the fans, which can
+            result in more energy savings when spaces served by the DOAS are
+            completely unoccupied. If None, the DOAS will be always on. (Default: None).
 
     Properties:
         * identifier
@@ -60,14 +60,17 @@ class _DOASBase(_TemplateSystem):
         * demand_controlled_ventilation
         * doas_availability_schedule
         * schedules
+        * has_air_loop
         * has_district_heating
         * has_district_cooling
         * user_data
         * properties
     """
-    __slots__ = ('_sensible_heat_recovery', '_latent_heat_recovery',
-                 '_demand_controlled_ventilation', '_doas_availability_schedule',
-                 '_properties')
+    __slots__ = (
+        '_sensible_heat_recovery', '_latent_heat_recovery',
+        '_demand_controlled_ventilation', '_doas_availability_schedule',
+        '_properties'
+    )
     COOL_ONLY_TYPES = ('DOAS_FCU_Chiller', 'DOAS_FCU_ACChiller', 'DOAS_FCU_DCW')
     HEAT_ONLY_TYPES = ()
 
@@ -140,6 +143,16 @@ class _DOASBase(_TemplateSystem):
         if self._doas_availability_schedule is not None:
             schedules.append(self._doas_availability_schedule)
         return schedules
+
+    @property
+    def has_air_loop(self):
+        """Always True for DOAS systems."""
+        return True
+
+    @property
+    def balances_exhaust(self):
+        """Always False for DOAS systems."""
+        return False
 
     @property
     def properties(self):

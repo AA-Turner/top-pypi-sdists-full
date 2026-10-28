@@ -384,6 +384,8 @@ def main(argv: list[str] | None = None) -> int:
     #: The env switched to: a rebuild of the same version is told apart by it (plan R-T3).
     parser.add_argument("--to-env", default=None)
     args = parser.parse_args(argv)
+    if client.uninstall_barrier() is not None:
+        return 0  # Probe is being uninstalled: nothing to start, nothing to switch back
     raw = os.environ.get(WATCH_ENV)
     try:
         watch_s = float(raw) if raw else WATCH_S
@@ -396,6 +398,10 @@ def main(argv: list[str] | None = None) -> int:
         write({"at": time.time(), "from": args.from_version, "to": args.to_version, "ok": True})
         log(f"{args.to_version} runs")
         _hand_over_workers()
+        return 0
+    if client.uninstall_barrier() is not None:
+        # The uninstall that began meanwhile stopped the new service on
+        # purpose: that is no failed version, and nothing is switched back.
         return 0
     log(f"{args.to_version} failed its check: {why}")
     switch_back(args.from_version, args.to_version, args.old_python, why)

@@ -366,6 +366,12 @@ namespace casadi {
                                 const std::vector<std::string>& inst,
                                 bool add_shorthand=true);
 
+    /** \brief Add a sanitized runtime source once per key
+
+        \identifier{2k8} */
+    void add_runtime(const std::string& key, const std::string& src,
+                     const std::vector<std::string>& inst);
+
     /** \brief Codegen inner product
 
         \identifier{sm} */
@@ -739,6 +745,11 @@ namespace casadi {
       AUX_FEASIBLESQPMETHOD,
       AUX_LDL,
       AUX_NEWTON,
+      AUX_IVP,
+      AUX_IVP_ADAPT,
+      AUX_IVP_EVENT,
+      AUX_ROSENBROCK,
+      AUX_ERK,
       AUX_TO_DOUBLE,
       AUX_TO_INT,
       AUX_CAST,
@@ -1171,6 +1182,7 @@ namespace casadi {
     std::set<std::string> added_externals_;
     std::set<std::string> external_names_;
     std::set<std::string> added_shorthands_;
+    std::set<std::string> added_runtimes_;
     std::multimap<Auxiliary, std::vector<std::string>> added_auxiliaries_;
     std::multimap<size_t, size_t> added_double_constants_;
     std::multimap<size_t, size_t> added_integer_constants_;

@@ -11,7 +11,7 @@ from typing_extensions import Self
 
 from istari_digital_client.sdk._log_utils import log_method
 
-import istari_digital_core
+from istari_digital_client import native_crypto
 
 
 class Token(BaseModel):
@@ -127,10 +127,10 @@ class Token(BaseModel):
     @log_method
     def from_storage_token(
         cls,
-        storage_token: istari_digital_core.Token,
+        storage_token: native_crypto.Token,
     ) -> Self:
         """
-        Create a :class:`Token` instance from a core :class:`istari_digital_core.Token`.
+        Create a :class:`Token` instance from a core :class:`native_crypto.Token`.
 
         This assigns a new UUID and sets the current UTC timestamp for ``created``.
 
@@ -162,7 +162,7 @@ class Token(BaseModel):
         :raises ValueError: If the provided data does not match the token hash.
         """
         try:
-            istari_digital_core.Token.compare_token(sha, salt, data)
+            native_crypto.Token.compare_token(sha, salt, data)
         except ValueError as e:
             raise ValueError("Token does not match the data") from e
 
@@ -181,4 +181,4 @@ class Token(BaseModel):
         :param data: The content to hash.
         :param salt: Optional salt to apply during hashing.
         """
-        return cls.from_storage_token(istari_digital_core.Token.from_bytes(data, salt))
+        return cls.from_storage_token(native_crypto.Token.from_bytes(data, salt))

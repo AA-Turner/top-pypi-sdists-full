@@ -65,22 +65,28 @@ class ReplaceReference(ABC):
 MatchArg = Sequence[Union[str, "MatchExpression"]]
 
 
-def find_replace_expr(value: str) -> MatchArg:
+def find_replace_expr(value: str | MatchExpression) -> MatchArg:
     """Find all replaceable tokens within value."""
+    if isinstance(value, MatchExpression):
+        return [value]
     return MatchExpression.parse_and_split_to_terminator(value)[0][0]
 
 
-def replace(conf: Config, reference: ReplaceReference, value: str, args: ConfigLoadArgs, depth: int = 0) -> str:
+def replace(
+    conf: Config, reference: ReplaceReference, value: str | MatchExpression, args: ConfigLoadArgs, depth: int = 0
+) -> str:
     """Replace all active tokens within value according to the config."""
     return Replacer(conf, reference, conf_args=args, depth=depth).expand(value)
 
 
-def replace_command_lines(conf: Config, reference: ReplaceReference, value: str, args: ConfigLoadArgs) -> str:
+def replace_command_lines(
+    conf: Config, reference: ReplaceReference, value: str | MatchExpression, args: ConfigLoadArgs
+) -> str:
     """Replace all active tokens within value, where each line of value is one command."""
     return CommandLinesReplacer(conf, reference, conf_args=args).expand(value)
 
 
-def replace_once(conf: Config, reference: ReplaceReference, value: str, args: ConfigLoadArgs) -> str:
+def replace_once(conf: Config, reference: ReplaceReference, value: str | MatchExpression, args: ConfigLoadArgs) -> str:
     """Replace the active tokens within value, but not the tokens within the text they are replaced with."""
     return Replacer(conf, reference, conf_args=args, recursive=False).join(find_replace_expr(value))
 
@@ -224,7 +230,7 @@ class Replacer:
     def join(self, value: MatchArg) -> str:
         return "".join(self(value))
 
-    def expand(self, value: str) -> str:
+    def expand(self, value: str | MatchExpression) -> str:
         MatchRecursionError.check(self.depth, value)
         return self.join_value(find_replace_expr(value))
 
@@ -368,7 +374,13 @@ def replace_glob(conf: Config | None, args: list[str]) -> str:
         msg = "No pattern was supplied in glob substitution"
         raise MatchError(msg)
     # rejoin Windows drive letter that was split on colon (e.g. C:\path -> ["C", "\\path"])
-    if len(args[0]) == 1 and args[0].isalpha() and len(args) > 1 and args[1][:1] in {"\\", "/"}:
+    if (
+        sys.platform == "win32"
+        and len(args[0]) == 1
+        and args[0].isalpha()
+        and len(args) > 1
+        and args[1][:1] in {"\\", "/"}
+    ):
         pattern = f"{args[0]}:{args[1]}"
         default_args = args[2:]
     else:

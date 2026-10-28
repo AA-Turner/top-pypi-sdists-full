@@ -203,3 +203,29 @@ async def test_background_interaction_is_stored_and_nonblocking(
     assert seen["background"] is True
     assert seen["store"] is True
     assert result == {"id": "i-1", "status": "in_progress"}
+
+
+def test_an_offering_without_tool_scheduling_sends_none_even_by_default():
+    """gemini-3.8-live-extended-thinking takes no scheduling: the catalog cell (supported:false)
+    decides, never the model name — the relay and the direct token read the same fact."""
+    from matrx_ai.providers.google.specialized import _tool_responses, live_tool_response_scheduling
+
+    plain = SimpleNamespace(controls=SimpleNamespace(rules={}))
+    bare = SimpleNamespace(
+        controls=SimpleNamespace(rules={"tool_response_scheduling": SimpleNamespace(supported=False, drop=False)})
+    )
+    assert live_tool_response_scheduling(plain) == "WHEN_IDLE"
+    assert live_tool_response_scheduling(bare) is None
+    [one] = _tool_responses({"responses": [{"name": "t"}]}, live_tool_response_scheduling(bare))
+    assert one.scheduling is None
+
+
+def test_a_live_voice_reaches_googles_speech_config():
+    """An agent's voice is sent as speech_config.voice_config.prebuilt_voice_config.voice_name;
+    with none the config carries no speech_config (Google's default), never a guessed name."""
+    from matrx_ai.providers.google.specialized import build_live_config
+
+    profile = _profile("google_live")
+    voiced = build_live_config(profile, GoogleLiveOptions(voice_name="puck"))
+    assert voiced.speech_config.voice_config.prebuilt_voice_config.voice_name == "puck"
+    assert build_live_config(profile, GoogleLiveOptions()).speech_config is None

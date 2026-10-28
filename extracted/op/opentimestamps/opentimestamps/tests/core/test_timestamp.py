@@ -138,6 +138,20 @@ class Test_Timestamp(unittest.TestCase):
         t2.attestations = {PendingAttestation(""), BitcoinBlockHeaderAttestation(1)}
         self.assertTrue(t1 == t2)
 
+    def test_deserialization_repeated_op(self):
+        """Deserialization fails if an op is repeated at the same node"""
+        t = Timestamp(b'')
+        t.ops.add(OpSHA256()).attestations.add(PendingAttestation(''))
+        ctx = BytesSerializationContext()
+        t.serialize(ctx)
+        branch = ctx.getbytes()
+        Timestamp.deserialize(BytesDeserializationContext(branch), b'')
+
+        ctx = BytesDeserializationContext(b'\xff' + branch + branch)
+        with self.assertRaises(DeserializationError):
+            Timestamp.deserialize(ctx, b'')
+
+
 class Test_DetachedTimestampFile(unittest.TestCase):
     def test_create_from_file(self):
         file_stamp = DetachedTimestampFile.from_fd(OpSHA256(), io.BytesIO(b''))
@@ -186,6 +200,19 @@ class Test_DetachedTimestampFile(unittest.TestCase):
             with self.assertRaises(expected_error):
                 ctx = BytesDeserializationContext(serialized)
                 DetachedTimestampFile.deserialize(ctx)
+
+    def test_keccak256_is_not_a_file_hash_op(self):
+        """Keccak256 can't be the file hash op of a detached timestamp"""
+        ctx = BytesDeserializationContext(DetachedTimestampFile.HEADER_MAGIC + b'\x01' + OpKECCAK256.TAG + bytes(32) + b'\x00' + PendingAttestation.TAG + b'\x01\x00')
+        with self.assertRaises(DeserializationError):
+            DetachedTimestampFile.deserialize(ctx)
+
+        # but it remains valid within a timestamp
+        t = Timestamp(b'')
+        t.ops.add(OpKECCAK256()).attestations.add(PendingAttestation(''))
+        ctx = BytesSerializationContext()
+        t.serialize(ctx)
+        self.assertEqual(Timestamp.deserialize(BytesDeserializationContext(ctx.getbytes()), b''), t)
 
 
 class Test_cat_sha256(unittest.TestCase):

@@ -6,8 +6,10 @@ on:
     paths:
       - 'sqlframe/**'
       - 'tests/**'
+      - 'scripts/**'
       - 'Makefile'
       - 'pyproject.toml'
+      - 'scripts/test-trino.sh'
   pull_request:
     types:
     - synchronize
@@ -16,8 +18,10 @@ on:
     - '.github/workflows/**'
     - 'sqlframe/**'
     - 'tests/**'
+    - 'scripts/**'
     - 'Makefile'
     - 'pyproject.toml'
+    - 'scripts/test-trino.sh'
     - 'uv.lock'
 jobs:
   run-tests:
@@ -105,6 +109,18 @@ jobs:
       run: |
         uv run --no-sync pytest -n 0 tests/integration/engines/duck/test_duckdb_dataframe.py -k lambda_functions_with_collection_and_pandas
         uv run --no-sync pytest -n 0 -m local tests/integration/engines/test_int_functions.py -k 'array_join or array_remove or array_except or arrays_zip or array_compact'
+  trino-integration:
+    runs-on: ubuntu-26.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+    - name: Install uv
+      uses: astral-sh/setup-uv@v10.3.2
+      with:
+        python-version: '3.12'
+        enable-cache: true
+    - name: Run Trino integration tests
+      run: make trino-test
   minimum-duckdb:
     runs-on: ubuntu-26.04
     steps:
@@ -121,3 +137,15 @@ jobs:
       run: uv pip install --python .venv/bin/python 'duckdb==1.2.0'
     - name: Run DuckDB compatibility tests
       run: uv run --no-sync pytest -n 0 tests/integration/engines/duck/test_duckdb_*.py
+  clickhouse-integration:
+    runs-on: ubuntu-26.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+    - name: Install uv
+      uses: astral-sh/setup-uv@v10.3.2
+      with:
+        python-version: '3.12'
+        enable-cache: true
+    - name: Run ClickHouse integration tests
+      run: make clickhouse-test

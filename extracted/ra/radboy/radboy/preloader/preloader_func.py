@@ -24289,7 +24289,7 @@ def show_totpa():
                 else:
                     totp=pyotp.TOTP(i.secret_code,interval=i.interval,digits=i.digits_integer,issuer=i.issuer,name=i.name,digest=i.algorithm_digest)
                 msg=f"""
-{Fore.light_red}NAME{Fore.cyan}={Fore.light_green}"{i.name}" {Fore.light_red}ISSUER{Fore.cyan}={Fore.light_green}"{i.issuer}" {Fore.light_red}OTP{Fore.cyan}={Fore.light_green}"{totp.now()}" DLMTD="{Entry.cfmt(Entry,totp.now())}"""
+{Fore.light_steel_blue}Time_Left_Seconds='{Fore.light_cyan}{totp.interval-(int(datetime.now().timestamp())%totp.interval)}' {Fore.light_red}NAME{Fore.cyan}={Fore.light_green}"{i.name}" {Fore.light_red}ISSUER{Fore.cyan}={Fore.light_green}"{i.issuer}" {Fore.light_red}OTP{Fore.cyan}={Fore.light_green}"{totp.now()}" DLMTD="{Entry.cfmt(Entry,totp.now())}"""
                 print(std_colorize(msg,num,cta))
 
     except Exception as e:

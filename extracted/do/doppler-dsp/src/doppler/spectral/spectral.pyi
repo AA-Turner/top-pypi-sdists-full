@@ -1187,7 +1187,9 @@ class CorrDetector:
         Upper noise bin index (inclusive, < n). A value at or beyond the window
         clamps to n - 1, so the default sentinel selects the full window.
     noise_mode : Literal["mean", "median", "min", "max"], default "mean"
-        Noise aggregation: "mean", "median", "min", or "max".
+        How the noise bins are aggregated into the noise floor the
+        peak-to-noise statistic divides by.
+        One of ``"mean"``, ``"median"``, ``"min"``, ``"max"``.
     threshold : float, default 0.0
         Test-stat gate; 0.0 = always emit.
     nthreads : int, default 1
@@ -1448,7 +1450,9 @@ class CorrDetector2D:
         the window clamps to ny*nx - 1, so the default sentinel selects the
         full window.
     noise_mode : Literal["mean", "median", "min", "max"], default "mean"
-        Noise aggregation: "mean", "median", "min", or "max".
+        How the noise bins are aggregated into the noise floor the
+        peak-to-noise statistic divides by.
+        One of ``"mean"``, ``"median"``, ``"min"``, ``"max"``.
     threshold : float, default 0.0
         Test-stat gate; 0.0 = always emit.
     nthreads : int, default 1
@@ -1712,8 +1716,9 @@ class PSD:
         Sample rate in Hz (used for dB/Hz and band frequencies); finite and >
         0.
     window : Literal["hann", "kaiser", "blackman-harris", "rect"], default "hann"
-        The window: "hann" (the default), "kaiser", "blackman-harris" or "rect"
-        (no taper: best resolution, worst leakage).
+        The window each segment is shaped by. `rect` is no taper: best
+        resolution, worst leakage.
+        One of ``"hann"``, ``"kaiser"``, ``"blackman-harris"``, ``"rect"``.
 
         - ``"hann"`` — Hann: the default.
         - ``"kaiser"`` — Kaiser, shaped by `beta`.
@@ -1732,7 +1737,9 @@ class PSD:
         definition of the dBFS reference); 0 = use full_scale directly. At most
         64.
     mode : Literal["mean", "exp", "maxhold", "minhold"], default "mean"
-        Averaging mode: "mean", "exp", "maxhold" or "minhold".
+        How successive traces are reduced: the running mean, an exponential
+        average, or a max or min hold.
+        One of ``"mean"``, ``"exp"``, ``"maxhold"``, ``"minhold"``.
 
         - ``"mean"`` — Linear running mean of all frames.
         - ``"exp"`` — Exponential moving average (alpha).
@@ -2252,9 +2259,9 @@ class Spectrogram:
         stream; the default. Less than nfft overlaps the frames. A hop above
         nfft would leave samples no row covers, so it is refused.
     window : Literal["hann", "kaiser", "blackman-harris", "rect"], default "hann"
-        The window: "hann", "kaiser", "blackman-harris" or "rect", as PSD takes
-        them. It also refuses a window that sums to zero at this nfft (the
-        symmetric Hann at nfft = 2).
+        The window every frame is shaped by, as PSD takes them. A window that
+        sums to zero at this nfft (the symmetric Hann at nfft = 2) is refused.
+        One of ``"hann"``, ``"kaiser"``, ``"blackman-harris"``, ``"rect"``.
 
         - ``"hann"`` — Hann: the default.
         - ``"kaiser"`` — Kaiser, shaped by `beta`.
@@ -2263,8 +2270,9 @@ class Spectrogram:
     beta : float, default 0.0
         Kaiser beta (ignored for the other windows).
     mode : Literal["power", "db"], default "power"
-        Row units: "power" (linear rows, the default) or "db" (dBFS rows, asked
-        for by name). Any other value is refused.
+        The row units: `power` is linear against full scale (the default), `db`
+        is dBFS.
+        One of ``"power"``, ``"db"``.
 
     Raises
     ------
@@ -2304,18 +2312,18 @@ class Spectrogram:
         """Push a chunk of samples, and return the rows it completes.
 
         The rows come back as a (rows, nfft) float32 matrix, or None when the chunk
-        completes none. A partial frame is carried to the next push. consumed equals
-        the input length: the binding allocates room for every row the chunk can
-        complete, so no input is held back. To bound memory, push smaller chunks,
-        sized with rows_for(n).
+        completes none. A partial frame is carried to the next push. Without out=,
+        consumed equals the input length: the binding allocates room for every row
+        the chunk can complete, so no input is held back.
 
         An object is not thread-safe: one Spectrogram must not be pushed from two
         threads at once, because the kernel uses the object's scratch. push releases
         the GIL, so other Python threads run meanwhile, but not on this object.
 
-        An out array, if given, must be a float32 array of at least
-        push_max_out(len(x)) elements. A smaller out raises ValueError; it is not
-        taken as a short one.
+        An out array may be any (k, nfft) float32 matrix, k = 0 included: push
+        writes the whole rows that fit and stops before a row it has no room for, so
+        consumed can then be less than len(x). Offer x[consumed:] again after
+        draining the rows; nothing is lost and the rows resume bit-exact.
 
         >>> import numpy as np
         >>> from doppler.spectral import Spectrogram

@@ -14,7 +14,7 @@ module-root = ""
 
 [project]
 name = "tardis-dev"
-version = "5.0.4"
+version = "5.1.0"
 description = "Python client for tardis.dev - historical tick-level cryptocurrency market data replay API."
 readme = "README.md"
 requires-python = ">=3.11,<4.0"

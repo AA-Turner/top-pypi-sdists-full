@@ -21,6 +21,8 @@ def main():
     print("=== Example 1: Custom command ===")
     sandbox = None
     try:
+        # The plain image is pulled on first use in a region; a cold pull
+        # outlives the default 60s create budget.
         sandbox = Sandbox.create(
             image="ubuntu",
             name=f"custom-command-{suffix}",
@@ -28,6 +30,7 @@ def main():
             args=["-c", "touch /tmp/command-was-here && sleep infinity"],
             api_token=api_token,
             env={"LOG_LEVEL": "DEBUG"},
+            timeout=300,
         )
         result = sandbox.exec("cat /tmp/command-was-here && echo 'File exists'")
         print(f"  {result.stdout.strip()}")
@@ -35,19 +38,28 @@ def main():
         print("  OK: custom command created the file")
     finally:
         if sandbox:
-            sandbox.delete()
+            # Best-effort: create's own failure cleanup may have torn down.
+            try:
+                sandbox.delete()
+            except Exception as cleanup_error:  # noqa: BLE001
+                print(
+                    f"⚠ cleanup failed (best-effort): {cleanup_error}", file=sys.stderr
+                )
 
     # Example 2: Custom entrypoint with command
     # Use a custom entrypoint that runs python, proving the entrypoint was used.
     print("=== Example 2: Custom entrypoint ===")
     sandbox = None
     try:
+        # The plain image is pulled on first use in a region; a cold pull
+        # outlives the default 60s create budget.
         sandbox = Sandbox.create(
             image="python:3.12-slim",
             name=f"custom-entrypoint-{suffix}",
             entrypoint=["python3", "-c"],
             command="import os; os.makedirs('/tmp', exist_ok=True); open('/tmp/started-by-python', 'w').write('yes'); import time; time.sleep(999999)",
             api_token=api_token,
+            timeout=300,
         )
         # The file was created by python3 (the entrypoint), not bash
         result = sandbox.exec("cat /tmp/started-by-python")
@@ -57,7 +69,13 @@ def main():
         print("  OK: python3 entrypoint created the marker file")
     finally:
         if sandbox:
-            sandbox.delete()
+            # Best-effort: create's own failure cleanup may have torn down.
+            try:
+                sandbox.delete()
+            except Exception as cleanup_error:  # noqa: BLE001
+                print(
+                    f"⚠ cleanup failed (best-effort): {cleanup_error}", file=sys.stderr
+                )
 
     return 0
 

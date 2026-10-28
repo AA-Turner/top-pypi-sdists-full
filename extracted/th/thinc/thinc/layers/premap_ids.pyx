@@ -1,10 +1,10 @@
 # cython: binding=True, infer_types=True, profile=False
-from libc.stdint cimport int32_t, int64_t
+from libc.stdint cimport int64_t
+import numpy
+
 from preshed.maps cimport PreshMap
 
 from typing import Callable, Dict, Mapping, Optional, Tuple, Union, cast
-
-import numpy
 
 from ..config import registry
 from ..model import Model
@@ -22,7 +22,7 @@ cdef lookup(PreshMap mapping, int64_t[:] keys, int64_t default):
     and the "keys" is a numpy integer vector.
     """
     cdef int maxi = len(keys)
-    result = numpy.empty(maxi, dtype="int64")
+    result = numpy.empty(maxi, dtype="int")
     cdef int64_t[:] result_view = result
     for i in range(maxi):
         v = mapping[keys[i]]
@@ -74,12 +74,8 @@ def forward(
     result = lookup(table, idx, default)
     arr = model.ops.asarray2i(result)
     output = model.ops.reshape2i(arr, -1, 1)
-    inputs_shape = inputs.shape
 
     def backprop(dY: OutT) -> InT:
-        if len(inputs_shape) == 1:
-            return model.ops.alloc1i(*inputs_shape)
-        else:
-            return model.ops.alloc2i(*inputs_shape)
+        return model.ops.xp.empty(dY.shape)  # type: ignore
 
     return output, backprop

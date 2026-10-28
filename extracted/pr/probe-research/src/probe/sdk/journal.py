@@ -6632,6 +6632,10 @@ def drain(
                         "op_id": op.get("op_id"),
                         "error": str(op["last_error"])[:_DEAD_LETTER_ERROR_CHARS],
                         "status": getattr(exc, "status", None),
+                        # The server's own "run not found", told apart from every
+                        # other 404 (a run token's refusal, a swept upload, R2):
+                        # those lose writes for reasons of ours.
+                        "no_such_run": errors.names_no_such_run(exc),
                     }
                 )
                 settled_upload = settled_upload or op.get("kind") == "upload"

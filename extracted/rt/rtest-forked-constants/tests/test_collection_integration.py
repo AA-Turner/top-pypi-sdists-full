@@ -2171,14 +2171,14 @@ class TestCollectionIntegration(unittest.TestCase):
             self.assertIn("collected 1 item", result.output)
 
     def test_dynamic_parametrize_still_unexpanded(self) -> None:
-        """Function calls and comprehensions are not expanded."""
+        """Function calls and call-reassigned constants are not expanded; static comprehensions are."""
         files = {
             "other.py": "SHADOWED = [9]\n",
             "constants.py": textwrap.dedent("""
                 from other import SHADOWED
                 from enum import Enum
                 class Color(Enum): RED = 1
-                def get_data(): return [7]
+                def get_data(value=7): return [value]
                 DATA = [1]
                 DATA = get_data()
                 COLORS = [Color.RED]
@@ -2189,8 +2189,8 @@ class TestCollectionIntegration(unittest.TestCase):
                 import pytest
                 from constants import DATA, COLORS, SHADOWED
 
-                def get_data():
-                    return [1, 2, 3]
+                def get_data(stop=4):
+                    return list(range(1, stop))
 
                 @pytest.mark.parametrize("value", get_data())
                 def test_call(value):
@@ -2219,7 +2219,9 @@ class TestCollectionIntegration(unittest.TestCase):
                 extract_test_lines(result.output_lines),
                 [
                     "test_dynamic.py::test_call",
-                    "test_dynamic.py::test_comp",
+                    "test_dynamic.py::test_comp[0]",
+                    "test_dynamic.py::test_comp[1]",
+                    "test_dynamic.py::test_comp[2]",
                     "test_dynamic.py::test_imported",
                     "test_dynamic.py::test_imported_colors",
                     "test_dynamic.py::test_shadowed",

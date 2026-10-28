@@ -56,11 +56,15 @@ What it owns
   3a. stage the LIVE PLAN — the agent's open task list, restated in the
      MessageList tail channel so it rides after the newest tool result and
      after every cache breakpoint (``config/live_plan.py``),
+  3a'. stage WHO MADE THIS AGENT — AI Matrx and the catalog lab of the model
+     answering, in the per-turn context channel (``config/agent_identity.py``),
   3b. check that the newest person turn, as every chat translator will compose it,
      ENDS with the person's typed text (``config/typed_text_last.py``, announced),
   4. derive the provider prompt-cache routing key,
      and decide which cache marks the send writes (``config/cache_plan.py``),
-  5. build the clone-at-send wire config (picklist / fence materialization).
+  5. build the clone-at-send wire config (picklist / fence materialization),
+  6. LAST, the caller's REQUEST FIREWALL on the exact wire config — a refusal, never
+     skipped (``config/request_firewall.py::check_at_send``).
 
 Cache state: the freshest evidence, not the stalest
 ---------------------------------------------------
@@ -276,6 +280,8 @@ async def prepare_for_send(
             config, policy=policy, stage=stage, conversation_id=conversation_id, trim=_forced_trim
         )
         prep.steps.append("input_fit")
+        if prep.fit is not None:
+            _record_fit(prep.fit, stage=stage, iteration=iteration)
     except Exception as exc:  # noqa: BLE001 — the pre-flight / host guard still decide
         vcprint(f"[send_boundary/{stage}] input_fit failed (ignored): {type(exc).__name__}: {exc}", color="red")
         logger.error("send_boundary input_fit failed at stage %s", stage, exc_info=True)
@@ -293,6 +299,10 @@ async def prepare_for_send(
         # after a paid round-trip. Say so here, before anything is sent.
         _refuse_empty_conversation(config, conversation_id=conversation_id)
         prep.steps.append("empty_conversation_check")
+        # WHO MADE THIS AGENT (Arman, 2026-10-26): the per-turn context channel, rebuilt
+        # from the model about to answer on every send — never the frozen prefix
+        # (``config/agent_identity.py`` header). BEFORE the wire clone.
+        await _stage_agent_identity(prep, config, organization_id=organization_id)
         # AFTER the trim and the pre-flight (the block is small and rides the
         # tail, after every cache breakpoint), BEFORE the wire clone (which
         # deep-copies the staged tail along with the messages).
@@ -328,6 +338,16 @@ async def prepare_for_send(
             "context_breakdown",
             lambda: _remember_breakdown(conversation_id, config),
         )
+        # THE REQUEST FIREWALL (a REFUSAL, like the pre-flight — never inside ``_run_step``):
+        # LAST, on the exact config the provider receives (the wire clone when one was built),
+        # after every step above added to it. A caller's open firewall scope is checked on every
+        # loop turn and every retry, so nothing reaches the provider unscanned — whatever a
+        # door upstream already cleared (``config/request_firewall.py``). No scope: one
+        # ContextVar read.
+        from matrx_ai.config.request_firewall import check_at_send
+
+        check_at_send(prep.wire_config if prep.wire_config is not None else config)
+        prep.steps.append("request_firewall")
         _mark_sent(conversation_id, request_id)
 
     return prep
@@ -693,6 +713,27 @@ def _record_trim_report(report: TrimReport, *, stage: str, iteration: int | None
     if iteration is None or not meaningful:
         return
     ctx.metadata.setdefault("trim_reports_by_iteration", {})[iteration] = report.to_dict()
+
+
+def _record_fit(fit: dict[str, Any], *, stage: str, iteration: int | None) -> None:
+    """Land the make-it-fit record on AppContext, the way ``_record_trim_report`` lands the trim.
+
+    ``last_fit`` -> iteration 1's ``cx_request.metadata["input_fit"]`` (the resolve stage ran
+    before iteration 1); ``fit_by_iteration[n]`` -> iteration n's row. Read by
+    ``orchestrator/requests.py`` when it builds the request rows. Only a pass that applied
+    something is recorded (``SendPrep.fit`` is ``None`` otherwise).
+    """
+    from matrx_ai.context.app_context import try_get_app_context
+
+    ctx = try_get_app_context()
+    if ctx is None:
+        return
+    if stage == STAGE_RESOLVE:
+        ctx.metadata["last_fit"] = dict(fit)
+        return
+    if iteration is None:
+        return
+    ctx.metadata.setdefault("fit_by_iteration", {})[iteration] = dict(fit)
 
 
 async def _stage_reference_fences(prep: SendPrep, config: Any) -> None:
@@ -1278,6 +1319,63 @@ async def _mark_perishable_state(
             f"({', '.join(sorted(set(report.tools)))}).",
             color="cyan",
         )
+
+
+def _carried_org(organization_id: str | None) -> str | None:
+    """The organization the caller passes, else the carried AppContext's — read, never rebuilt."""
+    if organization_id is not None:
+        return str(organization_id)
+    try:
+        from matrx_ai.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+        org = getattr(ctx, "organization_id", None) if ctx is not None else None
+    except Exception:  # noqa: BLE001 — no carried context is a legal standalone call
+        org = None
+    return str(org) if org else None
+
+
+async def _stage_agent_identity(prep: SendPrep, config: Any, *, organization_id: str | None) -> None:
+    """Tell the model who made it: AI Matrx and the catalog lab of ``config.model``.
+
+    Staged in the turn-context slot ``agent_identity`` on every loop send (idempotent: the
+    slot is replaced), so a model switch names the new lab and no frozen or held system
+    prefix ever changes. Skipped when the system instruction has identity off (non-chat
+    models). A failure is announced and the send goes out without the part.
+    """
+    from matrx_ai.config.agent_identity import IDENTITY_SLOT, render_identity
+
+    messages = getattr(config, "messages", None)
+    attach = getattr(messages, "attach_turn_context", None)
+    if attach is None:
+        return
+    si = getattr(config, "system_instruction", None)
+    if si is not None and not getattr(si, "include_identity", True):
+        attach("", slot=IDENTITY_SLOT)
+        return
+    from matrx_ai.config.request_firewall import self_description_withheld
+
+    if self_description_withheld():
+        # A request firewall lists terms that must not reach the model: the platform's note
+        # about itself is left out (owner ruling, 2026-10-27; ``request_firewall`` header).
+        attach("", slot=IDENTITY_SLOT)
+        prep.steps.append("agent_identity_withheld")
+        return
+    try:
+        block = await render_identity(getattr(config, "model", None), _carried_org(organization_id))
+    except Exception as exc:  # noqa: BLE001 — shaping never costs a send
+        attach("", slot=IDENTITY_SLOT)
+        vcprint(
+            f"[send_boundary/{prep.stage}] step 'agent_identity' failed (ignored): "
+            f"{type(exc).__name__}: {exc} — this send goes out without telling the agent "
+            "who made it.",
+            color="red",
+        )
+        logger.error("send_boundary agent_identity failed: %s: %s", type(exc).__name__, exc, exc_info=True)
+        return
+    attach(block or "", slot=IDENTITY_SLOT)
+    if block:
+        prep.steps.append("agent_identity")
 
 
 async def _stage_live_plan(

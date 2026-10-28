@@ -94,11 +94,16 @@ def test_setup_options_use_the_wizard_readers_and_writers(desktop_client, monkey
     monkeypatch.setattr(doctor, "collect", lambda **kw: SimpleNamespace(agent_configured=False))
     result = desktop.dispatch({"op": "setup_options"})
     assert {row["id"] for row in result["settings"]} == {
-        setup.Setting.PLAN_REVIEW, setup.Setting.PASTED_IMAGES, setup.Setting.REASONING_SUMMARIES}
-    for key, read in [(setup.Setting.PLAN_REVIEW, session_marker.plan_review_on),
-                      (setup.Setting.PASTED_IMAGES, session_marker.pasted_images_on)]:
+        setup.Setting.PASTED_IMAGES, setup.Setting.REASONING_SUMMARIES}
+    for key, read in [(setup.Setting.PASTED_IMAGES, session_marker.pasted_images_on)]:
         desktop.dispatch({"op": "set_setup_option", "setting": str(key), "enabled": False, **SCOPE})
         assert read() is False
     with pytest.raises(ValueError, match="account"):
         desktop.dispatch({"op": "set_setup_option", "setting": "pasted_images", "enabled": True, **SCOPE, "userId": "other"})
     assert session_marker.pasted_images_on() is False
+
+
+def test_retired_plan_review_setting_is_rejected(desktop_client, monkeypatch):
+    monkeypatch.setattr(doctor, "collect", lambda **kw: SimpleNamespace(agent_configured=False))
+    with pytest.raises(ValueError, match="Unknown setup setting"):
+        desktop.dispatch({"op": "set_setup_option", "setting": "plan_review", "enabled": False, **SCOPE})

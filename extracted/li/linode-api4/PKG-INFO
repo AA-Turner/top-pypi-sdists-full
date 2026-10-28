@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linode_api4
-Version: 5.48.0
+Version: 5.49.0
 Summary: The official Python SDK for Linode API v4
 Author-email: Linode <devs@linode.com>
 License: BSD-3-Clause
@@ -34,6 +34,7 @@ Requires-Dist: linode_api4[test-shared]; extra == "unit-test"
 Requires-Dist: mock>=5.0.0; extra == "unit-test"
 Provides-Extra: int-test
 Requires-Dist: linode_api4[test-shared]; extra == "int-test"
+Requires-Dist: cryptography; extra == "int-test"
 Provides-Extra: lint
 Requires-Dist: black>=23.1.0; extra == "lint"
 Requires-Dist: isort>=5.12.0; extra == "lint"

@@ -108,6 +108,7 @@ class TestBoxes:
                 ],
             },
             name="name",
+            persistent=True,
             preserve_memory_on_stop=True,
             proxy_config={
                 "access_control": {
@@ -165,6 +166,7 @@ class TestBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "type": "type",
                     }
                 ],
@@ -180,6 +182,13 @@ class TestBoxes:
             snapshot_name="snapshot_name",
             tag_value_ids=["string"],
             vcpus=0,
+            volumes=[
+                {
+                    "mount_path": "mount_path",
+                    "volume": "volume",
+                    "read_only": True,
+                }
+            ],
         )
         assert_matches_type(SandboxResponse, box, path=["response"])
 
@@ -324,6 +333,7 @@ class TestBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "type": "type",
                     }
                 ],
@@ -484,6 +494,11 @@ class TestBoxes:
             description="description",
             docker_image="docker_image",
             fs_capacity_bytes=0,
+            image_config={
+                "cmd": ["string"],
+                "entrypoint": ["string"],
+                "exposed_ports": [0],
+            },
             include=["all"],
             include_memory=True,
             labels={"foo": "string"},
@@ -972,6 +987,7 @@ class TestAsyncBoxes:
                 ],
             },
             name="name",
+            persistent=True,
             preserve_memory_on_stop=True,
             proxy_config={
                 "access_control": {
@@ -1029,6 +1045,7 @@ class TestAsyncBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "type": "type",
                     }
                 ],
@@ -1044,6 +1061,13 @@ class TestAsyncBoxes:
             snapshot_name="snapshot_name",
             tag_value_ids=["string"],
             vcpus=0,
+            volumes=[
+                {
+                    "mount_path": "mount_path",
+                    "volume": "volume",
+                    "read_only": True,
+                }
+            ],
         )
         assert_matches_type(SandboxResponse, box, path=["response"])
 
@@ -1188,6 +1212,7 @@ class TestAsyncBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "type": "type",
                     }
                 ],
@@ -1348,6 +1373,11 @@ class TestAsyncBoxes:
             description="description",
             docker_image="docker_image",
             fs_capacity_bytes=0,
+            image_config={
+                "cmd": ["string"],
+                "entrypoint": ["string"],
+                "exposed_ports": [0],
+            },
             include=["all"],
             include_memory=True,
             labels={"foo": "string"},

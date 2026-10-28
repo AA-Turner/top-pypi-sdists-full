@@ -288,7 +288,7 @@ class TestPTABAppealsClientSearchDecisions:
             limit=50,
             facets="technologyCenterNumber",
             fields="appealNumber,decisionDate",
-            filters="decisionTypeCategory:Affirmed",
+            filters="decisionData.decisionTypeCategory Decision",
             range_filters="decisionData.decisionIssueDate:[2023-01-01 TO 2023-12-31]",
         )
 
@@ -301,7 +301,7 @@ class TestPTABAppealsClientSearchDecisions:
         assert params["limit"] == 50
         assert params["facets"] == "technologyCenterNumber"
         assert params["fields"] == "appealNumber,decisionDate"
-        assert params["filters"] == "decisionTypeCategory:Affirmed"
+        assert params["filters"] == "decisionData.decisionTypeCategory Decision"
         assert (
             params["rangeFilters"]
             == "decisionData.decisionIssueDate:[2023-01-01 TO 2023-12-31]"
@@ -315,10 +315,10 @@ class TestPTABAppealsClientPaginate:
         self, mock_ptab_appeals_client: PTABAppealsClient
     ) -> None:
         """Test paginate_decisions method."""
-        # Setup mock responses
+        # Setup mock responses (count is the total across all pages)
         first_response = PTABAppealResponse.from_dict(
             {
-                "count": 2,
+                "count": 3,
                 "requestIdentifier": "req-1",
                 "patentAppealDataBag": [
                     {"appealNumber": "2023-001234"},
@@ -329,7 +329,7 @@ class TestPTABAppealsClientPaginate:
 
         second_response = PTABAppealResponse.from_dict(
             {
-                "count": 1,
+                "count": 3,
                 "requestIdentifier": "req-2",
                 "patentAppealDataBag": [
                     {"appealNumber": "2023-001236"},
@@ -361,7 +361,7 @@ class TestPTABAppealsClientPaginate:
             assert results[0].appeal_number == "2023-001234"
             assert results[1].appeal_number == "2023-001235"
             assert results[2].appeal_number == "2023-001236"
-            assert mock_search.call_count == 2  # Stops when count < limit
+            assert mock_search.call_count == 2  # Stops once offset + limit >= count
 
     def test_paginate_decisions_rejects_offset_in_kwargs(
         self, mock_ptab_appeals_client: PTABAppealsClient

@@ -12,7 +12,7 @@ from unittest import mock
 from zipfile import ZipFile
 
 import pytest
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageStat
 
 from pypdf import PageObject, PdfReader, PdfWriter, apply_configuration
 from pypdf._page import ImageFile
@@ -31,7 +31,6 @@ from pypdf.generic import (
 from pypdf.generic._image_xobject import _handle_flate
 
 from . import RESOURCE_ROOT, SAMPLE_ROOT, get_data_from_url
-from .utils import get_image_data
 
 
 def open_image(path: Union[Path, Image.Image, BytesIO]) -> Image.Image:
@@ -78,14 +77,9 @@ def image_similarity(
 
     # Calculate the Mean Squared Error (MSE)
     diff = ImageChops.difference(image1, image2)
-    pixels = get_image_data(diff)
-
-    if isinstance(pixels[0], tuple):
-        mse = sum(sum((c / 255.0) ** 2 for c in p) for p in pixels) / (
-            len(pixels) * len(pixels[0])
-        )
-    else:
-        mse = sum((p / 255.0) ** 2 for p in pixels) / len(pixels)
+    squared_sums = ImageStat.Stat(diff).sum2
+    value_count = diff.width * diff.height * len(squared_sums)
+    mse = sum(squared_sums) / ((255.0 ** 2) * value_count)
 
     return 1 - mse
 
@@ -450,7 +444,7 @@ def test_corrupted_jpeg_iss2266(pdf, pdf_name, images, images_name, filtr):
         print(i.name)
         b=BytesIO()
         i.image.save(b,"JPEG")
-        z.writestr(f"image_{p.page_number}_{ii}_{i.name}",b.getbuffer())
+        z.writestr(f"image_{p.page_number}_{ii}_{i.name}", b.getbuffer())
     """
     url = pdf
     name = pdf_name

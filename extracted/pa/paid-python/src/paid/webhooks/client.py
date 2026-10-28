@@ -76,7 +76,7 @@ class WebhooksClient:
             Whether the webhook is enabled for delivery.
 
         url : typing.Optional[str]
-            The HTTPS endpoint Paid should deliver this webhook to. Set to null to clear it while disabled.
+            The HTTPS endpoint Paid should deliver this webhook to. It must use HTTPS and a public host: localhost, private networks (10.x, 172.16-31.x, 192.168.x), link-local addresses and .local names are rejected. Set to null to clear it while disabled.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -94,7 +94,7 @@ class WebhooksClient:
             token="YOUR_TOKEN",
         )
         client.webhooks.update_webhook(
-            webhook_name="billing-invoice-created",
+            webhook_name="billing-invoice-paid",
         )
         """
         _response = self._raw_client.update_webhook(
@@ -128,7 +128,7 @@ class WebhooksClient:
             token="YOUR_TOKEN",
         )
         client.webhooks.test_webhook(
-            webhook_name="billing-invoice-created",
+            webhook_name="billing-invoice-paid",
         )
         """
         _response = self._raw_client.test_webhook(webhook_name, request_options=request_options)
@@ -231,7 +231,7 @@ class AsyncWebhooksClient:
             Whether the webhook is enabled for delivery.
 
         url : typing.Optional[str]
-            The HTTPS endpoint Paid should deliver this webhook to. Set to null to clear it while disabled.
+            The HTTPS endpoint Paid should deliver this webhook to. It must use HTTPS and a public host: localhost, private networks (10.x, 172.16-31.x, 192.168.x), link-local addresses and .local names are rejected. Set to null to clear it while disabled.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -254,7 +254,7 @@ class AsyncWebhooksClient:
 
         async def main() -> None:
             await client.webhooks.update_webhook(
-                webhook_name="billing-invoice-created",
+                webhook_name="billing-invoice-paid",
             )
 
 
@@ -296,7 +296,7 @@ class AsyncWebhooksClient:
 
         async def main() -> None:
             await client.webhooks.test_webhook(
-                webhook_name="billing-invoice-created",
+                webhook_name="billing-invoice-paid",
             )
 
 

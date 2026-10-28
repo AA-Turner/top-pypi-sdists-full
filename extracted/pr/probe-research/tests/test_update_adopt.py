@@ -598,3 +598,30 @@ def test_an_adopted_update_reports_the_cli_it_came_from(monkeypatch):
     assert outcome.ok and outcome.cli == f"Probe CLI {probe.__version__} (updated from 0.1.0)"
     assert recorded[-1].from_version == "0.1.0" and recorded[-1].to_version == probe.__version__
     assert reports[-1]["cli"]["before"] == "0.1.0" and reports[-1]["cli"]["result"] == "updated"
+
+
+def test_a_rebuild_of_a_broken_env_reports_as_a_change(monkeypatch):
+    """The lifeboat rebuilt this very version beside a broken env (hand-off
+    v3, `broken_env`) and hands over `PROBE_HANDOFF_FROM=<version>+broken`:
+    the CLI step is a change from the broken env -- never "already at", never
+    an empty `before` -- in the local record and the server's report (whose
+    version pattern takes the local label)."""
+    from probe.cli import autoupdate, update_report
+
+    broken = f"{probe.__version__}{handoff.BROKEN_MARK}"
+    assert update_report._version(broken) == broken
+    recorded, reports = [], []
+    adopt._adopted_from = broken
+    res = adopt.cli_result(probe.__version__)
+    assert res.changed and res.before == broken and res.after == probe.__version__
+    monkeypatch.setenv(upgrading.SKIP_CLI_ENV, "1")
+    monkeypatch.setattr(updater, "fetch_latest", lambda base: {"cli": {"latest": probe.__version__}})
+    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater, "upgrade_cli", lambda *a: pytest.fail("the CLI was upgraded twice"))
+    monkeypatch.setattr(autoupdate, "record_attempt", lambda attempt, agent=None: recorded.append(attempt))
+    monkeypatch.setattr(upgrading, "_report_attempt", lambda build, **k: reports.append(build()))
+    outcome = upgrading.perform_update(base_url="https://x", include_plugin=False)
+    assert outcome.ok and outcome.cli == f"Probe CLI {probe.__version__} (updated from {broken})"
+    assert recorded[-1].from_version == broken and recorded[-1].to_version == probe.__version__
+    assert reports[-1]["cli"]["before"] == broken and reports[-1]["cli"]["after"] == probe.__version__
+    assert reports[-1]["cli"]["result"] == "updated"

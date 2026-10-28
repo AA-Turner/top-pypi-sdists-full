@@ -238,13 +238,14 @@ KERNELS: tuple[Candidate, ...] = (
     ),
     Candidate(
         "sageattention3-fp4", "_cozy_sage3_fp4", upstream.SAGE3, _MMA, _FP4, exact=False,
-        dtypes=_HALF, max_head_dim=128, head_dims=_D64_128, gqa=False, scales=False,
-        artifact=_SAGE3, import_name=_SAGE3,
+        dtypes=_HALF, max_head_dim=128, head_dims=_D64_128, causal=False, gqa=False,
+        scales=False, artifact=_SAGE3, import_name=_SAGE3,
     ),
     Candidate(
         "sageattention3-fp4-global-lowmem", "_cozy_sage3_fp4_global_lowmem",
         upstream.SAGE3_GLOBAL_LOWMEM, _MMA, _FP4, exact=False, dtypes=_HALF, max_head_dim=128,
-        head_dims=_D64_128, gqa=False, scales=False, artifact=_SAGE3, import_name=_SAGE3,
+        head_dims=_D64_128, causal=False, gqa=False, scales=False, artifact=_SAGE3,
+        import_name=_SAGE3,
     ),
     Candidate(
         "sageattention3-fp4-fixed-means", "_cozy_sage3_fp4_fixed_means",
@@ -361,9 +362,15 @@ def _sol_objects(candidate: Candidate) -> bool:
     return candidate.sparse and candidate.import_name == "sol_attn"
 
 
-#: The BF16 kernel a declaring sparse row's exact paths take (H3: the token refiner and the blocks
-#: whose key outliers no quantized scale carries), on every family.
-EXACT_DENSE = "sdpa"
+#: The kernel a declaring sparse row's exact paths take (H3: the token refiner, block 1 and the
+#: blocks whose key gain has outlier channels): Kitchen INT8 where the row declares it, whose
+#: per-block scales carry those keys (H3 on an RTX 5090: 0.008-0.030 rel L2, FP4 0.10-0.28),
+#: else BF16 SDPA.
+EXACT_INT8, EXACT_DENSE = "kitchen-int8", "sdpa"
+
+
+def _exact_name(candidate: Candidate) -> str:
+    return EXACT_INT8 if EXACT_INT8 in candidate.dense else EXACT_DENSE
 
 
 def dense_identity(name: str) -> str:
@@ -373,7 +380,7 @@ def dense_identity(name: str) -> str:
     if not dense:
         return attention_sol.dense_identity()
     prefix = f"; sparse-prefix={dense[-1]}" if dense[-1] != dense[0] else ""
-    return f"{dense[0]}{prefix}{_EXACT_AT}{EXACT_DENSE}"
+    return f"{dense[0]}{prefix}{_EXACT_AT}{_exact_name(known()[name])}"
 
 
 def device_row(device: DeviceFacts | None) -> arch.Row:
@@ -482,7 +489,7 @@ def _local(candidate: Candidate) -> Local:
     forward = candidate.local.forward
     if candidate.dense:
         rows = [_dense_rows(BY_NAME[name]) for name in candidate.dense]
-        exact = _dense_rows(BY_NAME[EXACT_DENSE])
+        exact = _dense_rows(BY_NAME[_exact_name(candidate)])
         forward = partial(forward, dense=rows[0], prefix_dense=rows[-1], exact=exact)
 
     def guarded(query: Tensor, key: Tensor, value: Tensor, **options: Any) -> Tensor:
@@ -1812,7 +1819,7 @@ class Swap:
     pin: str = ""
     #: sites in scope that keep their prepared kernel, and why the pin could not run there
     fallbacks: tuple[execution_evidence.AttentionFallback, ...] = ()
-    #: Sol's dense reference for this request (`EXACT`), restored after it
+    #: Sol's dense reference for this request (`EXACT`, a walked pin), restored after it
     dense: tuple[Ready, Ready | None] | None = None
 
     def apply(self) -> Applied:
@@ -1897,8 +1904,10 @@ def plan(device: DeviceFacts, roots: Mapping[str, object], name: str, degree: in
             if exc.code in ("attention_kernel_unknown", "attention_kernel_needs_executor"):
                 raise
             why = str(exc)
-    if entry is not None and _walked(entry.candidate) and not attention_sol.dense_identity():
-        _bind_sol_dense(_sol_dense((), device, {}, {}))
+    # A pinned walked kernel's dense rows are its own walk's, SDPA, for this request only: never
+    # whichever reference an earlier selection in this executor bound (route by rule).
+    walked = entry is not None and _walked(entry.candidate)
+    dense = _sol_dense((), device, {}, {}) if walked else None
     sites: list[_Site] = []
     fallbacks: list[execution_evidence.AttentionFallback] = []
     for record in records:
@@ -1915,7 +1924,7 @@ def plan(device: DeviceFacts, roots: Mapping[str, object], name: str, degree: in
                 fallbacks.append(row)
             continue
         sites.append((component, path, module, processor, entry))
-    return Swap(tuple(sites), name, tuple(fallbacks))
+    return Swap(tuple(sites), name, tuple(fallbacks), dense)
 
 
 def exact(

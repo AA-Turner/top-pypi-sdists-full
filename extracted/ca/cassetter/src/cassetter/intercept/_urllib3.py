@@ -10,7 +10,8 @@ import urllib3.response
 
 from cassetter._core import HttpResponse as _HttpResponse
 from cassetter._state import get_current_cassette
-from cassetter.cassette import NoMatchError, body_to_bytes
+from cassetter.cassette import NoMatchError
+from cassetter.compare import body_to_bytes
 from cassetter.intercept._shared import apply_before_record_request, extract_headers as _extract_headers
 
 
@@ -50,11 +51,13 @@ class Urllib3Interceptor:
             norm_method, full_url, norm_headers, norm_body = raw.method, raw.uri, raw.headers, raw.body
 
             try:
-                response = cassette.play(norm_method, full_url, norm_headers, norm_body)
-                return build_urllib3_response(response, full_url)
+                expected = cassette.match(norm_method, full_url, norm_headers, norm_body)
+                if not cassette.verifies:
+                    return build_urllib3_response(expected[1], full_url)
             except NoMatchError:
                 if not cassette.can_record:
                     raise
+                expected = None
 
             order = cassette.reserve_record_order()
             real_response = original_urlopen(pool, method, url, body=body, headers=headers, **kwargs)
@@ -70,6 +73,7 @@ class Urllib3Interceptor:
                 response_headers=resp_headers,
                 response_body=resp_body,
                 order=order,
+                expected=expected,
             )
 
             record_headers = urllib3._collections.HTTPHeaderDict(real_response.headers)

@@ -134,8 +134,10 @@ class NDCollection(dict):
         collection_types = [np.array(cube.array_axis_physical_types,
                                      dtype=object)[np.array(self.aligned_axes[name])]
                             for name, cube in self.items()]
-        # Return physical types common to all members of collection for each axis.
-        return [tuple(set.intersection(*[set(cube_types[i]) for cube_types in collection_types]))
+        # Return physical types common to all members of collection for each axis,
+        # in the order of the first member so the result does not depend on set ordering.
+        return [tuple(physical_type for physical_type in collection_types[0][i]
+                      if all(physical_type in cube_types[i] for cube_types in collection_types[1:]))
                 for i in range(self.n_aligned_axes)]
 
     def __getitem__(self, item):
@@ -182,30 +184,7 @@ class NDCollection(dict):
             new_keys = list(self.keys())
             # Slice meta if sliceable
             if hasattr(self.meta, "__ndcube_can_slice__") and self.meta.__ndcube_can_slice__:
-                # Convert negative indices to positive indices as they are not supported by NDMeta.slice
-                sanitized_item = copy.deepcopy(item)
-                aligned_shape = self.aligned_dimensions
-                if isinstance(item, numbers.Integral):
-                    if item < 0:
-                        sanitized_item = int(self.aligned_dimensions[0] + item)
-                elif isinstance(item, slice):
-                    if (item.start is not None and item.start < 0) or (item.stop is not None and item.stop < 0):
-                        new_start = aligned_shape[0] + item.start if item.start < 0 else item.start
-                        new_stop = aligned_shape[0] + item.stop if item.stop < 0 else item.stop
-                        sanitized_item = slice(new_start, new_stop)
-                else:
-                    sanitized_item = list(sanitized_item)
-                    for i, ax_it in enumerate(item):
-                        if isinstance(ax_it, numbers.Integral) and ax_it < 0:
-                            sanitized_item[i] = aligned_shape[i] + ax_it
-                        elif isinstance(ax_it, slice):
-                            if (ax_it.start is not None and ax_it.start < 0) or (ax_it.stop is not None and ax_it.stop < 0):
-                                new_start = aligned_shape[i] + ax_it.start if ax_it.start < 0 else ax_it.start
-                                new_stop = aligned_shape[i] + ax_it.stop if ax_it.stop < 0 else ax_it.stop
-                                sanitized_item[i] = slice(new_start, new_stop)
-                    sanitized_item = tuple(sanitized_item)
-                # Use sanitized item to slice meta.
-                new_meta = self.meta.slice[sanitized_item]
+                new_meta = self.meta.slice[item]
             else:
                 new_meta = copy.deepcopy(self.meta)
 

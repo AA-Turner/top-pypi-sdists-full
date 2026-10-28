@@ -1818,6 +1818,28 @@ class TestSetRetryCompilation(unittest.TestCase):
         self.assertEqual(retry_policy.backoff_factor, 1.0)
         self.assertEqual(retry_policy.backoff_max_duration.seconds, 10800)
 
+    def test_set_retry_with_policy(self):
+
+        @dsl.pipeline(name='hello-world', description='A simple intro pipeline')
+        def pipeline_hello_world(text: str = 'hi there'):
+            """Hello world pipeline."""
+
+            hello_world(text=text).set_retry(
+                num_retries=3,
+                policy='OnError',
+            )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            package_path = os.path.join(tempdir, 'pipeline.yaml')
+            compiler.Compiler().compile(
+                pipeline_func=pipeline_hello_world, package_path=package_path)
+            pipeline_spec = pipeline_spec_from_file(package_path)
+
+        _Policy = pipeline_spec_pb2.PipelineTaskSpec.RetryPolicy.Policy
+        retry_policy = pipeline_spec.root.dag.tasks['hello-world'].retry_policy
+        self.assertEqual(retry_policy.max_retry_count, 3)
+        self.assertEqual(retry_policy.policy, _Policy.POLICY_ON_ERROR)
+
 
 from google.protobuf import json_format
 
@@ -3390,6 +3412,37 @@ class TestCrossTasksGroupFanInCollection(unittest.TestCase):
                     t = add_two_ints(num1=v1, num2=v2)
 
             x = add(nums=dsl.Collected(t.output))
+
+    def test_parallel_for_custom_name_with_collected(self):
+        """Verifies that passing a custom name= to dsl.ParallelFor preserves
+        display name in task_info while downstream collected tasks reference
+        the stable DAG key."""
+
+        @dsl.component
+        def echo(item: str) -> str:
+            return item
+
+        @dsl.component
+        def collect(items: list) -> str:
+            return str(items)
+
+        @dsl.pipeline
+        def my_pipeline():
+            with dsl.ParallelFor(
+                    items=['a', 'b'], name='My custom Loop') as item:
+                work = echo(item=item)
+            collect(items=dsl.Collected(work.output))
+
+        tasks = my_pipeline.pipeline_spec.root.dag.tasks
+
+        # 1. UI display name is preserved:
+        self.assertEqual(tasks['for-loop-2'].task_info.name, 'My custom Loop')
+
+        # 2. Downstream task references the stable DAG task key:
+        consumer_producer_task = (
+            tasks['collect'].inputs.parameters['items'].task_output_parameter
+            .producer_task)
+        self.assertEqual(consumer_producer_task, 'for-loop-2')
 
     def test_parallelfor_nested_legal_params2(self):
 

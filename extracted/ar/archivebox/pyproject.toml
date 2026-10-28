@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.73"
+version = "0.9.77"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [
@@ -50,10 +50,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "setuptools>=74.1.0",
-    "django>=6.1",
+    "setuptools>=84.1.0",
+    "django>=6.1.2",
     "psycopg[binary]>=3.2",
+    "uvicorn[standard]>=0.54.0",
     "daphne>=4.2.1",
+    "twisted>=26.10.0rc1",
     "django-ninja>=1.5.1",
     "django-extensions>=3.2.3",
     "django-signal-webhooks>=0.3.0",
@@ -76,14 +78,15 @@ dependencies = [
     "django-stubs>=5.0.4",
     "requests>=2.32.3",
     "sonic-client>=1.0.0",
+    "markdown>=3.7",
     "dateparser>=1.2.0",
     "croniter>=6.0.0",
     "tzdata>=2024.2",
     "w3lib>=2.2.1",
-    "abxbus==2.5.74",
-    "abxpkg==1.13.35",
-    "abx-plugins[opencode]==1.13.162",
-    "abx-dl==1.13.127",
+    "abxbus==2.5.79",
+    "abxpkg==1.13.73",
+    "abx-plugins[opencode]==1.13.578",
+    "abx-dl==1.13.277",
     "uuid7>=0.1.0; python_version < '3.14'",
     "browser-cookie3>=0.20.1",
 ]
@@ -124,7 +127,7 @@ Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"
 
 [dependency-groups]
 dev = [
-    "uv>=0.11.3",
+    "uv>=0.13.5",
     "bumpver>=2023.1129",
     "recommonmark>=0.7.1",
     "sphinx>=8.1.3",
@@ -142,7 +145,7 @@ dev = [
     "opentelemetry-instrumentation-sqlite3>=0.47b0",
     "viztracer>=0.17.0",
     "pytest-django>=4.11.1",
-    "pytest>=8.3.3",
+    "pytest>=9.0.3,<9.1",
     "pytest-cov>=6.0.0",
     "pytest-github-actions-annotate-failures>=0.4.0",
     "pytest-httpserver>=1.1.0",
@@ -167,6 +170,10 @@ package = true
 exclude-newer = "5 days"
 
 [tool.uv.exclude-newer-package]
+setuptools = "2026-10-23T00:00:00Z"
+twisted = "2026-10-23T00:00:00Z"
+certifi = "2026-10-23T00:00:00Z"
+uv = "2026-10-23T00:00:00Z"
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
@@ -251,6 +258,12 @@ exclude = [
 ]
 
 [tool.ruff.lint]
+select = [
+    "E4",
+    "E7",
+    "E9",
+    "F",
+]
 ignore = [
     "E731",
     "E303",
@@ -354,7 +367,7 @@ exclude = [
 ]
 
 [tool.bumpver]
-current_version = "v0.9.73"
+current_version = "v0.9.77"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
 tag_message = "{new_version}"

@@ -102,10 +102,61 @@ BUSY = "an update is running; checked next time"
 MIN_CHECKABLE = "0.328.0"
 
 
-def refusal() -> str | None:
-    """Why nothing may be installed now (an uninstall's barrier is LIVE), else
-    None. A STALE barrier is no refusal: `clear_stale_barrier` clears it."""
-    return uninstall_barrier.refusal()
+@dataclass
+class Gate:
+    """What an install entry may do now (`gate`)."""
+
+    #: Why nothing may be installed now; "" when the install may go on.
+    refused: str = ""
+    #: An uninstall that had stopped halfway was finished here just now: Probe's
+    #: CLI link and `probe` command are gone, so the entry installs afresh (never
+    #: an "already installed" shortcut).
+    finished: bool = False
+
+
+def gate(*, finish: bool = False) -> Gate:
+    """Every install entry asks this first. A LIVE uninstall barrier refuses,
+    with one exception: `finish` (an INSTALL entry a person runs: the npx
+    bootstrap, the wizard's configure, install and update, `probe repair`,
+    `probe daemon install`) finishes an uninstall whose owner is gone first,
+    the way `probe uninstall` resumes it (`uninstall.finish_interrupted`,
+    installer mode: the env this process runs from is kept for the install),
+    then lets the install go on afresh. An uninstall that runs right now, one
+    whose progress cannot be told, or one that could not be finished, still
+    refuses. A STALE barrier is no refusal: `clear_stale_barrier` clears it."""
+    if uninstall_barrier.state() != uninstall_barrier.State.LIVE:
+        return Gate()
+    if not finish:
+        return Gate(refused=uninstall_barrier.refusal() or "")
+    from probe.cli import uninstall
+
+    found, said = uninstall.finish_interrupted()
+    if found in (uninstall.Interrupted.RUNNING, uninstall.Interrupted.FAILED):
+        return Gate(refused=said)
+    return Gate(refused=uninstall_barrier.refusal() or "", finished=found is uninstall.Interrupted.FINISHED)
+
+
+def update_may_finish() -> bool:
+    """May an UPDATE finish an uninstall that stopped halfway? Only one a
+    person asked for: at a terminal, or with PROBE_AUTOUPDATE_TRIGGER=manual
+    (the desktop's Update, a person's `probe wizard --action update`). The
+    SessionStart hook's background `probe wizard --action update --yes` never
+    does: it refuses with the reader's line."""
+    from probe._shared import autoupdate
+
+    if os.environ.get(autoupdate.TRIGGER_ENV) == autoupdate.Trigger.MANUAL:
+        return True
+    try:
+        from probe.cli import setup
+
+        return bool(setup.interactive())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def refusal(*, finish: bool = False) -> str | None:
+    """`gate(finish=...)`'s refusal, or None when the install may go on."""
+    return gate(finish=finish).refused or None
 
 
 def clear_stale_barrier(tools: Path | None = None) -> str | None:

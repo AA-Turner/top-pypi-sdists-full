@@ -824,6 +824,39 @@ def test_list_project_issues_uses_platform_issues_endpoint(api_url: str, expecte
     }
 
 
+# These check the query params the client sends, not what the server returns.
+@pytest.mark.parametrize(
+    ("kwargs", "expected_select", "expected_flag"),
+    [
+        ({"select": ["id"], "exclude_default_fields": True}, ["id"], True),
+        ({"select": "outputs"}, ["outputs"], None),
+        ({}, None, None),
+        ({"exclude_default_fields": False}, None, None),
+        (
+            {"select": ["id", "outputs"], "include_attachments": True},
+            ["id", "outputs", "attachment_urls", "metadata"],
+            None,
+        ),
+    ],
+)
+def test_list_examples_select_params(kwargs: dict, expected_select, expected_flag) -> None:
+    example_id = str(uuid.uuid4())
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = [{"id": example_id}]
+    mock_session.request.return_value = mock_response
+
+    client = Client(api_url="http://localhost:1984", api_key="test", session=mock_session)
+    examples = list(client.list_examples(dataset_id=str(uuid.uuid4()), **kwargs))
+
+    assert [str(e.id) for e in examples] == [example_id]
+    (examples_call,) = [c for c in mock_session.request.call_args_list if c.args[1].endswith("/examples")]
+    params = examples_call.kwargs["params"]
+    assert params.get("select") == expected_select
+    assert params.get("exclude_default_fields") == expected_flag
+
+
 @mock.patch("langsmith.client.requests.Session")
 def test_upload_csv(mock_session_cls: mock.Mock) -> None:
     _clear_env_cache()
@@ -8375,3 +8408,67 @@ class TestFeedbackAgentAddressing:
         assert body["address"] == "lrn:agents/my-agent/environments/staging"
         assert "agent_id" not in body
         assert "agent_environment" not in body
+
+
+@pytest.mark.parametrize("compressed", [False, True])
+def test_flush_waits_for_buffered_run_ops(compressed: bool) -> None:
+    """flush() must not return before the buffered run ops job has sent the runs."""
+    sent: list[str] = []
+
+    def request(method, url, **kwargs):
+        sent.append(url)
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b"{}"
+        response.url = url
+        return response
+
+    def slow_processor(runs):
+        time.sleep(0.3)
+        return runs
+
+    session = mock.MagicMock(spec=requests.Session)
+    session.request.side_effect = request
+    info = ls_schemas.LangSmithInfo(
+        batch_ingest_config=ls_schemas.BatchIngestConfig(
+            use_multipart_endpoint=True,
+            size_limit=100,
+            size_limit_bytes=20971520,
+            scale_up_nthreads_limit=1,
+            scale_up_qsize_trigger=1000,
+            scale_down_nempty_trigger=4,
+        ),
+        instance_flags={"zstd_compression_enabled": compressed},
+    )
+    client = Client(
+        api_url="http://localhost:1984",
+        api_key="test",
+        session=session,
+        info=info,
+        auto_batch_tracing=True,
+        process_buffered_run_ops=slow_processor,
+        run_ops_buffer_size=1,
+    )
+    if compressed:
+        for _ in range(100):
+            if client.compressed_traces is not None:
+                break
+            time.sleep(0.02)
+        assert client.compressed_traces is not None
+
+    try:
+        run_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+        client.create_run(
+            name="n",
+            inputs={"a": 1},
+            run_type="chain",
+            id=run_id,
+            trace_id=run_id,
+            dotted_order=now.strftime("%Y%m%dT%H%M%S%fZ") + str(run_id),
+            start_time=now,
+        )
+        client.flush()
+        assert len(sent) == 1
+    finally:
+        client.cleanup()

@@ -6,6 +6,15 @@ from typing import Any, Callable, ParamSpec, TypeVar
 P = ParamSpec("P")
 R = TypeVar("R")
 
+
+def _redact(value: Any) -> Any:
+    """Replace raw byte payloads with a size marker so file/document content is
+    never written to logs (and log volume stays bounded for large uploads)."""
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return f"<bytes:{len(value)}>"
+    return value
+
+
 def log_method(func: Callable[P, R]) -> Callable[P, R]:
     """
     Decorator that logs method calls, arguments, return values, and exceptions.
@@ -20,7 +29,9 @@ def log_method(func: Callable[P, R]) -> Callable[P, R]:
         try:
             bound = inspect.signature(func).bind(*args, **kwargs)
             bound.apply_defaults()
-            args_to_log = {k: v for k, v in bound.arguments.items() if k != "self"}
+            args_to_log = {
+                k: _redact(v) for k, v in bound.arguments.items() if k != "self"
+            }
 
             logger.debug(
                 "Calling method: %s with arguments: %s",
@@ -34,7 +45,7 @@ def log_method(func: Callable[P, R]) -> Callable[P, R]:
             logger.debug(
                 "Returned from method: %s with result: %r",
                 method_name,
-                result,
+                _redact(result),
                 stacklevel=2,
             )
             return result

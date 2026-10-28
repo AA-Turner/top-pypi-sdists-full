@@ -208,8 +208,8 @@ def test_the_leading_run_gives_back_the_name_word_a_suffix_cannot_be() -> None:
     word back -- and only where the rest really is all suffix pieces,
     which is what separates the first two readings below.
     """
-    assert _leading("Dr King Jr") == 1     # the floor fired: 2 -> 1
-    assert _leading("Dr King") == 1        # no all-suffix rest to see
+    assert _leading("Dr Pope Jr") == 1     # the floor fired: 2 -> 1
+    assert _leading("Dr Pope") == 1        # no all-suffix rest to see
     assert _leading("Lord Chancellor Jr") == 1
     assert _leading("Lord Chancellor") == 1
 
@@ -349,14 +349,17 @@ def test_peel_trailing_takes_the_three_lean_outcomes() -> None:
     # three: a CREDENTIAL lean consumes with no words to spare, a NAME
     # lean declines WITH words to spare, and no lean at all leaves
     # rules/S4's count deciding exactly as it did.
-    # Every case still REPORTS: the pick is appended either way, which
-    # is what the fork's report is built from.
+    # A credential lean on a listed acronym is the writing settling the
+    # clash (rules/S6, #785): taken as any suffix word is, and no pick,
+    # so nothing reports it. Every other case still REPORTS: the pick
+    # is appended either way, which is what the fork's report is built
+    # from.
     for text, one_case, names, picked in (
-            ("Jack MA", False, 1, True),      # credential lean, k == 2
+            ("Jack MA", False, 1, False),     # credential lean, k == 2
             ("Jack Ma", False, 2, True),      # name lean, k == 2
             ("Jack MA", True, 2, True),       # one case: today's count
             ("John Smith Ma", False, 3, True),   # name lean, k == 3
-            ("John Smith MA", False, 2, True),   # credential lean
+            ("John Smith MA", False, 2, False),  # credential lean
             ("JOHN SMITH MA", True, 2, True),    # one case: the count
     ):
         rest, pieces, ptags, tokens = _peel_inputs(text)
@@ -658,6 +661,7 @@ def test_leading_title_shape_refuses_an_initialless_script(
 
 @pytest.mark.parametrize("text", [
     "Xyz.", "Dr.", "Xyz", "X.", "田中.", "김민준.", "たなか.", "Kim김.", "J.",
+    "Chas.", "MA.",
 ])
 def test_is_title_shaped_and_is_leading_title_agree(text: str) -> None:
     # The two spellings of H2's shape test -- `is_title_shaped`'s own
@@ -673,8 +677,11 @@ def test_is_title_shaped_and_is_leading_title_agree(text: str) -> None:
     # answers True the same way, for the same reason: listed or not
     # is a question neither predicate asks), not because it exercises
     # the shape branch on either side.
+    # 'Chas.' and 'MA.' are given names written short, which outrank the
+    # shape (#789): the inline copy reads classify's tag, this one the
+    # lexicon, and the two must agree.
     state = _through_group(text + " Smith")
-    assert is_title_shaped(text) == is_leading_title(
+    assert is_title_shaped(text, state.lexicon) == is_leading_title(
         state.pieces[0][0], state.piece_tags[0][0], state.tokens)
 
 
@@ -877,12 +884,39 @@ def test_a_title_word_inside_the_run_reads_as_a_title() -> None:
 
 def test_a_title_word_never_starts_the_run() -> None:
     # 746 title words are in no suffix set, many of them surnames
-    assert parse("Mary Jane King Smith").family == "Smith"
+    assert parse("Mary Jane Pope Smith").family == "Smith"
 
 
 def test_the_ambiguous_class_and_initials_do_not_start_the_run() -> None:
-    assert parse("John Smith MA Jones").family == "Jones"
+    assert parse("John Smith Ma Jones").family == "Jones"
+    assert parse("JOHN SMITH MA JONES").family == "JONES"
     assert parse("John Smith V Jones").family == "Jones"
+
+
+def test_a_member_its_capitals_settle_starts_the_run() -> None:
+    # rules/S8 (#785): written in capitals in a name of mixed case, a
+    # listed member marks the post-nominals as its dotted spelling does;
+    # its particle reading still refuses 'DO', the clash settled being
+    # the one with the name reading alone
+    for written in ("MA", "M.A."):
+        name = parse(f"Smith, John {written} Jones")
+        assert name.suffix == f"{written} Jones"
+        assert [a.kind.value for a in name.ambiguities] == [
+            "suffix-or-name"]
+    assert parse("John Smith MA JD Jones").suffix == "MA JD Jones"
+    # a credential split across a space behind it is no name word,
+    # merged into one piece ('Pharm D') or left out of the walk (Ph. D.)
+    assert parse("John Smith MA Pharm D Jones").suffix == "MA Pharm D Jones"
+    assert parse("John Smith MA Ph. D. Jones").suffix == "MA Ph. D. Jones"
+    assert parse("John Smith M.A. Jones").suffix == "M.A. Jones"
+    # with no comma a name word behind the capitals keeps them a name
+    # word, as initials may be (Derek, 2026-10-26)
+    for text, family in (("John Smith MA Jones", "Jones"),
+                         ("Maria Ana MA Silva", "Silva"),
+                         ("Jean Pierre MA DUPONT", "DUPONT"),
+                         ("Mary Jane MA Pope", "Pope")):
+        assert parse(text).family == family, text
+    assert parse("John Smith DO Jones").family == "DO Jones"
 
 
 def test_a_joined_connective_does_not_start_the_run() -> None:
@@ -915,7 +949,7 @@ def test_a_title_inside_the_given_parts_run_is_a_title() -> None:
 _CANDIDATE_HEADS = ("Jane Doe", "J.", "Jane van der Berg", "Mai Le",
                     "abdul Berg", "John")
 _CANDIDATE_WORDS = ("Smith", "VI", "V", "III", "MA", "Ma", "PhD", "Jr.",
-                    "Prof.", "Dr.", "King.", "do", "DO", "de", "X.Y.Z.",
+                    "Prof.", "Dr.", "Pope.", "do", "DO", "de", "X.Y.Z.",
                     "Ph. D.", "i", "Jones")
 
 

@@ -274,12 +274,19 @@ def _other_sources_with_capture_installed(current: str) -> list[str]:
     return others
 
 
-def _set_killswitch() -> bool:
+def _set_killswitch(*, create: bool = True) -> bool:
     """Write `.disabled`, which `hooks/session-start.sh` already checks BEFORE
     doing any work. This is what stops the next session from respawning the
-    daemon, and it is why we do not need to invent a new mechanism."""
+    daemon, and it is why we do not need to invent a new mechanism.
+
+    `create=False` (removing the plugin): never make the tap's folder for it.
+    No folder means no tap ever ran for this agent here, so there is nothing
+    to stop -- and an uninstall that made one left `.disabled` behind on a
+    machine that never had the agent (measured, 2026-10-26)."""
     try:
         directory = tap_plugin_dir()
+        if not create and not directory.is_dir():
+            return True
         directory.mkdir(parents=True, exist_ok=True)
         (directory / ".disabled").write_text("disabled by the Probe Research wizard\n")
     except OSError:
@@ -372,6 +379,8 @@ def _append_stop_log(record: dict) -> None:
     import json
 
     path = stop_log_path()
+    if not path.parent.parent.is_dir():
+        return  # no tap state folder here: a journal is no reason to make one
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         oversized = path.stat().st_size > _STOP_LOG_MAX_BYTES
@@ -622,7 +631,7 @@ def turn_off(mode: OffMode = OffMode.DISABLE) -> TurnOffResult:
             "your dashboard's Devices list -- disconnect it there"
         )
 
-    result.killswitch_set = _set_killswitch()
+    result.killswitch_set = _set_killswitch(create=mode is not OffMode.UNINSTALL)
     if not result.killswitch_set:
         result.warnings.append("could not write the killswitch marker")
 

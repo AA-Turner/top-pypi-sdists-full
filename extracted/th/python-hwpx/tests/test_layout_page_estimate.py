@@ -7,6 +7,7 @@ of the column), and ``HANCOM_PAGES`` the number of pages Hancom drew.
 
 from __future__ import annotations
 
+import copy
 import io
 import re
 import zipfile
@@ -2024,21 +2025,79 @@ def test_a_row_holding_a_nested_table_split_over_a_page_splits_where_hancom_spli
 def test_a_cell_holding_a_table_wrapped_square_is_as_tall_as_hancom_drew_it(fixture: str) -> None:
     # A table wrapped square at the left of a paragraph in a cell of a flowing table, alone (the cell
     # reaches down to its foot) or beside text (the lines beside it are narrower, the rest go below
-    # it): the lines of the cell's caches. Without the caches the estimate does not follow such a cell.
+    # it): the lines of the cell's caches. Without the caches the estimate lays the lines out beside the
+    # table, as it does beside a picture so placed.
     data = (FIXTURES / f"{fixture}.hwpx").read_bytes()
 
     _assert_like_hancom(estimate_pages(data), data, 1)
-    assert estimate_pages(_without_caches(data)).unsupported == ("section 0: a nested table",)
+    _assert_like_hancom(estimate_pages(_without_caches(data)), data, 1)
+
+
+@pytest.mark.parametrize(("fixture", "pages"), [("pages_table_nested_top_and_bottom_among_text", 2),
+                                                ("pages_table_nested_square_among_text", 1),
+                                                ("pages_table_nested_behind_text_among_text", 1),
+                                                ("pages_table_nested_captioned_among_text", 2)])
+def test_a_table_among_the_text_of_a_cell_stands_at_the_top_of_its_line(fixture: str, pages: int) -> None:
+    # Tables in cells of flowing tables, each in a paragraph of no text, a line or two lines before it and
+    # after it (nine cells a file; in the captioned file a caption above or below a table of one or four
+    # rows, two kinds of text). Without the caches Hancom stands such a table at the top of the line its
+    # control falls on (or of the paragraph, on its first line), its offset below that: placed top and bottom
+    # that line and the rest go below it (as a picture so placed; the caption with it), wrapped square the
+    # lines beside it are narrower, in the paragraph and the next ones, and behind the text it pushes no line
+    # but the cell reaches its foot. The first file's last table goes on to the next page with the line below
+    # it (that line does not fit, the table would).
+    data = (FIXTURES / f"{fixture}.hwpx").read_bytes()
+
+    _assert_like_hancom(estimate_pages(data), data, pages)
+    _assert_like_hancom(estimate_pages(_without_caches(data)), data, pages)
+
+
+@pytest.mark.parametrize(("fixture", "pages"), [("pages_table_nested_captioned_before_text", 2),
+                                                ("pages_table_nested_paragraph_shapes_around_text", 1)])
+def test_a_captioned_table_in_a_cell_takes_its_caption_with_it(fixture: str, pages: int) -> None:
+    # Tables of one or four rows placed top and bottom before a line or two of text (the last one going over
+    # the page end, split between its rows), and cells of an empty paragraph holding such a table with a caption
+    # above or below it, a paragraph with spacing before, margins or a 200 % line spacing around one, two such
+    # paragraphs: the caption's lines and gap stand with the table, the lines below it. Without the caches the
+    # estimate counted the table alone before, its rows only.
+    data = (FIXTURES / f"{fixture}.hwpx").read_bytes()
+
+    _assert_like_hancom(estimate_pages(_without_caches(data)), data, pages)
+
+
+def test_a_table_among_the_text_of_a_cell_splits_between_its_rows_over_a_page_end() -> None:
+    # The same tables placed top and bottom 600 down, a line of text after each cell: the last but one goes
+    # over the page end through its table, whose first row ends 101 above the foot or higher: Hancom splits the
+    # table between its rows, the rest at the next page's top, the line below it under the rest, and saves the
+    # table as tall as that rest. Without the caches the estimate splits it there too; with them, a table not
+    # as tall as its rows is not followed.
+    data = (FIXTURES / "pages_table_nested_split_at_a_table_among_text.hwpx").read_bytes()
+
+    _assert_like_hancom(estimate_pages(_without_caches(data)), data, 2)
+    assert estimate_pages(data).unsupported == ("section 0: a table in a cell not as tall as its rows (split over a "
+                                                "page end)",)
+
+
+@pytest.mark.parametrize("fixture", ["pages_table_nested_split_with_a_caption_among_text",
+                                     "pages_table_nested_moved_alone_among_text"])
+def test_a_table_among_the_text_of_a_cell_at_a_page_end_goes_on_as_hancom_moves_it(fixture: str) -> None:
+    # One cell of two lines, a table of three rows placed top and bottom (400 down, a caption below it; or
+    # right at the line's top) and two lines more, its row at the page end. With the caption below it the
+    # rows that stay end 101 above the foot with room for the caption: two of them, the third, the caption
+    # and the lines below it go on. Without one, when its first row does not end so high, the line its control
+    # falls on stays where it is and the table goes on alone to the next page's top, the next line below it.
+    data = (FIXTURES / f"{fixture}.hwpx").read_bytes()
+
+    _assert_like_hancom(estimate_pages(_without_caches(data)), data, 2)
 
 
 @pytest.mark.parametrize(("fixture", "followed"), [("pages_table_nested_top_and_bottom_placed_up_alone", True),
-                                                  ("pages_table_nested_square_placed_up_alone", False)])
+                                                  ("pages_table_nested_square_placed_up_alone", True)])
 def test_a_table_placed_up_from_its_paragraph_in_a_cell_stands_at_the_paragraph_top(fixture: str,
                                                                                   followed: bool) -> None:
     # A table alone in a cell's paragraph after two lines, placed top and bottom or wrapped square 1000
     # up from the paragraph's top (a negative offset, kept as an unsigned number): Hancom puts it at the
-    # paragraph's top, and the cell reaches down to its foot from there; without the caches as well, for
-    # the table placed top and bottom.
+    # paragraph's top, and the cell reaches down to its foot from there; without the caches as well.
     data = (FIXTURES / f"{fixture}.hwpx").read_bytes()
 
     _assert_like_hancom(estimate_pages(data), data, 1)
@@ -2345,40 +2404,168 @@ def test_endnotes_follow_the_documents_text(name: str) -> None:
         assert [[line.vertpos for line in lines] for lines in estimate.lines] == hancom
 
 
-def test_endnotes_at_a_sections_end_are_unsupported() -> None:
+# Endnotes placed at each section's end (END_OF_SECTION), laid out and saved by Hancom: a section's notes follow its
+# own text, before the next section's page. Endnotes right beneath the text (beneathText, as here) are laid out the
+# same way.
+def test_endnotes_at_each_sections_end_follow_that_sections_text() -> None:
+    data = (FIXTURES / "pages_endnotes_at_each_sections_end.hwpx").read_bytes()
+    hancom = _hancom_lines(data)
+
+    for source in (data, _without_caches(data)):
+        estimate = estimate_pages(source)
+
+        assert (estimate.unsupported, estimate.pages) == ((), 3)
+        assert [[line.vertpos for line in lines] for lines in estimate.lines] == hancom
+
+
+# One-line endnotes, each anchored in a paragraph of its own, as Hancom stacked them: 900 apart, as tall as their
+# text, the line spacing below a note's last line not counted. Seventeen end 11 above the body's foot (one page),
+# ten 89 below it (the last one goes on to a second page). Notes of two lines keep the spacing between their lines.
+NOTE_LINE_PAGES = {
+    "pages_endnotes_of_one_line_at_the_page_foot": 1,
+    "pages_endnotes_of_one_line_past_the_page_foot": 2,
+    "pages_endnotes_of_two_lines": 2,
+}
+
+
+@pytest.mark.parametrize("name", sorted(NOTE_LINE_PAGES))
+def test_a_notes_last_line_takes_no_line_spacing(name: str) -> None:
+    data = (FIXTURES / f"{name}.hwpx").read_bytes()
+    hancom = _hancom_lines(data)
+
+    for source in (data, _without_caches(data)):
+        estimate = estimate_pages(source)
+
+        assert (estimate.unsupported, estimate.pages) == ((), NOTE_LINE_PAGES[name])
+        assert [[line.vertpos for line in lines] for lines in estimate.lines] == hancom
+
+
+def test_endnotes_placed_otherwise_are_unsupported() -> None:
     document = HwpxDocument.new()
     paragraph = document.add_paragraph("본문")
     document.notes.add_endnote("미주", paragraph)
-    data = document.to_bytes()
-    out = io.BytesIO()
-    with zipfile.ZipFile(io.BytesIO(data)) as source, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
-        for info in source.infolist():
-            payload = source.read(info.filename)
-            if info.filename.startswith("Contents/section"):
-                payload = payload.replace(b'place="END_OF_DOCUMENT"', b'place="END_OF_SECTION"')
-            target.writestr(info, payload)
+    settings = next(document.sections[0].element.iter(f"{HP}endNotePr"))
+    settings.find(f"{HP}placement").set("place", "SOMEWHERE_ELSE")
 
-    assert estimate_pages(data).pages == 1
-    estimate = estimate_pages(out.getvalue())
+    estimate = estimate_pages(document)
+
     assert estimate.pages is None
-    assert estimate.unsupported == ("section 0: endnotes placed otherwise than at the document's end",)
+    assert estimate.unsupported == (
+        "section 0: endnotes placed otherwise than at the document's or the section's end",)
 
 
-@pytest.mark.parametrize("note_section", [0, 1])
-def test_endnotes_in_an_earlier_section_validate_that_sections_placement(note_section: int) -> None:
+# Footnotes right beneath the text (beneathText="1"), laid out and saved by Hancom over five pages with page breaks
+# before, paragraphs kept with the next and long notes going on over page ends: the body's lines go where they
+# would with the notes at the page's foot.
+def test_footnotes_beneath_the_text_take_the_room_they_take_at_the_foot() -> None:
+    data = (FIXTURES / "pages_footnotes_beneath_the_text.hwpx").read_bytes()
+    hancom = _hancom_lines(data)
+
+    for source in (data, _without_caches(data)):
+        estimate = estimate_pages(source)
+
+        assert (estimate.unsupported, estimate.pages) == ((), 5)
+        assert [[line.vertpos for line in lines] for lines in estimate.lines] == hancom
+
+
+# A line grid (hp:grid@lineGrid), laid out and saved by Hancom: in a paragraph snapping to it (snapToGrid), each
+# line's height and advance and the paragraph's spacing before and after take whole steps, rounded up, and the
+# first line goes to the next step at or below where it would go; a line stays on its page while its top and
+# rounded height are above the body's foot. A paragraph not snapping to it keeps its own spacing.
+LINE_GRID_PAGES = {
+    "pages_line_grid": 5,
+    "pages_line_grid_partly_snapped": 3,
+}
+
+
+@pytest.mark.parametrize("name", sorted(LINE_GRID_PAGES))
+def test_lines_on_a_line_grid(name: str) -> None:
+    data = (FIXTURES / f"{name}.hwpx").read_bytes()
+    hancom = _hancom_lines(data)
+
+    for source in (data, _without_caches(data)):
+        estimate = estimate_pages(source)
+
+        assert (estimate.unsupported, estimate.pages) == ((), LINE_GRID_PAGES[name])
+        assert [[line.vertpos for line in lines] for lines in estimate.lines] == hancom
+
+
+def test_a_character_grid_is_followed_through_layout_caches_only() -> None:
+    # A character grid (a manuscript paper's here) widens each character to whole steps: a paragraph keeping
+    # Hancom's layout cache keeps its lines; without the caches the estimate does not break the lines so.
+    data = (FIXTURES / "pages_character_grid.hwpx").read_bytes()
+
+    estimate = estimate_pages(data)
+
+    assert (estimate.unsupported, estimate.pages) == ((), 5)
+    assert [[line.vertpos for line in lines] for lines in estimate.lines] == _hancom_lines(data)
+    assert estimate_pages(_without_caches(data)).unsupported == (
+        "section 0: a character grid in a paragraph without a layout cache",)
+
+
+def test_a_line_grid_with_a_table_is_unsupported() -> None:
     document = HwpxDocument.new()
-    document.add_section()
-    document.add_section()
-    section = document.sections[note_section]
-    paragraph = document.add_paragraph("본문", section=section)
-    document.notes.add_endnote("구역 끝 미주", paragraph)
-    settings = next(section.element.iter(f"{HP}endNotePr"))
-    settings.find(f"{HP}placement").set("place", "END_OF_SECTION")
+    document.add_paragraph("격자 위 글")
+    document.add_table(2, 2)
+    next(document.sections[0].element.iter(f"{HP}grid")).set("lineGrid", "2000")
 
-    result = estimate_pages(document)
+    estimate = estimate_pages(document)
 
-    assert result.pages is None
-    assert result.unsupported == (f"section {note_section}: endnotes placed otherwise than at the document's end",)
+    assert estimate.pages is None
+    assert estimate.unsupported == (
+        "section 0: a line or character grid in columns or with objects, tables or notes",)
+
+
+def _one_section(data: bytes, settings_first: bool = True) -> HwpxDocument:
+    """The document Hancom saved as two sections, as one section holding the second's settings in the paragraph it
+    starts with (Hancom saves a later paragraph holding section settings as a section of its own); without
+    *settings_first*, the first paragraph holds none (Hancom saved the paragraphs before with its default page)."""
+
+    document = HwpxDocument.open(data)
+    first, second = (section.element for section in document.sections)
+    for paragraph in second.findall(f"{HP}p"):
+        first.append(paragraph)
+    document.remove_section(1)
+    if not settings_first:
+        run = first.find(f"{HP}p/{HP}run")
+        for child in list(run):
+            if child.tag == f"{HP}secPr" or child.tag == f"{HP}ctrl" and child.find(f"{HP}colPr") is not None:
+                run.remove(child)
+    return document
+
+
+# Section settings in a later paragraph, laid out and saved by Hancom (as two sections): a new section on a new
+# page with those settings -- here a landscape page of two columns after A4 --, and, when the first paragraph holds
+# none, the paragraphs before on Hancom's default A4 page (59528 x 84188) -- here before a B5 page.
+@pytest.mark.parametrize(("name", "settings_first", "pages"), [
+    ("pages_section_settings_in_a_later_paragraph", True, 4),
+    ("pages_section_settings_after_paragraphs_without", False, 2),
+])
+def test_section_settings_in_a_later_paragraph_start_a_section(name: str, settings_first: bool, pages: int) -> None:
+    data = (FIXTURES / f"{name}.hwpx").read_bytes()
+    hancom = _hancom_lines(data)
+
+    for source in (data, _without_caches(data)):
+        document = _one_section(source, settings_first)
+        assert len(document.sections) == 1
+
+        estimate = estimate_pages(document)
+
+        assert (estimate.unsupported, estimate.pages) == ((), pages)
+        assert [[line.vertpos for line in lines] for lines in estimate.lines] == hancom
+
+
+def test_section_settings_deeper_in_a_later_paragraph_are_unsupported() -> None:
+    document = HwpxDocument.new()
+    document.add_paragraph("본문")
+    table = document.add_table(1, 1)
+    settings = copy.deepcopy(next(document.sections[0].element.iter(f"{HP}secPr")))
+    next(table.element.iter(f"{HP}run")).insert(0, settings)
+
+    estimate = estimate_pages(document)
+
+    assert estimate.pages is None
+    assert estimate.unsupported == ("section 0: section settings (hp:secPr) after the first paragraph",)
 
 
 @pytest.mark.parametrize("mode", ["CELL", "TABLE"])
@@ -2396,19 +2583,6 @@ def test_a_repeated_header_taller_than_the_remaining_half_page_moves_whole(mode:
     assert _flow_table(table, 0, top_margin, 10000) == (0, top_margin + 7000)
     assert not _starts_later(table, 4000, 10000)
     assert _flow_table(table, 0, 4000, 10000) == (1, top_margin + 7000)
-
-
-@pytest.mark.parametrize("written", ["1", "true"])
-def test_footnotes_beneath_text_remain_unsupported_with_endnote_support(written: str) -> None:
-    document = HwpxDocument.new()
-    document.notes.add_footnote("각주", document.add_paragraph("본문"))
-    settings = next(document.sections[0].element.iter(f"{HP}footNotePr"))
-    settings.find(f"{HP}placement").set("beneathText", written)
-
-    estimate = estimate_pages(document)
-
-    assert estimate.pages is None
-    assert estimate.unsupported == ("section 0: footnotes beneath the text",)
 
 
 def _without_header(data: bytes) -> bytes:

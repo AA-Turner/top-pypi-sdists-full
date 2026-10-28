@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: spec-kitty-events
-Version: 11.0.0
+Version: 11.3.0
 Summary: Event log library with Lamport clocks and systematic error tracking
-Author-email: Robert Douglass <rob@example.com>
+Author: Spec Kitty, Inc.
 License: MIT License
         
-        Copyright (c) 2026 Spec Kitty, Inc. and contributors
+        Copyright (c) 2026 Spec Kitty, Inc.
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -48,7 +48,7 @@ Dynamic: license-file
 
 # spec-kitty-events
 
-**Package Version**: `11.0.0` | **Envelope Schema Version**: `3.0.0` | **Python**: `>=3.10`
+**Package Version**: `11.3.0` | **Envelope Schema Version**: `3.0.0` | **Python**: `>=3.10`
 
 The **event contracts** of Spec Kitty: the canonical vocabulary the Spec Kitty CLI and
 runtime emit as a Mission moves through its lifecycle. This repository is the
@@ -112,13 +112,17 @@ authoritative version-and-compatibility reference.
 
 ## Installation
 
+Pin a **released version** (a `v<version>` tag), not a mainline commit — a package version
+is frozen only when it is tagged, so `main` may still move an unreleased version
+([versioning policy](contracts/versioning-and-compatibility.md)).
+
 From PyPI (pin an explicit version — see [`COMPATIBILITY.md`](COMPATIBILITY.md) for the
 current release and what a major bump means):
 
 ```bash
-pip install "spec-kitty-events==11.0.0"
+pip install "spec-kitty-events==11.3.0"
 # with conformance-validation support:
-pip install "spec-kitty-events[conformance]==11.0.0"
+pip install "spec-kitty-events[conformance]==11.3.0"
 ```
 
 With [uv](https://docs.astral.sh/uv/), install the exact versions pinned by the committed

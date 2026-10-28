@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import sqlite3
 import stat
 import sys
@@ -45,6 +46,8 @@ MAX_POLICY_ALLOCATION_BYTES = 4 * 1024 * 1024
 MAX_ALLOCATION_UPLOAD_BYTES = 4 * 1024 * 1024 * 1024
 MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024 * 1024
 MAX_RUNTIME_CONTEXT_FILES = 4096
+# Repeated-file declarations are rewritten in bounded groups, so memory stays flat.
+_DUPLICATE_UPDATE_CHUNK = 1000
 MAX_PENDING_HASHES = 64
 # Small uploads are bound by round trips; 128 cut a 10-runner load test's median upload ~15%.
 BENCHMARK_UPLOAD_CONCURRENCY = 128
@@ -65,7 +68,7 @@ class SubmissionUpload:
     self.root = Path(self.directory.name)
     self.database = sqlite3.connect(self.root / "uploads.db")
     self.database.executescript("""
-      CREATE TABLE files (path TEXT PRIMARY KEY, source TEXT NOT NULL, declaration TEXT NOT NULL, size INTEGER NOT NULL, mtime_ns INTEGER);
+      CREATE TABLE files (path TEXT PRIMARY KEY, source TEXT NOT NULL, declaration TEXT NOT NULL, size INTEGER NOT NULL, mtime_ns INTEGER, kind TEXT NOT NULL, md5 TEXT NOT NULL);
       CREATE TABLE tasks (name TEXT PRIMARY KEY);
     """)
     self.part: list[bytes] = []
@@ -210,13 +213,15 @@ class SubmissionUpload:
       source = self.root / f"artifact-{hashlib.sha256(file.path.encode()).hexdigest()}"
       source.write_bytes(file.content)
     self.database.execute(
-      "INSERT INTO files VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?)",
       (
         file.path,
         str(source),
         json.dumps(declaration, sort_keys=True, separators=(",", ":")),
         file.size_bytes,
         mtime_ns,
+        declaration["kind"],
+        declaration["md5"],
       ),
     )
     self.progress.hashed_file()
@@ -233,6 +238,7 @@ class SubmissionUpload:
     http_client: Any = None,
     upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
     upload_max_retries: int = DEFAULT_UPLOAD_MAX_RETRIES,
+    reuse_uploads: bool = True,
   ) -> BenchmarkOperation:
     reporter = self.progress
     self.validate_benchmark_name(bench_name)
@@ -245,6 +251,8 @@ class SubmissionUpload:
     ).fetchone()
     reporter.final_totals(total_files, total_bytes)
     self._validate_runtime_contexts(metadata)
+    dockerfiles = self._get_dockerfile_paths(metadata)
+    self._declare_duplicates(dockerfiles)
     digest = hashlib.sha256()
     for (declaration,) in self.database.execute("SELECT declaration FROM files ORDER BY path"):
       digest.update(declaration.encode() + b"\n")
@@ -295,7 +303,7 @@ class SubmissionUpload:
         progress=reporter,
         parse_retry_after=client._parse_retry_after,
       ) as pool:
-        for batch in self._upload_batches():
+        for batch in self._upload_batches(reuse_uploads, dockerfiles):
           chunks = deque([batch])
           while chunks:
             chunk = chunks.popleft()
@@ -324,11 +332,17 @@ class SubmissionUpload:
                 raise
               chunks.extendleft(reversed(list(self._batch_files(chunk))))
               continue
-            files = [
-              self._declared_file(source, declaration, mtime_ns)
-              for source, declaration, mtime_ns in chunk
-            ]
-            policy = response.to_dict(mode="json").get("policy")
+            # `reused` and `policy` are not in the generated client yet.
+            allocation = response.to_dict(mode="json")
+            reused = set(allocation.get("reused") or [])
+            files = []
+            for source, declaration, mtime_ns in chunk:
+              if "same_as" in declaration or declaration["path"] in reused:
+                # The API reads this path from an object it already holds.
+                reporter.completed(declaration["path"], declaration["size_bytes"])
+              else:
+                files.append(self._declared_file(source, declaration, mtime_ns))
+            policy = allocation.get("policy")
             if policy is None:
               pool.add(files, response.urls)
             else:
@@ -366,6 +380,46 @@ class SubmissionUpload:
         if delay is None:
           raise
       time.sleep(delay)
+
+  def _get_dockerfile_paths(self, metadata: dict[str, Any]) -> set[str]:
+    default = ((metadata.get("runtime") or {}).get("source") or {}).get("dockerfile_path")
+    paths = {default, *self.runtime_dockerfiles}
+    return {self._get_dockerfile_key(path) for path in paths if path}
+
+  @staticmethod
+  def _get_dockerfile_key(path: str) -> str:
+    # Match the uploaded spelling, so `./Dockerfile` and `runtime//Dockerfile` are recognized,
+    # and packaging's case rule, under which Windows `env/DOCKERFILE` names `env/Dockerfile`.
+    return os.path.normcase(PurePosixPath(path).as_posix())
+
+  def _declare_duplicates(self, dockerfiles: set[str]) -> None:
+    """Declare each repeated artifact as `same_as` its first path, so it uploads once."""
+    rows = self.database.execute("""
+      SELECT path, declaration, first FROM (
+        SELECT path, declaration, MIN(path) OVER (PARTITION BY md5, size) AS first
+        FROM files WHERE kind = 'artifact'
+      ) WHERE path != first
+    """)
+    while chunk := rows.fetchmany(_DUPLICATE_UPDATE_CHUNK):
+      duplicates = []
+      for path, encoded, first in chunk:
+        # Runtimes record their Dockerfile's own object, so a Dockerfile is always uploaded.
+        if self._get_dockerfile_key(path) in dockerfiles:
+          continue
+        declaration = {**json.loads(encoded), "same_as": first}
+        duplicates.append((json.dumps(declaration, sort_keys=True, separators=(",", ":")), path))
+      self.database.executemany("UPDATE files SET declaration = ? WHERE path = ?", duplicates)
+
+  @staticmethod
+  def _request_reuse(declaration: dict[str, Any], dockerfiles: set[str]) -> dict[str, Any]:
+    """Let the API reuse this organization's earlier upload of the same content."""
+    if (
+      declaration["kind"] != "artifact"
+      or "same_as" in declaration
+      or SubmissionUpload._get_dockerfile_key(declaration["path"]) in dockerfiles
+    ):
+      return declaration
+    return {**declaration, "reuse": True}
 
   def _validate_runtime_contexts(self, metadata: dict[str, Any]) -> None:
     checked: set[str] = set()
@@ -454,11 +508,18 @@ class SubmissionUpload:
       or len(json.dumps(body, ensure_ascii=False).encode()) > MAX_ALLOCATION_BYTES
     )
 
-  def _upload_batches(self) -> Iterator[list[tuple[str, dict[str, Any], int | None]]]:
+  def _upload_batches(
+    self, reuse_uploads: bool, dockerfiles: frozenset[str] | set[str]
+  ) -> Iterator[list[tuple[str, dict[str, Any], int | None]]]:
+    """Batch declarations as they are sent, including any reuse requests."""
     rows = self.database.execute("SELECT source, declaration, mtime_ns FROM files ORDER BY path")
-    return self._batch_files(
-      (source, json.loads(encoded), mtime_ns) for source, encoded, mtime_ns in rows
-    )
+    files = ((source, json.loads(encoded), mtime_ns) for source, encoded, mtime_ns in rows)
+    if reuse_uploads:
+      files = (
+        (source, self._request_reuse(declaration, dockerfiles), mtime_ns)
+        for source, declaration, mtime_ns in files
+      )
+    return self._batch_files(files)
 
   def _batch_files(
     self, files: Iterable[tuple[str, dict[str, Any], int | None]]
@@ -481,7 +542,8 @@ class SubmissionUpload:
         yield batch
         batch, size, upload_bytes = [], empty_size, 0
       size += item_size + (2 if batch else 0)
-      upload_bytes += declaration["size_bytes"]
+      if "same_as" not in declaration:
+        upload_bytes += declaration["size_bytes"]
       batch.append((source, declaration, mtime_ns))
     if batch:
       yield batch

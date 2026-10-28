@@ -36,13 +36,14 @@ class TestVirtualAccounts:
             account_details=[
                 {
                     "account_number": "account_number",
-                    "account_number_type": "au_number",
+                    "account_number_type": "arbitrum_address",
                 }
             ],
             counterparty_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             credit_ledger_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             debit_ledger_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             description="description",
+            external_id="external_id",
             ledger_account={
                 "currency": "currency",
                 "ledger_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
@@ -53,15 +54,23 @@ class TestVirtualAccounts:
                 "external_id": "external_id",
                 "ledger_account_category_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                 "ledgerable_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                "ledgerable_type": "counterparty",
+                "ledgerable_type": "external_account",
                 "metadata": {
-                    "key": "value",
                     "foo": "bar",
+                    "key": "value",
                     "modern": "treasury",
                 },
             },
             ledger_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={"foo": "string"},
+            party_address={
+                "country": "country",
+                "line1": "line1",
+                "line2": "line2",
+                "locality": "locality",
+                "postal_code": "postal_code",
+                "region": "region",
+            },
             routing_details=[
                 {
                     "routing_number": "routing_number",
@@ -152,6 +161,14 @@ class TestVirtualAccounts:
             ledger_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={"foo": "string"},
             name="name",
+            party_address={
+                "country": "country",
+                "line1": "line1",
+                "line2": "line2",
+                "locality": "locality",
+                "postal_code": "postal_code",
+                "region": "region",
+            },
         )
         assert_matches_type(VirtualAccount, virtual_account, path=["response"])
 
@@ -196,6 +213,7 @@ class TestVirtualAccounts:
         virtual_account = client.virtual_accounts.list(
             after_cursor="after_cursor",
             counterparty_id="counterparty_id",
+            external_id="external_id",
             internal_account_id="internal_account_id",
             metadata={"foo": "string"},
             per_page=0,
@@ -282,13 +300,14 @@ class TestAsyncVirtualAccounts:
             account_details=[
                 {
                     "account_number": "account_number",
-                    "account_number_type": "au_number",
+                    "account_number_type": "arbitrum_address",
                 }
             ],
             counterparty_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             credit_ledger_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             debit_ledger_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             description="description",
+            external_id="external_id",
             ledger_account={
                 "currency": "currency",
                 "ledger_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
@@ -299,15 +318,23 @@ class TestAsyncVirtualAccounts:
                 "external_id": "external_id",
                 "ledger_account_category_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                 "ledgerable_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                "ledgerable_type": "counterparty",
+                "ledgerable_type": "external_account",
                 "metadata": {
-                    "key": "value",
                     "foo": "bar",
+                    "key": "value",
                     "modern": "treasury",
                 },
             },
             ledger_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={"foo": "string"},
+            party_address={
+                "country": "country",
+                "line1": "line1",
+                "line2": "line2",
+                "locality": "locality",
+                "postal_code": "postal_code",
+                "region": "region",
+            },
             routing_details=[
                 {
                     "routing_number": "routing_number",
@@ -398,6 +425,14 @@ class TestAsyncVirtualAccounts:
             ledger_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={"foo": "string"},
             name="name",
+            party_address={
+                "country": "country",
+                "line1": "line1",
+                "line2": "line2",
+                "locality": "locality",
+                "postal_code": "postal_code",
+                "region": "region",
+            },
         )
         assert_matches_type(VirtualAccount, virtual_account, path=["response"])
 
@@ -442,6 +477,7 @@ class TestAsyncVirtualAccounts:
         virtual_account = await async_client.virtual_accounts.list(
             after_cursor="after_cursor",
             counterparty_id="counterparty_id",
+            external_id="external_id",
             internal_account_id="internal_account_id",
             metadata={"foo": "string"},
             per_page=0,

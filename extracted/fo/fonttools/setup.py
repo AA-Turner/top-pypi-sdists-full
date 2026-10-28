@@ -127,8 +127,8 @@ extras_require = {
     # for fontTools.sfnt and fontTools.woff2: to compress/uncompress
     # WOFF 1.0 and WOFF 2.0 webfonts.
     "woff": [
-        "brotli >= 1.0.1; platform_python_implementation == 'CPython'",
-        "brotlicffi >= 0.8.0; platform_python_implementation != 'CPython'",
+        "brotli >= 1.2.1; platform_python_implementation == 'CPython'",
+        "brotlicffi >= 1.2.1.0; platform_python_implementation != 'CPython'",
         "zopfli >= 0.1.4",
     ],
     # for fontTools.unicode and fontTools.unicodedata: to use the latest version
@@ -523,7 +523,7 @@ if ext_modules:
 
 setup_params = dict(
     name="fonttools",
-    version="4.67.0",
+    version="4.68.0",
     description="Tools to manipulate font files",
     author="Just van Rossum",
     author_email="just@letterror.com",

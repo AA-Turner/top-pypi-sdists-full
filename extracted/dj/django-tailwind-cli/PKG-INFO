@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-tailwind-cli
-Version: 4.8.1
+Version: 4.8.2
 Summary: Django and Tailwind integration based on the prebuilt Tailwind CSS CLI.
 Project-URL: Home, https://django-tailwind-cli.rtfd.io/
 Project-URL: Documentation, https://django-tailwind-cli.rtfd.io/

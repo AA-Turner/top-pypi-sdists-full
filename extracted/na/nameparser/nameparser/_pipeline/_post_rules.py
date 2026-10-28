@@ -4,43 +4,52 @@ Consumes: tokens (roles assigned), plus pieces and structure -- the
 particle fold reads the opening piece of segment 0, or of segment 1
 under a family comma (#359). structure was always read here, for the
 rotation gate. Also comma_offsets and dropped, which R1's entry pass
-below reads to find the separators the writer typed (#436/#437).
-Produces: tokens with roles adjusted by the post rules, the stable
+below reads to find the separators the writer typed (#436/#437), and
+extracted and one_case, which S13's pass reads (#810).
+Produces: tokens with roles adjusted by the post rules (among them the
+SUFFIX role of a delimited member its writing settles after the name,
+rules/S13, with the SUFFIX_OR_NICKNAME report on any other member left
+a nickname), the stable
 "joined" tag on a post-nominal continuing the entry before it, and the
 ambiguity P6's attachment reports at the end of a name read
-family-first (#467) and after a comma with nothing before it -- after a
-family comma that names a family, that attachment is assign's since
-#613.
+family-first (#467) -- after a family comma, that attachment is
+assign's since #613, and behind an empty part before the comma too
+since #892.
 Reads: Policy.patronymic_rules, Policy.two_family_names,
 Policy.name_order (O6 stands down where the script's order differs
 from the declared one), Policy.middle_as_family,
 Policy.extra_suffix_delimiters (R1's entry pass, for the delimiter
-cores group drops); Lexicon.given_name_titles.
+cores group drops); Lexicon.given_name_titles, and
+Lexicon.suffix_acronyms_ambiguous (a dotted member in a clause, which
+carries no tag there, S13).
 
-Implements rules H1, M4, P1, P6 (its no-comma site, and after a comma
-naming no family), O1, O2, O6, O3 and R1 of docs/design/rules/;
-each is cited at its code below, and H1/P1/O1/O2's history lives in
-docs/design/decisions/. `suffix_entries` is the R1 entry pass as a
-state-in/state-out function, for Parser.revise to run over a
-forced-role sub-parse (#511); `post_rules` runs the same worker last.
+Implements rules S13, H1, M4, P1, P6 (its no-comma site), O1, O2, O6,
+O3 and R1 of docs/design/rules/; each is cited at its code below, and
+H1/P1/O1/O2's history lives in docs/design/decisions/.
+`suffix_entries` is the R1 entry pass as a state-in/state-out
+function, for Parser.revise to run over a forced-role sub-parse
+(#511); `post_rules` runs the same worker last.
 """
 from __future__ import annotations
 
+import bisect
 import re
 
-from nameparser._lexicon import _run_addresses_by_given
+from nameparser._lexicon import _normalize, _run_addresses_by_given
 from nameparser._pipeline._assign import (
-    _attach_particle_tail, _name_positions,
+    _name_alt, _name_pieces, _name_positions,
 )
 from nameparser._pipeline._pieces import (
-    is_lone_never_given_particle, particle_tail,
+    is_lone_never_given_particle, settled_by_case,
 )
 from nameparser._pipeline._state import (
-    NAME_ROLES,
-    ParseState, PendingAmbiguity, Structure,
+    AMBIGUOUS_ACRONYM_TAG, NAME_ROLES,
+    ParseState, PendingAmbiguity, PendingReading, Structure,
     WorkToken, _NEVER_FLIPPED, comma_bucket, copy_with,
 )
-from nameparser._pipeline._vocab import delimiter_cores, unit_ends
+from nameparser._pipeline._vocab import (
+    delimiter_cores, suffix_reading, unit_ends,
+)
 from nameparser._policy import PatronymicRule
 from nameparser._types import (
     FOLDED_TAG, UNJOINED_CONJUNCTION_TAG, UNJOINED_TAG, AmbiguityKind, Role,
@@ -107,8 +116,9 @@ def _mark_suffix_entries(tokens: list[WorkToken], state: ParseState) -> None:
     # (mechanisms.md#ONE-PREDICATE-PER-QUESTION). decisions/R1
     # (#436/#437).
     #
-    # After assign, because it keys on Role.SUFFIX; last in post_rules
-    # by convention only, since no rule here writes SUFFIX or a
+    # After assign, because it keys on Role.SUFFIX; last in post_rules,
+    # after S13's pass, the one rule here that writes SUFFIX (#810), and
+    # by convention otherwise, since no other writes SUFFIX or a
     # _RENDERS_ELSEWHERE role. Recorded as a tag because a span-less
     # token (unpickled, or built by replace()) leaves the render
     # nothing to scan (mechanisms.md#MARK-DONT-STRIP). Every WorkToken
@@ -367,7 +377,7 @@ def _family_settled(state: ParseState, tokens: list[WorkToken],
     particle opening the name with a word behind it ('Sir de Mesnil'),
     asked by the fold's own predicate on the same piece. An ambiguous
     particle nothing settled, or a bare one with nothing to fold, is a
-    word the order placed ('Sir Van', 'Sheik Abu Bakar' and 'Sir de'
+    word the order placed ('Sir Van', 'Sir Abu Bakar' and 'Sir de'
     under FAMILY_FIRST; 'Sir von und zu', whose never-given 'zu' does
     not open it)."""
     if state.structure is Structure.FAMILY_COMMA:
@@ -376,9 +386,86 @@ def _family_settled(state: ParseState, tokens: list[WorkToken],
         _leading_name_piece(state, tokens), tokens)
 
 
+# rules/S13: "where the member's writing settles it as the credential,
+# the way the rules that read the writing say a credential is written,
+# it is no nickname but the suffix" -- Then and its first two bullets,
+# with the When's "no name word after it";
+# extract's S1 escape has already sent every suffix-shaped clause
+# through (decisions/S13 (#810))
+def _settle_delimited_members(state: ParseState, tokens: list[WorkToken],
+                              ambiguities: list[PendingAmbiguity]) -> None:
+    """A nickname that is the whole of its clause and a member of the
+    ambiguous class becomes the suffix where its writing settles it and
+    it stands after the last name word; any other tagged member stays
+    the nickname and the fork is reported, a dotted member left a
+    nickname inside the name included. Asked here, first in this
+    stage, because only once roles are read is it known whether a name
+    word follows: a suffix, a title or a maiden clause after the clause
+    is no name word, whatever spelling put it there. Reported here,
+    where the escape is decided, rather than in extract, which has no
+    token index to point at. A dotted member carries no tag in a
+    clause (classify tags a shape only outside one), so it is found
+    by its text."""
+    last_name = -1
+    alone: set[int] = set()
+    for i, t in enumerate(tokens):
+        if t.role in NAME_ROLES:
+            last_name = i
+    starts = [t.span.start for t in tokens]
+    for _, clause in state.extracted:
+        lo = bisect.bisect_left(starts, clause.start)
+        # the whole clause's text, as extract's escape reads a clause:
+        # a character tokenize drops beside the member (an emoji, a
+        # zero-width space) leaves it no member alone
+        if (bisect.bisect_left(starts, clause.end) == lo + 1
+                and state.original[clause.start:clause.end].strip()
+                == tokens[lo].text):
+            alone.add(lo)
+    lex = state.lexicon
+    for i, token in enumerate(tokens):
+        if token.role is not Role.NICKNAME:
+            continue
+        # a period inside the word ('M.A'); one ending it is extract's
+        # escape
+        dotted = ("." in token.text.strip(".")
+                  and _normalize(token.text).replace(".", "")
+                  in lex.suffix_acronyms_ambiguous)
+        # after the name: behind its last name word, and a name word
+        # there is, so a clause in a name of no word of its own
+        # ('Dr. (MA)') is not settled
+        if 0 <= last_name < i and i in alone and (
+                dotted or settled_by_case(token, state.one_case)):
+            tokens[i] = copy_with(token, role=Role.SUFFIX)
+        elif dotted or AMBIGUOUS_ACRONYM_TAG in token.tags:
+            ambiguities.append(PendingAmbiguity(
+                AmbiguityKind.SUFFIX_OR_NICKNAME,
+                f"delimited {token.text!r} is also a post-nominal; read "
+                f"as a nickname rather than a suffix",
+                (i,), alternative=suffix_reading(token)))
+
+
+def _unattached(state: ParseState, tokens: list[WorkToken],
+                word: WorkToken, start: int) -> PendingReading:
+    """The name reading of the particle run P6 attaches at the end of
+    a name read family-first, which starts at token `start`: the field
+    the positional read gave it, or the field of the name piece in
+    front where that piece would take a name word in (`_name_alt`)."""
+    role = tokens[start].role
+    assert role is not None  # assign roled every name word
+    # the run ends a name read family-first, so a name word stands in
+    # front of it
+    front, first = next(
+        ((piece, k == 0) for seg_idx in range(len(state.pieces))
+         for k, piece in enumerate(_name_pieces(state, tokens, seg_idx))
+         if start - 1 in piece), (None, False))
+    return _name_alt(word, role, front, tokens, first, False)
+
+
 def post_rules(state: ParseState) -> ParseState:
     tokens = list(state.tokens)
     ambiguities = list(state.ambiguities)
+    if state.extracted:
+        _settle_delimited_members(state, tokens, ambiguities)
     titles = _idx(tokens, Role.TITLE)
     givens = _idx(tokens, Role.GIVEN)
     middles = _idx(tokens, Role.MIDDLE)
@@ -673,7 +760,13 @@ def post_rules(state: ParseState) -> ParseState:
                     f"family-first, {text!r} joins the family that "
                     f"order named rather than standing as a name word "
                     f"of its own",
-                    tuple(sorted(run))))
+                    tuple(sorted(run)),
+                    # the field the positional read gave it, which this
+                    # attachment moves, unless the piece in front would
+                    # take a name word in
+                    alternative=_unattached(state, tokens,
+                                            tokens[ambiguous[0]],
+                                            min(run))))
             for j in run:
                 tokens[j] = copy_with(
                     tokens[j], role=Role.FAMILY,
@@ -683,26 +776,6 @@ def post_rules(state: ParseState) -> ParseState:
             givens = _idx(tokens, Role.GIVEN)
             middles = _idx(tokens, Role.MIDDLE)
             families = _idx(tokens, Role.FAMILY)
-
-    # rules/P6: "a particle ending the name attaches to that family
-    # name" -- after a family comma with NOTHING before it. assign takes
-    # the attachment wherever the comma names a family (#613); where it
-    # names none, H1 and M4 above may make the given word the family
-    # first, being gated on there being no family, and the attachment
-    # has to read the name they left -- ', Mr. Jones vd' keeps family
-    # 'Jones', suffix 'vd', as it read before #613 moved the site
-    # (caught in PR review: assign's attachment ran ahead of H1 and read
-    # given 'Jones', family 'vd'). The same helper, at the stage order
-    # the old site had, so the reading is the old one exactly.
-    if (state.structure is Structure.FAMILY_COMMA
-            and len(state.pieces) > 1 and not state.pieces[0]):
-        seg = state.pieces[1]
-        k, end = particle_tail(seg, tokens)
-        given_at = next((q for q in range(k) if any(
-            tokens[i].role is Role.GIVEN for i in seg[q])), None)
-        if given_at is not None:
-            _attach_particle_tail(seg, tokens, given_at, k, end,
-                                  ambiguities)
 
     if state.policy.two_family_names:
         _take_second_family_name(state, tokens)

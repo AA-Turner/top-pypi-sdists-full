@@ -172,6 +172,7 @@ from .paginator import (
     GetCapacityManagerMetricDimensionsPaginator,
     GetCapacityManagerMonitoredTagKeysPaginator,
     GetGroupsForCapacityReservationPaginator,
+    GetImageFindingsPaginator,
     GetInstanceTypesFromInstanceRequirementsPaginator,
     GetIpamAddressHistoryPaginator,
     GetIpamDiscoveredAccountsPaginator,
@@ -1315,6 +1316,8 @@ from .type_defs import (
     GetImageAncestryResultTypeDef,
     GetImageBlockPublicAccessStateRequestTypeDef,
     GetImageBlockPublicAccessStateResultTypeDef,
+    GetImageFindingsRequestTypeDef,
+    GetImageFindingsResultTypeDef,
     GetInstanceMetadataDefaultsRequestTypeDef,
     GetInstanceMetadataDefaultsResultTypeDef,
     GetInstanceTpmEkPubRequestTypeDef,
@@ -7788,6 +7791,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_image_block_public_access_state)
         """
 
+    def get_image_findings(
+        self, **kwargs: Unpack[GetImageFindingsRequestTypeDef]
+    ) -> GetImageFindingsResultTypeDef:
+        """
+        Describes the Amazon Inspector vulnerability findings for the specified AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_image_findings.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_image_findings)
+        """
+
     def get_instance_metadata_defaults(
         self, **kwargs: Unpack[GetInstanceMetadataDefaultsRequestTypeDef]
     ) -> GetInstanceMetadataDefaultsResultTypeDef:
@@ -11781,6 +11794,17 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_groups_for_capacity_reservation"]
     ) -> GetGroupsForCapacityReservationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_image_findings"]
+    ) -> GetImageFindingsPaginator:
         """
         Create a paginator for an operation.
 

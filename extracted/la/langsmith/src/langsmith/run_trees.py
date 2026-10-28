@@ -60,13 +60,7 @@ class AuthHeaders(TypedDict, total=False):
 
 
 class WriteReplica(TypedDict, total=False):
-    """Configuration for a write replica endpoint.
-
-    !!! warning "Experimental"
-        `address` is in beta. It is enabled per workspace; a
-        workspace without it rejects the runs, so tracing is lost rather than
-        falling back to a project. It may change without notice.
-    """
+    """Configuration for a write replica endpoint."""
 
     api_url: Optional[str]
     api_key: NotRequired[str]
@@ -255,11 +249,6 @@ def configure(
     If, instead, you wish to only configure tracing for a single invocation,
     use the `tracing_context` context manager instead.
 
-    !!! warning "Experimental"
-        `address` is in beta. It is enabled per workspace; a
-        workspace without it rejects the runs, so tracing is lost rather than
-        falling back to a project. It may change without notice.
-
     Args:
         client: A LangSmith Client instance to use for all tracing operations.
 
@@ -279,7 +268,7 @@ def configure(
             This determines which project dashboard will display your traces.
 
             Pass `None` to explicitly clear the project name.
-        address: (beta) An `AgentAddress`, such as
+        address: An `AgentAddress`, such as
             `ls.agent_address(id, environment)`, to send traces to instead of a
             project. Mutually exclusive with `project_name`.
 
@@ -439,15 +428,9 @@ class RunTree(ls_schemas.RunBase):
         default=None,
         exclude=True,
         description=(
-            "Beta. The address to ingest this run into, instead of a "
-            "project. Put in the payload only when the run is sent."
+            "The address to ingest this run into, instead of a project. Put in the payload only when the run is sent."
         ),
     )
-    """Agent addressing is in beta and enabled per workspace.
-
-    A workspace without it rejects these runs, so tracing is lost rather than
-    falling back to a project. Both fields may change without notice.
-    """
     extra: dict = Field(default_factory=dict)
     tags: Optional[list[str]] = Field(default_factory=list)
     events: list[dict] = Field(default_factory=list)

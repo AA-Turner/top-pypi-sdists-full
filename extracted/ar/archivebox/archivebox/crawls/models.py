@@ -1,13 +1,12 @@
 __package__ = "archivebox.crawls"
 
 from typing import TYPE_CHECKING, Any
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 import uuid
 import json
 import re
-from itertools import islice
 from datetime import timedelta
-from archivebox.uuid_compat import CompactUUIDField, uuid7
+from archivebox.uuid_compat import CompactUUIDField, compact_uuid, uuid7
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -34,7 +33,7 @@ from archivebox.base_models.models import (
 )
 from archivebox.workers.models import ModelWithQueue
 from archivebox.crawls.schedule_util import next_run_for_schedule, validate_schedule
-from archivebox.misc.util import parse_date, sanitize_html_text, validate_url, validate_url_length
+from archivebox.misc.util import equivalent_urls, iri_to_uri, parse_date, sanitize_html_text, validate_url
 
 if TYPE_CHECKING:
     from archivebox.core.models import Snapshot
@@ -125,17 +124,15 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         return self.enqueue(queued_at=queued_at)
 
     def enqueue(self, queued_at=None) -> "Crawl":
-        from archivebox.config.common import build_crawl_config_snapshot
-
         queued_at = queued_at or timezone.now()
         template = self.template
         label = template.label or self.label
-        persona = template.persona if template.persona_id else None
+        # Template config is frozen; new runs must resolve current persona defaults.
         crawl_config = {key: value for key, value in (self.config or {}).items() if key != "SCHEDULE_KIND"}
 
         return Crawl.objects.create(
             urls=template.urls,
-            config=build_crawl_config_snapshot(persona=persona, overrides=crawl_config),
+            config=crawl_config,
             max_depth=template.max_depth,
             tags_str=template.tags_str,
             persona_id=template.persona_id,
@@ -313,20 +310,20 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if update_fields is None or "notes" in update_fields:
             self.notes = sanitize_html_text(self.notes)
         if update_fields is None or "tags_str" in update_fields:
+            # These are defaults for future snapshots. Existing captures keep
+            # their own tags; bulk admin actions handle explicit retroactive edits.
             self.tags_str = ",".join(self.parse_tag_names(self.tags_str or ""))
-        sync_tags = update_fields is None or "tags_str" in update_fields
         old_crawl = type(self).objects.filter(pk=self.pk).first() if self.pk else None
-        previous_tag_names = set()
-        if sync_tags and old_crawl is not None:
-            previous_tag_names = set(self.parse_tag_names(old_crawl.tags_str or ""))
+
+        from archivebox.config.common import ArchiveBoxConfig, build_crawl_config_snapshot
 
         config = dict(self.config or {})
         is_new = self._state.adding or old_crawl is None
         persona = self.persona if self.persona_id else None
         if is_new:
-            from archivebox.config.common import build_crawl_config_snapshot
-
             config = build_crawl_config_snapshot(persona=persona, overrides=config)
+        else:
+            config = {key: value for key, value in config.items() if ArchiveBoxConfig._scope_by_key().get(key) != "server"}
         if str(config.get("PERMISSIONS") or "").strip().lower() not in PERMISSIONS_VALUES:
             from archivebox.config.common import get_config
 
@@ -336,7 +333,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             if raw_concurrency in (None, ""):
                 config.pop("CRAWL_MAX_CONCURRENT_SNAPSHOTS", None)
             else:
-                config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] = max(1, int(raw_concurrency))
+                config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] = max(0, int(raw_concurrency))
 
         if config != (self.config or {}):
             self.config = config
@@ -348,20 +345,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         old_permissions = getattr(old_crawl, "permissions", None)
         if old_crawl is not None and old_permissions != self.permissions:
             transaction.on_commit(lambda: self.update_child_snapshot_permissions(old_permissions, self.permissions))
-        if sync_tags:
-            next_tag_names = set(self.parse_tag_names(self.tags_str or ""))
-            added_tag_names = next_tag_names - previous_tag_names
-            removed_tag_names = previous_tag_names - next_tag_names
-            if added_tag_names or removed_tag_names:
-                # Keep the SQLite write phase short: the Crawl row is already
-                # saved, and the potentially large snapshot tag fanout runs in
-                # chunked ORM writes after any caller atomic() exits.
-                transaction.on_commit(
-                    lambda: self.apply_snapshot_tag_diff(
-                        added_tag_names=added_tag_names,
-                        removed_tag_names=removed_tag_names,
-                    ),
-                )
 
     def update_child_snapshot_permissions(self, old_permissions: str | None, new_permissions: str | None) -> int:
         from archivebox.core.models import Snapshot
@@ -411,50 +394,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if current_tags_str is not None:
             self.tags_str = current_tags_str
         return self.parse_tag_names(self.tags_str or "")
-
-    def apply_snapshot_tag_diff(self, *, added_tag_names: Iterable[str], removed_tag_names: Iterable[str]) -> None:
-        from archivebox.core.models import Snapshot, SnapshotTag, Tag
-
-        added_names = self.parse_tag_names(added_tag_names)
-        removed_names = self.parse_tag_names(removed_tag_names)
-        if not added_names and not removed_names:
-            return
-
-        if added_names:
-            tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=added_names)}
-            missing_tags = [Tag(name=name) for name in added_names if name not in tags_by_name]
-            if missing_tags:
-                # One small write for missing tag rows, followed by chunked
-                # M2M fanout below; avoid per-snapshot get_or_create loops.
-                Tag.objects.bulk_create(missing_tags, ignore_conflicts=True)
-                tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=added_names)}
-
-            tag_ids = [tag.pk for tag_name in added_names if (tag := tags_by_name.get(tag_name))]
-            # Fetch each page before writing M2M rows. iterator(chunk_size=...)
-            # would keep one read cursor open across every bulk write.
-            snapshot_ids = (
-                snapshot.pk for snapshot in Snapshot.objects.filter(crawl=self).only("id").order_by("pk").paged_iterator(chunk_size=500)
-            )
-            while True:
-                batch_snapshot_ids = list(islice(snapshot_ids, 5000))
-                if not batch_snapshot_ids:
-                    break
-                for tag_id in tag_ids:
-                    # Chunked bulk_create keeps memory bounded and uses the
-                    # SnapshotTag uniqueness constraint instead of row-by-row
-                    # existence checks.
-                    SnapshotTag.objects.bulk_create(
-                        [SnapshotTag(snapshot_id=snapshot_id, tag_id=tag_id) for snapshot_id in batch_snapshot_ids],
-                        ignore_conflicts=True,
-                        batch_size=5000,
-                    )
-
-        if removed_names:
-            removed_tag_ids = list(Tag.objects.filter(name__in=removed_names).values_list("pk", flat=True))
-            if removed_tag_ids:
-                # One DELETE with a subquery keeps the tag removal transaction
-                # bounded to the M2M rows touched by this crawl only.
-                SnapshotTag.objects.filter(snapshot__crawl=self, tag_id__in=removed_tag_ids).delete()
 
     def to_json(self) -> dict:
         """
@@ -524,17 +463,43 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         return crawl
 
     @property
-    def output_dir(self) -> Path:
+    def output_dir_candidates(self) -> tuple[Path, Path]:
+        """Current and legacy hyphenated output dirs, computed without touching storage."""
         from archivebox.config import CONSTANTS
         from archivebox.core.models import Snapshot
 
         date_str = self.created_at.strftime("%Y%m%d")
-        first_url = next((url for url in self.get_urls_list() if url), "")
+        first_url = next((url for _raw_line, url in self._iter_url_lines() if url), "")
         domain = Snapshot.extract_domain_from_url(first_url) if first_url else "unknown"
 
-        output_dir = CONSTANTS.USERS_DIR / self.created_by.username / CONSTANTS.CRAWLS_DIR_NAME / date_str / domain / str(self.id)
-        hyphen_dir = output_dir.with_name(str(uuid.UUID(hex=self.id.hex)))
-        return output_dir if output_dir.exists() or not hyphen_dir.exists() else hyphen_dir
+        output_dir = (
+            CONSTANTS.USERS_DIR / self.created_by.username / CONSTANTS.CRAWLS_DIR_NAME / date_str / domain / compact_uuid(self.id).hex
+        )
+        return output_dir, output_dir.with_name(str(uuid.UUID(str(self.id))))
+
+    @property
+    def output_dir(self) -> Path:
+        # WHY: derived from DB fields only. Request handlers (e.g. the crawl
+        # changelist's stop-reason column) read this per row, and archive
+        # storage may be a remote FUSE mount where each exists() probe is a
+        # network round trip. Legacy hyphenated dirs are linked into place by
+        # the orchestrator / `archivebox update --rescan --migrate-only` via
+        # migrate_legacy_output_dir(), so nothing else needs to look for them.
+        return self.output_dir_candidates[0]
+
+    def migrate_legacy_output_dir(self) -> bool:
+        """Expose a legacy crawl under its canonical name without moving its tree.
+
+        A directory rename on object storage copies every descendant. Snapshot
+        maintenance must not relocate unrelated captures in a historical crawl.
+        Both names have the same parent, so existing relative links stay valid.
+        """
+        output_dir, hyphen_dir = self.output_dir_candidates
+        # is_dir() first: it is the only check made for an already-canonical crawl.
+        if not hyphen_dir.is_dir() or hyphen_dir.is_symlink() or output_dir.exists():
+            return False
+        output_dir.symlink_to(hyphen_dir.name, target_is_directory=True)
+        return True
 
     def get_urls_list(self) -> list[str]:
         """Get list of URLs from urls field, filtering out comments and empty lines."""
@@ -550,7 +515,8 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if "://" not in candidate and "/" not in candidate:
             candidate = f"https://{candidate.lstrip('.')}"
         try:
-            parsed = urlparse(candidate)
+            # münchen.de and xn--mnchen-3ya.de are one domain; compare as IDNA.
+            parsed = urlparse(iri_to_uri(candidate))
             hostname = parsed.hostname or ""
             if not hostname:
                 return ""
@@ -699,14 +665,16 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             "deleted_snapshots": deleted_snapshots,
         }
 
-    def _iter_url_lines(self) -> list[tuple[str, str]]:
-        entries: list[tuple[str, str]] = []
+    def _iter_url_lines(self) -> Iterator[tuple[str, str]]:
+        # Lazy: callers such as output_dir only need the first URL, and
+        # parsing every JSONL line of a multi-thousand-URL crawl dominated
+        # each screencast frame request.
         for raw_line in (self.urls or "").splitlines():
             stripped = raw_line.strip()
             if not stripped:
                 continue
             if stripped.startswith("#"):
-                entries.append((raw_line.rstrip(), ""))
+                yield (raw_line.rstrip(), "")
                 continue
             try:
                 entry = json.loads(stripped)
@@ -715,12 +683,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 # are not records and must stay inert text instead of raising
                 # during later Snapshot.save() bookkeeping.
                 if isinstance(entry, dict):
-                    entries.append((raw_line.rstrip(), str(entry.get("url", "") or "").strip()))
+                    yield (raw_line.rstrip(), str(entry.get("url", "") or "").strip())
                 else:
-                    entries.append((raw_line.rstrip(), stripped))
+                    yield (raw_line.rstrip(), stripped)
             except json.JSONDecodeError:
-                entries.append((raw_line.rstrip(), stripped))
-        return entries
+                yield (raw_line.rstrip(), stripped)
 
     def count_urls_for_limit(self) -> int:
         """
@@ -729,13 +696,13 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         max_urls is a crawl-wide cap on snapshots, so direct URL entries and
         recursively discovered snapshots both have to consume the same budget.
         """
-        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
-
-        urls = set(self.snapshot_set.values_list("url", flat=True))
+        # Count IRI/URI spellings of one URL once, as dedupe treats them.
+        urls = {iri_to_uri(url) for url in self.snapshot_set.values_list("url", flat=True)}
         for _raw_line, raw_url in self._iter_url_lines():
-            url = sanitize_extracted_url(fix_url_from_markdown(str(raw_url or "").strip()))
-            if url:
-                urls.add(url)
+            try:
+                urls.add(iri_to_uri(validate_url(str(raw_url or "").strip())))
+            except ValueError:
+                continue
         return len(urls)
 
     def remaining_url_capacity(self) -> int | None:
@@ -931,13 +898,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         Returns:
             True if URL was added, False if skipped (duplicate or depth exceeded)
         """
-        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
-
-        url = sanitize_extracted_url(fix_url_from_markdown(str(entry.get("url", "") or "").strip()))
+        url = str(entry.get("url", "") or "").strip()
         if not url:
             return False
         try:
-            validate_url_length(url)
+            url = validate_url(url)
         except ValueError:
             return False
         if not self.url_passes_filters(url):
@@ -949,14 +914,14 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if depth > self.max_depth:
             return False
 
-        # Skip if already a Snapshot for this crawl
-        if self.snapshot_set.filter(url=url).exists():
+        # Skip if already a Snapshot for this crawl (in any IRI/URI spelling)
+        if self.snapshot_set.filter(url__in=equivalent_urls(url)).exists():
             return False
 
         # Check if already in urls (parse existing JSONL entries)
-        existing_urls = {url for _raw_line, url in self._iter_url_lines() if url}
+        existing_urls = {iri_to_uri(url) for _raw_line, url in self._iter_url_lines() if url}
 
-        if url in existing_urls:
+        if iri_to_uri(url) in existing_urls:
             return False
 
         if not self.has_remaining_url_capacity():
@@ -977,13 +942,13 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             List of newly created Snapshot objects
         """
         from archivebox.core.models import Snapshot, Tag
-        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
+        from archivebox.config.common import get_config
 
         if self.status == self.StatusChoices.SEALED:
             return []
         created_snapshots = []
-        crawl_tag_names = self.current_tag_names()
         tags_by_name: dict[str, Tag] = {}
+        server_config = get_config()
 
         for line in self.urls.splitlines():
             if not line.strip():
@@ -995,32 +960,36 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             try:
                 entry = json.loads(line)
                 snapshot_id = entry.get("id") or entry.get("snapshot_id")
-                url = sanitize_extracted_url(fix_url_from_markdown(str(entry.get("url", "") or "").strip()))
+                url = str(entry.get("url", "") or "").strip()
                 depth = entry.get("depth", 0)
                 title = entry.get("title")
                 timestamp = entry.get("timestamp")
-                tag_names = [*crawl_tag_names, *self.parse_tag_names(entry.get("tags", ""))]
+                tag_names = self.parse_tag_names(entry.get("tags", ""))
             except json.JSONDecodeError:
                 snapshot_id = None
-                url = sanitize_extracted_url(fix_url_from_markdown(line.strip()))
+                url = line.strip()
                 depth = 0
                 title = None
                 timestamp = None
-                tag_names = crawl_tag_names
+                tag_names = []
 
             if not url:
                 continue
             try:
-                validate_url(url)
+                url = validate_url(url)
             except ValueError as err:
                 print(f"[yellow][!] Skipping invalid snapshot URL: {url[:120]}... ({err})[/yellow]")
                 continue
-            if Snapshot.is_archivebox_internal_url(url, config=config):
+            if Snapshot.is_archivebox_internal_url(url, config=server_config):
                 print(f"[yellow][!] Skipping internal ArchiveBox snapshot URL: {url}[/yellow]")
                 continue
             if not self.url_passes_filters(url, use_effective_config=False):
                 continue
-            if only_new_urls and Snapshot.objects.filter(url=url).exists():
+            # Recurring discovery needs a fresh seed to find new links. ONLY_NEW
+            # still deduplicates discovered children and ordinary adds.
+            refresh_scheduled_seed = self.schedule_id is not None and self.max_depth > 0 and depth == 0
+            # /über and /%C3%BCber are one URL: dedupe across both spellings.
+            if only_new_urls and not refresh_scheduled_seed and Snapshot.objects.filter(url__in=equivalent_urls(url)).exists():
                 continue
 
             # Skip if depth exceeds max_depth
@@ -1061,7 +1030,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                         snapshot.save()
                         created = True
                 else:
-                    snapshot = Snapshot.objects.filter(url=url, crawl=self).first()
+                    snapshot = Snapshot.objects.filter(url__in=equivalent_urls(url), crawl=self).first()
                     if snapshot:
                         created = False
                     else:
@@ -1126,7 +1095,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
     ) -> list["Snapshot"]:
         """Create child snapshots from discovered URL records after filtering and deduping once."""
         from archivebox.core.models import Snapshot, SnapshotTag, Tag
-        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
+        from archivebox.config.common import get_config
 
         if self.status == self.StatusChoices.SEALED:
             return []
@@ -1134,8 +1103,8 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if depth > self.max_depth:
             return []
 
-        crawl_tag_names = self.current_tag_names()
         config = self.get_current_config(refresh=True)
+        server_config = get_config()
         if parent_snapshot is not None and parent_snapshot.config:
             config.update(parent_snapshot.config)
         allowlist = self.split_filter_patterns(config.get("URL_ALLOWLIST", ""))
@@ -1147,20 +1116,26 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             # text/HTML extraction does not erase RSS/Netscape/JSON fields.
             return sum(bool(record.get(field)) for field in ("title", "bookmarked_at", "timestamp", "tags"))
 
+        # Parser records and explicit seeds already have URL boundaries. Prose
+        # cleanup here corrupts literal fragments, queries and trailing dots.
         deduped_records: dict[str, Mapping[str, Any]] = {}
+        # HTML parsers emit hrefs as written (/über) while Chrome reports them
+        # encoded (/%C3%BCber); key by URI so both dedupe to the first spelling.
+        url_for_uri: dict[str, str] = {}
         for record in records:
-            url = sanitize_extracted_url(fix_url_from_markdown(str(record.get("url") or "").strip()))
+            url = str(record.get("url") or "").strip()
             if not url:
                 continue
             try:
-                validate_url(url)
+                url = validate_url(url)
             except ValueError as err:
                 print(f"[yellow][!] Skipping invalid discovered snapshot URL: {url[:120]}... ({err})[/yellow]")
                 continue
-            if Snapshot.is_archivebox_internal_url(url, config=config):
+            if Snapshot.is_archivebox_internal_url(url, config=server_config):
                 print(f"[yellow][!] Skipping internal ArchiveBox discovered snapshot URL: {url}[/yellow]")
                 continue
             if self.url_passes_compiled_filters(url, allowlist=allowlist, denylist=denylist):
+                url = url_for_uri.setdefault(iri_to_uri(url), url)
                 existing_record = deduped_records.get(url)
                 if existing_record is None or metadata_score(record) > metadata_score(existing_record):
                     deduped_records[url] = record
@@ -1168,8 +1143,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if not deduped_records:
             return []
 
+        lookup_urls = [variant for url in deduped_records for variant in equivalent_urls(url)]
         existing_in_crawl = {
-            snapshot.url: snapshot for snapshot in self.snapshot_set.prefetch_related("tags").filter(url__in=deduped_records.keys())
+            url_for_uri[iri_to_uri(snapshot.url)]: snapshot
+            for snapshot in self.snapshot_set.prefetch_related("tags").filter(url__in=lookup_urls)
+            if iri_to_uri(snapshot.url) in url_for_uri
         }
         for url, snapshot in existing_in_crawl.items():
             record = deduped_records[url]
@@ -1189,7 +1167,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             if update_fields:
                 snapshot.save(update_fields=[*update_fields, "modified_at"])
             tag_names = {
-                *crawl_tag_names,
                 *self.parse_tag_names(
                     str(record.get("tags") or ""),
                     pattern=self._config_value(config, "TAG_SEPARATOR_PATTERN", r"[,]"),
@@ -1199,9 +1176,13 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 tag_ids = [Tag.get_or_create_by_name(tag_name)[0].pk for tag_name in tag_names]
                 snapshot.add_tag_ids(tag_ids)
 
-        existing_scope = Snapshot.objects if bool(self._config_value(config, "ONLY_NEW", True)) else self.snapshot_set
-        existing_urls = set(existing_scope.filter(url__in=deduped_records.keys()).values_list("url", flat=True))
-        urls = [url for url in deduped_records.keys() if url not in existing_urls]
+        # The runner also enters through this batch path for explicit seeds.
+        # Child discoveries must retain global ONLY_NEW even in scheduled crawls.
+        refresh_scheduled_seed = self.schedule_id is not None and self.max_depth > 0 and parent_snapshot is None and depth == 0
+        only_new_urls = bool(self._config_value(config, "ONLY_NEW", True)) and not refresh_scheduled_seed
+        existing_scope = Snapshot.objects if only_new_urls else self.snapshot_set
+        existing_uris = {iri_to_uri(url) for url in existing_scope.filter(url__in=lookup_urls).values_list("url", flat=True)}
+        urls = [url for url in deduped_records.keys() if iri_to_uri(url) not in existing_uris]
         remaining = self.remaining_snapshot_capacity()
         if remaining is not None:
             urls = urls[:remaining]
@@ -1241,8 +1222,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         created_snapshots = []
         for snapshot in snapshots:
             try:
-                # Snapshot.save() owns URL validation and filesystem/index side
-                # effects. Do not use bulk_create() here; it bypasses save().
+                # Snapshot.save() owns URL validation and initial tag inheritance. Do not use bulk_create() here; it bypasses save().
                 snapshot.save()
             except IntegrityError:
                 continue
@@ -1256,7 +1236,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         tag_names_by_url: dict[str, set[str]] = {}
         for snapshot in created_snapshots:
             tag_names = {
-                *crawl_tag_names,
                 *self.parse_tag_names(
                     str(deduped_records[snapshot.url].get("tags") or ""),
                     pattern=self._config_value(config, "TAG_SEPARATOR_PATTERN", r"[,]"),
@@ -1295,13 +1274,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if not snapshots.exists():
             return True
 
-        # If snapshots exist, check if all are sealed
+        # A seal preserves captured content; it does not finish an explicitly
+        # requested plugin run. Match the live completion projector so startup
+        # queue retirement cannot hide that still-pending maintenance.
         if snapshots.filter(
-            status__in=[
-                Snapshot.StatusChoices.QUEUED,
-                Snapshot.StatusChoices.STARTED,
-                Snapshot.StatusChoices.PAUSED,
-            ],
+            Q(status__in=Snapshot.OPEN_STATES) | Q(status=Snapshot.StatusChoices.SEALED, config__RETRY_PLUGINS__0__isnull=False),
         ).exists():
             return False
 
@@ -1314,7 +1291,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         from archivebox.core.models import Snapshot
 
         snapshots = self.snapshot_set.all()
-        return snapshots.exists() and not snapshots.exclude(status=Snapshot.StatusChoices.SEALED).exists()
+        return (
+            snapshots.exists()
+            and not snapshots.exclude(status=Snapshot.StatusChoices.SEALED).exists()
+            and not snapshots.filter(config__RETRY_PLUGINS__0__isnull=False).exists()
+        )
 
     def mark_started(self) -> bool:
         now = timezone.now()

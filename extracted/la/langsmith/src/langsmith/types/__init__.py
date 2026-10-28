@@ -6,6 +6,7 @@ from .run import Run as Run
 from .agent import Agent as Agent
 from .issue import Issue as Issue
 from .trace import Trace as Trace
+from .shared import QueryPatchEvent as QueryPatchEvent, QueryPatchOperation as QueryPatchOperation
 from .thread import Thread as Thread
 from .missing import Missing as Missing
 from .run_type import RunType as RunType

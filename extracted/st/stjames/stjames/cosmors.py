@@ -12,6 +12,7 @@ class COSMORSParameterization(LowercaseStrEnum):
     """COSMO-RS parameter set."""
 
     OPENCOSMO_RS_24A = "opencosmo_rs_24a"
+    ROWAN_COSMORS_2026 = "rowan_cosmors_2026"
 
 
 class COSMORSData(Base):

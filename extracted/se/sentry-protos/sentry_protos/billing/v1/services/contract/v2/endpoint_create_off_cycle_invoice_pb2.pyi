@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.address_pb2
+import sentry_protos.billing.v1.services.contract.ledger.v1.ledger_deposit_pb2
 import sentry_protos.billing.v1.services.contract.v1.invoice_pb2
 import typing
 
@@ -37,6 +38,7 @@ class CreateOffCycleInvoiceRequest(google.protobuf.message.Message):
     TAX_NUMBER_FIELD_NUMBER: builtins.int
     TAX_TRANSACTION_CODE_FIELD_NUMBER: builtins.int
     IS_REVERSE_CHARGE_FIELD_NUMBER: builtins.int
+    LEDGER_DEPOSIT_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     client_id: builtins.str
     """The requesting service. Required when failure_policy is
@@ -57,6 +59,12 @@ class CreateOffCycleInvoiceRequest(google.protobuf.message.Message):
 
     @property
     def address(self) -> sentry_protos.billing.v1.common.v1.address_pb2.Address: ...
+    @property
+    def ledger_deposit(self) -> sentry_protos.billing.v1.services.contract.ledger.v1.ledger_deposit_pb2.LedgerDeposit:
+        """Required. The credit the invoice buys. A repeated idempotency_key returns
+        the existing invoice and writes no second deposit.
+        """
+
     def __init__(
         self,
         *,
@@ -69,9 +77,10 @@ class CreateOffCycleInvoiceRequest(google.protobuf.message.Message):
         tax_number: builtins.str | None = ...,
         tax_transaction_code: builtins.str | None = ...,
         is_reverse_charge: builtins.bool = ...,
+        ledger_deposit: sentry_protos.billing.v1.services.contract.ledger.v1.ledger_deposit_pb2.LedgerDeposit | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "client_id", b"client_id", "failure_policy", b"failure_policy", "idempotency_key", b"idempotency_key", "is_reverse_charge", b"is_reverse_charge", "line_items", b"line_items", "organization_id", b"organization_id", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "ledger_deposit", b"ledger_deposit", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "client_id", b"client_id", "failure_policy", b"failure_policy", "idempotency_key", b"idempotency_key", "is_reverse_charge", b"is_reverse_charge", "ledger_deposit", b"ledger_deposit", "line_items", b"line_items", "organization_id", b"organization_id", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_tax_number", b"_tax_number"]) -> typing.Literal["tax_number"] | None: ...
     @typing.overload

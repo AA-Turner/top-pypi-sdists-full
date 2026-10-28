@@ -20,16 +20,18 @@ from urllib.parse import quote
 import requests
 import yaml
 from airbyte.cloud import CloudWorkspace
-from airbyte.cloud.auth import resolve_cloud_client_id, resolve_cloud_client_secret
 from airbyte.exceptions import (
     AirbyteMissingResourceError,
     AirbyteNoCloudCredentialsError,
     AirbyteWorkspaceMismatchError,
+    PyAirbyteSecretNotFoundError,
 )
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from fastmcp_extensions import mcp_tool, register_mcp_tools
 from pydantic import BaseModel, Field
 
+from airbyte_ops_mcp.cloud_admin.auth import CloudAuthError
+from airbyte_ops_mcp.cloud_admin.version_overrides import ResolvedCloudAuth
 from airbyte_ops_mcp.constants import WorkspaceAliasEnum
 from airbyte_ops_mcp.github_actions import (
     resolve_default_workflow_branch,
@@ -40,6 +42,7 @@ from airbyte_ops_mcp.github_api import (
     get_file_contents_at_ref,
     resolve_ci_trigger_github_token,
 )
+from airbyte_ops_mcp.mcp.cloud_auth import resolve_cloud_auth
 from airbyte_ops_mcp.mcp.connector_versions import ConnectorRepo
 
 REGRESSION_TEST_REPO_OWNER = "airbytehq"
@@ -50,10 +53,18 @@ REGRESSION_TEST_DEFAULT_BRANCH = "main"
 
 REGRESSION_TEST_WORKFLOW_FILE = "connector-regression-test.yml"
 
+_MISSING_CLOUD_AUTH_MESSAGE = (
+    "Airbyte Cloud credentials are required for workspace validation. "
+    "Provide an Authorization bearer token, both "
+    "X-Airbyte-Cloud-Client-Id and X-Airbyte-Cloud-Client-Secret headers, or "
+    "AIRBYTE_CLOUD_CLIENT_ID and AIRBYTE_CLOUD_CLIENT_SECRET environment variables."
+)
+
 
 def validate_connection_workspace(
     connection_id: str,
     workspace_id: str,
+    auth: ResolvedCloudAuth,
 ) -> None:
     """Validate that a connection belongs to the expected workspace.
 
@@ -61,20 +72,14 @@ def validate_connection_workspace(
     the connection exists and belongs to the specified workspace.
 
     Raises:
-        `AirbyteNoCloudCredentialsError`: If Airbyte Cloud credentials are missing.
         `AirbyteWorkspaceMismatchError`: If connection belongs to a different workspace.
         `AirbyteMissingResourceError`: If connection is not found.
     """
-    client_id = resolve_cloud_client_id()
-    client_secret = resolve_cloud_client_secret()
-    if not client_id or not client_secret:
-        # Only client credentials are resolved; suppress bearer-token guidance.
-        raise AirbyteNoCloudCredentialsError(_allow_bearer=False)
-
     workspace = CloudWorkspace(
         workspace_id=workspace_id,
-        client_id=client_id,
-        client_secret=client_secret,
+        client_id=auth.client_id,
+        client_secret=auth.client_secret,
+        bearer_token=auth.bearer_token,
     )
     connection = workspace.get_connection(connection_id)
     connection.check_is_valid()
@@ -357,6 +362,8 @@ def run_regression_tests(
         "`connection_id` is provided, `False` otherwise. Has no effect unless "
         "the command is `read`.",
     ] = None,
+    *,
+    ctx: Context,
 ) -> RunRegressionTestsResponse:
     """Start a regression test run via GitHub Actions workflow.
 
@@ -400,9 +407,21 @@ def run_regression_tests(
     # Validate workspace membership if workspace_id and connection_id are provided
     if resolved_workspace_id and connection_id:
         try:
-            validate_connection_workspace(connection_id, resolved_workspace_id)
+            auth = resolve_cloud_auth(ctx)
+            if not (auth.bearer_token or (auth.client_id and auth.client_secret)):
+                raise CloudAuthError(_MISSING_CLOUD_AUTH_MESSAGE)
+            validate_connection_workspace(connection_id, resolved_workspace_id, auth)
+        except PyAirbyteSecretNotFoundError:
+            return RunRegressionTestsResponse(
+                run_id=run_id,
+                status=TestRunStatus.FAILED,
+                message=_MISSING_CLOUD_AUTH_MESSAGE,
+                workflow_url=None,
+            )
         except (
             ValueError,
+            CloudAuthError,
+            AirbyteNoCloudCredentialsError,
             AirbyteWorkspaceMismatchError,
             AirbyteMissingResourceError,
         ) as e:

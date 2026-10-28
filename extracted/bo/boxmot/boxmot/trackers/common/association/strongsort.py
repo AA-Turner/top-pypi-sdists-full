@@ -6,7 +6,11 @@ import numpy as np
 import torch
 from scipy.optimize import linear_sum_assignment
 
-from boxmot.trackers.common.association.matching import chi2inv95
+from boxmot.trackers.common.association.matching import (
+    linear_assignment,
+    motion_gating_distance,
+    motion_gating_threshold,
+)
 
 INFTY_COST = 1e5
 
@@ -58,15 +62,26 @@ def min_cost_matching(
         return [], track_indices, detection_indices  # Nothing to match.
 
     cost_matrix = distance_metric(tracks, detections, track_indices, detection_indices)
+    if not np.isfinite(cost_matrix).all():
+        matches, unmatched_tracks, unmatched_detections = linear_assignment(cost_matrix, max_distance)
+        return (
+            [(track_indices[row], detection_indices[col]) for row, col in matches],
+            [track_indices[row] for row in unmatched_tracks],
+            [detection_indices[col] for col in unmatched_detections],
+        )
     cost_matrix[cost_matrix > max_distance] = max_distance + 1e-5
     row_indices, col_indices = linear_sum_assignment(cost_matrix)
 
     matches, unmatched_tracks, unmatched_detections = [], [], []
+    matched_columns = np.zeros(len(detection_indices), dtype=bool)
+    matched_rows = np.zeros(len(track_indices), dtype=bool)
+    matched_columns[col_indices] = True
+    matched_rows[row_indices] = True
     for col, detection_idx in enumerate(detection_indices):
-        if col not in col_indices:
+        if not matched_columns[col]:
             unmatched_detections.append(detection_idx)
     for row, track_idx in enumerate(track_indices):
-        if row not in row_indices:
+        if not matched_rows[row]:
             unmatched_tracks.append(track_idx)
     for row, col in zip(row_indices, col_indices):
         track_idx = track_indices[row]
@@ -151,12 +166,16 @@ def gate_cost_matrix(
     mc_lambda,
     gated_cost=INFTY_COST,
     only_position=False,
+    *,
+    gated_mask: np.ndarray | None = None,
 ):
-    """Invalidate infeasible entries in cost matrix based on the state
-    distributions obtained by Kalman filtering.
+    """Blend eligible costs with geometric Mahalanobis distance.
+
+    Rejected pairs retain ``gated_cost`` independently of ``mc_lambda``.
+    The gate uses selected-filter geometry coordinates, excluding confidence,
+    and aligns equivalent oriented rectangles before measuring residuals.
     Parameters
     ----------
-    kf : The Kalman filter.
     cost_matrix : ndarray
         The NxM dimensional cost matrix, where N is the number of track indices
         and M is the number of detection indices, such that entry (i, j) is the
@@ -178,19 +197,33 @@ def gate_cost_matrix(
     only_position : Optional[bool]
         If True, only the x, y position of the state distribution is considered
         during gating. Defaults to False.
+    gated_mask : Optional[ndarray]
+        When supplied, write the Boolean motion gate into this output array
+        before blending costs. This keeps hard gates available to auxiliary
+        association cues without recomputing motion distances.
     Returns
     -------
     ndarray
         Returns the modified cost matrix.
     """
 
-    measurements = np.asarray([detections[i].to_measurement() for i in detection_indices])
-    gating_threshold = chi2inv95[measurements.shape[1]]
+    boxes_by_geometry = {}
     for row, track_idx in enumerate(track_indices):
         track = tracks[track_idx]
-        gating_distance = track.kf.gating_distance(track.mean, track.covariance, measurements, only_position)
-        cost_matrix[row, gating_distance > gating_threshold] = gated_cost
-        cost_matrix[row] = mc_lambda * cost_matrix[row] + (1 - mc_lambda) * gating_distance
+        if track.is_obb not in boxes_by_geometry:
+            geometry_attr = "xywha" if track.is_obb else "xyxy"
+            boxes_by_geometry[track.is_obb] = np.asarray(
+                [getattr(detections[i], geometry_attr) for i in detection_indices]
+            ).reshape(-1, 5 if track.is_obb else 4)
+        boxes = boxes_by_geometry[track.is_obb]
+        distances = motion_gating_distance(track, boxes, only_position=only_position)
+        blocked = ~np.isfinite(cost_matrix[row]) | ~np.isfinite(distances)
+        blocked |= distances > motion_gating_threshold(track, only_position=only_position)
+        if gated_mask is not None:
+            gated_mask[row] = blocked
+        eligible = ~blocked
+        cost_matrix[row, eligible] = mc_lambda * cost_matrix[row, eligible] + (1 - mc_lambda) * distances[eligible]
+        cost_matrix[row, blocked] = gated_cost
     return cost_matrix
 
 
@@ -274,9 +307,7 @@ def _nn_cosine_distance(x, y):
         A vector of length M that contains for each entry in `y` the
         smallest cosine distance to a sample in `x`.
     """
-    x_ = torch.from_numpy(np.asarray(x))
-    y_ = torch.from_numpy(np.asarray(y))
-    distances = _cosine_distance(x_, y_)
+    distances = _cosine_distance(np.asarray(x), np.asarray(y))
     return distances.min(axis=0)
 
 
@@ -345,6 +376,18 @@ class NearestNeighborDistanceMetric(object):
             `targets[i]` and `features[j]`.
         """
         cost_matrix = np.zeros((len(targets), len(features)))
+        if self._metric is _nn_cosine_distance and len(targets):
+            # Every gallery sees the same query matrix. Normalize it once,
+            # retaining each gallery's own dot product and reduction order.
+            # Galleries remain raw so direct sample edits and budget eviction
+            # retain their existing behavior without a stale normalized cache.
+            queries = np.asarray(features) / np.linalg.norm(features, axis=1, keepdims=True)
+            for i, target in enumerate(targets):
+                gallery = np.asarray(self.samples[target])
+                gallery = gallery / np.linalg.norm(gallery, axis=1, keepdims=True)
+                distances = _cosine_distance(gallery, queries, data_is_normalized=True)
+                cost_matrix[i, :] = distances.min(axis=0)
+            return cost_matrix
         for i, target in enumerate(targets):
             cost_matrix[i, :] = self._metric(self.samples[target], features)
         return cost_matrix

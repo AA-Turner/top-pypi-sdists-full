@@ -1,0 +1,381 @@
+"""Waiter regressions: delayed status updates and silent event streams."""
+
+from __future__ import annotations
+
+import asyncio
+import select
+import socket
+import threading
+import time
+from collections.abc import Callable, Iterator
+from types import SimpleNamespace
+from typing import Any
+
+import httpx
+import pytest
+
+from contree_client import base
+from contree_client.httpx import ContreeAsyncClient, ContreeClient
+from tests import stub_server as server
+
+
+@pytest.mark.parametrize("inter_event", [False, True])
+def test_wait_reads_delayed_retained_events(
+    invoke: Callable[..., Any], monkeypatch: pytest.MonkeyPatch, inter_event: bool
+) -> None:
+    """Retained reads tolerate gaps between payload events."""
+    retained_requests = 0
+
+    def frames() -> Iterator[bytes]:
+        if inter_event:
+            yield server.sse_frame(server.EVENT_INIT)
+        # Exercise the native transports and incremental gzip decoder beyond
+        # the former 0.5-second payload-idle cutoff.
+        time.sleep(0.8)
+        yield server.sse_frame(server.EVENT_COMPLETION)
+
+    def route(request: server.Captured, attempts: Any) -> server.Reply:
+        nonlocal retained_requests
+        if not request.path.endswith("/events"):
+            return server.json_reply(200, server.OPERATION_RESPONSE)
+        if request.query.get("follow") == ["1"]:
+            chunks = []
+        else:
+            retained_requests += 1
+            chunks = frames()
+        return server.Reply(
+            status=200, content_type="text/event-stream", stream_chunks=chunks
+        )
+
+    monkeypatch.setattr(server, "route", route)
+    result = invoke(
+        "wait_operation", server.OPERATION_UUID, follow_events=True, timeout=10
+    )
+    assert str(result.status) == "SUCCESS"
+    assert retained_requests == 1
+
+
+@pytest.mark.parametrize("outcome", ["SUCCESS", "FAILED", "CANCELLED"])
+def test_completion_before_terminal_status(
+    invoke: Callable[..., Any], monkeypatch: pytest.MonkeyPatch, outcome: str
+) -> None:
+    reads = []
+
+    def route(request: server.Captured, attempts: Any) -> server.Reply:
+        if request.path.endswith("/events"):
+            return server.Reply(
+                status=200,
+                content_type="text/event-stream",
+                stream_chunks=[server.sse_frame(server.EVENT_COMPLETION)],
+            )
+        status = "EXECUTING" if not reads else outcome
+        reads.append(status)
+        return server.json_reply(200, {**server.OPERATION_RESPONSE, "status": status})
+
+    monkeypatch.setattr(server, "route", route)
+    result = invoke(
+        "wait_operation", server.OPERATION_UUID, follow_events=True, timeout=15
+    )
+    assert str(result.status) == outcome
+    assert reads == ["EXECUTING", outcome]
+
+
+@pytest.fixture
+def disconnected_events(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
+    calls: list[str] = []
+
+    def route(request: server.Captured, attempts: Any) -> server.Reply:
+        if request.path.endswith("/events"):
+            calls.append("events")
+            if calls == ["events"]:
+                return server.Reply(
+                    status=200,
+                    content_type="text/event-stream",
+                    stream_chunks=[b": ready\n\n"],
+                )
+            assert request.query.get("follow") != ["1"]
+            return server.Reply(
+                status=200,
+                content_type="text/event-stream",
+                stream_chunks=[server.sse_frame(server.EVENT_COMPLETION)],
+            )
+        calls.append("status")
+        return server.json_reply(200, server.OPERATION_RESPONSE)
+
+    monkeypatch.setattr(server, "route", route)
+    yield calls
+
+
+def test_disconnected_events_probe_status(
+    invoke: Callable[..., Any], disconnected_events: list[str]
+) -> None:
+    result = invoke(
+        "wait_operation", server.OPERATION_UUID, follow_events=True, timeout=15
+    )
+    assert str(result.status) == "SUCCESS"
+    assert disconnected_events == ["events", "status", "events", "status"]
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_disconnected_events_release_single_connection(
+    stub_server: server.StubServer, disconnected_events: list[str], asynchronous: bool
+) -> None:
+    limits = httpx.Limits(max_connections=1, max_keepalive_connections=1)
+    if asynchronous:
+
+        async def run() -> Any:
+            async with httpx.AsyncClient(limits=limits) as transport:
+                client = ContreeAsyncClient(
+                    "test", base_url=stub_server.base_url, httpx_client=transport
+                )
+                return await client.wait_operation(
+                    server.OPERATION_UUID, follow_events=True, timeout=15
+                )
+
+        result = asyncio.run(run())
+    else:
+        with httpx.Client(limits=limits) as transport:
+            client = ContreeClient(
+                "test", base_url=stub_server.base_url, httpx_client=transport
+            )
+            result = client.wait_operation(
+                server.OPERATION_UUID, follow_events=True, timeout=15
+            )
+    assert str(result.status) == "SUCCESS"
+    assert disconnected_events == ["events", "status", "events", "status"]
+
+
+@pytest.mark.parametrize(
+    ("traffic", "ending"),
+    [
+        (traffic, ending)
+        for traffic in ("payload", "ping", "silent")
+        for ending in ("completion", "deadline")
+    ]
+    + [("ping", "disconnect"), ("ping", "idle")],
+)
+def test_event_progress_through_transport(
+    invoke: Callable[..., Any],
+    stub_server: server.StubServer,
+    monkeypatch: pytest.MonkeyPatch,
+    traffic: str,
+    ending: str,
+) -> None:
+    """Exercise native adapter timers and sockets, including compressed SSE."""
+    progress_done = threading.Event()
+    release = threading.Event()
+    stream_finished = threading.Event()
+    # The producer runs across several former idle intervals. This timer drives
+    # server output; assertions use protocol phases and socket state, not elapsed
+    # durations. Mocking stream() or its clock would bypass aiohttp's total timer.
+    progress_timer = threading.Timer(1.5, progress_done.set)
+    stream_socket: socket.socket | None = None
+    probes: list[tuple[bool, bool]] = []
+    keepalives = 0
+    sent = 0
+    stream_calls = 0
+    send_stream = server.Handler.send_stream
+
+    def peer_closed() -> bool:
+        assert stream_socket is not None
+        if stream_socket.fileno() < 0:
+            return True
+        # Wait for the peer FIN/RST instead of racing its network delivery.
+        # This is a deadlock watchdog, not an elapsed-time assertion.
+        readable, _, _ = select.select([stream_socket], [], [], 15)
+        if not readable:
+            return False
+        try:
+            return stream_socket.recv(1, socket.MSG_PEEK) == b""
+        except (ConnectionResetError, ConnectionAbortedError):
+            # Windows may report a closed connection as WSAECONNABORTED.
+            return True
+
+    def capture_socket(handler: server.Handler, reply: server.Reply) -> None:
+        nonlocal stream_socket
+        if stream_socket is not None:
+            send_stream(handler, reply)
+            return
+        # Keep our observation socket valid when the handler thread exits.
+        # EOF on this duplicate proves that the client closed its side.
+        stream_socket = handler.connection.dup()
+        try:
+            send_stream(handler, reply)
+        finally:
+            stream_finished.set()
+
+    def frames() -> Iterator[bytes]:
+        nonlocal keepalives, sent
+        progress_timer.start()
+        yield server.sse_frame({**server.EVENT_INIT, "id": 0})
+        sent = 1
+        while not progress_done.is_set() and not release.is_set():
+            if traffic == "silent":
+                progress_done.wait(15)
+            elif traffic == "ping":
+                keepalives += 1
+                yield b": ping\n\n"
+            else:
+                yield server.sse_frame(
+                    {
+                        **server.EVENT_COMPLETION,
+                        "id": sent,
+                        "type": "stdout",
+                        "data": {"value": "x", "encoding": "ascii"},
+                    }
+                )
+                sent += 1
+        if ending == "idle":
+            release.wait(15)
+        elif ending != "disconnect" and not release.is_set():
+            yield server.sse_frame({**server.EVENT_COMPLETION, "id": sent})
+
+    def route(request: server.Captured, attempts: Any) -> server.Reply:
+        nonlocal stream_calls
+        if request.path.endswith("/events"):
+            stream_calls += 1
+            if stream_calls == 1:
+                return server.Reply(
+                    status=200, content_type="text/event-stream", stream_chunks=frames()
+                )
+            assert ending in ("disconnect", "idle"), "a healthy stream was reconnected"
+            assert request.headers.get("last-event-id") == str(sent - 1)
+            return server.Reply(
+                status=200,
+                content_type="text/event-stream",
+                stream_chunks=[
+                    server.sse_frame({**server.EVENT_COMPLETION, "id": sent})
+                ],
+            )
+        probes.append((progress_done.is_set(), peer_closed()))
+        return server.json_reply(200, server.OPERATION_RESPONSE)
+
+    monkeypatch.setattr(server.Handler, "send_stream", capture_socket)
+    monkeypatch.setattr(server, "route", route)
+    try:
+        if ending == "deadline":
+            with pytest.raises(TimeoutError, match=server.OPERATION_UUID):
+                invoke(
+                    "wait_operation",
+                    server.OPERATION_UUID,
+                    follow_events=True,
+                    timeout=1,
+                    idle_timeout=0.75 if traffic != "silent" else 0,
+                )
+            assert probes == [], "status was requested while the SSE stream was open"
+            assert peer_closed(), "the expired waiter left its stream open"
+        else:
+            result = invoke(
+                "wait_operation",
+                server.OPERATION_UUID,
+                follow_events=True,
+                timeout=15,
+                idle_timeout=0.75 if traffic != "silent" else 0,
+            )
+            assert str(result.status) == "SUCCESS"
+            expected = [(True, True)] * (2 if ending in ("disconnect", "idle") else 1)
+            assert probes == expected, (
+                "status probes must follow the progress phase and stream closure",
+                probes,
+            )
+            if traffic == "ping":
+                assert keepalives > 0
+        assert stream_calls == (2 if ending in ("disconnect", "idle") else 1)
+        assert sent > 0
+    finally:
+        release.set()
+        progress_done.set()
+        progress_timer.cancel()
+        try:
+            assert stream_finished.wait(15), "server stream did not shut down"
+        finally:
+            if stream_socket is not None:
+                stream_socket.close()
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_delayed_status_keeps_original_deadline(
+    monkeypatch: pytest.MonkeyPatch, asynchronous: bool
+) -> None:
+    clock = SimpleNamespace(now=100.0)
+    deadlines = []
+
+    def sleep(delay: float) -> None:
+        clock.now += delay
+
+    def read(operation_id: str, deadline: float | None) -> Any:
+        deadlines.append(deadline)
+        if clock.now >= 101.0:
+            raise TimeoutError("deadline")
+        return SimpleNamespace(status=base.OperationStatus.EXECUTING)
+
+    monkeypatch.setattr(
+        base, "time", SimpleNamespace(monotonic=lambda: clock.now, sleep=sleep)
+    )
+    event = SimpleNamespace(id=1, type="completion")
+    if asynchronous:
+
+        async def events(self: Any, *args: Any, **kwargs: Any) -> Any:
+            clock.now += 0.75
+            yield event
+
+        async def read_async(
+            self: Any, operation_id: str, deadline: float | None
+        ) -> Any:
+            return read(operation_id, deadline)
+
+        async def sleep_async(delay: float) -> None:
+            sleep(delay)
+
+        monkeypatch.setattr(
+            base,
+            "asyncio",
+            SimpleNamespace(sleep=sleep_async, TimeoutError=asyncio.TimeoutError),
+        )
+        monkeypatch.setattr(ContreeAsyncClient, "follow_operation_events", events)
+        monkeypatch.setattr(ContreeAsyncClient, "_read_operation_status", read_async)
+
+        async def run() -> None:
+            client = ContreeAsyncClient("test")
+            try:
+                await client.wait_operation(
+                    server.OPERATION_UUID, follow_events=True, timeout=1
+                )
+            finally:
+                await client.close()
+
+        with pytest.raises(TimeoutError, match=server.OPERATION_UUID):
+            asyncio.run(run())
+    else:
+
+        def events(self: Any, *args: Any, **kwargs: Any) -> Any:
+            clock.now += 0.75
+            yield event
+
+        monkeypatch.setattr(ContreeClient, "follow_operation_events", events)
+        monkeypatch.setattr(
+            ContreeClient,
+            "_read_operation_status",
+            lambda self, operation_id, deadline: read(operation_id, deadline),
+        )
+        with (
+            ContreeClient("test") as client,
+            pytest.raises(TimeoutError, match=server.OPERATION_UUID),
+        ):
+            client.wait_operation(server.OPERATION_UUID, follow_events=True, timeout=1)
+    assert deadlines == [101.0, 101.0]
+    assert clock.now == 101.0
+
+
+@pytest.mark.parametrize("method", ["wait_operation", "follow_operation_events"])
+@pytest.mark.parametrize("idle_timeout", [-1.0, float("nan"), float("inf")])
+def test_invalid_idle_timeout(
+    invoke: Callable[..., Any], method: str, idle_timeout: float
+) -> None:
+    with pytest.raises(ValueError, match="idle_timeout"):
+        invoke(
+            method,
+            server.OPERATION_UUID,
+            idle_timeout=idle_timeout,
+            collect=method == "follow_operation_events",
+        )

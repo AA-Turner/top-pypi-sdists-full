@@ -38,7 +38,7 @@ from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.identity_inputs import identity_input
 from matrx_graph.types.primitives import ActionTier, NodeCategory
-from matrx_graph.types.result import NodeResult
+from matrx_graph.types.result import NodeResult, Success
 from matrx_graph.types.usl import field_extras
 from matrx_utils import vcprint
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -381,3 +381,146 @@ async def conversation_continue(
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.
     return limit.name_on(await asyncio.to_thread(normalize_completed_result, completed))
+
+
+class ConversationForkAndRunInput(ConversationContinueInput):
+    """Workflow-side request body for ``ai.conversation.fork_and_run``.
+
+    Every ``ai.conversation.continue`` field plus the fork selectors of the host
+    ``ForkAndRunRequest`` (the contract ``POST /conversations/{id}/fork-and-run``
+    accepts). ``conversation_id`` is the SOURCE; the turn runs on the new fork,
+    so the source is never touched. ``question`` is a host-written turn (build it with a
+    ``text.template`` step when it carries run values).
+    """
+
+    from_message_id: str | None = Field(
+        default=None,
+        description=(
+            "Copy the conversation up to and including this message. 'last' (or blank) copies every live "
+            "message, so the fork ends at the conversation's last message."
+        ),
+        json_schema_extra=field_extras(widget="text"),
+    )
+    up_to_position: int | None = Field(
+        default=None, ge=0, description="Copy the messages with position <= this number."
+    )
+    exclusive: bool = Field(
+        default=False,
+        description="Fork BEFORE from_message_id instead of after it (the 'edit this message' shape).",
+    )
+    fork_title: str | None = Field(
+        default=None, description="Title of the new conversation (default 'Fork: <source>')."
+    )
+    model_this_turn_only: bool = Field(
+        default=False,
+        description="A model in config_overrides applies to this turn only and never sticks to the fork.",
+    )
+    keep_whole: bool = Field(
+        default=True,
+        description=(
+            "The turn sees the copied conversation exactly as stored: never condensed before it is "
+            "sent. On by default, because a question on a fork is usually about the run it copies."
+        ),
+    )
+    question: str | None = Field(
+        default=None,
+        description=(
+            "A turn the host writes on the fork (never something a person typed). Mutually "
+            "exclusive with user_input and host_turn."
+        ),
+        json_schema_extra=field_extras(widget="textarea", multiline_rows=8),
+    )
+    question_reason: str = Field(
+        default="workflow_question",
+        description="Why the host wrote the turn; stored on the turn.",
+    )
+
+
+def require_fork_host(node_type: str) -> None:
+    """Fail loudly when the host never registered the fork-and-run extensions."""
+    if not has_ext("conversation_fork_runner") or not has_ext("ForkAndRunRequest"):
+        raise RuntimeError(
+            f"{node_type} requires the host application to register a "
+            "conversation_fork_runner and ForkAndRunRequest via matrx_ai.configure(). "
+            "See aidream/package_integration.py for the reference wiring."
+        )
+
+
+#: ``from_message_id`` values that mean "fork after the last message".
+LAST_MESSAGE = frozenset({"", "last", "last message"})
+#: ``config_overrides.model`` values that mean "keep the agent's own model" (no override).
+AGENT_MODEL = frozenset({"", "agent", "agent's model", "agent model"})
+
+
+def build_fork_request(inputs: ConversationForkAndRunInput):
+    """Build the host ``ForkAndRunRequest``: the question becomes the host turn."""
+    ForkAndRunRequest = get_ext("ForkAndRunRequest")
+    payload = inputs.model_dump(
+        exclude_none=True,
+        exclude={"conversation_id", "question", "question_reason"},
+    )
+    # A workflow names "the last message" and "the agent's own model" in words, so its defaults stay visible.
+    if str(payload.get("from_message_id") or "").strip().lower() in LAST_MESSAGE:
+        payload.pop("from_message_id", None)
+    overrides = payload.get("config_overrides")
+    if isinstance(overrides, dict) and str(overrides.get("model") or "").strip().lower() in AGENT_MODEL:
+        payload["config_overrides"] = {k: v for k, v in overrides.items() if k != "model"}
+    if inputs.question is not None:
+        if inputs.user_input is not None or inputs.host_turn is not None:
+            raise ValueError(
+                "ai.conversation.fork_and_run: question, user_input and host_turn are mutually "
+                "exclusive; set exactly one."
+            )
+        # The person who started the fork reads the question in the forked conversation: the host turn is
+        # stamped shown-to-person, so the transcript shows it as the platform's turn instead of hiding it.
+        payload["host_turn"] = {
+            "text": inputs.question,
+            "reason": inputs.question_reason,
+            "metadata": {"visible_to_person": True},
+        }
+    return ForkAndRunRequest.model_validate(payload)
+
+
+@register_node(
+    name="ai.conversation.fork_and_run",
+    display_name="Fork and Ask",
+    description=(
+        "Copy a conversation up to a message into a new conversation, then run one more turn on "
+        "the copy. The original conversation is never touched."
+    ),
+    category=NodeCategory.AGENT,
+    determinism=ActionTier.NON_DETERMINISTIC,
+    input_schema=ConversationForkAndRunInput,
+    output_schema=AiExecutionResult,
+    output_kind="agent_result",
+    icon="git-fork",
+    tags=("ai", "conversation", "llm", "fork"),
+)
+async def conversation_fork_and_run(
+    ctx: NodeExecutionContext, inputs: ConversationForkAndRunInput
+) -> NodeResult[AiExecutionResult]:
+    """The turn on the fork; ``conversation_id`` is the fork and ``metadata.fork`` names its source."""
+    require_fork_host("ai.conversation.fork_and_run")
+    limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
+    inputs.max_iterations = limit.value
+    request = build_fork_request(inputs)
+    fork_runner = get_ext("conversation_fork_runner")
+    token = set_app_context(ctx.app)
+    try:
+        async with _block_stream_scope():
+            fork_event, completed = await fork_runner(
+                inputs.conversation_id, request, get_app_context()
+            )
+    finally:
+        clear_app_context(token)
+    result = await asyncio.to_thread(normalize_completed_result, completed)
+    if isinstance(result, Success):
+        value = result.result
+        value.metadata = {
+            **value.metadata,
+            "fork": {
+                "source_conversation_id": inputs.conversation_id,
+                "forked_at_position": getattr(fork_event, "forked_at_position", None),
+            },
+        }
+    return limit.name_on(result)

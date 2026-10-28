@@ -35,7 +35,11 @@ from confiture.cli.options import (
 from confiture.core import connection as _core_connection
 from confiture.core import migrator as _core_migrator
 from confiture.core.error_handler import print_error_to_console
-from confiture.core.locking import LockAcquisitionError, resolve_lock_settings
+from confiture.core.locking import (
+    LockAcquisitionError,
+    resolve_extra_lock_keys,
+    resolve_lock_settings,
+)
 from confiture.error_codes import exit_code_of
 
 
@@ -55,7 +59,7 @@ def migrate_down(
         1,
         "--steps",
         "-n",
-        help="Number of migrations to rollback (default: 1)",
+        help="Number of migrations to rollback",
     ),
     dry_run: bool = typer.Option(
         False,
@@ -79,7 +83,7 @@ def migrate_down(
     """Rollback previously applied migrations.
 
     PROCESS:
-      Rolls back the last N applied migrations (default: 1), reverting schema
+      Rolls back the last N applied migrations, reverting schema
       changes. Use --dry-run to analyze without executing. If any of them has
       no usable down (no .down.sql, or a Python down() that does nothing), it
       refuses before rolling anything back: exit 8 (ROLLBACK_600).
@@ -104,7 +108,7 @@ def migrate_down(
 
     OPTIONS:
       CORE: --steps
-        How many migrations to rollback (default: 1)
+        How many migrations to rollback
 
       DRY-RUN: --dry-run, --verbose, --format, --output
         Analyze rollback without executing, with detailed reports
@@ -128,6 +132,8 @@ def migrate_down(
             config_data = {"database_url": _db_url_override}
         else:
             config_data = _core_connection.load_config(config)
+        env_cfg = _load_environment_if_present(config) if _db_url_override is None else None
+        locking = env_cfg.migration.locking if env_cfg else None
 
         with _core_migrator.MigratorSession(
             None,
@@ -136,6 +142,7 @@ def migrate_down(
             migration_table_override=_get_tracking_table(config_data),
             command="confiture migrate down",
             connection_factory=connect,
+            extra_lock_keys=resolve_extra_lock_keys(locking),
         ) as session:
             if session.current_revision() is None:
                 console.print("[yellow]⚠️  No applied migrations to rollback.[/yellow]")
@@ -158,10 +165,7 @@ def migrate_down(
 
             if not is_json(format_output):
                 console.print(t"[cyan]📦 Rolling back up to {steps} migration(s)[/cyan]\n")
-            env_cfg = _load_environment_if_present(config) if _db_url_override is None else None
-            lock_timeout, no_lock = resolve_lock_settings(
-                env_cfg.migration.locking if env_cfg else None, lock_timeout, no_lock
-            )
+            lock_timeout, no_lock = resolve_lock_settings(locking, lock_timeout, no_lock)
             result = session.down(steps=steps, lock_timeout=lock_timeout, no_lock=no_lock)
 
         format_migrate_down_result(result, format_output, output_file, console)

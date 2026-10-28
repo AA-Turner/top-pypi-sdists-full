@@ -4,9 +4,12 @@
 # This program is distributed under the MIT License (see MIT.md)
 ###########################################################################################
 
+import functools
 import logging
+import multiprocessing
+import sys
 from contextlib import contextmanager
-from typing import Dict, Union
+from typing import Callable, Dict, Optional, Union
 
 import numpy as np
 import torch
@@ -84,6 +87,23 @@ def set_default_dtype(dtype: str) -> None:
     torch.set_default_dtype(dtype_dict[dtype])
 
 
+def worker_start_method(num_workers: int) -> Optional[str]:
+    """The multiprocessing start method for DataLoader workers.
+
+    Since Python 3.14 the Linux default is forkserver, which pickles the
+    dataset to each worker. Under torch's file_descriptor sharing strategy
+    every tensor then travels as its own descriptor, and an in-memory dataset
+    of more than a few hundred tensors fails with `ValueError: too many fds`.
+    fork hands the dataset over by copy-on-write instead. macOS keeps its own
+    default, spawn, because fork is unsafe there.
+    """
+    if num_workers == 0 or sys.platform == "darwin":
+        return None
+    if "fork" not in multiprocessing.get_all_start_methods():
+        return None
+    return "fork"
+
+
 def get_change_of_basis() -> torch.Tensor:
     return CartesianTensor("ij=ji").reduced_tensor_products().change_of_basis
 
@@ -155,6 +175,37 @@ def default_dtype(dtype: Union[torch.dtype, str]):
     else:
         torch.set_default_dtype(dtype)
 
-    yield
+    # `finally`, because the default dtype is process-wide and this scope guards
+    # code that raises: `MACECalculator.calculate` runs inside it, and so does
+    # every converter entry point, which sets the default from the source model
+    # before it can refuse a model it does not accept. Without this an exception
+    # left the whole process on the scope's dtype -- silently, since nothing
+    # reads it back -- and the next unrelated tensor was built at that precision.
+    try:
+        yield
+    finally:
+        torch.set_default_dtype(init)
 
-    torch.set_default_dtype(init)
+
+def restores_default_dtype(func: Callable) -> Callable:
+    """Undo whatever a function does to the process-wide default dtype.
+
+    The converters set the default from the source model's parameters so the
+    submodules they build land at the right precision, and they are library
+    functions rather than only CLI entry points: `MACECalculator.__init__` calls
+    `run_e3nn_to_cueq` (mace/calculators/mace.py:362), and `run_train` converts
+    mid-run at a dtype it has already chosen for itself. Leaving the default
+    changed hands the caller a different process than it had, so every later
+    tensor built without an explicit dtype silently follows the converted model.
+
+    A decorator rather than a `with` around each body: the body still needs the
+    default set while it constructs, so the only change is that the scope ends.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # Setting the current dtype is a no-op; the point is the restore.
+        with default_dtype(torch.get_default_dtype()):
+            return func(*args, **kwargs)
+
+    return wrapper

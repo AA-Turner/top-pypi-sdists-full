@@ -13,6 +13,7 @@ from .credentials_module_types import (
     OAuthConfig,
     ValidateCredentialConfigCallable,
 )
+from .itsm_module_types import TICKET_CAPABILITIES, ItsmSettings, TicketInfo, TicketInfoCallable
 from .oauth_module_types import (
     OAUTH_FLOW_TYPE_CAPABILITIES,
     ClientAuthenticationMethod,
@@ -57,6 +58,10 @@ __all__ = [
     "OAUTH_FLOW_TYPE_CAPABILITIES",
     "CredentialsSettings",
     "ProbeSettings",
+    "ItsmSettings",
+    "TICKET_CAPABILITIES",
+    "TicketInfo",
+    "TicketInfoCallable",
     "DEFAULT_PROBE_CHECK_ORDER",
     "AUTH_TYPE_MAP",
     "RateLimitConfig",

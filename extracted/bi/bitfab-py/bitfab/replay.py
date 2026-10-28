@@ -726,13 +726,14 @@ def _db_branch_settings(
 
 
 CodeChangeType = Literal[
-    "working-tree", "last-branch", "default-branch", "skip", "manual"
+    "working-tree", "last-branch", "default-branch", "ref", "skip", "manual"
 ]
 
 CODE_CHANGE_TYPES: tuple[CodeChangeType, ...] = (
     "working-tree",
     "last-branch",
     "default-branch",
+    "ref",
     "skip",
     "manual",
 )
@@ -740,8 +741,9 @@ CODE_CHANGE_TYPES: tuple[CodeChangeType, ...] = (
 CODE_CHANGE_CHOICES = (
     '"working-tree" (uncommitted changes vs HEAD), "last-branch" (the diff '
     'against the branch this one was cut from), "default-branch" (the diff '
-    'against the default branch), "skip" (no code change), or "manual" (pass '
-    "the files yourself)"
+    'against the default branch), "ref" (the diff against a branch or commit '
+    'you name), "skip" (no code change), or "manual" (pass the files '
+    "yourself)"
 )
 
 
@@ -753,6 +755,7 @@ def validate_code_change(
     code_change: object,
     code_change_description: str | None,
     code_change_files: list[CodeChangeFile] | None,
+    code_change_base: str | None = None,
 ) -> CodeChangeType:
     if code_change is None:
         raise ValueError(
@@ -772,6 +775,20 @@ def validate_code_change(
     if code_change != "manual" and code_change_files is not None:
         raise ValueError(
             'code_change_files only applies with code_change "manual" '
+            f'(got "{code_change}").'
+        )
+    if code_change == "ref" and (
+        not isinstance(code_change_base, str)
+        or not code_change_base.strip()
+        or code_change_base.strip().startswith("-")
+    ):
+        raise ValueError(
+            'code_change "ref" needs code_change_base: the branch or commit to '
+            'diff against, such as "dev" or a commit SHA.'
+        )
+    if code_change != "ref" and code_change_base is not None:
+        raise ValueError(
+            'code_change_base only applies with code_change "ref" '
             f'(got "{code_change}").'
         )
     if code_change == "skip" and code_change_description is not None:
@@ -930,6 +947,7 @@ def replay(
     code_change: CodeChangeType | None = None,
     code_change_description: str | None = None,
     code_change_files: list[CodeChangeFile] | None = None,
+    code_change_base: str | None = None,
     experiment_group_id: str | None = None,
     experiment_group_name: str | None = None,
     dataset_id: str | None = None,
@@ -1021,10 +1039,12 @@ def replay(
             - ``"default-branch"``: the diff against where HEAD split from the
               default branch (``origin/HEAD``, else ``origin/main``,
               ``origin/master``, ``main``, ``master``)
+            - ``"ref"``: the diff against where HEAD split from the branch or
+              commit in ``code_change_base``
             - ``"skip"``: no code change, such as for a baseline run
             - ``"manual"``: the files passed in ``code_change_files``
 
-            The three git choices include uncommitted edits and untracked
+            The four git choices include uncommitted edits and untracked
             files, and warn and attach nothing when they find no changed files.
         code_change_description: Description of the code change being tested
             in this replay. Defaults to one generated from the captured files.
@@ -1034,6 +1054,11 @@ def replay(
             ``{"path", "before", "after"}`` with the file path and full
             ``before``/``after`` contents. Use ``""`` for newly created
             (``before``) or deleted (``after``) files.
+        code_change_base: The branch or commit to diff against when
+            ``code_change`` is ``"ref"``, and only then, such as ``"dev"``,
+            ``"release/2.3"``, or a commit SHA. A branch that exists only on
+            the remote is read as ``origin/<name>``. A name git cannot resolve
+            is refused.
         experiment_group_id: Optional UUID that groups multiple replay runs
             into a single experiment batch. The run joins that group, and an ID
             no group has yet creates it. The experiments page can stream
@@ -1173,7 +1198,7 @@ def replay(
     """
     explicit_options = _explicit_replay_options(locals())
     resolved_code_change_type = validate_code_change(
-        code_change, code_change_description, code_change_files
+        code_change, code_change_description, code_change_files, code_change_base
     )
     if judge_assertions is not None:
         warn_once("deprecated-judge-assertions", JUDGE_ASSERTIONS_DEPRECATION)
@@ -1261,6 +1286,7 @@ def replay(
         code_change_description,
         code_change_files,
         name,
+        code_change_base.strip() if code_change_base is not None else None,
     )
 
     db_branch_settings = _db_branch_settings(db_branch)
@@ -1299,6 +1325,7 @@ def replay(
             name=name,
             notes=notes,
             metadata=metadata,
+            code_change_type=resolved_code_change_type,
             code_change_description=resolved_code_change_description,
             code_change_files=request_code_change_files,
             experiment_group_id=experiment_group_id,
@@ -1606,12 +1633,13 @@ def _resolve_code_change(
     description: str | None,
     files: list[CodeChangeFile] | None,
     label: str | None,
+    base: str | None = None,
 ) -> tuple[str | None, list[CodeChangeFile] | None]:
     if code_change == "skip":
         return None, None
     if code_change == "manual":
         return description, files if files is not None else []
-    captured = _capture_code_change(code_change, label)
+    captured = _capture_code_change(code_change, label, base)
     if captured is None:
         logger.warning(
             'Bitfab: code_change "%s" found no changed files, so this replay has '
@@ -1623,13 +1651,13 @@ def _resolve_code_change(
 
 
 def _capture_code_change(
-    code_change: CodeChangeType, label: str | None
+    code_change: CodeChangeType, label: str | None, base: str | None = None
 ) -> tuple[str | None, list[CodeChangeFile]] | None:
     from_env = _read_code_change_file()
     if from_env is not None:
         env_description, env_files = from_env
         return (env_description, env_files) if env_files else None
-    return _capture_code_change_from_git(os.getcwd(), code_change, label)
+    return _capture_code_change_from_git(os.getcwd(), code_change, label, base)
 
 
 def _read_code_change_file() -> tuple[str | None, list[CodeChangeFile]] | None:
@@ -1658,7 +1686,27 @@ def _cc_ref_exists(root: str, ref: str) -> bool:
     return _git(root, ["rev-parse", "--verify", f"{ref}^{{object}}"]) is not None
 
 
-def _cc_resolve_base(root: str, code_change: CodeChangeType) -> tuple[str, str] | None:
+class CodeChangeBaseError(ValueError):
+    pass
+
+
+def _cc_resolve_chosen_base(root: str, chosen: str) -> tuple[str, str] | None:
+    for ref in (chosen, f"origin/{chosen}"):
+        if _cc_ref_exists(root, f"{ref}^{{commit}}"):
+            base = (_git(root, ["merge-base", "HEAD", ref]) or "").strip()
+            return (base, f"vs {chosen}") if base else None
+    raise CodeChangeBaseError(
+        f'code_change_base "{chosen}" names no branch or commit in this '
+        'repository. Pass a branch name, such as "dev", or a commit SHA; fetch '
+        "it first if it only exists on the remote."
+    )
+
+
+def _cc_resolve_base(
+    root: str, code_change: CodeChangeType, chosen: str | None = None
+) -> tuple[str, str] | None:
+    if code_change == "ref":
+        return _cc_resolve_chosen_base(root, chosen) if chosen else None
     if code_change == "last-branch":
         return _cc_resolve_branch_point(root)
     if code_change == "default-branch":
@@ -1812,14 +1860,17 @@ def _cc_working_bytes(root: str, path: str) -> int:
 
 
 def _capture_code_change_from_git(
-    cwd: str, code_change: CodeChangeType, label: str | None = None
+    cwd: str,
+    code_change: CodeChangeType,
+    label: str | None = None,
+    chosen: str | None = None,
 ) -> tuple[str | None, list[CodeChangeFile]] | None:
     try:
         root = _git(cwd, ["rev-parse", "--show-toplevel"])
         if not root or not root.strip():
             return None
         root = root.strip()
-        resolved = _cc_resolve_base(root, code_change)
+        resolved = _cc_resolve_base(root, code_change, chosen)
         if not resolved:
             return None
         entries = _cc_list_changes(root, resolved[0])
@@ -1870,6 +1921,8 @@ def _capture_code_change_from_git(
         )
         word = "file" if len(files) == 1 else "files"
         return f"{head} ({len(files)} {word} changed {against})", files
+    except CodeChangeBaseError:
+        raise
     except Exception:
         return None
 

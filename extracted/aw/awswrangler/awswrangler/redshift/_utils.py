@@ -34,6 +34,11 @@ def _identifier(sql: str) -> str:
     return _sql_utils.identifier(sql, sql_mode="ansi")
 
 
+def _escape_string_literal(value: str) -> str:
+    """Escape a value for safe interpolation inside a single-quoted SQL string literal."""
+    return value.replace("'", "''")
+
+
 def _make_s3_auth_string(
     aws_access_key_id: str | None = None,
     aws_secret_access_key: str | None = None,
@@ -45,6 +50,8 @@ def _make_s3_auth_string(
         auth_str: str = f"ACCESS_KEY_ID '{aws_access_key_id}'\nSECRET_ACCESS_KEY '{aws_secret_access_key}'\n"
         if aws_session_token is not None:
             auth_str += f"SESSION_TOKEN '{aws_session_token}'\n"
+    elif aws_access_key_id is not None or aws_secret_access_key is not None:
+        raise exceptions.InvalidArgument("aws_access_key_id and aws_secret_access_key must be provided together.")
     elif iam_role is not None:
         auth_str = f"IAM_ROLE '{iam_role}'\n"
     else:
@@ -287,7 +294,9 @@ def _redshift_types_from_path(
     _logger.debug("Parquet metadata types: %s", athena_types)
     redshift_types: dict[str, str] = {}
     for col_name, col_type in athena_types.items():
-        length: int = _varchar_lengths[col_name] if col_name in _varchar_lengths else varchar_lengths_default
+        length = _data_types._validate_varchar_length(
+            col_name, _varchar_lengths[col_name] if col_name in _varchar_lengths else varchar_lengths_default
+        )
         redshift_types[col_name] = _data_types.athena2redshift(dtype=col_type, varchar_length=length)
     _logger.debug("Converted redshift types: %s", redshift_types)
     return redshift_types
@@ -350,7 +359,10 @@ def _get_rsh_columns_types(
                 raise ValueError(
                     "redshift_column_types is None. It must be specified for files formats other than Parquet or ORC."
                 )
-            redshift_types = redshift_column_types
+            redshift_types = {
+                col: _data_types._validate_database_type(col, type_str)
+                for col, type_str in redshift_column_types.items()
+            }
     else:
         raise ValueError("df and path are None. You MUST pass at least one.")
     return redshift_types
@@ -374,7 +386,7 @@ def _add_new_table_columns(cursor: "Cursor", schema: str, table: str, redshift_c
     _add_table_columns(cursor=cursor, schema=schema, table=table, new_columns=new_df_columns)
 
 
-def _create_table(  # noqa: PLR0913
+def _create_table(  # noqa: PLR0913, PLR0917
     df: pd.DataFrame | None,
     path: str | list[str] | None,
     con: "Connection",

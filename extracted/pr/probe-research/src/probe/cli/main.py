@@ -209,6 +209,16 @@ def _check_ref_shape(ref: str) -> None:
         raise typer.BadParameter(
             f"{ref!r} looks like an option, not a run ref — check the argument order"
         )
+    if "=" in ref:
+        # The run argument is missing, so the first key=value took its place:
+        # `probe log $RUN loss=0.5 acc=0.9` with $RUN empty, which the shell
+        # drops from the command line. Bucket, 2026-10-27: queued, it was a 404
+        # and a dead letter. No run ref has an `=`: uuids have none and the
+        # server refuses one in a run slug (`RunSlug`, app/core/slugs.py).
+        raise typer.BadParameter(
+            f"{ref!r} looks like key=value, not a run ref — the run argument is "
+            "missing (is the variable holding the run ref empty?)"
+        )
     if any(character in _IMPOSSIBLE_IN_A_REF for character in ref):
         raise typer.BadParameter(
             f"{ref!r} is not a run ref (it contains a path separator or whitespace)"
@@ -738,6 +748,18 @@ _WIZARD_COMMANDS = frozenset({"wizard", "install"})
 #: must not start updates or emit output around their bounded JSON replies.
 _READ_ONLY_COMMANDS = frozenset({"status", "desktop"})
 
+
+def _uninstall_invoked(command: str | None) -> bool:
+    """`probe uninstall`, or `probe wizard --action uninstall`."""
+    if command == "uninstall":
+        return True
+    if command != "wizard":
+        return False
+    args = sys.argv[1:]
+    return "--action=uninstall" in args or any(
+        token == "--action" and args[index + 1: index + 2] == ["uninstall"] for index, token in enumerate(args)
+    )
+
 #: Where the Probe service is the updater, the every-command check hands it an
 #: available update at most this often: the service's own `update.check_now`
 #: cooldown (`probe.service.updater.CHECK_NOW_COOLDOWN_S`), inside which it
@@ -768,6 +790,10 @@ _CAPTURE_REPAIR_STAMP = "capture-repair-ask"
 CAPTURE_REPAIR_PATH = "/v1/client/capture-repair"
 #: Where the machine confirms what it applied; the confirmation closes the request.
 CAPTURE_REPAIR_APPLIED_PATH = "/v1/client/capture-repair/applied"
+#: A staff settings change (research-os control/074) is fetched at most this often
+#: per machine, under its own stamp (`_settings_request_notice`).
+_SETTINGS_REQUEST_EVERY_S = 10 * 60
+_SETTINGS_REQUEST_STAMP = "settings-request-ask"
 #: Never act on that request from these. `daemon` and `mcp` run for a whole
 #: session: an ask from one would wait out `WAIT_FOR_PID_S` for its own exit, and
 #: the Probe service hands daemon workers over at an update anyway. The wizard and
@@ -1607,6 +1633,60 @@ def _capture_repair_notice() -> None:
         pass
 
 
+def _settings_request_notice() -> None:
+    """Probe staff changed a setting on this machine (research-os control/074): apply
+    it once and report it (`probe.cli.remote_settings.apply_pending`). Never raises.
+
+    Gates, cheapest first, like `_capture_repair_notice`: not a run-scoped command
+    (`_UPDATE_HOT_PATH_COMMANDS`), not the service, daemon, MCP, update or the
+    wizard (`_REMOTE_UPDATE_SKIP_COMMANDS`), not a read-only one
+    (`_READ_ONLY_COMMANDS`); a fresh mark; not a command a Probe daemon runs (its
+    key is refused); a signed-in API token that IS the config file's current
+    context (`_repair_identity_is_the_files`: the change is about THIS machine's
+    files, so it is fetched only as the account they belong to); one try per
+    `_SETTINGS_REQUEST_EVERY_S` (`_claim_window`).
+
+    A CHILD OF THE PROBE SERVICE APPLIES IT TOO, unlike the other two staff
+    requests. On a machine with the service every hook-run `probe` (the team
+    note's sync at each session start, Stop and end: `service/notesync.py`) is
+    one, and a person who only uses coding agents may run no other: skipping them
+    would leave the request undelivered for good. Applying needs nothing the
+    service does not already allow its children: a locked config write, the
+    switch's own session write, and `session.recording` asked over the socket.
+    """
+    command = _invoked_command()
+    if (
+        command in _UPDATE_HOT_PATH_COMMANDS
+        or command in _REMOTE_UPDATE_SKIP_COMMANDS
+        or command in _READ_ONLY_COMMANDS
+    ):
+        return
+    try:
+        from probe._shared import settings_request
+
+        if not settings_request.fresh():
+            return
+        from probe.sdk.agent_session import DAEMON_SESSION_ENV
+
+        if os.environ.get(DAEMON_SESSION_ENV):
+            return
+        settings = resolve(base_url=_conn.base_url)
+        if not settings.token or not _repair_identity_is_the_files(settings):
+            return
+        if not _claim_window(_SETTINGS_REQUEST_STAMP, _SETTINGS_REQUEST_EVERY_S):
+            return
+        from . import remote_settings
+
+        client = _new_client(base_url=_conn.base_url, spool_dir=_conn.spool_dir)
+        try:
+            remote_settings.apply_pending(client, base_url=settings.base_url)
+        finally:
+            with contextlib.suppress(Exception):
+                client.close()
+    except Exception:  # noqa: BLE001 -- the check never breaks the command it runs before
+        pass
+
+
 def _repair_identity_is_the_files(settings) -> bool:
     """The token the CLI would use is the config file's current context's. A
     repair's credentials are written into that context (Claude Code's) and pinned
@@ -2294,7 +2374,9 @@ def _root(
     ),
 ) -> None:
     begin_command(base_url=base_url, spool_dir=spool_dir, write_mode=write_mode)
-    if ctx.invoked_subcommand in _READ_ONLY_COMMANDS:
+    if ctx.invoked_subcommand in _READ_ONLY_COMMANDS or _uninstall_invoked(ctx.invoked_subcommand):
+        # An uninstall starts nothing either: no refresher, no update hand-off,
+        # no capture heal, each of which would race what it removes.
         # No banner, no background refresher, no auto-update, no capture heal:
         # each of those can start a process or a request, and `probe status`
         # promises neither (the desktop app asks it on every focus).
@@ -2310,6 +2392,8 @@ def _root(
     _remote_update_notice()
     # Probe staff opened a capture repair for this machine (research-os control/073).
     _capture_repair_notice()
+    # Probe staff changed a setting on this machine (research-os control/074).
+    _settings_request_notice()
     # Trigger surface B: the one place that runs exactly once per CLI
     # invocation. NOT transport.py's `agent_session_headers()`, which fires
     # per HTTP request and would ask this question many times per command.
@@ -2904,6 +2988,11 @@ def doctor(
         from probe.service import keeper
 
         keeper.refresh_lifeboat()
+    from probe.cli import uninstall as uninstall_mod
+
+    halfway = uninstall_mod.halfway_notice()  # first: it is why nothing of Probe starts or updates
+    if halfway:
+        print(f"{halfway}\n")
     print(
         doctor_impl.render(
             caps, codex_hooks=doctor_impl.codex_hook_rows(caps), service=service_calls.view()
@@ -3016,6 +3105,11 @@ def status_command(
 
     limit = status_impl.DEFAULT_TIMEOUT_S if timeout is None else timeout
     if not as_json:
+        from probe.cli import uninstall as uninstall_mod
+
+        halfway = uninstall_mod.halfway_notice()  # first: it is why nothing of Probe starts or updates
+        if halfway:
+            print(halfway)
         for line in status_impl.human_lines(reads.status(refresh=refresh, timeout=limit)):
             print(line)
         return
@@ -3137,6 +3231,67 @@ class _JsonCommand(typer.core.TyperCommand):
                     exit_code=exc.exit_code or 2,
                 )
             raise
+
+
+@app.command(name="uninstall", cls=_JsonCommand)
+def uninstall_cmd(
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="ask nothing: what would need an answer stops the run (exit 2) instead"
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="go on although Probe is still in use here: stop every live user of it first"
+    ),
+    offline: bool = typer.Option(
+        False, "--offline", help="this computer only: revoke its keys in the dashboard yourself afterwards"
+    ),
+    discard_unsent: bool = typer.Option(
+        False, "--discard-unsent", help="delete research that could not be sent, instead of stopping"
+    ),
+    backup_unsent: bool = typer.Option(
+        False, "--backup-unsent",
+        help="save research that could not be sent to ~/probe-unsent-<date>.tar.gz, then go on, instead of stopping",
+    ),
+    json_output: bool = typer.Option(False, "--json", help=_JSON_HELP),
+) -> None:
+    """Remove Probe from this computer and leave nothing of it behind (= `probe wizard --action uninstall`).
+
+    Stops every Probe process, sends what is still queued, retires this
+    computer and revokes its keys on the server, takes Probe out of every
+    coding agent, deletes Probe's files and finally the CLI itself. Killed
+    anywhere, running it again finishes the job. Exit 0 done, 2 refused
+    (nothing changed), 1 partly done (run it again). With `--json`, the
+    `result` event's `reason` says why a run stopped, as data.
+    """
+    raise typer.Exit(
+        _run_uninstall(yes=yes, force=force, offline=offline, discard_unsent=discard_unsent is True,
+                       backup_unsent=backup_unsent is True, json_output=json_output is True)
+    )
+
+
+def _run_uninstall(
+    *, yes: bool, force: bool = False, offline: bool = False, discard_unsent: bool = False,
+    backup_unsent: bool = False, json_output: bool = False
+) -> int:
+    """The one uninstall (`probe.cli.uninstall`), in a `--json` event session
+    when asked. Returns its exit code (when the finisher did not take over)."""
+    from probe.cli import json_events
+    from probe.cli import setup as wizard
+    from probe.cli import uninstall
+
+    options = uninstall.Options(
+        yes=yes, force=force, offline=offline, discard_unsent=discard_unsent, backup_unsent=backup_unsent,
+        json=json_output,
+        interactive=not yes and not json_output and wizard.interactive(),
+    )
+    if json_events.enabled():  # inside a run that is already writing events
+        return uninstall.run(options)
+    with json_events.session(json_output):
+        if discard_unsent and backup_unsent:  # inside the session: a `--json` reader gets `error` + `done`
+            raise typer.BadParameter("--discard-unsent and --backup-unsent cannot be used together: pick one")
+        code = uninstall.run(options)
+        if code:
+            raise typer.Exit(code)
+    return code
 
 
 @app.command(name="install", cls=_JsonCommand)
@@ -3335,6 +3490,13 @@ def wizard(
     from probe.cli import capabilities as capabilities_mod
     from probe.cli import capture as capture_mod
     from probe.cli import json_events, tui
+
+    if action == actions_mod.Action.UNINSTALL and not _agent_values(agent):
+        # ONE implementation (`probe uninstall`): never routed to the Probe
+        # service, whose own process it stops. With `--agent` it is the wizard's
+        # per-agent removal below instead (only those agents' plugins, hooks and
+        # rules; no key revoked, the CLI kept), as the setup command documents.
+        raise typer.Exit(_run_uninstall(yes=yes is True, json_output=json_output is True))
 
     adopted = False
     if action == actions_mod.Action.UPDATE:
@@ -3750,7 +3912,15 @@ def _wizard_session(
 
     device_state = _ask_server()
 
-    boot = ensure_persistent_install()
+    # Only an INSTALL (the menu's first run, configure, an update a person
+    # asked for) finishes an uninstall that stopped halfway; every other action,
+    # the background update a SessionStart hook spawns included, refuses while
+    # one is LIVE.
+    from probe.cli import install_pipeline as install_pipeline_mod
+
+    boot = ensure_persistent_install(
+        finish_uninstall=action in (None, actions_mod.Action.CONFIGURE)
+        or (action == actions_mod.Action.UPDATE and install_pipeline_mod.update_may_finish()))
     refused = bool(getattr(boot, "refused", False))
     if action == actions_mod.Action.CONFIGURE and getattr(boot, "already_persistent", False) and not refused:
         # An install over an install of the same version: a health check that
@@ -4486,29 +4656,11 @@ def _wizard_session(
             if chosen_action is actions_mod.Action.CONFIGURE
             else None
         )
-        # Bound here, not in the removal branch below: the completion emit sits
-        # outside the if/else that sets it, and an unbound name there would
-        # crash the menu loop for every OTHER action.
-        uninstall_started_at = None
-        if chosen_action is actions_mod.Action.UNINSTALL:
-            # BEFORE the confirmation and before anything is torn down: this is
-            # the state being removed, and after the per-agent loop it is
-            # unreadable by construction.
-            #
-            # Above the dispatch below, not inside one of its branches: a
-            # single-agent removal takes the `len(agent_sources) == 1` path and
-            # confirms INSIDE `_run_wizard_action`, which is the ordinary case
-            # and the one a branch-local emit missed entirely.
-            uninstall_started_at = time.monotonic()
-            tel.emit(
-                telemetry_mod.EVENT_WIZARD_UNINSTALL_STARTED,
-                agent_count=len(agent_sources),
-                tracking_installed=caps.tracking_plugin_installed,
-                capture_installed=caps.capture_plugin_installed,
-                agent_rules_installed=caps.agent_rules_installed,
-                was_signed_in=bool(caps.logged_in_as),
-                confirmed_via="flag" if yes or not wizard.interactive() else "prompt",
-            )
+        if chosen_action is actions_mod.Action.UNINSTALL and not explicit_agent_sources:
+            # The menu's Uninstall is `probe uninstall` (its own confirmation,
+            # phases and finisher): one implementation for every way in. With
+            # `--agent`, only those agents (the per-agent removal below).
+            raise typer.Exit(_run_uninstall(yes=yes, json_output=json_events.enabled()))
         diagnose_unfiled = None
         if chosen_action is actions_mod.Action.DIAGNOSE:
             # Diagnose reports what is true NOW: ask again when the held answer
@@ -4779,16 +4931,9 @@ def _wizard_session(
             )
             action_yes = yes
             if chosen_action is actions_mod.Action.UNINSTALL and not yes and wizard.interactive():
+                # `--agent A --agent B`: one question for the agents named.
                 tui.clear()
-                if wizard.confirm_removal(agent_sources) is not True:
-                    # The one outcome no server-side signal can ever see: the
-                    # device is still here, so nothing reports anything.
-                    tel.emit(
-                        telemetry_mod.EVENT_WIZARD_UNINSTALL_COMPLETED,
-                        outcome=telemetry_mod.UninstallOutcome.DECLINED,
-                        agent_count=len(agent_sources),
-                        duration_seconds=round(time.monotonic() - uninstall_started_at, 3),
-                    )
+                if wizard.confirm_agent_removal(agent_sources) is not True:
                     return
                 action_yes = True
             lines = []
@@ -4843,10 +4988,7 @@ def _wizard_session(
                         current = (
                             caps_by_source[source]
                             if chosen_action is actions_mod.Action.DIAGNOSE
-                            else _collect_agent(
-                                source,
-                                fresh=index > 0 and chosen_action is actions_mod.Action.UNINSTALL,
-                            )
+                            else _collect_agent(source)
                         )
                         if diagnose_unfiled is not None and current.unfiled_runs is None:
                             current = dataclasses.replace(current, unfiled_runs=diagnose_unfiled)
@@ -4887,56 +5029,6 @@ def _wizard_session(
             # comes back without the pause or the state re-read.
             if all_backed_out:
                 lines = None
-
-        # The ACCOUNT half of Uninstall, ONCE for the device. Everything above
-        # runs per coding agent; a credential does not -- there is one config
-        # file -- and it has to be released after the LAST agent has published
-        # its emptied state, because that registration authenticates with the
-        # token being released. `lines is None` is the user declining at the
-        # confirmation, which must sign nobody out.
-        if chosen_action is actions_mod.Action.UNINSTALL and lines is not None:
-            # BEFORE the credential goes. `finish_removal` revokes this
-            # device's token and clears it, and the completion event below is
-            # emitted after -- so without this it resolves to `machine:<id>`
-            # with no person attached, and the one event that says a customer
-            # left is dropped by every destination filtering on a known person.
-            tel.pin_identity()
-            finished = list(wizard.finish_removal())
-            lines = [*lines, *finished]
-            _record_device_sign_in(wanted=False)
-            tel.emit(
-                telemetry_mod.EVENT_WIZARD_UNINSTALL_COMPLETED,
-                outcome=telemetry_mod.UninstallOutcome.REMOVED,
-                agent_count=len(agent_sources),
-                # Removal reports its own problems as `! ...` lines and carries
-                # on; counting them separates a clean uninstall from one that
-                # left something behind. The lines THEMSELVES never ride along
-                # -- they name paths.
-                warnings=sum(1 for line in lines if line.startswith("!")),
-                duration_seconds=(
-                    round(time.monotonic() - uninstall_started_at, 3)
-                    if uninstall_started_at is not None
-                    else None
-                ),
-            )
-            if run_summary:
-                # The page: every agent's removal counted, then the device's
-                # own (signed out, its tokens released) errors only.
-                run_summary.subtitle = (
-                    "This device is signed out."
-                    if not any(wizard.CREDENTIALS_NOT_CLEARED in line for line in finished)
-                    else "This device is NOT signed out: the saved credentials remain."
-                )
-                run_summary.note(*wizard.attention_lines(finished))
-                lines = run_summary.lines()
-        elif chosen_action is actions_mod.Action.UNINSTALL and uninstall_started_at is not None:
-            # Every selected agent declined at the per-agent confirmation.
-            tel.emit(
-                telemetry_mod.EVENT_WIZARD_UNINSTALL_COMPLETED,
-                outcome=telemetry_mod.UninstallOutcome.DECLINED,
-                agent_count=len(agent_sources),
-                duration_seconds=round(time.monotonic() - uninstall_started_at, 3),
-            )
 
         if chosen_action is actions_mod.Action.CONFIGURE and lines is not None:
             # Every install ends with the Probe service started, as an agent
@@ -5828,19 +5920,20 @@ def _run_wizard_action(
         ]
 
     if chosen_action is actions_mod.Action.UNINSTALL:
+        # `probe wizard --action uninstall --agent A`: Probe out of that agent
+        # only (its plugins, hooks and rules). No key is revoked and the CLI
+        # stays; without `--agent` the wizard runs `probe uninstall` instead.
         if not yes and wizard.interactive():
             tui.clear()
-            if wizard.confirm_removal(caps.agent_source) is not True:
+            if wizard.confirm_agent_removal(caps.agent_source) is not True:
                 # None, not []: nothing happened. The caller reads that as a
                 # pure back-out -- no "press enter" on an empty page, no state
                 # re-read -- and, since this action now ends by signing the
                 # device out, it is also what keeps a declined removal from
                 # clearing the credentials anyway.
                 return None
-        # Preserve the credential in memory long enough to report the actual
-        # post-removal state. `finish_removal` -- once for the device, after
-        # every selected agent has been through here -- revokes it and clears
-        # it off the disk, so this is the last pass that can still publish.
+        # The credential this registration authenticates with stays: a
+        # per-agent removal signs nobody out.
         settings_before_removal = resolve(base_url=base_now)
         lines = list(wizard.remove_everything(caps))
         removed = doctor_impl.collect()
@@ -6925,10 +7018,9 @@ def _run_settings_action(
     base_now: str | None = None,
     telemetry=None,
 ) -> list[str] | None:
-    """The settings screen: automatic updates and research plan review. Who
+    """The settings screen: automatic updates and pasted-image uploads. Who
     records and what the daemon sees are on the main menu's Defaults
-    (`_run_recorder_action`). Research plan review is a plain setting:
-    `wizard.apply_settings` -> `apply_plan_review`, no CONFIGURE machinery.
+    (`_run_recorder_action`).
 
     Tracking, capture and the instruction rules had rows here and do not any
     more: Probe is installed whole and removed whole (see setup.py's module
@@ -6981,7 +7073,6 @@ def _run_settings_action(
             "",
             "`probe session default on|read|off` sets the default for new sessions.",
             "`probe wizard --auto-update/--no-auto-update` sets automatic updates.",
-            "Research plan review is set on the interactive Settings screen (`probe wizard`).",
             *(
                 ["`showThinkingSummaries` (Claude Code's settings.json) and `model_reasoning_summary`",
                  "(Codex's config.toml) are whether the daemon sees the agent's reasoning."]
@@ -13668,13 +13759,15 @@ def session_default(
     if value is not None:
         _refuse_switch_from_agent(None, "default")
     if folder is None and value is None:
-        _print_json(
-            {
-                "machine_default": _state_word(session_marker.default_session_state()),
-                "config": str(session_marker.config_path()),
-                "note": "per-session `probe session state` overrides this",
-            }
-        )
+        shown = {
+            "machine_default": _state_word(session_marker.default_session_state()),
+            "config": str(session_marker.config_path()),
+            "note": "per-session `probe session state` overrides this",
+        }
+        set_by = session_marker.set_by_note()
+        if set_by:
+            shown["set_by"] = set_by
+        _print_json(shown)
         return
 
     if folder is None:
@@ -17633,7 +17726,7 @@ app.add_typer(rules_app, name="agent-rules")
 @rules_app.command("refresh")
 def agent_rules_refresh() -> None:
     """Rewrite the managed block when it is older than this CLI, or when its
-    research-plan-review paragraph disagrees with the setting (then
+    research-plan-review paragraph still has the retired opt-out (then
     `from_version` equals `to_version`).
 
     THE MIGRATION CHANNEL for a file no release can reach. The block lives in the

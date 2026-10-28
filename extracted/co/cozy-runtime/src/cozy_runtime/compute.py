@@ -13,14 +13,17 @@ import weakref
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack, nullcontext, suppress
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Literal, NoReturn
+from typing import Any, Literal, NoReturn
 
+from tensorfs import varena
+
+from cozy_runtime import graphs
+from cozy_runtime.author._context import CURRENT, Context
 from cozy_runtime.author._errors import CapabilityError, RuntimeFailure
 from cozy_runtime.author._model import LANDED, PLACED, Building
 from cozy_runtime.author._prepared import Progress
-
-if TYPE_CHECKING:
-    from cozy_runtime.author._context import Context
+from cozy_runtime.graphs import domain
+from cozy_runtime.internal import kernel_ready
 
 _CAPTURE_GROUP: ContextVar[Any] = ContextVar("cozy_sequence_capture_group", default=None)
 
@@ -295,7 +298,6 @@ class PreparedRepeat:
         """
         import torch
 
-        from cozy_runtime import graphs
         from cozy_runtime.internal.residency import (
             _CAPTURE_BLOCKS,
             Binding,
@@ -353,8 +355,6 @@ class PreparedRepeat:
                     code="prepared_graph_ineligible",
                 )
         if load is not None or load_component is not None:
-            from tensorfs import varena
-
             slot_type = getattr(varena, "LoadSlot", None)
             if (
                 slot_type is None
@@ -392,6 +392,7 @@ class PreparedRepeat:
         with (
             torch.cuda.device(device),
             torch.inference_mode(False),
+            ExitStack() as lent,
             ExitStack() as cleanup,
             ExitStack() as preparing,
         ):
@@ -463,6 +464,9 @@ class PreparedRepeat:
                         if why := graphs._hooked(model.module):
                             raise CapabilityError(why, code="prepared_graph_ineligible")
                         if owner is load_component:
+                            if _detach_stage:
+                                # Lent through detach_stage; taken back as capture returns.
+                                lent.enter_context(model.lending())
                             try:
                                 load = binding.prepare_load(stage=_detach_stage)
                             except ResidencyError as error:
@@ -635,13 +639,10 @@ class PreparedRepeat:
         _undeclared_inputs: tuple[tuple[Any, int, int], ...] = (),
     ) -> PreparedRepeat:
         import torch
-        from tensorfs import varena
         from torch.utils._python_dispatch import TorchDispatchMode
         from torch.utils._pytree import tree_leaves
 
         from cozy_runtime._kernels import _execution
-        from cozy_runtime.author._context import CURRENT
-        from cozy_runtime.internal import kernel_ready
         from cozy_runtime.internal.residency import Binding
 
         tensors = tuple(state)
@@ -972,8 +973,6 @@ class PreparedRepeat:
             self.close()
 
     def _release_owned_bindings(self) -> None:
-        from cozy_runtime import graphs
-
         bindings, self._owned_bindings = self._owned_bindings, ()
         for binding in bindings:
             graphs.forget_prepared(binding.model.module, self)
@@ -1475,8 +1474,6 @@ class PreparedSequence:
             execution = None
             phase_controllers: dict[Any, Any] = {}
             phase_definitions: dict[tuple[Any, tuple[str, ...]], tuple[str, tuple[Any, ...]]] = {}
-            from tensorfs import varena
-
             from cozy_runtime.internal.residency import _REQUEST
 
             request = _REQUEST.get()
@@ -1706,8 +1703,6 @@ class _SequenceCapture:
 
     def _prepare(self, state: tuple[Any, ...]) -> None:
         import torch
-
-        from cozy_runtime.graphs import domain
 
         if not self._entered or self._closed or self._finished or not state:
             raise RuntimeError("capture inside an open sequence recording")

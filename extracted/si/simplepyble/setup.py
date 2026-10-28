@@ -33,14 +33,16 @@ root = pathlib.Path(__file__).parent.resolve()
 version_str = (root / "VERSION").read_text(encoding="utf-8").strip()
 
 # Get the long description from the README file
-long_description = (root / "simplepyble" / "README.rst").read_text(encoding="utf-8")
+long_description = (root / "simplepyble" / "README.md").read_text(encoding="utf-8")
+# The README links say they come from GitHub; the PyPI copy says PyPI.
+long_description = long_description.replace("utm_source=github", "utm_source=pypi_simplepyble")
 
 cmake_options = []
 cmake_options.append(f"-Dpybind11_DIR={pybind11.get_cmake_dir()}")
 if sys.platform == "win32":
     cmake_options.append("-DCMAKE_SYSTEM_VERSION=10.0.19041.0")
 elif sys.platform.startswith("darwin"):
-    cmake_options.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0")
+    cmake_options.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0")
 cmake_options.append(f"-DPYTHON_EXECUTABLE={sys.executable}")
 cmake_options.append(f"-DSIMPLEPYBLE_VERSION={version_str}")
 
@@ -56,9 +58,11 @@ skbuild.setup(
     author="Kevin Dewald",
     author_email="kevin@simpleble.org",
     url="https://github.com/simpleble/simpleble",
-    description="The ultimate fully-fledged cross-platform BLE library, designed for simplicity and ease of use.",
+    description="Python bindings for the cross-platform SimpleBLE Bluetooth Low Energy library, for Windows, macOS, and Linux. Free for non-commercial use; commercial use requires a license.",
     long_description=long_description,
-    long_description_content_type="text/x-rst",
+    long_description_content_type="text/markdown",
+    license_expression="BUSL-1.1",
+    license_files=["LICENSE.md"],
     packages=["simplepyble"],
     package_dir={"": "simplepyble/src"},
     package_data={"simplepyble": ["py.typed", "*.pyi"]},
@@ -67,19 +71,17 @@ skbuild.setup(
     cmake_process_manifest_hook=exclude_unnecessary_files,
     cmake_install_dir="simplepyble/src/simplepyble",
     setup_requires=[
-        "setuptools>=42",
+        "setuptools>=77",
         "scikit-build",
         "ninja; platform_system!='Windows'",
         "cmake>=3.21",
-        "pybind11",
+        "pybind11>=3.1",
     ],
     install_requires=[],
     extras_require={},
     platforms="Windows, macOS, Linux",
     python_requires=">=3.10",
     classifiers=[
-        "License :: Free for non-commercial use",
-        "License :: Other/Proprietary License",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",

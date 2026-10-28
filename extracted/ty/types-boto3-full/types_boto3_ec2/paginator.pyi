@@ -157,6 +157,7 @@ Usage::
         GetCapacityManagerMetricDimensionsPaginator,
         GetCapacityManagerMonitoredTagKeysPaginator,
         GetGroupsForCapacityReservationPaginator,
+        GetImageFindingsPaginator,
         GetInstanceTypesFromInstanceRequirementsPaginator,
         GetIpamAddressHistoryPaginator,
         GetIpamDiscoveredAccountsPaginator,
@@ -335,6 +336,7 @@ Usage::
     get_capacity_manager_metric_dimensions_paginator: GetCapacityManagerMetricDimensionsPaginator = client.get_paginator("get_capacity_manager_metric_dimensions")
     get_capacity_manager_monitored_tag_keys_paginator: GetCapacityManagerMonitoredTagKeysPaginator = client.get_paginator("get_capacity_manager_monitored_tag_keys")
     get_groups_for_capacity_reservation_paginator: GetGroupsForCapacityReservationPaginator = client.get_paginator("get_groups_for_capacity_reservation")
+    get_image_findings_paginator: GetImageFindingsPaginator = client.get_paginator("get_image_findings")
     get_instance_types_from_instance_requirements_paginator: GetInstanceTypesFromInstanceRequirementsPaginator = client.get_paginator("get_instance_types_from_instance_requirements")
     get_ipam_address_history_paginator: GetIpamAddressHistoryPaginator = client.get_paginator("get_ipam_address_history")
     get_ipam_discovered_accounts_paginator: GetIpamDiscoveredAccountsPaginator = client.get_paginator("get_ipam_discovered_accounts")
@@ -664,6 +666,8 @@ from .type_defs import (
     GetCapacityManagerMonitoredTagKeysResultTypeDef,
     GetGroupsForCapacityReservationRequestPaginateTypeDef,
     GetGroupsForCapacityReservationResultTypeDef,
+    GetImageFindingsRequestPaginateTypeDef,
+    GetImageFindingsResultTypeDef,
     GetInstanceTypesFromInstanceRequirementsRequestPaginateTypeDef,
     GetInstanceTypesFromInstanceRequirementsResultTypeDef,
     GetIpamAddressHistoryRequestPaginateTypeDef,
@@ -873,6 +877,7 @@ __all__ = (
     "GetCapacityManagerMetricDimensionsPaginator",
     "GetCapacityManagerMonitoredTagKeysPaginator",
     "GetGroupsForCapacityReservationPaginator",
+    "GetImageFindingsPaginator",
     "GetInstanceTypesFromInstanceRequirementsPaginator",
     "GetIpamAddressHistoryPaginator",
     "GetIpamDiscoveredAccountsPaginator",
@@ -3726,6 +3731,24 @@ class GetGroupsForCapacityReservationPaginator(_GetGroupsForCapacityReservationP
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/GetGroupsForCapacityReservation.html#EC2.Paginator.GetGroupsForCapacityReservation.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#getgroupsforcapacityreservationpaginator)
+        """
+
+if TYPE_CHECKING:
+    _GetImageFindingsPaginatorBase = Paginator[GetImageFindingsResultTypeDef]
+else:
+    _GetImageFindingsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class GetImageFindingsPaginator(_GetImageFindingsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/GetImageFindings.html#EC2.Paginator.GetImageFindings)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#getimagefindingspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetImageFindingsRequestPaginateTypeDef]
+    ) -> PageIterator[GetImageFindingsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/GetImageFindings.html#EC2.Paginator.GetImageFindings.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#getimagefindingspaginator)
         """
 
 if TYPE_CHECKING:

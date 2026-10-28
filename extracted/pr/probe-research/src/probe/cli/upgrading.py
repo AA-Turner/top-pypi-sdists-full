@@ -1416,7 +1416,11 @@ def _update_persistent_copy(cli_target: str | None, lines: list[str]) -> updater
     """
     from probe.cli import bootstrap
 
-    boot = bootstrap.ensure_persistent_install(target=cli_target)
+    from probe.cli import install_pipeline
+
+    # Finishes an uninstall that stopped halfway only for an update a person asked for.
+    boot = bootstrap.ensure_persistent_install(target=cli_target,
+                                               finish_uninstall=install_pipeline.update_may_finish())
     if boot.already_persistent:
         # Bootstrap proves only that the installed copy is at least THIS one, and
         # a uvx/pipx cache can serve a stale copy: compare with the latest too.

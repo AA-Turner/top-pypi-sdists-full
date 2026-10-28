@@ -650,7 +650,8 @@ def test_which_wizard_runs_the_service_takes():
         "configure", {"agents": list(claude), "reinstall": True})
     assert _plan(who_records="daemon") == wizard_service.Routed("recorder", {"who_records": "daemon"})
     assert _plan(action="logout") == wizard_service.Routed("logout")
-    assert _plan(action="uninstall") == wizard_service.Routed("uninstall")
+    # `probe uninstall` stops the service itself: never one of its actions.
+    assert isinstance(_plan(action="uninstall"), str)
     assert _plan(action="update", update_trigger="session_start") == wizard_service.Routed(
         "update", trigger="session_start")
     assert _plan(action="update", update_trigger="bogus") == wizard_service.Routed("update")

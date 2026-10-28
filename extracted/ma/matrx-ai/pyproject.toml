@@ -1,6 +1,6 @@
 [project]
 name = "matrx-ai"
-version = "0.5.673"
+version = "0.5.678"
 description = "Unified multi-provider AI client, orchestration, and tool system"
 readme = "README.md"
 license = { text = "MIT" }
@@ -70,27 +70,27 @@ dependencies = [
     "asyncpg>=0.31.0",
     # --- Matrx ecosystem ---
     # media/media_persistence.py imports VisibilityLiteral, first exported by 2.0.7.
-    "matrx-utils>=2.0.91",
+    "matrx-utils>=2.0.97",
     # Plain matrx-files: its heavy stacks (PyMuPDF, OCR, rembg/OpenCV/ffmpeg) are extras each host
     # declares for the features it runs (Arman 2026-10-16: pay only for what you use). The platform
     # server installs matrx-files[all] itself; matrx-ai[media] covers the podcast slideshow here.
-    "matrx-files>=0.2.320",
+    "matrx-files>=0.2.323",
     # tools/_sandbox_proxy.py sends fs/search calls through the generated orchestrator operations.
-    "matrx-api>=0.1.26",
+    "matrx-api>=0.1.27",
     # 0.1.26+ exports the Masterwork* event models used here (renamed 2026-08-17;
     # the next matrx-connect release is the first tag that exports the new names).
-    "matrx-connect>=0.1.254",
+    "matrx-connect>=0.1.256",
     # actions.register_node is imported at module scope and first shipped in 0.1.22.
-    "matrx-graph>=0.2.359",
+    "matrx-graph>=0.2.365",
     # tools.implementations imports the browser implementation eagerly.
-    "matrx-scraper[browser,files]>=0.2.430",
+    "matrx-scraper[browser,files]>=0.2.434",
     # matrx-runtime (the Request Management Layer): the conversation executor
     # (orchestrator/conversation_runtime.py) is a CONSUMER of its ExecutionEngine —
     # one conversation = one global_execution. ai → runtime is the acyclic edge.
-    "matrx-runtime>=0.0.180",
+    "matrx-runtime>=0.0.181",
     # Payload-agnostic coordinated assignment planner/coordinator. The agent
     # workflow action consumes it; the assignment package never imports AI.
-    "matrx-assignment>=0.1.54",
+    "matrx-assignment>=0.1.55",
     # --- Virtual Filesystem (matrx_ai.tools.vfs) ---
     "fsspec>=2026.4.0",
     "wcmatch>=10.0",
@@ -118,7 +118,7 @@ code-ingest = [
 # Podcast video (agent_runners/podcast_generator -> matrx_files.compose_slideshow_async) needs the
 # bundled ffmpeg + OpenCV; without it the slideshow step raises FfmpegNotAvailableError naming matrx-files[media].
 media = [
-    "matrx-files[media]>=0.2.320",
+    "matrx-files[media]>=0.2.323",
 ]
 
 [dependency-groups]

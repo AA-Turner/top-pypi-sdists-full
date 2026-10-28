@@ -11,9 +11,13 @@ from functools import cached_property
 from typing import Any
 
 from istari_digital_client.sdk._base import Page
-from istari_digital_client.sdk._common._capabilities import _SupportsAccess, _SupportsInfosec
+from istari_digital_client.sdk._common._capabilities import (
+    _SupportsAccess,
+    _SupportsInfosec,
+)
 from istari_digital_client.sdk._common.branches import Branches
 from istari_digital_client.sdk._common.change_requests import ChangeRequests
+from istari_digital_client.sdk._common.dependencies import Dependencies
 from istari_digital_client.sdk._common.system_types import System
 from istari_digital_client.sdk._common.workflows import Workflows
 from istari_digital_client.sdk._generated.v2.models.new_system import NewSystem
@@ -73,6 +77,16 @@ class Systems(_SupportsAccess, _SupportsInfosec):
         system (e.g. ``istari.systems.change_requests.create(system_id, ...)``).
         """
         return ChangeRequests(self._engine)
+
+    @cached_property
+    def dependencies(self) -> Dependencies:
+        """Lazy-initialised Dependencies sub-manager.
+
+        Package requirements, publications, installed folders, updates, and checkout
+        for any branch (e.g. ``istari.systems.dependencies.updates(branch)``); Branch
+        exposes the same verbs directly.
+        """
+        return Dependencies(self._engine)
 
     @cached_property
     def workflows(self) -> Workflows:

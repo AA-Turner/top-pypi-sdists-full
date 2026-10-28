@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lapx
-Version: 0.11.1
+Version: 0.12.0
 Summary: Linear assignment problem solvers, including single and batch solvers.
 Home-page: https://github.com/rathaROG/lapx
 Author: Ratha SIV
@@ -52,6 +52,7 @@ Dynamic: summary
 
 <details><summary>🆕 What's new</summary><hr>
 
+> <sup>- 2026/10/27: [v0.12.0](https://github.com/rathaROG/lapx/releases/tag/v0.12.0) improved performance on congested inputs for **`lapjvr`**, **`lapjvh`**, **`lapjvr_batch`**, and **`lapjvh_batch`**. </sup><br>
 > <sup>- 2026/10/19: [v0.11.0rc1](https://github.com/rathaROG/lapx/releases/tag/v0.11.0rc1) added the Rust and hybrid solvers: **`lapjvr`**, **`lapjvh`**, **`lapjvr_batch`**, and **`lapjvh_batch`**. </sup><br>
 > <sup>- 2026/09/07: [v0.10.0rc1](https://github.com/rathaROG/lapx/releases/tag/v0.10.0rc1) added Python 3.15 support and **`lapmod_batch`**. It improved type hints, stability, and performance. </sup><br>
 > <sup>- 2025/10/31: [v0.9.0](https://github.com/rathaROG/lapx/releases/tag/v0.9.0) improved stability and performance across all solvers. </sup><br>
@@ -376,7 +377,7 @@ total, x, y = lap.lapmod(n, cc, ii, kk)
 
 #### 8. Rust and hybrid functions `lapjvr` and `lapjvh`
 
-R/H were **about 3–10× faster than SciPy** across benchmarks; see [benchmark.md](https://github.com/rathaROG/lapx/blob/main/benchmark.md#historical-results-lapx-0110rc1).
+R/H were **about 3–8× faster than SciPy** across benchmarks; see [benchmark.md](https://github.com/rathaROG/lapx/blob/main/benchmark.md#historical-results-lapx-0110rc1).
 
 `lapjvr` and `lapjvh` share a Rust Jonker-Volgenant implementation. For square
 problems with infinite `cost_limit`, `lapjvh` uses C++ completion. Both return

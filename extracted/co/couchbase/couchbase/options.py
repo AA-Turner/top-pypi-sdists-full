@@ -1622,7 +1622,7 @@ class SearchOptions(SearchOptionsBase):
             makes it impossible to sort based on how well a particular result scored. Defaults to False.
         include_locations (bool optional): If set to True, will include the locations in the search result.
             Defaults to False.
-        sort (Union[List[str],List[:class:`~couchbase.search.Sort`]], optional): Specifies a list of fields or search
+        sort (List[Union[str, :class:`~couchbase.search.Sort`]], optional): Specifies a list of fields or search
             :class:`~couchbase.search.Sort`'s to use when sorting the result sets. Defaults to None.
         scope_name (string, optional): Specifies the scope which should be searched as part of the search
             query. Defaults to None.
@@ -2000,7 +2000,7 @@ class TransactionQueryOptions:
             kwargs["bucket_name"] = scope.bucket_name
             kwargs["scope_name"] = scope.name
         if kwargs.get("scan_wait", None):
-            kwargs["scan_wait"] = kwargs["scan_wait"].total_seconds/1000
+            kwargs["scan_wait"] = timedelta_as_milliseconds(kwargs["scan_wait"])
         if kwargs.get("scan_consistency", None):
             kwargs["scan_consistency"] = kwargs["scan_consistency"].value
             if kwargs["scan_consistency"] == "at_plus":

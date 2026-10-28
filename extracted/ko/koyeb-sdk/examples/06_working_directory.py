@@ -28,7 +28,7 @@ def main():
 
         # Setup: create directory structure
         sandbox.exec("mkdir -p /tmp/my_project/src")
-        sandbox.exec("echo 'print(\\\"hello\\\")' > /tmp/my_project/src/main.py")
+        sandbox.exec("echo 'print(\"hello\")' > /tmp/my_project/src/main.py")
 
         # Run command in specific directory
         result = sandbox.exec("pwd", cwd="/tmp/my_project")

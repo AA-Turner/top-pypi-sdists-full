@@ -14,6 +14,8 @@ from nameparser._config_shim import (
     _RegexesProxy, _cached_parser,
 )
 from nameparser.config.regexes import EMPTY_REGEX, REGEXES
+from nameparser.config._titles_2_6_0 import TITLES_2_6_0
+from nameparser.config.titles import TITLE_MODIFIERS, TITLES, TITLES_AMBIGUOUS
 from nameparser.util import lc
 
 _DATA_DIR = Path(__file__).parent / "data"
@@ -568,6 +570,35 @@ def test_snapshot_removing_a_title_turns_its_after_given_reading_off() -> None:
     name = HumanName("Doe, Jane Mrs", constants=c)
     assert (name.title, name.first, name.middle, name.last) == (
         "", "Jane", "Mrs", "Doe")
+
+
+def test_snapshot_removing_a_suffix_word_turns_its_gate_off() -> None:
+    # The deciding case for suffix_words_ambiguous (#752, rules/S11),
+    # which has no v1 manager of its own: the snapshot intersects it with
+    # the v1 word set, and Lexicon holds the subset, so deleting the word
+    # turns the reading off rather than leaving an orphan that gates a
+    # word the caller removed; agnomens rides inside it
+    c = Constants()
+    name = HumanName("Pedro Alves Neto", constants=c)
+    assert (name.last, name.suffix) == ("Alves", "Neto")     # baseline
+    c.suffix_not_acronyms.remove("neto")
+    lexicon, _, _ = c._snapshot()
+    assert "neto" not in lexicon.suffix_words_ambiguous
+    assert "neto" not in lexicon.agnomens
+    name = HumanName("Pedro Alves Neto", constants=c)
+    assert (name.middle, name.last, name.suffix) == ("Alves", "Neto", "")
+
+
+def test_snapshot_lets_a_gated_word_v1_reads_as_an_acronym_out_of_the_gate() -> None:
+    # v1 read a word added to suffix_acronyms as a suffix through the
+    # acronym branch; the snapshot takes it out of suffix_words_ambiguous
+    # rather than raising at Lexicon's word-gate check, which a config
+    # v1 accepted must never do
+    c = Constants()
+    c.suffix_acronyms.add("neto")
+    lexicon, _, _ = c._snapshot()
+    assert "neto" not in lexicon.suffix_words_ambiguous
+    assert HumanName("Pedro Alves Neto", constants=c).suffix == "Neto"
 
 
 def test_snapshot_field_translation() -> None:
@@ -1282,3 +1313,163 @@ def test_a_first_name_title_lexicon_folds_to_nothing_is_dropped_with_the_warning
         lexicon, _, _ = c._snapshot()
     assert "" not in lexicon.given_name_titles
     assert HumanName("john smith", constants=c).last == "smith"
+
+
+def test_snapshot_cleared_titles_turn_the_title_phrase_off() -> None:
+    # rules/H9's titles_ambiguous holds words no v1 set holds, so the
+    # one v1 way to turn title detection off -- emptying `titles` -- has
+    # to drop them too, or 'Dean of Students' stays a title where 1.4
+    # read none (the design-docs review of #752 phase 2i)
+    c = Constants()
+    assert HumanName("Dean of Students Jane Smith", constants=c).title == (
+        "Dean of Students")                                   # baseline
+    c.titles.clear()
+    lexicon, _, _ = c._snapshot()
+    assert lexicon.titles_ambiguous == frozenset()
+    assert HumanName("Dean of Students Jane Smith", constants=c).title == ""
+
+
+# A title 2.6.0 listed that a later release moved into TITLES_AMBIGUOUS,
+# a title only inside a title phrase (rules/H9), is still a v1 title:
+# derived from the compiled sets, so a batch that moves another word is
+# swept here with no edit (decisions/H9, 2026-10-26).
+_MOVED_TITLES = sorted(TITLES_2_6_0 & TITLES_AMBIGUOUS)
+
+
+def _phrase_probe(word: str) -> str:
+    # a name reading the word as a title by default only through the
+    # phrase: behind a style, or ahead of a head title for a modifier
+    if word in TITLE_MODIFIERS:
+        return f"{word.title()} Commander Smith"
+    return f"Hon. {word.title()} Smith"
+
+
+def test_the_moved_titles_are_found() -> None:
+    # an empty parametrize is a skip, not a failure
+    assert _MOVED_TITLES
+
+
+def test_a_v1_titles_default_holds_every_2_6_0_title_still_read_as_one() -> None:
+    # membership, iteration and len, against the frozen 2.6.0 list: a
+    # word still read as a title of either kind stays a v1 title, while
+    # one taken out of the vocabulary since may leave
+    kept = TITLES_2_6_0 & (TITLES | TITLES_AMBIGUOUS)
+    titles = Constants().titles
+    assert kept <= set(titles)
+    assert all(w in titles for w in kept)
+    assert len(titles) == len(TITLES | kept)
+    # and a word 2.6.0 never listed stays out, so the 1.4 recipe
+    # `c.titles.add("dean")` still adds it
+    assert set(titles) - TITLES - TITLES_2_6_0 == set()
+
+
+@pytest.mark.parametrize("word", _MOVED_TITLES)
+def test_a_moved_title_reads_by_its_phrase_while_v1_keeps_it(word: str) -> None:
+    c = Constants()
+    assert word in c.titles
+    assert c.titles & {word} == {word} and {word} - c.titles == set()
+    lexicon, _, _ = c._snapshot()
+    assert word not in lexicon.titles and word in lexicon.titles_ambiguous
+    # reachability: the probe reads the word as a title only by the phrase
+    assert word.title() in HumanName(_phrase_probe(word), constants=c).title
+
+
+@pytest.mark.parametrize("op", ["remove", "discard"])
+@pytest.mark.parametrize("word", _MOVED_TITLES)
+def test_removing_a_moved_title_turns_every_title_reading_off(
+        word: str, op: str) -> None:
+    # 2.6.0 accepted c.titles.remove(word) and read the word as a name
+    # everywhere after; the phrase reading goes with it
+    c = Constants()
+    getattr(c.titles, op)(word)                          # must not raise
+    assert word not in c.titles
+    lexicon, _, _ = c._snapshot()
+    assert word not in lexicon.titles
+    assert word not in lexicon.titles_ambiguous
+    assert word not in lexicon.title_modifiers | lexicon.title_styles
+    assert not any(word in p.split(" ") for p in lexicon.title_phrases)
+    assert word.title() not in HumanName(
+        _phrase_probe(word), constants=c).title
+    name = HumanName(f"Hon. {word.title()} Smith", constants=c)
+    assert (name.title, name.first) == ("Hon.", word.title())
+
+
+@pytest.mark.parametrize("word", _MOVED_TITLES)
+def test_adding_a_moved_title_back_restores_the_default(word: str) -> None:
+    # re-adding gives the default reading, the phrase-only one; 2.6.0's
+    # title-everywhere reading has no v1 spelling (decisions/H9)
+    c = Constants()
+    c.titles.remove(word)
+    c.titles.add(word)
+    assert c._snapshot()[0] == Lexicon.default()
+
+
+@pytest.mark.parametrize("word", _MOVED_TITLES)
+def test_a_moved_title_survives_a_pickle_and_a_deepcopy(word: str) -> None:
+    c = Constants()
+    for copied in (pickle.loads(pickle.dumps(c)), copy.deepcopy(c),
+                   copy.copy(c)):
+        assert word in copied.titles
+        assert copied._snapshot()[0] == Lexicon.default()
+    c.titles.remove(word)
+    for copied in (pickle.loads(pickle.dumps(c)), copy.deepcopy(c)):
+        assert word not in copied.titles
+        assert word not in copied._snapshot()[0].titles_ambiguous
+
+
+def test_a_replaced_titles_list_holding_a_moved_title_reads_it_by_phrase() -> None:
+    # Constants(titles=...) replaces the list; a moved word in it is
+    # read as the default reads it, a title inside a phrase
+    word = _MOVED_TITLES[0]
+    c = Constants(titles=["dr", word])
+    lexicon, _, _ = c._snapshot()
+    assert lexicon.titles == {"dr"}
+    assert word in lexicon.titles_ambiguous
+
+
+@pytest.mark.parametrize("word", _MOVED_TITLES)
+def test_a_moved_title_spelled_with_a_full_stop_reads_as_the_default(
+        word: str) -> None:
+    # compared folded (#582): Lexicon folds 'king。' onto 'king', so it
+    # reads as the listed spelling does, by the phrase, a modifier's
+    # reading included (`Wing Commander Smith`)
+    c = Constants()
+    c.titles.remove(word)
+    c.titles.add(f"{word}。")
+    assert c._snapshot()[0] == Lexicon.default()
+    assert HumanName(f"{word.title()} Smith", constants=c).first == (
+        word.title())
+    assert word.title() in HumanName(
+        _phrase_probe(word), constants=c).title
+
+
+def test_a_replaced_titles_list_keeps_the_phrase_reading_of_unlisted_words(
+) -> None:
+    # decisions/H9's Standing line: a replaced list keeps the phrase
+    # reading of the words 2.6.0 never listed
+    c = Constants()
+    c.titles.clear()
+    c.titles.add("dr")
+    assert HumanName("Dean of Students Jane Smith", constants=c).title == (
+        "Dean of Students")
+
+
+def test_a_v1_title_never_listed_by_2_6_0_is_a_title_everywhere() -> None:
+    # the 1.4 recipe for the phrase-only words 2.6.0 never listed
+    c = Constants()
+    assert "dean" not in c.titles
+    c.titles.add("dean")
+    assert "dean" in c._snapshot()[0].titles
+    assert HumanName("Dean Smith", constants=c).title == "Dean"
+
+
+def test_snapshot_a_given_name_written_short_listed_as_a_title_is_a_title() -> None:
+    # #789: given_name_abbreviations rides in the snapshot whole, no v1
+    # manager reaching it; the v1 recipe that lists the word as a title
+    # (`c.titles.add("chas")`) gets 1.4's reading back, the leading peel
+    # asking the titles before the shape the set outranks
+    c = Constants()
+    assert HumanName("Chas. Smith", constants=c).first == "Chas."   # baseline
+    c.titles.add("chas")
+    assert "chas" in c._snapshot()[0].given_name_abbreviations
+    assert HumanName("Chas. Smith", constants=c).title == "Chas."

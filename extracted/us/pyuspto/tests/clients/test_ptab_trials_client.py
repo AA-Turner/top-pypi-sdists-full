@@ -299,7 +299,7 @@ class TestPTABTrialsClientSearchProceedings:
             limit=50,
             facets="trialTypeCode",
             fields="trialNumber,petitionFilingDate",
-            filters="trialStatusCategory:Instituted",
+            filters="trialMetaData.trialStatusCategory Pending",
             range_filters="petitionFilingDate:[2023-01-01 TO 2023-12-31]",
             additional_query_params={"customParam": "value"},
         )
@@ -313,7 +313,7 @@ class TestPTABTrialsClientSearchProceedings:
         assert params["limit"] == 50
         assert params["facets"] == "trialTypeCode"
         assert params["fields"] == "trialNumber,petitionFilingDate"
-        assert params["filters"] == "trialStatusCategory:Instituted"
+        assert params["filters"] == "trialMetaData.trialStatusCategory Pending"
         assert params["rangeFilters"] == "petitionFilingDate:[2023-01-01 TO 2023-12-31]"
         assert params["customParam"] == "value"
 
@@ -539,7 +539,7 @@ class TestPTABTrialsClientSearchDocuments:
             limit=50,
             facets="documentCategory",
             fields="trialNumber,filingDate",
-            filters="documentCategory:Paper",
+            filters="documentData.documentCategory Paper",
             range_filters="filingDate:[2023-01-01 TO 2023-12-31]",
             additional_query_params={"customParam": "value"},
         )
@@ -553,7 +553,7 @@ class TestPTABTrialsClientSearchDocuments:
         assert params["limit"] == 50
         assert params["facets"] == "documentCategory"
         assert params["fields"] == "trialNumber,filingDate"
-        assert params["filters"] == "documentCategory:Paper"
+        assert params["filters"] == "documentData.documentCategory Paper"
         assert params["rangeFilters"] == "filingDate:[2023-01-01 TO 2023-12-31]"
         assert params["customParam"] == "value"
 
@@ -782,7 +782,7 @@ class TestPTABTrialsClientSearchDecisions:
             limit=50,
             facets="decisionTypeCategory",
             fields="trialNumber,decisionDate",
-            filters="decisionTypeCategory:Final Written Decision",
+            filters="decisionData.decisionTypeCategory Decision",
             range_filters="decisionDate:[2023-01-01 TO 2023-12-31]",
             additional_query_params={"customParam": "value"},
         )
@@ -796,7 +796,7 @@ class TestPTABTrialsClientSearchDecisions:
         assert params["limit"] == 50
         assert params["facets"] == "decisionTypeCategory"
         assert params["fields"] == "trialNumber,decisionDate"
-        assert params["filters"] == "decisionTypeCategory:Final Written Decision"
+        assert params["filters"] == "decisionData.decisionTypeCategory Decision"
         assert params["rangeFilters"] == "decisionDate:[2023-01-01 TO 2023-12-31]"
         assert params["customParam"] == "value"
 
@@ -808,10 +808,10 @@ class TestPTABTrialsClientPaginate:
         self, mock_ptab_trials_client: PTABTrialsClient
     ) -> None:
         """Test paginate_proceedings method."""
-        # Setup mock responses
+        # Setup mock responses (count is the total across all pages)
         first_response = PTABTrialProceedingResponse.from_dict(
             {
-                "count": 2,
+                "count": 3,
                 "requestIdentifier": "req-1",
                 "patentTrialProceedingDataBag": [
                     {"trialNumber": "IPR2023-00001"},
@@ -822,7 +822,7 @@ class TestPTABTrialsClientPaginate:
 
         second_response = PTABTrialProceedingResponse.from_dict(
             {
-                "count": 1,
+                "count": 3,
                 "requestIdentifier": "req-2",
                 "patentTrialProceedingDataBag": [
                     {"trialNumber": "IPR2023-00003"},
@@ -854,7 +854,7 @@ class TestPTABTrialsClientPaginate:
             assert results[0].trial_number == "IPR2023-00001"
             assert results[1].trial_number == "IPR2023-00002"
             assert results[2].trial_number == "IPR2023-00003"
-            assert mock_search.call_count == 2  # Stops when count < limit
+            assert mock_search.call_count == 2  # Stops once offset + limit >= count
 
     def test_paginate_proceedings_rejects_offset_in_kwargs(
         self, mock_ptab_trials_client: PTABTrialsClient

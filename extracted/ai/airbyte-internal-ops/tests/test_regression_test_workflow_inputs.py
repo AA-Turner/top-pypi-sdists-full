@@ -4,11 +4,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
 import yaml
+from fastmcp import Context
 
 from airbyte_ops_mcp.github_actions import WorkflowDispatchResult
 from airbyte_ops_mcp.mcp import connector_qa
@@ -66,6 +67,7 @@ def _dispatch(**kwargs: Any) -> dict[str, str]:
             connector_name="source-pokeapi",
             pr=1,
             repo=ConnectorRepo.AIRBYTE,
+            ctx=cast(Context, object()),
             **kwargs,
         )
 

@@ -31,6 +31,7 @@ from arraylake.types import (
     PermissionCheckResponse,
     Repo,
     RepoActions,
+    RepoClaimBody,
     RepoCreateBody,
     RepoImportBody,
     RepoKind,
@@ -38,6 +39,7 @@ from arraylake.types import (
     RepoModifyRequest,
     RepoOperationMode,
     RepoOperationStatusResponse,
+    RepoSubscribeBody,
     RepoVisibility,
     S3Credentials,
     TokenAuthenticateBody,
@@ -72,7 +74,7 @@ class HttpMetastore(ArraylakeHttpClient, Metastore):
         config: config for the metastore
 
     :::note
-    Authenticated calls require an Authorization header. Run ``arraylake auth login`` to login before using this metastore.
+    Authenticated calls require an Authorization header. Run ``al auth login`` to login before using this metastore.
     :::
     """
 
@@ -226,6 +228,16 @@ class HttpMetastore(ArraylakeHttpClient, Metastore):
             return repo
 
         raise ValueError(f"Unknown repo kind: {repo.kind}")
+
+    async def subscribe_to_listing(self, body: RepoSubscribeBody) -> Repo:
+        response = await self._request("POST", f"/orgs/{self._config.org}/exchange-subscriptions", content=body.model_dump_json())
+        handle_response(response)
+        return Repo.model_validate_json(response.content)
+
+    async def claim_subscription(self, body: RepoClaimBody) -> Repo:
+        response = await self._request("POST", f"/orgs/{self._config.org}/exchange-subscriptions/claim", content=body.model_dump_json())
+        handle_response(response)
+        return Repo.model_validate_json(response.content)
 
     async def set_repo_status(self, name: str, mode: RepoOperationMode, message: str | None = None) -> RepoOperationStatusResponse:
         """Set repo status"""

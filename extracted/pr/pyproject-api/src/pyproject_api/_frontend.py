@@ -152,6 +152,10 @@ class BackendFailed(RuntimeError):  # ruff:ignore[error-suffix-on-exception-name
         #: the string representation of the exception thrown
         self.exc_msg: str = result.get("exc_msg", "missing Exception message")
 
+    def __reduce__(self) -> tuple[type[BackendFailed], tuple[dict[str, Any], str, str], dict[str, Any]]:
+        result = {"code": self.code, "exc_type": self.exc_type, "exc_msg": self.exc_msg}
+        return self.__class__, (result, self.out, self.err), self.__dict__
+
     def __str__(self) -> str:
         return (
             f"packaging backend failed{'' if self.code is None else f' (code={self.code})'}, "
@@ -338,7 +342,7 @@ class Frontend(ABC):
         if self.optional_hooks["prepare_metadata_for_build_wheel"]:
             basename, out, err = self._send(
                 cmd="prepare_metadata_for_build_wheel",
-                metadata_directory=metadata_directory,
+                metadata_directory=metadata_directory.absolute(),
                 config_settings=config_settings,
             )
         if basename is None:
@@ -379,13 +383,13 @@ class Frontend(ABC):
         if self.optional_hooks["prepare_metadata_for_build_editable"]:
             basename, out, err = self._send(
                 cmd="prepare_metadata_for_build_editable",
-                metadata_directory=metadata_directory,
+                metadata_directory=metadata_directory.absolute(),
                 config_settings=config_settings,
             )
         if basename is None:
             return None
         if not isinstance(basename, str):
-            self._unexpected_response("prepare_metadata_for_build_wheel", basename, str, out, err)
+            self._unexpected_response("prepare_metadata_for_build_editable", basename, str, out, err)
         result = metadata_directory / basename
         return MetadataForBuildEditableResult(result, out, err)
 
@@ -400,7 +404,7 @@ class Frontend(ABC):
         sdist_directory.mkdir(parents=True, exist_ok=True)
         basename, out, err = self._send(
             cmd="build_sdist",
-            sdist_directory=sdist_directory,
+            sdist_directory=sdist_directory.absolute(),
             config_settings=config_settings,
         )
         if not isinstance(basename, str):
@@ -424,9 +428,9 @@ class Frontend(ABC):
         wheel_directory.mkdir(parents=True, exist_ok=True)
         basename, out, err = self._send(
             cmd="build_wheel",
-            wheel_directory=wheel_directory,
+            wheel_directory=wheel_directory.absolute(),
             config_settings=config_settings,
-            metadata_directory=metadata_directory,
+            metadata_directory=None if metadata_directory is None else metadata_directory.absolute(),
         )
         if not isinstance(basename, str):
             self._unexpected_response("build_wheel", basename, str, out, err)
@@ -449,9 +453,9 @@ class Frontend(ABC):
         wheel_directory.mkdir(parents=True, exist_ok=True)
         basename, out, err = self._send(
             cmd="build_editable",
-            wheel_directory=wheel_directory,
+            wheel_directory=wheel_directory.absolute(),
             config_settings=config_settings,
-            metadata_directory=metadata_directory,
+            metadata_directory=None if metadata_directory is None else metadata_directory.absolute(),
         )
         if not isinstance(basename, str):
             self._unexpected_response("build_editable", basename, str, out, err)

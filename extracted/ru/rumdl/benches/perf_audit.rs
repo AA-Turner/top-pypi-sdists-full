@@ -9,23 +9,30 @@
 //!
 //! Inputs are generated deterministically (no RNG) so runs are comparable.
 
-use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
+use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use rayon::prelude::*;
 use rumdl_lib::config::MarkdownFlavor;
-use rumdl_lib::lint_context::LintContext;
+use rumdl_lib::lint_context::{LinkTargetPolicy, LintContext};
 use rumdl_lib::rule::Rule;
 use rumdl_lib::rules::heading_utils::{HeadingUtils, get_heading_level, is_heading, is_setext_heading_marker};
 use rumdl_lib::rules::md013_line_length::md013_config::ReflowMode;
 use rumdl_lib::rules::{
     AbsoluteLinksOption, MD011NoReversedLinks, MD013Config, MD013LineLength, MD018NoMissingSpaceAtx,
     MD021NoMultipleSpaceClosedAtx, MD027MultipleSpacesBlockquote, MD032BlanksAroundLists, MD033NoInlineHtml,
-    MD051LinkFragments, MD052ReferenceLinkImages, MD057Config, MD057ExistingRelativeLinks,
+    MD051LinkFragments, MD052ReferenceLinkImages, MD057Config, MD057ExistingRelativeLinks, MD070NestedCodeFence,
+    MD077ListContinuationIndent, MD087UnusedDisableComment,
 };
-use rumdl_lib::rules::{MD014CommandsShowOutput, MD024NoDuplicateHeading, MD039NoSpaceInLinks, MD044ProperNames};
+use rumdl_lib::rules::{
+    MD014CommandsShowOutput, MD024NoDuplicateHeading, MD037NoSpaceInEmphasis, MD039NoSpaceInLinks, MD044ProperNames,
+    MD049EmphasisStyle, MD084InvisibleCharacters, MD089CjkSpacing, MD093NoFormattingInHeadings, MD095LinkConfusables,
+};
+use rumdl_lib::utils::emphasis_utils::{
+    find_emphasis_markers, find_emphasis_spans, find_single_emphasis_spans, find_valid_emphasis_ranges,
+};
 use rumdl_lib::utils::regex_cache::{RegexCache, get_cached_regex};
 use rumdl_lib::workspace_index::{CrossFileLinkIndex, FileIndex, LinkOrigin, WorkspaceIndex};
 use std::hint::black_box;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 // ---------------------------------------------------------------------------
 // Input generators
@@ -226,6 +233,132 @@ fn bench_lint_context_new(c: &mut Criterion) {
     });
 }
 
+/// Comment delimiters interleaved with code must not rescan every code range.
+fn bench_comment_code_ranges(c: &mut Criterion) {
+    let mut group = c.benchmark_group("comment_code_ranges");
+    group.sample_size(10);
+    for (name, unit, block) in [
+        ("inline", "`literal <!-- -->` <!-- real --> text\n\n", false),
+        ("fenced", "```\n<!-- literal -->\n```\n\n<!-- real -->\n\n", true),
+        ("no-comment", "`literal` text\n\n", false),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = unit.repeat(count);
+            let code_end = if block {
+                unit.find("\n\n").unwrap() + 1
+            } else {
+                unit[1..].find('`').unwrap() + 2
+            };
+            let ranges: Vec<_> = (0..count)
+                .map(|i| (i * unit.len(), i * unit.len() + code_end))
+                .collect();
+            let (spans, blocks) = if block {
+                (&[][..], ranges.as_slice())
+            } else {
+                (ranges.as_slice(), &[][..])
+            };
+            let expected = if name == "no-comment" { 0 } else { count };
+            let scan = rumdl_lib::utils::skip_context::scan_html_comments(&content, spans, blocks, 0);
+            assert_eq!(scan.ranges.len(), expected);
+            assert!(scan.unterminated.is_none());
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(ctx.html_comment_ranges().len(), expected);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(format!("scan/{name}"), count), |b| {
+                b.iter(|| rumdl_lib::utils::skip_context::scan_html_comments(black_box(&content), spans, blocks, 0));
+            });
+            group.bench_function(BenchmarkId::new(format!("context/{name}"), count), |b| {
+                b.iter(|| LintContext::new(black_box(&content), MarkdownFlavor::Standard, None));
+            });
+        }
+    }
+    group.finish();
+}
+
+/// Many links on one source line expose repeated prefix-to-column scans.
+fn bench_context_long_line(c: &mut Criterion) {
+    let mut group = c.benchmark_group("context_long_line");
+    group.sample_size(10);
+    for (name, unit) in [
+        ("ascii", "[link](https://example.com) <hello@example.com> "),
+        (
+            "unicode",
+            "é日本🙂 [![图](image.png)](https://example.com) [未解決][missing] ",
+        ),
+    ] {
+        for size in [64, 1024, 4096, 16384] {
+            let content = unit.repeat(size);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_with_input(BenchmarkId::new(name, size), &content, |b, content| {
+                b.iter(|| LintContext::new(black_box(content), MarkdownFlavor::Standard, None));
+            });
+        }
+    }
+    group.finish();
+}
+
+/// Native MDX extraction shares the indexed columns used by the other parsers.
+fn bench_context_mdx_columns(c: &mut Criterion) {
+    let mut group = c.benchmark_group("context_mdx_columns");
+    group.sample_size(10);
+    for (name, unit) in [
+        ("links", "[label](https://example.com) ![alt](image.png) "),
+        ("unicode", "é日本🙂 [label](https://example.com) ![图](image.png) "),
+        ("jsx", "é日本🙂 <span>x</span> <Card /> "),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!("{}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::MDX, None);
+            if name == "jsx" {
+                assert_eq!(ctx.html_tags().len(), count * 2);
+            } else {
+                assert_eq!(ctx.links().len(), count);
+                assert_eq!(ctx.images().len(), count);
+            }
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_with_input(BenchmarkId::new(name, count), &content, |b, content| {
+                b.iter(|| LintContext::new(black_box(content), MarkdownFlavor::MDX, None));
+            });
+        }
+    }
+    group.finish();
+}
+
+/// Include first access to the lazy element caches: construction alone does
+/// not materialize these source columns.
+fn bench_context_inline_elements(c: &mut Criterion) {
+    let mut group = c.benchmark_group("context_inline_elements");
+    group.sample_size(10);
+    for (name, unit) in [
+        ("code", "text `code` "),
+        ("math", "é日本🙂 $x + y$ "),
+        ("html", "é日本🙂 <span>x</span> "),
+    ] {
+        for size in [128, 2048, 8192, 32768] {
+            let content = unit.repeat(size);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_with_input(BenchmarkId::new(name, size), &content, |b, content| {
+                b.iter(|| {
+                    let ctx = LintContext::new(black_box(content), MarkdownFlavor::Standard, None);
+                    match name {
+                        "code" => {
+                            black_box(ctx.code_spans());
+                        }
+                        "math" => {
+                            black_box(ctx.math_spans());
+                        }
+                        "html" => {
+                            black_box(ctx.html_tags());
+                        }
+                        _ => unreachable!(),
+                    }
+                });
+            });
+        }
+    }
+    group.finish();
+}
+
 /// Parser-only costs for the same inputs, without rumdl's extraction and line
 /// classification. Compare with context construction before replacing a parser.
 fn bench_markdown_parse(c: &mut Criterion) {
@@ -354,6 +487,36 @@ fn bench_md057(c: &mut Criterion) {
     c.bench_function("md057/many_refs_check", |b| b.iter(|| rule.check(black_box(&ctx))));
 }
 
+fn bench_workspace_link_extraction(c: &mut Criterion) {
+    let mut group = c.benchmark_group("workspace_link_extraction");
+    group.sample_size(10);
+    for (name, unit, suffix) in [
+        ("relative", "é日本🙂 [label](target.md) ", ""),
+        ("absolute", "é日本🙂 [label](/target.md) ", ""),
+        ("angle", "é日本🙂 [label](<target.md>) ", ""),
+        ("tail-angle", "é日本🙂 [label](target.md) ", " [last](<last.md>)"),
+        ("tail-marker", "é日本🙂 [label](target.md) ", " <no destination>"),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!("{}{suffix}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            let links = rumdl_lib::workspace_index::extract_cross_file_links(&ctx);
+            assert_eq!(
+                links.relative.len() + links.root_relative.len(),
+                count + usize::from(name == "tail-angle")
+            );
+            if name == "tail-angle" {
+                assert!(links.relative.iter().all(|link| link.target_path == "last.md"));
+            }
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rumdl_lib::workspace_index::extract_cross_file_links(black_box(&ctx)))
+            });
+        }
+    }
+    group.finish();
+}
+
 fn bench_workspace_build(c: &mut Criterion) {
     let n = 400usize;
     c.bench_function("workspace_build/400_crosslinked", |b| {
@@ -402,6 +565,879 @@ fn link_document(padded: bool, escaped: bool) -> String {
         ));
     }
     content
+}
+
+fn bench_md057_positions(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md057_positions");
+    group.sample_size(10);
+    let temp = tempfile::tempdir().unwrap();
+    let base = temp.path().join("sub");
+    std::fs::create_dir(&base).unwrap();
+    std::fs::write(base.join("target.md"), "target").unwrap();
+    let source = base.join("page.md");
+    std::fs::write(&source, "source").unwrap();
+    let config = MD057Config {
+        absolute_links: AbsoluteLinksOption::Warn,
+        compact_paths: true,
+        self_referential_links: true,
+        ..Default::default()
+    };
+    let rule = MD057ExistingRelativeLinks::from_config_struct(config).with_path(&base);
+    for (name, unit, fixable) in [
+        ("missing", "é日本🙂 [missing](missing.md) ", false),
+        ("absolute", "é日本🙂 [absolute](/missing.md) ", false),
+        ("compact", "é日本🙂 [compact](../sub/target.md#part) ", true),
+        ("self", "é日本🙂 [self](page.md#part) ", true),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!("{}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, Some(source.clone()));
+            let warnings = rule.check(&ctx).unwrap();
+            assert_eq!(warnings.len(), count);
+            assert!(warnings.iter().all(|warning| warning.fix.is_some() == fixable));
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap())
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_directive_code_ranges(c: &mut Criterion) {
+    use rumdl_lib::inline_config::{InlineConfig, validate_inline_enables_against_active_rules};
+    use rumdl_lib::rule::SuppressionReport;
+
+    let mut group = c.benchmark_group("directive_code_ranges");
+    group.sample_size(10);
+    for stage in ["config", "observer", "validation"] {
+        let directive = if stage == "validation" {
+            "enable"
+        } else {
+            "disable-line"
+        };
+        for fenced in [false, true] {
+            let unit = if fenced {
+                format!("```md\n<!-- rumdl-{directive} MD013 -->\n```\n\n<!-- rumdl-{directive} MD013 -->\n\n")
+            } else {
+                format!("`<!-- rumdl-{directive} MD013 -->` <!-- rumdl-{directive} MD013 --> ")
+            };
+            for count in [128, 1024, 4096] {
+                let content = unit.repeat(count);
+                let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+                let ranges = rumdl_lib::lint_context::code_ranges(&content, MarkdownFlavor::Standard);
+                let mut report = SuppressionReport::default();
+                report.judged_rules.insert("MD013".into());
+                let rule = MD087UnusedDisableComment::new();
+                let active = std::collections::HashSet::new();
+                match stage {
+                    "config" => {
+                        let config =
+                            InlineConfig::from_content_with_code_blocks(&content, &ranges.blocks, &ranges.spans);
+                        assert!(config.is_rule_disabled("MD013", if fenced { 5 } else { 1 }));
+                        if fenced {
+                            assert!(!config.is_rule_disabled("MD013", 2));
+                        }
+                    }
+                    "observer" => assert_eq!(rule.check_suppressions(&ctx, &report).unwrap().len(), count),
+                    _ => assert_eq!(
+                        validate_inline_enables_against_active_rules(
+                            &content,
+                            MarkdownFlavor::Standard,
+                            &active,
+                            &active
+                        )
+                        .len(),
+                        count
+                    ),
+                }
+                group.throughput(Throughput::Bytes(content.len() as u64));
+                group.bench_function(BenchmarkId::new(format!("{stage}-fenced-{fenced}"), count), |b| {
+                    b.iter(|| match stage {
+                        "config" => {
+                            black_box(InlineConfig::from_content_with_code_blocks(
+                                black_box(&content),
+                                &ranges.blocks,
+                                &ranges.spans,
+                            ));
+                        }
+                        "observer" => {
+                            black_box(rule.check_suppressions(black_box(&ctx), &report).unwrap());
+                        }
+                        _ => {
+                            black_box(validate_inline_enables_against_active_rules(
+                                black_box(&content),
+                                MarkdownFlavor::Standard,
+                                &active,
+                                &active,
+                            ));
+                        }
+                    });
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn bench_md087_suppressions(c: &mut Criterion) {
+    use rumdl_lib::inline_config::{DisableLayer, validate_inline_config_rules};
+    use rumdl_lib::rule::{SuppressedWarning, SuppressionReport};
+
+    let mut group = c.benchmark_group("md087_suppressions");
+    group.sample_size(10);
+    let rule = MD087UnusedDisableComment::new();
+    for (name, unit, layer, line_step) in [
+        ("unused-line", "é日本🙂 <!-- rumdl-disable-line MD013 --> ", None, 1),
+        (
+            "used-lines",
+            "text <!-- rumdl-disable-line MD013 -->\n",
+            Some(DisableLayer::Line),
+            1,
+        ),
+        (
+            "used-blocks",
+            "<!-- rumdl-disable MD013 -->\ntext\n",
+            Some(DisableLayer::Block),
+            2,
+        ),
+        (
+            "config-line",
+            "é日本🙂 <!-- rumdl-configure-file {\"MD013\":false} --> ",
+            None,
+            1,
+        ),
+        (
+            "config-lines",
+            "<!-- rumdl-configure-file {\"MD013\":false} -->\n",
+            None,
+            1,
+        ),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = unit.repeat(count);
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            let mut report = SuppressionReport::default();
+            report.judged_rules.insert("MD013".into());
+            if let Some(layer) = layer {
+                report.suppressed = (1..=count)
+                    .map(|line| SuppressedWarning {
+                        rule_name: "MD013".into(),
+                        line: line * line_step,
+                        layer,
+                    })
+                    .collect();
+            }
+            assert_eq!(
+                rule.check_suppressions(&ctx, &report).unwrap().len(),
+                if layer.is_some() { 0 } else { count }
+            );
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rule.check_suppressions(black_box(&ctx), black_box(&report)).unwrap());
+            });
+            if name.starts_with("config-") {
+                assert!(validate_inline_config_rules(&content, MarkdownFlavor::Standard).is_empty());
+                group.bench_function(BenchmarkId::new(format!("validate-{name}"), count), |b| {
+                    b.iter(|| validate_inline_config_rules(black_box(&content), MarkdownFlavor::Standard));
+                });
+            }
+        }
+    }
+    // A broad disable can match the first finding even in a large report.
+    // Constructing an index eagerly would turn this constant-time query linear.
+    let content = "<!-- rumdl-disable-file MD013 -->\ntext\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    for count in [128, 4096, 65536] {
+        let mut report = SuppressionReport::default();
+        report.judged_rules.insert("MD013".into());
+        report.suppressed = (1..=count)
+            .map(|line| SuppressedWarning {
+                rule_name: "MD013".into(),
+                line,
+                layer: DisableLayer::File,
+            })
+            .collect();
+        assert!(rule.check_suppressions(&ctx, &report).unwrap().is_empty());
+        group.throughput(Throughput::Elements(count as u64));
+        group.bench_function(BenchmarkId::new("broad-disable", count), |b| {
+            b.iter(|| rule.check_suppressions(black_box(&ctx), black_box(&report)).unwrap());
+        });
+    }
+    group.finish();
+}
+
+fn bench_md030_indented_fallback(c: &mut Criterion) {
+    use rumdl_lib::rules::MD030ListMarkerSpace;
+
+    let rule = MD030ListMarkerSpace::default();
+    let mut group = c.benchmark_group("md030_indented_fallback");
+    group.sample_size(10);
+    for (name, unit) in [("spaces", "    2.bad\n"), ("tabs", "\t2.bad\n")] {
+        for count in [128, 1024, 4096] {
+            let content = format!("- Root\n{}", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert!(rule.check(&ctx).unwrap().is_empty());
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| black_box(rule.check(black_box(&ctx)).unwrap()));
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_heading_anchor_lookup(c: &mut Criterion) {
+    use rumdl_lib::utils::header_id_utils::{extract_heading_text, extract_html_anchor_ids};
+
+    let mut group = c.benchmark_group("heading_anchor_lookup");
+    group.sample_size(10);
+    for (name, unit, has_anchors) in [
+        ("html-code", "<span>word</span> `code` ", false),
+        ("anchors", "<a id=\"live\"></a>`<a id=\"literal\"></a>` ", true),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!("# {}\n", unit.repeat(count));
+            assert_eq!(
+                extract_html_anchor_ids(&content).len(),
+                if has_anchors { count } else { 0 }
+            );
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            for stage in ["context", "text", "ids"] {
+                group.bench_function(BenchmarkId::new(format!("{name}-{stage}"), count), |b| {
+                    b.iter(|| match stage {
+                        "context" => {
+                            black_box(LintContext::new(black_box(&content), MarkdownFlavor::Standard, None));
+                        }
+                        "text" => {
+                            black_box(extract_heading_text(black_box(&content)));
+                        }
+                        _ => {
+                            black_box(extract_html_anchor_ids(black_box(&content)));
+                        }
+                    });
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn bench_heading_anchor_attributes(c: &mut Criterion) {
+    use rumdl_lib::rules::MD024NoDuplicateHeading;
+
+    let mut group = c.benchmark_group("heading_anchor_attributes");
+    group.sample_size(10);
+    let rule = MD024NoDuplicateHeading::default();
+    for name in ["id", "attributes"] {
+        for count in [128, 512, 2048] {
+            let unit = if name == "id" {
+                "<a></a> {#id} "
+            } else {
+                "<a id=x></a> {: #id .class data='value'} "
+            };
+            let content = format!("# Word {}\n\n", unit.repeat(count)).repeat(2);
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.check(&ctx).unwrap().len(), 1);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            for stage in ["range", "MD024"] {
+                group.bench_function(BenchmarkId::new(format!("{name}-{stage}"), count), |b| {
+                    b.iter(|| {
+                        if stage == "range" {
+                            for heading in ctx.headings() {
+                                black_box(heading.text_byte_range(black_box(&content)));
+                            }
+                        } else {
+                            black_box(rule.check(black_box(&ctx)).unwrap());
+                        }
+                    });
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn bench_heading_backtick_lookup(c: &mut Criterion) {
+    use rumdl_lib::utils::header_id_utils::extract_heading_text;
+
+    let mut group = c.benchmark_group("heading_backtick_lookup");
+    group.sample_size(10);
+    for name in ["unmatched", "paired", "recovered", "indexed-pairs"] {
+        for count in [64, 256, 1024] {
+            let unmatched = || {
+                (1..=count)
+                    .map(|len| format!("{}x ", "`".repeat(len)))
+                    .collect::<String>()
+            };
+            let paired = || {
+                (1..=count)
+                    .map(|len| {
+                        let ticks = "`".repeat(len);
+                        format!("{ticks}x{ticks} ")
+                    })
+                    .collect::<String>()
+            };
+            let text = match name {
+                "unmatched" => unmatched(),
+                "paired" => paired(),
+                "recovered" => format!("{}x {}", "`".repeat(count + 1), paired()),
+                _ => {
+                    let ticks = "`".repeat(count + 1);
+                    format!("{}{}", unmatched(), format!("{ticks}x{ticks} ").repeat(count))
+                }
+            };
+            let content = format!("# {text}<span>text</span>\n");
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            for stage in ["text", "context"] {
+                group.bench_function(BenchmarkId::new(format!("{name}-{stage}"), count), |b| {
+                    b.iter(|| {
+                        if stage == "text" {
+                            black_box(extract_heading_text(black_box(&content)));
+                        } else {
+                            black_box(LintContext::new(black_box(&content), MarkdownFlavor::Standard, None));
+                        }
+                    });
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn bench_heading_image_delimiters(c: &mut Criterion) {
+    use rumdl_lib::utils::header_id_utils::extract_heading_text;
+
+    let mut group = c.benchmark_group("heading_image_delimiters");
+    group.sample_size(10);
+    for name in [
+        "description",
+        "destination",
+        "reference",
+        "closed",
+        "valid",
+        "recovered",
+    ] {
+        for count in [128, 1024, 4096] {
+            let text = match name {
+                "description" => "![ ".repeat(count),
+                "destination" => "![a]( ".repeat(count),
+                "reference" => "![a][ ".repeat(count),
+                "closed" => format!("{}{}", "![ ".repeat(count), "]".repeat(count)),
+                "recovered" => format!("![ {}", "![alt](image) ".repeat(count)),
+                _ => "![alt](image) ".repeat(count),
+            };
+            let content = format!("# {text}<span>text</span>\n");
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            for stage in ["text", "context"] {
+                group.bench_function(BenchmarkId::new(format!("{name}-{stage}"), count), |b| {
+                    b.iter(|| {
+                        if stage == "text" {
+                            black_box(extract_heading_text(black_box(&content)));
+                        } else {
+                            black_box(LintContext::new(black_box(&content), MarkdownFlavor::Standard, None));
+                        }
+                    });
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn bench_heading_anchor_spacing(c: &mut Criterion) {
+    use rumdl_lib::utils::header_id_utils::extract_heading_text;
+
+    let mut group = c.benchmark_group("heading_anchor_spacing");
+    group.sample_size(10);
+    for (name, unit) in [("single", "word <a id=x></a> "), ("adjacent", "é <a></a><a></a>  🙂 ")] {
+        for count in [128, 2048, 16384] {
+            let content = format!("# {}\n", unit.repeat(count));
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            for stage in ["text", "context"] {
+                group.bench_function(BenchmarkId::new(format!("{name}-{stage}"), count), |b| {
+                    b.iter(|| {
+                        if stage == "text" {
+                            black_box(extract_heading_text(black_box(&content)));
+                        } else {
+                            black_box(LintContext::new(black_box(&content), MarkdownFlavor::Standard, None));
+                        }
+                    });
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn bench_heading_trailing_anchors(c: &mut Criterion) {
+    use rumdl_lib::rules::MD024NoDuplicateHeading;
+
+    let mut group = c.benchmark_group("heading_trailing_anchors");
+    group.sample_size(10);
+    let rule = MD024NoDuplicateHeading::default();
+    for (name, suffix) in [("plain", ""), ("custom-id", "{#custom}")] {
+        for count in [128, 512, 2048] {
+            let content = format!("# Word {}{suffix}\n\n", "<a id=x></a> ".repeat(count)).repeat(2);
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.check(&ctx).unwrap().len(), 1);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            for stage in ["range", "MD024"] {
+                group.bench_function(BenchmarkId::new(format!("{name}-{stage}"), count), |b| {
+                    b.iter(|| {
+                        if stage == "range" {
+                            for heading in ctx.headings() {
+                                black_box(heading.text_byte_range(black_box(&content)));
+                            }
+                        } else {
+                            black_box(rule.check(black_box(&ctx)).unwrap());
+                        }
+                    });
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn bench_mdx_nested_context(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mdx_nested_context");
+    group.sample_size(10);
+    for name in ["nested", "unmatched", "paired"] {
+        for count in [128, 1024, 4096] {
+            let text = match name {
+                "nested" => format!("{}text{}", "<b>".repeat(count), "</b>".repeat(count)),
+                "unmatched" => format!("{}{}", "<b>".repeat(count), "</i>".repeat(count)),
+                _ => "<b>text</b> ".repeat(count),
+            };
+            let content = format!("# {text}\n");
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| black_box(LintContext::new(black_box(&content), MarkdownFlavor::MDX, None)));
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md063_tag_pairing(c: &mut Criterion) {
+    use rumdl_lib::rules::MD063HeadingCapitalization;
+
+    let mut group = c.benchmark_group("md063_tag_pairing");
+    group.sample_size(10);
+    let rule = MD063HeadingCapitalization::default();
+    for flavor in [MarkdownFlavor::Standard, MarkdownFlavor::MDX] {
+        for name in ["unmatched", "distinct", "paired", "nested", "recovered"] {
+            for count in [128, 1024, 4096] {
+                let text = match name {
+                    "paired" => "<b>text</b> ".repeat(count),
+                    "recovered" => format!("<b></missing></b> {}", "<b>text</b> ".repeat(count)),
+                    "nested" => format!("{}text{}", "<b>".repeat(count), "</b>".repeat(count)),
+                    "distinct" => format!(
+                        "{}{}",
+                        "<b>".repeat(count),
+                        (0..count).map(|i| format!("</missing{i}> ")).collect::<String>()
+                    ),
+                    _ => format!("{}{}", "<b>".repeat(count), "</i>".repeat(count)),
+                };
+                let content = format!("# {text}\n");
+                let ctx = LintContext::new(&content, flavor, None);
+                assert!(rule.check(&ctx).unwrap().is_empty());
+                group.throughput(Throughput::Bytes(content.len() as u64));
+                group.bench_function(BenchmarkId::new(format!("{flavor:?}-{name}"), count), |b| {
+                    b.iter(|| black_box(rule.check(black_box(&ctx)).unwrap()));
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn bench_md063_heading_regions(c: &mut Criterion) {
+    use rumdl_lib::rules::MD063HeadingCapitalization;
+
+    let mut group = c.benchmark_group("md063_heading_regions");
+    group.sample_size(10);
+    let rule = MD063HeadingCapitalization::default();
+    for (name, unit, count_warnings) in [
+        ("formatting", "é日本🙂 **strong** *emphasis* `code` ", 1),
+        ("html-code", "<span>word</span> `code` ", 0),
+        ("links", "[word](target) `code` ", 1),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!("# {}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.check(&ctx).unwrap().len(), count_warnings);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_list_code_context(c: &mut Criterion) {
+    let mut group = c.benchmark_group("list_code_context");
+    group.sample_size(10);
+    for blank in [false, true] {
+        let unit = if blank {
+            "   ```\n   code\n   ```\n\n"
+        } else {
+            "   ```\n   code\n   ```\n"
+        };
+        for count in [128, 1024, 4096] {
+            let content = format!("- Item\n{}", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(ctx.code_block_details.len(), count);
+            assert_eq!(ctx.list_blocks.len(), 1);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(format!("blank-{blank}"), count), |b| {
+                b.iter(|| LintContext::new(black_box(&content), MarkdownFlavor::Standard, None));
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md031_list_membership(c: &mut Criterion) {
+    use rumdl_lib::rules::MD031BlanksAroundFences;
+
+    let mut group = c.benchmark_group("md031_list_membership");
+    group.sample_size(10);
+    let rule = MD031BlanksAroundFences::new(false);
+    for (name, flavor, unit) in [
+        ("fences", MarkdownFlavor::Standard, "   ```\n   code\n   ```\n"),
+        ("admonitions", MarkdownFlavor::MkDocs, "   !!! note\n       contents\n"),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!("- Item\n{}", unit.repeat(count));
+            let ctx = LintContext::new(&content, flavor, None);
+            assert!(rule.check(&ctx).unwrap().is_empty());
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_spacing_fence_lookup(c: &mut Criterion) {
+    use rumdl_lib::rules::{MD031BlanksAroundFences, MD076ListItemSpacing};
+
+    let mut group = c.benchmark_group("spacing_fence_lookup");
+    group.sample_size(10);
+    let rules: [&dyn Rule; 2] = [&MD031BlanksAroundFences::default(), &MD076ListItemSpacing::default()];
+    for rule in rules {
+        for flavor in [MarkdownFlavor::Standard, MarkdownFlavor::MkDocs] {
+            for count in [128, 1024, 4096] {
+                let content = "1. Item\n\n   ```toml\n   key = 1\n   ```\n\n".repeat(count);
+                let ctx = LintContext::new(&content, flavor, None);
+                assert!(rule.check(&ctx).unwrap().is_empty());
+                group.throughput(Throughput::Bytes(content.len() as u64));
+                group.bench_function(BenchmarkId::new(format!("{}-{flavor:?}", rule.name()), count), |b| {
+                    b.iter(|| rule.check(black_box(&ctx)).unwrap());
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn bench_md077_fence_lookup(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md077_fence_lookup");
+    group.sample_size(10);
+    let rule = MD077ListContinuationIndent::default();
+    for (name, flavor, unit) in [
+        ("standard", MarkdownFlavor::Standard, "- Item\n\n ```\n code\n ```\n\n"),
+        (
+            "mkdocs",
+            MarkdownFlavor::MkDocs,
+            "1. Item\n\n   ```toml\n   key = 1\n   ```\n\n",
+        ),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = unit.repeat(count);
+            let ctx = LintContext::new(&content, flavor, None);
+            let warnings = rule.check(&ctx).unwrap();
+            assert_eq!(warnings.len(), count);
+            assert!(warnings.iter().all(|warning| warning.fix.is_some()));
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md070_fence_lookup(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md070_fence_lookup");
+    group.sample_size(10);
+    let rule = MD070NestedCodeFence::new();
+    for (name, unit) in [
+        ("closed", "```rust\nlet x = 1;\n```\n\n"),
+        ("container-ended", "- Item:\n\n  ```yaml\n  a: b\n\nEnd.\n\n"),
+    ] {
+        for count in [128, 1024, 4096, 8192] {
+            let content = unit.repeat(count);
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(ctx.code_block_details.len(), count);
+            assert!(rule.check(&ctx).unwrap().is_empty());
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md093_positions(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md093_positions");
+    group.sample_size(10);
+    let rule = MD093NoFormattingInHeadings::default();
+    for (name, prefix, suffix) in [
+        ("atx", "# ", "\n"),
+        ("setext", "", "\n===\n"),
+        ("quoted", "> # ", "\r\n"),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!(
+                "{prefix}{}{suffix}",
+                "é日本🙂 **strong** *emphasis* `code` ".repeat(count)
+            );
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.check(&ctx).unwrap().len(), count * 3);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md084_fixes(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md084_fixes");
+    group.sample_size(10);
+    for strict in [false, true] {
+        let mut config = rumdl_lib::config::Config::default();
+        config
+            .rules
+            .entry("MD084".to_string())
+            .or_default()
+            .values
+            .insert("strict".to_string(), strict.into());
+        let rule = MD084InvisibleCharacters::from_config(&config);
+        for (name, unit, expected) in [
+            ("invisible", "é日本🙂 x\u{200b} y ", 1),
+            ("tone-mark", "é日本🙂 x\u{0340} y ", 1),
+            ("clusters", "é日本🙂 x\u{200b}\u{200b}y ", if strict { 2 } else { 1 }),
+            ("nonfixable", "é日本🙂 x\u{fffc}y ", 1),
+            ("sparse", "é日本🙂 text ", 0),
+        ] {
+            for count in [128, 1024, 4096] {
+                let suffix = if name == "sparse" { " \u{200b}" } else { "" };
+                let content = format!("{}{suffix}\n", unit.repeat(count));
+                let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+                assert!(!rule.should_skip(&ctx));
+                let warnings = rule.check(&ctx).unwrap();
+                assert_eq!(warnings.len(), expected * count + usize::from(name == "sparse"));
+                assert!(
+                    warnings
+                        .iter()
+                        .all(|warning| warning.fix.is_some() == (name != "nonfixable"))
+                );
+                group.throughput(Throughput::Bytes(content.len() as u64));
+                group.bench_function(BenchmarkId::new(format!("{name}/strict={strict}"), count), |b| {
+                    b.iter(|| rule.check(black_box(&ctx)).unwrap());
+                });
+            }
+        }
+    }
+    group.finish();
+}
+
+fn bench_heading_link_ranges(c: &mut Criterion) {
+    let mut group = c.benchmark_group("heading_link_ranges");
+    group.sample_size(10);
+    for (name, unit, flavor) in [
+        (
+            "atx",
+            "## Repeated heading\n\nparagraph [jump](#repeated-heading).\n\n",
+            MarkdownFlavor::Standard,
+        ),
+        (
+            "list",
+            "- ## Repeated heading\n\n  paragraph [jump](#repeated-heading).\n\n",
+            MarkdownFlavor::Standard,
+        ),
+        (
+            "quoted-list",
+            "> - ## Repeated heading\n>\n>   paragraph [jump](#repeated-heading).\n\n",
+            MarkdownFlavor::Standard,
+        ),
+        (
+            "mdx",
+            "## Repeated heading\n\nparagraph [jump](#repeated-heading).\n\n",
+            MarkdownFlavor::MDX,
+        ),
+    ] {
+        for count in [128, 2048, 8192] {
+            let content = unit.repeat(count);
+            let ctx = LintContext::new(&content, flavor, None);
+            assert_eq!(ctx.headings().count(), count);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| LintContext::new(black_box(&content), flavor, None));
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md089_indexes(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md089_indexes");
+    group.sample_size(10);
+    for (name, unit, expected) in [
+        (
+            "links",
+            "é日本🙂 [label](https://example.com) ![图](https://example.com/image.png) ",
+            0,
+        ),
+        ("badges", "中文[![图](img.png)](target)中文 ", 0),
+        ("mixed", "中文[label](target)中文 ![图](img.png) ", 2),
+        ("warnings", "é日本🙂 中文english ", 1),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!("{}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            let rule = MD089CjkSpacing::default();
+            assert!(!rule.should_skip(&ctx));
+            assert_eq!(rule.check(&ctx).unwrap().len(), expected * count);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md095_positions(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md095_positions");
+    group.sample_size(10);
+    for (name, unit, expected) in [
+        ("safe-html", "é日本🙂 &amp; <span>text</span> ", 0),
+        ("links", "é日本🙂 [x](https://еxample.com) ", 1),
+        (
+            "html-entities",
+            "é日本🙂 <a href=\"https://&#x435;xample.com\">x</a> ",
+            1,
+        ),
+        ("bare-urls", "é日本🙂 https://еxample.com ", 1),
+        ("html-body", "<div> é日本🙂 [x](https://еxample.com) </div> ", 0),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!("{}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            let rule = MD095LinkConfusables;
+            assert!(!rule.should_skip(&ctx));
+            assert_eq!(rule.check(&ctx).unwrap().len(), expected * count);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md049_filter(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md049_filter");
+    group.sample_size(10);
+    for (name, unit, flavor, warnings_per_unit) in [
+        ("mixed", "é日本🙂 *good* _other_ ", MarkdownFlavor::Standard, 1),
+        ("literal", "*foo * bar* ", MarkdownFlavor::Standard, 0),
+        (
+            "markup",
+            "é日本🙂 *good* _other_ ^^_insert_^^ ++ctrl+_key_++ :icon_name: ",
+            MarkdownFlavor::MkDocs,
+            1,
+        ),
+        (
+            "obsidian",
+            "é日本🙂 *good* _other_ ==_mark_== ",
+            MarkdownFlavor::Obsidian,
+            1,
+        ),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!("{}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, flavor, None);
+            let rule = MD049EmphasisStyle::default();
+            assert_eq!(rule.check(&ctx).unwrap().len(), count * warnings_per_unit);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md037_filter(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md037_filter");
+    group.sample_size(10);
+    for (name, unit, warnings_per_unit) in [
+        ("spaced", "é日本🙂 * bad * _ other _ ", 2),
+        ("html", "é日本🙂 * bad * <span>text</span> ", 1),
+        ("code", "é日本🙂 `literal` * bad * ", 1),
+        ("math", "é日本🙂 $x$ * bad * ", 1),
+        ("images", "é日本🙂 ![image](image.png) * bad * ", 1),
+        ("literal", "*foo * bar* ", 0),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = format!("{}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(
+                MD037NoSpaceInEmphasis.check(&ctx).unwrap().len(),
+                count * warnings_per_unit
+            );
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter(|| MD037NoSpaceInEmphasis.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_emphasis_pairing(c: &mut Criterion) {
+    let mut group = c.benchmark_group("emphasis_pairing");
+    group.sample_size(10);
+    for (name, unit) in [
+        ("unmatched_single", "*word "),
+        ("unmatched_strong", "__word "),
+        ("mixed_strength", "*word **word "),
+        ("literal_marker", "*foo * bar* "),
+    ] {
+        for count in [128, 1024, 4096] {
+            let content = unit.repeat(count);
+            let markers = find_emphasis_markers(&content);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_with_input(BenchmarkId::new(name, count), &content, |b, content| {
+                b.iter(|| {
+                    black_box(find_emphasis_spans(black_box(content), black_box(&markers)));
+                    black_box(find_single_emphasis_spans(black_box(content), black_box(&markers)));
+                    black_box(find_valid_emphasis_ranges(black_box(content), black_box(&markers)));
+                });
+            });
+        }
+    }
+    group.finish();
 }
 
 fn bench_rules(c: &mut Criterion) {
@@ -546,6 +1582,114 @@ fn bench_md044_name_lookup(c: &mut Criterion) {
     }
 }
 
+fn bench_md044_long_lines(c: &mut Criterion) {
+    let mut group = c.benchmark_group("MD044_long_lines");
+    group.sample_size(10);
+    for (name, unit) in [
+        ("ascii", "javascript text "),
+        ("unicode", "日本🙂 javascript text "),
+        ("angles", "<custom:data> javascript "),
+        ("comments", "<!-- javascript text --> "),
+    ] {
+        for count in [1024, 4096, 8192] {
+            let content = format!("{}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            let rule = MD044ProperNames::new(vec!["JavaScript".into()], false);
+            assert_eq!(rule.check(&ctx).unwrap().len(), count);
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(format!("{name}-cached"), count), |b| {
+                b.iter(|| black_box(rule.check(black_box(&ctx)).unwrap()));
+            });
+            group.bench_function(BenchmarkId::new(format!("{name}-fresh"), count), |b| {
+                b.iter_batched(
+                    || MD044ProperNames::new(vec!["JavaScript".into()], false),
+                    |rule| black_box(rule.check(black_box(&ctx)).unwrap()),
+                    BatchSize::SmallInput,
+                );
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md044_link_destinations(c: &mut Criterion) {
+    let mut group = c.benchmark_group("MD044_link_destinations");
+    group.sample_size(10);
+    for (name, unit) in [
+        ("regular", "[label](target) javascript "),
+        ("wiki", "[[target]](path) javascript "),
+        ("nested", "[[target]](a(b)c) javascript "),
+        ("unclosed", "[[target]](path javascript "),
+        ("overlap", "[[target]](a"),
+    ] {
+        for count in [1024, 4096, 8192] {
+            let content = if name == "overlap" {
+                format!("{}javascript{} javascript\n", unit.repeat(count), ")".repeat(count))
+            } else {
+                format!("{}\n", unit.repeat(count))
+            };
+            let ctx = LintContext::new(&content, MarkdownFlavor::Obsidian, None);
+            assert!(ctx.links().len() >= count);
+            let expected = if name == "overlap" { 1 } else { count };
+            assert_eq!(
+                MD044ProperNames::new(vec!["JavaScript".into()], false)
+                    .check(&ctx)
+                    .unwrap()
+                    .len(),
+                expected
+            );
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter_batched(
+                    || MD044ProperNames::new(vec!["JavaScript".into()], false),
+                    |rule| black_box(rule.check(black_box(&ctx)).unwrap()),
+                    BatchSize::SmallInput,
+                );
+            });
+        }
+    }
+    group.finish();
+}
+
+fn bench_md044_fallback_ranges(c: &mut Criterion) {
+    let mut group = c.benchmark_group("MD044_fallback_ranges");
+    group.sample_size(10);
+    for (name, prefix, unit, suffix) in [
+        ("comment", "<!--\n", "javascript text ", "\n-->"),
+        ("html", "<div>\n", "javascript text ", "\n</div>"),
+        ("frontmatter", "---\ntitle: ", "javascript text ", "\n---\n"),
+        ("comment_links", "<!--\n", "[label](target) javascript ", "\n-->"),
+        ("comment_code", "<!--\n", "`literal` javascript ", "\n-->"),
+        ("html_code", "<div>\n", "`literal` javascript ", "\n</div>"),
+        ("malformed_tail", "<!--\n[label](javascript) ", "[", "\n-->"),
+        ("malformed_labels", "<!--\n", "[javascript ", "\n-->"),
+        ("malformed_destinations", "<!--\n", "[label](javascript ", "\n-->"),
+        ("malformed_references", "<!--\n", "[label][javascript ", "\n-->"),
+    ] {
+        for count in [512, 2048, 4096] {
+            let content = format!("{prefix}{}{suffix}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            let expected = if name == "malformed_tail" { 0 } else { count };
+            assert_eq!(
+                MD044ProperNames::new(vec!["JavaScript".into()], false)
+                    .check(&ctx)
+                    .unwrap()
+                    .len(),
+                expected
+            );
+            group.throughput(Throughput::Bytes(content.len() as u64));
+            group.bench_function(BenchmarkId::new(name, count), |b| {
+                b.iter_batched(
+                    || MD044ProperNames::new(vec!["JavaScript".into()], false),
+                    |rule| black_box(rule.check(black_box(&ctx)).unwrap()),
+                    BatchSize::SmallInput,
+                );
+            });
+        }
+    }
+    group.finish();
+}
+
 fn bench_dynamic_regex_cache(c: &mut Criterion) {
     let pattern = format!(
         "(?i)({})",
@@ -683,11 +1827,52 @@ fn bench_input_preparation(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_link_target_policy(c: &mut Criterion) {
+    let mut group = c.benchmark_group("link_target_policy");
+    for (label, document_count, target_count, depth, directories, absolute) in [
+        ("small_batch_no_targets", 3, 0, 2, 100, false),
+        ("large_batch_no_targets", 1191, 0, 2, 100, false),
+        ("large_batch_with_targets", 1191, 8142, 2, 100, false),
+        ("shared_directories", 3, 8142, 2, 100, false),
+        ("deep_directories", 3, 8142, 6, 100, false),
+        ("distinct_directories", 3, 8142, 2, 8142, false),
+        ("absolute_targets", 3, 512, 2, 100, true),
+    ] {
+        let documents: Vec<PathBuf> = (0..document_count)
+            .map(|i| PathBuf::from(format!("docs/page{i}.md")))
+            .collect();
+        let prefix: String = (0..depth).map(|i| format!("level{i}/")).collect();
+        let cwd = std::env::current_dir().unwrap();
+        let targets: Vec<PathBuf> = (0..target_count)
+            .map(|i| {
+                let path = PathBuf::from(format!("{prefix}group{}/file{i}.pdf", i % directories));
+                if absolute { cwd.join(path) } else { path }
+            })
+            .collect();
+        group.bench_function(label, |b| {
+            b.iter(|| {
+                LinkTargetPolicy::with_declared_targets(
+                    black_box(&documents),
+                    black_box(&targets).iter().cloned(),
+                    std::iter::empty(),
+                    false,
+                )
+            });
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
+    bench_link_target_policy,
     bench_link_analysis,
     bench_input_preparation,
     bench_lint_context_new,
+    bench_comment_code_ranges,
+    bench_context_long_line,
+    bench_context_mdx_columns,
+    bench_context_inline_elements,
     bench_markdown_parse,
     bench_lint_overhead,
     bench_md013_reflow,
@@ -696,11 +1881,41 @@ criterion_group!(
     bench_md032,
     bench_md052,
     bench_md057,
+    bench_md057_positions,
     bench_workspace_build,
+    bench_workspace_link_extraction,
     bench_rules,
+    bench_emphasis_pairing,
+    bench_md037_filter,
+    bench_md049_filter,
+    bench_md095_positions,
+    bench_md089_indexes,
+    bench_heading_link_ranges,
+    bench_md084_fixes,
+    bench_md093_positions,
+    bench_md070_fence_lookup,
+    bench_md077_fence_lookup,
+    bench_spacing_fence_lookup,
+    bench_md031_list_membership,
+    bench_list_code_context,
+    bench_md063_heading_regions,
+    bench_md063_tag_pairing,
+    bench_mdx_nested_context,
+    bench_heading_anchor_lookup,
+    bench_heading_trailing_anchors,
+    bench_heading_anchor_spacing,
+    bench_heading_image_delimiters,
+    bench_heading_backtick_lookup,
+    bench_heading_anchor_attributes,
+    bench_md030_indented_fallback,
+    bench_md087_suppressions,
+    bench_directive_code_ranges,
     bench_lint,
     bench_heading_utilities,
     bench_md044_name_lookup,
+    bench_md044_long_lines,
+    bench_md044_link_destinations,
+    bench_md044_fallback_ranges,
     bench_dynamic_regex_cache,
     bench_md024_duplicate_headings,
 );

@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 import numpy
 
 from .. import registry
-from ..compat import has_apple_ops
 from .numpy_ops import NumpyOps
 from .ops import Ops
 
@@ -13,11 +12,11 @@ if TYPE_CHECKING:
     # during type checking.
     _Ops = Ops
 else:
-    if has_apple_ops:
-        from .apple_ops import AppleOps
+    try:
+        from thinc_apple_ops import AppleOps
 
         _Ops = AppleOps
-    else:
+    except ImportError:
         _Ops = NumpyOps
 
 

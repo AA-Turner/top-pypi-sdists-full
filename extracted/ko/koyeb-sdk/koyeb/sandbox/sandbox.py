@@ -22,7 +22,12 @@ from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.update_service import UpdateService
 
 from .executor_client import ConnectionInfo
-from .control_plane import AsyncControlPlane, DeploymentInfo, ServiceInfo, SyncControlPlane
+from .control_plane import (
+    AsyncControlPlane,
+    DeploymentInfo,
+    ServiceInfo,
+    SyncControlPlane,
+)
 from .spec import SandboxSpec
 from .clients import (
     create_sandbox_client,
@@ -90,9 +95,7 @@ def _cleanup_after_failure(sandbox: "Sandbox") -> bool:
         sandbox.delete()
         return True
     except Exception as e:
-        logger.warning(
-            f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}"
-        )
+        logger.warning(f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}")
         return False
 
 
@@ -102,9 +105,7 @@ async def _cleanup_after_failure_async(sandbox: "Sandbox") -> bool:
         await sandbox.delete()
         return True
     except Exception as e:
-        logger.warning(
-            f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}"
-        )
+        logger.warning(f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}")
         return False
 
 
@@ -478,6 +479,7 @@ class Sandbox:
         )
         sandbox._owns_app = created_app
         return sandbox
+
     @classmethod
     def get_from_id(
         cls,
@@ -826,10 +828,7 @@ class Sandbox:
         classification = classify_deployment_status(deployment.status)
         if classification == "terminal_failure":
             status_value = getattr(deployment.status, "value", deployment.status)
-            raise SandboxDeploymentError(
-                f"Sandbox '{self.name}' deployment reached status {status_value} "
-                f"— it will not become ready; wake or redeploy the sandbox."
-            )
+            raise SandboxDeploymentError(self.name, status_value)
         is_healthy = classification == "ready"
         if is_healthy and self._sandbox_url is None and deployment.sandbox_url:
             self._sandbox_url = (
@@ -1467,14 +1466,32 @@ class Sandbox:
             if delete_after_inactivity is not None:
                 life_cycle.delete_after_sleep = delete_after_inactivity
 
-            # Send update request
-            services_api.update_service(
+            # Send update request and pin the replacement deployment: the
+            # update redeploys, and wait_ready() must poll the new deployment.
+            # The lifecycle is already applied, so a failed id lookup must not
+            # surface as an update failure.
+            reply = services_api.update_service(
                 id=self.service_id,
                 service=UpdateService(
                     definition=deployment.definition,
                     life_cycle=life_cycle,
                 ),
             )
+            new_deployment_id = (
+                reply.service.latest_deployment_id
+                if reply is not None and reply.service is not None
+                else None
+            )
+            if not new_deployment_id:
+                try:
+                    new_deployment_id = services_api.get_service(
+                        id=self.service_id
+                    ).service.latest_deployment_id
+                except Exception as e:
+                    logger.debug(
+                        f"Could not resolve new deployment id for service {self.service_id}: {e}"
+                    )
+            self._reset_connection_state(new_deployment_id)
         except Exception as e:
             if isinstance(e, SandboxError):
                 raise
@@ -1987,9 +2004,7 @@ class AsyncSandbox(Sandbox):
             try:
                 service = await cp.get_service(self.service_id)
                 if service.active_deployment_id:
-                    deployment = await cp.get_deployment(
-                        service.active_deployment_id
-                    )
+                    deployment = await cp.get_deployment(service.active_deployment_id)
                     if self._tcp_proxy_ready(deployment):
                         return True
             except Exception:
@@ -2323,13 +2338,38 @@ class AsyncSandbox(Sandbox):
             if delete_after_inactivity is not None:
                 life_cycle.delete_after_sleep = delete_after_inactivity
 
-            await clients.services.update_service(
+            # Pin the replacement deployment: the update redeploys, and
+            # wait_ready() must poll the new deployment. The lifecycle is
+            # already applied, so a failed id lookup must not surface as an
+            # update failure.
+            reply = await clients.services.update_service(
                 id=self.service_id,
                 service=AsyncUpdateService(
                     definition=deployment.definition,
                     life_cycle=life_cycle,
                 ),
             )
+            new_deployment_id = (
+                reply.service.latest_deployment_id
+                if reply is not None and reply.service is not None
+                else None
+            )
+            if not new_deployment_id:
+                try:
+                    new_deployment_id = (
+                        await clients.services.get_service(id=self.service_id)
+                    ).service.latest_deployment_id
+                except Exception as e:
+                    logger.debug(
+                        f"Could not resolve new deployment id for service {self.service_id}: {e}"
+                    )
+            if self._async_client is not None:
+                try:
+                    await self._async_client.close()
+                except Exception:
+                    pass
+                self._async_client = None
+            self._reset_connection_state(new_deployment_id)
         except Exception as e:
             if isinstance(e, SandboxError):
                 raise

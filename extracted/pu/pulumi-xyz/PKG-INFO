@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_xyz
-Version: 1.1.378
+Version: 1.1.379
 Summary: A test provider used by Pulumi CI to exercise provider tooling. It manages no real cloud resources and is not intended for use in Pulumi programs.
 License: Apache-2.0
 Project-URL: Homepage, https://www.pulumi.com

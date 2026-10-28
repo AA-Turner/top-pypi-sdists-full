@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.11.0,<0.13"]
+requires = ["uv_build>=0.11.0,<1"]
 build-backend = "uv_build"
 
 [project]
 name = "mt-940"
-version = "5.1.1"
+version = "5.1.3"
 description = "A library to parse MT940 files and returns smart Python collections for statistics and manipulation."
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
@@ -34,11 +35,17 @@ email = "wolph@wol.ph"
 
 [project.urls]
 Homepage = "https://github.com/WoLpH/mt940"
+Documentation = "https://mt940.readthedocs.io/"
+Repository = "https://github.com/WoLpH/mt940"
+Issues = "https://github.com/WoLpH/mt940/issues"
+Changelog = "https://github.com/WoLpH/mt940/releases"
+Funding = "https://github.com/sponsors/wolph"
 
 [project.optional-dependencies]
 docs = [
     "sphinx>=8.0",
     "furo>=2024.8",
+    "types-docutils",
 ]
 tests = [
     "pytest>=8.0",
@@ -56,10 +63,11 @@ tox = [
 
 [dependency-groups]
 dev = [
-    "mt-940[docs,tests]",
+    "mt-940[docs,tests,tox]",
     "ruff>=0.16",
     "mypy>=1.18",
     "basedpyright>=1.31",
+    "pyright>=1.1.400",
     "pyrefly>=1.1",
     "ty>=0.0.70",
     "codespell>=2.4",
@@ -74,9 +82,32 @@ dev = [
 [tool.uv]
 exclude-newer = "14 days"
 
+[tool.uv.exclude-newer-package]
+certifi = "7 days"
+filelock = "7 days"
+
 [tool.uv.build-backend]
 module-root = ""
 module-name = "mt940"
+source-include = [
+    "CONTRIBUTING.rst",
+    "docs/**",
+    "examples/**",
+    "mt940_tests/**",
+    "tox.ini",
+    "ruff.toml",
+    "pyrightconfig.strict.json",
+    "taplo.toml",
+    "lefthook.yml",
+]
+source-exclude = [
+    "docs/html/**",
+    "docs/_build/**",
+    "docs/doctrees/**",
+    "docs/superpowers/**",
+    "docs/modules.rst",
+    "docs/mt940*.rst",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
@@ -150,6 +181,8 @@ python_version = "3.10"
 files = [
     "mt940",
     "mt940_tests",
+    "examples",
+    "docs/_tools",
 ]
 exclude = [
     "^dist/",
@@ -183,6 +216,8 @@ pythonVersion = "3.10"
 include = [
     "mt940",
     "mt940_tests",
+    "examples",
+    "docs/_tools",
     "docs/conf.py",
 ]
 exclude = [
@@ -200,9 +235,13 @@ reportImportCycles = false
 reportUnusedParameter = false
 
 [tool.pyrefly]
+use-ignore-files = false
+disable-project-excludes-heuristics = true
 project-includes = [
     "mt940",
     "mt940_tests",
+    "examples",
+    "docs/_tools",
     "docs/conf.py",
 ]
 project-excludes = [
@@ -222,6 +261,8 @@ python-version = "3.10"
 include = [
     "mt940",
     "mt940_tests",
+    "examples",
+    "docs/_tools",
     "docs/conf.py",
 ]
 
@@ -231,8 +272,8 @@ error-on-warning = true
 [tool.codespell]
 skip = """
     ./.git,./.venv,./.tox,./.mypy_cache,./.ruff_cache,./.pytest_cache,
-    ./.idea,./.superpowers,./.remember,./.zshhistory,./.coverage,
-    ./build,./dist,*/htmlcov,./docs/_build,./docs/html,
+    ./.idea,./.worktrees,./.superpowers,./.remember,./.zshhistory,./.coverage,
+    ./build,./dist,*/htmlcov,./docs/_build,./docs/html,./docs/superpowers,
     *.asc,*.yml,*.sta,*.txt,*.html,*.lock"""
 check-hidden = true
 

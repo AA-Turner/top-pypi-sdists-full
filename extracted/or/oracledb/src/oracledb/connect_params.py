@@ -112,6 +112,7 @@ class ConnectParams(metaclass=BaseMetaClass):
         operation_callback: Callable | None = None,
         round_trip_callback: Callable | None = None,
         transaction_priority: oracledb.TransactionPriority | None = None,
+        use_eztls: bool | None = None,
         handle: int | None = None,
     ):
         """
@@ -368,8 +369,8 @@ class ConnectParams(metaclass=BaseMetaClass):
           <Defaults.driver_name>`)
 
         - ``use_sni``: a boolean indicating whether to use the TLS SNI
-          extension to bypass the second TLS neogiation that would otherwise be
-          required
+          extension to bypass the second TLS negotiation that would otherwise
+          be required
           (default: False)
 
         - ``thick_mode_dsn_passthrough``: a boolean indicating whether to pass
@@ -414,6 +415,13 @@ class ConnectParams(metaclass=BaseMetaClass):
           oracledb.TransactionPriority enumeration that specifies the priority
           of any transaction that is created by the connection
           (default: None)
+
+        - ``use_eztls``: boolean indicating whether to use ezTLS. For a
+          connection using TCP this enables TLS encryption over TCP, which is
+          similar to what was previously done with Native Network Encryption
+          (NNE). For a connection using TCPS this allows the server to use a
+          simpler method for authenticating itself
+          (default: False)
 
         - ``handle``: an integer representing a pointer to a valid service
           context handle. This value is only used in python-oracledb Thick
@@ -481,7 +489,8 @@ class ConnectParams(metaclass=BaseMetaClass):
             f"on_connect_callback={self.on_connect_callback!r}, "
             f"operation_callback={self.operation_callback!r}, "
             f"round_trip_callback={self.round_trip_callback!r}, "
-            f"transaction_priority={self.transaction_priority!r}"
+            f"transaction_priority={self.transaction_priority!r}, "
+            f"use_eztls={self.use_eztls!r}"
             ")"
         )
 
@@ -958,11 +967,22 @@ class ConnectParams(metaclass=BaseMetaClass):
         return self._impl.user
 
     @property
+    def use_eztls(self) -> bool:
+        """
+        Boolean indicating whether to use ezTLS. For a connection using TCP
+        this enables TLS encryption over TCP, which is similar to what was
+        previously done with Native Network Encryption (NNE). For a connection
+        using TCPS this allows the server to use a simpler method for
+        authenticating itself.
+        """
+        return self._impl.use_eztls
+
+    @property
     @_flatten_value
     def use_sni(self) -> list | bool:
         """
         A boolean indicating whether to use the TLS SNI extension to bypass the
-        second TLS neogiation that would otherwise be required.
+        second TLS negotiation that would otherwise be required.
         """
         return [d.use_sni for d in self._impl.description_list.children]
 
@@ -1099,6 +1119,7 @@ class ConnectParams(metaclass=BaseMetaClass):
         operation_callback: Callable | None = None,
         round_trip_callback: Callable | None = None,
         transaction_priority: oracledb.TransactionPriority | None = None,
+        use_eztls: bool | None = None,
         handle: int | None = None,
     ):
         """
@@ -1301,8 +1322,8 @@ class ConnectParams(metaclass=BaseMetaClass):
           the driver which originated the connection
 
         - ``use_sni``: a boolean indicating whether to use the TLS SNI
-          extension to bypass the second TLS neogiation that would otherwise be
-          required
+          extension to bypass the second TLS negotiation that would otherwise
+          be required
 
         - ``thick_mode_dsn_passthrough``: a boolean indicating whether to pass
           the connect string to the Oracle Client libraries unchanged without
@@ -1339,13 +1360,21 @@ class ConnectParams(metaclass=BaseMetaClass):
           oracledb.TransactionPriority enumeration that specifies the priority
           of any transaction that is created by the connection
 
+        - ``use_eztls``: boolean indicating whether to use ezTLS. For a
+          connection using TCP this enables TLS encryption over TCP, which is
+          similar to what was previously done with Native Network Encryption
+          (NNE). For a connection using TCPS this allows the server to use a
+          simpler method for authenticating itself
+
         - ``handle``: an integer representing a pointer to a valid service
           context handle. This value is only used in python-oracledb Thick
           mode. It should be used with extreme caution
         """
         pass
 
-    def set_from_config(self, config: dict) -> None:
+    def set_from_config(
+        self, config: dict, notification_fn: Callable | None = None
+    ) -> None:
         """
         Sets the property values based on the specified configuration. This
         method is intended for use with Centralized Configuration Providers.
@@ -1369,5 +1398,12 @@ class ConnectParams(metaclass=BaseMetaClass):
         containing keys corresponding to property names. Any property names
         accepted by the ConnectParams class will be stored in the ConnectParams
         instance; all other values will be ignored.
+
+        The ``notification_fn`` parameter is an optional function that is
+        called with the DSN used as the configuration cache key after the
+        configuration has been added to the cache. It is called each time the
+        configuration is cached, including after a reload. It is not called
+        when caching is disabled by setting ``config_time_to_live`` to *0*.
+        Passing *None* preserves the default behavior.
         """
-        self._impl.set_from_config(config)
+        self._impl.set_from_config(config, notification_fn=notification_fn)

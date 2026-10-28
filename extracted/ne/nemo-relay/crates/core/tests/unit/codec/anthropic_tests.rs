@@ -1952,6 +1952,43 @@ fn anthropic_streaming_codec_attaches_citations_to_text_blocks() {
 }
 
 #[test]
+fn anthropic_streaming_codec_keeps_empty_object_input_for_tool_without_arguments() {
+    // A tool called with no arguments streams a single empty `partial_json` fragment. The
+    // assembled input stays the `{}` from content_block_start instead of becoming "".
+    let codec = AnthropicMessagesStreamingCodec::new();
+    let mut collector = codec.collector();
+    let finalizer = codec.finalizer();
+
+    collector(json!({
+        "type": "message_start",
+        "message": {
+            "id": "msg_e", "type": "message", "role": "assistant",
+            "model": "claude-haiku-4-5-20251001", "usage": {}
+        }
+    }))
+    .unwrap();
+    collector(json!({
+        "type": "content_block_start",
+        "index": 0,
+        "content_block": {"type": "tool_use", "id": "toolu_e", "name": "get_time", "input": {}}
+    }))
+    .unwrap();
+    collector(json!({
+        "type": "content_block_delta",
+        "index": 0,
+        "delta": {"type": "input_json_delta", "partial_json": ""}
+    }))
+    .unwrap();
+    collector(json!({"type": "content_block_stop", "index": 0})).unwrap();
+
+    let assembled = finalizer();
+    let block = &assembled["content"][0];
+    assert_eq!(block["type"], json!("tool_use"));
+    assert_eq!(block["id"], json!("toolu_e"));
+    assert_eq!(block["input"], json!({}));
+}
+
+#[test]
 fn anthropic_streaming_codec_keeps_partial_json_when_unparseable() {
     // Truncated stream: input_json_delta fragments don't form valid JSON. Codec must not drop
     // the tool_use block; surface the raw concatenation as a string fallback so observability
@@ -2048,4 +2085,33 @@ fn anthropic_streaming_codec_ignores_incomplete_lifecycle_frames() {
             "usage": {"input_tokens": 3, "output_tokens": 0},
         })
     );
+}
+
+#[test]
+fn response_decode_preserves_retained_array_validation_and_unknown_fields() {
+    let codec = AnthropicMessagesCodec;
+    for response in [
+        json!({"content": {}}),
+        json!({"content": "invalid"}),
+        json!([1]),
+    ] {
+        assert!(codec.decode_response(&response).is_err(), "{response}");
+    }
+    for response in [json!({}), json!({"content": null})] {
+        let decoded = codec.decode_response(&response).unwrap();
+        assert!(decoded.message.is_none());
+        assert!(!decoded.extra.contains_key("content"));
+    }
+    let response = json!({
+        "content": [{"type": "vendor_extension", "nested": [{"payload": "🦀\nquoted \"text\"", "value": null}]}],
+        "vendor_field": {"preserved": [1, true, "yes"]}
+    });
+    let decoded = codec.decode_response(&response).unwrap();
+    assert_eq!(decoded.extra["vendor_field"], response["vendor_field"]);
+    assert!(!decoded.extra.contains_key("content"));
+    let retained = match decoded.api_specific.unwrap() {
+        ApiSpecificResponse::AnthropicMessages { content_blocks, .. } => content_blocks,
+        other => panic!("unexpected response: {other:?}"),
+    };
+    assert_eq!(retained.as_ref(), response["content"].as_array());
 }

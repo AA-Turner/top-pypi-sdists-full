@@ -10,10 +10,12 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
-from .executor_client import AsyncSandboxClient, SandboxClient
-from .errors import SandboxError
+import httpx
+
+from .executor_client import AsyncSandboxClient, SandboxClient, _command_timed_out
+from .errors import SandboxError, SandboxTimeoutError
 
 if TYPE_CHECKING:
     from .sandbox import Sandbox
@@ -73,11 +75,23 @@ def _check_result(result: CommandResult, raise_on_error: bool) -> CommandResult:
     return result
 
 
+def _run_timeout(timeout: Optional[int]) -> Union[float, httpx.Timeout]:
+    """The /run request timeout: /run answers only once the command ends."""
+    # run() reads None as the client's default (30 s), so no limit is explicit.
+    return float(timeout) if timeout is not None else httpx.Timeout(None)
+
+
 class _EventFold:
     """Folds executor stream events into a CommandResult.
 
     The sync and async exec twins differ only in how events are pulled;
     this class owns what every event means.
+
+    The executor sends output one line per event, without its line ending.
+    Buffered stdout/stderr put it back so they match what /run returns:
+    the event's "eol" when the executor sends one, a newline otherwise.
+    Without "eol", output that doesn't end with a newline gets one appended.
+    Callbacks receive "data" as sent, without the line ending.
     """
 
     def __init__(self, command, start_time, on_stdout=None, on_stderr=None):
@@ -95,16 +109,17 @@ class _EventFold:
         if "stream" in event:
             stream_type = event["stream"]
             data = event["data"]
+            line = data + event.get("eol", "\n")
             if stream_type == "stdout":
                 if self.on_stdout:
                     self.on_stdout(data)
                 elif self.buffer:
-                    self.stdout.append(data)
+                    self.stdout.append(line)
             elif stream_type == "stderr":
                 if self.on_stderr:
                     self.on_stderr(data)
                 elif self.buffer:
-                    self.stderr.append(data)
+                    self.stderr.append(line)
         elif "code" in event:
             self.exit_code = event["code"]
         elif "error" in event and isinstance(event["error"], str):
@@ -123,7 +138,9 @@ class _EventFold:
             stdout="".join(self.stdout),
             stderr="".join(self.stderr),
             exit_code=self.exit_code,
-            status=(CommandStatus.FINISHED if self.exit_code == 0 else CommandStatus.FAILED),
+            status=(
+                CommandStatus.FINISHED if self.exit_code == 0 else CommandStatus.FAILED
+            ),
             duration=time.time() - self.start_time,
             command=self.command,
         )
@@ -149,7 +166,7 @@ class SandboxExecutor:
         command: str,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        timeout: int = 30,
+        timeout: Optional[int] = 300,
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
         stream: bool = True,
@@ -158,13 +175,32 @@ class SandboxExecutor:
         """
         Execute a command in a shell synchronously. Supports streaming output via callbacks.
 
+        With stream=False the output comes in one response, which the sandbox
+        gateway cuts with a 504 after 5 minutes without data: stream commands
+        that can run longer. A non-streaming command is not re-sent on a
+        server error, since it may have run already.
+
         Args:
             command: Command to execute as a string (e.g., "python -c 'print(2+2)'")
             cwd: Working directory for the command
             env: Environment variables for the command
-            timeout: Command timeout in seconds (enforced for HTTP requests)
-            on_stdout: Optional callback for streaming stdout chunks
-            on_stderr: Optional callback for streaming stderr chunks
+            timeout: Total time budget for the command, in seconds (default:
+                300). When it runs out, SandboxTimeoutError is raised and the
+                connection to the executor is closed, whether or not the
+                command streams output. None sets no limit; with stream=False
+                the gateway still ends the command after 5 minutes without data.
+                When streaming, the budget is checked as output or a keepalive
+                (every 10 s) arrives, so a silent command can overrun it by up
+                to 10 s; AsyncSandboxExecutor enforces it on time.
+            on_stdout: Optional callback called with each stdout line, without
+                its line ending. When a callback is set, output is not buffered
+                in the result.
+            on_stderr: Optional callback called with each stderr line, without
+                its line ending
+            stream: Run through /run_streaming (default) instead of /run.
+                stdout/stderr are the same either way, except that output not
+                ending with a newline gets one appended when streamed, unless
+                the executor sends each line's "eol"
 
         Returns:
             CommandResult: Result of the command execution
@@ -188,7 +224,10 @@ class SandboxExecutor:
             fold = _EventFold(command, start_time, on_stdout, on_stderr)
             client = self._get_client()
             for event in client.run_streaming(
-                cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+                cmd=command,
+                cwd=cwd,
+                env=env,
+                timeout=float(timeout) if timeout is not None else None,
             ):
                 failed_start = fold.feed(event)
                 if failed_start is not None:
@@ -198,7 +237,12 @@ class SandboxExecutor:
 
         # Use regular run for non-streaming execution
         client = self._get_client()
-        response = client.run(cmd=command, cwd=cwd, env=env, timeout=float(timeout))
+        try:
+            response = client.run(
+                cmd=command, cwd=cwd, env=env, timeout=_run_timeout(timeout)
+            )
+        except SandboxTimeoutError as e:
+            raise _command_timed_out(timeout) from e
 
         stdout = response.get("stdout", "")
         stderr = response.get("stderr", "")
@@ -209,7 +253,9 @@ class SandboxExecutor:
                 stdout=stdout,
                 stderr=stderr,
                 exit_code=exit_code,
-                status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
+                status=(
+                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+                ),
                 duration=time.time() - start_time,
                 command=command,
             ),
@@ -235,7 +281,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
         command: str,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        timeout: int = 30,
+        timeout: Optional[int] = 300,
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
         stream: bool = True,
@@ -244,13 +290,29 @@ class AsyncSandboxExecutor(SandboxExecutor):
         """
         Execute a command in a shell asynchronously. Supports streaming output via callbacks.
 
+        With stream=False the output comes in one response, which the sandbox
+        gateway cuts with a 504 after 5 minutes without data: stream commands
+        that can run longer. A non-streaming command is not re-sent on a
+        server error, since it may have run already.
+
         Args:
             command: Command to execute as a string (e.g., "python -c 'print(2+2)'")
             cwd: Working directory for the command
             env: Environment variables for the command
-            timeout: Command timeout in seconds (enforced for HTTP requests)
-            on_stdout: Optional callback for streaming stdout chunks
-            on_stderr: Optional callback for streaming stderr chunks
+            timeout: Total time budget for the command, in seconds (default:
+                300). When it runs out, SandboxTimeoutError is raised and the
+                connection to the executor is closed, whether or not the
+                command streams output. None sets no limit; with stream=False
+                the gateway still ends the command after 5 minutes without data.
+            on_stdout: Optional callback called with each stdout line, without
+                its line ending. When a callback is set, output is not buffered
+                in the result.
+            on_stderr: Optional callback called with each stderr line, without
+                its line ending
+            stream: Run through /run_streaming (default) instead of /run.
+                stdout/stderr are the same either way, except that output not
+                ending with a newline gets one appended when streamed, unless
+                the executor sends each line's "eol"
 
         Returns:
             CommandResult: Result of the command execution
@@ -274,7 +336,10 @@ class AsyncSandboxExecutor(SandboxExecutor):
             fold = _EventFold(command, start_time, on_stdout, on_stderr)
             client = self._get_async_client()
             async for event in client.run_streaming(
-                cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+                cmd=command,
+                cwd=cwd,
+                env=env,
+                timeout=float(timeout) if timeout is not None else None,
             ):
                 failed_start = fold.feed(event)
                 if failed_start is not None:
@@ -284,9 +349,12 @@ class AsyncSandboxExecutor(SandboxExecutor):
 
         # Use native async for non-streaming execution
         client = self._get_async_client()
-        response = await client.run(
-            cmd=command, cwd=cwd, env=env, timeout=float(timeout)
-        )
+        try:
+            response = await client.run(
+                cmd=command, cwd=cwd, env=env, timeout=_run_timeout(timeout)
+            )
+        except SandboxTimeoutError as e:
+            raise _command_timed_out(timeout) from e
 
         stdout = response.get("stdout", "")
         stderr = response.get("stderr", "")
@@ -297,7 +365,9 @@ class AsyncSandboxExecutor(SandboxExecutor):
                 stdout=stdout,
                 stderr=stderr,
                 exit_code=exit_code,
-                status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
+                status=(
+                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+                ),
                 duration=time.time() - start_time,
                 command=command,
             ),

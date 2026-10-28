@@ -3,19 +3,20 @@ __package__ = "archivebox.misc"
 # Bootable utility functions (URL parsing, date parsing, JSON encoding, decorators).
 # MUST NOT import archivebox.config, archivebox.core, or Django — this module is
 # loaded by hooks.py and other early code paths. Only depends on stdlib and the
-# bootable .logging module and standalone abx_plugins URL helpers.
+# bootable .logging module and standalone abx_plugins URL helpers. Unicode
+# hostname conversion lazily uses the already-required pydantic-core URL parser.
 
 import re
 import json as pyjson
 import http.cookiejar
 from decimal import Decimal, InvalidOperation
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from collections.abc import Callable
 from pathlib import Path
 from inspect import signature
 from functools import wraps
-from urllib.parse import urlparse, quote, unquote
+from urllib.parse import urlparse, urlsplit, quote, unquote
 from html import escape, unescape
 from datetime import datetime, timezone
 
@@ -23,6 +24,9 @@ from abx_plugins.plugins.base.url_cleaning import URL_REGEX, fix_url_from_markdo
 from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url as sanitize_plugin_url
 
 from .logging import COLOR_DICT
+
+if TYPE_CHECKING:
+    from archivebox.config.common import ArchiveBoxBaseConfig
 
 
 def filter_queryset_by_uuid_substring(queryset, slug: str, field: str = "id"):
@@ -136,11 +140,117 @@ def validate_url(url: str) -> str:
     url = (url or "").strip()
     if "\n" in url or "\r" in url:
         raise ValueError("URL must be a single line.")
+    if url.lower().startswith(("webcal://", "webcals://")):
+        url = sanitize_plugin_url(url)
     url = validate_url_length(url)
     parsed = urlparse(url)
     if parsed.scheme.lower() not in ("http", "https") or not parsed.hostname:
         raise ValueError("URL must start with http:// or https:// and include a hostname.")
+    # urllib validates numeric/range constraints only when the port is accessed.
+    _ = parsed.port
     return url
+
+
+# Snapshot URLs are stored and shown as submitted, so the same resource can
+# exist as an IRI (https://münchen.de/über) or as its URI (https://xn--mnchen-
+# 3ya.de/%C3%BCber): browsers send the URI, Django decodes request paths back to
+# Unicode, Chrome reports outlinks encoded, and users paste either. These are
+# ArchiveBox's one place for converting between the two; compare, dedupe and
+# look up URLs through them instead of comparing raw strings. The conversion
+# mirrors abx_plugins.plugins.base.utils.iri_to_uri, which hooks use on the wire.
+
+# RFC 3986 reserved delimiters plus "%" so existing escapes are not re-encoded.
+_URI_SAFE_CHARS = "!#$%&'()*+,/:;=?@[]~"
+# Inside a userinfo component ":" and "@" are data, not delimiters.
+_USERINFO_SAFE_CHARS = "!$%&'()*+,;=~"
+# A run of escaped bytes that may spell non-ASCII UTF-8 text.
+_ESCAPED_NON_ASCII = re.compile(r"(?:%[89a-fA-F][0-9a-fA-F])+")
+
+
+def _split_netloc(netloc: str) -> tuple[str, str, str, str]:
+    """Split a netloc into (userinfo + "@", host, ":" + port) the way browsers do."""
+    userinfo, at, hostport = netloc.rpartition("@")
+    host, port = hostport, ""
+    # IPv6 literals are ASCII, and their colons are not a port separator.
+    if not hostport.startswith("[") and ":" in hostport:
+        host, colon, port = hostport.rpartition(":")
+        port = colon + port
+    return userinfo, at, host, port
+
+
+def iri_to_uri(url: str) -> str:
+    """Return the ASCII URI a browser would request for a (possibly Unicode) URL.
+
+    Unicode hostnames use pydantic-core's WHATWG URL parser, preserving ß/ς
+    and emoji while rejecting invalid combining characters and joiners.
+    Invalid hostnames raise ValueError. Userinfo is escaped per
+    component; everything else outside the URI grammar is UTF-8 percent-encoded.
+    Delimiters and existing %XX escapes are kept, so ASCII URLs are unchanged.
+    """
+    netloc = urlsplit(url).netloc
+    userinfo, at, host, port = _split_netloc(netloc)
+    if at:
+        username, colon, password = userinfo.partition(":")
+        userinfo = quote(username, safe=_USERINFO_SAFE_CHARS) + colon + quote(password, safe=_USERINFO_SAFE_CHARS)
+    if not host.isascii():
+        from pydantic_core import Url
+
+        host = cast(str, Url(f"https://{host}/").host)
+    ascii_netloc = f"{userinfo}{at}{host}{port}"
+    if ascii_netloc != netloc:
+        url = url.replace(netloc, ascii_netloc, 1)
+    return quote(url, safe=_URI_SAFE_CHARS)
+
+
+def uri_to_iri(url: str) -> str:
+    """Return the readable IRI for a URI (RFC 3987 section 3.2).
+
+    Decodes only what a browser address bar shows decoded: escapes that spell
+    non-ASCII UTF-8 text and xn-- host labels. ASCII escapes such as %20,
+    %2F or %26 stay encoded because decoding them changes the URL.
+    """
+    netloc = urlsplit(url).netloc
+    userinfo, at, host, port = _split_netloc(netloc)
+    if "xn--" in host.lower():
+        labels = []
+        for label in host.split("."):
+            if label.lower().startswith("xn--"):
+                try:
+                    label = label[4:].encode("ascii").decode("punycode")
+                except UnicodeError:
+                    pass
+            labels.append(label)
+        unicode_netloc = f"{userinfo}{at}{'.'.join(labels)}{port}"
+        url = url.replace(netloc, unicode_netloc, 1)
+
+    def decode(match: re.Match[str]) -> str:
+        try:
+            return unquote(match[0], errors="strict")
+        except UnicodeDecodeError:
+            return match[0]
+
+    return _ESCAPED_NON_ASCII.sub(decode, url)
+
+
+def equivalent_urls(url: str) -> list[str]:
+    """Spellings of one URL that may be stored: as given, as URI, and as IRI.
+
+    Use for exact lookups (``url__in=equivalent_urls(url)``) so a snapshot
+    saved in one form is found, deduped and replayed when requested in another.
+    """
+    try:
+        uri = iri_to_uri(url)
+    except ValueError:
+        # Search uses this helper for literal text too. Malformed URL-looking
+        # text has no URI variants, but must still match titles/notes verbatim.
+        return [url]
+    iri = uri_to_iri(uri)
+    # Some spellings need ASCII escapes decoded too (a raw space typed in a
+    # password is %20 in the URI). Decoding everything can also change the
+    # URL (%26 -> &), so keep that spelling only if it still encodes back.
+    decoded = unquote(iri)
+    forms = (url, uri, iri, decoded) if iri_to_uri(decoded) == uri else (url, uri, iri)
+    return list(dict.fromkeys(forms))
 
 
 def parens_are_matched(string: str, open_char="(", close_char=")"):
@@ -337,10 +447,11 @@ def parse_date(date: Any) -> datetime | None:
 
 
 @enforce_types
-def download_url(url: str, timeout: int | None = None, config=None, **config_kwargs) -> str:
+def download_url(url: str, timeout: int | None = None, config: "ArchiveBoxBaseConfig | None" = None, **config_kwargs) -> str:
     """Download the contents of a remote url and return the text"""
 
     import requests
+    from abx_plugins.plugins.base.utils import resolve_user_agent
     from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 
     from archivebox.config.common import get_config
@@ -358,7 +469,7 @@ def download_url(url: str, timeout: int | None = None, config=None, **config_kwa
 
     response = session.get(
         url,
-        headers={"User-Agent": config.USER_AGENT},
+        headers={"User-Agent": resolve_user_agent({"USER_AGENT": config.USER_AGENT, "ABXPKG_LIB_DIR": str(config.ABXPKG_LIB_DIR)}) or None},
         verify=config.CHECK_SSL_VALIDITY,
         timeout=timeout,
     )

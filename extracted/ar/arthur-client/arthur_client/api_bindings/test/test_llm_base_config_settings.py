@@ -55,7 +55,9 @@ class TestLLMBaseConfigSettings(unittest.TestCase):
                 thinking = arthur_client.api_bindings.models.anthropic_thinking_param.AnthropicThinkingParam(
                     type = 'enabled', 
                     budget_tokens = 56, 
-                    display = 'summarized', )
+                    display = 'summarized', 
+                    block_binding = arthur_client.api_bindings.models.anthropic_thinking_block_binding.AnthropicThinkingBlockBinding(
+                        prefix_mismatch_behavior = 'error', ), )
             )
         else:
             return LLMBaseConfigSettings(

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "codemie-sdk-python"
-version = "0.1.703"
+version = "0.1.704"
 description = "CodeMie SDK for Python"
 authors = ["CodeMie"]
 license = "Apache-2.0"

@@ -17,12 +17,14 @@
 # under the License.
 #
 
+from __future__ import annotations
+
 import errno
 import socket
 import select
 import time
 
-from typing import TYPE_CHECKING, Tuple, List
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from proton._selectable import Selectable
@@ -30,7 +32,7 @@ if TYPE_CHECKING:
 PN_INVALID_SOCKET = -1
 
 
-class IO(object):
+class IO:
 
     @staticmethod
     def _setupsocket(s: socket.socket) -> None:
@@ -76,7 +78,7 @@ class IO(object):
         time.sleep(t)
         return
 
-    class Selector(object):
+    class Selector:
 
         def __init__(self) -> None:
             self._selectables = set()
@@ -84,7 +86,7 @@ class IO(object):
             self._writing = set()
             self._deadline = None
 
-        def add(self, selectable: 'Selectable') -> None:
+        def add(self, selectable: Selectable) -> None:
             self._selectables.add(selectable)
             if selectable.reading:
                 self._reading.add(selectable)
@@ -96,7 +98,7 @@ class IO(object):
                 else:
                     self._deadline = min(selectable.deadline, self._deadline)
 
-        def remove(self, selectable: 'Selectable') -> None:
+        def remove(self, selectable: Selectable) -> None:
             self._selectables.discard(selectable)
             self._reading.discard(selectable)
             self._writing.discard(selectable)
@@ -114,7 +116,7 @@ class IO(object):
                     else:
                         self._deadline = min(sel.deadline, self._deadline)
 
-        def update(self, selectable: 'Selectable') -> None:
+        def update(self, selectable: Selectable) -> None:
             self._reading.discard(selectable)
             self._writing.discard(selectable)
             if selectable.reading:
@@ -123,7 +125,7 @@ class IO(object):
                 self._writing.add(selectable)
             self.update_deadline()
 
-        def select(self, timeout: float) -> Tuple[List, List, List]:
+        def select(self, timeout: float) -> tuple[list, list, list]:
 
             def select_inner(timeout):
                 # This inner select adds the writing fds to the exception fd set

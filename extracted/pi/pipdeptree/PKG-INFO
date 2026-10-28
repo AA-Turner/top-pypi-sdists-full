@@ -1,8 +1,8 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pipdeptree
-Version: 4.2.9
+Version: 4.2.10
 Summary: Command line utility to show dependency tree of packages.
-Keywords: application,cache,directory,log,user
+Keywords: dependencies,dependency-tree,packages
 Maintainer-Email: Bernát Gábor <gaborjbernat@gmail.com>, Kemal Zebari <kemalzebra@gmail.com>, Vineet Naik <naikvin@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
@@ -27,6 +27,7 @@ Requires-Dist: nab>=0.0.19
 Requires-Dist: nab-index>=0.0.19
 Requires-Dist: nab-project>=0.0.19
 Description-Content-Type: text/markdown
+Import-Name: pipdeptree
 
 # pipdeptree
 
@@ -96,7 +97,7 @@ For the full documentation, visit [pipdeptree.readthedocs.io](https://pipdeptree
 
 - [Installation](https://pipdeptree.readthedocs.io/en/latest/tutorial/getting-started.html)
 - [Usage](https://pipdeptree.readthedocs.io/en/latest/how-to/usage.html)
-- [Changelog](https://github.com/tox-dev/pipdeptree/releases)
+- [Changelog](https://pipdeptree.readthedocs.io/en/latest/changelog.html)
 - [Issues](https://github.com/tox-dev/pipdeptree/issues)
 - [PyPI](https://pypi.org/project/pipdeptree)
 - [GitHub](https://github.com/tox-dev/pipdeptree)

@@ -28,6 +28,14 @@ package's cloup floor is above `4.0.0`. That release is the last to import
 startup ballast list then names `importlib.metadata` and `email`
 unconditionally.
 ```
+
+```{todo}
+Cut the deprecations of `click_extra/_deprecated.py` in the release its
+`REMOVAL_VERSION` records: delete that module, every `__getattr__` hook that
+calls `resolve_deprecated()` or `deprecation_message()`, every form handled by a
+call to `warn_deprecated_argument()` or `warn_deprecated_usage()`, and their
+tests, exactly as the `9.0.0` release did with the previous batch.
+```
 """
 
 from __future__ import annotations
@@ -667,13 +675,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "9.5.0"
+__version__ = "9.5.1"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "c7c6e61ac3ac226f053db854688e97edcce0d540"
+__git_tag_sha__ = "68832d757ecda8ee847f220560bccbddf73430a4"
 
 
 _LAZY_TEST_TOOLING = {

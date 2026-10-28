@@ -88,6 +88,8 @@ class _DataCategoryEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._E
     """Usage based seer pricing"""
     DATA_CATEGORY_BILLABLE_SEER_CREDITS: _DataCategory.ValueType  # 34
     """Seer credits consumed by billable Seer features."""
+    DATA_CATEGORY_SNAPSHOT_IMAGE: _DataCategory.ValueType  # 35
+    """Images accepted by the preprod snapshot upload API."""
     DATA_CATEGORY_UNKNOWN: _DataCategory.ValueType  # -1
     """Any other data category not known by this version."""
 
@@ -164,6 +166,8 @@ DATA_CATEGORY_SEER_USAGE_MICRO_CENTS: DataCategory.ValueType  # 33
 """Usage based seer pricing"""
 DATA_CATEGORY_BILLABLE_SEER_CREDITS: DataCategory.ValueType  # 34
 """Seer credits consumed by billable Seer features."""
+DATA_CATEGORY_SNAPSHOT_IMAGE: DataCategory.ValueType  # 35
+"""Images accepted by the preprod snapshot upload API."""
 DATA_CATEGORY_UNKNOWN: DataCategory.ValueType  # -1
 """Any other data category not known by this version."""
 global___DataCategory = DataCategory

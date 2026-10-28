@@ -15,10 +15,9 @@ from __future__ import annotations
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import doctor, import_jobs_ui, onboarding_complete, setup, tui
+from probe.cli import import_jobs_ui, onboarding_complete, setup, tui
 from probe.cli import telemetry as tm
 from probe.cli.actions import Action
-from probe.cli.capabilities import Capabilities
 from tests import test_wizard_auth_entry as auth
 from tests import test_wizard_install_completion as completion
 
@@ -188,37 +187,55 @@ def test_the_whole_guided_install_shares_one_session_id(installation, captured):
 
 
 # --- removal ----------------------------------------------------------------
+#
+# Uninstall is `probe uninstall` (`probe.cli.uninstall`) from every way in,
+# the menu's included. Its phases are stood in for here (they are
+# `test_uninstall.py`'s): what is asserted is the funnel the run emits.
+
+PROBE_TRACES = {
+    "claude_code": {
+        "plugins": ["probe-research@research-os-agent", "probe-research-tap@research-os-agent"],
+        "rules": ["~/.claude/CLAUDE.md"],
+    },
+}
+
+
+def _stub_uninstall(monkeypatch, *, server=None, integrations=None):
+    """A machine with Probe on it, whose uninstall phases change nothing."""
+    from probe.cli import uninstall, uninstall_plan, uninstall_procs
+
+    monkeypatch.setattr(uninstall_procs, "live_users", lambda: [])
+    monkeypatch.setattr(uninstall_procs, "recorded_session_here", lambda: None)
+    monkeypatch.setattr(uninstall, "_all_traces", lambda: dict(PROBE_TRACES))
+    monkeypatch.setattr(uninstall_plan, "contexts", lambda: {"default": {"token": "probe_pat_x"}})
+    monkeypatch.setattr(uninstall_plan, "server_ids", lambda **_: {"device_ids": [], "installation_ids": [],
+                                                                  "contexts": {}})
+    steps = {phase: (lambda run: None) for phase in uninstall._PHASE_STEPS}
+    if server is not None:
+        steps[uninstall.Phase.SERVER] = server
+    if integrations is not None:
+        steps[uninstall.Phase.INTEGRATIONS] = integrations
+    # The funnel's last word, where the real state phase says it.
+    steps[uninstall.Phase.STATE] = uninstall._telemetry_done
+    monkeypatch.setattr(uninstall, "_PHASE_STEPS", steps)
+    monkeypatch.setattr(uninstall, "_phase_finishing", lambda run: 0)
 
 
 @pytest.fixture
 def removal(entry, monkeypatch):
-    """A machine with Probe on it, and a scripted Uninstall from the menu."""
-    installed = Capabilities(
-        claude_available=True,
-        logged_in_as="researcher@example.test",
-        api_credential_valid=True,
-        tracking_plugin_installed=True,
-        capture_plugin_installed=True,
-        agent_rules_installed=True,
-    )
-    monkeypatch.setattr(doctor, "collect", lambda: installed)
+    """Probe on the machine, and Uninstall chosen from the menu."""
     actions = iter((Action.UNINSTALL, Action.EXIT))
     monkeypatch.setattr(setup, "run_action_menu", lambda _caps: next(actions))
-    monkeypatch.setattr(setup, "run_agent_menu", lambda *a, **k: ("claude_code",))
-    monkeypatch.setattr(setup, "finish_removal", lambda: ["Signed out."])
-    monkeypatch.setattr(setup, "remove_everything", lambda caps: ["Removed."])
-    monkeypatch.setattr(main, "_register_local_capabilities", lambda *a, **k: [])
-    # The REAL uninstall action, so the per-agent confirmation -- the gate a
-    # one-agent removal actually goes through -- is the one being exercised.
-    monkeypatch.setattr(main, "_run_wizard_action", auth.apply_wizard_action)
+    monkeypatch.setattr(setup, "interactive", lambda: True)
+    _stub_uninstall(monkeypatch)
     return monkeypatch
 
 
 def test_uninstall_reports_what_was_on_the_machine_before_it_was_removed(
     removal, captured,
 ):
-    """After the per-agent loop the state being removed is unreadable by
-    construction, so the `started` event has to carry it."""
+    """After the phases the state being removed is unreadable by construction,
+    so the `started` event has to carry it."""
     removal.setattr(setup, "confirm_removal", lambda *a, **k: True)
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
@@ -251,10 +268,7 @@ def test_backing_out_of_the_confirmation_is_the_outcome_no_server_can_see(
 
 def test_a_removal_that_left_something_behind_is_not_a_clean_one(removal, captured):
     removal.setattr(setup, "confirm_removal", lambda *a, **k: True)
-    removal.setattr(
-        setup, "remove_everything",
-        lambda caps: ["Removed.", "! left the Codex MCP entry in place"],
-    )
+    _stub_uninstall(removal, integrations=lambda run: run.out.append("! left the Codex MCP entry in place"))
     CliRunner().invoke(main.app, ["wizard"])
     done = _props(captured, tm.EVENT_WIZARD_UNINSTALL_COMPLETED)
     assert done["outcome"] == tm.UninstallOutcome.REMOVED and done["warnings"] == 1
@@ -265,12 +279,11 @@ def test_the_removal_is_still_attributable_after_the_credential_is_gone(
 ):
     """The event that says a customer left must not arrive attached to nobody.
 
-    `finish_removal` revokes this device's token and clears it, and the
-    completion event is emitted after — so the sender, which resolves identity
-    lazily, finds no token and falls back to `machine:<id>`. Every #probe-usage
-    destination filters on a known person, so that is not mis-attribution, it
-    is silence. The identity is resolved while the credential still exists and
-    rides the record.
+    The server phase revokes this device's token and the state phase clears
+    it, and the completion event is emitted after -- so the sender, which
+    resolves identity lazily, would find no token and fall back to
+    `machine:<id>`. The identity is resolved while the credential still exists
+    and rides the record.
     """
     from probe.sdk import _telemetry_core as core
 
@@ -281,14 +294,13 @@ def test_the_removal_is_still_attributable_after_the_credential_is_gone(
     )
     removal.setattr(setup, "confirm_removal", lambda *a, **k: True)
 
-    def release_everything():
+    def release_everything(run):
         # What the real one does: the token is gone by the time the event fires.
         from probe.sdk.config import save_context
 
         save_context({})
-        return ["Signed out."]
 
-    removal.setattr(setup, "finish_removal", release_everything)
+    _stub_uninstall(removal, server=release_everything)
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     record = next(
@@ -317,7 +329,7 @@ def test_an_unresolvable_identity_never_fails_the_removal(removal, captured, mon
 
 
 def test_a_declined_removal_needs_no_pin(removal, captured):
-    """Nothing was released, so the ordinary lazy resolution still works — and
+    """Nothing was released, so the ordinary lazy resolution still works -- and
     pinning every event would put a /v1/me call on the hot path."""
     removal.setattr(setup, "confirm_removal", lambda *a, **k: False)
     CliRunner().invoke(main.app, ["wizard"])
@@ -331,19 +343,9 @@ def test_unattended_uninstall_enters_the_funnel_without_a_prompt(captured, monke
     """`--action uninstall --yes` never shows the confirmation. It is still a
     removal, and the fleet's scripted teardowns are exactly the population a
     `confirmed_via` breakdown exists to separate out."""
-    from types import SimpleNamespace
-
-    from probe.cli import bootstrap, plugin_cli
-
-    monkeypatch.setattr(
-        bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=None)
-    )
-    monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
-    monkeypatch.setattr(doctor, "collect", lambda: Capabilities(claude_available=True))
-    monkeypatch.setattr(setup, "remove_everything", lambda caps: ["Removed."])
-    monkeypatch.setattr(main, "_register_local_capabilities", lambda *a, **k: [])
-    monkeypatch.setattr(setup, "finish_removal", lambda: [])
-    assert main.main(["wizard", "--action", "uninstall", "--yes", "--agent", "claude"]) == 0
+    _stub_uninstall(monkeypatch)
+    monkeypatch.setattr(setup, "confirm_removal", lambda *a, **k: pytest.fail("--yes asked"))
+    assert main.main(["wizard", "--action", "uninstall", "--yes"]) == 0
     assert _props(captured, tm.EVENT_WIZARD_UNINSTALL_STARTED)["confirmed_via"] == "flag"
     assert _props(captured, tm.EVENT_WIZARD_UNINSTALL_COMPLETED)["outcome"] == (
         tm.UninstallOutcome.REMOVED

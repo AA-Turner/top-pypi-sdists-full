@@ -74,7 +74,9 @@ class AccountDetail(TypedDict, total=False):
     account_number: Required[str]
 
     account_number_type: Literal[
+        "arbitrum_address",
         "au_number",
+        "avalanche_address",
         "base_address",
         "card_token",
         "clabe",
@@ -88,7 +90,6 @@ class AccountDetail(TypedDict, total=False):
         "polygon_address",
         "sg_number",
         "solana_address",
-        "wallet_address",
     ]
 
 
@@ -123,6 +124,7 @@ class RoutingDetail(TypedDict, total=False):
             "se_bankgiro_clearing_code",
             "sg_interbank_clearing_code",
             "swift",
+            "vasp",
             "za_national_clearing_code",
         ]
     ]

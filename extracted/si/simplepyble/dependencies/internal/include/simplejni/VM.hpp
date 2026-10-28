@@ -3,6 +3,7 @@
 #include <jni.h>
 
 #include <mutex>
+#include <stdexcept>
 
 namespace SimpleJNI {
 
@@ -11,8 +12,10 @@ class VM {
   public:
     // TODO: Make the VM class transparent to the JavaVM pointer.
     static JavaVM* jvm(JavaVM* jvm_override = nullptr) {
-        static std::mutex mutex;  // Function-local for tied lifecycle
-        static VM instance;       // Function-local for lazy init and auto-cleanup
+        // NOTE: These are never destroyed on purpose, as static GlobalRef and WeakRef objects
+        // call this function from their destructors during exit.
+        static std::mutex& mutex = *new std::mutex();
+        static VM& instance = *new VM();
 
         std::scoped_lock lock(mutex);  // Lock entire access for safety
         if (jvm_override != nullptr) {
@@ -49,10 +52,12 @@ class VM {
             case JNI_OK:
                 break;
             case JNI_EDETACHED: {
+                // NOTE: Threads attached here are never detached. A desktop JVM only exits once its non-daemon
+                // threads finish, so they attach as daemons there.
 #ifdef __ANDROID__
                 auto result = jvm->AttachCurrentThread(&env, nullptr);
 #else
-                auto result = jvm->AttachCurrentThread(reinterpret_cast<void**>(&env), nullptr);
+                auto result = jvm->AttachCurrentThreadAsDaemon(reinterpret_cast<void**>(&env), nullptr);
 #endif
                 if (result != JNI_OK) {
                     throw std::runtime_error("Failed to attach the current thread to the JVM");
@@ -67,13 +72,34 @@ class VM {
         return env;
     }
 
-    static void attach() {
+    static void attach(const char* thread_name = nullptr) {
         JNIEnv* env = nullptr;
         JavaVM* jvm = VM::jvm();
+        // OpenJDK declares the name as char*, but the JVM only reads it.
+        JavaVMAttachArgs args{JNI_VERSION_1_6, const_cast<char*>(thread_name), nullptr};
 #ifdef __ANDROID__
-        auto result = jvm->AttachCurrentThread(&env, nullptr);
+        auto result = jvm->AttachCurrentThread(&env, &args);
 #else
-        auto result = jvm->AttachCurrentThread(reinterpret_cast<void**>(&env), nullptr);
+        auto result = jvm->AttachCurrentThread(reinterpret_cast<void**>(&env), &args);
+#endif
+        if (result != JNI_OK) {
+            throw std::runtime_error("Failed to attach the current thread to the JVM");
+        }
+    }
+
+    // Attaches the calling thread as a daemon, unless it is attached already, so a desktop JVM can exit while the
+    // thread is still running.
+    static void attach_as_daemon(const char* thread_name = nullptr) {
+        JavaVM* jvm = VM::jvm();
+        JNIEnv* env = nullptr;
+        if (jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) == JNI_OK) return;
+
+        // OpenJDK declares the name as char*, but the JVM only reads it.
+        JavaVMAttachArgs args{JNI_VERSION_1_6, const_cast<char*>(thread_name), nullptr};
+#ifdef __ANDROID__
+        auto result = jvm->AttachCurrentThreadAsDaemon(&env, &args);
+#else
+        auto result = jvm->AttachCurrentThreadAsDaemon(reinterpret_cast<void**>(&env), &args);
 #endif
         if (result != JNI_OK) {
             throw std::runtime_error("Failed to attach the current thread to the JVM");

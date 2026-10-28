@@ -1,12 +1,12 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pytest-remotedata
-Version: 0.4.2
+Version: 0.4.3
 Summary: Pytest plugin for controlling remote data access.
-Home-page: https://github.com/astropy/pytest-remotedata
-Author: The Astropy Developers
-Author-email: astropy.team@gmail.com
-License: BSD-3-Clause
-Keywords: remote,data,pytest,py.test
+Project-URL: Homepage, https://github.com/astropy/pytest-remotedata
+Author-email: The Astropy Developers <astropy.team@gmail.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE.rst
+Keywords: data,py.test,pytest,remote
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
@@ -14,8 +14,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -23,12 +21,10 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
-Description-Content-Type: text/x-rst
-License-File: LICENSE.rst
-Requires-Dist: pytest>=5.0
+Requires-Python: >=3.11
 Requires-Dist: packaging
-Dynamic: license-file
+Requires-Dist: pytest>=7.2
+Description-Content-Type: text/x-rst
 
 =================
 pytest-remotedata

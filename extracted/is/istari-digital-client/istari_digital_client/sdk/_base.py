@@ -375,6 +375,9 @@ class _Manager:
     def _read_contents(self, obj: Any) -> bytes:
         raise NotImplementedError
 
+    def _download_to(self, obj: Any, dest: Path, **hooks: Any) -> Path:
+        raise NotImplementedError
+
     def _archive(self, obj: Any, *, reason: str | None = None) -> None:
         raise NotImplementedError
 
@@ -416,6 +419,9 @@ class _Manager:
     def _related_resources(
         self, obj: Any, *, relationship: str | None = None, direction: str = "outgoing"
     ) -> list[Any]:
+        raise NotImplementedError
+
+    def _revision_download_url(self, obj: Any) -> Any:
         raise NotImplementedError
 
 
@@ -596,11 +602,34 @@ class Readable:
         """Read this resource's content parsed as JSON."""
         return json.loads(self.read_bytes().decode(encoding))
 
-    def copy_to(self, dest: str | Path) -> Path:
-        """Download this resource's content to a local file path and return it."""
-        path = Path(dest)
-        path.write_bytes(self.read_bytes())
-        return path
+    def download_to(
+        self,
+        dest: str | Path,
+        *,
+        progress: Callable[[Any], None] | None = None,
+        cancel: Any | None = None,
+    ) -> Path:
+        """Download this resource's content to a local file, verified, and return the path.
+
+        Streams to a temp file beside ``dest`` and renames into place only after the
+        content digest verifies; large content is fetched as parallel ranges. Prefer
+        this over ``read_bytes`` for anything big. ``progress`` receives
+        ``TransferEvent`` notifications and ``cancel`` (a ``threading.Event``) aborts
+        the transfer when set.
+
+        Aliases: copy_to save
+        """
+        return self._mgr._download_to(self, Path(dest), progress=progress, cancel=cancel)
+
+    def copy_to(
+        self,
+        dest: str | Path,
+        *,
+        progress: Callable[[Any], None] | None = None,
+        cancel: Any | None = None,
+    ) -> Path:
+        """Download this resource's content to a local file path and return it (alias of download_to)."""
+        return self.download_to(dest, progress=progress, cancel=cancel)
 
 
 class Archivable:

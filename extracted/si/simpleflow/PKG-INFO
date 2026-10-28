@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: simpleflow
-Version: 0.36.0
+Version: 0.37.0
 Summary: Python library for dataflow programming with Amazon SWF
 Project-URL: documentation, https://botify-labs.github.io/simpleflow
 Project-URL: repository, https://github.com/botify-labs/simpleflow
@@ -25,7 +25,6 @@ Requires-Dist: attrs
 Requires-Dist: boto3>=1.28.20
 Requires-Dist: click
 Requires-Dist: dill>=0.3.6
-Requires-Dist: diskcache>=4.1.0
 Requires-Dist: jinja2
 Requires-Dist: lazy-object-proxy
 Requires-Dist: lockfile>=0.9.1
@@ -35,6 +34,8 @@ Requires-Dist: psutil
 Requires-Dist: pytz
 Requires-Dist: setproctitle
 Requires-Dist: tabulate<1.0.0,>=0.8.2
+Provides-Extra: diskcache
+Requires-Dist: diskcache>=4.1.0; extra == 'diskcache'
 Description-Content-Type: text/markdown
 
 Simpleflow

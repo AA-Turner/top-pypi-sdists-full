@@ -20,6 +20,12 @@ class TestCapabilityLevels:
             "deactivate_account",
             "transfer_data",
             "release_resources",
+            "create_ticket",
+            "add_ticket_comment",
+            "transition_ticket",
+            "register_ticket_webhook",
+            "deregister_ticket_webhook",
+            "refresh_ticket_webhook",
         ]
         for cap in write_caps:
             assert CAPABILITY_LEVELS[cap] == "write", f"{cap} should be write"
@@ -32,6 +38,12 @@ class TestCapabilityLevels:
             "find_entitlement_associations",
             "get_last_activity",
             "validate_credentials",
+            "get_ticket",
+            "list_ticket_transitions",
+            "list_ticket_fields",
+            "list_ticket_destination_options",
+            "parse_ticket_event",
+            "get_ticket_attachment",
         ]
         for cap in read_caps:
             assert CAPABILITY_LEVELS[cap] == "read", f"{cap} should be read"

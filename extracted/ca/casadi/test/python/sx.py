@@ -459,6 +459,41 @@ class SXtests(casadiTestCase):
         f_out = f.call(f_in)
         self.checkarray(f_out[0],ca.DM([T1 and T2,T1 or T2,not T1]),"bool(%d,%d): %s" % (t1,t2,str(f_out[0])))
 
+  def test_not_not(self):
+    x = ca.SX.sym("x")
+    y = ca.SX.sym("y")
+    # !!x is only x when x is 0 or 1
+    f = ca.Function("f", [x], [ca.logic_not(ca.logic_not(x))])
+    self.checkarray(f(3), ca.DM(1))
+    self.checkarray(f(0), ca.DM(0))
+    # Boolean argument: double negation folds away
+    for b in [x<y, x<=y, x==y, x!=y, ca.logic_not(x), ca.logic_and(x,y), ca.logic_or(x,y)]:
+      self.assertTrue(ca.is_equal(ca.logic_not(ca.logic_not(b)), b))
+    self.assertFalse(ca.is_equal(ca.logic_not(ca.logic_not(x)), x))
+
+  def test_is_nonnegative_binary(self):
+    x = ca.SX.sym("x")
+    y = ca.SX.sym("y")
+    # fabs(e) -> e for nonnegative e, binary operations included
+    for e in [x<y, x<=y, x==y, x!=y, ca.logic_and(x,y), ca.logic_or(x,y), ca.hypot(x,y), ca.sqrt(x)]:
+      self.assertTrue(ca.is_equal(ca.fabs(e), e))
+    for e in [x+y, x*y, x-y]:
+      self.assertFalse(ca.is_equal(ca.fabs(e), e))
+
+  def test_chained_inequality_kept(self):
+    y = ca.SX.sym("y")
+    # On-the-fly simplification keeps chained inequalities, explicit simplification folds them
+    for e in [0<=(y<=1), (1>=y)>=0]:
+      self.assertFalse(e.is_constant())
+      f = ca.Function("f",[y],[e]).transform([["simplify",0,"ref_count"]])
+      self.assertTrue(f.call([y],True,False)[0].is_one())
+
+  def test_and_zero(self):
+    for X in [ca.SX.sym("x"), ca.MX.sym("x")]:
+      self.assertTrue(ca.logic_and(X, 0).is_zero())
+      self.assertTrue(ca.logic_and(0, X).is_zero())
+    self.assertTrue(ca.logic_and(ca.SX(0), ca.SX(0)).is_zero())
+
   def test_SXineq(self):
     self.message("SX ineq")
 
@@ -1231,6 +1266,20 @@ class SXtests(casadiTestCase):
       with self.assertRaises(RuntimeError):
         d = x / c
 
+  def test_copysign_derivatives(self):
+    def check(x, y):
+      z = ca.copysign(x,y)
+      f = ca.Function("f", [x,y], [ca.jacobian(z,x), ca.gradient(z,x),
+                                 ca.jtimes(z,x,1), ca.jtimes(z,x,1,True),
+                                 ca.jacobian(z,y)])
+      for x0 in (-2,0,2):
+        for y0 in (-0.5,-0.0,0.0,0.5):
+          with self.subTest(symbolic=type(x).__name__, x=x0, y=y0):
+            d = np.sign(x0)*np.copysign(1,y0)
+            self.checkarray(ca.vertcat(*f(x0,y0)),ca.DM([d,d,d,d,0]))
+    check(ca.SX.sym("x"), ca.SX.sym("y"))
+    check(ca.MX.sym("x"), ca.MX.sym("y"))
+
   def test_copysign(self):
     x = ca.SX.sym("x")
     y = ca.SX.sym("y")
@@ -1294,14 +1343,14 @@ class SXtests(casadiTestCase):
     J_in[0]=-2
     J_in[1]=0.5
     J_out = J.call(J_in)
-    self.checkarray(J_out[0],ca.DM([1]))
+    self.checkarray(J_out[0],ca.DM([-1]))
 
     J_in = [0]*J.n_in()  # type: list
 
     J_in[0]=-2
     J_in[1]=-0.5
     J_out = J.call(J_in)
-    self.checkarray(J_out[0],ca.DM([-1]))
+    self.checkarray(J_out[0],ca.DM([1]))
 
     J_in = [0]*J.n_in()  # type: list
 
@@ -1934,6 +1983,16 @@ class SXtests(casadiTestCase):
 
     self.checkarray(ca.logsumexp(ca.vertcat(100,1000,10000)),f(ca.vertcat(100,1000,10000)))
 
+    # Max not at the end: the shift must be the true max
+    for v in [ca.vertcat(0,1000,1), ca.vertcat(1000,0,1), ca.vertcat(0,1,1000), ca.vertcat(5,1e5,3,2,1e5-1)]:
+      a = np.array(v).ravel()
+      ref = a.max()+np.log(np.sum(np.exp(a-a.max())))
+      self.checkarray(ca.logsumexp(v),ref)
+      xm = ca.MX.sym("x",v.shape[0])
+      fm = ca.Function("fm",[xm],[ca.logsumexp(xm)])
+      self.checkarray(fm(v),ref)
+      self.check_codegen(fm,inputs=[v])
+
   def test_extract_parametric_call_sx(self):
     x = ca.MX.sym("x")
     y = ca.MX.sym("y")
@@ -2108,6 +2167,30 @@ class SXtests(casadiTestCase):
     self.checkarray(ca.DM(f(-7, 2)), ca.DM([-0.6569865987, 2, -1, -2, 1, 7.2801098893, -7]))
     q, r = divmod(ca.DM(7), ca.DM(2))
     self.checkarray(ca.vertcat(q, r), ca.DM([3, 1]))
+
+  def test_gauss_quadrature(self):
+    x = ca.SX.sym("x")
+    self.checkarray(ca.evalf(ca.gauss_quadrature(x**2, x, 0, 1)), ca.DM(1./3))
+    self.checkarray(ca.evalf(ca.gauss_quadrature(x**9, x, -1, 1)), ca.DM(0))
+
+  def test_poly_roots_order(self):
+    with self.assertRaisesRegex(Exception, "order at most 4.*Got order 5"):
+      ca.poly_roots(ca.SX([1, 2, 3, 4, 5, 6]))
+
+  def test_mtaylor_dimension(self):
+    x = ca.SX.sym("x")
+    y = ca.SX.sym("y")
+    with self.assertRaisesRegex(Exception, "expected a of shape 2x1"):
+      ca.mtaylor(x*y, ca.vertcat(x, y), 0, 1)
+
+  def test_large_whole_constants(self):
+    # issue #4432: whole numbers beyond the int range must not saturate
+    for v in [3e9, 6.02214076e23, -1e20, 2.0**31, -2.0**31-1, 2.0**63, 1e300]:
+      self.assertEqual(float(ca.evalf(ca.SX(v))), v)
+      self.assertEqual(float(ca.evalf(ca.MX(v))), v)
+    for v in [2.0**31-1, -2.0**31]:
+      self.assertTrue(ca.SX(v).is_integer())
+      self.assertEqual(float(ca.evalf(ca.SX(v))), v)
 
 
 if __name__ == '__main__':

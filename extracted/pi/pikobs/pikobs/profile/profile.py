@@ -671,13 +671,175 @@ def create_prof_matched(task: Dict[str, Any]) -> Optional[int]:
     return {"pairs": n_pairs, "repeats": repeats}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# The same two tables, read by the unified reader (pikobs.reader)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _use_reader() -> bool:
+    """The unified reader, unless PIKOBS_PROFILE_OLD_SQL=1 asks for profile's
+    own SQL (kept for one release, to compare)."""
+    return os.environ.get("PIKOBS_PROFILE_OLD_SQL", "") != "1"
+
+
+def _prof_single(task):
+    return (create_prof_single_reader if _use_reader() else create_prof_single)(task)
+
+
+def _prof_matched(task):
+    return (create_prof_matched_reader if _use_reader() else create_prof_matched)(task)
+
+
+def _prof_columns(path):
+    """(header columns, data columns) of one file, lower case."""
+    try:
+        with work_db(attach={"db": path}) as (conn, _):
+            return (list(table_columns(conn, "HEADER", "db")),
+                    {str(c).lower() for c in table_columns(conn, "DATA", "db")})
+    except Exception:
+        return [], set()
+
+
+def _pv(x):
+    """A value of the reader's rows as profile stores it: NULL for NaN."""
+    return None if x is None or (isinstance(x, float) and x != x) else x
+
+
+def _pn(x) -> int:
+    x = _pv(x)
+    return int(x) if x is not None else 0
+
+
+def _prof_ask(task, family, hcols, dcols, match):
+    """What profile asks of a cycle: per station, codtyp, varno, elevation,
+    level and height; one run with the sums of Desroziers, the background
+    error and the flags, two runs paired on profile's own key."""
+    from pikobs.reader.reader import Ask, cells
+    elev, lev, hgt = _level_exprs(family, hcols)
+    codtyp = "codtyp" if "codtyp" in {c.lower() for c in hcols} else "0"
+    omp, oma = _num("omp"), (_num("oma") if "oma" in dcols else "NULL")
+    common = dict(
+        family=family,
+        cells=cells(list(task["regions"]), list(task["flags"]),
+                    list(task.get("land_oceans") or ["all"])),
+        group=(("stn", "id_stn"), ("cod", codtyp), ("varno", "varno"),
+               ("e", elev), ("l", lev), ("h", hgt)),
+        varnos=tuple(int(v) for v in task["varnos"] or ()),
+        match=match,
+        special_column=bool(task.get("special_on")) and not is_radar(family),
+    )
+    if match == "on":
+        fields = tuple(task.get("match_fields") or ())
+        common.update(values=("omp", "oma"), flag_on="ctl")      # the cell of a pair is the control's
+        if fields:
+            common["key"] = fields
+        else:
+            common["key_exprs"] = tuple(_key(family, hcols))
+    else:
+        fg = _num("fg_error") if "fg_error" in dcols else "NULL"
+        common.update(values=("obsvalue", "omp", "oma", "obs_error"),
+                      exprs=(("fg", fg), ("pa", f"{omp} * {oma}"),
+                             ("p_a", f"CASE WHEN {oma} IS NOT NULL THEN {omp} END"),
+                             ("a_p", f"CASE WHEN {omp} IS NOT NULL THEN {oma} END")),
+                      counts=(("rej", "(flag & 512) = 512"), ("acc", "(flag & 4096) = 4096")))
+    return Ask(**common)
+
+
+def _readable(path) -> bool:
+    if not os.path.isfile(path) or os.path.getsize(path) == 0:
+        print(f"[profile] missing or empty file, skipped: {path}", file=sys.stderr, flush=True)
+        return False
+    return True
+
+
+def create_prof_single_reader(task: Dict[str, Any]) -> Optional[int]:
+    """create_prof_single, read by pikobs.reader: the same rows of prof."""
+    from pikobs.reader.reader import read_cycle
+    family, path = task["family"], task["filein"]
+    if not _readable(path):
+        return None
+    hcols, dcols = _prof_columns(path)
+    if not dcols:
+        return None
+    ask = _prof_ask(task, family, hcols, dcols, "off")
+    got = read_cycle(path, None, ask, int(task.get("cycle") or 0),
+                     pathwork=task.get("pathwork") or ".", module="profile")
+    if got is None:
+        return None
+    out = []
+    for r in got.rows.to_dict("records"):
+        def v(name):
+            n = _pn(r[f"nc_{name}"])
+            return n, (_pv(r[f"sc_{name}"]) if n else None), (_pv(r[f"sc2_{name}"]) if n else None)
+
+        (n_omp, s_omp, q_omp), (n_oma, s_oma, q_oma) = v("omp"), v("oma")
+        (n_err, s_err, q_err), (n_fg, _, q_fg) = v("obs_error"), v("fg")
+        (n_pa, s_pa, _), (_, s_p, _), (_, s_a, _) = v("pa"), v("p_a"), v("a_p")
+        out.append((r["region"], r["flag"], r["land_ocean"],
+                    r["special"] if "special" in r else "all",
+                    r["stn"], _pv(r["cod"]), _pv(r["varno"]), _pv(r["e"]), _pv(r["l"]), _pv(r["h"]),
+                    n_omp, s_omp, q_omp, n_oma, s_oma, q_oma, n_err, s_err, q_err,
+                    n_fg, q_fg, _pn(r["nc_obsvalue"]), _pn(r["kc_rej"]), _pn(r["kc_acc"]),
+                    n_pa, s_pa, s_p, s_a))
+    with work_db(attach={"db": path}) as (conn, mem_uri):
+        conn.execute(_DDL_PROF)
+        conn.executemany(f"INSERT INTO prof ({_PROF_COLS}) VALUES ({', '.join('?' * 28)});", out)
+        _combine_rows(task["db_new"], mem_uri, "prof", _PROF_COLS, ddl=_DDL_PROF, module="profile")
+    return 1
+
+
+def create_prof_matched_reader(task: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """create_prof_matched, read by pikobs.reader: the same rows of pair and
+    the same report of the pairing."""
+    from pikobs.reader.reader import read_cycle
+    family, ctl, exp = task["family"], task["ctl_file"], task["exp_file"]
+    if not (_readable(ctl) and _readable(exp)):
+        return None
+    hcols, dcols_c = _prof_columns(ctl)
+    _, dcols_e = _prof_columns(exp)
+    if not dcols_c or not dcols_e:
+        return None
+    cycle = int(task.get("cycle") or 0)
+    ask = _prof_ask(task, family, hcols, dcols_c & dcols_e, "on")
+    got = read_cycle(ctl, exp, ask, cycle, pathwork=task.get("pathwork") or ".", module="profile")
+    if got is None:
+        return None
+    info = got.info
+    names_run = tuple(task.get("names") or ("control", "experience"))
+    repeats = {names_run[0]: (info.get("rep_keys_c", 0), info.get("rep_rows_c", 0)),
+               names_run[1]: (info.get("rep_keys_e", 0), info.get("rep_rows_e", 0))}
+    n_pairs = int(info.get("pairs", 0) or 0)
+    if not n_pairs:
+        return {"pairs": 0, "repeats": repeats}
+    out = []
+    for r in got.rows.to_dict("records"):
+        n, na = _pn(r["nc_omp"]), _pn(r["nc_oma"])
+        if not (n or na):
+            continue
+
+        def g(p, v, cnt):
+            return _pv(r[f"{p}_{v}"]) if cnt else None
+
+        out.append((r["region"], r["flag"], r["land_ocean"],
+                    r["special"] if "special" in r else "all",
+                    r["stn"], _pv(r["cod"]), _pv(r["varno"]), _pv(r["e"]), _pv(r["l"]), _pv(r["h"]),
+                    n, g("sc", "omp", n), g("sc2", "omp", n), g("se", "omp", n),
+                    g("se2", "omp", n), g("sce", "omp", n),
+                    na, g("sc", "oma", na), g("sc2", "oma", na), g("se", "oma", na),
+                    g("se2", "oma", na), g("sce", "oma", na), cycle))
+    with work_db(attach={"db": ctl}) as (conn, mem_uri):
+        conn.execute(_DDL_PAIR)
+        conn.executemany(f"INSERT INTO pair ({_PAIR_COLS}) VALUES ({', '.join('?' * 23)});", out)
+        _combine_rows(task["db_new"], mem_uri, "pair", _PAIR_COLS, ddl=_DDL_PAIR, module="profile")
+    return {"pairs": n_pairs, "repeats": repeats}
+
+
 def _extract_task(task) -> Optional[int]:
     import traceback
 
     try:
         if task.get("ctl_file"):
-            return create_prof_matched(task)
-        return create_prof_single(task)
+            return _prof_matched(task)
+        return _prof_single(task)
     except Exception:
         print(
             f"[profile] extraction failed for "

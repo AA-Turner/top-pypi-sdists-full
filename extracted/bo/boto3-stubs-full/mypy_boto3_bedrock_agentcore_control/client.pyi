@@ -335,6 +335,8 @@ from .type_defs import (
     ListWorkloadIdentitiesResponseTypeDef,
     PutResourcePolicyRequestTypeDef,
     PutResourcePolicyResponseTypeDef,
+    ResetTokenVaultKeyMaterialRequestTypeDef,
+    ResetTokenVaultKeyMaterialResponseTypeDef,
     RotatePaymentConnectorCredentialsRequestTypeDef,
     RotatePaymentConnectorCredentialsResponseTypeDef,
     SetTokenVaultCMKRequestTypeDef,
@@ -1854,6 +1856,18 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/put_resource_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#put_resource_policy)
+        """
+
+    def reset_token_vault_key_material(
+        self, **kwargs: Unpack[ResetTokenVaultKeyMaterialRequestTypeDef]
+    ) -> ResetTokenVaultKeyMaterialResponseTypeDef:
+        """
+        Resets the key material for a token vault whose customer managed KMS key has
+        been deleted, and re-encrypts the token vault with an Amazon Web Services
+        managed key so that you can use the token vault again.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/reset_token_vault_key_material.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#reset_token_vault_key_material)
         """
 
     def rotate_payment_connector_credentials(

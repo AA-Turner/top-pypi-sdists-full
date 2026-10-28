@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flake8-bugbear
-Version: 26.9.30
+Version: 26.10.27
 Summary: A plugin for flake8 finding likely bugs and design problems in your program. Contains warnings that don't belong in pyflakes and pycodestyle.
 Author-email: Łukasz Langa <lukasz@langa.pl>
 License: MIT
@@ -127,8 +127,9 @@ results.  Use ``callable(x)`` for consistent results.
 
 .. _B005:
 
-**B005**: Using ``.strip()`` with multi-character strings is misleading
-the reader. It looks like stripping a substring. Move your
+**B005**: Using ``.strip()`` with a multi-character string that repeats
+characters is misleading the reader. It looks like stripping a substring,
+but the argument is treated as a set of characters. Move your
 character set to a constant if this is deliberate. Use
 ``.replace()``, ``.removeprefix()``, ``.removesuffix()`` or regular
 expressions to remove string fragments.
@@ -214,10 +215,16 @@ using ``pytest.raises``), or use the context manager form with a target
 
 **B018**: Found useless expression. Either assign it to a variable or remove it.
 The check also considers function calls without side-effects such as ``isinstance``,
-and unary and arithmetic operations such as ``-x`` or ``a * b``. Shifts, bitwise
+unary and arithmetic operations such as ``-x`` or ``a * b``, generator expressions
+(which are lazy, so their body never runs) and lambdas (which nothing can call), as
+long as what they evaluate right away doesn't call a function, like
+``(x for x in f())`` or ``lambda x=f(): x``. Calls to ``map``, ``filter``,
+``reversed``, ``zip`` and ``enumerate`` are reported too: they are lazy, so in
+``map(print, items)`` on its own line ``print`` is never called. Shifts, bitwise
 operators and ``@`` are left alone, since libraries overload them for their side
-effects, and so is an operation directly in a ``try`` or ``with`` block, where it may be
-run only to see it raise.
+effects, and so is an operation, a generator expression, a lambda with defaults or a
+call to one of these lazy builtins directly in a ``try`` or ``with`` block, where it
+may be run only to see it raise.
 Note that dangling commas will cause things to be interpreted as useless tuples.
 For example, in the statement ``print(".."),`` is the same as ``(print(".."),)``
 which is an unassigned tuple. Simply remove the comma to clear the error.
@@ -354,6 +361,41 @@ There is no additional safety in using ``delattr`` if you know the attribute nam
 .. _B044:
 
 **B044**: `assert <generator_expression>` is always true. Did you forget `all()`?
+Also reported for other values that are always truthy, such as a non-empty string
+(often a message without its condition, like ``assert "x must be positive"``), a
+non-zero number, an f-string with literal text, a non-empty list, set or dict literal,
+or a lambda.
+
+.. _B045:
+
+**B045**: A loop control variable overrides a variable in an enclosing loop.
+Python loops do not create a new scope, so the inner loop overwrites the outer
+loop's value. Use different names for nested ``for`` and ``async for`` targets.
+Names beginning with an underscore are ignored to allow intentional discards.
+Separate function/class/comprehension scopes and a loop's ``else`` suite do not
+count as active enclosing loops.
+
+.. _B046:
+
+**B046**: Mutable value passed to ``dict.fromkeys()``. The same object is shared by every key,
+so changing it for one key changes it for all of them. Use a dict comprehension instead, e.g.
+``{key: [] for key in keys}``.
+
+.. _B047:
+
+**B047**: Unreachable ``except`` handler. An earlier handler already catches a builtin
+exception that this one is a subclass of, e.g. ``except ValueError:`` after
+``except Exception:``, or a bare ``except:`` after ``except BaseException:``. Only builtin
+exceptions are checked, since the hierarchy of other classes isn't known from the source.
+
+.. _B049:
+
+**B049**: ``@abstractmethod`` must be the innermost decorator. When it is listed *before*
+``@property``, ``@classmethod``, ``@staticmethod`` or a property ``.setter``/``.getter``/
+``.deleter``, it is applied to the resulting descriptor, which raises ``AttributeError``
+when the class is defined. Put ``@abstractmethod`` last, directly above the ``def``.
+``functools.cached_property`` isn't covered: it doesn't forward ``__isabstractmethod__``,
+so there ``@abstractmethod`` has to be the outer decorator.
 
 
 Opinionated warnings
@@ -387,7 +429,9 @@ either bare or dotted such as ``abc.ABCMeta``).
 data classes that only set attributes in an ``__init__`` method, and do
 nothing else. If the attributes should be mutable, define the attributes
 in ``__slots__`` to save per-instance memory and to prevent accidentally
-creating additional attributes on instances.
+creating additional attributes on instances. Classes that inherit from another
+class, such as an exception or ``dict``, are not reported, since a namedtuple
+can't replace them.
 
 .. _B904:
 
@@ -422,7 +466,7 @@ This is meant to be enabled by developers writing visitors using the ``ast`` mod
 
 .. _B909:
 
-**B909**: **Was B038** - Found a mutation of a mutable loop iterable inside the loop body. Changes to the iterable of a loop such as calls to `list.remove()` or via `del` can cause unintended bugs.
+**B909**: **Was B038** - Found a mutation of a mutable loop iterable inside the loop body. Changes to the iterable of a loop such as calls to `list.remove()` or via `del` can cause unintended bugs. Loops over ``d.keys()``, ``d.values()`` and ``d.items()`` are checked against ``d``, since those are views of the dict rather than copies.
 
 .. _B910:
 
@@ -467,6 +511,13 @@ on the first line and urls or paths that are on their own line::
   url = (
       "https://some-super-long-domain-name.com/with/some/very/long/paths"
   )
+
+If ``max-doc-length`` is set in your ``flake8`` configuration, ``B950`` measures
+docstring lines and comment-only lines against it instead of ``max-line-length``,
+with the same 10% tolerance. These are the lines ``pycodestyle``'s ``W505`` checks:
+string statements on their own (such as docstrings) and comments that are not
+trailing a line of code. Other lines, including code with a trailing comment, still
+use ``max-line-length``. Without ``max-doc-length``, nothing changes (#285).
 
 
 How to enable opinionated warnings
@@ -553,6 +604,60 @@ MIT
 
 Change Log
 ----------
+
+26.10.27
+~~~~~~~~
+
+* B007: don't flag a loop variable that is read by a function or lambda defined
+  in the same scope as the loop (#175)
+* B049: New check for ``@abstractmethod`` listed before ``@property``,
+  ``@classmethod`` or ``@staticmethod`` (or a property ``.setter``/``.getter``/
+  ``.deleter``). It must be the innermost decorator, otherwise the class definition
+  raises ``AttributeError`` (#279)
+* B906: don't flag ``visit_`` methods of libcst visitors (classes inheriting
+  from ``libcst``), which have no ``generic_visit`` (#359)
+* B045: detect reuse of an enclosing loop's control variable in a nested loop
+  in the same scope (#360).
+* B046: New check for ``dict.fromkeys()`` called with a mutable value, which is
+  shared by every key (#387)
+* B005: say in the message that only strings with repeated characters are
+  reported, since ``.strip("abc")`` style character sets are fine (#91)
+* B047: New check for ``except`` handlers that can never run because an earlier
+  handler already catches a builtin parent exception (#349)
+* B044: also report asserts on other always-true values, such as a message
+  without a condition (``assert "x must be positive"``), non-zero numbers,
+  f-strings with literal text, non-empty list/set/dict literals and lambdas
+  (#534, #440)
+* B031: only treat a bare ``groupby()`` call as ``itertools.groupby`` when the
+  module doesn't bind ``groupby`` to something else, such as its own
+  ``def groupby`` (#356)
+* B025: fix the message running ``except`` and the exception name together
+  (``exceptValueError``) and dropping the ``*`` for ``except*`` handlers
+* B903: don't flag classes that inherit from another class, like an exception
+  or ``dict`` subclass, which a namedtuple can't replace, and fix ``__slot__``
+  in the message to ``__slots__`` (#63)
+* B950: respect the ``max-doc-length`` option for docstring and comment-only lines,
+  as ``pycodestyle``'s ``W505`` does; behavior is unchanged when it is not set (#285)
+* B902: treat ``abc.abstractclassmethod`` and ``abc.abstractstaticmethod`` like
+  ``classmethod`` and ``staticmethod`` instead of expecting ``self`` (#33)
+* B909: also check loops over ``d.keys()``, ``d.values()`` and ``d.items()``,
+  which are views of ``d``, so ``for k in d.keys(): d.pop(k)`` is reported like
+  ``for k in d: d.pop(k)``
+* B012: don't flag ``break`` or ``continue`` in an ``async for`` loop inside a
+  ``finally`` block, as for ``for`` and ``while`` loops
+* B018: also report generator expressions and lambdas used as statements. A
+  statement like ``(print(x) for x in items)`` never runs its body, and a bare
+  ``lambda x: True`` is usually an assignment that lost its target (#452)
+* B018: also report ``map()``, ``filter()``, ``reversed()``, ``zip()`` and
+  ``enumerate()`` calls used as statements. They return lazy iterators, so
+  ``map(print, items)`` on its own line never calls ``print`` (#452)
+* B909: also check mutations in ``if`` conditions and ``elif``/``else``
+  branches inside loops (#606)
+* B042: don't treat a class named like an exception as one when its only base is
+  ``object``, as in ``class ParsedException(object)`` (#538)
+* B911: only treat a bare ``batched()`` call as ``itertools.batched`` when the
+  module doesn't bind ``batched`` to something else, such as its own
+  ``def batched``, the same way B031 handles ``groupby()``
 
 26.9.30
 ~~~~~~~

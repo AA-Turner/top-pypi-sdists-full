@@ -232,9 +232,7 @@ async def create_gist(self:GhApi, description, content, filename='gist.txt', pub
 @patch
 def load_gist(self:GhApi, gist_id:str):
     "Retrieve a gist by id, or by `user/id` (as it appears in gist URLs); coro if async client"
-    if '/' in gist_id: *_,user,gist_id = gist_id.split('/')
-    else: user = None
-    return self.gists.get(gist_id, user=user)
+    return self.gists.get(gist_id.split('/')[-1])
 
 @patch
 def gist_file(self:GhApi, gist_id:str):
@@ -420,9 +418,10 @@ async def enable_pages(self:GhApi, branch=None, path="/"):
     r = await self.repos.get()
     branch = branch or r.default_branch
     source = {"branch": branch, "path": path}
-    if r.has_pages: return # await self.repos.update_information_about_pages_site(source=source)
     if len(await self.list_branches(branch))==0: await self.create_branch_empty(branch)
-    return await self.repos.create_pages_site(source=source)
+    if not r.has_pages: return await self.repos.create_pages_site(source=source)
+    await self.repos.update_information_about_pages_site(source=source)
+    return await self.repos.get_pages()
 
 # %% ../nbs/00_core.ipynb #519ec71c
 class _IssueInfo(AttrDict):
@@ -647,20 +646,47 @@ async def pr_status(self:GhApi, pull_number:int):
     "Combined status and check-run results for a PR's head commit"
     return await self.check_status((await self.pulls.get(pull_number)).head.sha)
 
+# %% ../nbs/00_core.ipynb #40f5c88a
+def _step_lines(zf, job, s):
+    "Timestamped log lines for step `s` of `job`. They come from the step's own archive file, or else from the job's combined log, cut to the step's time window and its last `##[error]` line."
+    names = zf.namelist()
+    if name := first(n for n in names if n.startswith(f'{job.name}/{s.number}_')): return zf.read(name).decode().splitlines()
+    name = first(n for n in names if re.fullmatch(rf'\d+_{re.escape(job.name)}\.txt', n))
+    lines = [l for l in zf.read(name).decode('utf-8-sig').splitlines() if s.started_at[:19] <= l[:19] <= s.completed_at[:19]]
+    last = max((i for i,l in enumerate(lines) if l.split(' ', 1)[-1].startswith('##[error]')), default=len(lines)-1)
+    return lines[:last+1]
+
+# %% ../nbs/00_core.ipynb #fd5e2942
+def _fold_groups(lines, n=20):
+    "Fold each finished `##[group]` of more than `n` lines, unless it holds an error or warning. An unfinished group stays whole, since the step died inside it."
+    res, start = [], None
+    for l in lines:
+        res.append(l)
+        if l.startswith('##[group]'): start = len(res)
+        elif l.startswith('##[endgroup]') and start is not None:
+            body = res[start:-1]
+            if len(body) > n and not any(o.startswith(('##[error]', '##[warning]')) for o in body): res[start:-1] = [f'… {len(body)} lines folded']
+            start = None
+    return res
+
 # %% ../nbs/00_core.ipynb #569864f5
 @gh_patch
-async def failed_step_log(self:GhApi, job_id:int):
+async def failed_step_log(
+    self:GhApi,
+    job_id:int, # Workflow job id, which is also its check run id
+    fold:bool=True, # Fold long finished `##[group]` blocks that hold no error or warning?
+):
     """Return the failed steps' log sections, each headed by its step name.
 
-    An Actions check run's id is its job id. Pass that id from `check_status` or `pr_status`. The returned text's display is truncated at 8,000 characters. GitHub can expire or delete stored logs.
+    An Actions check run's id is its job id. Pass that id from `check_status` or `pr_status`. The returned text's display is truncated at 8,000 characters. Long finished `##[group]` blocks with no error or warning are folded to a line count. GitHub can expire or delete stored logs.
     """
     job = await self.actions.get_job_for_workflow_run(job_id=job_id)
     zf = zipfile.ZipFile(io.BytesIO(await self.actions.download_workflow_run_logs(run_id=job.run_id)))
     res = []
     for s in job.steps:
         if s.conclusion!='failure': continue
-        name = first(n for n in zf.namelist() if n.startswith(f'{job.name}/{s.number}_'))
-        lines = [strip_ansi(l.split(' ', 1)[-1]) for l in zf.read(name).decode().splitlines()]
+        lines = [strip_ansi(l.split(' ', 1)[-1]) for l in _step_lines(zf, job, s)]
+        if fold: lines = _fold_groups(lines)
         res.append(f'# {s.name}\n' + '\n'.join(lines))
     return TruncatedString('\n\n'.join(res), 8_000)
 

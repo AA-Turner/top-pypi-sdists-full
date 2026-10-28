@@ -49,7 +49,9 @@ class AccountDetails(SyncAPIResource):
         accounts_type: Literal["external_accounts"],
         account_number: str,
         account_number_type: Literal[
+            "arbitrum_address",
             "au_number",
+            "avalanche_address",
             "base_address",
             "card_token",
             "clabe",
@@ -63,7 +65,6 @@ class AccountDetails(SyncAPIResource):
             "polygon_address",
             "sg_number",
             "solana_address",
-            "wallet_address",
         ]
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -80,8 +81,9 @@ class AccountDetails(SyncAPIResource):
         Args:
           account_number: The account number for the bank account.
 
-          account_number_type: One of `iban`, `clabe`, `wallet_address`, or `other`. Use `other` if the bank
-              account number is in a generic format.
+          account_number_type: The type of the account number. For wallet addresses, use the chain-specific
+              type (e.g. `ethereum_address`). Use `other` if the account number is in a
+              generic format.
 
           extra_headers: Send extra headers
 
@@ -293,7 +295,9 @@ class AsyncAccountDetails(AsyncAPIResource):
         accounts_type: Literal["external_accounts"],
         account_number: str,
         account_number_type: Literal[
+            "arbitrum_address",
             "au_number",
+            "avalanche_address",
             "base_address",
             "card_token",
             "clabe",
@@ -307,7 +311,6 @@ class AsyncAccountDetails(AsyncAPIResource):
             "polygon_address",
             "sg_number",
             "solana_address",
-            "wallet_address",
         ]
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -324,8 +327,9 @@ class AsyncAccountDetails(AsyncAPIResource):
         Args:
           account_number: The account number for the bank account.
 
-          account_number_type: One of `iban`, `clabe`, `wallet_address`, or `other`. Use `other` if the bank
-              account number is in a generic format.
+          account_number_type: The type of the account number. For wallet addresses, use the chain-specific
+              type (e.g. `ethereum_address`). Use `other` if the account number is in a
+              generic format.
 
           extra_headers: Send extra headers
 

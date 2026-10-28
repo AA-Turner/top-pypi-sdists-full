@@ -59,7 +59,7 @@ class RebateApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :rtype: list[gate_api.AgencyTransactionHistory]
+        :rtype: gate_api.AgencyTransactionHistory
         :return: If the method is called asynchronously,
                  returns the request thread.
         """
@@ -91,7 +91,7 @@ class RebateApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :rtype: tuple(list[gate_api.AgencyTransactionHistory], status_code(int), headers(HTTPHeaderDict))
+        :rtype: tuple(gate_api.AgencyTransactionHistory, status_code(int), headers(HTTPHeaderDict))
         :return: If the method is called asynchronously,
                  returns the request thread.
         """
@@ -169,7 +169,7 @@ class RebateApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='list[AgencyTransactionHistory]',  # noqa: E501
+            response_type='AgencyTransactionHistory',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -201,7 +201,7 @@ class RebateApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :rtype: list[gate_api.AgencyCommissionHistory]
+        :rtype: gate_api.AgencyCommissionHistory
         :return: If the method is called asynchronously,
                  returns the request thread.
         """
@@ -234,7 +234,7 @@ class RebateApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :rtype: tuple(list[gate_api.AgencyCommissionHistory], status_code(int), headers(HTTPHeaderDict))
+        :rtype: tuple(gate_api.AgencyCommissionHistory, status_code(int), headers(HTTPHeaderDict))
         :return: If the method is called asynchronously,
                  returns the request thread.
         """
@@ -315,7 +315,7 @@ class RebateApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='list[AgencyCommissionHistory]',  # noqa: E501
+            response_type='AgencyCommissionHistory',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -753,7 +753,7 @@ class RebateApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :rtype: list[gate_api.BrokerCommission]
+        :rtype: gate_api.BrokerCommission
         :return: If the method is called asynchronously,
                  returns the request thread.
         """
@@ -784,7 +784,7 @@ class RebateApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :rtype: tuple(list[gate_api.BrokerCommission], status_code(int), headers(HTTPHeaderDict))
+        :rtype: tuple(gate_api.BrokerCommission, status_code(int), headers(HTTPHeaderDict))
         :return: If the method is called asynchronously,
                  returns the request thread.
         """
@@ -859,7 +859,7 @@ class RebateApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='list[BrokerCommission]',  # noqa: E501
+            response_type='BrokerCommission',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -889,7 +889,7 @@ class RebateApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :rtype: list[gate_api.BrokerTransactionHistory]
+        :rtype: gate_api.BrokerTransactionHistory
         :return: If the method is called asynchronously,
                  returns the request thread.
         """
@@ -920,7 +920,7 @@ class RebateApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :rtype: tuple(list[gate_api.BrokerTransactionHistory], status_code(int), headers(HTTPHeaderDict))
+        :rtype: tuple(gate_api.BrokerTransactionHistory, status_code(int), headers(HTTPHeaderDict))
         :return: If the method is called asynchronously,
                  returns the request thread.
         """
@@ -995,7 +995,7 @@ class RebateApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='list[BrokerTransactionHistory]',  # noqa: E501
+            response_type='BrokerTransactionHistory',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -1019,7 +1019,7 @@ class RebateApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :rtype: list[gate_api.RebateUserInfo]
+        :rtype: gate_api.RebateUserInfo
         :return: If the method is called asynchronously,
                  returns the request thread.
         """
@@ -1044,7 +1044,7 @@ class RebateApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :rtype: tuple(list[gate_api.RebateUserInfo], status_code(int), headers(HTTPHeaderDict))
+        :rtype: tuple(gate_api.RebateUserInfo, status_code(int), headers(HTTPHeaderDict))
         :return: If the method is called asynchronously,
                  returns the request thread.
         """
@@ -1098,7 +1098,7 @@ class RebateApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='list[RebateUserInfo]',  # noqa: E501
+            response_type='RebateUserInfo',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

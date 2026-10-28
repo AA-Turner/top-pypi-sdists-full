@@ -1279,6 +1279,11 @@ def _run_leased(journal) -> int:
     woken_at = _wake_stamp(journal)
     started = time.monotonic()
     delivered = dead_lettered = passes = waiting_passes = 0
+    #: The server's answer per dead letter, keyed as `sdk.delivery.summary`
+    #: keys it, and how many were its "run not found": a write naming no run
+    #: is the sender's mistake, and the loss alert needs to tell it from ours.
+    dead_lettered_by_status: dict[str, int] = {}
+    dead_lettered_no_such_run = 0
     remaining = 0
     stalled_reported = False
 
@@ -1293,6 +1298,8 @@ def _run_leased(journal) -> int:
                 outcome=outcome,
                 delivered=delivered,
                 dead_lettered=dead_lettered,
+                dead_lettered_by_status=dead_lettered_by_status,
+                dead_lettered_no_such_run=dead_lettered_no_such_run,
                 remaining=remaining,
                 passes=passes,
                 duration_s=time.monotonic() - started,
@@ -1331,6 +1338,10 @@ def _run_leased(journal) -> int:
         passes += 1
         delivered += report.delivered
         dead_lettered += report.dead_lettered
+        for record in report.dead_letter_records:
+            code = str(record.get("status") or "none")
+            dead_lettered_by_status[code] = dead_lettered_by_status.get(code, 0) + 1
+            dead_lettered_no_such_run += bool(record.get("no_such_run"))
         remaining = report.remaining
         if report.auth_stopped:
             # A refusal of an unstamped op (an older release queued it) stops

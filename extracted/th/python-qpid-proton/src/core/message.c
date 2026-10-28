@@ -188,7 +188,7 @@ void pn_message_inspect(void *obj, pn_fixed_string_t *dst)
     comma = true;
   }
 
-  if (msg->priority != HEADER_PRIORITY_DEFAULT) {
+  if (msg->priority != AMQP_HEADER_PRIORITY_DEFAULT) {
     pn_fixed_string_addf(dst, "priority=%u, ", msg->priority);
     comma = true;
   }
@@ -338,7 +338,7 @@ static pn_message_t *pni_message_new(size_t size)
   static const pn_class_t clazz = PN_CLASS(pn_message);
   pn_message_t *msg = (pn_message_t *) pn_class_new(&clazz, size);
   msg->durable = false;
-  msg->priority = HEADER_PRIORITY_DEFAULT;
+  msg->priority = AMQP_HEADER_PRIORITY_DEFAULT;
   msg->ttl = 0;
   msg->first_acquirer = false;
   msg->delivery_count = 0;
@@ -398,7 +398,7 @@ void pn_message_free(pn_message_t *msg)
 void pn_message_clear(pn_message_t *msg)
 {
   msg->durable = false;
-  msg->priority = HEADER_PRIORITY_DEFAULT;
+  msg->priority = AMQP_HEADER_PRIORITY_DEFAULT;
   msg->ttl = 0;
   msg->first_acquirer = false;
   msg->delivery_count = 0;
@@ -730,7 +730,11 @@ int pn_message_set_reply_to_group_id(pn_message_t *msg, const char *reply_to_gro
 
 int pn_message_decode(pn_message_t *msg, const char *bytes, size_t size)
 {
-  assert(msg && bytes && size);
+  assert(msg);
+
+  if (!bytes || !size) {
+    return pn_error_format(msg->error, PN_ARG_ERR, "invalid message bytes");
+  }
 
   pn_bytes_t msg_bytes = {.size=size, .start=bytes};
   pn_bytes_t instructions_bytes = {0, 0};
@@ -742,30 +746,30 @@ int pn_message_decode(pn_message_t *msg, const char *bytes, size_t size)
   while (msg_bytes.size) {
     bool scanned;
     uint64_t desc;
-    size_t section_size = pn_amqp_decode_DQLq(msg_bytes, &scanned, &desc);
+    size_t section_size = pn_amqp_decode_described_type_anything(msg_bytes, &scanned, &desc);
     if (!scanned) {
       desc = 0;
     }
 
     switch (desc) {
-      case HEADER: {
+      case AMQP_DESC_HEADER: {
         bool priority_q;
         uint8_t priority;
-        pn_amqp_decode_DqEoQBIoIe(msg_bytes,
+        pn_amqp_decode_message_header(msg_bytes,
                                   &msg->durable,
                                   &priority_q, &priority,
                                   &msg->ttl,
                                   &msg->first_acquirer,
                                   &msg->delivery_count);
-        msg->priority = priority_q ? priority : HEADER_PRIORITY_DEFAULT;
+        msg->priority = priority_q ? priority : AMQP_HEADER_PRIORITY_DEFAULT;
         break;
       }
-      case PROPERTIES: {
+      case AMQP_DESC_PROPERTIES: {
         pn_bytes_t user_id, address, subject, reply_to, ctype, cencoding,
                    group_id, reply_to_group_id;
         pn_atom_t id;
         pn_atom_t correlation_id;
-        pn_amqp_decode_DqEazSSSassttSISe(msg_bytes,  &id,
+        pn_amqp_decode_message_properties(msg_bytes,  &id,
                            &user_id, &address, &subject, &reply_to,
                            &correlation_id, &ctype, &cencoding,
                            &msg->expiry_time, &msg->creation_time, &group_id,
@@ -794,33 +798,33 @@ int pn_message_decode(pn_message_t *msg, const char *bytes, size_t size)
         if (err) return pn_error_format(msg->error, err, "error setting reply_to_group_id");
         break;
       }
-      case DELIVERY_ANNOTATIONS: {
-        pn_amqp_decode_DqR(msg_bytes, &instructions_bytes);
+      case AMQP_DESC_DELIVERY_ANNOTATIONS: {
+        pn_amqp_decode_described_raw(msg_bytes, &instructions_bytes);
         break;
       }
-      case MESSAGE_ANNOTATIONS: {
-        pn_amqp_decode_DqR(msg_bytes, &annotations_bytes);
+      case AMQP_DESC_MESSAGE_ANNOTATIONS: {
+        pn_amqp_decode_described_raw(msg_bytes, &annotations_bytes);
         break;
       }
-      case APPLICATION_PROPERTIES: {
-        pn_amqp_decode_DqR(msg_bytes, &properties_bytes);
+      case AMQP_DESC_APPLICATION_PROPERTIES: {
+        pn_amqp_decode_described_raw(msg_bytes, &properties_bytes);
         break;
       }
-      case DATA:
-      case AMQP_SEQUENCE: {
+      case AMQP_DESC_DATA:
+      case AMQP_DESC_AMQP_SEQUENCE: {
         msg->inferred = true;
-        pn_amqp_decode_DqR(msg_bytes, &body_bytes);
+        pn_amqp_decode_described_raw(msg_bytes, &body_bytes);
         break;
       }
-      case AMQP_VALUE: {
+      case AMQP_DESC_AMQP_VALUE: {
         msg->inferred = false;
-        pn_amqp_decode_DqR(msg_bytes, &body_bytes);
+        pn_amqp_decode_described_raw(msg_bytes, &body_bytes);
         break;
       }
-      case FOOTER:
+      case AMQP_DESC_FOOTER:
         break;
       default: {
-        pn_amqp_decode_R(msg_bytes, &unknown_section_bytes);
+        pn_amqp_decode_raw(msg_bytes, &unknown_section_bytes);
         break;
       }
     }
@@ -852,13 +856,14 @@ int pn_message_encode(pn_message_t *msg, char *bytes, size_t *isize)
   if (!pni_switch_to_raw_bytes(scratch, &msg->body_deprecated, &msg->body_raw)) {
     return PN_OVERFLOW;
   }
+
   size_t remaining = *isize;
   size_t total = 0;
 
-  /* "DL[?o?B?I?o?I]" */
-  size_t last_size = pn_amqp_encode_bytes_DLEQoQBQIQoQIe(bytes, remaining, HEADER,
+  /* "DL[?o?B?I?o?I]!" */
+  size_t last_size = pn_amqp_encode_bytes_message_header(bytes, remaining, AMQP_DESC_HEADER,
                         msg->durable, msg->durable,
-                         msg->priority!=HEADER_PRIORITY_DEFAULT, msg->priority,
+                         msg->priority!=AMQP_HEADER_PRIORITY_DEFAULT, msg->priority,
                          (bool)msg->ttl, msg->ttl,
                          msg->first_acquirer, msg->first_acquirer,
                          (bool)msg->delivery_count, msg->delivery_count);
@@ -870,7 +875,7 @@ int pn_message_encode(pn_message_t *msg, char *bytes, size_t *isize)
 
 
   if (msg->instructions_raw.size>0) {
-    last_size = pn_amqp_encode_bytes_DLR(bytes, remaining, DELIVERY_ANNOTATIONS, msg->instructions_raw);
+    last_size = pn_amqp_encode_bytes_described_type_raw(bytes, remaining, AMQP_DESC_DELIVERY_ANNOTATIONS, msg->instructions_raw);
     if (last_size > remaining) return PN_OVERFLOW;
 
     remaining -= last_size;
@@ -879,7 +884,7 @@ int pn_message_encode(pn_message_t *msg, char *bytes, size_t *isize)
   }
 
   if (msg->annotations_raw.size>0) {
-    last_size = pn_amqp_encode_bytes_DLR(bytes, remaining, MESSAGE_ANNOTATIONS, msg->annotations_raw);
+    last_size = pn_amqp_encode_bytes_described_type_raw(bytes, remaining, AMQP_DESC_MESSAGE_ANNOTATIONS, msg->annotations_raw);
     if (last_size > remaining) return PN_OVERFLOW;
 
     remaining -= last_size;
@@ -887,10 +892,10 @@ int pn_message_encode(pn_message_t *msg, char *bytes, size_t *isize)
     total += last_size;
   }
 
-  /* "DL[CzSSSCss?t?tS?IS]" */
+  /* "DL[azSSSass?t?tS?IS]!" */
   pn_atom_t id = pn_message_get_id(msg);
   pn_atom_t correlation_id = pn_message_get_correlation_id(msg);
-  last_size = pn_amqp_encode_bytes_DLEazSSSassQtQtSQISe(bytes, remaining, PROPERTIES,
+  last_size = pn_amqp_encode_bytes_message_properties(bytes, remaining, AMQP_DESC_PROPERTIES,
                      &id,
                      pn_string_size(msg->user_id), pn_string_get(msg->user_id),
                      pn_string_bytes(msg->address),
@@ -916,7 +921,7 @@ int pn_message_encode(pn_message_t *msg, char *bytes, size_t *isize)
   total += last_size;
 
   if (msg->properties_raw.size>0) {
-    last_size = pn_amqp_encode_bytes_DLR(bytes, remaining, APPLICATION_PROPERTIES, msg->properties_raw);
+    last_size = pn_amqp_encode_bytes_described_type_raw(bytes, remaining, AMQP_DESC_APPLICATION_PROPERTIES, msg->properties_raw);
     if (last_size > remaining) return PN_OVERFLOW;
 
     remaining -= last_size;
@@ -925,21 +930,30 @@ int pn_message_encode(pn_message_t *msg, char *bytes, size_t *isize)
   }
 
   if (msg->body_raw.size>0) {
-    uint64_t descriptor = AMQP_VALUE;
+    uint64_t descriptor = AMQP_DESC_AMQP_VALUE;
     if (msg->inferred) {
       switch ((uint8_t)msg->body_raw.start[0]) {
       case PNE_VBIN8:
       case PNE_VBIN32:
-        descriptor = DATA;
+        descriptor = AMQP_DESC_DATA;
         break;
       case PNE_LIST0:
       case PNE_LIST8:
       case PNE_LIST32:
-        descriptor = AMQP_SEQUENCE;
+        descriptor = AMQP_DESC_AMQP_SEQUENCE;
         break;
       }
     }
-    last_size = pn_amqp_encode_bytes_DLR(bytes, remaining, descriptor, msg->body_raw);
+    last_size = pn_amqp_encode_bytes_described_type_raw(bytes, remaining, descriptor, msg->body_raw);
+    if (last_size > remaining) return PN_OVERFLOW;
+
+    remaining -= last_size;
+    bytes += last_size;
+    total += last_size;
+  } else {
+    // AMQP requires a body, so encode a null body if none present
+    static const char null_byte = PNE_NULL;
+    last_size = pn_amqp_encode_bytes_described_type_raw(bytes, remaining, AMQP_DESC_AMQP_VALUE, (pn_bytes_t){.size=1, .start=&null_byte});
     if (last_size > remaining) return PN_OVERFLOW;
 
     remaining -= last_size;
@@ -954,9 +968,9 @@ int pn_message_encode(pn_message_t *msg, char *bytes, size_t *isize)
 int pn_message_data(pn_message_t *msg, pn_data_t *data)
 {
   pn_data_clear(data);
-  int err = pn_data_fill(data, "DL[?o?B?I?o?I]", HEADER,
+  int err = pn_data_fill(data, "DL[?o?B?I?o?I]", AMQP_DESC_HEADER,
                          msg->durable, msg->durable,
-                         msg->priority!=HEADER_PRIORITY_DEFAULT, msg->priority,
+                         msg->priority!=AMQP_HEADER_PRIORITY_DEFAULT, msg->priority,
                          (bool)msg->ttl, msg->ttl,
                          msg->first_acquirer, msg->first_acquirer,
                          (bool)msg->delivery_count, msg->delivery_count);
@@ -966,7 +980,7 @@ int pn_message_data(pn_message_t *msg, pn_data_t *data)
 
   if (pn_data_size(msg->instructions_deprecated)) {
     pn_data_rewind(msg->instructions_deprecated);
-    err = pn_data_fill(data, "DLC", DELIVERY_ANNOTATIONS, msg->instructions_deprecated);
+    err = pn_data_fill(data, "DLC", AMQP_DESC_DELIVERY_ANNOTATIONS, msg->instructions_deprecated);
     if (err)
       return pn_error_format(msg->error, err, "data error: %s",
                              pn_error_text(pn_data_error(data)));
@@ -974,7 +988,7 @@ int pn_message_data(pn_message_t *msg, pn_data_t *data)
 
   if (pn_data_size(msg->annotations_deprecated)) {
     pn_data_rewind(msg->annotations_deprecated);
-    err = pn_data_fill(data, "DLC", MESSAGE_ANNOTATIONS, msg->annotations_deprecated);
+    err = pn_data_fill(data, "DLC", AMQP_DESC_MESSAGE_ANNOTATIONS, msg->annotations_deprecated);
     if (err)
       return pn_error_format(msg->error, err, "data error: %s",
                              pn_error_text(pn_data_error(data)));
@@ -982,7 +996,7 @@ int pn_message_data(pn_message_t *msg, pn_data_t *data)
 
   pn_atom_t id = pn_message_get_id(msg);
   pn_atom_t correlation_id = pn_message_get_correlation_id(msg);
-  err = pn_data_fill(data, "DL[azSSSass?t?tS?IS]", PROPERTIES,
+  err = pn_data_fill(data, "DL[azSSSass?t?tS?IS]", AMQP_DESC_PROPERTIES,
                      &id,
                      pn_string_size(msg->user_id), pn_string_get(msg->user_id),
                      pn_string_get(msg->address),
@@ -1007,7 +1021,7 @@ int pn_message_data(pn_message_t *msg, pn_data_t *data)
 
   if (pn_data_size(msg->properties_deprecated)) {
     pn_data_rewind(msg->properties_deprecated);
-    err = pn_data_fill(data, "DLC", APPLICATION_PROPERTIES, msg->properties_deprecated);
+    err = pn_data_fill(data, "DLC", AMQP_DESC_APPLICATION_PROPERTIES, msg->properties_deprecated);
     if (err)
       return pn_error_format(msg->error, err, "data error: %s",
                              pn_error_text(pn_data_error(data)));
@@ -1018,14 +1032,14 @@ int pn_message_data(pn_message_t *msg, pn_data_t *data)
     pn_data_next(msg->body_deprecated);
     pn_type_t body_type = pn_data_type(msg->body_deprecated);
 
-    uint64_t descriptor = AMQP_VALUE;
+    uint64_t descriptor = AMQP_DESC_AMQP_VALUE;
     if (msg->inferred) {
       switch (body_type) {
         case PN_BINARY:
-          descriptor = DATA;
+          descriptor = AMQP_DESC_DATA;
           break;
         case PN_LIST:
-          descriptor = AMQP_SEQUENCE;
+          descriptor = AMQP_DESC_AMQP_SEQUENCE;
           break;
         default:
           break;
@@ -1044,28 +1058,34 @@ int pn_message_data(pn_message_t *msg, pn_data_t *data)
 pn_data_t *pn_message_instructions(pn_message_t *msg)
 {
   if (!msg) return NULL;
-  pni_switch_to_data(&msg->instructions_raw, &msg->instructions_deprecated);
+  pni_switch_to_data(&msg->instructions_raw, &msg->instructions_deprecated,
+                     PNI_DATA_DEFAULT_MAX_NODES);
   return msg->instructions_deprecated;
 }
 
 pn_data_t *pn_message_annotations(pn_message_t *msg)
 {
   if (!msg) return NULL;
-  pni_switch_to_data(&msg->annotations_raw, &msg->annotations_deprecated);
+  pni_switch_to_data(&msg->annotations_raw, &msg->annotations_deprecated,
+                     PNI_DATA_DEFAULT_MAX_NODES);
   return msg->annotations_deprecated;
 }
 
 pn_data_t *pn_message_properties(pn_message_t *msg)
 {
   if (!msg) return NULL;
-  pni_switch_to_data(&msg->properties_raw, &msg->properties_deprecated);
+  pni_switch_to_data(&msg->properties_raw, &msg->properties_deprecated,
+                     PNI_DATA_DEFAULT_MAX_NODES);
   return msg->properties_deprecated;
 }
 
 pn_data_t *pn_message_body(pn_message_t *msg)
 {
   if (!msg) return NULL;
-  pni_switch_to_data(&msg->body_raw, &msg->body_deprecated);
+  /* No node limit - application body values could be complex,
+     and the backing buffer is already limited*/
+  pni_switch_to_data(&msg->body_raw, &msg->body_deprecated,
+                     PNI_DATA_BODY_MAX_NODES);
   return msg->body_deprecated;
 }
 

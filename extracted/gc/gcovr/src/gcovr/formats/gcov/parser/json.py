@@ -1,7 +1,7 @@
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.7
+# This file is part of gcovr 8.8, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.8
 #
 # _____________________________________________________________________________
 #
@@ -31,12 +31,11 @@ The behavior of this parser was informed by the following sources:
 import os
 from typing import Any, Iterator
 
-from gcovr.utils import get_md5_hexdigest, read_source_file
-
-from ....data_model.coverage import FileCoverage
+from ....data_model.coverage import CodeRegion, FileCoverage
 from ....data_model.merging import FUNCTION_MAX_LINE_MERGE_OPTIONS, MergeOptions
 from ....filter import Filter, is_file_excluded
 from ....logging import LOGGER
+from ....utils import get_md5_hexdigest, read_source_file
 from .common import (
     SUSPICIOUS_COUNTER,
     check_hits,
@@ -220,8 +219,12 @@ def _parse_file_node(
             lineno=function["start_line"],
             count=function["execution_count"],
             blocks=blocks,
-            start=(function["start_line"], function["start_column"]),
-            end=(function["end_line"], function["end_column"]),
+            pos=CodeRegion(
+                function["start_line"],
+                function["start_column"],
+                function["end_line"],
+                function["end_column"],
+            ),
         )
 
     if (

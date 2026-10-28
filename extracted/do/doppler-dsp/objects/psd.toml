@@ -36,7 +36,7 @@ default = "1.0"
 name = "window"
 type = "enum:psd_window"
 default = "hann"
-
+doc = 'The window each segment is shaped by. `rect` is no taper: best resolution, worst leakage.'
 [[psd.init_params]]
 name = "beta"
 type = "float"
@@ -61,6 +61,7 @@ default = "0"
 name = "mode"
 type = "enum:acc_trace_mode"
 default = "mean"
+doc = 'How successive traces are reduced: the running mean, an exponential average, or a max or min hold.'
 
 [[psd.init_params]]
 name = "alpha"

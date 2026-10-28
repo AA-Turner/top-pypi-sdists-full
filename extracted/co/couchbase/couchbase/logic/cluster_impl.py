@@ -58,6 +58,19 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+def normalize_connection_info(res: Dict[str, Any]) -> Dict[str, Any]:
+    """**INTERNAL**
+
+    The binding's cluster_credentials to_py omits allowed_sasl_mechanisms when the vector is
+    empty as well as when it is unset, the same rule it applies to the string fields beside it.
+    An empty list is reachable through PasswordAuthenticator, so a missing key has to be read
+    back as one rather than left absent.
+    """
+    if 'credentials' in res and 'allowed_sasl_mechanisms' not in res['credentials']:
+        res['credentials']['allowed_sasl_mechanisms'] = []
+    return res
+
+
 class ClusterImpl:
     def __init__(self, connstr: str, *options: object, **kwargs: object) -> None:
         skip_connect = kwargs.pop('skip_connect', None)
@@ -149,6 +162,8 @@ class ClusterImpl:
     @property
     def transactions(self) -> Transactions:
         """**INTERNAL**"""
+        self._client_adapter._ensure_not_closed()
+        self._client_adapter._ensure_connected()
         if self._transactions is None:
             with self._transactions_lock:
                 if self._transactions is None:
@@ -192,11 +207,16 @@ class ClusterImpl:
                 log.warning('Error closing transactions while closing the cluster.', exc_info=True)
 
         try:
-            from couchbase.logic.observability import ThresholdLoggingTracer
-            tracer = self._cluster_settings.observability_instruments.tracer.tracer
+            from couchbase.logic.observability import LoggingMeter, ThresholdLoggingTracer
+            instruments = self._cluster_settings.observability_instruments
+            tracer = instruments.tracer.tracer
             if isinstance(tracer, ThresholdLoggingTracer):
                 # shutdown the tracer's reporter
                 tracer.close()
+            meter = instruments.meter
+            if isinstance(meter, LoggingMeter):
+                # shutdown the meter's reporter
+                meter.close()
         except Exception:  # nosec
             # Don't raise exceptions during shutdown
             pass
@@ -222,11 +242,8 @@ class ClusterImpl:
 
     def get_connection_info(self) -> Dict[str, Any]:
         """**INTERNAL**"""
-        res = self._client_adapter.execute_cluster_request(GetConnectionInfoRequest())
-        if 'credentials' in res:
-            if 'allowed_sasl_mechanisms' not in res['credentials']:
-                res['credentials']['allowed_sasl_mechanisms'] = []
-        return res
+        return normalize_connection_info(
+            self._client_adapter.execute_cluster_request(GetConnectionInfoRequest()))
 
     def ping(self, req: PingRequest) -> PingResult:
         """**INTERNAL**"""

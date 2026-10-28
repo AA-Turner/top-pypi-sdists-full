@@ -165,6 +165,7 @@ Usage::
         GetCapacityManagerMetricDimensionsPaginator,
         GetCapacityManagerMonitoredTagKeysPaginator,
         GetGroupsForCapacityReservationPaginator,
+        GetImageFindingsPaginator,
         GetInstanceTypesFromInstanceRequirementsPaginator,
         GetIpamAddressHistoryPaginator,
         GetIpamDiscoveredAccountsPaginator,
@@ -426,6 +427,7 @@ Usage::
     get_capacity_manager_metric_dimensions_paginator: GetCapacityManagerMetricDimensionsPaginator = client.get_paginator("get_capacity_manager_metric_dimensions")
     get_capacity_manager_monitored_tag_keys_paginator: GetCapacityManagerMonitoredTagKeysPaginator = client.get_paginator("get_capacity_manager_monitored_tag_keys")
     get_groups_for_capacity_reservation_paginator: GetGroupsForCapacityReservationPaginator = client.get_paginator("get_groups_for_capacity_reservation")
+    get_image_findings_paginator: GetImageFindingsPaginator = client.get_paginator("get_image_findings")
     get_instance_types_from_instance_requirements_paginator: GetInstanceTypesFromInstanceRequirementsPaginator = client.get_paginator("get_instance_types_from_instance_requirements")
     get_ipam_address_history_paginator: GetIpamAddressHistoryPaginator = client.get_paginator("get_ipam_address_history")
     get_ipam_discovered_accounts_paginator: GetIpamDiscoveredAccountsPaginator = client.get_paginator("get_ipam_discovered_accounts")
@@ -604,6 +606,7 @@ from .paginator import (
     GetCapacityManagerMetricDimensionsPaginator,
     GetCapacityManagerMonitoredTagKeysPaginator,
     GetGroupsForCapacityReservationPaginator,
+    GetImageFindingsPaginator,
     GetInstanceTypesFromInstanceRequirementsPaginator,
     GetIpamAddressHistoryPaginator,
     GetIpamDiscoveredAccountsPaginator,
@@ -844,6 +847,7 @@ __all__ = (
     "GetCapacityManagerMetricDimensionsPaginator",
     "GetCapacityManagerMonitoredTagKeysPaginator",
     "GetGroupsForCapacityReservationPaginator",
+    "GetImageFindingsPaginator",
     "GetInstanceTypesFromInstanceRequirementsPaginator",
     "GetIpamAddressHistoryPaginator",
     "GetIpamDiscoveredAccountsPaginator",

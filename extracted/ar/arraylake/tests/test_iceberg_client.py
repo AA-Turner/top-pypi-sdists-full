@@ -189,6 +189,7 @@ def set_login(path, token):
 def test_login_refresh_is_shared_across_catalogs(monkeypatch, test_token_file, capsys):
     pytest.importorskip("pyiceberg")
     from arraylake.repos.iceberg import auth
+    from arraylake.token import TokenHandler
     from arraylake.types import OauthTokensResponse
 
     set_login(test_token_file, jwt(time.time() - 1))
@@ -201,7 +202,7 @@ def test_login_refresh_is_shared_across_catalogs(monkeypatch, test_token_file, c
             OauthTokensResponse(access_token="new", id_token=refreshed_token, refresh_token="rotated", expires_in=3600, token_type="Bearer")
         )
 
-    monkeypatch.setattr(auth, "_refresh_login", refresh)
+    monkeypatch.setattr(TokenHandler, "refresh_quietly", refresh)
     managers = [auth.ArraylakeAuthManager(URL) for _ in range(8)]
     with ThreadPoolExecutor(max_workers=8) as pool:
         headers = list(pool.map(lambda manager: manager.auth_header(), managers))
@@ -218,7 +219,6 @@ def test_login_refresh_is_shared_across_catalogs(monkeypatch, test_token_file, c
 async def test_refresh_failure_does_not_overwrite_login(http_routes, monkeypatch, test_token_file):
     pytest.importorskip("pyiceberg")
     from arraylake.exceptions import AuthException
-    from arraylake.repos.iceberg.auth import _refresh_login
     from arraylake.token import TokenHandler
 
     async def request(self):
@@ -228,7 +228,7 @@ async def test_refresh_failure_does_not_overwrite_login(http_routes, monkeypatch
     http_routes.post(f"{URL}/refresh").respond(401, json={"error": "invalid_grant"})
     before = test_token_file.read_text()
     with pytest.raises(AuthException, match="al auth login"):
-        await _refresh_login(TokenHandler(URL))
+        await TokenHandler(URL).refresh_quietly()
     assert test_token_file.read_text() == before
 
 
@@ -399,7 +399,6 @@ def test_cli_table_list_quoted_identifiers():
 
 async def test_refresh_success_persists_rotated_tokens_quietly(http_routes, monkeypatch, test_token_file, capsys):
     pytest.importorskip("pyiceberg")
-    from arraylake.repos.iceberg.auth import _refresh_login
     from arraylake.token import TokenHandler
 
     async def request(self):
@@ -417,7 +416,7 @@ async def test_refresh_success_persists_rotated_tokens_quietly(http_routes, monk
             "token_type": "Bearer",
         },
     )
-    await _refresh_login(TokenHandler(URL))
+    await TokenHandler(URL).refresh_quietly()
     saved = json.loads(test_token_file.read_text())
     assert saved["id_token"] == new_token and saved["refresh_token"] == "new-refresh"
     assert capsys.readouterr().out == ""

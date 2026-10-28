@@ -1,13 +1,17 @@
-"""Example usage of pyUSPTO for Final Petition Decisions.
+"""Example usage of pyUSPTO for Petition Decisions.
 
-Demonstrates the FinalPetitionDecisionsClient for searching decisions,
+Demonstrates the PetitionDecisionsClient for searching decisions,
 downloading decision data, and paginating results.
 """
 
 import json
 import os
 
-from pyUSPTO import FinalPetitionDecisionsClient, PetitionDecisionDownloadResponse, USPTOConfig
+from pyUSPTO import (
+    PetitionDecisionDownloadResponse,
+    PetitionDecisionsClient,
+    USPTOConfig,
+)
 
 DEST_PATH = "./notes/download-example"
 
@@ -18,7 +22,7 @@ if api_key == "YOUR_API_KEY_HERE":
         "API key is not set. Set the USPTO_API_KEY environment variable."
     )
 config = USPTOConfig(api_key=api_key)
-client = FinalPetitionDecisionsClient(config=config)
+client = PetitionDecisionsClient(config=config)
 
 print("-" * 40)
 print("Example 1: Basic search")
@@ -31,7 +35,7 @@ print(f"Displaying first {len(response.petition_decision_data_bag)} decisions:")
 for decision in response.petition_decision_data_bag:
     print(f"\n  Decision ID: {decision.petition_decision_record_identifier}")
     print(f"  Application Number: {decision.application_number_text}")
-    print(f"  Decision Type: {decision.decision_type_code}")
+    print(f"  Decision Type: {decision.decided_petition_type_code_description_text}")
     print(f"  Decision Date: {decision.decision_date}")
     print(f"  Technology Center: {decision.technology_center}")
 
@@ -53,13 +57,13 @@ print("-" * 40)
 print("Example 2: Search with custom query")
 print("-" * 40)
 
-response = client.search_decisions(query="decisionTypeCode:C", limit=3)
-print(f"Found {response.count} decisions with C type.")
+response = client.search_decisions(query="decidedPetitionTypeCode:C", limit=3)
+print(f"Found {response.count} DENIED decisions.")
 print(f"Showing {len(response.petition_decision_data_bag)} results:")
 
 for decision in response.petition_decision_data_bag:
     print(
-        f"  - {decision.petition_decision_record_identifier}: {decision.decision_type_code}"
+        f"  - {decision.petition_decision_record_identifier}: {decision.decided_petition_type_code}"
     )
 
 print("-" * 40)
@@ -96,7 +100,9 @@ if response.count > 0:
             print(f"  ID: {decision.petition_decision_record_identifier}")
             print(f"  Application: {decision.application_number_text}")
             print(f"  Patent: {decision.patent_number}")
-            print(f"  Decision Type: {decision.decision_type_code}")
+            print(
+                f"  Decision Type: {decision.decided_petition_type_code_description_text}"
+            )
             print(f"  Decision Date: {decision.decision_date}")
             print(f"  Technology Center: {decision.technology_center}")
             print(f"  Group Art Unit: {decision.group_art_unit_number}")
@@ -117,7 +123,6 @@ if response.count > 0:
                     print(f"    - Doc ID: {doc.document_identifier}")
                     print(f"      Date: {doc.official_date}")
                     print(f"      Doc. Code: {doc.document_code_description_text}")
-                    print(f"      Direction: {doc.direction_category}")
                     if doc.download_option_bag:
                         print(
                             f"      Download Options: {len(doc.download_option_bag)}"
@@ -157,11 +162,19 @@ print("Example 6: Paginate through results")
 print("-" * 40)
 
 max_items = 30
+page_size = 10
 count = 0
 for decision in client.paginate_decisions(
-    limit=10, query="decisionDate:[2023-01-01 TO 2023-12-31]"
+    limit=page_size, query="decisionDate:[2023-01-01 TO 2023-12-31]"
 ):
+    if count % page_size == 0:
+        print(f"  Page {count // page_size + 1} (offset {count}):")
     count += 1
+    print(
+        f"    {count}. {decision.application_number_text} - "
+        f"{decision.decided_petition_type_code_description_text}"
+    )
+
     if count >= max_items:
         print(f"  ... (stopping at {max_items} items)")
         break
@@ -177,9 +190,7 @@ response = client.search_decisions(limit=20)
 
 document_found = False
 for decision in response.petition_decision_data_bag:
-    d = client.get_decision_by_id(
-        decision.petition_decision_record_identifier, include_documents=True
-    )
+    d = client.get_decision_by_id(decision.petition_decision_record_identifier)
     print(
         f"Getting docs for patent: {d.invention_title} with id: {d.petition_decision_record_identifier}"
     )  # type: ignore
@@ -198,6 +209,7 @@ for decision in response.petition_decision_data_bag:
                 file_path = client.download_petition_document(
                     download_option=download_option,
                     destination=DEST_PATH,
+                    overwrite=True,
                 )
                 print(f"Downloaded to: {file_path}")
 

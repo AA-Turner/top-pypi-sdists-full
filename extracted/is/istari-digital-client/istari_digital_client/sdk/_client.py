@@ -29,7 +29,7 @@ from istari_digital_client.sdk._admin import (
     Usage,
     Users,
 )
-from istari_digital_client.sdk._common import Credentials, Jobs, Resources, Systems
+from istari_digital_client.sdk._common import Credentials, Jobs, Libraries, Resources, Systems
 from istari_digital_client.sdk._integrations import (
     AgentPools,
     Agents,
@@ -138,6 +138,11 @@ class Istari(_ClosableClient):
     def credentials(self) -> Credentials:
         """Stored credentials (Linked Accounts) — what a job binds to a function's auth_info input."""
         return Credentials(self._engine)
+
+    @cached_property
+    def libraries(self) -> Libraries:
+        """Libraries — packages, versions, members, publishing."""
+        return Libraries(self._engine)
 
 
 class IstariIntegrations(_ClosableClient):

@@ -28,7 +28,20 @@ from river_client.renderers import Renderer
 from river_client.sampling import MAX_SAMPLING_BATCH, SamplingResultCollector
 
 from .config import Budget, GroupCompletion, KVCache, Schedule, _integer
-from .env import Env, InfrastructureError, TurnResult, elide_middle
+from .env import (
+    Env,
+    ErrorAction,
+    ErrorContext,
+    ErrorOperation,
+    InfrastructureError,
+    Recover,
+    TurnResult,
+    _HandledToolError,
+    _ToolErrorScope,
+    _drop_trajectory,
+    _tool_error_scope,
+    elide_middle,
+)
 from .progress import Activities
 from .requirements import _validate_top_logprobs
 from .rendering import continuation_chunks, prompt_chunks, sample_stop
@@ -447,6 +460,18 @@ class RolloutEngine:
             self._groups.clear()
             self._stopped_at = time.monotonic()
 
+    @property
+    def filtered_sampling(self) -> bool:
+        """Whether stochastic sampling applies a top-k or top-p filter.
+
+        Greedy decoding (temperature 0 or top_k 1, as River's sampler
+        defines it) draws one token with certainty, so no filter correction
+        applies; evaluation engines decode that way.
+        """
+        if self.temperature <= 0 or self.top_k == 1:
+            return False
+        return self.top_p < 1.0 or self.top_k > 0
+
     def submit(
         self,
         row,
@@ -516,7 +541,7 @@ class RolloutEngine:
     async def next_group(self) -> CompletedGroup:
         """Wait for the next completed group or deadline partial result."""
         result = await self._completed.get()
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             raise result
         return result
 
@@ -734,6 +759,9 @@ class RolloutEngine:
             }
             if self.top_logprobs is not None:
                 kwargs["logprobs"] = self.top_logprobs
+            if self.filtered_sampling:
+                # Exact filtered-policy ratios need each token's sampled mass.
+                kwargs["return_sampling_log_mass"] = True
             if self.return_expert_routing:
                 kwargs["return_expert_routing"] = True
             if self._retained_kv:
@@ -856,6 +884,11 @@ class RolloutEngine:
             )
         ):
             raise ValueError("sampler omitted or misaligned requested top-K metadata")
+        if self.filtered_sampling and (
+            sample.sampling_log_masses is None
+            or len(sample.sampling_log_masses) != len(sample.tokens)
+        ):
+            raise ValueError("sampler omitted or misaligned sampling log masses")
         self._sampling["prompt_tokens"] += sample.prompt_tokens
         self._sampling["cached_prompt_tokens"] += sample.cached_prompt_tokens
         if self.sampling_policy == "trajectory" and not self._live_full_weight:
@@ -931,7 +964,9 @@ class RolloutEngine:
             return "context"
         return None
 
-    async def _environment_call(self, awaitable, member=None, *, operation="on_turn"):
+    async def _environment_call(
+        self, awaitable, member=None, *, operation="on_turn", tool_scope=None
+    ):
         with self._activities.measure(operation):
             task = asyncio.create_task(awaitable)
             stop = (
@@ -950,18 +985,87 @@ class RolloutEngine:
                     return task.result()
                 if stop in done:
                     raise _RolloutStopped
-                raise InfrastructureError(
+                error = InfrastructureError(
                     "environment watchdog expired; rollout remains unscored"
                 )
-            except (TimeoutError, ConnectionError) as exc:
-                raise InfrastructureError(
-                    "environment operation failed; rollout remains unscored"
-                ) from exc
+                if tool_scope is not None and tool_scope.active is not None:
+                    # The turn's deadline also bounds in-dispatch handlers. A
+                    # timeout during one must not invoke on_error a second time.
+                    original, context = tool_scope.active
+                    error.__context__ = original
+                    raise _HandledToolError(error, context, ErrorAction.RAISE)
+                raise error
             finally:
                 for pending_task in tasks:
                     if not pending_task.done():
                         pending_task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _error_decision(self, member, interruptible, error, context):
+        if interruptible is not None and member.stop.is_set():
+            raise _RolloutStopped from error
+        traj = member.traj
+        key = f"errors/{context.operation.value}"
+        traj.metrics[key] = traj.metrics.get(key, 0) + 1
+        try:
+            decision = await self._environment_call(
+                member.env.on_error(error, context),
+                interruptible,
+                operation="on_error",
+            )
+        except Exception as failure:
+            if failure is not error:
+                failure.__context__ = error
+            raise
+        if interruptible is not None and member.stop.is_set():
+            raise _RolloutStopped from error
+        if (
+            decision is ErrorAction.RAISE
+            or decision is ErrorAction.DROP
+            or isinstance(decision, Recover)
+        ):
+            return decision
+        raise TypeError("Env.on_error must return ErrorAction or Recover") from error
+
+    async def _handled_environment_call(
+        self, awaitable, member, row, *, operation: ErrorOperation, cause=None
+    ):
+        # Grading also runs after a stop request, to score a truncation. Turns
+        # and their handlers, unlike grading, must yield to that request.
+        interruptible = member if operation is ErrorOperation.ON_TURN else None
+        scope = _ToolErrorScope(
+            row, partial(self._error_decision, member, interruptible)
+        )
+        token = _tool_error_scope.set(scope)
+        try:
+            return await self._environment_call(
+                awaitable, interruptible, operation=operation.value, tool_scope=scope
+            )
+        except _HandledToolError as handled:
+            # The dispatcher already consulted the hook, then cancelled and
+            # drained its tasks. Do not turn a raise/drop or handler failure into
+            # another ON_TURN error. Preserve the original public exception.
+            failure, context, decision = (
+                handled.error,
+                handled.context,
+                handled.decision,
+            )
+        except _RolloutStopped:
+            raise
+        except Exception as error:
+            failure = error
+            context = ErrorContext(operation, member.traj, row, cause)
+            decision = await self._error_decision(member, interruptible, error, context)
+        finally:
+            _tool_error_scope.reset(token)
+        if interruptible is not None and member.stop.is_set():
+            raise _RolloutStopped from failure
+        if decision is ErrorAction.RAISE:
+            raise failure
+        if decision is ErrorAction.DROP:
+            _drop_trajectory(failure, context)
+            return decision
+        return decision.result
 
     async def _finish(self, member, row, cause=None):
         traj = member.traj
@@ -978,14 +1082,24 @@ class RolloutEngine:
             if cause is None
             else member.env.on_truncated(traj, row, cause)
         )
-        reward = float(await self._environment_call(score, operation="reward"))
+        result = await self._handled_environment_call(
+            score,
+            member,
+            row,
+            operation=ErrorOperation.REWARD
+            if cause is None
+            else ErrorOperation.ON_TRUNCATED,
+            cause=cause,
+        )
+        if traj.dropped:
+            return
+        reward = float(result)
         if not math.isfinite(reward):
             raise ValueError("environment reward must be finite")
         traj.reward, traj.done, traj.phase = reward, True, "done"
 
     async def _run_member(self, group, member):
         if member.traj is not None and member.traj.done:
-            group.changed.set()
             return
         async with self._slots.hold((group.priority, group.admission_order)):
             started = time.monotonic()
@@ -1199,17 +1313,26 @@ class RolloutEngine:
                                 )
                                 break
                             try:
-                                messages = await self._environment_call(
-                                    member.env.on_turn(traj), member
+                                messages = await self._handled_environment_call(
+                                    member.env.on_turn(traj),
+                                    member,
+                                    group.row,
+                                    operation=ErrorOperation.ON_TURN,
                                 )
                             except _RolloutStopped:
                                 await self._finish(member, group.row, member.cause)
+                                break
+                            if traj.dropped:
                                 break
                             turn_max_tokens = None
                             if isinstance(messages, TurnResult):
                                 messages, turn_max_tokens = (
                                     messages.messages,
                                     messages.max_turn_tokens,
+                                )
+                            if messages is not None and not isinstance(messages, list):
+                                raise TypeError(
+                                    "Env.on_turn must return a list, TurnResult, or None"
                                 )
                             if traj.run == old_run and traj.messages != history:
                                 raise ValueError(
@@ -1303,7 +1426,6 @@ class RolloutEngine:
                 if not isinstance(self.env, Env):
                     with self._activities.measure("close"):
                         await member.env.close()
-                group.changed.set()
 
     async def _run_group(self, group):
         started = time.monotonic()
@@ -1312,6 +1434,10 @@ class RolloutEngine:
             asyncio.create_task(self._run_member(group, member))
             for member in group.members
         ]
+        for task in tasks:
+            # A task may fail before acquiring an environment or during cleanup.
+            # Notify only after it settles, even if its coroutine never starts.
+            task.add_done_callback(lambda _: group.changed.set())
         try:
             while True:
                 group.changed.clear()
@@ -1320,7 +1446,8 @@ class RolloutEngine:
                     tasks[i].result()
                 elapsed = group.elapsed + time.monotonic() - started
                 if (
-                    len(done) >= group.completion.min_members
+                    sum(not group.members[i].traj.dropped for i in done)
+                    >= group.completion.min_members
                     and group.quorum_elapsed is None
                 ):
                     group.quorum_elapsed = elapsed
@@ -1378,7 +1505,7 @@ class RolloutEngine:
                     )
                     return
                 await group.changed.wait()
-        except Exception as exc:
+        except (Exception, asyncio.CancelledError) as exc:
             self._completed.put_nowait(exc)
         finally:
             for task in tasks:

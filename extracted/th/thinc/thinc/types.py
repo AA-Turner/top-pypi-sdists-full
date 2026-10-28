@@ -29,12 +29,7 @@ if has_cupy:
 else:
     get_array_module = lambda obj: numpy
 
-# Use typing_extensions for Python versions < 3.8
-if sys.version_info < (3, 8):
-    from typing_extensions import Literal, Protocol
-else:
-    from typing import Literal, Protocol  # noqa: F401
-
+from typing import Literal, Protocol  # noqa: F401
 
 # fmt: off
 XY_YZ_OutT = TypeVar("XY_YZ_OutT")
@@ -132,9 +127,9 @@ _4I_ReduceResults = Union[int, "Ints1d", "Ints2d", "Ints3d", "Ints4d"]
 
 class _Array(Sized, Container):
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v)
+        return {"type": "function-plain", "function": {"type": "no-info", "function": validate_array}}
 
     @property
     @abstractmethod
@@ -388,9 +383,9 @@ class _Array1d(_Array):
     """1-dimensional array."""
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=1)
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=1)}}
 
     @property
     @abstractmethod
@@ -455,9 +450,10 @@ class Floats1d(_Array1d, _Floats):
     T: "Floats1d"
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=1, dtype="f")
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=1, dtype="f")}}
+
 
     @abstractmethod
     def __iter__(self) -> Iterator[float]: ...
@@ -505,9 +501,10 @@ class Ints1d(_Array1d, _Ints):
     T: "Ints1d"
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=1, dtype="i")
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=1, dtype="i")}}
+
 
     @abstractmethod
     def __iter__(self) -> Iterator[int]: ...
@@ -552,9 +549,10 @@ class Ints1d(_Array1d, _Ints):
 
 class _Array2d(_Array):
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=2)
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=2)}}
+
 
     @property
     @abstractmethod
@@ -615,9 +613,9 @@ class Floats2d(_Array2d, _Floats):
     T: "Floats2d"
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=2, dtype="f")
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=2, dtype="f")}}
 
     @abstractmethod
     def __iter__(self) -> Iterator[Floats1d]: ...
@@ -666,9 +664,9 @@ class Ints2d(_Array2d, _Ints):
     T: "Ints2d"
 
     @classmethod
-    def __get_validators__(cls):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any):
         """Runtime validation for pydantic."""
-        yield lambda v: validate_array(v, ndim=2, dtype="i")
+        return {"type": "function-plain", "function": {"type": "no-info", "function": lambda v: validate_array(v, ndim=2, dtype="i")}}
 
     @abstractmethod
     def __iter__(self) -> Iterator[Ints1d]: ...
@@ -1306,7 +1304,7 @@ def validate_array(obj, ndim=None, dtype=None):
     """Runtime validator for pydantic to validate array types."""
     xp = get_array_module(obj)
     if not isinstance(obj, xp.ndarray):
-        raise TypeError("not a valid numpy or cupy array")
+        raise ValueError("not a valid numpy or cupy array")
     errors = []
     if ndim is not None and obj.ndim != ndim:
         errors.append(f"wrong array dimensions (expected {ndim}, got {obj.ndim})")

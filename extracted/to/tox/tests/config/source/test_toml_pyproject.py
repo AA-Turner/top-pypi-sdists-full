@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import sysconfig
+from pathlib import Path
 from textwrap import dedent
 from typing import TYPE_CHECKING, Final
 
@@ -9,11 +10,9 @@ import pytest
 from python_discovery import normalize_isa
 
 from tox.config.loader.replacer import MatchError
-from tox.config.types import Command
+from tox.config.types import Command, EnvList
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from tox.pytest import ToxProject, ToxProjectCreator, ToxRunOutcome
 
 
@@ -565,6 +564,52 @@ def test_config_in_toml_replace_glob_extend(tox_project: ToxProjectCreator, tmp_
     outcome.assert_success()
     assert "a.whl" in outcome.out
     assert "b.whl" in outcome.out
+
+
+@pytest.mark.parametrize(
+    ("glob_table", "expected"),
+    [
+        pytest.param('pattern = "{env_name}/*.whl"', str(Path("{tmp_path}", "p", "A", "a.whl")), id="pattern"),
+        pytest.param('pattern = "dist/*.xyz", default = ["{env_name}.whl"]', "A.whl", id="default"),
+    ],
+)
+def test_config_in_toml_replace_glob_substitutes(
+    tox_project: ToxProjectCreator, tmp_path: Path, glob_table: str, expected: str
+) -> None:
+    (tmp_path / "p" / "A").mkdir(parents=True)
+    (tmp_path / "p" / "A" / "a.whl").touch()
+    project = tox_project({
+        "pyproject.toml": dedent(f"""
+        [tool.tox.env.A]
+        commands = [["echo", {{ replace = "glob", {glob_table}, extend = true }}]]
+        """),
+    })
+    outcome = project.run("c", "-e", "A", "-k", "commands")
+    outcome.assert_success()
+    assert f"echo {expected.format(tmp_path=tmp_path)}\n" in outcome.out
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        pytest.param('"{env:D}"', id="sibling-key"),
+        pytest.param('{ replace = "env", name = "D" }', id="env-table"),
+    ],
+)
+def test_config_in_toml_replace_glob_in_set_env_substitutes_pattern(
+    tox_project: ToxProjectCreator, tmp_path: Path, pattern: str
+) -> None:
+    (tmp_path / "p" / "sub").mkdir(parents=True)
+    (tmp_path / "p" / "sub" / "a.txt").touch()
+    project = tox_project({
+        "pyproject.toml": dedent(f"""
+        [tool.tox.env.A]
+        set_env = {{ D = "sub/*.txt", G = {{ replace = "glob", pattern = {pattern} }} }}
+        """),
+    })
+    outcome = project.run("c", "-e", "A", "-k", "set_env")
+    outcome.assert_success()
+    assert f"G={tmp_path / 'p' / 'sub' / 'a.txt'}\n" in outcome.out
 
 
 @pytest.mark.parametrize(
@@ -1221,6 +1266,56 @@ def test_config_in_toml_replace_ref_command_prefixes(
         package = "skip"
         """)
         + setting,
+    }).run("c", "-e", "b", "-k", key)
+    outcome.assert_success()
+    assert outcome.env_conf("b")[key] == expected
+
+
+def test_config_in_toml_replace_ref_path(tox_project: ToxProjectCreator) -> None:
+    project: Final[ToxProject] = tox_project({
+        "pyproject.toml": dedent("""
+        [tool.tox.env.a]
+        package = "skip"
+        change_dir = "sub"
+
+        [tool.tox.env.b]
+        package = "skip"
+        change_dir = { replace = "ref", env = "a", key = "change_dir" }
+        """),
+    })
+    outcome: Final[ToxRunOutcome] = project.run("c", "-e", "b", "-k", "change_dir")
+    outcome.assert_success()
+    assert outcome.env_conf("b")["change_dir"] == project.path / "sub"
+
+
+@pytest.mark.parametrize(
+    ("key", "expected"),
+    [
+        pytest.param("extras", {"x", "y"}, id="extras"),
+        pytest.param("labels", {"lint"}, id="labels"),
+        pytest.param("depends", EnvList(["c"]), id="depends"),
+        pytest.param("description", "demo", id="description"),
+    ],
+)
+def test_config_in_toml_replace_ref_value(
+    tox_project: ToxProjectCreator, key: str, expected: set[str] | EnvList | str
+) -> None:
+    outcome: Final[ToxRunOutcome] = tox_project({
+        "pyproject.toml": dedent(f"""
+        [tool.tox.env.a]
+        package = "skip"
+        extras = ["y", "x"]
+        labels = ["lint"]
+        depends = ["c"]
+        description = "demo"
+
+        [tool.tox.env.b]
+        package = "skip"
+        {key} = {{ replace = "ref", env = "a", key = "{key}" }}
+
+        [tool.tox.env.c]
+        package = "skip"
+        """),
     }).run("c", "-e", "b", "-k", key)
     outcome.assert_success()
     assert outcome.env_conf("b")[key] == expected

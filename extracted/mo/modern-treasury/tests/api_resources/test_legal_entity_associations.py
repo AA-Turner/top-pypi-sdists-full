@@ -37,11 +37,11 @@ class TestLegalEntityAssociations:
                         "country": "country",
                         "line1": "line1",
                         "locality": "locality",
-                        "postal_code": "postal_code",
-                        "region": "region",
                         "address_types": ["business"],
                         "line2": "line2",
+                        "postal_code": "postal_code",
                         "primary": True,
+                        "region": "region",
                     }
                 ],
                 "bank_settings": {
@@ -80,7 +80,7 @@ class TestLegalEntityAssociations:
                 "identifications": [
                     {
                         "id_number": "id_number",
-                        "id_type": "ar_cuil",
+                        "id_type": "ad_nrt",
                         "documents": [
                             {
                                 "document_type": "articles_of_incorporation",
@@ -119,8 +119,8 @@ class TestLegalEntityAssociations:
                 "legal_structure": "corporation",
                 "listed_exchange": "listed_exchange",
                 "metadata": {
-                    "key": "value",
                     "foo": "bar",
+                    "key": "value",
                     "modern": "treasury",
                 },
                 "middle_name": "middle_name",
@@ -282,11 +282,11 @@ class TestAsyncLegalEntityAssociations:
                         "country": "country",
                         "line1": "line1",
                         "locality": "locality",
-                        "postal_code": "postal_code",
-                        "region": "region",
                         "address_types": ["business"],
                         "line2": "line2",
+                        "postal_code": "postal_code",
                         "primary": True,
+                        "region": "region",
                     }
                 ],
                 "bank_settings": {
@@ -325,7 +325,7 @@ class TestAsyncLegalEntityAssociations:
                 "identifications": [
                     {
                         "id_number": "id_number",
-                        "id_type": "ar_cuil",
+                        "id_type": "ad_nrt",
                         "documents": [
                             {
                                 "document_type": "articles_of_incorporation",
@@ -364,8 +364,8 @@ class TestAsyncLegalEntityAssociations:
                 "legal_structure": "corporation",
                 "listed_exchange": "listed_exchange",
                 "metadata": {
-                    "key": "value",
                     "foo": "bar",
+                    "key": "value",
                     "modern": "treasury",
                 },
                 "middle_name": "middle_name",

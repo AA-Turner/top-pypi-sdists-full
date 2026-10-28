@@ -100,13 +100,17 @@ class TestLazyHandleConnectedOp(unittest.TestCase):
     connected op with NoSandboxSecretError naming the fix."""
 
     def test_validate_raises_no_sandbox_secret_error_naming_fix(self):
-        conn = ConnectionInfo(public_url="https://sb.example", routing_key=None, secret=None)
+        conn = ConnectionInfo(
+            public_url="https://sb.example", routing_key=None, secret=None
+        )
         with self.assertRaises(NoSandboxSecretError) as cm:
             conn.validate()
         self.assertIn("get_from_id", str(cm.exception))
 
     def test_create_sandbox_client_propagates_typed_error(self):
-        conn = ConnectionInfo(public_url="https://sb.example", routing_key=None, secret=None)
+        conn = ConnectionInfo(
+            public_url="https://sb.example", routing_key=None, secret=None
+        )
         with self.assertRaises(NoSandboxSecretError) as cm:
             create_sandbox_client(conn)
         self.assertIsInstance(cm.exception, SandboxError)

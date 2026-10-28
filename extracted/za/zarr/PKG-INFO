@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zarr
-Version: 3.4.1
+Version: 3.4.2
 Summary: An implementation of chunked, compressed, N-dimensional arrays for Python
 Project-URL: issues, https://github.com/zarr-developers/zarr-python/issues
 Project-URL: changelog, https://zarr.readthedocs.io/en/stable/release-notes.html
@@ -28,7 +28,7 @@ Requires-Python: >=3.12
 Requires-Dist: donfig>=0.8
 Requires-Dist: google-crc32c>=1.5
 Requires-Dist: msgspec>=0.19
-Requires-Dist: numcodecs>=0.16
+Requires-Dist: numcodecs!=0.17.0,>=0.16.6
 Requires-Dist: numpy>=2
 Requires-Dist: packaging>=22.0
 Requires-Dist: typing-extensions>=4.14

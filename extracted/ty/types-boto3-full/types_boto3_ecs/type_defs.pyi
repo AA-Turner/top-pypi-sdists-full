@@ -78,6 +78,7 @@ from .literals import (
     GatewayElbSchemeType,
     GatewayRouteStatusType,
     GatewayStatusType,
+    GpuSharingModeType,
     HealthStatusType,
     InstanceGenerationType,
     InstanceHealthCheckStateType,
@@ -379,6 +380,7 @@ __all__ = (
     "GatewayTypeDef",
     "GetTaskProtectionRequestTypeDef",
     "GetTaskProtectionResponseTypeDef",
+    "GpuDeviceTypeDef",
     "HealthCheckOutputTypeDef",
     "HealthCheckTypeDef",
     "HealthCheckUnionTypeDef",
@@ -492,6 +494,7 @@ __all__ = (
     "NetworkConfigurationUnionTypeDef",
     "NetworkInterfaceCountRequestTypeDef",
     "NetworkInterfaceTypeDef",
+    "NvidiaMpsAllocationTypeDef",
     "PaginatorConfigTypeDef",
     "PlacementConstraintTypeDef",
     "PlacementStrategyTypeDef",
@@ -565,6 +568,7 @@ __all__ = (
     "ServiceVolumeConfigurationUnionTypeDef",
     "SessionTypeDef",
     "SettingTypeDef",
+    "SharingStrategyTypeDef",
     "StartTaskRequestTypeDef",
     "StartTaskResponseTypeDef",
     "StopServiceDeploymentRequestTypeDef",
@@ -796,14 +800,6 @@ class PortMappingTypeDef(TypedDict):
 class RepositoryCredentialsTypeDef(TypedDict):
     credentialsParameter: str
 
-ResourceRequirementTypeDef = TypedDict(
-    "ResourceRequirementTypeDef",
-    {
-        "value": str,
-        "type": ResourceTypeType,
-    },
-)
-
 class SecretTypeDef(TypedDict):
     name: str
     valueFrom: str
@@ -836,6 +832,14 @@ InstanceHealthCheckResultTypeDef = TypedDict(
         "lastStatusChange": NotRequired[datetime],
     },
 )
+
+class GpuDeviceTypeDef(TypedDict):
+    gpuId: NotRequired[str]
+    sharingMode: NotRequired[GpuSharingModeType]
+    totalMemoryInMiB: NotRequired[int]
+    remainingMemoryInMiB: NotRequired[int]
+    containerCount: NotRequired[int]
+
 ResourceOutputTypeDef = TypedDict(
     "ResourceOutputTypeDef",
     {
@@ -1646,6 +1650,10 @@ class MetricConfigurationTypeDef(TypedDict):
     metricNames: Sequence[str]
     resolutionSeconds: int
 
+class NvidiaMpsAllocationTypeDef(TypedDict):
+    memory: int
+    maxComputePercent: NotRequired[int]
+
 PlatformDeviceTypeDef = TypedDict(
     "PlatformDeviceTypeDef",
     {
@@ -2040,26 +2048,6 @@ class UpdateClusterSettingsRequestTypeDef(TypedDict):
     cluster: str
     settings: Sequence[ClusterSettingTypeDef]
 
-class ContainerOverrideOutputTypeDef(TypedDict):
-    name: NotRequired[str]
-    command: NotRequired[list[str]]
-    environment: NotRequired[list[KeyValuePairTypeDef]]
-    environmentFiles: NotRequired[list[EnvironmentFileTypeDef]]
-    cpu: NotRequired[int]
-    memory: NotRequired[int]
-    memoryReservation: NotRequired[int]
-    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
-
-class ContainerOverrideTypeDef(TypedDict):
-    name: NotRequired[str]
-    command: NotRequired[Sequence[str]]
-    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
-    environmentFiles: NotRequired[Sequence[EnvironmentFileTypeDef]]
-    cpu: NotRequired[int]
-    memory: NotRequired[int]
-    memoryReservation: NotRequired[int]
-    resourceRequirements: NotRequired[Sequence[ResourceRequirementTypeDef]]
-
 class LogConfigurationOutputTypeDef(TypedDict):
     logDriver: LogDriverType
     options: NotRequired[dict[str, str]]
@@ -2096,26 +2084,6 @@ class SubmitContainerStateChangeRequestTypeDef(TypedDict):
     exitCode: NotRequired[int]
     reason: NotRequired[str]
     networkBindings: NotRequired[Sequence[NetworkBindingTypeDef]]
-
-class ContainerTypeDef(TypedDict):
-    containerArn: NotRequired[str]
-    taskArn: NotRequired[str]
-    name: NotRequired[str]
-    image: NotRequired[str]
-    imageDigest: NotRequired[str]
-    runtimeId: NotRequired[str]
-    lastStatus: NotRequired[str]
-    exitCode: NotRequired[int]
-    reason: NotRequired[str]
-    networkBindings: NotRequired[list[NetworkBindingTypeDef]]
-    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
-    healthStatus: NotRequired[HealthStatusType]
-    managedAgents: NotRequired[list[ManagedAgentTypeDef]]
-    cpu: NotRequired[str]
-    memory: NotRequired[str]
-    memoryReservation: NotRequired[str]
-    gpuIds: NotRequired[list[str]]
-    neuronDeviceIds: NotRequired[list[str]]
 
 class UpdateTaskSetRequestTypeDef(TypedDict):
     cluster: str
@@ -2573,6 +2541,9 @@ class MonitoringConfigurationOutputTypeDef(TypedDict):
 class MonitoringConfigurationTypeDef(TypedDict):
     metricConfigurations: NotRequired[Sequence[MetricConfigurationTypeDef]]
 
+class SharingStrategyTypeDef(TypedDict):
+    nvidiaMps: NotRequired[NvidiaMpsAllocationTypeDef]
+
 class ResolvedConfigurationTypeDef(TypedDict):
     loadBalancers: NotRequired[list[ServiceRevisionLoadBalancerTypeDef]]
     vpcLatticeConfigurations: NotRequired[list[ServiceRevisionVpcLatticeConfigurationTypeDef]]
@@ -2650,25 +2621,6 @@ class ServiceManagedEBSVolumeConfigurationOutputTypeDef(TypedDict):
 EBSTagSpecificationUnionTypeDef = Union[
     EBSTagSpecificationTypeDef, EBSTagSpecificationOutputTypeDef
 ]
-
-class TaskOverrideOutputTypeDef(TypedDict):
-    containerOverrides: NotRequired[list[ContainerOverrideOutputTypeDef]]
-    cpu: NotRequired[str]
-    inferenceAcceleratorOverrides: NotRequired[list[InferenceAcceleratorOverrideTypeDef]]
-    executionRoleArn: NotRequired[str]
-    memory: NotRequired[str]
-    taskRoleArn: NotRequired[str]
-    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
-
-class TaskOverrideTypeDef(TypedDict):
-    containerOverrides: NotRequired[Sequence[ContainerOverrideTypeDef]]
-    cpu: NotRequired[str]
-    inferenceAcceleratorOverrides: NotRequired[Sequence[InferenceAcceleratorOverrideTypeDef]]
-    executionRoleArn: NotRequired[str]
-    memory: NotRequired[str]
-    taskRoleArn: NotRequired[str]
-    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
-
 LogConfigurationUnionTypeDef = Union[LogConfigurationTypeDef, LogConfigurationOutputTypeDef]
 
 class ContainerInstanceTypeDef(TypedDict):
@@ -2690,6 +2642,7 @@ class ContainerInstanceTypeDef(TypedDict):
     attachments: NotRequired[list[AttachmentTypeDef]]
     tags: NotRequired[list[TagTypeDef]]
     healthStatus: NotRequired[ContainerInstanceHealthStatusTypeDef]
+    gpuDevices: NotRequired[list[GpuDeviceTypeDef]]
 
 class SubmitTaskStateChangeRequestTypeDef(TypedDict):
     cluster: NotRequired[str]
@@ -2782,50 +2735,6 @@ class DaemonContainerDefinitionOutputTypeDef(TypedDict):
     interactive: NotRequired[bool]
     pseudoTerminal: NotRequired[bool]
     restartPolicy: NotRequired[ContainerRestartPolicyOutputTypeDef]
-
-class ContainerDefinitionOutputTypeDef(TypedDict):
-    name: NotRequired[str]
-    image: NotRequired[str]
-    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
-    cpu: NotRequired[int]
-    memory: NotRequired[int]
-    memoryReservation: NotRequired[int]
-    links: NotRequired[list[str]]
-    portMappings: NotRequired[list[PortMappingTypeDef]]
-    essential: NotRequired[bool]
-    restartPolicy: NotRequired[ContainerRestartPolicyOutputTypeDef]
-    entryPoint: NotRequired[list[str]]
-    command: NotRequired[list[str]]
-    environment: NotRequired[list[KeyValuePairTypeDef]]
-    environmentFiles: NotRequired[list[EnvironmentFileTypeDef]]
-    mountPoints: NotRequired[list[MountPointTypeDef]]
-    volumesFrom: NotRequired[list[VolumeFromTypeDef]]
-    linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
-    secrets: NotRequired[list[SecretTypeDef]]
-    dependsOn: NotRequired[list[ContainerDependencyTypeDef]]
-    startTimeout: NotRequired[int]
-    stopTimeout: NotRequired[int]
-    versionConsistency: NotRequired[VersionConsistencyType]
-    hostname: NotRequired[str]
-    user: NotRequired[str]
-    workingDirectory: NotRequired[str]
-    disableNetworking: NotRequired[bool]
-    privileged: NotRequired[bool]
-    readonlyRootFilesystem: NotRequired[bool]
-    dnsServers: NotRequired[list[str]]
-    dnsSearchDomains: NotRequired[list[str]]
-    extraHosts: NotRequired[list[HostEntryTypeDef]]
-    dockerSecurityOptions: NotRequired[list[str]]
-    interactive: NotRequired[bool]
-    pseudoTerminal: NotRequired[bool]
-    dockerLabels: NotRequired[dict[str, str]]
-    ulimits: NotRequired[list[UlimitTypeDef]]
-    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
-    healthCheck: NotRequired[HealthCheckOutputTypeDef]
-    systemControls: NotRequired[list[SystemControlTypeDef]]
-    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
-    firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
-    credentialSpecs: NotRequired[list[str]]
 
 class DeploymentConfigurationOutputTypeDef(TypedDict):
     deploymentCircuitBreaker: NotRequired[DeploymentCircuitBreakerTypeDef]
@@ -2947,6 +2856,36 @@ MonitoringConfigurationUnionTypeDef = Union[
     MonitoringConfigurationTypeDef, MonitoringConfigurationOutputTypeDef
 ]
 
+class ContainerTypeDef(TypedDict):
+    containerArn: NotRequired[str]
+    taskArn: NotRequired[str]
+    name: NotRequired[str]
+    image: NotRequired[str]
+    imageDigest: NotRequired[str]
+    runtimeId: NotRequired[str]
+    lastStatus: NotRequired[str]
+    exitCode: NotRequired[int]
+    reason: NotRequired[str]
+    networkBindings: NotRequired[list[NetworkBindingTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
+    healthStatus: NotRequired[HealthStatusType]
+    managedAgents: NotRequired[list[ManagedAgentTypeDef]]
+    cpu: NotRequired[str]
+    memory: NotRequired[str]
+    memoryReservation: NotRequired[str]
+    gpuIds: NotRequired[list[str]]
+    neuronDeviceIds: NotRequired[list[str]]
+    gpuSharingStrategy: NotRequired[SharingStrategyTypeDef]
+
+ResourceRequirementTypeDef = TypedDict(
+    "ResourceRequirementTypeDef",
+    {
+        "type": ResourceTypeType,
+        "value": NotRequired[str],
+        "sharingStrategy": NotRequired[SharingStrategyTypeDef],
+    },
+)
+
 class RegisterContainerInstanceRequestTypeDef(TypedDict):
     cluster: NotRequired[str]
     instanceIdentityDocument: NotRequired[str]
@@ -3042,47 +2981,6 @@ class TaskManagedEBSVolumeConfigurationTypeDef(TypedDict):
     tagSpecifications: NotRequired[Sequence[EBSTagSpecificationUnionTypeDef]]
     terminationPolicy: NotRequired[TaskManagedEBSVolumeTerminationPolicyTypeDef]
     filesystemType: NotRequired[TaskFilesystemTypeType]
-
-class TaskTypeDef(TypedDict):
-    attachments: NotRequired[list[AttachmentTypeDef]]
-    attributes: NotRequired[list[AttributeTypeDef]]
-    availabilityZone: NotRequired[str]
-    capacityProviderName: NotRequired[str]
-    clusterArn: NotRequired[str]
-    connectivity: NotRequired[ConnectivityType]
-    connectivityAt: NotRequired[datetime]
-    containerInstanceArn: NotRequired[str]
-    containers: NotRequired[list[ContainerTypeDef]]
-    cpu: NotRequired[str]
-    createdAt: NotRequired[datetime]
-    desiredStatus: NotRequired[str]
-    enableExecuteCommand: NotRequired[bool]
-    executionStoppedAt: NotRequired[datetime]
-    group: NotRequired[str]
-    healthStatus: NotRequired[HealthStatusType]
-    inferenceAccelerators: NotRequired[list[InferenceAcceleratorTypeDef]]
-    lastStatus: NotRequired[str]
-    launchType: NotRequired[LaunchTypeType]
-    memory: NotRequired[str]
-    overrides: NotRequired[TaskOverrideOutputTypeDef]
-    platformVersion: NotRequired[str]
-    platformFamily: NotRequired[str]
-    pullStartedAt: NotRequired[datetime]
-    pullStoppedAt: NotRequired[datetime]
-    startedAt: NotRequired[datetime]
-    startedBy: NotRequired[str]
-    stopCode: NotRequired[TaskStopCodeType]
-    stoppedAt: NotRequired[datetime]
-    stoppedReason: NotRequired[str]
-    stoppingAt: NotRequired[datetime]
-    tags: NotRequired[list[TagTypeDef]]
-    taskArn: NotRequired[str]
-    taskDefinitionArn: NotRequired[str]
-    version: NotRequired[int]
-    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
-    fargateEphemeralStorage: NotRequired[TaskEphemeralStorageTypeDef]
-
-TaskOverrideUnionTypeDef = Union[TaskOverrideTypeDef, TaskOverrideOutputTypeDef]
 
 class DeregisterContainerInstanceResponseTypeDef(TypedDict):
     containerInstance: ContainerInstanceTypeDef
@@ -3267,34 +3165,6 @@ class UpdateExpressGatewayServiceRequestTypeDef(TypedDict):
     scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
     taskDefinitionArn: NotRequired[str]
 
-class TaskDefinitionTypeDef(TypedDict):
-    taskDefinitionArn: NotRequired[str]
-    containerDefinitions: NotRequired[list[ContainerDefinitionOutputTypeDef]]
-    family: NotRequired[str]
-    taskRoleArn: NotRequired[str]
-    executionRoleArn: NotRequired[str]
-    networkMode: NotRequired[NetworkModeType]
-    revision: NotRequired[int]
-    volumes: NotRequired[list[VolumeOutputTypeDef]]
-    status: NotRequired[TaskDefinitionStatusType]
-    requiresAttributes: NotRequired[list[AttributeTypeDef]]
-    placementConstraints: NotRequired[list[TaskDefinitionPlacementConstraintTypeDef]]
-    compatibilities: NotRequired[list[CompatibilityType]]
-    runtimePlatform: NotRequired[RuntimePlatformTypeDef]
-    requiresCompatibilities: NotRequired[list[CompatibilityType]]
-    cpu: NotRequired[str]
-    memory: NotRequired[str]
-    inferenceAccelerators: NotRequired[list[InferenceAcceleratorTypeDef]]
-    pidMode: NotRequired[PidModeType]
-    ipcMode: NotRequired[IpcModeType]
-    proxyConfiguration: NotRequired[ProxyConfigurationOutputTypeDef]
-    registeredAt: NotRequired[datetime]
-    deregisteredAt: NotRequired[datetime]
-    deleteRequestedAt: NotRequired[datetime]
-    registeredBy: NotRequired[str]
-    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
-    enableFaultInjection: NotRequired[bool]
-
 VolumeUnionTypeDef = Union[VolumeTypeDef, VolumeOutputTypeDef]
 
 class ECSManagedResourcesTypeDef(TypedDict):
@@ -3360,6 +3230,70 @@ class InstanceLaunchTemplateUpdateTypeDef(TypedDict):
     instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
     capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
 
+class ContainerDefinitionOutputTypeDef(TypedDict):
+    name: NotRequired[str]
+    image: NotRequired[str]
+    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
+    cpu: NotRequired[int]
+    memory: NotRequired[int]
+    memoryReservation: NotRequired[int]
+    links: NotRequired[list[str]]
+    portMappings: NotRequired[list[PortMappingTypeDef]]
+    essential: NotRequired[bool]
+    restartPolicy: NotRequired[ContainerRestartPolicyOutputTypeDef]
+    entryPoint: NotRequired[list[str]]
+    command: NotRequired[list[str]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    environmentFiles: NotRequired[list[EnvironmentFileTypeDef]]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
+    volumesFrom: NotRequired[list[VolumeFromTypeDef]]
+    linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
+    secrets: NotRequired[list[SecretTypeDef]]
+    dependsOn: NotRequired[list[ContainerDependencyTypeDef]]
+    startTimeout: NotRequired[int]
+    stopTimeout: NotRequired[int]
+    versionConsistency: NotRequired[VersionConsistencyType]
+    hostname: NotRequired[str]
+    user: NotRequired[str]
+    workingDirectory: NotRequired[str]
+    disableNetworking: NotRequired[bool]
+    privileged: NotRequired[bool]
+    readonlyRootFilesystem: NotRequired[bool]
+    dnsServers: NotRequired[list[str]]
+    dnsSearchDomains: NotRequired[list[str]]
+    extraHosts: NotRequired[list[HostEntryTypeDef]]
+    dockerSecurityOptions: NotRequired[list[str]]
+    interactive: NotRequired[bool]
+    pseudoTerminal: NotRequired[bool]
+    dockerLabels: NotRequired[dict[str, str]]
+    ulimits: NotRequired[list[UlimitTypeDef]]
+    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
+    healthCheck: NotRequired[HealthCheckOutputTypeDef]
+    systemControls: NotRequired[list[SystemControlTypeDef]]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
+    firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
+    credentialSpecs: NotRequired[list[str]]
+
+class ContainerOverrideOutputTypeDef(TypedDict):
+    name: NotRequired[str]
+    command: NotRequired[list[str]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    environmentFiles: NotRequired[list[EnvironmentFileTypeDef]]
+    cpu: NotRequired[int]
+    memory: NotRequired[int]
+    memoryReservation: NotRequired[int]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
+
+class ContainerOverrideTypeDef(TypedDict):
+    name: NotRequired[str]
+    command: NotRequired[Sequence[str]]
+    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
+    environmentFiles: NotRequired[Sequence[EnvironmentFileTypeDef]]
+    cpu: NotRequired[int]
+    memory: NotRequired[int]
+    memoryReservation: NotRequired[int]
+    resourceRequirements: NotRequired[Sequence[ResourceRequirementTypeDef]]
+
 class ServiceConnectClientAliasTypeDef(TypedDict):
     port: int
     dnsName: NotRequired[str]
@@ -3376,25 +3310,6 @@ ServiceManagedEBSVolumeConfigurationUnionTypeDef = Union[
 class TaskVolumeConfigurationTypeDef(TypedDict):
     name: str
     managedEBSVolume: NotRequired[TaskManagedEBSVolumeConfigurationTypeDef]
-
-class DescribeTasksResponseTypeDef(TypedDict):
-    tasks: list[TaskTypeDef]
-    failures: list[FailureTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class RunTaskResponseTypeDef(TypedDict):
-    tasks: list[TaskTypeDef]
-    failures: list[FailureTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class StartTaskResponseTypeDef(TypedDict):
-    tasks: list[TaskTypeDef]
-    failures: list[FailureTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class StopTaskResponseTypeDef(TypedDict):
-    task: TaskTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeDaemonTaskDefinitionResponseTypeDef(TypedDict):
     daemonTaskDefinition: DaemonTaskDefinitionTypeDef
@@ -3444,25 +3359,6 @@ class DescribeExpressGatewayServiceResponseTypeDef(TypedDict):
 
 class UpdateExpressGatewayServiceResponseTypeDef(TypedDict):
     service: UpdatedExpressGatewayServiceTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DeleteTaskDefinitionsResponseTypeDef(TypedDict):
-    taskDefinitions: list[TaskDefinitionTypeDef]
-    failures: list[FailureTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DeregisterTaskDefinitionResponseTypeDef(TypedDict):
-    taskDefinition: TaskDefinitionTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeTaskDefinitionResponseTypeDef(TypedDict):
-    taskDefinition: TaskDefinitionTypeDef
-    tags: list[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class RegisterTaskDefinitionResponseTypeDef(TypedDict):
-    taskDefinition: TaskDefinitionTypeDef
-    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeGatewayConfigurationTypeDef(TypedDict):
@@ -3516,6 +3412,52 @@ class UpdateManagedInstancesProviderConfigurationTypeDef(TypedDict):
     propagateTags: NotRequired[PropagateMITagsType]
     infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
     autoRepairConfiguration: NotRequired[AutoRepairConfigurationTypeDef]
+
+class TaskDefinitionTypeDef(TypedDict):
+    taskDefinitionArn: NotRequired[str]
+    containerDefinitions: NotRequired[list[ContainerDefinitionOutputTypeDef]]
+    family: NotRequired[str]
+    taskRoleArn: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    networkMode: NotRequired[NetworkModeType]
+    revision: NotRequired[int]
+    volumes: NotRequired[list[VolumeOutputTypeDef]]
+    status: NotRequired[TaskDefinitionStatusType]
+    requiresAttributes: NotRequired[list[AttributeTypeDef]]
+    placementConstraints: NotRequired[list[TaskDefinitionPlacementConstraintTypeDef]]
+    compatibilities: NotRequired[list[CompatibilityType]]
+    runtimePlatform: NotRequired[RuntimePlatformTypeDef]
+    requiresCompatibilities: NotRequired[list[CompatibilityType]]
+    cpu: NotRequired[str]
+    memory: NotRequired[str]
+    inferenceAccelerators: NotRequired[list[InferenceAcceleratorTypeDef]]
+    pidMode: NotRequired[PidModeType]
+    ipcMode: NotRequired[IpcModeType]
+    proxyConfiguration: NotRequired[ProxyConfigurationOutputTypeDef]
+    registeredAt: NotRequired[datetime]
+    deregisteredAt: NotRequired[datetime]
+    deleteRequestedAt: NotRequired[datetime]
+    registeredBy: NotRequired[str]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
+    enableFaultInjection: NotRequired[bool]
+
+class TaskOverrideOutputTypeDef(TypedDict):
+    containerOverrides: NotRequired[list[ContainerOverrideOutputTypeDef]]
+    cpu: NotRequired[str]
+    inferenceAcceleratorOverrides: NotRequired[list[InferenceAcceleratorOverrideTypeDef]]
+    executionRoleArn: NotRequired[str]
+    memory: NotRequired[str]
+    taskRoleArn: NotRequired[str]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
+
+class TaskOverrideTypeDef(TypedDict):
+    containerOverrides: NotRequired[Sequence[ContainerOverrideTypeDef]]
+    cpu: NotRequired[str]
+    inferenceAcceleratorOverrides: NotRequired[Sequence[InferenceAcceleratorOverrideTypeDef]]
+    executionRoleArn: NotRequired[str]
+    memory: NotRequired[str]
+    taskRoleArn: NotRequired[str]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
 
 class ServiceConnectServiceOutputTypeDef(TypedDict):
     portName: str
@@ -3612,42 +3554,6 @@ class ServiceVolumeConfigurationTypeDef(TypedDict):
     name: str
     managedEBSVolume: NotRequired[ServiceManagedEBSVolumeConfigurationUnionTypeDef]
 
-class RunTaskRequestTypeDef(TypedDict):
-    taskDefinition: str
-    capacityProviderStrategy: NotRequired[Sequence[CapacityProviderStrategyItemTypeDef]]
-    cluster: NotRequired[str]
-    count: NotRequired[int]
-    enableECSManagedTags: NotRequired[bool]
-    enableExecuteCommand: NotRequired[bool]
-    group: NotRequired[str]
-    launchType: NotRequired[LaunchTypeType]
-    networkConfiguration: NotRequired[NetworkConfigurationUnionTypeDef]
-    overrides: NotRequired[TaskOverrideUnionTypeDef]
-    placementConstraints: NotRequired[Sequence[PlacementConstraintTypeDef]]
-    placementStrategy: NotRequired[Sequence[PlacementStrategyTypeDef]]
-    platformVersion: NotRequired[str]
-    propagateTags: NotRequired[PropagateTagsType]
-    referenceId: NotRequired[str]
-    startedBy: NotRequired[str]
-    tags: NotRequired[Sequence[TagTypeDef]]
-    clientToken: NotRequired[str]
-    volumeConfigurations: NotRequired[Sequence[TaskVolumeConfigurationTypeDef]]
-
-class StartTaskRequestTypeDef(TypedDict):
-    containerInstances: Sequence[str]
-    taskDefinition: str
-    cluster: NotRequired[str]
-    enableECSManagedTags: NotRequired[bool]
-    enableExecuteCommand: NotRequired[bool]
-    group: NotRequired[str]
-    networkConfiguration: NotRequired[NetworkConfigurationUnionTypeDef]
-    overrides: NotRequired[TaskOverrideUnionTypeDef]
-    propagateTags: NotRequired[PropagateTagsType]
-    referenceId: NotRequired[str]
-    startedBy: NotRequired[str]
-    tags: NotRequired[Sequence[TagTypeDef]]
-    volumeConfigurations: NotRequired[Sequence[TaskVolumeConfigurationTypeDef]]
-
 class GatewayTypeDef(TypedDict):
     gatewayArn: NotRequired[str]
     name: NotRequired[str]
@@ -3699,6 +3605,66 @@ class UpdateCapacityProviderRequestTypeDef(TypedDict):
     cluster: NotRequired[str]
     autoScalingGroupProvider: NotRequired[AutoScalingGroupProviderUpdateTypeDef]
     managedInstancesProvider: NotRequired[UpdateManagedInstancesProviderConfigurationTypeDef]
+
+class DeleteTaskDefinitionsResponseTypeDef(TypedDict):
+    taskDefinitions: list[TaskDefinitionTypeDef]
+    failures: list[FailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeregisterTaskDefinitionResponseTypeDef(TypedDict):
+    taskDefinition: TaskDefinitionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeTaskDefinitionResponseTypeDef(TypedDict):
+    taskDefinition: TaskDefinitionTypeDef
+    tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RegisterTaskDefinitionResponseTypeDef(TypedDict):
+    taskDefinition: TaskDefinitionTypeDef
+    tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class TaskTypeDef(TypedDict):
+    attachments: NotRequired[list[AttachmentTypeDef]]
+    attributes: NotRequired[list[AttributeTypeDef]]
+    availabilityZone: NotRequired[str]
+    capacityProviderName: NotRequired[str]
+    clusterArn: NotRequired[str]
+    connectivity: NotRequired[ConnectivityType]
+    connectivityAt: NotRequired[datetime]
+    containerInstanceArn: NotRequired[str]
+    containers: NotRequired[list[ContainerTypeDef]]
+    cpu: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    desiredStatus: NotRequired[str]
+    enableExecuteCommand: NotRequired[bool]
+    executionStoppedAt: NotRequired[datetime]
+    group: NotRequired[str]
+    healthStatus: NotRequired[HealthStatusType]
+    inferenceAccelerators: NotRequired[list[InferenceAcceleratorTypeDef]]
+    lastStatus: NotRequired[str]
+    launchType: NotRequired[LaunchTypeType]
+    memory: NotRequired[str]
+    overrides: NotRequired[TaskOverrideOutputTypeDef]
+    platformVersion: NotRequired[str]
+    platformFamily: NotRequired[str]
+    pullStartedAt: NotRequired[datetime]
+    pullStoppedAt: NotRequired[datetime]
+    startedAt: NotRequired[datetime]
+    startedBy: NotRequired[str]
+    stopCode: NotRequired[TaskStopCodeType]
+    stoppedAt: NotRequired[datetime]
+    stoppedReason: NotRequired[str]
+    stoppingAt: NotRequired[datetime]
+    tags: NotRequired[list[TagTypeDef]]
+    taskArn: NotRequired[str]
+    taskDefinitionArn: NotRequired[str]
+    version: NotRequired[int]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
+    fargateEphemeralStorage: NotRequired[TaskEphemeralStorageTypeDef]
+
+TaskOverrideUnionTypeDef = Union[TaskOverrideTypeDef, TaskOverrideOutputTypeDef]
 
 class ServiceConnectConfigurationOutputTypeDef(TypedDict):
     enabled: bool
@@ -3752,6 +3718,61 @@ class CreateCapacityProviderRequestTypeDef(TypedDict):
     autoScalingGroupProvider: NotRequired[AutoScalingGroupProviderTypeDef]
     managedInstancesProvider: NotRequired[CreateManagedInstancesProviderConfigurationTypeDef]
     tags: NotRequired[Sequence[TagTypeDef]]
+
+class DescribeTasksResponseTypeDef(TypedDict):
+    tasks: list[TaskTypeDef]
+    failures: list[FailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RunTaskResponseTypeDef(TypedDict):
+    tasks: list[TaskTypeDef]
+    failures: list[FailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartTaskResponseTypeDef(TypedDict):
+    tasks: list[TaskTypeDef]
+    failures: list[FailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StopTaskResponseTypeDef(TypedDict):
+    task: TaskTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RunTaskRequestTypeDef(TypedDict):
+    taskDefinition: str
+    capacityProviderStrategy: NotRequired[Sequence[CapacityProviderStrategyItemTypeDef]]
+    cluster: NotRequired[str]
+    count: NotRequired[int]
+    enableECSManagedTags: NotRequired[bool]
+    enableExecuteCommand: NotRequired[bool]
+    group: NotRequired[str]
+    launchType: NotRequired[LaunchTypeType]
+    networkConfiguration: NotRequired[NetworkConfigurationUnionTypeDef]
+    overrides: NotRequired[TaskOverrideUnionTypeDef]
+    placementConstraints: NotRequired[Sequence[PlacementConstraintTypeDef]]
+    placementStrategy: NotRequired[Sequence[PlacementStrategyTypeDef]]
+    platformVersion: NotRequired[str]
+    propagateTags: NotRequired[PropagateTagsType]
+    referenceId: NotRequired[str]
+    startedBy: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    clientToken: NotRequired[str]
+    volumeConfigurations: NotRequired[Sequence[TaskVolumeConfigurationTypeDef]]
+
+class StartTaskRequestTypeDef(TypedDict):
+    containerInstances: Sequence[str]
+    taskDefinition: str
+    cluster: NotRequired[str]
+    enableECSManagedTags: NotRequired[bool]
+    enableExecuteCommand: NotRequired[bool]
+    group: NotRequired[str]
+    networkConfiguration: NotRequired[NetworkConfigurationUnionTypeDef]
+    overrides: NotRequired[TaskOverrideUnionTypeDef]
+    propagateTags: NotRequired[PropagateTagsType]
+    referenceId: NotRequired[str]
+    startedBy: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    volumeConfigurations: NotRequired[Sequence[TaskVolumeConfigurationTypeDef]]
 
 DeploymentTypeDef = TypedDict(
     "DeploymentTypeDef",

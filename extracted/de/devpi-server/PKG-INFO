@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: devpi-server
-Version: 6.20.3
+Version: 6.21.0
 Summary: devpi-server: backend for hosting private package indexes and PyPI on-demand mirrors
 Maintainer-email: Florian Schulze <mail@pyfidelity.com>
 License-Expression: MIT
@@ -121,6 +121,24 @@ Changelog
 
 .. towncrier release notes start
 
+6.21.0 (2026-10-26)
+===================
+
+Features
+--------
+
+- Use sha256 for login token signing. Existing tokens will be invalidated, but they are valid for only 10 hours anyway.
+
+Bug Fixes
+---------
+
+- Block ``.`` and ``..`` as user and index names.
+  Reported by Zachariah Mithani [zachariah-mithani] (AploSec)
+  https://github.com/devpi/devpi/security/advisories/GHSA-w72q-5vww-p2rh
+
+- Fix #1130: correctly compare content type header to ignore added parameters for API v1 JSON responses.
+
+
 6.20.3 (2026-06-30)
 ===================
 
@@ -139,6 +157,8 @@ Bug Fixes
 ---------
 
 - Fix logic error which allowed unauthorized fetching of replication data.
+  CVE-2026-54723 reported by Pavel Revak [pavelrevak]
+  https://github.com/devpi/devpi/security/advisories/GHSA-m5pq-69xg-vcq3
 
 
 6.20.1 (2026-05-11)
@@ -162,17 +182,4 @@ Bug Fixes
 ---------
 
 - Update replica status when the replica is waiting for new serials using the streaming changelog endpoint.
-
-
-6.19.3 (2026-04-13)
-===================
-
-Bug Fixes
----------
-
-- Fix #1112: Parse simple JSON reply even with wrong content-type in reply if the body seems to contain JSON.
-
-- Return stale project list for mirrors when the lock can't be acquired within the timeout.
-
-- Fix importing of toxresults from devpi-server 6.5.0 to 6.9.0 where the wrong hash was stored.
 

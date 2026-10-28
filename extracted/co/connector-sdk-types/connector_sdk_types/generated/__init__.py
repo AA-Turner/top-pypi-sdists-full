@@ -26,6 +26,11 @@ from .models.activity_record_actor import ActivityRecordActor
 from .models.activity_record_entitlement import ActivityRecordEntitlement
 from .models.activity_record_target import ActivityRecordTarget
 from .models.activity_type import ActivityType
+from .models.add_ticket_comment import AddTicketComment
+from .models.add_ticket_comment200_response import AddTicketComment200Response
+from .models.add_ticket_comment_request import AddTicketCommentRequest
+from .models.add_ticket_comment_response import AddTicketCommentResponse
+from .models.added_ticket_comment import AddedTicketComment
 from .models.amount import Amount
 from .models.app_category import AppCategory
 from .models.app_info import AppInfo
@@ -74,8 +79,13 @@ from .models.create_account200_response import CreateAccount200Response
 from .models.create_account_entitlement import CreateAccountEntitlement
 from .models.create_account_request import CreateAccountRequest
 from .models.create_account_response import CreateAccountResponse
+from .models.create_ticket import CreateTicket
+from .models.create_ticket200_response import CreateTicket200Response
+from .models.create_ticket_request import CreateTicketRequest
+from .models.create_ticket_response import CreateTicketResponse
 from .models.created_account import CreatedAccount
 from .models.created_effect import CreatedEffect
+from .models.created_ticket import CreatedTicket
 from .models.credential import Credential
 from .models.credential_last_activity import CredentialLastActivity
 from .models.credential_status import CredentialStatus
@@ -97,6 +107,11 @@ from .models.delete_account_response import DeleteAccountResponse
 from .models.deleted_account import DeletedAccount
 from .models.deleted_effect import DeletedEffect
 from .models.delta import Delta
+from .models.deregister_ticket_webhook import DeregisterTicketWebhook
+from .models.deregister_ticket_webhook200_response import DeregisterTicketWebhook200Response
+from .models.deregister_ticket_webhook_request import DeregisterTicketWebhookRequest
+from .models.deregister_ticket_webhook_response import DeregisterTicketWebhookResponse
+from .models.deregistered_ticket_webhook import DeregisteredTicketWebhook
 from .models.downgrade_license import DowngradeLicense
 from .models.downgrade_license200_response import DowngradeLicense200Response
 from .models.downgrade_license_request import DowngradeLicenseRequest
@@ -181,6 +196,14 @@ from .models.get_non_human_account_last_activity import GetNonHumanAccountLastAc
 from .models.get_non_human_account_last_activity200_response import GetNonHumanAccountLastActivity200Response
 from .models.get_non_human_account_last_activity_request import GetNonHumanAccountLastActivityRequest
 from .models.get_non_human_account_last_activity_response import GetNonHumanAccountLastActivityResponse
+from .models.get_ticket import GetTicket
+from .models.get_ticket200_response import GetTicket200Response
+from .models.get_ticket_attachment import GetTicketAttachment
+from .models.get_ticket_attachment200_response import GetTicketAttachment200Response
+from .models.get_ticket_attachment_request import GetTicketAttachmentRequest
+from .models.get_ticket_attachment_response import GetTicketAttachmentResponse
+from .models.get_ticket_request import GetTicketRequest
+from .models.get_ticket_response import GetTicketResponse
 from .models.handle_authorization_callback import HandleAuthorizationCallback
 from .models.handle_authorization_callback200_response import HandleAuthorizationCallback200Response
 from .models.handle_authorization_callback_request import HandleAuthorizationCallbackRequest
@@ -192,6 +215,7 @@ from .models.handle_client_credentials_response import HandleClientCredentialsRe
 from .models.info import Info
 from .models.info200_response import Info200Response
 from .models.info_response import InfoResponse
+from .models.itsm_user_identifier import ITSMUserIdentifier
 from .models.jwt_claims import JWTClaims
 from .models.jwt_credential import JWTCredential
 from .models.jwt_headers import JWTHeaders
@@ -255,6 +279,18 @@ from .models.list_resources import ListResources
 from .models.list_resources200_response import ListResources200Response
 from .models.list_resources_request import ListResourcesRequest
 from .models.list_resources_response import ListResourcesResponse
+from .models.list_ticket_destination_options import ListTicketDestinationOptions
+from .models.list_ticket_destination_options200_response import ListTicketDestinationOptions200Response
+from .models.list_ticket_destination_options_request import ListTicketDestinationOptionsRequest
+from .models.list_ticket_destination_options_response import ListTicketDestinationOptionsResponse
+from .models.list_ticket_fields import ListTicketFields
+from .models.list_ticket_fields200_response import ListTicketFields200Response
+from .models.list_ticket_fields_request import ListTicketFieldsRequest
+from .models.list_ticket_fields_response import ListTicketFieldsResponse
+from .models.list_ticket_transitions import ListTicketTransitions
+from .models.list_ticket_transitions200_response import ListTicketTransitions200Response
+from .models.list_ticket_transitions_request import ListTicketTransitionsRequest
+from .models.list_ticket_transitions_response import ListTicketTransitionsResponse
 from .models.list_updated_accounts import ListUpdatedAccounts
 from .models.list_updated_accounts200_response import ListUpdatedAccounts200Response
 from .models.list_updated_accounts_request import ListUpdatedAccountsRequest
@@ -277,6 +313,11 @@ from .models.oauth_credentials import OauthCredentials
 from .models.open_api_specification import OpenAPISpecification
 from .models.open_api_specification_info import OpenAPISpecificationInfo
 from .models.page import Page
+from .models.parse_ticket_event import ParseTicketEvent
+from .models.parse_ticket_event200_response import ParseTicketEvent200Response
+from .models.parse_ticket_event_request import ParseTicketEventRequest
+from .models.parse_ticket_event_response import ParseTicketEventResponse
+from .models.parsed_ticket_event import ParsedTicketEvent
 from .models.probe_capability_config_status import ProbeCapabilityConfigStatus
 from .models.probe_capability_type import ProbeCapabilityType
 from .models.probe_check import ProbeCheck
@@ -311,6 +352,16 @@ from .models.refresh_access_token import RefreshAccessToken
 from .models.refresh_access_token200_response import RefreshAccessToken200Response
 from .models.refresh_access_token_request import RefreshAccessTokenRequest
 from .models.refresh_access_token_response import RefreshAccessTokenResponse
+from .models.refresh_ticket_webhook import RefreshTicketWebhook
+from .models.refresh_ticket_webhook200_response import RefreshTicketWebhook200Response
+from .models.refresh_ticket_webhook_request import RefreshTicketWebhookRequest
+from .models.refresh_ticket_webhook_response import RefreshTicketWebhookResponse
+from .models.refreshed_ticket_webhook import RefreshedTicketWebhook
+from .models.register_ticket_webhook import RegisterTicketWebhook
+from .models.register_ticket_webhook200_response import RegisterTicketWebhook200Response
+from .models.register_ticket_webhook_request import RegisterTicketWebhookRequest
+from .models.register_ticket_webhook_response import RegisterTicketWebhookResponse
+from .models.registered_ticket_webhook import RegisteredTicketWebhook
 from .models.release_resources import ReleaseResources
 from .models.release_resources200_response import ReleaseResources200Response
 from .models.release_resources_request import ReleaseResourcesRequest
@@ -323,6 +374,20 @@ from .models.service_account_type import ServiceAccountType
 from .models.sign_on_mode import SignOnMode
 from .models.spend_user import SpendUser
 from .models.standard_capability_name import StandardCapabilityName
+from .models.ticket import Ticket
+from .models.ticket_attachment import TicketAttachment
+from .models.ticket_attachment_content import TicketAttachmentContent
+from .models.ticket_body_format import TicketBodyFormat
+from .models.ticket_comment import TicketComment
+from .models.ticket_destination_field import TicketDestinationField
+from .models.ticket_event import TicketEvent
+from .models.ticket_event_actor import TicketEventActor
+from .models.ticket_event_kind import TicketEventKind
+from .models.ticket_field import TicketField
+from .models.ticket_field_type import TicketFieldType
+from .models.ticket_option import TicketOption
+from .models.ticket_status_change import TicketStatusChange
+from .models.ticket_transition import TicketTransition
 from .models.time_range import TimeRange
 from .models.token_authentication import TokenAuthentication
 from .models.token_credential import TokenCredential
@@ -332,6 +397,11 @@ from .models.transfer_data200_response import TransferData200Response
 from .models.transfer_data_request import TransferDataRequest
 from .models.transfer_data_response import TransferDataResponse
 from .models.transfer_data_status import TransferDataStatus
+from .models.transition_ticket import TransitionTicket
+from .models.transition_ticket200_response import TransitionTicket200Response
+from .models.transition_ticket_request import TransitionTicketRequest
+from .models.transition_ticket_response import TransitionTicketResponse
+from .models.transitioned_ticket import TransitionedTicket
 from .models.unassign_application import UnassignApplication
 from .models.unassign_application200_response import UnassignApplication200Response
 from .models.unassign_application_entitlement import UnassignApplicationEntitlement
@@ -389,6 +459,11 @@ __all__ = [
     "ActivityRecordEntitlement",
     "ActivityRecordTarget",
     "ActivityType",
+    "AddTicketComment",
+    "AddTicketComment200Response",
+    "AddTicketCommentRequest",
+    "AddTicketCommentResponse",
+    "AddedTicketComment",
     "Amount",
     "AppCategory",
     "AppInfo",
@@ -437,8 +512,13 @@ __all__ = [
     "CreateAccountEntitlement",
     "CreateAccountRequest",
     "CreateAccountResponse",
+    "CreateTicket",
+    "CreateTicket200Response",
+    "CreateTicketRequest",
+    "CreateTicketResponse",
     "CreatedAccount",
     "CreatedEffect",
+    "CreatedTicket",
     "Credential",
     "CredentialLastActivity",
     "CredentialStatus",
@@ -460,6 +540,11 @@ __all__ = [
     "DeletedAccount",
     "DeletedEffect",
     "Delta",
+    "DeregisterTicketWebhook",
+    "DeregisterTicketWebhook200Response",
+    "DeregisterTicketWebhookRequest",
+    "DeregisterTicketWebhookResponse",
+    "DeregisteredTicketWebhook",
     "DowngradeLicense",
     "DowngradeLicense200Response",
     "DowngradeLicenseRequest",
@@ -544,6 +629,14 @@ __all__ = [
     "GetNonHumanAccountLastActivity200Response",
     "GetNonHumanAccountLastActivityRequest",
     "GetNonHumanAccountLastActivityResponse",
+    "GetTicket",
+    "GetTicket200Response",
+    "GetTicketAttachment",
+    "GetTicketAttachment200Response",
+    "GetTicketAttachmentRequest",
+    "GetTicketAttachmentResponse",
+    "GetTicketRequest",
+    "GetTicketResponse",
     "HandleAuthorizationCallback",
     "HandleAuthorizationCallback200Response",
     "HandleAuthorizationCallbackRequest",
@@ -552,6 +645,7 @@ __all__ = [
     "HandleClientCredentialsRequest",
     "HandleClientCredentialsRequest200Response",
     "HandleClientCredentialsResponse",
+    "ITSMUserIdentifier",
     "Info",
     "Info200Response",
     "InfoResponse",
@@ -618,6 +712,18 @@ __all__ = [
     "ListResources200Response",
     "ListResourcesRequest",
     "ListResourcesResponse",
+    "ListTicketDestinationOptions",
+    "ListTicketDestinationOptions200Response",
+    "ListTicketDestinationOptionsRequest",
+    "ListTicketDestinationOptionsResponse",
+    "ListTicketFields",
+    "ListTicketFields200Response",
+    "ListTicketFieldsRequest",
+    "ListTicketFieldsResponse",
+    "ListTicketTransitions",
+    "ListTicketTransitions200Response",
+    "ListTicketTransitionsRequest",
+    "ListTicketTransitionsResponse",
     "ListUpdatedAccounts",
     "ListUpdatedAccounts200Response",
     "ListUpdatedAccountsRequest",
@@ -640,6 +746,11 @@ __all__ = [
     "OpenAPISpecification",
     "OpenAPISpecificationInfo",
     "Page",
+    "ParseTicketEvent",
+    "ParseTicketEvent200Response",
+    "ParseTicketEventRequest",
+    "ParseTicketEventResponse",
+    "ParsedTicketEvent",
     "ProbeCapabilityConfigStatus",
     "ProbeCapabilityType",
     "ProbeCheck",
@@ -674,6 +785,16 @@ __all__ = [
     "RefreshAccessToken200Response",
     "RefreshAccessTokenRequest",
     "RefreshAccessTokenResponse",
+    "RefreshTicketWebhook",
+    "RefreshTicketWebhook200Response",
+    "RefreshTicketWebhookRequest",
+    "RefreshTicketWebhookResponse",
+    "RefreshedTicketWebhook",
+    "RegisterTicketWebhook",
+    "RegisterTicketWebhook200Response",
+    "RegisterTicketWebhookRequest",
+    "RegisterTicketWebhookResponse",
+    "RegisteredTicketWebhook",
     "ReleaseResources",
     "ReleaseResources200Response",
     "ReleaseResourcesRequest",
@@ -686,6 +807,20 @@ __all__ = [
     "SignOnMode",
     "SpendUser",
     "StandardCapabilityName",
+    "Ticket",
+    "TicketAttachment",
+    "TicketAttachmentContent",
+    "TicketBodyFormat",
+    "TicketComment",
+    "TicketDestinationField",
+    "TicketEvent",
+    "TicketEventActor",
+    "TicketEventKind",
+    "TicketField",
+    "TicketFieldType",
+    "TicketOption",
+    "TicketStatusChange",
+    "TicketTransition",
     "TimeRange",
     "TokenAuthentication",
     "TokenCredential",
@@ -695,6 +830,11 @@ __all__ = [
     "TransferDataRequest",
     "TransferDataResponse",
     "TransferDataStatus",
+    "TransitionTicket",
+    "TransitionTicket200Response",
+    "TransitionTicketRequest",
+    "TransitionTicketResponse",
+    "TransitionedTicket",
     "UnassignApplication",
     "UnassignApplication200Response",
     "UnassignApplicationEntitlement",

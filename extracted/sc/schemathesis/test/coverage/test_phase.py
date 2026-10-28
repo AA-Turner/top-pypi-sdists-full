@@ -24,14 +24,16 @@ from schemathesis.core.error_feedback.store import (
 )
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.failures import AcceptedNegativeData, ContentTypeServerError, FailureGroup
-from schemathesis.core.file_samples import file_extension
+from schemathesis.core.file_samples import FILE_SAMPLES, file_extension
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
 from schemathesis.generation.coverage import GenerationSession
 from schemathesis.generation.meta import CONTENT_TYPE_PROBES, REQUEST_SHAPE_PROBES, CoverageScenario, TestPhase
 from schemathesis.specs.openapi.checks import negative_data_rejection
+from schemathesis.specs.openapi.coverage._schema import OVERSIZED_STRING_LENGTH
 from schemathesis.specs.openapi.coverage._wire import quote_path_parameter
 from schemathesis.transport.prepare import prepare_request
 from schemathesis.transport.requests import REQUESTS_TRANSPORT
+from schemathesis.transport.serialization import Binary
 from test.coverage.helpers import (
     DEFAULT_RESPONSES,
     assert_bodies,
@@ -56,6 +58,8 @@ from test.coverage.helpers import (
 )
 from test.utils import assert_requests_call, check_context
 
+OVERSIZED = "a" * OVERSIZED_STRING_LENGTH
+
 
 class AnyNumber:
     def __eq__(self, value: object, /) -> bool:
@@ -72,11 +76,14 @@ class Pattern:
 
 POSITIVE_CASES = [
     {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "0000"}, "body": {"j-prop": 0}},
+    {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "9223372036854775808", "q2": "000"}, "body": {"j-prop": 0}},
     {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "6", "q2": "000"}, "body": {"j-prop": 0}},
     {"headers": {"h1": "5", "h2": "00"}, "query": {"q1": "5", "q2": "000"}, "body": {"j-prop": 0}},
     {"headers": {"h1": "4", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"j-prop": 0}},
+    {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"x-prop": OVERSIZED}},
     {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"x-prop": Pattern(".+")}},
     {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"x-prop": Pattern(".+")}},
+    {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"j-prop": 2**63}},
     {"headers": {"h1": "5", "h2": "000"}, "query": {"q1": "5", "q2": "000"}, "body": {"j-prop": 0}},
 ]
 NEGATIVE_CASES = [
@@ -90,6 +97,7 @@ NEGATIVE_CASES = [
     {"query": {"q1": ["0.5", "0.5"], "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
     {"query": {"q1": "0.5", "q2": "00"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
     {"query": {"q1": "4", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
     {"query": {"q1": ["null", "null"], "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
     {"query": {"q1": "AAA", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
     {"query": {"q1": "null", "q2": "0"}, "headers": {"h1": "0.5", "h2": "true"}, "body": {"j-prop": 0}},
@@ -134,11 +142,13 @@ MIXED_CASES = [
     {"query": {"q1": "5", "q2": "0"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "0000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "4", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": ["null", "null"], "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "AAA", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "null", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "true", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "0.5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
+    {"query": {"q1": "9223372036854775808", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "6", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "0000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "null,null"}, "body": {"j-prop": 0}},
@@ -158,6 +168,7 @@ MIXED_CASES = [
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": True},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": 0.5},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": 0},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": OVERSIZED}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": "00"}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": "0"}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {}},
@@ -172,6 +183,7 @@ MIXED_CASES = [
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": False},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": 0},
+    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 2**63}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"j-prop": 0}},
 ]
 
@@ -257,7 +269,9 @@ def test_phase_no_body(ctx):
             },
         ],
     )
-    assert_positive_coverage(schema, [{"query": {"q1": "6"}}, {"query": {"q1": "5"}}])
+    assert_positive_coverage(
+        schema, [{"query": {"q1": "9223372036854775808"}}, {"query": {"q1": "6"}}, {"query": {"q1": "5"}}]
+    )
 
 
 def test_with_example(ctx):
@@ -276,6 +290,7 @@ def test_with_example(ctx):
 
 
 EXPECTED_EXAMPLES = [
+    {"query": {"q1": "A1", "q2": "9223372036854775808"}},
     {"query": {"q1": "A1", "q2": "20"}},
     {"query": {"q1": "B2", "q2": "10"}},
     {"query": {"q1": "A1", "q2": "10"}},
@@ -376,6 +391,9 @@ def test_with_optional_parameters(ctx):
                     "q1": "A1",
                 },
             },
+            {"query": {"q1": "A1", "q2": "10", "q3": "15", "q4": "9223372036854775808"}},
+            {"query": {"q1": "A1", "q2": "10", "q3": "9223372036854775808", "q4": "20"}},
+            {"query": {"q1": "A1", "q2": "9223372036854775808", "q3": "15", "q4": "20"}},
             {
                 "query": {
                     "q1": "A1",
@@ -399,6 +417,7 @@ def test_with_example_openapi_3(ctx):
     assert_positive_coverage(
         schema,
         [
+            {"query": {"q1": "A1", "q2": "9223372036854775808"}},
             {
                 "query": {
                     "q1": "A1",
@@ -521,7 +540,23 @@ def test_with_examples_openapi_3_request_body(ctx):
                     "name": "John Doe",
                     "age": 30,
                     "tags": ["developer", "python"],
+                    "address": {"street": "123 Main St", "city": OVERSIZED},
+                }
+            },
+            {
+                "body": {
+                    "name": "John Doe",
+                    "age": 30,
+                    "tags": ["developer", "python"],
                     "address": {"street": "123 Main St", "city": "Somewhere"},
+                }
+            },
+            {
+                "body": {
+                    "name": "John Doe",
+                    "age": 30,
+                    "tags": ["developer", "python"],
+                    "address": {"street": OVERSIZED, "city": "Anytown"},
                 }
             },
             {
@@ -554,6 +589,14 @@ def test_with_examples_openapi_3_request_body(ctx):
                 "body": {
                     "name": "John Doe",
                     "age": 30,
+                    "tags": [OVERSIZED],
+                    "address": {"street": "123 Main St", "city": "Anytown"},
+                }
+            },
+            {
+                "body": {
+                    "name": "John Doe",
+                    "age": 30,
                     "tags": [""],
                     "address": {"street": "123 Main St", "city": "Anytown"},
                 }
@@ -569,7 +612,23 @@ def test_with_examples_openapi_3_request_body(ctx):
             {
                 "body": {
                     "name": "John Doe",
+                    "age": 2**63,
+                    "tags": ["developer", "python"],
+                    "address": {"street": "123 Main St", "city": "Anytown"},
+                }
+            },
+            {
+                "body": {
+                    "name": "John Doe",
                     "age": 25,
+                    "tags": ["developer", "python"],
+                    "address": {"street": "123 Main St", "city": "Anytown"},
+                }
+            },
+            {
+                "body": {
+                    "name": OVERSIZED,
+                    "age": 30,
                     "tags": ["developer", "python"],
                     "address": {"street": "123 Main St", "city": "Anytown"},
                 }
@@ -899,6 +958,102 @@ def test_positive_arrays_reach_max_items_for_patterned_strings_with_min_length(c
     assert {len(case.body) for case in collect_coverage_cases(ctx, body, positive=True)} >= {49, 50}
 
 
+def test_positive_oversized_strings_only_for_unbounded_body_strings(ctx):
+    body = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "code": {"type": "string", "maxLength": 5},
+            "id": {"type": "string", "format": "uuid"},
+            "slug": {"type": "string", "pattern": "^[a-z]+$"},
+            "kind": {"type": "string", "enum": ["a", "b"]},
+        },
+    }
+
+    oversized = {
+        key
+        for case in collect_coverage_cases(ctx, body, positive=True)
+        if isinstance(case.body, dict)
+        for key, value in case.body.items()
+        if isinstance(value, str) and len(value) > 65535
+    }
+
+    assert oversized == {"name"}
+
+
+def test_positive_oversized_strings_skip_parameters(ctx):
+    # Servers reject long URLs and headers before the application sees them, whatever the schema says.
+    operation = ctx.openapi.load_schema(
+        {
+            "/foo/{id}": {
+                "get": {
+                    "parameters": [
+                        {"name": location, "in": location, "required": True, "schema": {"type": "string"}}
+                        for location in ("query", "header", "cookie")
+                    ]
+                    + [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )["/foo/{id}"]["GET"]
+
+    assert not scenario_cases(collect_cases(operation, GenerationMode.POSITIVE), CoverageScenario.OVERSIZED_STRING)
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?!.*[@'\\\"/])[a-zA-Z0-9\S]*$",
+        r"^(?=.*!)(?=.*\?)(?=.*\d)[a-z\d!?]*$",
+        r"^(?=.*[A-Z])(?=.*\d)(?=.*_)[^@]+$",
+        r"^(?=.*[^a-z\d])(?=.*[A-Z])(?=.*\d)[^@#]*$",
+    ],
+    ids=["classes", "literals", "negated-character", "negated-classes"],
+)
+def test_negative_strings_just_outside_length_bounds_match_lookahead_patterns(ctx, pattern):
+    # Password rules: random strings of the boundary length almost never hold every required character class.
+    body = {"type": "string", "pattern": pattern, "minLength": 8, "maxLength": 32}
+
+    lengths = {
+        len(case.body)
+        for case in collect_coverage_cases(ctx, body)
+        if isinstance(case.body, str) and re.search(pattern, case.body)
+    }
+
+    assert {7, 33} <= lengths
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        r"^(?=.*\d).*$",
+        r"^(?=\d)[a-z\d]*$",
+        r"^(?=.+\d)[a-z\d]*$",
+        r"^(?=[a-z]*\d)[a-z\d]*$",
+        r"^(?=.*\d)[a-z\d]*[a-z]$",
+        r"^(?=.*\d)(?:[a-z\d][a-z\d])+$",
+        r"^[a-z\d]*$",
+    ],
+    ids=[
+        "any-character",
+        "anchored-lookahead",
+        "non-empty-prefix",
+        "class-prefix",
+        "trailing-class",
+        "group",
+        "no-lookahead",
+    ],
+)
+def test_positive_strings_match_lookahead_patterns_of_other_shapes(ctx, pattern):
+    body = {"type": "string", "pattern": pattern, "minLength": 8, "maxLength": 32}
+
+    lengths = {len(case.body) for case in collect_coverage_cases(ctx, body, positive=True)}
+
+    assert lengths
+    assert all(8 <= length <= 32 for length in lengths)
+
+
 @pytest.mark.parametrize(
     "body",
     [
@@ -1162,6 +1317,7 @@ def test_positive_oneof_number_branch_covered_when_example_pins_string(ctx):
         [GenerationMode.POSITIVE],
         [
             {"query": {"statusCode": "5xx"}},
+            {"query": {"statusCode": "9223372036854775808"}},
             {"query": {"statusCode": "0"}},
         ],
     )
@@ -1410,6 +1566,7 @@ def test_array_in_header_path_query(ctx):
                 "path_parameters": {"bar": "true"},
                 "query": {"key": ["true", "true"]},
             },
+            {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "true"}, "query": {"key": ""}},
             {
                 "headers": {"X-API-Key-1": "true"},
                 "path_parameters": {"bar": "true"},
@@ -1421,6 +1578,7 @@ def test_array_in_header_path_query(ctx):
             {"headers": {"X-API-Key-1": "null,null"}, "path_parameters": {"bar": "true"}, "query": {"key": "true"}},
             {"headers": {"X-API-Key-1": "AAA"}, "path_parameters": {"bar": "true"}, "query": {"key": "true"}},
             {"headers": {"X-API-Key-1": "null"}, "path_parameters": {"bar": "true"}, "query": {"key": "true"}},
+            {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "%20"}, "query": {"key": "true"}},
             {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "null%2Cnull"}, "query": {"key": "true"}},
             {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "AAA"}, "query": {"key": "true"}},
             {"headers": {"X-API-Key-1": "true"}, "path_parameters": {"bar": "null"}, "query": {"key": "true"}},
@@ -1594,6 +1752,12 @@ def test_path_parameter_dots(ctx):
                 {"path_parameters": {"name": ANY}},
             ],
             [
+                {"path_parameters": {"name": "null%2Cnull"}},
+                {"path_parameters": {"name": ANY}},
+                {"path_parameters": {"name": "null"}},
+            ],
+            [
+                {"path_parameters": {"name": "%20"}},
                 {"path_parameters": {"name": "null%2Cnull"}},
                 {"path_parameters": {"name": ANY}},
                 {"path_parameters": {"name": "null"}},
@@ -2330,6 +2494,7 @@ def foo_id(value):
                 "type": "integer",
             },
             [
+                foo_id("%20"),
                 foo_id("null%2Cnull"),
                 foo_id("AAA"),
                 foo_id("null"),
@@ -2537,7 +2702,11 @@ def test_optional_null_query_parameter_is_omitted(ctx):
         method="get",
         version="3.1.0",
     )["/foo"]["GET"]
-    assert [case.query for case in iter_cases(operation, GenerationMode.POSITIVE)] == [{"limit": "0"}, {}]
+    assert [case.query for case in iter_cases(operation, GenerationMode.POSITIVE)] == [
+        {"limit": "0"},
+        {"limit": "9223372036854775808"},
+        {},
+    ]
 
 
 def test_required_null_query_parameter_is_sent(ctx):
@@ -2556,6 +2725,7 @@ def test_required_null_query_parameter_is_sent(ctx):
     )["/foo"]["GET"]
     assert [case.query for case in iter_cases(operation, GenerationMode.POSITIVE)] == [
         {"limit": "0"},
+        {"limit": "9223372036854775808"},
         {"limit": "null"},
     ]
 
@@ -2572,6 +2742,7 @@ def test_negative_null_query_parameter_is_sent(ctx):
         {"limit": "null"},
         {"limit": "AAA"},
         {"limit": ["null", "null"]},
+        {"limit": ""},
     ]
 
 
@@ -2621,6 +2792,7 @@ def test_json_content_parameter_keeps_nested_types(ctx, location):
     container = LOCATION_TO_CONTAINER[location]
     assert [getattr(case, container) for case in iter_cases(operation, GenerationMode.POSITIVE)] == [
         {"X-F": '{"a": 0, "b": false}'},
+        {"X-F": '{"a": 9223372036854775808, "b": false}'},
         {"X-F": '{"a": 0, "b": true}'},
     ]
     negatives = [
@@ -4169,6 +4341,7 @@ def test_additional_property_values_shared_by_two_types_emitted_once(ctx, app_ru
     raw_schema = build_schema(ctx, body={"type": "object", "additionalProperties": {"type": ["integer", "number"]}})
     cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.POSITIVE)
     assert described_bodies(cases) == [
+        ("Object with additional property: Number beyond common integer widths", {"x-schemathesis-additional": 2**63}),
         ("Object with additional property: Valid number", {"x-schemathesis-additional": 0}),
         ("Valid object", {}),
     ]
@@ -4180,7 +4353,9 @@ def test_negative_body_for_any_of_with_only_a_false_branch(ctx, app_runner):
     assert described_bodies(cases) == [
         ("Value is not allowed", {}),
         ("Value is not allowed", [None, None]),
+        ("Value is not allowed", 2**63),
         ("Value is not allowed", 0),
+        ("Value is not allowed", OVERSIZED),
         ("Value is not allowed", ""),
         ("Value is not allowed", False),
         ("Value is not allowed", True),
@@ -4202,7 +4377,9 @@ def test_negative_bodies_when_a_required_property_admits_nothing(ctx, app_runner
         ("b: Incorrect type", {"b": 0}),
         ("a: Value is not allowed", {"b": "", "a": {}}),
         ("a: Value is not allowed", {"b": "", "a": [None, None]}),
+        ("a: Value is not allowed", {"b": "", "a": 2**63}),
         ("a: Value is not allowed", {"b": "", "a": 0}),
+        ("a: Value is not allowed", {"b": "", "a": OVERSIZED}),
         ("a: Value is not allowed", {"b": "", "a": ""}),
         ("a: Value is not allowed", {"b": "", "a": False}),
         ("a: Value is not allowed", {"b": "", "a": True}),
@@ -4285,6 +4462,7 @@ def test_positive_multipart_value_for_binary_one_of_branch(ctx, app_runner):
     )
     cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.POSITIVE)
     assert [(description, type(body["f"]).__name__) for description, body in described_bodies(cases)] == [
+        ("Object with valid 'f' value: Number beyond common integer widths", "int"),
         ("Object with valid 'f' value: Valid string", "Binary"),
         ("Valid object", "int"),
     ]
@@ -5264,7 +5442,7 @@ def test_positive_body_descends_past_a_second_use_of_a_shared_base(ctx):
         tuple(case.body["inner"]["leaf"]["tags"])
         for case in iter_cases(operation, GenerationMode.POSITIVE)
         if isinstance(case.body, dict) and "tags" in case.body.get("inner", {}).get("leaf", {})
-    } == {(), ("",)}
+    } == {(), ("",), (OVERSIZED,)}
 
 
 def test_positive_body_descends_past_a_third_use_of_a_shared_base(ctx):
@@ -5289,7 +5467,7 @@ def test_positive_body_descends_past_a_third_use_of_a_shared_base(ctx):
         json.dumps(case.body["inner"]["pools"])
         for case in iter_cases(operation, GenerationMode.POSITIVE)
         if isinstance(case.body, dict) and "pools" in case.body.get("inner", {})
-    } == {"[]", '[{"id": ""}]', "[{}]"}
+    } == {"[]", '[{"id": ""}]', "[{}]", json.dumps([{"id": OVERSIZED}])}
 
 
 def test_negative_only_mode_emits_required_and_optional_combinations(ctx):
@@ -6547,18 +6725,18 @@ def test_coverage_negative_string_above_max_length_invalid_when_pattern_quantifi
 @pytest.mark.parametrize(
     ("annotations", "expected", "scenario"),
     [
-        ({}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
-        ({"example": 42}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
-        ({"example": {"b": "oops"}}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
-        ({"example": {"a": "oops"}}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
-        ({"default": "oops"}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
-        ({"examples": ["nope", {"b": "oops"}]}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
-        ({"example": 42, "examples": ["nope"], "default": 42}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
-        ({"example": {"a": 3}}, [{"a": 3}], CoverageScenario.EXAMPLE_VALUE),
-        ({"default": {"a": 3}}, [{"a": 3}, {"a": 0}], CoverageScenario.DEFAULT_VALUE),
-        ({"examples": ["nope", {"a": 3}, 42]}, [{"a": 3}], CoverageScenario.EXAMPLE_VALUE),
-        ({"example": 42, "default": {"a": 3}}, [{"a": 3}, {"a": 0}], CoverageScenario.DEFAULT_VALUE),
-        ({"example": {"a": 3}, "default": "oops"}, [{"a": 3}], CoverageScenario.EXAMPLE_VALUE),
+        ({}, [{"a": 0}, {"a": 2**63}], CoverageScenario.VALID_OBJECT),
+        ({"example": 42}, [{"a": 0}, {"a": 2**63}], CoverageScenario.VALID_OBJECT),
+        ({"example": {"b": "oops"}}, [{"a": 0}, {"a": 2**63}], CoverageScenario.VALID_OBJECT),
+        ({"example": {"a": "oops"}}, [{"a": 0}, {"a": 2**63}], CoverageScenario.VALID_OBJECT),
+        ({"default": "oops"}, [{"a": 0}, {"a": 2**63}], CoverageScenario.VALID_OBJECT),
+        ({"examples": ["nope", {"b": "oops"}]}, [{"a": 0}, {"a": 2**63}], CoverageScenario.VALID_OBJECT),
+        ({"example": 42, "examples": ["nope"], "default": 42}, [{"a": 0}, {"a": 2**63}], CoverageScenario.VALID_OBJECT),
+        ({"example": {"a": 3}}, [{"a": 3}, {"a": 2**63}], CoverageScenario.EXAMPLE_VALUE),
+        ({"default": {"a": 3}}, [{"a": 3}, {"a": 0}, {"a": 2**63}], CoverageScenario.DEFAULT_VALUE),
+        ({"examples": ["nope", {"a": 3}, 42]}, [{"a": 3}, {"a": 2**63}], CoverageScenario.EXAMPLE_VALUE),
+        ({"example": 42, "default": {"a": 3}}, [{"a": 3}, {"a": 0}, {"a": 2**63}], CoverageScenario.DEFAULT_VALUE),
+        ({"example": {"a": 3}, "default": "oops"}, [{"a": 3}, {"a": 2**63}], CoverageScenario.EXAMPLE_VALUE),
     ],
 )
 def test_positive_object_annotations_fall_back_to_template(ctx, annotations, expected, scenario):
@@ -7898,6 +8076,7 @@ def test_array_query_parameter_yields_no_duplicate_requests(ctx):
     assert [case.query for case in iter_cases(operation, *GenerationMode)] == [
         {"ids": ["0"]},
         {"ids": []},
+        {"ids": ["9223372036854775808"]},
         {"ids": "0.5"},
         {"ids": "true"},
         {"ids": "null"},
@@ -7943,6 +8122,7 @@ def test_body_and_parameter_cases_yield_no_duplicate_requests(ctx):
     )
     assert [(dict(case.headers), case.body) for case in iter_cases(operation, GenerationMode.POSITIVE)] == [
         ({"X-Key": ""}, {"name": "app"}),
+        ({"X-Key": ""}, {"name": OVERSIZED}),
         ({"X-Key": "null"}, {"name": "app"}),
     ]
 
@@ -7968,6 +8148,7 @@ def test_unbuildable_optional_property_does_not_erase_positive_cases(ctx):
     )
     assert [case.body for case in iter_cases(operation, GenerationMode.POSITIVE)] == [
         {"name": ""},
+        {"name": OVERSIZED},
         {"name": "", "token": ""},
     ]
 
@@ -8091,7 +8272,7 @@ def test_body_example_is_dropped_when_an_inferred_bound_contradicts_it(ctx, mini
 @pytest.mark.parametrize("declared", ["inline", "ref"])
 def test_multipart_template_body_built_from_custom_property_encodings(ctx, declared):
     # A property with a registered `encoding.contentType` draws from that strategy; other required
-    # properties get plain fillers so the multipart template stays complete.
+    # properties get values valid against their own schemas.
     schemathesis.openapi.media_type("image/png", st.just(b"\x89PNG"))
     upload = {
         "type": "object",
@@ -8101,8 +8282,11 @@ def test_multipart_template_body_built_from_custom_property_encodings(ctx, decla
             "note": {"$ref": "#/components/schemas/Note"},
             "name": {"type": "string"},
             "avatar": {"$ref": "#/components/schemas/Bin"},
+            "count": {"type": "integer", "minimum": 3},
+            "kind": {"enum": ["x"]},
+            "attachments": {"type": "array", "items": {"$ref": "#/components/schemas/Bin"}, "minItems": 1},
         },
-        "required": ["file", "name", "avatar"],
+        "required": ["file", "name", "avatar", "count", "kind", "attachments"],
     }
     operation = load_schema(
         ctx,
@@ -8121,7 +8305,9 @@ def test_multipart_template_body_built_from_custom_property_encodings(ctx, decla
         },
     )["/foo"]["post"]
     bodies = [case.body for case in iter_cases(operation, GenerationMode.POSITIVE)]
-    assert {"file": b"\x89PNG", "name": "", "avatar": b""} in bodies, bodies[:5]
+    sample = Binary(FILE_SAMPLES["png"])
+    expected = {"file": b"\x89PNG", "name": "", "avatar": sample, "count": 3, "kind": "x", "attachments": [sample]}
+    assert expected in bodies, bodies[:5]
 
 
 def test_body_examples_mismatching_schema_do_not_suppress_positive_generation(ctx):
@@ -8705,6 +8891,43 @@ def test_numeric_bounds_on_string_parameter_are_not_negated(ctx, parameter, vers
     ] == expected
 
 
+@pytest.mark.parametrize("declared_type", ["integer", "number"])
+@pytest.mark.parametrize(
+    ("location", "path", "required", "blank"),
+    [
+        ("path", "/foo/{x}", True, "%20"),
+        ("query", "/foo", True, ""),
+        ("query", "/foo", False, ""),
+    ],
+    ids=["path", "required-query", "optional-query"],
+)
+def test_numeric_parameter_is_sent_blank(ctx, declared_type, location, path, required, blank):
+    # Spring reads a blank numeric value as null, which handlers often dereference.
+    operation = load_schema(
+        ctx,
+        parameters=[{"in": location, "name": "x", "required": required, "schema": {"type": declared_type}}],
+        path=path,
+        method="get",
+    )[path]["GET"]
+    container = LOCATION_TO_CONTAINER[ParameterLocation(location)]
+
+    assert [
+        case.meta.phase.data.scenario
+        for case in collect_cases(operation, GenerationMode.NEGATIVE)
+        if case.meta.phase.data.parameter == "x" and getattr(case, container).get("x") == blank
+    ] == [CoverageScenario.INCORRECT_TYPE]
+
+
+def test_nullable_numeric_query_parameter_is_not_sent_blank(ctx):
+    operation = load_schema(
+        ctx,
+        parameters=[{"in": "query", "name": "x", "required": True, "schema": {"type": "integer", "nullable": True}}],
+        method="get",
+    )["/foo"]["GET"]
+
+    assert all(case.query.get("x") != "" for case in collect_cases(operation, GenerationMode.NEGATIVE))
+
+
 SECOND_REQUIRED_QUERY_PARAMETER = {"in": "query", "name": "kind", "required": True, "schema": {"type": "string"}}
 OPTIONAL_QUERY_PARAMETER = {"in": "query", "name": "extra", "schema": {"type": "string"}}
 # An exploded empty array leaves the wire request identical to one that omits the parameter.
@@ -8778,7 +9001,10 @@ def test_positive_body_merges_ref_sibling_properties_into_the_target(ctx):
         },
     )
     assert assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases) == [
+        OVERSIZED,
         "",
+        {"name": "", "extra": 2**63},
+        {"name": OVERSIZED, "extra": 0},
         {"name": "", "extra": 0},
     ]
 
@@ -9720,11 +9946,15 @@ def test_no_positive_case_when_the_pattern_needs_characters_the_location_cannot_
     [
         (
             {"type": "string", "enum": ["text/plain"]},
-            [("text/plain", "text/plain"), ("text/plain", "application/json")],
+            [("text/plain", "text/plain"), ("text/plain", "text/plain"), ("text/plain", "application/json")],
         ),
         (
             {"type": "string", "enum": ["application/xml"]},
-            [("application/xml", "text/plain"), ("application/xml", "application/json")],
+            [
+                ("application/xml", "text/plain"),
+                ("application/xml", "text/plain"),
+                ("application/xml", "application/json"),
+            ],
         ),
     ],
     ids=["pinned-to-the-media-type-the-header-admits", "declared-value-kept"],
@@ -9821,6 +10051,7 @@ def test_positive_body_for_repeated_consumes_entry_is_not_sent_twice(ctx):
         consumes=["application/json", "application/json"],
     )
     assert [(case.media_type, case.body) for case in collect_cases(operation, GenerationMode.POSITIVE)] == [
+        ("application/json", {"a": 2**63}),
         ("application/json", {}),
         ("application/json", {"a": 0}),
     ]
@@ -9952,7 +10183,7 @@ BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
                 "required": ["ab"],
             },
             None,
-            [{"ab": 0}],
+            [{"ab": 2**63}, {"ab": 0}],
             [
                 {},
                 {"ab": {}},
@@ -10008,7 +10239,7 @@ BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
                 "required": ["a"],
             },
             {"X": {"type": "integer", "minimum": 5}},
-            [{"a": 6}, {"a": 5}],
+            [{"a": 2**63}, {"a": 6}, {"a": 5}],
             [
                 {},
                 {"a": 4},
@@ -10036,7 +10267,7 @@ BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
             "3.1.0",
             {"type": "object", "properties": {"a": {"anyOf": [False, {"type": "integer"}]}}, "required": ["a"]},
             None,
-            [{"a": 0}],
+            [{"a": 2**63}, {"a": 0}],
             [
                 {},
                 {"a": {}},
@@ -10056,13 +10287,14 @@ BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
                 "required": ["a"],
             },
             {"F": False},
-            [{"a": 0}],
+            [{"a": 2**63}, {"a": 0}],
             [
                 {},
                 {"a": "AAA"},
                 {"a": 2.5890419884777833e-42},
                 {"a": {}},
                 {"a": [None, None]},
+                {"a": OVERSIZED},
                 {"a": ""},
                 {"a": False},
                 {"a": True},
@@ -10074,7 +10306,7 @@ BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
             "3.1.0",
             {"allOf": [True, {"type": "object", "properties": {"a": {"type": "integer"}}}]},
             None,
-            [{}, {"a": 0}],
+            [{"a": 2**63}, {}, {"a": 0}],
             [
                 {"a": {}},
                 {"a": [None, None]},
@@ -10182,7 +10414,7 @@ BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
             "3.0.2",
             {"type": "object", "properties": {"a": {"type": "integer", "examples": ["x"]}}},
             None,
-            [{}, {"a": 0}],
+            [{"a": 2**63}, {}, {"a": 0}],
             [
                 {"a": {}},
                 {"a": [None, None]},
@@ -10243,7 +10475,7 @@ BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
             [[]],
             [{}, "AAA", None, False, 0],
         ),
-        ("3.0.2", {"type": "string", "multipleOf": 2}, None, [""], [{}, [None, None], None, False, 0]),
+        ("3.0.2", {"type": "string", "multipleOf": 2}, None, [OVERSIZED, ""], [{}, [None, None], None, False, 0]),
         ("3.0.2", {"type": "array", "uniqueItems": False}, None, [[]], [{}, "AAA", None, False, 0]),
         (
             "3.0.2",
@@ -10257,15 +10489,15 @@ BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
             "3.1.0",
             {"type": "integer", "minimum": 6, "exclusiveMinimum": 5},
             None,
-            [7, 6],
+            [2**63, 7, 6],
             [5, {}, [None, None], "AAA", None, False, 2.5890419884777833e-42],
         ),
         (
             "3.0.2",
             {"type": "string", "minLength": 2, "not": {"maxLength": 1}},
             None,
-            ["000", "00"],
-            [[], "0", True, {}, [None, None], None, False, 0],
+            [OVERSIZED, "000", "00"],
+            [[], 2**63, "0", True, {}, [None, None], None, False, 0],
         ),
         ("3.0.2", {"type": "array", "maxItems": 40000}, None, [[]], [{}, "AAA", None, False, 0]),
         (
@@ -10280,14 +10512,14 @@ BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
             {"type": "array", "maxItems": 1, "items": {"not": {}}},
             None,
             [[]],
-            [[{}], [[None, None]], [0], [""], [False], [True], [None], {}, "AAA", None, False, 0],
+            [[{}], [[None, None]], [2**63], [0], [OVERSIZED], [""], [False], [True], [None], {}, "AAA", None, False, 0],
         ),
         (
             "3.0.2",
             {"type": "array", "maxItems": 1, "uniqueItems": True, "items": {"not": {}}},
             None,
             [[]],
-            [[{}], [[None, None]], [0], [""], [False], [True], [None], {}, "AAA", None, False, 0],
+            [[{}], [[None, None]], [2**63], [0], [OVERSIZED], [""], [False], [True], [None], {}, "AAA", None, False, 0],
         ),
         ("3.0.2", {"type": "object", "minProperties": 0}, None, [{}], BODY_TYPE_VIOLATIONS),
         # Draft 4 does not know `contains`, so a malformed one is ignored, as fuzzing does.
@@ -10384,7 +10616,13 @@ def test_negative_query_value_for_a_type_union(ctx):
         method="get",
         version="3.1.0",
     )["/foo"]["GET"]
-    assert targeted_values(operation, GenerationMode.NEGATIVE, "query", "q") == [None, ["null", "null"], "AAA", "null"]
+    assert targeted_values(operation, GenerationMode.NEGATIVE, "query", "q") == [
+        None,
+        "",
+        ["null", "null"],
+        "AAA",
+        "null",
+    ]
 
 
 def test_form_body_with_a_false_any_of_branch(ctx):
@@ -10453,8 +10691,10 @@ def test_positive_query_values_for_a_parameter_accepting_anything(ctx):
     )["/foo"]["GET"]
     assert positive_queries(operation) == [
         {"a": "null"},
+        {"a": "null", "b": "9223372036854775808"},
         {"a": {}, "b": "0"},
         {"a": ["null", "null"], "b": "0"},
+        {"a": "9223372036854775808", "b": "0"},
         {"a": "0", "b": "0"},
         {"a": "", "b": "0"},
         {"a": "false", "b": "0"},
@@ -10462,6 +10702,7 @@ def test_positive_query_values_for_a_parameter_accepting_anything(ctx):
         {"a": "null", "b": "0"},
     ]
     assert targeted_values(operation, GenerationMode.NEGATIVE, "query", "b") == [
+        "",
         ["null", "null"],
         "AAA",
         "null",
@@ -10556,3 +10797,24 @@ def test_positive_bodies_honor_ref_siblings_and_target_in_openapi_31(ctx, target
     # Draft 2020-12 applies both the `$ref` target and the keywords beside it.
     operation = body_operation(ctx, body, version="3.1.0", components={"schemas": {"Target": target}})
     assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
+
+
+def test_large_number_in_non_body_parameters(ctx):
+    operation = load_schema(
+        ctx,
+        parameters=[
+            {"in": "path", "name": "id", "required": True, "schema": {"type": "integer"}},
+            {"in": "query", "name": "limit", "required": True, "schema": {"type": "integer", "format": "int32"}},
+            {"in": "header", "name": "X-Amount", "required": True, "schema": {"type": "number"}},
+        ],
+        path="/foo/{id}",
+        method="get",
+    )["/foo/{id}"]["GET"]
+    assert [
+        (case.path_parameters, case.query, case.headers)
+        for case in iter_cases(operation, GenerationMode.POSITIVE)
+        if case.meta.phase.data.scenario == CoverageScenario.LARGE_NUMBER
+    ] == [
+        ({"id": "9223372036854775808"}, {"limit": "-2147483648"}, {"X-Amount": "0"}),
+        ({"id": "0"}, {"limit": "-2147483648"}, {"X-Amount": "9223372036854775808"}),
+    ]

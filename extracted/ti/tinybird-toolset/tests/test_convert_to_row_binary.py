@@ -1,4 +1,5 @@
 import json
+import sys
 import logging
 import re
 import shutil
@@ -9077,6 +9078,175 @@ class TestRowBinaryEncoder:
             assert (nrows, nquarantine, quarantine) == (1, 0, b''), f"{type_name} did not encode {data}"
             outputs[type_name] = result
         assert outputs['Tuple(JSON, LowCardinality(String))'] == outputs['Tuple(JSON, String)']
+
+    OBJECT_COLUMN_SCRATCH_CASES = [
+        # Objects directly in the column: rows 1-2 share a shape (reuse), rows 3-4 don't (reset).
+        ('JSON', True,
+         [{'value': {'b': 1, 'a': 'x'}}, {'value': {'b': 2, 'a': 'y'}},
+          {'value': {'other': [1, {'deep': True}]}}, {'value': {'b': 3, 'a': 'z'}}]),
+        # Array lengths vary while the element shapes repeat.
+        ('Array(JSON)', False,
+         [{'value': [{'a': 1}]}, {'value': [{'a': 2}, {'a': 3}]}, {'value': []}, {'value': [{'a': 4}]}]),
+        # Objects nested in a Tuple and in a Map: first two rows share a shape, the third doesn't.
+        ('Tuple(JSON, String)', False,
+         [{'value': [{'a': 1}, 't1']}, {'value': [{'a': 2}, 't2']}, {'value': [{'b': 3}, 't3']}]),
+        ('Map(String, JSON)', False,
+         [{'value': {'k': {'a': 1}}}, {'value': {'k': {'a': 2}}}, {'value': {'k': {'b': 3}}}]),
+        # A LowCardinality column is reused only while its dictionary stays small, same rows still
+        # have to encode identically.
+        ('Tuple(JSON, LowCardinality(String))', False,
+         [{'value': [{'a': 1}, 'lc1']}, {'value': [{'a': 2}, 'lc2']}, {'value': [{'b': 3}, 'lc3']}]),
+    ]
+
+    @pytest.mark.parametrize("type_name, legacy_conversion_mode, rows", OBJECT_COLUMN_SCRATCH_CASES)
+    def test_object_column_reuses_scratch_column_across_rows(self, type_name, legacy_conversion_mode, rows):
+        """Object columns are written through a scratch column that is reused across rows.
+
+        Reuse is only a cache: rows must encode to exactly the same bytes as each row encoded on its
+        own, when they share a shape (reuse), when they don't (reset), and across calls to the same
+        encoder (which is how encoders are used in practice).
+        """
+        jsonpath = '$.value[:]' if type_name.startswith('Tuple') else '$.value'
+        schema = json.dumps(get_schema([('value', type_name, jsonpath, False)]))
+        encoded_rows = [json.dumps(row) for row in rows]
+
+        def encoder():
+            return chquery.RowBinaryEncoder(schema, legacy_conversion_mode=legacy_conversion_mode, binary_json_as_string=True)
+
+        expected = b''
+        for row in encoded_rows:
+            with encoder() as fresh_encoder:
+                result, quarantine, nrows, nquarantine = fresh_encoder.encode(row)
+            assert (nrows, nquarantine, quarantine) == (1, 0, b'')
+            expected += result
+
+        with encoder() as cached_encoder:
+            result, quarantine, nrows, nquarantine = cached_encoder.encode('\n'.join(encoded_rows))
+        assert (nrows, nquarantine, quarantine) == (len(encoded_rows), 0, b'')
+        assert result == expected
+
+        # Same rows, but split over two calls on the same encoder (cross-call reuse).
+        with encoder() as cached_encoder:
+            first, _, first_rows, _ = cached_encoder.encode('\n'.join(encoded_rows[:2]))
+            second, _, second_rows, second_quarantine = cached_encoder.encode('\n'.join(encoded_rows[2:]))
+        assert (first_rows, second_rows, second_quarantine) == (2, len(encoded_rows) - 2, 0)
+        assert first + second == expected
+
+    OBJECT_COLUMN_SCRATCH_RETENTION_CASES = [
+        # ColumnLowCardinality keeps a dictionary of every value ever inserted and popBack() only
+        # rewinds its index, so the reuse of this schema is bounded by that dictionary.
+        ('Tuple(JSON, LowCardinality(String))', '$.value[:]'),
+        # A plain String column keeps the inserted rows; they have to be dropped with popBack().
+        ('Array(JSON)', '$.value'),
+    ]
+
+    @pytest.mark.parametrize("type_name, jsonpath", OBJECT_COLUMN_SCRATCH_RETENTION_CASES)
+    def test_object_column_scratch_column_does_not_retain_values(self, type_name, jsonpath):
+        """The reused scratch column must not keep data from previous rows.
+
+        Its contents are dropped with popBack() after every row, and state that popBack() does not
+        clear is bounded (the LowCardinality dictionary is given up once it grows past 1 MiB). Both a
+        retained column and a missing popBack() show up as RSS growth proportional to the number of
+        rows, so this is a coarse guard for that failure mode.
+
+        The measurement runs in a fresh process: ru_maxrss is the process-lifetime peak, so a high
+        peak earlier in the test session would hide the growth of this loop.
+        """
+        script = f"""
+import json, resource, sys
+from chtoolset import query as chquery
+
+schema = json.dumps([{{"name": "value", "type": {type_name!r}, "jsonpath": {jsonpath!r}, "has_default": False}}])
+value_size, calls = 200_000, 200
+make_row = (
+    (lambda i, value: {{"value": [{{"a": 1}}, value]}}) if sys.argv[1] == "tuple"
+    else (lambda i, value: {{"value": [{{"a": 1, "tag": value}}]}})
+)
+
+# ru_maxrss is in bytes on macOS and in kilobytes on Linux
+def rss_mb():
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1e6 if sys.platform == 'darwin' else 1e3)
+
+with chquery.RowBinaryEncoder(schema, legacy_conversion_mode=False, binary_json_as_string=True) as encoder:
+    baseline = None
+    for i in range(calls):
+        payload = json.dumps(make_row(i, 'tag%06d' % i + 'x' * value_size))
+        result, quarantine, nrows, nquarantine = encoder.encode(payload)
+        assert (nrows, nquarantine, quarantine) == (1, 0, b''), (nrows, nquarantine, quarantine)
+        if i == 5:
+            baseline = rss_mb()
+    print(rss_mb() - baseline)
+"""
+        family = 'tuple' if type_name.startswith('Tuple') else 'array'
+        output = subprocess.check_output([sys.executable, '-c', script, family], text=True)
+        growth_mb = float(output.strip().splitlines()[-1])
+
+        # Retaining the rows would grow RSS by ~calls * value_size (40 MB); allow for allocator noise.
+        assert growth_mb < 20, f'scratch column retained ~{growth_mb:.0f} MB of previous rows'
+
+    @pytest.mark.parametrize(
+        'rows',
+        [
+            # One large row followed by a small one of the same shape, which keeps reusing the column.
+            [{"a": "x" * 900_000}, {"a": "y"}],
+            # A small row of a very wide object: each dynamic path keeps its own column.
+            [{f"k{i}": i for i in range(1000)}] * 2,
+        ],
+        ids=['large_row', 'wide_object'],
+    )
+    def test_object_column_scratch_column_does_not_keep_large_row_buffers(self, rows):
+        """popBack() keeps buffer capacity, so a reused scratch column would hold the buffers of the
+        largest row (or the paths of the widest object) ever seen for the encoder's lifetime (Kafka
+        agents keep one encoder for hours). Many live encoders that each saw one such row must not keep
+        more memory than with binary_json_as_string=False, which doesn't use the scratch column. Each
+        mode runs in its own process because the setting is global to the process.
+        """
+        script = """
+import ctypes, json, sys
+from chtoolset import query as chquery
+
+# Bytes in use by malloc rather than RSS: RSS also counts freed memory the allocator hasn't returned yet,
+# which on macOS varies by more than the retention this test looks for.
+libc = ctypes.CDLL(None)
+if sys.platform == 'darwin':
+    class Stats(ctypes.Structure):
+        _fields_ = [('blocks_in_use', ctypes.c_uint), ('size_in_use', ctypes.c_size_t),
+                    ('max_size_in_use', ctypes.c_size_t), ('size_allocated', ctypes.c_size_t)]
+    def used_mb():
+        stats = Stats()
+        libc.malloc_zone_statistics(None, ctypes.byref(stats))
+        return stats.size_in_use / 1048576
+else:
+    class Stats(ctypes.Structure):
+        _fields_ = [(name, ctypes.c_size_t) for name in
+                    ('arena', 'ordblks', 'smblks', 'hblks', 'hblkhd', 'usmblks', 'fsmblks', 'uordblks', 'fordblks', 'keepcost')]
+    libc.mallinfo2.restype = Stats
+    def used_mb():
+        stats = libc.mallinfo2()
+        return (stats.uordblks + stats.hblkhd) / 1048576
+
+schema = json.dumps([{"name": "value", "type": "JSON", "jsonpath": "$.value", "has_default": False}])
+# Rows come through stdin: a 900 KB argument is over Linux's 128 KB limit per argument.
+rows = [json.dumps({"value": value}) for value in json.load(sys.stdin)]
+encoders = []
+baseline = used_mb()
+for _ in range(200):
+    encoder = chquery.RowBinaryEncoder(schema, legacy_conversion_mode=False, binary_json_as_string=sys.argv[1] == 'string')
+    encoder.__enter__()
+    for row in rows:
+        encoder.encode(row)
+    encoders.append(encoder)
+print(used_mb() - baseline)
+for encoder in encoders:
+    encoder.__exit__(None, None, None)
+"""
+        def retained_mb(mode):
+            output = subprocess.check_output([sys.executable, '-c', script, mode], input=json.dumps(rows), text=True)
+            return float(output.strip().splitlines()[-1])
+
+        extra_mb = retained_mb('string') - retained_mb('binary')
+        # Keeping the buffers costs ~0.5 MB (large row) or ~13 MB (wide object) per encoder; without them ~4 MB in total.
+        assert extra_mb < 20, f'scratch columns of 200 encoders retained ~{extra_mb:.0f} MB after one large row or wide object each'
 
     def test_getRaw_whitespace_trimming_for_integers(self):
         """Test that getRaw method properly trims whitespace from integers, especially when they are the last element in JSON objects."""

@@ -8,6 +8,7 @@ import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.sponsored_type_pb2
 import sentry_protos.billing.v1.common.v1.stripe_verification_pb2
 import sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2
 import typing
@@ -17,7 +18,8 @@ DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 @typing.final
 class ChangeContractRequest(google.protobuf.message.Message):
     """Changes an organization's contract to a new configuration. Any unset field
-    leaves the corresponding part of the contract unchanged.
+    leaves the corresponding part of the contract unchanged, except when a
+    sponsorship supplies its package, interval, and allowances.
     """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -26,20 +28,27 @@ class ChangeContractRequest(google.protobuf.message.Message):
     PACKAGE_UID_FIELD_NUMBER: builtins.int
     MONTH_INTERVAL_FIELD_NUMBER: builtins.int
     USER_CONFIGS_FIELD_NUMBER: builtins.int
+    SPONSORED_TYPE_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     package_uid: builtins.str
     """The package the contract will switch to. If unset, the package is left
-    unchanged.
+    unchanged unless selected by the sponsorship.
     """
     month_interval: builtins.int
     """The contract month_interval the subscription will switch to. Must be one
     of the package's supported_month_intervals. If unset, the month_interval
-    is left unchanged.
+    is left unchanged unless selected by the sponsorship.
+    """
+    sponsored_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType
+    """The sponsorship to apply. Unset leaves sponsorship unchanged;
+    SPONSORED_TYPE_UNSPECIFIED removes it. Applying a sponsorship selects its
+    package, interval, and allowances; conflicting explicit values are invalid.
     """
     @property
     def user_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2.UserConfig]:
         """The new user configs (PAYG budgets and/or reservation overrides) to apply
-        to the contract. If empty, the user configs are left unchanged.
+        to the contract. If empty, the user configs are left unchanged unless
+        replaced by the sponsorship's allowances.
         """
 
     def __init__(
@@ -49,13 +58,16 @@ class ChangeContractRequest(google.protobuf.message.Message):
         package_uid: builtins.str | None = ...,
         month_interval: builtins.int | None = ...,
         user_configs: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2.UserConfig] | None = ...,
+        sponsored_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_month_interval", b"_month_interval", "_package_uid", b"_package_uid", "month_interval", b"month_interval", "package_uid", b"package_uid"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_month_interval", b"_month_interval", "_package_uid", b"_package_uid", "month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "user_configs", b"user_configs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_month_interval", b"_month_interval", "_package_uid", b"_package_uid", "_sponsored_type", b"_sponsored_type", "month_interval", b"month_interval", "package_uid", b"package_uid", "sponsored_type", b"sponsored_type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_month_interval", b"_month_interval", "_package_uid", b"_package_uid", "_sponsored_type", b"_sponsored_type", "month_interval", b"month_interval", "organization_id", b"organization_id", "package_uid", b"package_uid", "sponsored_type", b"sponsored_type", "user_configs", b"user_configs"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_month_interval", b"_month_interval"]) -> typing.Literal["month_interval"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_package_uid", b"_package_uid"]) -> typing.Literal["package_uid"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_sponsored_type", b"_sponsored_type"]) -> typing.Literal["sponsored_type"] | None: ...
 
 global___ChangeContractRequest = ChangeContractRequest
 

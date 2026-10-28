@@ -502,15 +502,23 @@ class ServicePool:
     def list(
         cls,
         name: Optional[str] = None,
+        status: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         api_token: Optional[str] = None,
         host: Optional[str] = None,
     ) -> List["ServicePool"]:
+        """List service pools, optionally filtered by name and status.
+
+        The status filter takes the lowercase model value (`ready`,
+        `provisioning`, `error` or `deleting`), not the uppercase enum name
+        the reply carries; the API rejects anything else with a 400.
+        """
         clients = get_api_clients(api_token, host)
         try:
             reply = clients.service_pools.list_service_pools(
                 name=name,
+                status=status,
                 limit=str(limit) if limit is not None else None,
                 offset=str(offset) if offset is not None else None,
             )
@@ -524,10 +532,15 @@ class ServicePool:
         """Resize the pool; returns the updated pool."""
         clients = get_api_clients(self.api_token, self.host)
         try:
+            # The update endpoint is a full replace: refetch the live pool so
+            # the resend carries the current definition, not a stale cache.
+            current = clients.service_pools.get_service_pool(self.id).service_pool
             reply = clients.service_pools.update_service_pool(
                 id=self.id,
-                service_pool=UpdateServicePool(size=size),
-                update_mask="size",
+                service_pool=UpdateServicePool(
+                    size=current.size if size is None else size,
+                    definition=current.definition,
+                ),
             )
         except ApiException as e:
             raise ServicePoolError(
@@ -704,15 +717,23 @@ class AsyncServicePool:
     async def list(
         cls,
         name: Optional[str] = None,
+        status: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         api_token: Optional[str] = None,
         host: Optional[str] = None,
     ) -> List["AsyncServicePool"]:
+        """List service pools, optionally filtered by name and status (async).
+
+        The status filter takes the lowercase model value (`ready`,
+        `provisioning`, `error` or `deleting`), not the uppercase enum name
+        the reply carries; the API rejects anything else with a 400.
+        """
         clients = get_async_api_clients(api_token, host)
         try:
             reply = await clients.service_pools.list_service_pools(
                 name=name,
+                status=status,
                 limit=str(limit) if limit is not None else None,
                 offset=str(offset) if offset is not None else None,
             )
@@ -723,12 +744,20 @@ class AsyncServicePool:
         ]
 
     async def update(self, size: Optional[int] = None) -> "AsyncServicePool":
+        """Resize the pool; returns the updated pool."""
         clients = get_async_api_clients(self.api_token, self.host)
         try:
+            # The update endpoint is a full replace: refetch the live pool so
+            # the resend carries the current definition, not a stale cache.
+            current = (
+                await clients.service_pools.get_service_pool(self.id)
+            ).service_pool
             reply = await clients.service_pools.update_service_pool(
                 id=self.id,
-                service_pool=AsyncUpdateServicePool(size=size),
-                update_mask="size",
+                service_pool=AsyncUpdateServicePool(
+                    size=current.size if size is None else size,
+                    definition=current.definition,
+                ),
             )
         except AsyncApiException as e:
             raise ServicePoolError(

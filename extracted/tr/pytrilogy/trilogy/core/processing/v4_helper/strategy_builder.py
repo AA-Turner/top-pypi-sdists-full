@@ -13,7 +13,7 @@ generator dispatch lives in `v4_node_generators.dispatch.build_node`."""
 
 import logging
 from collections import Counter, defaultdict
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from dataclasses import replace as dc_replace
@@ -28,7 +28,6 @@ from trilogy.core.enums import (
     ComparisonOperator,
     Derivation,
     FunctionType,
-    Granularity,
     JoinType,
     Ordering,
     Purpose,
@@ -115,18 +114,22 @@ from .edges import (
     EdgeMap,
     dependency_subgraph,
     edge_kind,
-    edges_of_kind,
     lineage_predecessors,
     remove_edge,
 )
 from .extent_ownership import takes_a_value_on_padding
-from .functional_dependency import build_fd_determines, build_fd_determines_all
+from .final_cover import elect_cover, output_covers
+from .functional_dependency import (
+    build_fd_closure,
+    build_fd_determines,
+    build_fd_determines_all,
+)
 from .group_graph import row_parents, trace_group_graph
 from .history import V4History
+from .join_plan import JoinPlan, elect_bridges, merge_axes, plan_final_join
 from .models import (
     ExtentOwnership,
     FinalAssemblyContract,
-    FinalContributorContract,
     GroupAttrs,
     InputChannel,
     nulls_grouping_keys,
@@ -1138,15 +1141,6 @@ def _fold_into_readers(
     else names it."""
     _read_parents_in_place(group_graph, group_edges, attrs, gid)
     final = attrs[FINAL_NODE_ID]
-    if final.final_contract is not None:
-        final.final_contract = dc_replace(
-            final.final_contract,
-            contributor_contracts=tuple(
-                c
-                for c in final.final_contract.contributor_contracts
-                if c.group_id != gid
-            ),
-        )
     if final.extent_ownership is not None:
         final.extent_ownership.permitted.pop(gid, None)
     logger.info(f"[v4] {gid} is computed inline by its readers; not built")
@@ -2529,6 +2523,31 @@ def _widen_merge_join_keys(
         )
 
 
+def _carry_planned_keys(
+    parents: list[StrategyNode],
+    origin: dict[int, str],
+    plan: JoinPlan,
+    environment: BuildEnvironment,
+) -> None:
+    """Widen each FINAL parent with the keys its own side of its planned
+    pairings holds, then with the expression relation members two parents
+    reach and none projects."""
+    if len(parents) <= 1:
+        return
+    for parent in parents:
+        gid = _origin_group(parent, origin)
+        if gid is None or not (keys := plan.keys_for(gid)):
+            continue
+        _carry_join_keys(
+            [parent], _join_key_concepts(parents, environment, set(keys)), environment
+        )
+    mates = _unprojected_expression_mates(parents, environment)
+    if mates:
+        _carry_join_keys(
+            parents, _join_key_concepts(parents, environment, mates), environment
+        )
+
+
 def _carry_join_keys(
     parents: list[StrategyNode],
     join_key_concepts: list[BuildConcept],
@@ -3094,6 +3113,8 @@ def _pre_merge_parents(
     built: dict[str, StrategyNode] | None = None,
     force_join_type: JoinType | None = None,
     preexisting_conditions: BoolExpr | None = None,
+    attrs: dict[str, GroupAttrs] | None = None,
+    origin: dict[int, str] | None = None,
 ) -> list[StrategyNode]:
     """Collapse a multi-parent set into a single MergeNode that auto-joins
     on shared output concepts. Non-merging generators (GroupNode for
@@ -3126,7 +3147,21 @@ def _pre_merge_parents(
     # After widening, not before: a parent that has just been handed the join
     # key it was missing needs no bridge.
     if group_graph is not None and built is not None:
-        parents = _bridge_unpaired_parents(parents, group_graph, built, environment)
+        parents = _bridge_unpaired_parents(
+            parents,
+            group_graph,
+            built,
+            environment,
+            _elected_merge_bridges(
+                parents,
+                attrs,
+                origin,
+                group_graph,
+                built,
+                needed,
+                environment,
+            ),
+        )
     all_outputs = readable_outputs(parents)
     merged = MergeNode(
         input_concepts=all_outputs,
@@ -3138,8 +3173,96 @@ def _pre_merge_parents(
         # a region domain hosts its spans' extension rows: preserve it, and
         # the feeder only where it holds a value-NULL key
         host_stitch=any(p.region_spans for p in parents),
+        planned_keys=_planned_merge_keys(
+            parents,
+            attrs,
+            origin,
+            group_graph,
+            needed,
+            join_key_addresses,
+            environment,
+        ),
     )
     return [merged]
+
+
+def _planned_merge_keys(
+    parents: list[StrategyNode],
+    attrs: dict[str, GroupAttrs] | None,
+    origin: dict[int, str] | None,
+    group_graph: nx.DiGraph | None,
+    needed: set[str] | None,
+    join_key_addresses: frozenset[str],
+    environment: BuildEnvironment,
+) -> frozenset[str] | None:
+    """The keys a consumer's join plan pairs its row parents on, stated over
+    the groups the merge's sides came from. None when a side is no group's
+    (a merge assembled below the consumer), and resolve discovers the keys."""
+    if attrs is None or origin is None or group_graph is None:
+        return None
+    sides = side_groups(parents, origin)
+    if len(sides) != len(parents):
+        return None
+    cover = _merge_cover(sides, attrs, needed, environment)
+    return plan_final_join(
+        group_graph,
+        attrs,
+        cover,
+        [c for concepts in cover.values() for c in concepts],
+        environment,
+        _required_final_contract(attrs).authored_axes,
+        split=frozenset(gid for gid in sides if sides.count(gid) > 1),
+        contracted={gid: join_key_addresses for gid in sides},
+    ).permitted_keys
+
+
+def _merge_cover(
+    sides: list[str],
+    attrs: dict[str, GroupAttrs],
+    needed: set[str] | None,
+    environment: BuildEnvironment,
+) -> dict[str, list[BuildConcept]]:
+    """Each side's group and the outputs the consumer reads off it."""
+    wanted = needed or set()
+    return {
+        gid: [
+            c
+            for address in attrs[gid].output_concepts
+            if address in wanted and (c := _concept_at(environment, address))
+        ]
+        for gid in sides
+    }
+
+
+def _elected_merge_bridges(
+    parents: list[StrategyNode],
+    attrs: dict[str, GroupAttrs] | None,
+    origin: dict[int, str] | None,
+    group_graph: nx.DiGraph,
+    built: dict[str, StrategyNode],
+    needed: set[str] | None,
+    environment: BuildEnvironment,
+) -> list[str] | None:
+    """The bridges a consumer's join plan elects over its row parents' groups;
+    None when a side is no group's, and the merge bridges off what is built.
+    The consumer's preserve keys are asks, not columns a side holds: a
+    dimension peel is never widened to its sibling dimension's key."""
+    if attrs is None or origin is None:
+        return None
+    sides = side_groups(parents, origin)
+    if len(sides) != len(parents):
+        return None
+    cover = _merge_cover(sides, attrs, needed, environment)
+    return elect_bridges(
+        group_graph,
+        attrs,
+        cover,
+        _bridge_candidates(group_graph, built),
+        [c for concepts in cover.values() for c in concepts],
+        environment,
+        _required_final_contract(attrs).authored_axes,
+        split=frozenset(gid for gid in sides if sides.count(gid) > 1),
+    )
 
 
 def _union_arm_parents(
@@ -3411,19 +3534,6 @@ def _topological_order(group_graph: nx.DiGraph, group_edges: EdgeMap) -> list[st
         ) from exc
 
 
-def _output_covers(output: BuildConcept, concept: BuildConcept) -> bool:
-    """Whether a node output supplies `concept`, directly or via pseudonym.
-
-    A struct field selected as `unnest_array.a` parses to the bare key
-    `local.a` but is produced under its derivable pseudonym `unnest_array.a`;
-    the CTE layer maps the two by pseudonym, so coverage matching must too."""
-    return (
-        output.address == concept.address
-        or output.address in concept.pseudonyms
-        or concept.address in output.pseudonyms
-    )
-
-
 def _bridge_pseudonyms(node: StrategyNode, provided: list[BuildConcept]) -> None:
     """Add the merge-canonical concepts as hidden bridge outputs on a sole FINAL
     contributor so the CTE layer can map every requested alias of a merged key
@@ -3447,7 +3557,7 @@ def _bridge_pseudonyms(node: StrategyNode, provided: list[BuildConcept]) -> None
     for m in provided:
         if m.address in out_addrs:
             continue
-        if any(_output_covers(o, m) for o in node.output_concepts):
+        if any(output_covers(o, m) for o in node.output_concepts):
             bridges.append(m)
     if not bridges:
         return
@@ -3462,113 +3572,11 @@ def _bridge_pseudonyms(node: StrategyNode, provided: list[BuildConcept]) -> None
     node.rebuild_cache()
 
 
-def _scoped_join_mates(environment: BuildEnvironment, address: str) -> frozenset[str]:
-    """The other members of the COALESCING key group `address` belongs to.
-
-    Only a coalescing relation (`union`/`full`) fuses its members onto one axis
-    that the merge emits under every member's own alias, which is what lets a
-    mate answer for the address. A subset or global-merge member keeps its own
-    column name, so reading it under the other member's address dangles."""
-    coalescing = environment.domain_graph.coalescing_relation_members()
-    if address not in coalescing:
-        return frozenset()
-    for group in environment.scoped_join_relations():
-        if address in group:
-            return frozenset(group - {address}) & coalescing
-    return frozenset()
-
-
-def _cover_groups_for_mandatory(
-    group_graph: nx.DiGraph,
-    group_edges: EdgeMap,
-    attrs: dict[str, GroupAttrs],
-    built: dict[str, StrategyNode],
-    mandatory_list: list[BuildConcept],
-    environment: BuildEnvironment,
-    ownership: ExtentOwnership,
-) -> dict[str, list[BuildConcept]]:
-    """For each mandatory concept, pick the most-downstream built group that
-    actually exposes it (more built ancestors = further downstream). Returns
-    `{gid: [concepts that group provides]}` preserving discovery order so
-    the MergeNode renders with a stable join layout.
-
-    A group carrying the concept's authored scoped-join MATE counts as exposing
-    it: the merge coalesces the two members onto one axis, and the mate is
-    surfaced under the concept's own address once the merge resolves. Without
-    that, an aggregate over the completed join loses the axis to the raw
-    boundary below it, which then re-enters the merge with the rows the
-    aggregate's population already excluded.
-
-    A ``~``-licensed key comes from its elected owner and nowhere else: that
-    group is the one built with permission to manufacture the key's extension
-    rows, so any other candidate exposes only the members the fact bound. The
-    election is read here rather than re-derived, because the two answers
-    diverging is what leaves a contributor dangling at render time."""
-    per_group: dict[str, list[BuildConcept]] = defaultdict(list)
-    coalescing = environment.domain_graph.coalescing_relation_members()
-    # a side-channel set feeds no rows: reading a host through one is not
-    # reading that host's side
-    row_graph = group_graph.copy()
-    row_graph.remove_edges_from(edges_of_kind(group_edges, EdgeKind.EXISTENCE))
-    for concept in mandatory_list:
-        addr = concept.address
-        mates = _scoped_join_mates(environment, addr)
-        candidates = [
-            gid
-            for gid, node in built.items()
-            if any(
-                o.address == addr or o.address in mates for o in node.output_concepts
-            )
-        ]
-        # Only fall back to pseudonym coverage (struct fields produced under
-        # their derivable origin address) when nothing provides the concept
-        # directly; a plain alias keeps its own contributor.
-        if not candidates:
-            candidates = [
-                gid
-                for gid, node in built.items()
-                if any(_output_covers(o, concept) for o in node.output_concepts)
-            ]
-        if not candidates:
-            continue
-        # A COALESCING mate carries only its own side's domain: a group that
-        # never read the one hosting the concept itself misses that side's rows.
-        if addr in coalescing:
-            hosts = {gid for gid in candidates if addr in attrs[gid].members}
-            if hosts:
-                candidates = [
-                    gid
-                    for gid in candidates
-                    if gid in hosts or hosts & nx.ancestors(row_graph, gid)
-                ]
-        # A dim peeled off a row stream decorates the stream's keys; its own
-        # key carries every entity, not the rows the stream's WHERE kept.
-        candidates.sort(
-            key=lambda gid: (
-                sum(1 for a in nx.ancestors(group_graph, gid) if a in built),
-                addr not in attrs[gid].dim_keys,
-                addr in attrs[gid].members,
-            ),
-            reverse=True,
-        )
-        winner = candidates[0]
-        owner = ownership.owner_of(addr)
-        # a group that READ the owner carries its rows too, and more besides
-        if (
-            owner is not None
-            and owner in candidates
-            and not any(owner in nx.ancestors(group_graph, gid) for gid in candidates)
-        ):
-            winner = owner
-        per_group[winner].append(concept)
-    return per_group
-
-
 def _add_relation_axis_contributors(
     group_graph: nx.DiGraph,
     built: dict[str, StrategyNode],
     per_group: dict[str, list[BuildConcept]],
-    final_contract: FinalAssemblyContract,
+    axes: frozenset[str],
     environment: BuildEnvironment,
 ) -> None:
     """A FINAL merge grain carrying an authored relation needs every hosting
@@ -3579,10 +3587,7 @@ def _add_relation_axis_contributors(
     Add the built group exposing a missing hosted axis member as an axis-only
     contributor (it contributes no mandatory concepts). Edits `per_group` in
     place."""
-    if len(per_group) < 2 or not environment.scoped_join_key_groups:
-        return
-    merge_grain = set(final_contract.merge_grain)
-    if not merge_grain:
+    if len(per_group) < 2 or not environment.scoped_join_key_groups or not axes:
         return
     outputs_of = {
         gid: {o.address for o in node.output_concepts} for gid, node in built.items()
@@ -3594,7 +3599,7 @@ def _add_relation_axis_contributors(
     }
     chosen = set(per_group)
     for canonical, members in environment.scoped_join_key_groups.items():
-        relation = {canonical, *members} & merge_grain
+        relation = {canonical, *members} & axes
         if len(relation) < 2:
             continue
         hosted = {addr for gid in chosen for addr in relation & hosts_of[gid]}
@@ -3940,8 +3945,13 @@ def _promote_final_aliases_to_grouping_contributors(
             # column that is non-unique in its own table (an SCD business key)
             # multiplies every rollup row. Ask what the node EMITS, which is
             # the same question the dedup asks.
-            if attrs[gid].derivation not in GROUPING_DERIVATIONS and not (
-                has_grouping_output(gid)
+            # The group the renames read holds their rows by construction:
+            # built apart, the rename stream joins its host back on whatever
+            # row key both were sourced at.
+            if (
+                attrs[gid].derivation not in GROUPING_DERIVATIONS
+                and not has_grouping_output(gid)
+                and gid not in nx.ancestors(group_graph, src_gid)
             ):
                 continue
             available = {output.address for output in built[gid].output_concepts}
@@ -4269,7 +4279,7 @@ def _wrap_for_grain(
         # shatter the scan into self-grain buckets with no join key.
         #
         # With no merge grain to supply (a pure projection: no aggregate, no
-        # rowset, so `_final_merge_grain` has nothing to declare) fall back to
+        # rowset, so the join plan pins nothing) fall back to
         # the parent's own grain, then to the concept's own keys. A dimension
         # this parent's rows determine must ride that identity rather than
         # dedup to its own key-grain, or two properties of one key bound by a
@@ -4363,6 +4373,7 @@ def _bridge_unpaired_parents(
     group_graph: nx.DiGraph,
     built: dict[str, StrategyNode],
     environment: BuildEnvironment,
+    elected: Sequence[str] | None = None,
 ) -> list[StrategyNode]:
     """Pull in the built group that pairs contributors sharing no column, so
     the merge below joins on an axis instead of `ON 1=1`.
@@ -4381,9 +4392,14 @@ def _bridge_unpaired_parents(
 
     A bridge pairs a contributor on whatever they share, which must identify
     one side's rows (`_key_bridged_members`): a species bucket projected off
-    tree rows, bridged back to those rows on `species`, multiplies both."""
+    tree rows, bridged back to those rows on `species`, multiplies both.
+
+    `elected` are the bridges the join plan chose (`join_plan.elect_bridges`):
+    when given, only those are candidates."""
     if len(parents) < 2:
         return parents
+    if elected is not None:
+        built = {gid: built[gid] for gid in elected}
     parents = list(parents)
     outputs = [_pairing_addresses(parent, environment) for parent in parents]
     exposed = {
@@ -4532,6 +4548,20 @@ def _key_bridged_members(
     return True
 
 
+def _bridge_candidates(
+    group_graph: nx.DiGraph, built: dict[str, StrategyNode]
+) -> list[str]:
+    """Built groups, most derived first."""
+    return sorted(
+        built,
+        key=lambda gid: (
+            sum(1 for a in nx.ancestors(group_graph, gid) if a in built),
+            gid,
+        ),
+        reverse=True,
+    )
+
+
 def _island_bridges(
     islands: list[set[int]],
     outputs: list[set[str]],
@@ -4590,21 +4620,9 @@ def _filter_arg_parents(
     concepts: list[BuildConcept] = []
     seen: set[str] = set()
     for addr in missing_addrs:
-        candidates = [
-            gid
-            for gid, node in built.items()
-            if any(o.address == addr for o in node.output_concepts)
-        ]
-        if not candidates:
+        gid = _filter_arg_producer(group_graph, built, addr, spans)
+        if gid is None:
             continue
-        candidates.sort(
-            key=lambda gid: (
-                spans <= {o.address for o in built[gid].output_concepts},
-                sum(1 for a in nx.ancestors(group_graph, gid) if a in built),
-            ),
-            reverse=True,
-        )
-        gid = candidates[0]
         supplier = built[gid]
         concept = next(o for o in supplier.output_concepts if o.address == addr)
         # The group is being pulled in PRECISELY to supply this column, so a
@@ -4619,6 +4637,58 @@ def _filter_arg_parents(
             seen.add(gid)
             nodes.append(built[gid])
     return nodes, concepts
+
+
+def _filter_arg_producer(
+    group_graph: nx.DiGraph,
+    built: dict[str, StrategyNode],
+    addr: str,
+    spans: frozenset[str],
+) -> str | None:
+    candidates = [
+        gid
+        for gid, node in built.items()
+        if any(o.address == addr for o in node.output_concepts)
+    ]
+    return max(
+        candidates,
+        key=lambda gid: (
+            spans <= {o.address for o in built[gid].output_concepts},
+            sum(1 for a in nx.ancestors(group_graph, gid) if a in built),
+        ),
+        default=None,
+    )
+
+
+def _final_extra_sides(
+    group_graph: nx.DiGraph,
+    attrs: dict[str, GroupAttrs],
+    built: dict[str, StrategyNode],
+    sides: Sequence[str],
+    filter_only_addrs: set[str],
+    environment: BuildEnvironment,
+) -> list[str]:
+    """The groups the FINAL merge joins beside `sides` to evaluate its WHERE:
+    each filter-only argument's producer, and the row stream computing a gate
+    key none of them renders (`count(id) by genus`, genus derived)."""
+    nodes = [built[gid] for gid in sides]
+    available = {o.address for node in nodes for o in node.output_concepts}
+    spans = frozenset().union(*(region_reads(node) for node in nodes))
+    extras: list[str] = []
+    args: list[BuildConcept] = []
+    for addr in sorted(
+        _region_paired_args(filter_only_addrs, available, spans, environment)
+    ):
+        gid = _filter_arg_producer(group_graph, built, addr, spans)
+        if gid is None:
+            continue
+        extras.append(gid)
+        args.extend(o for o in built[gid].output_concepts if o.address == addr)
+    for address in sorted(_gate_grain_keys(args) - available):
+        key = _concept_at(environment, address)
+        if key and (host := _gate_key_row_stream(key, attrs, built)):
+            extras.append(host)
+    return list(dict.fromkeys(extras))
 
 
 def _region_paired_args(
@@ -4644,93 +4714,6 @@ def _required_final_contract(attrs: dict[str, GroupAttrs]) -> FinalAssemblyContr
     if contract is None:
         raise ValueError("FINAL contract missing; Stage 2 must declare final_contract")
     return contract
-
-
-def _final_contributor_contracts(
-    final_contract: FinalAssemblyContract,
-    contributing: list[str],
-) -> dict[str, FinalContributorContract]:
-    contracts = {
-        contract.group_id: contract for contract in final_contract.contributor_contracts
-    }
-    missing_contracts = [gid for gid in contributing if gid not in contracts]
-    if missing_contracts:
-        raise ValueError(
-            "FINAL contributor contract missing for groups: "
-            + ", ".join(sorted(missing_contracts))
-        )
-    return {gid: contracts[gid] for gid in contributing}
-
-
-def _relevant_root_preserve_keys(
-    environment: BuildEnvironment,
-    output_concepts: list[BuildConcept],
-    preserve_keys: frozenset[str],
-    member_addresses: frozenset[str] = frozenset(),
-) -> frozenset[str]:
-    # A single-row output pairs with every row: any key "determines" it, and
-    # keeping one would re-source a scalar at that key's grain.
-    output_concepts = [
-        c for c in output_concepts if c.granularity != Granularity.SINGLE_ROW
-    ]
-    if not preserve_keys or not output_concepts:
-        return frozenset()
-    output_addresses = {concept.address for concept in output_concepts}
-    statement_members = _statement_scoped_relation_members(environment)
-    relevant: set[str] = set()
-    for key in preserve_keys:
-        if key in output_addresses:
-            relevant.add(key)
-            continue
-        # An AUTHORED statement-relation member is the declared merge axis: it
-        # already survived the merge-grain intersection, and the FD test below
-        # cannot vouch for it (a `unique` business key determines the outputs
-        # only through a uniqueness the FD tables don't encode). Dropping it
-        # re-loses the authored join key (`subset join cust.cid = id` with
-        # only `id`-determined properties projected).
-        if key in statement_members and environment.concepts.get(key) is not None:
-            relevant.add(key)
-            continue
-        # A key the ROOT group itself carries as a member is a genuine BRIDGE
-        # join key even when it doesn't FD-determine any output: the group put
-        # this key beside the output because a shared finer member (the fact's
-        # order_id) connects them (`customer_id` beside `product_name`, bridged
-        # through orders). Keeping it lets the root scan emit the connecting
-        # pairs and join the sibling aggregate on it, instead of the merge
-        # cross-joining ON 1=1.
-        if key in member_addresses:
-            relevant.add(key)
-            continue
-        if any(
-            build_fd_determines(
-                environment,
-                {key},
-                concept.address,
-                include_empty_grain=False,
-            )
-            for concept in output_concepts
-        ):
-            relevant.add(key)
-    # A composite merge grain reaches a dimension through a foreign key OFF
-    # the grain (`(item, ticket)` -> customer -> region): the keys determine
-    # the output jointly and none does alone, which is the composite peel
-    # `_composite_determining_grain` hands this scan.
-    if any(
-        concept.address not in preserve_keys
-        and not _fd_determined(environment, relevant, concept)
-        and _fd_determined(environment, preserve_keys, concept)
-        for concept in output_concepts
-    ):
-        return preserve_keys
-    return frozenset(relevant)
-
-
-def _fd_determined(
-    environment: BuildEnvironment, keys: Iterable[str], concept: BuildConcept
-) -> bool:
-    return build_fd_determines(
-        environment, set(keys), concept.address, include_empty_grain=False
-    )
 
 
 def _group_to_grain_if_required(
@@ -4792,7 +4775,7 @@ def _group_to_grain_if_required(
         targets = [
             o
             for o in node.output_concepts
-            if any(_output_covers(o, m) for m in contract_outputs)
+            if any(output_covers(o, m) for m in contract_outputs)
         ]
     if isinstance(node, MergeNode):
         # Narrow to the requested grain *before* force-grouping: a MergeNode
@@ -5379,14 +5362,18 @@ def _assemble_final_node(
     )
 
     ownership = attrs[FINAL_NODE_ID].extent_ownership or ExtentOwnership()
-    per_group = _cover_groups_for_mandatory(
+    per_group = elect_cover(
         group_graph,
         group_edges,
         attrs,
-        built,
+        list(built),
         mandatory_list,
         environment,
         ownership,
+        {
+            gid: frozenset(o.address for o in node.output_concepts)
+            for gid, node in built.items()
+        },
     )
     if not per_group:
         return apply_final_conditions(
@@ -5398,7 +5385,11 @@ def _assemble_final_node(
             )
         )
     _add_relation_axis_contributors(
-        group_graph, built, per_group, final_contract, environment
+        group_graph,
+        built,
+        per_group,
+        merge_axes(list(built), attrs, mandatory_list, final_contract.authored_axes),
+        environment,
     )
     _add_partial_completion_contributors(built, per_group, environment)
     _fold_descendant_contributors(group_graph, attrs, built, per_group)
@@ -5434,24 +5425,40 @@ def _assemble_final_node(
             environment,
         )
 
-    # Only root scans get the grain projection: their grain is the row-level
-    # source-table grain (often much wider than what a downstream merge
-    # wants), and a SELECT DISTINCT-style projection is always safe.
-    # Wrapping intermediate aggregates is *not* safe: a GroupNode over a
-    # `sum(x)` node would re-aggregate the partial sums (OK for SUM, wrong
-    # for AVG/STDDEV), and intermediate aggregates often don't even expose
-    # the requested grain key (their GROUP BY is their grain, not the
-    # downstream's).
-    # Merge grain is defined by the grouping (aggregate/window) contributors;
-    # compute it up front so root-scan wrapping can project an FD dimension at
-    # this grain (keeping the join key) instead of its own key-grain. A ROWSET
-    # boundary is a fixed-grain barrier too: its select grain is the key set a
-    # merging dimension must join on, so a dimension scan rides it instead of
-    # deduping to its own key grain and cross-joining ON 1=1.
-    contracts_by_gid = _final_contributor_contracts(final_contract, contributing)
-    final_merge_grain = frozenset().union(
-        *(contract.projection_grain for contract in contracts_by_gid.values())
+    # The join plan states, from stage-2 facts over the cover, what identifies
+    # each contributor's rows and which keys each ROOT must carry to pair with
+    # its siblings. Its merge grain is the grain the grouping and barrier-pinned
+    # contributors fix: a dimension scan projects its FD attributes at it
+    # (keeping the join key) instead of deduping to its own key grain and
+    # cross-joining ON 1=1.
+    bridges = elect_bridges(
+        group_graph,
+        attrs,
+        per_group,
+        _bridge_candidates(group_graph, built),
+        mandatory_list,
+        environment,
+        final_contract.authored_axes,
     )
+    plan = plan_final_join(
+        group_graph,
+        attrs,
+        per_group,
+        mandatory_list,
+        environment,
+        final_contract.authored_axes,
+        extras=bridges
+        + _final_extra_sides(
+            group_graph,
+            attrs,
+            built,
+            [*per_group, *bridges],
+            filter_only_addrs,
+            environment,
+        ),
+    )
+    final_merge_grain = plan.merge_grain
+    origin = {id(node): gid for gid, node in built.items()}
 
     # A grouping-sets sibling suppresses the FINAL dedup (`_group_to_grain_if_
     # required` passes a subtotal-bearing merge through), so a row-grain leaf
@@ -5461,91 +5468,51 @@ def _assemble_final_node(
     parents: list[StrategyNode] = []
     for gid in contributing:
         node = built[gid]
-        is_root = attrs[gid].derivation == Derivation.ROOT
-        contributor_contract = contracts_by_gid[gid]
-        preserve_keys = contributor_contract.preserve_keys & final_merge_grain
-        group_concepts = list(per_group[gid])
-        if is_root:
-            # `final_merge_grain` is the union of what contributors ADVERTISE
-            # (their projection grain), which a non-grouping contributor leaves
-            # empty, so a ROOT sibling's join key would be filtered away and
-            # the merge would cross-join ON 1=1. A sibling's own grain is a
-            # stronger guarantee than its advertisement: a group at user grain
-            # emits the user key whether or not it projects it. Preserve the
-            # merge keys some sibling's grain vouches for.
-            sibling_grain = {
-                address
-                for other in contributing
-                if other != gid and other in attrs
-                for address in attrs[other].emitted_grain
-            }
-            preserve_keys |= contributor_contract.preserve_keys & sibling_grain
-            preserve_keys = _relevant_root_preserve_keys(
-                environment,
-                group_concepts,
-                preserve_keys,
-                frozenset(_own_members(attrs, gid)),
-            )
-            # A ROOT that already carries a merge key among its own concepts
-            # joins its siblings on that key alone. Preserving the OTHER merge
-            # keys forces the re-source below to drag in whatever fact table
-            # carries them (a pure dim scan becomes a fact-dim join deduped to
-            # the full output grain), and the merge then stitches on every key
-            # null-safely, which under `~` partials pairs join-manufactured
-            # NULLs with each other.
-            # Foreign keys stay preserved only for the carrier-less case the
-            # widen exists for: no own key means no join path, and the merge
-            # would cross-join ON 1=1.
-            # Only when the own keys determine what the ROOT delivers: a span
-            # carrying `order_id` beside a `product_id` the composite
-            # `(order_id, line_no)` determines repeats per line, and joining on
-            # `order_id` alone pairs every line with every product of its order.
-            own_join_keys = preserve_keys & (
-                {concept.address for concept in group_concepts}
-                | {concept.address for concept in node.usable_outputs}
-            )
-            if own_join_keys and all(
-                concept.address in preserve_keys
-                or _fd_determined(environment, own_join_keys, concept)
-                for concept in group_concepts
-            ):
-                preserve_keys = frozenset(own_join_keys)
-        # A preserved join key must survive the wrap: grouping the contributor
-        # to a grain that excludes the key it was just re-sourced to carry
-        # dedups that key straight back out, and the merge cross-joins anyway.
-        projection_grain = (
-            final_merge_grain | preserve_keys
-            if is_root
-            else contributor_contract.projection_grain
-        )
-        if is_root and preserve_keys:
-            seen_group_concepts = {concept.address for concept in group_concepts}
-            # Carry the merge grain's join KEYS onto the root scan.
-            group_concepts.extend(
-                c
-                for address in sorted(preserve_keys)
-                if (c := _concept_at(environment, address)) is not None
-                and address not in seen_group_concepts
-            )
-        if is_root:
-            parents.extend(
-                _resourced_root_contributor(
-                    gid,
-                    node,
-                    group_concepts,
-                    projection_grain,
-                    attrs,
-                    environment,
-                    ownership,
-                    root_requests[gid],
-                    graph,
-                    history,
-                    arms_delivered,
-                    grouping_sibling,
-                )
-            )
-        else:
+        if attrs[gid].derivation != Derivation.ROOT:
             parents.append(node)
+            continue
+        # Only root scans are re-sourced and wrapped: their grain is the
+        # row-level source-table grain (often much wider than the merge wants),
+        # and a SELECT DISTINCT-style projection is always safe. Wrapping an
+        # intermediate aggregate is not: it would re-aggregate partial sums.
+        carry = plan.carry_demands[gid]
+        group_concepts = list(per_group[gid])
+        seen_group_concepts = {concept.address for concept in group_concepts}
+        group_concepts.extend(
+            c
+            for address in sorted(carry)
+            if (c := _concept_at(environment, address)) is not None
+            and address not in seen_group_concepts
+        )
+        # A carried key must survive the wrap: grouping to a grain without the
+        # key it was re-sourced to carry dedups it straight back out.
+        wraps = _resourced_root_contributor(
+            gid,
+            node,
+            group_concepts,
+            final_merge_grain | carry,
+            attrs,
+            environment,
+            ownership,
+            root_requests[gid],
+            graph,
+            history,
+            arms_delivered,
+            grouping_sibling,
+        )
+        origin.update((id(wrap), gid) for wrap in wraps)
+        parents.extend(wraps)
+
+    parents = [
+        (
+            _at_declared_identity(
+                parent, parents, attrs[side], plan.identity[side], environment
+            )
+            if (side := origin.get(id(parent))) is not None
+            else parent
+        )
+        for parent in parents
+    ]
 
     # Sibling contributors that descend from a common richer parent (one
     # renames the aggregate's grouping key while others derive from that same
@@ -5564,7 +5531,7 @@ def _assemble_final_node(
         environment,
     )
     parents = _fold_passthrough_parents(parents)
-    _widen_merge_join_keys(parents, environment, final_merge_grain)
+    _carry_planned_keys(parents, origin, plan, environment)
     parents = _fold_covered_contributors(
         parents,
         environment,
@@ -5572,7 +5539,9 @@ def _assemble_final_node(
         {id(built[gid]) for gid, concepts in per_group.items() if concepts},
         {id(built[gid]) for gid in ownership.owner_by_span.values() if gid in built},
     )
-    parents = _bridge_unpaired_parents(parents, group_graph, built, environment)
+    parents = _bridge_unpaired_parents(
+        parents, group_graph, built, environment, bridges
+    )
     parents = _pair_inside_padding_streams(parents, environment)
     _raise_if_rowset_islanded(parents, mandatory_list, environment, graph)
 
@@ -5592,7 +5561,7 @@ def _assemble_final_node(
         for c in mandatory_list
         if c.address not in available
         and any(
-            _output_covers(o, c)
+            output_covers(o, c)
             for p in parents
             for o in p.output_concepts
             if o.address not in p.hidden_concepts
@@ -5666,6 +5635,14 @@ def _assemble_final_node(
             if host and built[host] not in parents:
                 parents = parents + [built[host]]
     parents = parents + arg_nodes
+    sides = side_groups(parents, origin)
+    if unplanned := set(sides) - set(plan.contributors):
+        raise ValueError(
+            f"[v4] FINAL merge joins {sorted(unplanned)}, which its join plan "
+            "never elected. This is a planner bug."
+        )
+    merge_plan = plan.over(sides)
+    logger.info(f"[v4] FINAL join plan: {merge_plan}")
     merge_inputs = unique(
         [c for c in outputs if c.address not in pseudonym_only]
         + arg_concepts
@@ -5708,6 +5685,7 @@ def _assemble_final_node(
         # not collapse the authored fan-out back to distinct key pairs.
         whole_grain=not final_contract.deduplicate_to_grain,
         host_stitch=True,
+        planned_keys=merge_plan.permitted_keys,
     )
     _clear_groupmate_completed_partials(merged, environment)
     # A hidden axis mate rides sides kept at their own finer row grain, and the
@@ -5742,6 +5720,70 @@ def _assemble_final_node(
         final_contract,
         environment,
     )
+
+
+def _at_declared_identity(
+    node: StrategyNode,
+    siblings: list[StrategyNode],
+    group: GroupAttrs,
+    identity: frozenset[str],
+    environment: BuildEnvironment,
+) -> StrategyNode:
+    """A row stream built off rows finer than the identity its group declares
+    (a filter of an item attribute sourced off the sale lines), deduplicated
+    to that identity when an independent sibling exposes the finer row key
+    too: the two would pair on the stream's row key, which no plan states. Its
+    outputs are functions of the identity, so nothing is lost."""
+    if (
+        group.derivation in GROUPING_DERIVATIONS
+        or group.derivation == Derivation.ROWSET
+        or group.extent_spans
+        or node_nulls_grouping_keys(node)
+    ):
+        return node
+    keys = identity - {ALL_ROWS_ADDRESS}
+    if not keys or not keys <= {o.address for o in node.usable_outputs}:
+        return node
+    closure = build_fd_closure(environment, keys, include_empty_grain=False)
+    finer = _resolved_grain(node) - closure
+    # a sibling the stream is built on, or built on it, holds the same rows
+    exposed = set().union(
+        *(
+            _visible_addresses(other)
+            for other in siblings
+            if other is not node
+            and not _derives_from(node, other)
+            and not _derives_from(other, node)
+        )
+    )
+    if not finer & exposed or not set(group.output_concepts) <= closure:
+        return node
+    kept = [o for o in node.usable_outputs if o.address in closure]
+    return GroupNode(
+        output_concepts=kept,
+        input_concepts=kept,
+        environment=environment,
+        parents=[node],
+        partial_concepts=[c for c in node.partial_concepts if c.address in closure],
+        preexisting_conditions=node.preexisting_conditions,
+        force_group=True,
+    )
+
+
+def _origin_group(node: StrategyNode, origin: dict[int, str]) -> str | None:
+    """The group `node` came from, looking through the single-parent wraps
+    assembly puts over a contributor."""
+    while id(node) not in origin and len(node.parents) == 1:
+        node = node.parents[0]
+    return origin.get(id(node))
+
+
+def side_groups(parents: list[StrategyNode], origin: dict[int, str]) -> list[str]:
+    """The group each of `parents` came from; a contributor split into several
+    wraps appears once per wrap."""
+    return [
+        gid for parent in parents if (gid := _origin_group(parent, origin)) is not None
+    ]
 
 
 def _first_row_marker(partition: list[BuildConcept]) -> BuildConcept:
@@ -6051,6 +6093,9 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
             for parent in parent_builds
         )
         parents = _apply_input_contracts(parent_builds, a, needed, environment)
+        origin = {id(node): pgid for pgid, node in built.items()} | {
+            id(build.node): build.group_id for build in parent_builds
+        }
         # A ROOT scan hosting a null-rejecting request atom emits exactly
         # the atom's population, so the merge may claim it. A grouping
         # parent applies the atom to its INPUT rows and its output claims
@@ -6111,6 +6156,8 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
                     group_graph=group_graph,
                     built=built,
                     preexisting_conditions=applied,
+                    attrs=attrs,
+                    origin=origin,
                 )
             outputs, named_arguments = _name_inline_arguments(
                 outputs, primary_addrs, domain_spans, environment
@@ -6136,6 +6183,8 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
             built=built,
             force_join_type=JoinType.INNER if filter_scan else None,
             preexisting_conditions=applied,
+            attrs=attrs,
+            origin=origin,
         )
     # ROOT scans source columns from datasources directly, not from their
     # group-graph predecessors. A `constraint`-edge predecessor (e.g. a
@@ -6556,7 +6605,7 @@ def _raise_if_output_unrendered(
     missing = [
         concept.address
         for concept in mandatory_list
-        if not any(_output_covers(o, concept) for o in final.output_concepts)
+        if not any(output_covers(o, concept) for o in final.output_concepts)
     ]
     if missing:
         raise UnresolvableQueryException(

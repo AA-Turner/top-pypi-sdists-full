@@ -92,3 +92,31 @@ def test_an_update_that_did_not_complete_reads_as_failed():
     assert service_calls.cycle_ok({"ok": False}) is False and service_calls.cycle_ok(None) is None
     assert "(failed)" in service_calls.update_text({"enabled": True, "last_check": 0,
                                                    "last_ok": service_calls.cycle_ok(last)})
+
+
+def test_start_refuses_while_an_uninstall_stopped_halfway_and_never_finishes_it(monkeypatch):
+    """`probe service start` is no installer: an uninstall that stopped halfway
+    is NOT finished from here (that would leave the CLI env this runs from on
+    disk, tracked by nothing). It says `probe uninstall` finishes it, starts
+    nothing, and exits 2; it names the finisher copy only once it exists."""
+    from typer.testing import CliRunner
+
+    from probe.cli import service_cli, uninstall
+    from probe.service import client
+
+    paths.private_dir(paths.uninstall_dir())
+    paths.uninstall_barrier_path().write_text(json.dumps(
+        {"v": 1, "pid": 999999999, "start": "1", "at": 0, "phase": "integrations", "plan": ""}))
+    monkeypatch.setattr(uninstall, "finish_interrupted", lambda: pytest.fail("only an installer finishes it"))
+    started = []
+    monkeypatch.setattr(client, "ensure", lambda **kw: started.append(kw) or client.Ensured.SPAWNED)
+    monkeypatch.setattr(service_cli, "record_runtime", lambda **kw: started.append("runtime"))
+    result = CliRunner().invoke(service_cli.service_app, ["start"])
+    assert result.exit_code == 2, result.output
+    assert ("an uninstall of Probe stopped at its 'integrations' step and must be finished first: "
+            "run `probe uninstall`" in result.output)
+    assert "finisher.py" not in result.output
+    assert not started and paths.uninstall_barrier_path().exists()
+    (paths.uninstall_dir() / uninstall.FINISHER_NAME).write_text("")  # from "finishing" on, it may be named
+    assert "finisher.py" in CliRunner().invoke(service_cli.service_app, ["start"]).output
+    assert not started

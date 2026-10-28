@@ -1042,8 +1042,26 @@ def test_multipart_ref_to_scalar_is_not_json_encoded(ctx, case_factory):
             {"doc": {"x": "1"}, "kind": "a"},
             [("doc", (None, b"<item><x>1</x></item>", "application/xml")), ("kind", (None, "a"))],
         ),
+        (
+            {"tags": {"$ref": "#/components/schemas/Tags"}},
+            {"tags": {"contentType": "application/xml"}},
+            {"tags": [{"n": 1}], "kind": "a"},
+            [("tags", (None, b"<tags><tag><n>1</n></tag></tags>", "application/xml")), ("kind", (None, "a"))],
+        ),
+        (
+            {"tags": {"type": "array", "items": {}}},
+            {},
+            {"tags": [1, "x"], "kind": "a"},
+            [("tags", (None, b'[1, "x"]', "application/json")), ("kind", (None, "a"))],
+        ),
+        (
+            {"tags": {"type": "array", "items": {"$ref": "#/components/schemas/Any"}}},
+            {},
+            {"tags": [1, "x"], "kind": "a"},
+            [("tags", (None, b'[1, "x"]', "application/json")), ("kind", (None, "a"))],
+        ),
     ],
-    ids=["file", "file-array", "object", "xml"],
+    ids=["file", "file-array", "object", "xml", "xml-array-of-refs", "untyped-items", "untyped-items-ref"],
 )
 @pytest.mark.parametrize("declared", ["inline", "ref"])
 def test_multipart_parts_of_body_behind_ref(ctx, declared, properties, encoding, body, expected):
@@ -1063,7 +1081,15 @@ def test_multipart_parts_of_body_behind_ref(ctx, declared, properties, encoding,
             },
             "responses": {"200": {"description": "OK"}},
         },
-        components={"schemas": {"Upload": upload, "Kind": {"type": "string", "enum": ["a"]}}},
+        components={
+            "schemas": {
+                "Upload": upload,
+                "Kind": {"type": "string", "enum": ["a"]},
+                "Any": {},
+                "Tags": {"type": "array", "xml": {"wrapped": True}, "items": {"$ref": "#/components/schemas/Tag"}},
+                "Tag": {"type": "object", "xml": {"name": "tag"}, "properties": {"n": {"type": "integer"}}},
+            }
+        },
     )
     case = operation.Case(body=body, media_type="multipart/form-data")
     assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == expected
@@ -1356,6 +1382,36 @@ def test_multipart_part_content_type(ctx, case_factory, load_kwargs, body, field
     )
     serialized = REQUESTS_TRANSPORT.serialize_case(case)
     assert _multipart_content_type(serialized, field) == expected
+
+
+@pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
+def test_multipart_binary_filename_behind_alias_body_ref(ctx, version):
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"multipart/form-data": {"schema": {"$ref": "#/components/schemas/Upload"}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        version=version,
+        components={
+            "schemas": {
+                "Meta": {"type": "string"},
+                "UploadBase": {
+                    "type": "object",
+                    "properties": {
+                        "file": {"type": "string", "format": "binary"},
+                        "meta": {"$ref": "#/components/schemas/Meta"},
+                    },
+                },
+                "Upload": {"$ref": "#/components/schemas/UploadBase"},
+            }
+        },
+    )
+    case = operation.Case(body={"file": b"abc"}, media_type="multipart/form-data")
+    assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == [("file", ("file", b"abc"))]
 
 
 @pytest.mark.parametrize(

@@ -5,10 +5,9 @@ Date: 2025/7/21 15:00
 Desc: 期货配置文件
 """
 
+from akshare.datasets import get_data_file
 import datetime
 import json
-import os
-import pickle
 import re
 
 
@@ -161,18 +160,6 @@ inventory_temp_headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36",
 }
-
-# 奇货可查
-QHKC_INDEX_URL = "https://www.qhkch.com/ajax/index_show.php"
-QHKC_INDEX_TREND_URL = "https://qhkch.com/ajax/indexes_trend.php"
-QHKC_INDEX_PROFIT_LOSS_URL = "https://qhkch.com/ajax/indexes_profit_loss.php"
-QHKC_FUND_BS_URL = "https://qhkch.com/ajax/fund_bs_pie.php"
-QHKC_FUND_POSITION_URL = "https://qhkch.com/ajax/fund_position_pie.php"
-QHKC_FUND_POSITION_CHANGE_URL = "https://qhkch.com/ajax/fund_position_chge_pie.php"
-QHKC_FUND_DEAL_URL = "https://qhkch.com/ajax/fund_deal_pie.php"
-QHKC_FUND_BIG_CHANGE_URL = "https://qhkch.com/ajax/fund_big_chge.php"
-QHKC_TOOL_FOREIGN_URL = "https://qhkch.com/ajax/toolbox_foreign.php"
-QHKC_TOOL_GDP_URL = "https://qhkch.com/dist/views/toolbox/gdp.html?v=1.10.7.1"
 
 # 键值对：键为交易所代码，值为具体合约代码
 market_exchange_symbols = {
@@ -547,31 +534,8 @@ def get_json_path(name, module_file):
     :param module_file: filename
     :return: str json_file_path
     """
-    module_folder = os.path.abspath(os.path.dirname(os.path.dirname(module_file)))
-    module_json_path = os.path.join(module_folder, "file_fold", name)
+    module_json_path = str(get_data_file(name))
     return module_json_path
-
-
-def get_pk_path(name, module_file):
-    """
-    获取 pickle 配置文件的路径（从模块所在目录查找）
-    :param name: 文件名
-    :param module_file: filename
-    :return: str json_file_path
-    """
-    module_folder = os.path.abspath(os.path.dirname(os.path.dirname(module_file)))
-    module_json_path = os.path.join(module_folder, "file_fold", name)
-    return module_json_path
-
-
-def get_pk_data(file_name):
-    """
-    获取交易日历至 2019 年结束，这里的交易日历需要按年更新
-    :return: json
-    """
-    setting_file_name = file_name
-    setting_file_path = get_pk_path(setting_file_name, __file__)
-    return pickle.load(open(setting_file_path, "rb"))
 
 
 def get_calendar():

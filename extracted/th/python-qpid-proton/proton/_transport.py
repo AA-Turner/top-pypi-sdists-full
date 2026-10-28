@@ -17,7 +17,10 @@
 # under the License.
 #
 
-from typing import Callable, Optional, Type, Union, TYPE_CHECKING, List
+from __future__ import annotations
+
+import weakref
+from typing import Callable, Optional, Union, TYPE_CHECKING
 
 from cproton import PN_EOS, PN_SASL_AUTH, PN_SASL_NONE, PN_SASL_OK, PN_SASL_PERM, PN_SASL_SYS, PN_SASL_TEMP, \
     PN_SSL_ANONYMOUS_PEER, PN_SSL_CERT_SUBJECT_CITY_OR_LOCALITY, PN_SSL_CERT_SUBJECT_COMMON_NAME, \
@@ -39,6 +42,7 @@ from cproton import PN_EOS, PN_SASL_AUTH, PN_SASL_NONE, PN_SASL_OK, PN_SASL_PERM
     pn_transport_get_user, pn_transport_is_authenticated, pn_transport_is_encrypted, pn_transport_log, \
     pn_transport_peek, pn_transport_pending, pn_transport_pop, pn_transport_push, pn_transport_remote_channel_max, \
     pn_transport_require_auth, pn_transport_require_encryption, pn_transport_set_channel_max, \
+    pn_transport_get_max_buffered_delivery_bytes, pn_transport_set_max_buffered_delivery_bytes, \
     pn_transport_set_idle_timeout, pn_transport_set_max_frame, pn_transport_set_pytracer, pn_transport_set_server, \
     pn_transport_tick, pn_transport_trace, pn_transport_unbind, \
     isnull
@@ -92,27 +96,32 @@ class Transport(Wrapper):
         else:
             return Transport(impl=impl)
 
+    constructor = pn_transport
+    get_context = pn_transport_attachments
+
+    def __new__(
+            cls,
+            mode: Optional[int] = None,
+            impl=None,
+    ) -> Transport:
+        return super().__new__(cls, impl)
+
     def __init__(
             self,
-            mode: 'Optional[int]' = None,
-            impl: 'Callable' = None,
+            mode: Optional[int] = None,
+            impl=None,
     ) -> None:
-        if impl is None:
-            Wrapper.__init__(self, constructor=pn_transport, get_context=pn_transport_attachments)
-        else:
-            Wrapper.__init__(self, impl, pn_transport_attachments)
         if mode == Transport.SERVER:
             pn_transport_set_server(self._impl)
         elif mode is None or mode == Transport.CLIENT:
             pass
         else:
             raise TransportException("Cannot initialise Transport from mode: %s" % str(mode))
-
-    def _init(self) -> None:
-        self._sasl = None
-        self._ssl = None
-        self._reactor = None
-        self._connect_selectable = None
+        if self.Uninitialized():
+            self._sasl = None
+            self._ssl = None
+            self._reactor = None
+            self._connect_selectable = None
 
     def _check(self, err: int) -> int:
         if err < 0:
@@ -215,7 +224,7 @@ class Transport(Wrapper):
         """
         return pn_transport_get_user(self._impl)
 
-    def bind(self, connection: 'Connection') -> None:
+    def bind(self, connection: Connection) -> None:
         """
         Assign a connection to the transport.
 
@@ -224,7 +233,7 @@ class Transport(Wrapper):
         """
         self._check(pn_transport_bind(self._impl, connection._impl))
 
-    def bind_nothrow(self, connection: 'Connection') -> None:
+    def bind_nothrow(self, connection: Connection) -> None:
         """
         Assign a connection to the transport. Any failure is
         ignored rather than thrown.
@@ -462,15 +471,17 @@ class Transport(Wrapper):
         """
         return pn_transport_get_frames_input(self._impl)
 
-    def sasl(self) -> 'SASL':
+    def sasl(self) -> SASL:
         """
         Get the :class:`SASL` object associated with this transport.
 
         :return: SASL object associated with this transport.
         """
-        return SASL(self)
+        if not self._sasl:
+            self._sasl = SASL(self)
+        return self._sasl
 
-    def ssl(self, domain: Optional['SSLDomain'] = None, session_details: Optional['SSLSessionDetails'] = None) -> 'SSL':
+    def ssl(self, domain: Optional['SSLDomain'] = None, session_details: Optional['SSLSessionDetails'] = None) -> SSL:
         """
         Get the :class:`SSL` session associated with this transport. If
         not set, then a new session will be created using ``domain`` and
@@ -497,12 +508,27 @@ class Transport(Wrapper):
         return cond2obj(pn_transport_condition(self._impl))
 
     @condition.setter
-    def condition(self, cond: 'Condition') -> None:
+    def condition(self, cond: Condition) -> None:
         pn_cond = pn_transport_condition(self._impl)
         obj2cond(cond, pn_cond)
 
     @property
-    def connection(self) -> 'Connection':
+    def max_buffered_delivery_bytes(self) -> int:
+        """The limit on total unread delivery-buffer bytes for this transport (in bytes).
+
+        When the total unread bytes buffered across all incoming deliveries on the
+        connection reaches this limit, the connection is closed with an
+        ``amqp:resource-limit-exceeded`` error.  A value of ``0`` removes the
+        limit entirely.  The default is 4 MiB.
+        """
+        return pn_transport_get_max_buffered_delivery_bytes(self._impl)
+
+    @max_buffered_delivery_bytes.setter
+    def max_buffered_delivery_bytes(self, limit: int) -> None:
+        pn_transport_set_max_buffered_delivery_bytes(self._impl, limit)
+
+    @property
+    def connection(self) -> Connection:
         """The connection bound to this transport."""
         from . import _endpoints
         return _endpoints.Connection.wrap(pn_transport_connection(self._impl))
@@ -512,7 +538,7 @@ class SASLException(TransportException):
     pass
 
 
-class SASL(Wrapper):
+class SASL:
     """
     The SASL layer is responsible for establishing an authenticated
     and/or encrypted tunnel over which AMQP frames are passed between
@@ -542,9 +568,23 @@ class SASL(Wrapper):
         """
         return pn_sasl_extended()
 
-    def __init__(self, transport: Transport) -> None:
-        Wrapper.__init__(self, transport._impl, pn_transport_attachments)
-        self._sasl = pn_sasl(transport._impl)
+    def __new__(cls, transport: Transport) -> SASL:
+        if not transport._sasl:
+            sasl = super().__new__(cls)
+            sasl._sasl = pn_sasl(transport._impl)
+            sasl._transport = weakref.ref(transport)
+            transport._sasl = sasl
+            return sasl
+        else:
+            return transport._sasl
+
+    def _check_alive(self) -> None:
+        """Check that the parent Transport is still alive.
+
+        :raise: :exc:`SASLException` if the Transport has been destroyed.
+        """
+        if self._transport() is None:
+            raise SASLException("Cannot access SASL object - parent Transport has been destroyed")
 
     def _check(self, err):
         if err < 0:
@@ -569,6 +609,7 @@ class SASL(Wrapper):
                 * Otherwise a string containing the user is
                   returned.
         """
+        self._check_alive()
         return pn_sasl_get_user(self._sasl)
 
     @property
@@ -594,6 +635,7 @@ class SASL(Wrapper):
                 * Otherwise a string containing the user is
                   returned.
         """
+        self._check_alive()
         return pn_sasl_get_authorization(self._sasl)
 
     @property
@@ -606,6 +648,7 @@ class SASL(Wrapper):
 
         :rtype: The authentication mechanism selected by the SASL layer.
         """
+        self._check_alive()
         return pn_sasl_get_mech(self._sasl)
 
     @property
@@ -616,13 +659,14 @@ class SASL(Wrapper):
         :rtype: * ``None`` if no negotiation has taken place.
                 * Otherwise the outcome of the negotiation.
         """
+        self._check_alive()
         outcome = pn_sasl_outcome(self._sasl)
         if outcome == PN_SASL_NONE:
             return None
         else:
             return outcome
 
-    def allowed_mechs(self, mechs: Union[str, List[str]]) -> None:
+    def allowed_mechs(self, mechs: Union[str, list[str]]) -> None:
         """
         SASL mechanisms that are to be considered for authentication.
 
@@ -645,6 +689,7 @@ class SASL(Wrapper):
                       ``"mech1 mech2 ..."``, or a Python list of strings
                       ``["mech1", "mech2", ...]``.
         """
+        self._check_alive()
         if isinstance(mechs, list):
             mechs = " ".join(mechs)
         pn_sasl_allowed_mechs(self._sasl, mechs)
@@ -652,10 +697,12 @@ class SASL(Wrapper):
     @property
     def allow_insecure_mechs(self) -> bool:
         """Allow unencrypted cleartext passwords (PLAIN mech)"""
+        self._check_alive()
         return pn_sasl_get_allow_insecure_mechs(self._sasl)
 
     @allow_insecure_mechs.setter
     def allow_insecure_mechs(self, insecure: bool) -> None:
+        self._check_alive()
         pn_sasl_set_allow_insecure_mechs(self._sasl, insecure)
 
     def done(self, outcome):
@@ -663,6 +710,7 @@ class SASL(Wrapper):
         Set the outcome of SASL negotiation. Used by the server to set the
         result of the negotiation process.
         """
+        self._check_alive()
         pn_sasl_done(self._sasl, outcome)
 
     def config_name(self, name: str):
@@ -677,6 +725,7 @@ class SASL(Wrapper):
 
         :param name: The configuration name.
         """
+        self._check_alive()
         pn_sasl_config_name(self._sasl, name)
 
     def config_path(self, path: str):
@@ -694,10 +743,11 @@ class SASL(Wrapper):
         :param path: The configuration path, may contain colon-separated list
                      if more than one path is specified.
         """
+        self._check_alive()
         pn_sasl_config_path(self._sasl, path)
 
 
-class SSLDomain(object):
+class SSLDomain:
     """
     An SSL configuration domain, used to hold the SSL configuration
     for one or more SSL sessions.
@@ -827,7 +877,7 @@ class SSLDomain(object):
         pn_ssl_domain_free(self._domain)
 
 
-class SSL(object):
+class SSL:
     """
     An SSL session associated with a transport. A transport must have
     an SSL object in order to "speak" SSL over its connection.
@@ -849,12 +899,20 @@ class SSL(object):
         else:
             return err
 
+    def _check_alive(self) -> None:
+        """Check that the parent Transport is still alive.
+
+        :raise: :exc:`SSLException` if the Transport has been destroyed.
+        """
+        if self._transport() is None:
+            raise SSLException("Cannot access SSL object - parent Transport has been destroyed")
+
     def __new__(
-            cls: Type['SSL'],
+            cls: type['SSL'],
             transport: Transport,
             domain: SSLDomain,
             session_details: Optional['SSLSessionDetails'] = None
-    ) -> 'SSL':
+    ) -> SSL:
         """Enforce a singleton SSL object per Transport"""
         if transport._ssl:
             # unfortunately, we've combined the allocation and the configuration in a
@@ -866,7 +924,7 @@ class SSL(object):
             if different_domain or different_session_details:
                 raise SSLException("Cannot re-configure existing SSL object!")
         else:
-            obj = super(SSL, cls).__new__(cls)
+            obj = super().__new__(cls)
             obj._domain = domain
             obj._session_details = session_details
             session_id = None
@@ -877,6 +935,7 @@ class SSL(object):
                 raise SSLUnavailable()
             if domain:
                 pn_ssl_init(obj._ssl, domain._domain, session_id)
+            obj._transport = weakref.ref(transport)
             transport._ssl = obj
         return transport._ssl
 
@@ -892,6 +951,7 @@ class SSL(object):
 
         :return: The cypher name, or ``None`` if no cipher in use.
         """
+        self._check_alive()
         return pn_ssl_get_cipher_name(self._ssl, 128)
 
     def protocol_name(self) -> Optional[str]:
@@ -906,6 +966,7 @@ class SSL(object):
         :return: The protocol name if SSL is active, or ``None`` if SSL connection
                  is not ready or active.
         """
+        self._check_alive()
         return pn_ssl_get_protocol_name(self._ssl, 128)
 
     SHA1 = PN_SSL_SHA1
@@ -956,6 +1017,7 @@ class SSL(object):
         :return: A string which contains the requested sub field value which
                  is valid until the ssl object is destroyed.
         """
+        self._check_alive()
         subfield_value = pn_ssl_get_remote_subject_subfield(self._ssl, subfield_name)
         return subfield_value
 
@@ -965,6 +1027,7 @@ class SSL(object):
 
         :return: A string containing the full subject.
         """
+        self._check_alive()
         subject = pn_ssl_get_remote_subject(self._ssl)
         return subject
 
@@ -1043,6 +1106,7 @@ class SSL(object):
                             :const:`SHA256`, :const:`SHA512`,  :const:`MD5`.
         :return: Hex fingerprint in a string, or ``None`` if an error occurred.
         """
+        self._check_alive()
         return pn_ssl_get_cert_fingerprint(self._ssl, fingerprint_length, digest_name)
 
     # Convenience functions for obtaining fingerprint for specific hashing algorithms
@@ -1092,6 +1156,7 @@ class SSL(object):
         """
         The subject from the peers certificate.
         """
+        self._check_alive()
         return pn_ssl_get_remote_subject(self._ssl)
 
     RESUME_UNKNOWN = PN_SSL_RESUME_UNKNOWN
@@ -1121,6 +1186,7 @@ class SSL(object):
                  * :const:`RESUME_NEW`
                  * :const:`RESUME_REUSED`
         """
+        self._check_alive()
         return pn_ssl_resume_status(self._ssl)
 
     @property
@@ -1140,16 +1206,18 @@ class SSL(object):
         .. note:: Verification of the hostname is only done if
             :const:`SSLDomain.VERIFY_PEER_NAME` is set using
             :meth:`SSLDomain.set_peer_authentication`."""
+        self._check_alive()
         err, name = pn_ssl_get_peer_hostname(self._ssl, 1024)
         self._check(err)
         return name
 
     @peer_hostname.setter
     def peer_hostname(self, hostname: Optional[str]) -> None:
+        self._check_alive()
         self._check(pn_ssl_set_peer_hostname(self._ssl, hostname))
 
 
-class SSLSessionDetails(object):
+class SSLSessionDetails:
     """
     Unique identifier for the SSL session.  Used to resume previous
     session on a new SSL connection.

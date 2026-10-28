@@ -42,7 +42,26 @@ def delegate_manager(method):
     @functools.wraps(method)
     def wrapped(self, *args, **kwargs):
         if self._base_manager:
-            return getattr(self._base_manager, method.__name__)(*args, **kwargs)
+            manager = self._base_manager
+            if self._db:
+                manager = manager.db_manager(self._db)
+            return getattr(manager, method.__name__)(*args, **kwargs)
+        return method(self, *args, **kwargs)
+
+    return wrapped
+
+
+def unfiltered_manager(method):
+    """
+    Run tree writes on a manager which sees every row, even if this manager
+    filters its ``get_queryset()``.
+    """
+
+    @functools.wraps(method)
+    def wrapped(self, *args, **kwargs):
+        manager = self._unfiltered()
+        if manager is not self:
+            return getattr(manager, method.__name__)(*args, **kwargs)
         return method(self, *args, **kwargs)
 
     return wrapped
@@ -59,17 +78,28 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
         if not model._meta.abstract:
             self.tree_model = _get_tree_model(model)
 
+            self._unfiltered_manager = None
+            if type(self).get_queryset is not TreeManager.get_queryset:
+                # A custom get_queryset() may filter rows, but tree writes
+                # need to see all of them (#853). Use a plain tree manager
+                # bound to the same model for those.
+                self._unfiltered_manager = TreeManager()
+                self._unfiltered_manager.model = model
+                self._unfiltered_manager.name = name
+                self._unfiltered_manager.tree_model = self.tree_model
+                self._unfiltered_manager._base_manager = None
+                self._unfiltered_manager._unfiltered_manager = None
+
             self._base_manager = None
-            if (
-                self.tree_model
-                and self.tree_model is not model
-                and not model._meta.proxy
-            ):
-                # _base_manager is the treemanager on tree_model (MTI only).
-                # Proxy models share the same DB table so they don't need
-                # delegation; keeping _base_manager None lets their own
-                # queryset be used, which returns instances of the proxy class.
-                self._base_manager = self.tree_model._tree_manager
+            if self.tree_model and self.tree_model is not model:
+                if model._meta.concrete_model is self.tree_model:
+                    # Proxies use the unfiltered manager for reads too, as
+                    # they did up to 0.18 by delegating to the concrete
+                    # model, but still return proxy instances (#802).
+                    self._base_manager = self._unfiltered_manager
+                else:
+                    # _base_manager is the treemanager on tree_model (MTI)
+                    self._base_manager = self.tree_model._tree_manager
 
     def get_queryset(self, *args, **kwargs):
         """
@@ -401,7 +431,7 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
             qs = self
         return qs.filter(**self._translate_lookups(**filters))
 
-    @delegate_manager
+    @unfiltered_manager
     def _mptt_update(self, qs=None, **items):
         """
         Like ``self.update()``, but translates name-agnostic MPTT fields.
@@ -409,6 +439,19 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
         if qs is None:
             qs = self
         return qs.update(**self._translate_lookups(**items))
+
+    def _unfiltered(self):
+        """
+        Returns the manager tree writes should use: one which sees every row
+        of the tree, regardless of filters in a custom ``get_queryset()``.
+        """
+        if self._base_manager:
+            manager = self._base_manager._unfiltered()
+        else:
+            manager = self._unfiltered_manager or self
+        if self._db and manager is not self:
+            manager = manager.db_manager(self._db)
+        return manager
 
     def _get_connection(self, **hints):
         if self._db:
@@ -479,7 +522,7 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
         )
         return queryset.annotate(**{count_attr: SQCount(subquery)})
 
-    @delegate_manager
+    @unfiltered_manager
     def insert_node(
         self,
         node,
@@ -568,7 +611,7 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
             node.save()
         return node
 
-    @delegate_manager
+    @unfiltered_manager
     def _move_node(
         self, node, target, position="last-child", save=True, refresh_target=True
     ):
@@ -687,7 +730,7 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
             children[getattr(child, opts.parent_attr).pk].append(child)
         return children
 
-    @delegate_manager
+    @unfiltered_manager
     def rebuild(self, batch_size=1000, **filters) -> None:
         """
         Rebuilds all trees in the database table using `parent` link.
@@ -737,7 +780,7 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
 
         return right + 1
 
-    @delegate_manager
+    @unfiltered_manager
     def partial_rebuild(self, tree_id, batch_size=1000, **filters):
         """
         Partially rebuilds a tree i.e. It rebuilds only the tree with given
@@ -755,7 +798,7 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
                 " do a full rebuild." % tree_id
             )
 
-    @delegate_manager
+    @unfiltered_manager
     def build_tree_nodes(self, data, target=None, position="last-child"):
         """
         Load a tree from a nested dictionary for bulk insert, returning an
@@ -886,6 +929,7 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
         """
         self._manage_space(size, target, tree_id)
 
+    @unfiltered_manager
     def _create_tree_space(self, target_tree_id, num_trees=1):
         """
         Creates space for a new tree by incrementing all tree ids
@@ -895,6 +939,7 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
         self._mptt_update(qs, tree_id=F(self.tree_id_attr) + num_trees)
         self.tree_model._mptt_track_tree_insertions(target_tree_id + 1, num_trees)
 
+    @unfiltered_manager
     def _get_next_tree_id(self):
         """
         Determines the next largest unused tree id for the tree managed

@@ -13,12 +13,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from matrx_ai.catalog.errors import CatalogRoutingError
 from matrx_ai.providers.errors import RetryableError
 
 MODEL_NOT_ON_DEVICE = "model_not_on_device"
 DEVICE_ROUTE_MOVE_REFUSED = "device_route_move_refused"
 DEVICE_TRANSPORT_NOT_BUILT = "device_transport_not_built"
 DEVICE_PIN_UNSUPPORTED = "device_pin_unsupported"
+DEVICE_NOT_CHOSEN = "device_not_chosen"
 # The transport's types (providers/device/relay_transport.py, classified by classify.py).
 DEVICE_OFFLINE = "device_offline"
 DEVICE_TIMEOUT = "device_timeout"
@@ -48,6 +50,7 @@ DEVICE_ERROR_TYPES: frozenset[str] = frozenset(
         DEVICE_ROUTE_MOVE_REFUSED,
         DEVICE_TRANSPORT_NOT_BUILT,
         DEVICE_PIN_UNSUPPORTED,
+        DEVICE_NOT_CHOSEN,
     }
 )
 
@@ -129,6 +132,21 @@ class DevicePinUnsupportedError(DeviceRouteError):
 
     error_type = DEVICE_PIN_UNSUPPORTED
     http_status = 400
+
+
+#: What a person reads when a model that runs only on a computer was asked for with no computer
+#: (the chat's DEVICE_FAILURES line says the same; a notice card's line is at most 40 characters).
+DEVICE_NOT_CHOSEN_USER_MESSAGE = "Pick this model under Your computers."
+
+
+class DeviceNotChosenError(DeviceRouteError, CatalogRoutingError):
+    """A model that runs only on a person's own computer was asked for without ``served_via``:
+    nothing names the computer, so nothing is sent (never DeviceChat, never a cloud guess).
+    Raised by ``resolve_call_profile``; still a :class:`CatalogRoutingError` for its callers."""
+
+    error_type = DEVICE_NOT_CHOSEN
+    http_status = 409
+    is_caller_refusal = True
 
 
 class DeviceOfflineError(DeviceRouteError):
@@ -229,7 +247,10 @@ __all__ = [
     "ModelBusyError",
     "ModelNotRunningError",
     "DEVICE_ERROR_TYPES",
+    "DEVICE_NOT_CHOSEN",
+    "DEVICE_NOT_CHOSEN_USER_MESSAGE",
     "DEVICE_PIN_UNSUPPORTED",
+    "DeviceNotChosenError",
     "DEVICE_ROUTE_MOVE_REFUSED",
     "DEVICE_TRANSPORT_NOT_BUILT",
     "MODEL_NOT_ON_DEVICE",

@@ -2,7 +2,7 @@ use crate::rule_config_serde::RuleConfig;
 use crate::types::LineLength;
 use serde::{Deserialize, Serialize};
 
-pub use crate::utils::text_reflow::CjkSoftBreak;
+pub use crate::utils::text_reflow::{CjkSoftBreak, LinkTextPunctuation};
 
 /// Reflow mode for MD013
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
@@ -22,7 +22,7 @@ pub enum ReflowMode {
     /// Semantic line breaks - cascading strategy:
     /// 1. Sentence boundaries (always)
     /// 2. Clause punctuation (when line > line-length)
-    /// 3. English break-words (when line still > line-length)
+    /// 3. Built-in and configured break words (when line still > line-length)
     /// 4. Word wrap (fallback)
     #[serde(alias = "semantic_line_breaks")]
     SemanticLineBreaks,
@@ -178,6 +178,15 @@ pub struct MD013Config {
     #[serde(default)]
     pub abbreviations: Vec<String>,
 
+    /// Consider terminal link-label/image-alt punctuation as a sentence end.
+    #[serde(default, alias = "link_text_punctuation")]
+    pub link_text_punctuation: LinkTextPunctuation,
+
+    /// Additional semantic break words, matched case-insensitively as whole words.
+    /// These extend the built-in English list in semantic-line-breaks mode.
+    #[serde(default, alias = "break_words")]
+    pub break_words: Vec<String>,
+
     /// Whether to require uppercase after periods for sentence detection (default: true).
     /// When true, "word. Capital" and "word. 2nd" are sentence boundaries and
     /// "word. lowercase" is not: a digit opens a sentence, a lowercase letter continues one.
@@ -318,6 +327,8 @@ impl Default for MD013Config {
             reflow_mode: ReflowMode::default(),
             length_mode: LengthMode::default(),
             abbreviations: Vec::new(),
+            link_text_punctuation: LinkTextPunctuation::default(),
+            break_words: Vec::new(),
             require_sentence_capital: default_require_sentence_capital(),
             atomic_spans: default_atomic_spans(),
             reflow_break_link_text: false,
@@ -426,7 +437,7 @@ impl MD013Config {
 
     /// Build a `ReflowOptions` from this configuration.
     ///
-    /// Converts `reflow_mode`, `length_mode`, `abbreviations`, and `line_length`
+    /// Converts reflow modes, widths, abbreviations and additional break words
     /// into the unified `ReflowOptions` type used by the reflow engine.
     pub fn to_reflow_options(&self) -> crate::utils::text_reflow::ReflowOptions {
         crate::utils::text_reflow::ReflowOptions {
@@ -438,10 +449,12 @@ impl MD013Config {
             first_line_length: None,
             semantic_line_breaks: self.reflow_mode == ReflowMode::SemanticLineBreaks,
             abbreviations: self.abbreviations_for_reflow(),
+            break_words: self.break_words.clone(),
             length_mode: self.reflow_length_mode(),
             attr_lists: false,
             myst_roles: false,
             require_sentence_capital: self.require_sentence_capital,
+            link_text_punctuation: self.link_text_punctuation,
             max_list_continuation_indent: None,
             // No document context here (config-only), so shortcut references
             // stay atomic. The rule's fix path supplies the defined labels.

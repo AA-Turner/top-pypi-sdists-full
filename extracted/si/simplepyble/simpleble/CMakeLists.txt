@@ -31,6 +31,7 @@ set(SIMPLEBLE_PRIVATE_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/external
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/common
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator
     ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/safe
     ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/external
     ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal/include)
@@ -51,6 +52,22 @@ set(SIMPLEBLE_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/common/ServiceBase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/common/CharacteristicBase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/common/DescriptorBase.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/AdapterSimulator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/BackendSimulator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/LocalPeripheralSimulator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/PeripheralSimulator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/SimulationAdapter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/SimulationConnection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/SimulationDevice.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/SimulationEnvironment.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/SimulationLink.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/core/ConnectionCore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/core/DeviceCore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/core/EnvironmentCore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/core/Pdu.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/simulator/core/SimulatorUtils.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Config.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Error.cpp
@@ -82,6 +99,8 @@ set_target_properties(simpleble PROPERTIES
     DEBUG_POSTFIX "-debug")
 
 if(MSVC)
+    # fmt requires UTF-8 for all backends, including PLAIN.
+    target_compile_options(simpleble PRIVATE "/utf-8")
     # Avoid <experimental/coroutine> being triggered by winrt/base.h, which fails for MSVC 19.51+.
     set_target_properties(simpleble PROPERTIES CXX_STANDARD 20)
 endif()
@@ -193,8 +212,7 @@ if(SIMPLEBLE_PLAIN)
     message(STATUS "Plain Flavor Requested")
 
     target_sources(simpleble PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/plain/AdapterPlain.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/plain/PeripheralPlain.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/plain/AdvancedPlain.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/plain/BackendPlain.cpp)
 elseif(SIMPLEBLE_BACKEND_LINUX)
     message(STATUS "Linux Host Detected")
@@ -294,8 +312,6 @@ elseif(SIMPLEBLE_BACKEND_WINDOWS)
         # /D_USE_MATH_DEFINES -> Specifies that the math.h header file should be included.
         list(APPEND PRIVATE_COMPILE_DEFINITIONS "/D_USE_MATH_DEFINES")
 
-        # /utf-8 -> Set source and executable character sets to utf-8. https://learn.microsoft.com/en-us/cpp/build/reference/utf-8-set-source-and-executable-character-sets-to-utf-8
-        list(APPEND PRIVATE_COMPILE_OPTIONS "/utf-8")
         # /Gd -> Use __cdecl as the default calling convention. https://docs.microsoft.com/en-us/cpp/cpp/cdecl
         list(APPEND PRIVATE_COMPILE_OPTIONS "/Gd")
         # /EHsc -> Use the standard C++ exception handling model. https://learn.microsoft.com/en-us/cpp/build/reference/eh-exception-handling-model
@@ -471,7 +487,12 @@ if(SIMPLEBLE_TEST)
         ${CMAKE_CURRENT_SOURCE_DIR}/test/src/main.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_utils.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_bytearray.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_buffer_overflow.cpp)
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_buffer_overflow.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_scheduler.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_simulation.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_threadrunner.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_plain.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_peripheral_dongl.cpp)
     set_target_properties(simpleble_test PROPERTIES
         CXX_VISIBILITY_PRESET hidden
         VISIBILITY_INLINES_HIDDEN YES
@@ -481,6 +502,8 @@ if(SIMPLEBLE_TEST)
 
     target_include_directories(simpleble_test PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/external
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/common
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl
         ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal/include)
 

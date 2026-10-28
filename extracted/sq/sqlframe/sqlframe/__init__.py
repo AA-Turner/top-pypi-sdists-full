@@ -16,6 +16,7 @@ if t.TYPE_CHECKING:
 
 ENGINE_TO_PREFIX = {
     "bigquery": "BigQuery",
+    "clickhouse": "ClickHouse",
     "duckdb": "DuckDB",
     "postgres": "Postgres",
     "redshift": "Redshift",
@@ -23,6 +24,7 @@ ENGINE_TO_PREFIX = {
     "spark": "Spark",
     "databricks": "Databricks",
     "standalone": "Standalone",
+    "trino": "Trino",
 }
 
 NAME_TO_FILE_OVERRIDE = {

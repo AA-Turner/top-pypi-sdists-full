@@ -593,14 +593,7 @@ class AsyncClient:
         revision_id: Optional[ls_client.ID_TYPE] = None,
         **kwargs: Any,
     ) -> None:
-        """Create a run.
-
-        !!! warning "Experimental"
-            `address` sends the run to an address instead of a project. It is
-            in beta and enabled per workspace; a workspace without it rejects
-            the run, so the trace is lost rather than falling back to a
-            project. It may change without notice.
-        """
+        """Create a run."""
         if kwargs.get("address") is not None:
             kwargs["address"] = _addressing.check_address(kwargs["address"])
         # Only `project_name`, this method's own parameter, counts as a caller
@@ -641,12 +634,6 @@ class AsyncClient:
         Args:
             run_id: The run to update.
             **kwargs: The fields to update, and `address`.
-
-                !!! warning "Experimental"
-                    `address` is in beta. It sends the patch to an address,
-                    and must match the post it belongs to: an update that
-                    names none is resolved by run id, as every update was
-                    before. It may change without notice.
         """
         data = {**kwargs, "id": ls_client._as_uuid(run_id)}
         _addressing.apply_to_payload(data, update=True)
@@ -1101,10 +1088,27 @@ class AsyncClient:
         *,
         dataset_id: Optional[ls_client.ID_TYPE] = None,
         dataset_name: Optional[str] = None,
+        select: Optional[Sequence[str]] = None,
+        exclude_default_fields: bool = False,
         **kwargs: Any,
     ) -> AsyncIterator[ls_schemas.Example]:
-        """List examples."""
+        """List examples.
+
+        Args:
+            dataset_id: The ID of the dataset to filter by.
+            dataset_name: The name of the dataset to filter by.
+            select: Fields to include in each example, such as "id" or "outputs".
+            exclude_default_fields: Return only the fields in ``select``, plus
+                ``id``. Other default fields (``created_at``, ``modified_at``,
+                ``inputs``, ``name``, ``dataset_id``) are absent unless selected.
+                Select ``dataset_id`` if you need ``Example.url``.
+            **kwargs: Additional query parameters.
+        """
         params = kwargs.copy()
+        if select:
+            params["select"] = [select] if isinstance(select, str) else list(select)
+        if exclude_default_fields:
+            params["exclude_default_fields"] = True
         if dataset_id:
             params["dataset"] = ls_client._as_uuid(dataset_id)
         elif dataset_name:
@@ -1143,12 +1147,9 @@ class AsyncClient:
     ) -> ls_schemas.Feedback:
         """Create feedback for a run.
 
-        !!! warning "Experimental"
-            `address` is in beta. It is enabled per workspace; a
-            workspace without it rejects the feedback, so it is lost rather
-            than falling back to a project. The address must already exist --
-            unlike run ingestion, a feedback part never creates one. It may
-            change without notice.
+        !!! note "Addressed feedback"
+            The `address` must already exist -- unlike run ingestion, a feedback
+            part never creates one.
 
         Args:
             run_id: The ID of the run to provide feedback for. At least one of

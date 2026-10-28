@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import struct
+from collections.abc import Callable
 from enum import Enum
 
 from fit_tool.base_type import BaseType
@@ -48,6 +49,9 @@ class Field:
         self.ref_field_map = ref_field_map
         self.array_type = array_type
         self.array_fixed_length = array_fixed_length
+        # Set by Record.bind_mutation_hooks so authoring edits mark the owning
+        # record dirty for post-edit PRESERVATION.
+        self.on_change: Callable[[], None] | None = None
 
         self.encoded_values = [None for _ in range(Field.get_length_from_size(base_type, size))]
 
@@ -82,93 +86,52 @@ class Field:
 
         return None
 
-    def get_name(self, sub_field: SubField = None, sub_field_name: str = None, sub_field_index: int = None) -> str:
-        if sub_field:
-            sb = sub_field
-        elif sub_field_name is not None:
-            sb = self.get_sub_field(name=sub_field_name)
-        elif sub_field_index is not None:
-            sb = self.get_sub_field(index=sub_field_index)
-        else:
-            sb = None
+    def _select_sub_field(
+            self,
+            sub_field: SubField = None,
+            sub_field_name: str = None,
+            sub_field_index: int = None,
+    ) -> SubField | None:
+        """Resolve the caller-supplied subfield reference, if any."""
+        if sub_field is not None:
+            return sub_field
+        if sub_field_name is not None:
+            return self.get_sub_field(name=sub_field_name)
+        if sub_field_index is not None:
+            return self.get_sub_field(index=sub_field_index)
+        return None
 
-        if sb:
-            return sb.name
-        else:
-            return self.name
+    def get_name(self, sub_field: SubField = None, sub_field_name: str = None, sub_field_index: int = None) -> str:
+        selected = self._select_sub_field(sub_field, sub_field_name, sub_field_index)
+        return selected.name if selected else self.name
 
     def get_units(self, sub_field: SubField = None, sub_field_name: str = None, sub_field_index: int = None) -> str:
-        if sub_field:
-            sb = sub_field
-        elif sub_field_name is not None:
-            sb = self.get_sub_field(name=sub_field_name)
-        elif sub_field_index is not None:
-            sb = self.get_sub_field(index=sub_field_index)
-        else:
-            sb = None
-
-        if sb:
-            return sb.units
-        else:
-            return self.units
+        selected = self._select_sub_field(sub_field, sub_field_name, sub_field_index)
+        return selected.units if selected else self.units
 
     def get_base_type(self, sub_field: SubField = None, sub_field_name: str = None,
                       sub_field_index: int = None) -> BaseType:
-        if sub_field:
-            sb = sub_field
-        elif sub_field_name is not None:
-            sb = self.get_sub_field(name=sub_field_name)
-        elif sub_field_index is not None:
-            sb = self.get_sub_field(index=sub_field_index)
-        else:
-            sb = None
-
-        if sb:
-            return sb.base_type
-        else:
-            return self.base_type
+        selected = self._select_sub_field(sub_field, sub_field_name, sub_field_index)
+        return selected.base_type if selected else self.base_type
 
     def get_offset(self, sub_field: SubField = None, sub_field_name: str = None, sub_field_index: int = None) -> \
             float | None:
-        if sub_field:
-            sb = sub_field
-        elif sub_field_name is not None:
-            sb = self.get_sub_field(name=sub_field_name)
-        elif sub_field_index is not None:
-            sb = self.get_sub_field(index=sub_field_index)
-        else:
-            sb = None
-
-        if sb:
-            return sb.offset
-        else:
-            return self.offset
+        selected = self._select_sub_field(sub_field, sub_field_name, sub_field_index)
+        return selected.offset if selected else self.offset
 
     def get_scale(self, sub_field: SubField = None, sub_field_name: str = None, sub_field_index: int = None) -> \
             float | None:
-        if sub_field:
-            sb = sub_field
-        elif sub_field_name is not None:
-            sb = self.get_sub_field(name=sub_field_name)
-        elif sub_field_index is not None:
-            sb = self.get_sub_field(index=sub_field_index)
-        else:
-            sb = None
-
-        if sb:
-            return sb.scale
-        else:
-            return self.scale
+        selected = self._select_sub_field(sub_field, sub_field_name, sub_field_index)
+        return selected.scale if selected else self.scale
 
     def clear(self):
         self.size = 0
         self.encoded_values = []
         # Generated property setters assign None via clear() rather than
-        # set_encoded_value(); still mark the owning Record dirty so
-        # preserve=True re-encodes instead of replaying stale source_bytes.
-        dirty_host = getattr(self, '_dirty_host', None)
-        if dirty_host is not None:
-            dirty_host()
+        # set_encoded_value(); still notify the owning Record so preserve=True
+        # re-encodes instead of replaying stale source_bytes.
+        if self.on_change is not None:
+            self.on_change()
 
     def is_valid(self) -> bool:
         return self.size != 0
@@ -263,10 +226,8 @@ class Field:
 
         # API mutations (check_validity=True) notify the owning Record for
         # post-edit PRESERVATION dirty tracking. Decode uses check_validity=False.
-        if check_validity:
-            dirty_host = getattr(self, '_dirty_host', None)
-            if dirty_host is not None:
-                dirty_host()
+        if check_validity and self.on_change is not None:
+            self.on_change()
 
     def encode_value(self, value, sub_field: SubField = None):
         if isinstance(value, str):
@@ -350,9 +311,9 @@ class Field:
 
     def get_encoded_value_from_bytes(self, bytes_buffer: bytes, offset: int = 0, endian: Endian = Endian.LITTLE):
         if self.base_type == BaseType.STRING:
-            length = len(bytes_buffer) - 1 - offset
-            value, = struct.unpack_from(f'{length}s', bytes_buffer, offset)
-            return value.decode('utf-8')
+            end = offset + self.size if self.size else len(bytes_buffer)
+            raw = bytes_buffer[offset:end]
+            return raw.split(b'\x00', 1)[0].decode('utf-8')
 
         endian_symbol = '<' if endian == Endian.LITTLE else '>'
 

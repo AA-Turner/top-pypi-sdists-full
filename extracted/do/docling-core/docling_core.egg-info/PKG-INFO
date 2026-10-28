@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-core
-Version: 2.104.0
+Version: 2.105.0
 Summary: A python library to define and validate data types in Docling.
 Author-email: Cesar Berrospi Ramis <ceb@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 Maintainer-email: Panos Vagenas <pva@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>, Cesar Berrospi Ramis <ceb@zurich.ibm.com>
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: <4.0,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -36,7 +37,7 @@ Requires-Dist: pandas<4.0.0,>=2.1.4
 Requires-Dist: pillow<14.0.0,>=10.0.0
 Requires-Dist: pyyaml<7.0.0,>=5.1
 Requires-Dist: typing-extensions<5.0.0,>=4.12.2
-Requires-Dist: typer<0.27.0,>=0.12.5
+Requires-Dist: typer<0.28.0,>=0.12.5
 Requires-Dist: latex2mathml<4.0.0,>=3.77.0
 Requires-Dist: defusedxml<0.8.0,>=0.7.1
 Requires-Dist: pydantic-settings>=2.14.0
@@ -44,8 +45,7 @@ Requires-Dist: doclang<0.9,>=0.8
 Requires-Dist: requests<3.0.0,>=2.34.2
 Provides-Extra: dclq
 Requires-Dist: doclang<0.9,>=0.8; extra == "dclq"
-Requires-Dist: typer<0.25.0,>=0.15.1; extra == "dclq"
-Requires-Dist: click>=8.0.0; extra == "dclq"
+Requires-Dist: typer<0.28.0,>=0.26.0; extra == "dclq"
 Requires-Dist: lxml>=6.0.2; extra == "dclq"
 Provides-Extra: chunking
 Requires-Dist: semchunk<4.0.0,>=2.2.0; extra == "chunking"
@@ -62,7 +62,7 @@ Requires-Dist: tree-sitter-python>=0.23.6; extra == "chunking-openai"
 Requires-Dist: tree-sitter-c>=0.23.4; extra == "chunking-openai"
 Requires-Dist: tree-sitter-javascript>=0.23.1; extra == "chunking-openai"
 Requires-Dist: tree-sitter-typescript>=0.23.2; extra == "chunking-openai"
-Requires-Dist: tiktoken<0.13.0,>=0.9.0; extra == "chunking-openai"
+Requires-Dist: tiktoken<0.15.0,>=0.9.0; extra == "chunking-openai"
 Provides-Extra: examples
 Requires-Dist: datasets>=4.0.0; extra == "examples"
 Requires-Dist: matplotlib>=3.7.0; extra == "examples"
@@ -72,7 +72,7 @@ Dynamic: license-file
 # Docling Core
 
 [![PyPI version](https://img.shields.io/pypi/v/docling-core)](https://pypi.org/project/docling-core/)
-![Python](https://img.shields.io/badge/python-3.10%20%7C%20%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%20%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14%20%7C%203.15-blue)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Pydantic v2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json)](https://pydantic.dev)
@@ -90,7 +90,7 @@ pip install docling-core
 
 ### Development setup
 
-To develop for Docling Core, you need Python 3.10 through 3.14 and the `uv` package. You can then install it from your local clone's root directory:
+To develop for Docling Core, you need Python 3.10 through 3.15 and the `uv` package. You can then install it from your local clone's root directory:
 ```bash
 uv sync --all-extras
 ```

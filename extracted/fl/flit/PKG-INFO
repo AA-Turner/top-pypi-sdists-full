@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: flit
-Version: 4.1.0
+Version: 4.2.0
 Summary: A simple packaging tool for simple packages.
 Author-email: Thomas Kluyver <thomas@kluyver.me.uk>
 Requires-Python: >=3.8
@@ -10,7 +10,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
-Requires-Dist: flit_core >=4.1.0
+Requires-Dist: flit_core >=4.2.0
 Requires-Dist: requests
 Requires-Dist: docutils
 Requires-Dist: tomli-w
@@ -110,4 +110,14 @@ To install a package locally for development, run::
 Flit packages a single importable module or package at a time, using the import
 name as the name on PyPI. All subpackages and data files within a package are
 included automatically.
+
+Contributing
+------------
+
+To work on Flit, see `Developing Flit <https://flit.pypa.io/en/latest/development.html>`_
+in the documentation. The `issue tracker <https://github.com/pypa/flit/issues>`_
+is on GitHub.
+
+Please do not use AI/LLMs to work on Flit; see the development page for more
+details.
 

@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: edgegrid-python
-Version: 2.0.8
+Version: 2.0.9
 Summary: {OPEN} client authentication protocol for python-requests
 Home-page: https://github.com/akamai/AkamaiOPEN-edgegrid-python
 License: Apache 2.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests>=2.24.0
@@ -32,7 +32,7 @@ This library implements an Authentication handler for [HTTP requests](https://re
 
 ## Install
 
-To use the library, you need to have Python 3.10 or later installed on your system. You can download it from [https://www.python.org/downloads/](https://www.python.org/downloads/).
+To use the library, you need to have Python 3.11 or later installed on your system. You can download it from [https://www.python.org/downloads/](https://www.python.org/downloads/).
 
 > __NOTE:__ Python 2 is no longer supported by the [Python Software Foundation](https://www.python.org/doc/sunset-python-2/). You won't be able to use the library with Python 2.
 

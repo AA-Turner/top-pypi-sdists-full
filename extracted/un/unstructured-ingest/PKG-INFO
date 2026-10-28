@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured_ingest
-Version: 1.11.23
+Version: 1.12.0
 Summary: Local ETL data pipeline to get data RAG ready
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
 License-Expression: Apache-2.0
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <3.14,>=3.11
-Requires-Dist: certifi>=2026.1.4
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: click
 Requires-Dist: ijson>=3.2.0
 Requires-Dist: opentelemetry-sdk
@@ -34,6 +34,10 @@ Requires-Dist: adlfs; extra == 'azure'
 Requires-Dist: fsspec; extra == 'azure'
 Provides-Extra: azure-ai-search
 Requires-Dist: azure-search-documents; extra == 'azure-ai-search'
+Provides-Extra: azure-openai
+Requires-Dist: azure-identity>=1.19.0; extra == 'azure-openai'
+Requires-Dist: openai<3,>=2.20; extra == 'azure-openai'
+Requires-Dist: tiktoken; extra == 'azure-openai'
 Provides-Extra: bedrock
 Requires-Dist: aioboto3; extra == 'bedrock'
 Requires-Dist: aiobotocore[boto3]!=2.24.2; extra == 'bedrock'

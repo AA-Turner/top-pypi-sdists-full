@@ -213,3 +213,15 @@ class TestAggregatesKeepTheRecord:
         assert aggregate is not None
         assert aggregate["reroutes"], "the run-level block must keep the substitution"
         assert aggregate["reroutes"][0]["to_model"] == LIVE_NOTE["to_model"]
+
+
+def test_extract_usage_carries_prompt_cache_tokens():
+    """AiUsage (what node_cost reads) keeps the cache-read tokens the aggregate holds; cache writes default to 0
+    until the aggregate reports them."""
+    from types import SimpleNamespace
+
+    from matrx_ai.graph_nodes.shared import _extract_usage
+
+    total = SimpleNamespace(input_tokens=10, output_tokens=5, total_tokens=15, total_cost=0.1, cached_input_tokens=700)
+    usage = _extract_usage(SimpleNamespace(total=total, by_model={}))
+    assert (usage.cached_input_tokens, usage.cache_write_tokens) == (700, 0)

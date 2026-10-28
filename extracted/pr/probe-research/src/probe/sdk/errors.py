@@ -154,6 +154,24 @@ class NotFoundError(RosError):
     """404 - absent, other-tenant, or already deleted."""
 
 
+#: The run resolver's 404 detail (`app/runs/service.py` `_NOT_FOUND`): the run a
+#: write named does not exist for the credential that sent it. A run token's
+#: refusal, a swept multipart upload, R2 and an absent route also answer 404,
+#: with other details, and their writes are lost for reasons of ours.
+#: tests/unit/test_delivery_alert_config.py pins it to the server's.
+RUN_NOT_FOUND_DETAIL = "run not found"
+
+
+def names_no_such_run(exc: BaseException) -> bool:
+    """The server said the run does not exist -- not a workspace limit hiding
+    it, not any other 404."""
+    return (
+        isinstance(exc, NotFoundError)
+        and exc.detail == RUN_NOT_FOUND_DETAIL
+        and not exc.workspace_limit_applied
+    )
+
+
 class ConflictError(RosError):
     """409 - natural-key conflict, or a delete blocked because a published
     experiment version pins something in the subtree. The detail is an object;

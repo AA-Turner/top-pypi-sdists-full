@@ -635,6 +635,18 @@ def test_pin_pattern_length_declines_when_zero_width_checks_reject_the_pinned_sh
         # A name Python cannot carry, and a name reused across alternatives, both readable once dropped.
         (r"(?<1st>a)", r"(a)"),
         (r"(?<x>a)|(?<x>b)", r"(a)|(b)"),
+        # A hyphen beside a class escape cannot form a range, so ECMA reads it literally.
+        (r"^/[\w-/]*[a-zA-Z0-9]$", r"^/[\w\-/]*[a-zA-Z0-9]$"),
+        (r"[a-\d]", r"[a\-\d]"),
+        (r"[\s-\S]", r"[\s\-\S]"),
+        # The atom after such a hyphen closes the would-be range, so the next hyphen is literal too.
+        (r"^[\d-a-z]+$", r"^[\d\-a\-z]+$"),
+        (r"[\w-\x41-z]", r"[\w\-\x41\-z]"),
+        (r"[\d-a-]", r"[\d\-a-]"),
+        (r"[\d-a-b-c]", r"[\d\-a\-b-c]"),
+        (r"[a-\d-b-q]", r"[a\-\d\-b-q]"),
+        (r"\w-/", None),
+        (r"[\w-]", None),
         # No translation needed (already valid Python regex)
         (r"[a-z]+", None),
         (r"^\d+$", None),

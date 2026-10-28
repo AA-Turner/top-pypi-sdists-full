@@ -23,11 +23,10 @@ from fit_tool.data_message import DataMessage
 from fit_tool.definition_message import DefinitionMessage
 from fit_tool.exceptions import FitEncodingError
 from fit_tool.record import Record, RecordHeader
+from fit_tool.wire.model import TIMESTAMP_FIELD_ID
 
 if TYPE_CHECKING:
     from fit_tool.fit_file import FitFile
-
-_TIMESTAMP_FIELD_ID = 253
 
 
 class EncodeMode(str, Enum):
@@ -35,6 +34,19 @@ class EncodeMode(str, Enum):
 
     PRESERVE = 'preserve'
     CANONICAL = 'canonical'
+
+
+def _resolve_mode(
+        *,
+        mode: EncodeMode | str | None,
+        preserve: bool | None,
+        default: EncodeMode = EncodeMode.PRESERVE,
+) -> EncodeMode:
+    if mode is not None:
+        return mode if isinstance(mode, EncodeMode) else EncodeMode(mode)
+    if preserve is not None:
+        return EncodeMode.PRESERVE if preserve else EncodeMode.CANONICAL
+    return default
 
 
 @dataclass(frozen=True)
@@ -58,29 +70,31 @@ class EncodeOptions:
 
 def resolve_encode_options(
         *,
+        options: EncodeOptions | None = None,
         mode: EncodeMode | str | None = None,
         preserve: bool | None = None,
-        strict: bool = False,
-        check_crc: bool = True,
+        strict: bool | None = None,
+        check_crc: bool | None = None,
 ) -> EncodeOptions:
-    """Resolve legacy ``preserve=`` and new ``mode=`` into :class:`EncodeOptions`.
+    """Resolve kwargs and an optional :class:`EncodeOptions` into one value.
 
     Precedence:
 
     1. Explicit ``mode``
     2. Explicit ``preserve`` (``True`` → PRESERVE, ``False`` → CANONICAL)
-    3. Default PRESERVE
+    3. ``options.mode`` when an options object is supplied
+    4. Default PRESERVE
 
-    ``strict=True`` forces CANONICAL (see :class:`EncodeOptions`).
+    Explicit ``strict`` / ``check_crc`` values override the supplied options
+    object; omitted (``None``) values keep it. ``strict=True`` forces CANONICAL
+    (see :class:`EncodeOptions`).
     """
-    if mode is not None:
-        resolved = EncodeMode(mode) if not isinstance(mode, EncodeMode) else mode
-    elif preserve is not None:
-        resolved = EncodeMode.PRESERVE if preserve else EncodeMode.CANONICAL
-    else:
-        resolved = EncodeMode.PRESERVE
-
-    return EncodeOptions(mode=resolved, strict=strict, check_crc=check_crc)
+    base = options or EncodeOptions()
+    return EncodeOptions(
+        mode=_resolve_mode(mode=mode, preserve=preserve, default=base.mode),
+        strict=base.strict if strict is None else strict,
+        check_crc=base.check_crc if check_crc is None else check_crc,
+    )
 
 
 def definition_includes_field(definition: DefinitionMessage | None, field_id: int) -> bool:
@@ -105,7 +119,7 @@ def expand_compressed_header(record: Record) -> RecordHeader:
 
 def can_expand_compressed_to_normal(message: DataMessage) -> bool:
     """True when field 253 is on the definition so a normal header can carry the ts."""
-    return definition_includes_field(message.definition_message, _TIMESTAMP_FIELD_ID)
+    return definition_includes_field(message.definition_message, TIMESTAMP_FIELD_ID)
 
 
 def encode_record_projected(

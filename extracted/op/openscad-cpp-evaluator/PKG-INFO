@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openscad_cpp_evaluator
-Version: 1.50.1
+Version: 1.50.2
 Summary: C++ OpenSCAD evaluator with Python bindings
 Author: NeuSCAD Contributors
 License-Expression: MIT AND OFL-1.1

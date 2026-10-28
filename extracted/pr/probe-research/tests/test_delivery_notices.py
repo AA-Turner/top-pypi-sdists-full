@@ -294,6 +294,44 @@ def test_the_drain_records_its_dead_letters_in_the_status(tmp_path):
     assert "recent_dead_letters" not in Journal.read_status(journal.dir), "not in status.json"
 
 
+@pytest.mark.parametrize(
+    ("detail", "applied", "no_such_run"),
+    [
+        ("run not found", None, True),
+        # A run token's refusal: a 404 by design, and the write is lost.
+        ("not found: a run token sees only its own run", None, False),
+        # The run may exist outside this computer's workspace limit.
+        ("run not found", "6fa49e87-2b72-4700-8c86-9f477c0d880e", False),
+    ],
+)
+def test_the_dead_letter_record_says_when_the_server_knew_no_such_run(
+    tmp_path, detail, applied, no_such_run
+):
+    """Bucket, 2026-10-27: a write whose run ref was a metric (an empty $RUN)
+    came back 404 "run not found" and the loss alert called it data loss. Only
+    the run resolver's own answer means "no such run"; every other 404 is a
+    loss of ours and must keep reading as one."""
+    journal = Journal(tmp_path / "outbox")
+    journal.append_http("POST", "/v1/runs/r-1/metrics", {"points": []})
+
+    def refuse(*a, **k):
+        error = errors.error_for(404, detail)
+        error.workspace_limit_applied = applied
+        raise error
+
+    class _Refusing:
+        class transport:  # noqa: N801
+            request = staticmethod(refuse)
+
+        def close(self):
+            pass
+
+    report = drain(journal, client_factory=lambda ctx: _Refusing())
+    (record,) = report.dead_letter_records
+    assert record["status"] == 404
+    assert record["no_such_run"] is no_such_run
+
+
 def test_the_dead_letter_record_forgets_retried_and_discarded_ops(tmp_path):
     """Review of #2055: the record never cleared, and lived in status.json,
     which every append rewrote (32 entries: 15 KB, 179 -> 511 us). It is its

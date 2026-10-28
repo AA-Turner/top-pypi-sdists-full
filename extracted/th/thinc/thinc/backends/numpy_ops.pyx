@@ -5,6 +5,7 @@ from typing import Optional
 
 import numpy
 
+cimport blis.cy
 cimport cython
 cimport numpy as np
 from cymem.cymem cimport Pool
@@ -19,19 +20,28 @@ from .. import registry
 from ..types import ArrayXd, DeviceTypes, DTypes, Shape
 from ..util import copy_array, get_array_module
 
-from .cblas cimport CBlas, daxpy, dgemm, saxpy, sgemm, sscal
+from .cblas cimport CBlas, daxpy, saxpy
+from .linalg cimport Vec, VecVec
 
-from ..compat import has_blis
-from .ops import Ops, _split_weights, _transpose_weights, _untranspose_unsplit_weights
+from .ops import Ops
+
+try:
+    import blis.py
+    has_blis = True
+except ImportError:
+    has_blis = False
+
+
+ctypedef float weight_t
 
 
 cdef extern from "math.h":
-    float logf(float x) nogil
-    float sqrtf(float x) nogil
-    float expf(float x) nogil
-    float tanhf(float x) nogil
-    float sinf(float x) nogil
-    float cosf(float x) nogil
+    float logf(float x) noexcept nogil
+    float sqrtf(float x) noexcept nogil
+    float expf(float x) noexcept nogil
+    float tanhf(float x) noexcept nogil
+    float sinf(float x) noexcept nogil
+    float cosf(float x) noexcept nogil
 
 
 @registry.ops("NumpyOps")
@@ -85,45 +95,17 @@ class NumpyOps(Ops):
             raise ValueError(f"Provided 'y' array should be 2-dimensional, but found {y.ndim} dimension(s).")
         if not self.use_blis:  # delegate to base Ops
             return super().gemm(x, y, out=out, trans1=trans1, trans2=trans2)
-
+        if x.dtype != numpy.float32 or y.dtype != numpy.float32:
+            raise ValueError(
+                f"BLIS gemm requires float32 arrays, but got x.dtype={x.dtype} "
+                f"and y.dtype={y.dtype}. Consider casting your input with "
+                f"array.astype('float32')."
+            )
         x = self.as_contig(x)
         y = self.as_contig(y)
-
-        cdef int nM = x.shape[0] if not trans1 else x.shape[1]
-        cdef int nK = x.shape[1] if not trans1 else x.shape[0]
-        cdef int nK_b = y.shape[0] if not trans2 else y.shape[1]
-        cdef int nN = y.shape[1] if not trans2 else y.shape[0]
-        if nK != nK_b:
-            msg = "Shape mismatch for blis.gemm: (%d, %d), (%d, %d)"
-            raise ValueError(msg % (nM, nK, nK_b, nN))
-
         if out is not None:
             out = self.as_contig(out)
-        else:
-            # Can be uninitialized as 'beta' is zero.
-            out = numpy.empty((nM, nN), dtype=x.dtype)
-
-        cblas = self.cblas()
-        if x.dtype == "float32" and y.dtype == "float32" and out.dtype == "float32":
-            sgemm(cblas)(trans1, trans2,
-                nM, nN, nK,
-                1.0,
-                <float*>(x.data), x.shape[1],
-                <float*>(y.data), y.shape[1],
-                0.0,
-                <float*>(out.data), out.shape[1])
-        elif x.dtype == "float64" and y.dtype == "float64" and out.dtype == "float64":
-            dgemm(cblas)(trans1, trans2,
-                nM, nN, nK,
-                1.0,
-                <double*>(x.data), x.shape[1],
-                <double*>(y.data), y.shape[1],
-                0.0,
-                <double*>(out.data), out.shape[1])
-        else:
-            raise ValueError(f"unsupported or mismatching array data types; got '{x.dtype}', '{y.dtype}', '{out.dtype}'")
-
-        return out
+        return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2, beta=0.)
 
     def relu(self, np.ndarray X, inplace=False):
         cdef np.ndarray Y
@@ -143,12 +125,12 @@ class NumpyOps(Ops):
         _check_compatible_shape(dY, Y)
 
         cdef size_t size = Y.size
-        cdef float* dX_ptr
-        cdef const float* Y_ptr = <const float*>Y.data
+        cdef weight_t* dX_ptr
+        cdef const weight_t* Y_ptr = <const weight_t*>Y.data
         cdef np.ndarray dX
         if dY.dtype == "float32" and Y.dtype == "float32":
             dX = _inplace_or_copy(dY, inplace)
-            dX_ptr = <float*>dX.data
+            dX_ptr = <weight_t*>dX.data
             for i in range(size):
                 if Y_ptr[i] <= 0:
                     dX_ptr[i] = 0.
@@ -166,7 +148,7 @@ class NumpyOps(Ops):
     ):
         assert H0.shape[0] == C0.shape[0]
         assert H0.shape[1] == C0.shape[1]
-        Y, fwd_state = lstm_forward_training(self.cblas(), params, H0, C0, X, size_at_t)
+        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y, fwd_state
 
     def lstm_forward_inference(
@@ -177,13 +159,13 @@ class NumpyOps(Ops):
         np.ndarray X,
         np.ndarray size_at_t
     ):
-        Y, _ = lstm_forward_training(self.cblas(), params, H0, C0, X, size_at_t)
+        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y
 
     def backprop_lstm(
             self, np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state
     ):
-        dX, d_params = backprop_lstm(self.cblas(), dY, lengths, params, fwd_state)
+        dX, d_params = backprop_lstm(dY, lengths, params, fwd_state)
         return dX, d_params
 
     def maxout(self, reals3d_ft X):
@@ -510,7 +492,7 @@ class NumpyOps(Ops):
         and values.ndim == 2 \
         and values.shape[0] == indices.shape[0] \
         and values.shape[1] == table.shape[1]:
-            cpu_scatter_add(self.cblas(), <float*>table.data,
+            cpu_scatter_add(<float*>table.data,
                 <int*>indices.data, <float*>values.data,
                 indices.shape[0], table.shape[1])
         else:
@@ -526,11 +508,10 @@ class NumpyOps(Ops):
         _check_compatible_shape(weights, mom1)
         _check_compatible_shape(weights, mom2)
 
-        cdef CBlas cblas = self.cblas()
-        _adam_momentum(cblas, <float*>gradient.data, <float*>mom1.data, <float*>mom2.data,
+        _adam_momentum(<float*>gradient.data, <float*>mom1.data, <float*>mom2.data,
             weights.shape[0], beta1, beta2, eps, learn_rate)
-        saxpy(cblas)(weights.shape[0], -learn_rate, <float*>gradient.data, 1, <float*>weights.data, 1)
-
+        VecVec.add_i(<float*>weights.data,
+            <float*>gradient.data, -learn_rate, weights.shape[0])
         memset(<float*>gradient.data, 0, gradient.size * sizeof(float))
         return weights, gradient, mom1, mom2
 
@@ -567,7 +548,22 @@ def check_seq2col_lengths(ops, lengths, B):
     return lengths
 
 
-cdef void cpu_position_encode(float* output, float period, int N, int D) nogil:
+def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
+    grad_norm = Vec.norm(&gradient[0], gradient.shape[0])
+    if grad_norm >= threshold:
+        Vec.mul_i(&gradient[0], threshold / grad_norm, gradient.shape[0])
+
+
+def add_gradient_noise(float[::1] gradient, weight_t noise_level,
+        weight_t timestep):
+    cdef weight_t variance = noise_level / ((1 + timestep) ** 0.55)
+    if variance >= 0.000001:
+        gradient += numpy.asarray(
+                       numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
+                       dtype='float32')
+
+
+cdef void cpu_position_encode(float* output, float period, int N, int D) noexcept nogil:
     cdef float pos, d
     cdef int j
     cdef float dimensions = D
@@ -585,38 +581,39 @@ cdef void cpu_position_encode(float* output, float period, int N, int D) nogil:
         output += D
 
 
-cdef void cpu_scatter_add(CBlas cblas, float* dest,
+cdef void cpu_scatter_add(float* dest,
         const int* indices, const float* src,
-        int nr_id, int nr_col) nogil:
+        int nr_id, int nr_col) noexcept nogil:
     cdef int i
     for i in range(nr_id):
         id_ = indices[i]
         if id_ >= 0:
-            saxpy(cblas)(nr_col, 1., &src[i*nr_col], 1, &dest[id_*nr_col], 1)
+            VecVec.add_i(&dest[id_*nr_col],
+        	&src[i*nr_col], 1., nr_col)
 
 
 @cython.cdivision(True)
-cdef void _adam_momentum(CBlas cblas, float* gradient, float* mom1, float* mom2,
-        int nr_weight, float beta1, float beta2, float eps,
-        float learn_rate) nogil:
+cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
+        int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
+        weight_t learn_rate) noexcept nogil:
     # Calculate Adam on CPU, fused.
     # Assumes the learning rate adjustment is calculated by the caller;
     # a_t = learn_rate * sqrt(1-beta2**timestep) / (1-beta1**timestep)
-    cdef float one_minus_beta1 = 1-beta1
-    cdef float one_minus_beta2 = 1-beta2
-    cdef float m1, m2, g
+    cdef weight_t one_minus_beta1 = 1-beta1
+    cdef weight_t one_minus_beta2 = 1-beta2
+    cdef weight_t m1, m2, g
     cdef int i
     # Blockwise implementation is a bit faster. Adam is slooow :(
-    cdef float[64] buff
+    cdef weight_t[64] buff
     cdef int steps = nr_weight // 64
     if steps * 64 < nr_weight:
         steps += 1
     idx = 0
     for i in range(steps):
         step_size = min(64, nr_weight-idx)
-        sscal(cblas)(step_size, beta1, mom1, 1)
-        saxpy(cblas)(step_size, one_minus_beta1, gradient, 1, mom1, 1)
-        sscal(cblas)(step_size, beta2, mom2, 1)
+        Vec.mul_i(mom1, beta1, step_size)
+        VecVec.add_i(mom1, gradient, one_minus_beta1, step_size)
+        Vec.mul_i(mom2, beta2, step_size)
         for j in range(step_size):
             mom2[j] += one_minus_beta2 * gradient[j] ** 2
         for j in range(step_size):
@@ -633,7 +630,19 @@ cdef void _adam_momentum(CBlas cblas, float* gradient, float* mom1, float* mom2,
         idx += step_size
 
 
-def lstm_forward_training(CBlas cblas,
+@cython.cdivision(True)
+cdef void cpu_update_averages(weight_t* ema,
+        const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) noexcept nogil:
+    cdef weight_t decay = (1.0 + t) / (10.0 + t)
+    if decay > max_decay:
+        decay = max_decay
+    cdef weight_t one_minus_decay = 1-decay
+    cdef int i
+    for i in range(nr_weight): # num_threads=4, schedule='static'):
+        ema[i] -= one_minus_decay * (ema[i] - weights[i])
+
+
+def lstm_forward_training(
     np.ndarray params, np.ndarray c_init, np.ndarray h_init,
     np.ndarray X, np.ndarray lengths
 ):
@@ -675,7 +684,6 @@ def lstm_forward_training(CBlas cblas,
             Cid = C[i, d]
             Gid = G[i, d]
             _lstm_forward_training(
-                cblas,
                 d, N, nO, nI, nT,
                 Gid,
                 <float*>Yid.data,
@@ -696,7 +704,6 @@ def lstm_forward_training(CBlas cblas,
 
 
 cdef int _lstm_forward_training(
-    CBlas cblas,
     int d, int N, int nO, int nI, int nT,
     np.ndarray G,
     float* Y,
@@ -710,13 +717,13 @@ cdef int _lstm_forward_training(
     float* Ct2,
 ) except -1:
     cdef double one = 1.0
-    sgemm(cblas)(False, True,
+    blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
         N, nO*4, nI,
         one,
-        X, nI,
-        Wx, nI,
+        X, nI, 1,
+        Wx, nI, 1,
         one,
-        <float*>G.data, nO*4
+        <float*>G.data, nO*4, 1
     )
     cdef int t, batch_size
     cdef int seq_i = 0 if d == 0 else N
@@ -734,13 +741,13 @@ cdef int _lstm_forward_training(
         Gt3_ = G[seq_i : seq_i+batch_size]
         Gt3 = <float*>Gt3_.data
         # Now do the actual calculation
-        sgemm(cblas)(False, True,
+        blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
             batch_size, nO*4, nO,
             one,
-            Yt2, nO,
-            Wh, nO,
+            Yt2, nO, 1,
+            Wh, nO, 1,
             one,
-            Gt3, nO*4
+            Gt3, nO*4, 1
         )
         # This is super weird: if we remove this add, it gets slower? I guess
         # it does cache prefetching or something?
@@ -764,7 +771,7 @@ cdef int _lstm_forward_training(
         memcpy(Ct2, Ct3, sizeof(Ct3[0]) * batch_size * nO)
 
 
-def backprop_lstm(CBlas cblas, np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state):
+def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state):
     xp = numpy
     cdef np.ndarray Y
     cdef np.ndarray G
@@ -841,7 +848,7 @@ def backprop_lstm(CBlas cblas, np.ndarray dY, np.ndarray lengths, np.ndarray par
             assert (dYid.shape[0], dYid.shape[1]) == (N, nO)
             assert (dC.shape[0], dC.shape[1]) == (N, nO)
             assert (dG.shape[0], dG.shape[1]) == (N, nO*4)
-            _lstm_backward_training(cblas, d, N, nO, dX.shape[1], nT,
+            _lstm_backward_training(d, N, nO, dX.shape[1], nT,
                 <float*>dX.data,
                 <float*>dYid.data,
                 <float*>dC.data,
@@ -866,8 +873,18 @@ def backprop_lstm(CBlas cblas, np.ndarray dY, np.ndarray lengths, np.ndarray par
     return dX, numpy.concatenate(grad_parts)
 
 
+def _split_directions(X, dirs):
+    if dirs == 1:
+        return [X]
+    else:
+        X_ = X.reshape((X.shape[0], -1, dirs))
+        Xs = []
+        for d in range(dirs):
+            Xs.append(numpy.ascontiguousarray(X_[:, d]))
+        return Xs
+
+
 cdef int _lstm_backward_training(
-    CBlas cblas,
     int d, int N, int nO, int nI, int nT,
     float* dX,
     float* dY,
@@ -912,36 +929,36 @@ cdef int _lstm_backward_training(
         )
         # Backprop hidden-to-hidden w.r.t. hidden.
         #     dYt2 += dGt3 @ Wh
-        sgemm(cblas)(False, False,
+        blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
             batch_size, nO, nO*4,
             one,
-            <float*>dGt3, nO*4,
-            <float*>Wh, nO,
+            <float*>dGt3, nO*4, 1,
+            <float*>Wh, nO, 1,
             one,
-            dYt2, nO
+            dYt2, nO, 1
         )
         seq_t3 = seq_t2
         size_t3 = size_t2
 
     # Backprop input-to-hidden w.r.t. weights.
     #     dWx += dG @ X
-    sgemm(cblas)(True, False,
+    blis.cy.gemm(blis.cy.TRANSPOSE, blis.cy.NO_TRANSPOSE,
         nO*4, nI, N,
         one,
-        <float*>dG, nO*4,
-        <float*>X, nI,
+        <float*>dG, nO*4, 1,
+        <float*>X, nI, 1,
         one,
-        dWx, nI
+        dWx, nI, 1
     )
     # Backprop hidden-to-hidden w.r.t weights.
     #     dWh += dG @ Y
-    sgemm(cblas)(True, False,
+    blis.cy.gemm(blis.cy.TRANSPOSE, blis.cy.NO_TRANSPOSE,
         nO*4, nO, N,
         one,
-        <float*>dG, nO*4,
-        <float*>Y, nO,
+        <float*>dG, nO*4, 1,
+        <float*>Y, nO, 1,
         one,
-        dWh, nO
+        dWh, nO, 1
     )
     # Backprop bias
     for i in range(N):
@@ -949,25 +966,73 @@ cdef int _lstm_backward_training(
             d_bias[j] += dG[i*nO*4+j]
 
     # Backprop input-to-hidden w.r.t. input
-    sgemm(cblas)(False, False,
+    blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
         N, nI, nO*4,
         one,
-        <float*>dG, nO*4,
-        <float*>Wx, nI,
+        <float*>dG, nO*4, 1,
+        <float*>Wx, nI, 1,
         one,
-        dX, nI
+        dX, nI, 1
     )
 
 
-cdef inline float dsigmoid(float y) nogil:
+def _split_weights(np.ndarray params, int i, int nO, int nI, int params_i):
+    Wx_size = 4 * nO * nI
+    bx_size = 4 * nO
+    Wh_size = 4 * nO * nO
+    bh_size = 4 * nO
+    Wx = params[params_i : params_i + Wx_size].reshape((4 * nO, nI))
+    params_i += Wx_size
+    bx = params[params_i : params_i + bx_size].reshape((4 * nO,))
+    params_i += bx_size
+    Wh = params[params_i : params_i + Wh_size].reshape((4 * nO, nO))
+    params_i += Wh_size
+    bh = params[params_i : params_i + bh_size].reshape((4 * nO,))
+    params_i += bh_size
+    return ((Wx, bx), (Wh, bh)), params_i
+
+
+def _transpose_weights(params):
+    # Transpose the parameters so that the gates are the last dimension. This
+    # makes it easier to fuse.
+    (Wx, bx), (Wh, bh) = params
+    Wx = Wx.reshape((4, -1, Wx.shape[-1]))
+    Wx = Wx.transpose((1, 0, 2)).reshape((-1, Wx.shape[-1]))
+    bx = bx.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
+    Wh = Wh.reshape((4, -1, Wh.shape[-1]))
+    Wh = Wh.transpose((1, 0, 2)).reshape((-1, Wh.shape[-1]))
+    bh = bh.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
+    ascontig = numpy.ascontiguousarray
+    Wx = ascontig(Wx)
+    Wh = ascontig(Wh)
+    bias = ascontig(bx) + bh
+    return Wx, Wh, bias
+
+
+def _untranspose_unsplit_weights(params):
+    Wx, Wh, bias = params
+    nO = Wh.shape[1]
+    nI = Wx.shape[1]
+    Wx = Wx.reshape((-1, 4, nI)).transpose((1, 0, 2)).reshape((-1, nI))
+    Wh = Wh.reshape((-1, 4, nO)).transpose((1, 0, 2)).reshape((-1, nO))
+    bias = bias.reshape((-1, 4)).transpose((1, 0)).reshape((-1,))
+    zeros = numpy.zeros(bias.shape, dtype="f")
+    return numpy.concatenate((Wx.ravel(), bias, Wh.ravel(), zeros))
+
+
+cdef inline float sigmoid(float X) noexcept nogil:
+    return 1./(1. + expf(-X))
+
+
+cdef inline float dsigmoid(float y) noexcept nogil:
     return y*(1-y)
 
 
-cdef inline float dtanh(float y) nogil:
+cdef inline float dtanh(float y) noexcept nogil:
     return 1-y**2
 
 
-cdef void cpu_lstm_activate_fwd(float* gates, int B, int N) nogil:
+cdef void cpu_lstm_activate_fwd(float* gates, int B, int N) noexcept nogil:
     """Apply sigmoid activation in-place to columns 0, 1, 2 and tanh to column 3.
     The data is assumed to have the gates in the last dimension.
     """
@@ -1014,7 +1079,7 @@ cdef void cpu_lstm_activate_fwd(float* gates, int B, int N) nogil:
 
 
 cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells,
-        const float* gates, const float* prevcells, int B, int N) nogil:
+        const float* gates, const float* prevcells, int B, int N) noexcept nogil:
     cdef float hf, hi, ho, hc, ct2, ct3
     cdef int i, b, g, c, h
     g = 0
@@ -1043,7 +1108,7 @@ cdef void cpu_lstm_gates_bwd(
     const float* Ct3,
     const float* Ct2,
     int N
-) nogil:
+) noexcept nogil:
     cdef int i
     cdef float ct2, ct3, hf, hi, ho, hc, tanh_ct3
     cdef float d_ho, d_tanh_ct3, dct3, d_hi, d_hc, d_hf
@@ -1079,7 +1144,7 @@ cdef void MurmurHash3_x86_128_uint64(
     const uint64_t val,
     const uint32_t seed,
     uint32_t *out
-) nogil:
+) noexcept nogil:
     cdef uint64_t h1, h2
 
     h1 = val

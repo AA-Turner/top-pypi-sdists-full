@@ -66,7 +66,7 @@ The offline sync/cutover surfaces (``spec_kitty_events.sync``, ``legacy``,
 lives in ``spec_kitty_events.strict.validate_strict_envelope``.
 """
 
-__version__ = "11.0.0"
+__version__ = "11.3.0"
 
 # Core data models
 from spec_kitty_events.models import (
@@ -408,6 +408,19 @@ from spec_kitty_events.mission_next import (
     MissionNextAnomaly,
     ReducedMissionRunState,
     reduce_mission_next_events,
+)
+
+# Decision-significance (RACI) event contracts
+from spec_kitty_events.decision_significance import (
+    SIGNIFICANCE_EVALUATED,
+    DECISION_TIMEOUT_EXPIRED,
+    DECISION_SIGNIFICANCE_EVENT_TYPES,
+    HUMAN_IN_CHARGE_ACTOR_ID,
+    UNKNOWN_ACTOR_ID,
+    RaciRoleBinding,
+    ResolvedRaciSnapshot,
+    SignificanceEvaluatedPayload,
+    DecisionTimeoutExpiredPayload,
 )
 
 # Analytics event contracts
@@ -919,6 +932,16 @@ __all__ = [
     "MissionNextAnomaly",
     "ReducedMissionRunState",
     "reduce_mission_next_events",
+    # Decision-significance (RACI) event contracts
+    "SIGNIFICANCE_EVALUATED",
+    "DECISION_TIMEOUT_EXPIRED",
+    "DECISION_SIGNIFICANCE_EVENT_TYPES",
+    "HUMAN_IN_CHARGE_ACTOR_ID",
+    "UNKNOWN_ACTOR_ID",
+    "RaciRoleBinding",
+    "ResolvedRaciSnapshot",
+    "SignificanceEvaluatedPayload",
+    "DecisionTimeoutExpiredPayload",
     # Analytics event contracts
     "TOKEN_USAGE_RECORDED",
     "DIFF_SUMMARY_RECORDED",

@@ -11,13 +11,11 @@ salutation = { gender = "m", same_as = "señor" }
 
 [[word]]
 text = "señora"
-salutation = { gender = "f", excluded = { after_given = "a given name (US SSA, as Senora), borne as a middle name" } }
-given = { us_ssa = 1065, as_of = 2026-10-24, note = "counted as SENORA, the SSA writing no diacritics" }
+salutation = { gender = "f", excluded = { after_given = "a given name (US SSA, as Senora), borne as a middle name" }, note = "borne as a given name: US SSA 1,065 births (2026-10-24); counted as SENORA, the SSA writing no diacritics; kept here, not as a `given` reading, which would make the title one only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "sra"
-salutation = { gender = "f", same_as = "señora", after_given = true }
-given = { us_ssa = 27, as_of = 2026-10-24 }
+salutation = { gender = "f", same_as = "señora", after_given = true, note = "borne as a given name: US SSA 27 births (2026-10-24); kept here, not as a `given` reading, which would make the title one only inside a title phrase (rules/H9)" }
 family = { us_census_2010 = 149, as_of = 2026-10-24, note = "kept for after_given (decisions/H8)" }
 
 [[word]]
@@ -30,8 +28,7 @@ salutation = { same_as = "señores", after_given = true }
 
 [[word]]
 text = "señorita"
-salutation = { gender = "f", after_given = true }
-given = { us_ssa = 6, as_of = 2026-10-24, note = "counted as SENORITA; kept for after_given (decisions/H8)" }
+salutation = { gender = "f", after_given = true, note = "borne as a given name: US SSA 6 births (2026-10-24); counted as SENORITA; kept for after_given (decisions/H8); kept here, not as a `given` reading, which would make the title one only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "srta"
@@ -50,20 +47,24 @@ text = "dra"
 academic = { gender = "f", expands = "Doctora, Doutora" }
 
 [[word]]
+text = "h"
+generation = { default = false, expands = "hijo, the son: Juan Pérez H.", issue = 752, note = "written with its period, it is exactly how an initial is written (rules/T5), so no default reads it; a Spanish pack turns it on" }
+
+[[word]]
 text = "de"
 preposition = { may_be_given = false, expands = "of" }
 
 [[word]]
 text = "del"
+given = { us_ssa = 4970, wikidata = 150, as_of = 2026-10-25, note = "US SSA births summed over both sexes; Wikidata is a lower bound; nam_dict band 1 in Great Britain, 1 in U.S.A." }
 [word.preposition]
-may_be_given = true
 expands = "of the"
 note = "BOTH readings attested: Del Shannon (given name) and del Toro (particle). The ambiguity flag is the answer"
 
 [[word]]
 text = "la"
+given = { us_ssa = 1756, wikidata = 37, as_of = 2026-10-25, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
 [word.article]
-may_be_given = true
 expands = "the, fem. sg."
 note = "La Shawn, La Toya: a given-name element. The Romance article is the particle reading; its PLURALS ('las', 'los') are never-given, being no one's name"
 
@@ -85,14 +86,15 @@ note = "Same as 'las' -- and the pair is why the #390 fold narrowing regressed \
 
 [[word]]
 text = "san"
+given = { us_ssa = 2502, wikidata = 54, as_of = 2026-10-25, note = "US SSA births summed over both sexes; Wikidata is a lower bound; nam_dict band 5 in Korea" }
 [word.saint]
-may_be_given = true
 expands = "Saint: \"San Martín\""
 note = "San San Chiou: a given-name element in Burmese and Chinese naming"
 
 [[word]]
 text = "santa"
-saint = { may_be_given = true, expands = "Saint, fem." }
+given = { us_ssa = 4410, wikidata = 38, as_of = 2026-10-25, note = "US SSA births summed over both sexes; Wikidata is a lower bound; nam_dict band 5 in Italy, 5 in Latvia, 1 in Swiss, 1 in Bulgaria" }
+saint = { expands = "Saint, fem." }
 
 [[word]]
 text = "y"

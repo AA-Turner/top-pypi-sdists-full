@@ -1008,6 +1008,7 @@ class HttpClient:
         name: str | None = None,
         notes: str | None = None,
         metadata: dict[str, str] | None = None,
+        code_change_type: str | None = None,
         code_change_description: str | None = None,
         code_change_files: list[dict[str, str]] | None = None,
         experiment_group_id: str | None = None,
@@ -1044,6 +1045,10 @@ class HttpClient:
             metadata: Caller-owned tags on the experiment, such as which
                 schedule launched it. Read back and filtered on through
                 ``client.experiments``.
+            code_change_type: The code change choice this replay named, such
+                as ``"default-branch"`` or ``"skip"``. Stored on the
+                experiment so the dashboard can say what the run was compared
+                against (sent only when set).
             code_change_description: Optional rationale for the code change being
                 tested in this replay. Stored on the resulting experiment.
             code_change_files: Optional list of files edited as part of this code
@@ -1106,6 +1111,8 @@ class HttpClient:
             payload["notes"] = notes
         if metadata is not None:
             payload["metadata"] = metadata
+        if code_change_type is not None:
+            payload["codeChangeType"] = code_change_type
         if code_change_description is not None:
             payload["codeChangeDescription"] = code_change_description
         if code_change_files is not None:

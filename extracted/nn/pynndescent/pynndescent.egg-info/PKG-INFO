@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pynndescent
-Version: 0.6.0
+Version: 0.7.0
 Summary: Nearest Neighbor Descent
 Author-email: Leland McInnes <leland.mcinnes@gmail.com>
 Maintainer-email: Leland McInnes <leland.mcinnes@gmail.com>
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: scikit-learn>=0.18
@@ -28,8 +29,6 @@ Requires-Dist: scipy>=1.0
 Requires-Dist: numba>=0.55.0
 Requires-Dist: llvmlite>=0.38
 Requires-Dist: joblib>=0.11
-Provides-Extra: testing
-Requires-Dist: pytest; extra == "testing"
 Dynamic: license-file
 
 .. image:: doc/pynndescent_logo.png
@@ -176,9 +175,10 @@ PyNNDescent is designed to be easy to install being a pure python module with
 relatively light requirements:
 
 * numpy
-* scipy
-* scikit-learn >= 0.22
-* numba >= 0.51
+* scipy >= 1.0
+* scikit-learn >= 0.18
+* numba >= 0.55
+* joblib >= 0.11
 
 all of which should be pip or conda installable. The easiest way to install should be
 via conda:
@@ -201,7 +201,7 @@ To manually install this package:
     unzip master.zip
     rm master.zip
     cd pynndescent-master
-    python setup.py install
+    pip install .
 
 ----------------
 Help and Support

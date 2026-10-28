@@ -59,7 +59,7 @@ class GetUserCouponDetailResponseData(object):
         'task_start_at': 'int',
         'task_expire_at': 'int',
         'task_completed_at': 'int',
-        'extra': 'list[list[object]]'
+        'extra': 'list[list[CouponDetailExtraItem]]'
     }
 
     attribute_map = {
@@ -93,7 +93,7 @@ class GetUserCouponDetailResponseData(object):
     }
 
     def __init__(self, id=None, details_id=None, coupon_type=None, name=None, amount=None, origin_amount=None, currency=None, rule_new=None, status=None, jump_url=None, help_url=None, expire_time=None, expire_time_order_by=None, expire_second=None, has_usage_history=None, has_progress=None, progress_config=None, activation_info=None, is_task_coupon=None, upgrade_toast=None, from_task=None, task_title=None, task_desc=None, task_start_at=None, task_expire_at=None, task_completed_at=None, extra=None, local_vars_configuration=None):  # noqa: E501
-        # type: (int, int, str, str, str, str, str, str, str, ListUserCouponsResponseDataJumpUrl, ListUserCouponsResponseDataHelpUrl, int, int, int, bool, bool, ListUserCouponsResponseDataProgressConfig, object, int, bool, bool, str, str, int, int, int, list[list[object]], Configuration) -> None
+        # type: (int, int, str, str, str, str, str, str, str, ListUserCouponsResponseDataJumpUrl, ListUserCouponsResponseDataHelpUrl, int, int, int, bool, bool, ListUserCouponsResponseDataProgressConfig, object, int, bool, bool, str, str, int, int, int, list[list[CouponDetailExtraItem]], Configuration) -> None
         """GetUserCouponDetailResponseData - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -794,7 +794,7 @@ class GetUserCouponDetailResponseData(object):
         [Detail endpoint only] Coupon detail attributes organized by display blocks. The frontend renders them as separate sections. Point card type always returns empty array []. Other types return a 2D array composed of blocks: block 1 = coupon name/source/status, block 2 = coupon core attributes, block 3 = time information. Each item contains: type (display type: string/timestamp/day/hour/status/btn), key (label text, i18n translated), value (string or integer, timestamp type is Unix timestamp)  # noqa: E501
 
         :return: The extra of this GetUserCouponDetailResponseData.  # noqa: E501
-        :rtype: list[list[object]]
+        :rtype: list[list[CouponDetailExtraItem]]
         """
         return self._extra
 
@@ -805,7 +805,7 @@ class GetUserCouponDetailResponseData(object):
         [Detail endpoint only] Coupon detail attributes organized by display blocks. The frontend renders them as separate sections. Point card type always returns empty array []. Other types return a 2D array composed of blocks: block 1 = coupon name/source/status, block 2 = coupon core attributes, block 3 = time information. Each item contains: type (display type: string/timestamp/day/hour/status/btn), key (label text, i18n translated), value (string or integer, timestamp type is Unix timestamp)  # noqa: E501
 
         :param extra: The extra of this GetUserCouponDetailResponseData.  # noqa: E501
-        :type: list[list[object]]
+        :type: list[list[CouponDetailExtraItem]]
         """
 
         self._extra = extra

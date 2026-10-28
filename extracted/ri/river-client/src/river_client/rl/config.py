@@ -98,8 +98,8 @@ class ForwardBackwardBatch:
         min_tokens: Submit after this many full input tokens, if set.
     """
 
-    min_sequences: int | None = 64
-    min_tokens: int | None = 131_072
+    min_sequences: int | None = None
+    min_tokens: int | None = 8_388_608
 
     def __post_init__(self):
         if self.min_sequences is None and self.min_tokens is None:

@@ -363,6 +363,7 @@ ERR_DB_CS_NOT_SUPPORTED = 3040
 ERR_UNSUPPORTED_DEEP_DATA_SECURITY_FEATURE = 3041
 ERR_ARROW_UNSUPPORTED_INTERVAL = 3042
 ERR_UNSUPPORTED_TXN_PRIORITY = 3043
+ERR_UNSUPPORTED_DB_OPENTELEMETRY_FEATURE = 3044
 
 # error numbers that result in DatabaseError
 ERR_TNS_ENTRY_NOT_FOUND = 4000
@@ -434,6 +435,8 @@ ERR_PROXY_FAILURE = 6004
 ERR_CONNECTION_FAILED = 6005
 ERR_INVALID_SERVER_NAME = 6006
 ERR_SUBSCR_FAILED = 6007
+ERR_SERVER_VERIFY_FAILED = 6008
+ERR_SERVER_REFUSED_EZTLS = 6009
 
 # error numbers that result in Warning
 WRN_COMPILATION_ERROR = 7000
@@ -971,6 +974,10 @@ ERR_MESSAGE_FORMATS = {
         "scroll operation would go out of the result set"
     ),
     ERR_SELF_BIND_NOT_SUPPORTED: "binding to self is not supported",
+    ERR_SERVER_REFUSED_EZTLS: (
+        "database server refused EZTLS (protocol {protocol})"
+    ),
+    ERR_SERVER_VERIFY_FAILED: "database server verification failed",
     ERR_SERVER_VERSION_NOT_SUPPORTED: (
         "connections to this database server version are not supported "
         "by python-oracledb in thin mode"
@@ -1034,6 +1041,9 @@ ERR_MESSAGE_FORMATS = {
         "internal error: unknown transaction sync version {version}"
     ),
     ERR_UNSUPPORTED_ARROW_TYPE: 'unsupported Apache Arrow type "{arrow_type}"',
+    ERR_UNSUPPORTED_DB_OPENTELEMETRY_FEATURE: (
+        "database does not support Oracle Database OpenTelemetry tracing"
+    ),
     ERR_UNSUPPORTED_DEEP_DATA_SECURITY_FEATURE: (
         "database does not support Oracle Deep Data Security"
     ),

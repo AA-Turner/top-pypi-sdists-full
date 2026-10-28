@@ -29,14 +29,48 @@ FANCY_REGEX_OPTIONS = jsonschema_rs.FancyRegexOptions(size_limit=150_000_000)
 DRAFT_03_DIALECT = "http://json-schema.org/draft-03/schema#"
 
 
+# `^X{m,n}$` over a one-character `X` compiles to `n` copies of `X`, so large bounds become huge automata.
+_BOUNDED_SINGLE_CHARACTER = re.compile(r"\^(\.|\\[dDwWsS]|\[\^?(?:[^\]\[\\]|\\.)+\])\{(\d+)(?:(,)(\d*))?\}\$")
+
+
 @lru_cache(maxsize=256)
+def pattern_matcher(pattern: str) -> Callable[[str], bool] | None:
+    """The validator's own `pattern` check, or `None` when the validator cannot compile the pattern."""
+    try:
+        is_valid = jsonschema_rs.Draft202012Validator(
+            {"pattern": pattern}, pattern_options=FANCY_REGEX_OPTIONS
+        ).is_valid
+    except jsonschema_rs.ValidationError:
+        return None
+    bounded = _BOUNDED_SINGLE_CHARACTER.fullmatch(pattern)
+    if bounded is None:
+        return is_valid
+    # The same strings, with the repetition count checked as a length instead of compiled into the automaton.
+    atom, minimum, comma, maximum = bounded.groups()
+    unbounded = jsonschema_rs.Draft202012Validator(
+        {"pattern": f"^{atom}*$"}, pattern_options=FANCY_REGEX_OPTIONS
+    ).is_valid
+    low = int(minimum)
+    high = low if comma is None else (int(maximum) if maximum else None)
+
+    def matches(value: object) -> bool:
+        if not unbounded(value):
+            return False
+        if not isinstance(value, str):
+            return True
+        return low <= len(value) and (high is None or len(value) <= high)
+
+    return matches
+
+
+def _matches_anything(_: str) -> bool:
+    return True
+
+
 def matches_pattern(pattern: str) -> Callable[[str], bool]:
     """The validator's own `pattern` check, for the places where Python `re` reads the pattern differently."""
-    try:
-        return jsonschema_rs.Draft202012Validator({"pattern": pattern}, pattern_options=FANCY_REGEX_OPTIONS).is_valid
-    except jsonschema_rs.ValidationError:
-        # A pattern the validator cannot compile is not enforced by it either.
-        return lambda _: True
+    # A pattern the validator cannot compile is not enforced by it either.
+    return pattern_matcher(pattern) or _matches_anything
 
 
 def _is_valid_uuid(value: object) -> bool:
@@ -350,12 +384,26 @@ def resolve_with_root_bundle(schema: dict[str, Any], root_schema: dict[str, Any]
 
 
 def resolve_bundled_ref(schema: dict[str, Any], bundled: object) -> dict[str, Any]:
-    """Follow `$ref` into the `bundled` map; return `schema` as-is when it does not point into it."""
+    """Follow `$ref` chains into the `bundled` map; return `schema` as-is when it does not point into it."""
     ref = schema.get("$ref")
     if not isinstance(ref, str) or not isinstance(bundled, dict):
         return schema
     target = bundled.get(ref.rsplit("/", 1)[-1])
-    return target if isinstance(target, dict) else schema
+    if not isinstance(target, dict):
+        return schema
+    ref = target.get("$ref")
+    if not isinstance(ref, str):
+        return target
+    # Alias components chain `$ref`s; the hop bound stops reference cycles.
+    for _ in range(len(bundled)):
+        next_target = bundled.get(ref.rsplit("/", 1)[-1])
+        if not isinstance(next_target, dict):
+            return target
+        target = next_target
+        ref = target.get("$ref")
+        if not isinstance(ref, str):
+            return target
+    return target
 
 
 def is_unsatisfiable(schema: object) -> bool:

@@ -36,6 +36,9 @@ class IncomingPaymentDetail(BaseModel):
     direction: TransactionDirection
     """One of `credit` or `debit`."""
 
+    failure_reason: Optional[str] = None
+    """The reason the incoming payment detail failed, or `null`."""
+
     internal_account_id: str
     """The ID of the Internal Account for the incoming payment detail.
 
@@ -70,7 +73,9 @@ class IncomingPaymentDetail(BaseModel):
 
     originating_account_number_type: Optional[
         Literal[
+            "arbitrum_address",
             "au_number",
+            "avalanche_address",
             "base_address",
             "card_token",
             "clabe",
@@ -84,7 +89,6 @@ class IncomingPaymentDetail(BaseModel):
             "polygon_address",
             "sg_number",
             "solana_address",
-            "wallet_address",
         ]
     ] = None
     """The type of the originating account number for the incoming payment detail."""
@@ -113,6 +117,7 @@ class IncomingPaymentDetail(BaseModel):
             "se_bankgiro_clearing_code",
             "sg_interbank_clearing_code",
             "swift",
+            "vasp",
             "za_national_clearing_code",
         ]
     ] = None
@@ -121,10 +126,10 @@ class IncomingPaymentDetail(BaseModel):
     reconciliation_status: Literal["unreconciled", "tentatively_reconciled", "reconciled"]
     """One of `unreconciled`, `tentatively_reconciled` or `reconciled`."""
 
-    status: Literal["completed", "pending", "returned"]
+    status: Literal["completed", "failed", "held", "pending", "returned"]
     """The current status of the incoming payment order.
 
-    One of `pending`, `completed`, or `returned`.
+    One of `pending`, `completed`, `returned`, `failed`, or `held`.
     """
 
     subtype: Optional[str] = None

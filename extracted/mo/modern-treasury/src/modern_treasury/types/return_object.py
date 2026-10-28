@@ -92,6 +92,7 @@ class ReferenceNumber(BaseModel):
         "column_fx_quote_id",
         "column_reversal_pair_transfer_id",
         "column_transfer_id",
+        "cross_river_card_network",
         "cross_river_card_trace_number",
         "cross_river_core_transaction_id",
         "cross_river_fed_batch_id",
@@ -161,7 +162,6 @@ class ReferenceNumber(BaseModel):
         "western_alliance_payment_id",
         "western_alliance_transaction_id",
         "western_alliance_wire_confirmation_number",
-        "wise_transfer_id",
     ]
     """The type of the reference number. Referring to the vendor payment id."""
 

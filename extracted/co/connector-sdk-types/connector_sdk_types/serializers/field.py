@@ -48,6 +48,16 @@ class SemanticType(str, Enum):
     RESOURCE_TYPE = "resource-type"
     # Represents a settings field a connector derives `unique_tenant_id` from
     TENANT_ID = "tenant-id"
+    # Represents the ID of a ticket in a ticketing system
+    TICKET_ID = "ticket-id"
+    # Represents the ID of a comment on a ticket
+    TICKET_COMMENT_ID = "ticket-comment-id"
+    # Represents the ID of a ticket status
+    TICKET_STATUS_ID = "ticket-status-id"
+    # Represents the ID of a status change a ticket can go through
+    TICKET_TRANSITION_ID = "ticket-transition-id"
+    # Represents a caller-generated key a connector may deduplicate writes on
+    IDEMPOTENCY_KEY = "idempotency-key"
 
 
 @dataclass

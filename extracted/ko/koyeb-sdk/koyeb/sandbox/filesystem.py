@@ -153,7 +153,9 @@ class SandboxFilesystem:
         try:
             response = client.write_file(path, content_str)
             if response.get("error"):
-                raise _executor_error(response.get("error", "Unknown error"), "write file")
+                raise _executor_error(
+                    response.get("error", "Unknown error"), "write file"
+                )
         except (SandboxServiceError, SandboxFilesystemError):
             raise
         except Exception as e:
@@ -219,7 +221,9 @@ class SandboxFilesystem:
             raise
         except Exception as e:
             raise _executor_error(
-                str(e), "create directory", exists_msg=f"Directory already exists: {path}"
+                str(e),
+                "create directory",
+                exists_msg=f"Directory already exists: {path}",
             ) from e
 
     def list_dir(self, path: str = ".") -> List[str]:
@@ -320,7 +324,9 @@ class SandboxFilesystem:
 
         if not result.success:
             raise _executor_error(
-                result.stderr, "rename file", not_found_msg=f"File not found: {old_path}"
+                result.stderr,
+                "rename file",
+                not_found_msg=f"File not found: {old_path}",
             )
 
     def move_file(self, source_path: str, destination_path: str) -> None:
@@ -522,7 +528,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         try:
             response = await client.write_file(path, content_str)
             if response.get("error"):
-                raise _executor_error(response.get("error", "Unknown error"), "write file")
+                raise _executor_error(
+                    response.get("error", "Unknown error"), "write file"
+                )
         except (SandboxServiceError, SandboxFilesystemError):
             raise
         except Exception as e:
@@ -588,7 +596,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             raise
         except Exception as e:
             raise _executor_error(
-                str(e), "create directory", exists_msg=f"Directory already exists: {path}"
+                str(e),
+                "create directory",
+                exists_msg=f"Directory already exists: {path}",
             ) from e
 
     async def list_dir(self, path: str = ".") -> List[str]:
@@ -687,7 +697,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
 
         if not result.success:
             raise _executor_error(
-                result.stderr, "rename file", not_found_msg=f"File not found: {old_path}"
+                result.stderr,
+                "rename file",
+                not_found_msg=f"File not found: {old_path}",
             )
 
     async def move_file(self, source_path: str, destination_path: str) -> None:

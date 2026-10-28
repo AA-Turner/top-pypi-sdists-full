@@ -15,10 +15,17 @@ generator writes as an ``irreversible`` directive with its reason. A ``-- WARNIN
 line is what this module writes where a statement would need what the change does
 not carry — an index or constraint with no name, a CHECK with no expression. A
 statement ends with its semicolon and a newline.
+
+A change the rows a table already holds can refuse — a ``NOT NULL`` column
+nothing fills, ``SET NOT NULL``, an added UNIQUE, primary key or CHECK, a type the
+values may not fit — is written around a ``-- confiture:backfill`` placeholder
+(:mod:`confiture.core.backfill_gate`), never as a statement that fails on data.
 """
 
+from dataclasses import replace
 from typing import assert_never
 
+from confiture.core import backfill_gate
 from confiture.core.ddl_clauses import (
     column_element,
     column_type,
@@ -41,6 +48,9 @@ from confiture.core.schema_change import (
     ColumnRenamed,
     ColumnTypeChanged,
     DefinitionChange,
+    Dependent,
+    DependentsDropped,
+    DependentsRecreated,
     EnumOrSequenceChange,
     EnumTypeAdded,
     EnumTypeDropped,
@@ -56,6 +66,7 @@ from confiture.core.schema_change import (
     ObjectReplaced,
     PrimaryKeyAdded,
     PrimaryKeyDropped,
+    RebuildChange,
     SchemaChange,
     SequenceAdded,
     SequenceDropped,
@@ -77,9 +88,10 @@ from confiture.core.schema_model import (
     RelationName,
     Sequence,
     Table,
+    ValueSource,
 )
 from confiture.core.sql_utils import comment_text
-from confiture.core.type_lattice import has_assignment_cast
+from confiture.core.type_lattice import TypeChange, compare_types, has_assignment_cast
 from confiture.exceptions import DifferError
 
 #: The kinds compared by definition that a migration is derived for, created and
@@ -104,14 +116,22 @@ DERIVED_KINDS: frozenset[str] = frozenset(
 )
 
 #: The derived kinds PostgreSQL gives no ``IF NOT EXISTS`` or ``OR REPLACE``: the
-#: creating statement is guarded on ``duplicate_object`` so that the migration
-#: re-applies, as every other creation it writes does.
+#: creating statement is guarded on ``duplicate_object``, so a file that may run
+#: again over what it created does not fail on it. A table or a materialized view
+#: is created plainly instead where the file runs in one transaction and the change
+#: proves the relation new (:meth:`DifferSQLGenerator.creates`); everywhere else a
+#: creation carries ``IF NOT EXISTS`` or ``OR REPLACE``.
 _GUARDED_KINDS: frozenset[str] = frozenset({"domain", "type", "policy"})
 
 #: The kinds whose redefinition is a statement confiture writes. Every other
 #: ``REPLACE`` is in ``ddl_objects.REPLACE_IS_AUTHORS_WORK``, with its reason.
 _REPLACED_BY_DEFINITION: frozenset[str] = frozenset({"view", "function", "procedure", "tview"})
 REPLACED_BY_DROP_AND_CREATE: frozenset[str] = frozenset({"matview", "aggregate"})
+
+#: The derived kinds a file that runs in one transaction creates with no
+#: existence clause, when the change proves the relation new: a table is the
+#: other relation, created by ``TableAdded`` and ``TableDropped``'s down.
+PLAIN_CREATE_KINDS: frozenset[str] = frozenset({"matview"})
 
 
 def _comment(text: str) -> str:
@@ -169,15 +189,28 @@ def _statement(sql: str) -> str:
     return f"{sql.rstrip().rstrip(';')};\n"
 
 
-def _creating(obj: DDLObject, change: SchemaChange) -> str:
-    """The statement that creates *obj*, re-appliable: guarded where PostgreSQL has no clause."""
-    statement = _statement(_stated(obj, change))
+def _creating(obj: DDLObject, change: SchemaChange, *, plain: bool) -> str:
+    """The statement that creates *obj*: re-appliable, or plain where it is asked and can be.
+
+    A materialized view asked for *plain* is its ``definition``, which is the
+    statement with no existence clause; every other kind is re-appliable either
+    way, guarded where PostgreSQL has no clause.
+    """
+    stated = _stated(obj, change)
+    if _creates_plainly(obj, plain=plain):
+        return _statement(obj.definition)
+    statement = _statement(stated)
     if obj.ref.kind not in _GUARDED_KINDS:
         return statement
     return (
         f"DO $confiture$\nBEGIN\n    {statement}"
         "EXCEPTION WHEN duplicate_object THEN NULL;\nEND\n$confiture$;\n"
     )
+
+
+def _creates_plainly(obj: DDLObject, *, plain: bool) -> bool:
+    """Whether *obj* is created with no existence clause: a matview, asked, with a definition."""
+    return plain and obj.ref.kind in PLAIN_CREATE_KINDS and bool(obj.definition)
 
 
 def _replacing(before: DDLObject, after: DDLObject, change: SchemaChange) -> str:
@@ -246,11 +279,12 @@ def _table_constraints(table: Table) -> list[Constraint]:
     return [c for c in listed if (c.expression if c.kind == "check" else c.columns)]
 
 
-def _create_table(table: Table) -> str:
+def _create_table(table: Table, *, plain: bool) -> str:
     """The table the schema declared: its columns, its constraints **and** its indexes.
 
     A constraint the schema left unnamed is written unnamed, exactly as the
-    author wrote it; PostgreSQL generates the name either way.
+    author wrote it; PostgreSQL generates the name either way. *plain* writes
+    ``CREATE TABLE`` without ``IF NOT EXISTS``: see :meth:`DifferSQLGenerator.creates`.
     """
     elements = [column_element(column) for column in table.columns]
     bodies = [(c, _clause(c)) for c in _table_constraints(table)]
@@ -262,13 +296,14 @@ def _create_table(table: Table) -> str:
     )
     joined = ",\n    ".join(elements)
     body = f"(\n    {joined}\n)" if elements else "()"
-    return f"{warnings}CREATE TABLE IF NOT EXISTS {relation(table.relation)} {body};\n{_table_indexes(table)}"
+    create = "CREATE TABLE" if plain else "CREATE TABLE IF NOT EXISTS"
+    return f"{warnings}{create} {relation(table.relation)} {body};\n{_table_indexes(table)}"
 
 
-def _table_up(change: TableChange) -> str | None:
+def _table_up(change: TableChange, *, plain: bool) -> str | None:
     match change:
         case TableAdded(table):
-            return _create_table(table)
+            return _create_table(table, plain=plain)
         case TableDropped(table):
             return f"DROP TABLE {relation(table.relation)};\n"
         case TableRenamed(old, new):
@@ -278,16 +313,94 @@ def _table_up(change: TableChange) -> str | None:
             assert_never(change)
 
 
-def _table_down(change: TableChange) -> str | None:
+def _table_down(change: TableChange, *, plain: bool) -> str | None:
     match change:
         case TableAdded(table):
             return f"DROP TABLE {relation(table.relation)};\n"
         case TableDropped(table):
-            return _create_table(table) if table.columns else None
+            return _create_table(table, plain=plain) if table.columns else None
         case TableRenamed(old, new):
             return f"ALTER TABLE {relation(new.relation)} RENAME TO {quote_identifier(old.name)};\n"
         case _:
             assert_never(change)
+
+
+def _target(table: RelationName, column: str) -> str:
+    return f"{relation(table)}.{quote_identifier(column)}"
+
+
+def _not_null_check(table: RelationName, column: str) -> str:
+    """The CHECK that proves a column holds no NULL.
+
+    Not ``<table>_<column>_not_null``: PostgreSQL 18 gives the column's own NOT NULL
+    constraint that name, and dropping the CHECK by it would read as dropping that.
+    """
+    return f"{table.name}_{column}_not_null_check"
+
+
+def _add_not_valid(table: RelationName, name: str, body: str) -> str:
+    """``ADD CONSTRAINT … NOT VALID``, after the same name dropped if it exists, then ``VALIDATE``.
+
+    A file that runs outside a transaction commits each statement: when the
+    ``VALIDATE`` fails on a row, the ``ADD`` has committed, and the run that
+    follows the fix would fail on it. PostgreSQL has no ``ADD CONSTRAINT IF NOT
+    EXISTS``; the drop before it is the change set's replacement, paired as written
+    (#785).
+    """
+    target, constraint = relation(table), quote_identifier(name)
+    return (
+        f"ALTER TABLE {target} DROP CONSTRAINT IF EXISTS {constraint};\n"
+        f"ALTER TABLE {target} ADD {named(name, body)} NOT VALID;\n"
+        f"ALTER TABLE {target} VALIDATE CONSTRAINT {constraint};\n"
+    )
+
+
+def _tighten(table: RelationName, column: str) -> str:
+    """``SET NOT NULL`` once a validated CHECK has proven it, then the CHECK dropped.
+
+    expand/contract's ``add_not_null_column`` contract: on PostgreSQL 12+ the
+    ``SET NOT NULL`` reads the validated CHECK instead of scanning the table.
+    """
+    target, check = relation(table), _not_null_check(table, column)
+    return (
+        _add_not_valid(table, check, f"CHECK ({quote_identifier(column)} IS NOT NULL)")
+        + _nullability(table, column, nullable=False)
+        + f"ALTER TABLE {target} DROP CONSTRAINT {quote_identifier(check)};\n"
+    )
+
+
+def _placeholder_for_nulls(table: RelationName, column: str) -> str:
+    rows = f"the rows of {relation(table)} where {quote_identifier(column)} is NULL"
+    return backfill_gate.placeholder(_target(table, column), rows)
+
+
+def _fill_then_tighten(table: RelationName, column: str) -> str:
+    return _placeholder_for_nulls(table, column) + _tighten(table, column)
+
+
+def _filled_by_nothing(column: Column) -> bool:
+    """A ``NOT NULL`` column PostgreSQL gives no value to when it is added to a table with rows."""
+    return (
+        column.not_null
+        and column.not_null_validated
+        and not column.primary_key
+        and column.value_source is ValueSource.NONE
+    )
+
+
+def _add_column(table: RelationName, column: Column) -> str:
+    """``ADD COLUMN``; a ``NOT NULL`` one nothing fills is added nullable, filled, then tightened.
+
+    The nullable column is added ``IF NOT EXISTS``: when the tightening fails on a
+    row outside a transaction, the run after the fix meets the column (#785).
+    """
+    if not _filled_by_nothing(column):
+        return f"ALTER TABLE {relation(table)} ADD COLUMN {column_element(column)};\n"
+    nullable = replace(column, not_null=False)
+    return (
+        f"ALTER TABLE {relation(table)} ADD COLUMN IF NOT EXISTS {column_element(nullable)};\n"
+        + (_fill_then_tighten(table, column.folded))
+    )
 
 
 def _nullability(table: RelationName, column: str, *, nullable: bool) -> str:
@@ -339,20 +452,38 @@ def _retype(table: RelationName, old: Column, new: Column) -> str:
     )
 
 
+def _values_may_not_fit(table: RelationName, old: Column, new: Column) -> str:
+    """The placeholder before a retype a value can fail: a narrowing, or a cast that is not assignment."""
+    before, after = column_type(old), column_type(new)
+    if compare_types(old.type_key, new.type_key) is not TypeChange.NARROWING and (
+        has_assignment_cast(before, after)
+    ):
+        return ""
+    rows = (
+        f"the rows of {relation(table)} whose {quote_identifier(old.folded)} does not fit {after}"
+    )
+    return backfill_gate.placeholder(_target(table, old.folded), rows)
+
+
 def _column_up(change: ColumnChange) -> str | None:
     match change:
         case ColumnAdded(table, column):
-            return f"ALTER TABLE {relation(table)} ADD COLUMN {column_element(column)};\n"
+            return _add_column(table, column)
         case ColumnDropped(table, column):
             return f"ALTER TABLE {relation(table)} DROP COLUMN {quote_identifier(column.folded)};\n"
         case ColumnRenamed(table, old, new):
             return f"ALTER TABLE {relation(table)} RENAME COLUMN {quote_identifier(old)} TO {quote_identifier(new)};\n"
         case ColumnTypeChanged(table, old, new):
-            return _retype(table, old, new)
+            return _values_may_not_fit(table, old, new) + _retype(table, old, new)
         case ColumnNullabilityChanged(table, column, nullable):
-            return _nullability(table, column, nullable=nullable)
+            return (
+                _nullability(table, column, nullable=True)
+                if nullable
+                else _fill_then_tighten(table, column)
+            )
         case ColumnNotNullValidityChanged(table, column, validated):
-            return _not_null_validity(table, column, validated=validated)
+            fill = _placeholder_for_nulls(table, column) if validated else ""
+            return fill + _not_null_validity(table, column, validated=validated)
         case ColumnDefaultChanged(table, column, _, new):
             return _default(table, column, new)
         case ColumnOrderChanged():
@@ -510,6 +641,45 @@ def _add_constraint(
     return f"ALTER TABLE {relation(change.table)} ADD {named(change.constraint.name, body)};\n"
 
 
+def _key_columns(constraint: Constraint) -> str:
+    return "(" + ", ".join(quote_identifier(c) for c in constraint.columns) + ")"
+
+
+def _constraint_target(table: RelationName, constraint: Constraint) -> str:
+    """``tb_user.k`` for a named constraint; ``tb_user (a, b)`` or ``tb_user`` for an unnamed one."""
+    if constraint.name:
+        return _target(table, constraint.name)
+    return (
+        f"{relation(table)} {_key_columns(constraint)}" if constraint.columns else relation(table)
+    )
+
+
+def _rows_may_repeat(change: UniqueConstraintAdded | PrimaryKeyAdded) -> str:
+    """The placeholder before a key is added: the rows whose key repeats (or, for a primary key, is NULL)."""
+    if _clause(change.constraint) is None:
+        return _add_constraint(change, "a column list")
+    keys = _key_columns(change.constraint)
+    rows = f"the rows of {relation(change.table)} whose {keys} repeats"
+    if isinstance(change, PrimaryKeyAdded):
+        rows += " or holds a NULL"
+    return backfill_gate.placeholder(
+        _constraint_target(change.table, change.constraint), rows
+    ) + _add_constraint(change, "a column list")
+
+
+def _add_check(change: CheckConstraintAdded) -> str:
+    """The placeholder, then the CHECK added ``NOT VALID`` and validated — one statement when unnamed."""
+    body = _clause(change.constraint)
+    if body is None:
+        return _incomplete(change, "a CHECK expression")
+    name = change.constraint.name
+    rows = f"the rows of {relation(change.table)} that fail {body}"
+    fill = backfill_gate.placeholder(_constraint_target(change.table, change.constraint), rows)
+    if not name:
+        return fill + f"ALTER TABLE {relation(change.table)} ADD {body};\n"
+    return fill + _add_not_valid(change.table, name, body)
+
+
 def _drop_constraint(
     change: ForeignKeyAdded
     | ForeignKeyDropped
@@ -536,9 +706,9 @@ def _table_object_up(change: TableObjectChange) -> str:
         case ForeignKeyAdded():
             return _add_foreign_key(change)
         case CheckConstraintAdded():
-            return _add_constraint(change, "a CHECK expression")
+            return _add_check(change)
         case UniqueConstraintAdded() | PrimaryKeyAdded():
-            return _add_constraint(change, "a column list")
+            return _rows_may_repeat(change)
         case ExclusionConstraintAdded():
             return _add_constraint(change, "its elements")
         case (
@@ -638,11 +808,15 @@ def _create_sequence(sequence: Sequence) -> str:
 class DifferSQLGenerator:
     """Generates the DDL for a schema change, up and down."""
 
-    def generate_up(self, change: SchemaChange) -> str | None:
-        """The forward DDL for *change*, or ``None`` when none is derived."""
+    def generate_up(self, change: SchemaChange, *, plain_creates: bool = False) -> str | None:
+        """The forward DDL for *change*, or ``None`` when none is derived.
+
+        *plain_creates* writes a relation the change creates without ``IF NOT
+        EXISTS``: see :meth:`creates`.
+        """
         match change:
             case TableAdded() | TableDropped() | TableRenamed():
-                return _table_up(change)
+                return _table_up(change, plain=plain_creates)
             case (
                 ColumnAdded()
                 | ColumnDropped()
@@ -678,15 +852,20 @@ class DifferSQLGenerator:
             ):
                 return _enum_or_sequence_up(change)
             case ObjectAdded() | ObjectDropped() | ObjectReplaced():
-                return _definition_up(change)
+                return _definition_up(change, plain=plain_creates)
+            case DependentsDropped() | DependentsRecreated():
+                return _rebuild_up(change, plain=plain_creates)
             case _:
                 assert_never(change)
 
-    def generate_down(self, change: SchemaChange) -> str | None:
-        """The DDL that undoes *change*, or ``None`` when no rollback is derived."""
+    def generate_down(self, change: SchemaChange, *, plain_creates: bool = False) -> str | None:
+        """The DDL that undoes *change*, or ``None`` when no rollback is derived.
+
+        *plain_creates* as for :meth:`generate_up`.
+        """
         match change:
             case TableAdded() | TableDropped() | TableRenamed():
-                return _table_down(change)
+                return _table_down(change, plain=plain_creates)
             case (
                 ColumnAdded()
                 | ColumnDropped()
@@ -722,9 +901,148 @@ class DifferSQLGenerator:
             ):
                 return _enum_or_sequence_down(change)
             case ObjectAdded() | ObjectDropped() | ObjectReplaced():
-                return _definition_down(change)
+                return _definition_down(change, plain=plain_creates)
+            case DependentsDropped() | DependentsRecreated():
+                return _rebuild_down(change, plain=plain_creates)
             case _:
                 assert_never(change)
+
+    def creates(
+        self, change: SchemaChange, *, down: bool = False, plain_creates: bool = False
+    ) -> tuple[str, ...]:
+        """The relations *change*'s up (or *down*) creates plainly, each as it is spelled.
+
+        A file that runs in one transaction creates a table or a materialized
+        view the change proves new with no ``IF NOT EXISTS``: PostgreSQL then
+        proves it new, and a failure rolls the whole file back. One that does
+        not — a concurrent index, an enum label — keeps the clause, because a
+        failed file is run again from the top. The generator decides which, for
+        the file, and asks for *plain_creates*; without it nothing is created
+        plainly and this is ``()``. Each name is the created object's own
+        spelling, which the generator declares above the change.
+        """
+        if not plain_creates:
+            return ()
+        match change:
+            case TableAdded() | TableDropped() | TableRenamed():
+                return _table_creates(change, down=down)
+            case ObjectAdded() | ObjectDropped() | ObjectReplaced():
+                return _definition_creates(change, down=down)
+            case DependentsDropped() | DependentsRecreated():
+                return _rebuild_creates(change, down=down)
+            case (
+                ColumnAdded()
+                | ColumnDropped()
+                | ColumnRenamed()
+                | ColumnTypeChanged()
+                | ColumnNullabilityChanged()
+                | ColumnNotNullValidityChanged()
+                | ColumnDefaultChanged()
+                | ColumnOrderChanged()
+                | IndexAdded()
+                | IndexDropped()
+                | ForeignKeyAdded()
+                | ForeignKeyDropped()
+                | CheckConstraintAdded()
+                | CheckConstraintDropped()
+                | UniqueConstraintAdded()
+                | PrimaryKeyAdded()
+                | UniqueConstraintDropped()
+                | PrimaryKeyDropped()
+                | ExclusionConstraintAdded()
+                | ExclusionConstraintDropped()
+                | EnumTypeAdded()
+                | EnumTypeDropped()
+                | EnumValuesChanged()
+                | SequenceAdded()
+                | SequenceDropped()
+            ):
+                return ()
+            case _:
+                assert_never(change)
+
+
+def _table_creates(change: TableChange, *, down: bool) -> tuple[str, ...]:
+    match change:
+        case TableAdded(table) if not down:
+            return (relation(table.relation),)
+        case TableDropped(table) if down and table.columns:
+            return (relation(table.relation),)
+        case TableAdded() | TableDropped() | TableRenamed():
+            return ()
+        case _:
+            assert_never(change)
+
+
+def _definition_creates(change: DefinitionChange, *, down: bool) -> tuple[str, ...]:
+    """The object the change's up or down creates, when it creates it plainly."""
+    kind = change.ref.kind
+    match change:
+        case ObjectAdded(_, obj) if not down and kind in DERIVED_KINDS:
+            created = obj
+        case ObjectDropped(_, obj) if down and kind in DERIVED_KINDS:
+            created = obj
+        case ObjectReplaced(_, old, new) if kind in REPLACED_BY_DROP_AND_CREATE:
+            created = old if down else new
+        case ObjectAdded() | ObjectDropped() | ObjectReplaced():
+            return ()
+        case _:
+            assert_never(change)
+    return (created.ref.qualified,) if _creates_plainly(created, plain=True) else ()
+
+
+def _rebuild_creates(change: RebuildChange, *, down: bool) -> tuple[str, ...]:
+    """The dependents the change's up (recreated) or down (dropped) creates plainly."""
+    match change:
+        case DependentsRecreated(dependents) if not down:
+            created = dependents
+        case DependentsDropped(dependents) if down:
+            created = dependents
+        case DependentsDropped() | DependentsRecreated():
+            return ()
+        case _:
+            assert_never(change)
+    return tuple(d.ref.qualified for d in created if _creates_plainly(d.obj, plain=True))
+
+
+def _dropping_dependents(dependents: tuple[Dependent, ...], change: RebuildChange) -> str:
+    """Each dependent dropped, the ones reading the others first."""
+    names = ", ".join(d.ref.qualified for d in dependents)
+    return _comment(f"Read by a column change PostgreSQL refuses under them: {names}") + "".join(
+        _dropping(d.obj, change) for d in reversed(dependents)
+    )
+
+
+def _creating_dependents(
+    dependents: tuple[Dependent, ...], change: RebuildChange, *, plain: bool
+) -> str:
+    """Each dependent created, after the ones it reads, with its indexes and what it carried."""
+    return "".join(
+        _creating(d.obj, change, plain=plain) + _carried_indexes(d.indexes) + "".join(d.attached)
+        for d in dependents
+    )
+
+
+def _rebuild_up(change: RebuildChange, *, plain: bool) -> str:
+    """Dropped from the old tree before the tables are edited; created from the new one after."""
+    match change:
+        case DependentsDropped(dependents):
+            return _dropping_dependents(dependents, change)
+        case DependentsRecreated(dependents):
+            return _creating_dependents(dependents, change, plain=plain)
+        case _:
+            assert_never(change)
+
+
+def _rebuild_down(change: RebuildChange, *, plain: bool) -> str:
+    """The up in reverse: the new tree's dropped, the old tree's created again."""
+    match change:
+        case DependentsDropped(dependents):
+            return _creating_dependents(dependents, change, plain=plain)
+        case DependentsRecreated(dependents):
+            return _dropping_dependents(dependents, change)
+        case _:
+            assert_never(change)
 
 
 def _enum_or_sequence_up(change: EnumOrSequenceChange) -> str:
@@ -743,19 +1061,19 @@ def _enum_or_sequence_up(change: EnumOrSequenceChange) -> str:
             assert_never(change)
 
 
-def _definition_up(change: DefinitionChange) -> str | None:
+def _definition_up(change: DefinitionChange, *, plain: bool) -> str | None:
     kind = change.ref.kind
     keyword = OBJECT_KEYWORD.get(kind, "")
     name = change.ref.qualified
     match change:
         case ObjectAdded(_, obj, indexes) if kind in DERIVED_KINDS:
-            return _creating(obj, change) + _carried_indexes(indexes)
+            return _creating(obj, change, plain=plain) + _carried_indexes(indexes)
         case ObjectDropped(_, obj) if kind in DERIVED_KINDS:
             return _dropping(obj, change)
         case ObjectReplaced(_, old, new) if kind in _REPLACED_BY_DEFINITION:
             return _replacing(old, new, change)
         case ObjectReplaced(new=new, new_indexes=indexes) if kind in REPLACED_BY_DROP_AND_CREATE:
-            created = _statement(_stated(new, change)) + _carried_indexes(indexes)
+            created = _creating(new, change, plain=plain) + _carried_indexes(indexes)
             return _drop(keyword, name) + created
         case ObjectAdded() | ObjectDropped() | ObjectReplaced():
             return None
@@ -780,7 +1098,7 @@ def _enum_or_sequence_down(change: EnumOrSequenceChange) -> str | None:
             assert_never(change)
 
 
-def _definition_down(change: DefinitionChange) -> str | None:
+def _definition_down(change: DefinitionChange, *, plain: bool) -> str | None:
     """A create is undone by a drop, a drop by the definition it carried, a replace by the old one."""
     kind = change.ref.kind
     keyword = OBJECT_KEYWORD.get(kind, "")
@@ -789,11 +1107,11 @@ def _definition_down(change: DefinitionChange) -> str | None:
         case ObjectAdded(_, obj) if kind in DERIVED_KINDS:
             return _dropping(obj, change)
         case ObjectDropped(_, obj, indexes) if kind in DERIVED_KINDS:
-            return _creating(obj, change) + _carried_indexes(indexes)
+            return _creating(obj, change, plain=plain) + _carried_indexes(indexes)
         case ObjectReplaced(_, old, new) if kind in _REPLACED_BY_DEFINITION:
             return _replacing(new, old, change)
         case ObjectReplaced(old=old, old_indexes=indexes) if kind in REPLACED_BY_DROP_AND_CREATE:
-            created = _statement(_stated(old, change)) + _carried_indexes(indexes)
+            created = _creating(old, change, plain=plain) + _carried_indexes(indexes)
             return _drop(keyword, name) + created
         case ObjectAdded() | ObjectDropped() | ObjectReplaced():
             return None

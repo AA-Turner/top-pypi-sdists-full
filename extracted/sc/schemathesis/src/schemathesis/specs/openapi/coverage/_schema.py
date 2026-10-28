@@ -66,6 +66,8 @@ from schemathesis.core import (
 from schemathesis.core.cache import MISSING
 from schemathesis.core.errors import InvalidSchema, RefResolutionError
 from schemathesis.core.jsonschema.patterns import (
+    CharacterRules,
+    character_rules,
     compile_ecma_pattern,
     matches_every_string,
     pattern_length_bounds,
@@ -343,10 +345,18 @@ class GeneratedValue:
     parameter: str | None
     location: str | None
     deduplication_key: tuple | None = None
+    # Canonical JSON of `value` at yield time, so enclosing values can spell themselves without serializing it again.
+    canonical: str | None = None
 
     @classmethod
     def with_positive(
-        cls, value: Any, *, scenario: CoverageScenario, description: str, deduplication_key: tuple | None = None
+        cls,
+        value: Any,
+        *,
+        scenario: CoverageScenario,
+        description: str,
+        deduplication_key: tuple | None = None,
+        canonical: str | None = None,
     ) -> GeneratedValue:
         return cls(
             value=value,
@@ -356,6 +366,7 @@ class GeneratedValue:
             location=None,
             parameter=None,
             deduplication_key=deduplication_key,
+            canonical=canonical,
         )
 
     @classmethod
@@ -405,6 +416,28 @@ def _keeps_length_within(pattern: str, min_length: int | None, max_length: int |
     return max_length is None or (pattern_max is not None and pattern_max <= max_length)
 
 
+def _character_rules_strategy(rules: CharacterRules) -> st.SearchStrategy[str]:
+    # Lookaheads only filter what the rest of the pattern draws, and a random string rarely holds a
+    # character of every required class; placing one of each first leaves nothing to chance.
+    forbidden = [re.compile(text, re.ASCII) for text in rules.forbidden]
+    body = re.compile(rules.body, re.ASCII)
+
+    def is_allowed(char: str) -> bool:
+        return body.fullmatch(char) is not None and not any(pattern.fullmatch(char) for pattern in forbidden)
+
+    def characters(text: str) -> st.SearchStrategy[str]:
+        return st.from_regex(re.compile(text, re.ASCII), fullmatch=True).filter(is_allowed)
+
+    required = st.tuples(*(characters(text) for text in rules.required))
+    count = len(rules.required)
+    rest = st.lists(
+        characters(rules.body),
+        min_size=max(rules.min_size - count, 0),
+        max_size=None if rules.max_size is None else max(rules.max_size - count, 0),
+    )
+    return st.tuples(required, rest).flatmap(lambda parts: st.permutations([*parts[0], *parts[1]])).map("".join)
+
+
 def _pattern_strategy(
     session: GenerationSession, pattern: str, min_length: int | None, max_length: int | None, fmt: str | None
 ) -> st.SearchStrategy | None:
@@ -419,7 +452,12 @@ def _pattern_strategy(
     if compiled is None:
         session.pattern_strategies[key] = None
         return None
-    strategy = st.from_regex(compiled, fullmatch=True).filter(matches_pattern(pattern))
+    rules = character_rules(compiled.pattern)
+    if rules is None:
+        strategy = st.from_regex(compiled, fullmatch=True)
+    else:
+        strategy = _character_rules_strategy(rules)
+    strategy = strategy.filter(matches_pattern(pattern))
     if min_length is not None and max_length is not None:
         strategy = strategy.filter(lambda s: min_length <= len(s) <= max_length)
     elif min_length is not None:
@@ -1361,11 +1399,76 @@ def _to_hashable_key(value: T, _encode: Callable = _encode) -> tuple[type, str |
     return type(value), value
 
 
-def _to_hashable_key_with_json_parts(value: dict[str, Any]) -> tuple[tuple, dict[str, int]]:
+def _canonical_json(value: object) -> str | None:
+    try:
+        return jsonschema_rs.canonical.json.to_string(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _key_from_canonical(value: object, canonical: str | None) -> tuple:
+    """The `_to_hashable_key` of `value`, reusing its already known canonical JSON."""
+    if canonical is not None and (type(value) is dict or type(value) is list):
+        return type(value), _digest(canonical)
+    return _to_hashable_key(value)
+
+
+def _serialized_entries(value: dict) -> list[tuple[str, str]] | None:
+    """The `"key":value` spellings of a string-keyed object, in canonical JSON order."""
+    if not all(type(key) is str for key in value):
+        return None
+    try:
+        # Canonical JSON orders keys by code point, which is how Python sorts strings.
+        return [
+            (key, f"{jsonschema_rs.canonical.json.to_string(key)}:{jsonschema_rs.canonical.json.to_string(item)}")
+            for key, item in sorted(value.items())
+        ]
+    except (TypeError, ValueError):
+        return None
+
+
+class _ObjectSpelling:
+    """Canonical JSON of a template object with one entry replaced, built from pre-serialized entries."""
+
+    __slots__ = ("_template", "_entries", "_serialized", "_name", "_frame")
+
+    def __init__(self, template: dict) -> None:
+        self._template = template
+        self._entries: list[tuple[str, str]] | None = None
+        self._serialized = False
+        # The spelling before and after the value of the entry named last; callers vary one entry at a time.
+        self._name: str | None = None
+        self._frame = ("", "")
+
+    def with_entry(self, name: str, canonical: str | None) -> str | None:
+        if canonical is None or type(name) is not str:
+            return None
+        if name != self._name:
+            if not self._serialized:
+                self._serialized = True
+                self._entries = _serialized_entries(self._template)
+            if self._entries is None:
+                return None
+            before = ",".join(entry for key, entry in self._entries if key < name)
+            after = ",".join(entry for key, entry in self._entries if key > name)
+            head = f"{{{before}{',' if before else ''}{jsonschema_rs.canonical.json.to_string(name)}:"
+            self._name = name
+            self._frame = (head, f"{',' if after else ''}{after}}}")
+        head, tail = self._frame
+        return f"{head}{canonical}{tail}"
+
+
+def _to_hashable_key_with_json_parts(
+    value: dict[str, Any], known: dict[str, str] | None = None
+) -> tuple[tuple, dict[str, int]]:
+    """Key `value`, taking the canonical JSON of the entries in `known` as given."""
     serialized_parts: dict[str, str] = {}
     try:
         for name, item in value.items():
-            serialized_parts[name] = jsonschema_rs.canonical.json.to_string(item)
+            if known is not None and name in known:
+                serialized_parts[name] = known[name]
+            else:
+                serialized_parts[name] = jsonschema_rs.canonical.json.to_string(item)
     except (TypeError, ValueError):
         return _to_hashable_key(value), {}
     serialized = (
@@ -1397,10 +1500,6 @@ class HashSet:
 
     def insert(self, value: Any, *, key: tuple | None = None) -> bool:
         return self._insert_key(_to_hashable_key(value) if key is None else key)
-
-    def insert_with_key(self, value: Any) -> tuple | None:
-        key = _to_hashable_key(value)
-        return key if self._insert_key(key) else None
 
     def insert_unless_in(self, other: HashSet, value: Any, *, key: tuple | None = None) -> bool:
         """Insert the value unless `other` already holds it; the key is built once for both sets."""
@@ -2625,15 +2724,15 @@ def cover_schema_iter(
     if leaves is not None:
         allow_negative_fallback = GenerationMode.NEGATIVE in ctx.generation_modes
         with _ignore_unfixable():
-            yield from _filter_against_not(
+            yield from _filter_against_conditionals(
                 _positive_for_leaves(ctx.with_positive(), schema, leaves, allow_negative_fallback), schema, ctx
             )
     elif not types:
         with _ignore_unfixable():
-            yield from _filter_against_not(_cover_positive_for_type(ctx, schema, None), schema, ctx)
+            yield from _filter_against_conditionals(_cover_positive_for_type(ctx, schema, None), schema, ctx)
     for ty in types if leaves is None else []:
         with _ignore_unfixable():
-            yield from _filter_against_not(_cover_positive_for_type(ctx, schema, ty), schema, ctx)
+            yield from _filter_against_conditionals(_cover_positive_for_type(ctx, schema, ty), schema, ctx)
     if GenerationMode.NEGATIVE in ctx.generation_modes:
         template = None
         baseline_emitted = False
@@ -2828,15 +2927,15 @@ def _drop_invalid_for_location(
             yield case
 
 
-def _filter_against_not(
+def _filter_against_conditionals(
     cases: Generator[GeneratedValue, None, None], schema: JsonSchema, ctx: CoverageContext
 ) -> Generator[GeneratedValue, None, None]:
-    """Drop values that a sibling `not` rules out.
+    """Drop values that a sibling `not` or `if` rules out.
 
     Values are built from the describing keywords alone (bounds, `items`, `properties`, ...), so a
-    `not` beside them can still reject what those keywords allow.
+    `not` or a conditional beside them can still reject what those keywords allow.
     """
-    if not isinstance(schema, dict) or not isinstance(schema.get("not"), (dict, bool)):
+    if not isinstance(schema, dict) or not (isinstance(schema.get("not"), (dict, bool)) or "if" in schema):
         yield from cases
         return
     for case in cases:
@@ -3119,6 +3218,12 @@ def _get_template_schema(schema: JsonSchemaObject, ty: str, ctx: CoverageContext
 
 
 _SPEC_HINT_KEYS = frozenset({"example", "examples", "default"})
+# Past 16-bit length prefixes and TEXT-sized columns, which servers often assume without declaring `maxLength`.
+OVERSIZED_STRING_LENGTH = 2**16 + 1
+OVERSIZED_STRING = "a" * OVERSIZED_STRING_LENGTH
+# Deduplication spelling; not valid JSON, so it matches no other value and keeps every enclosing key short.
+OVERSIZED_STRING_SPELLING = "<oversized>"
+LARGE_NUMBER = 2**63
 
 
 def _spec_hint_values(
@@ -3252,6 +3357,26 @@ def _positive_string(ctx: CoverageContext, schema: JsonSchemaObject) -> Generato
         with _ignore_unfixable():
             value = ctx.generate_from_schema(schema)
             yield PositiveValue(value, scenario=CoverageScenario.VALID_STRING, description="Valid string")
+
+    # Only bodies: proxies and servers reject long URLs and headers before the application sees them.
+    if (
+        max_length is None
+        and ctx.location == ParameterLocation.BODY
+        and "pattern" not in schema
+        and "format" not in schema
+        and "enum" not in schema
+        and "const" not in schema
+        and (
+            all(key == "type" or key in ANNOTATION_KEYWORDS for key in declared)
+            or _is_valid_with_formats(OVERSIZED_STRING, declared, ctx)
+        )
+    ):
+        yield PositiveValue(
+            OVERSIZED_STRING,
+            scenario=CoverageScenario.OVERSIZED_STRING,
+            description="String longer than common implicit limits",
+            canonical=OVERSIZED_STRING_SPELLING,
+        )
 
 
 def _rational(value: int | float) -> Fraction:
@@ -3430,6 +3555,18 @@ def _positive_number(ctx: CoverageContext, schema: JsonSchemaObject) -> Generato
             yield PositiveValue(
                 smaller, scenario=CoverageScenario.NEAR_BOUNDARY_NUMBER, description="Near-boundary number"
             )
+    else:
+        # Past both 32- and 64-bit integer ranges, so a narrower server-side type overflows.
+        large = LARGE_NUMBER if multiple_of is None else closest_multiple_greater_than(LARGE_NUMBER, multiple_of)
+        if (
+            large is not None
+            and _within_adjusted_bounds(large)
+            and _is_valid_with_formats(large, schema, ctx)
+            and seen.insert(large)
+        ):
+            yield PositiveValue(
+                large, scenario=CoverageScenario.LARGE_NUMBER, description="Number beyond common integer widths"
+            )
 
 
 def _tuple_prefix_values(ctx: CoverageContext, schema: JsonSchemaObject) -> list | None:
@@ -3583,16 +3720,27 @@ def _positive_array(
         # Single-item arrays exercise each items-schema branch individually.
         # `maxItems`-sized boundary arrays (above) repeat one shape and miss multi-branch coverage.
         sub_schema = schema["items"]
+        prefix_parts = _canonical_json(prefix_values)
         for item in cover_schema_iter(ctx, sub_schema):
             candidate = [*prefix_values, item.value]
-            deduplication_key = seen.insert_with_key(candidate)
-            if deduplication_key is not None:
+            item_canonical = item.canonical if item.canonical is not None else _canonical_json(item.value)
+            canonical = None
+            if prefix_parts is not None and item_canonical is not None:
+                canonical = f"[{item_canonical}]" if prefix_parts == "[]" else f"{prefix_parts[:-1]},{item_canonical}]"
+            deduplication_key = _key_from_canonical(candidate, canonical)
+            if seen.insert(candidate, key=deduplication_key):
                 yield PositiveValue(
                     candidate,
-                    scenario=CoverageScenario.VALID_ARRAY,
+                    scenario=_nested_scenario(item, CoverageScenario.VALID_ARRAY),
                     description=f"Single-item array: {item.description}",
                     deduplication_key=deduplication_key,
+                    canonical=canonical,
                 )
+
+
+def _nested_scenario(nested: GeneratedValue, container: CoverageScenario) -> CoverageScenario:
+    # Keep oversized strings recognizable once wrapped, so their cases stay out of the resource pool.
+    return nested.scenario if nested.scenario is CoverageScenario.OVERSIZED_STRING else container
 
 
 def _positive_object(
@@ -3697,6 +3845,7 @@ def _iter_positive_object(
                 description="Object with only required properties",
             )
     seen = HashSet()
+    spelling = _ObjectSpelling(template)
     max_properties = schema.get("maxProperties")
     for name, sub_schema in properties.items():
         # A property the template left out adds a key, which the size window may not have room for.
@@ -3709,11 +3858,14 @@ def _iter_positive_object(
         if name in template:
             seen.insert(template[name])
         for new in cover_schema_iter(ctx, sub_schema):
-            if seen.insert(new.value, key=new.deduplication_key):
+            canonical = new.canonical if new.canonical is not None else _canonical_json(new.value)
+            key = new.deduplication_key or _key_from_canonical(new.value, canonical)
+            if seen.insert(new.value, key=key):
                 yield PositiveValue(
                     {**template, name: new.value},
-                    scenario=CoverageScenario.VALID_OBJECT,
+                    scenario=_nested_scenario(new, CoverageScenario.VALID_OBJECT),
                     description=f"Object with valid '{name}' value: {new.description}",
+                    canonical=spelling.with_entry(name, canonical),
                 )
         seen.clear()
     # Handle additionalProperties with schema
@@ -3726,11 +3878,14 @@ def _iter_positive_object(
         if additional_key is None:
             return
         for new in cover_schema_iter(ctx, additional_properties):
-            if seen.insert(new.value, key=new.deduplication_key):
+            canonical = new.canonical if new.canonical is not None else _canonical_json(new.value)
+            key = new.deduplication_key or _key_from_canonical(new.value, canonical)
+            if seen.insert(new.value, key=key):
                 yield PositiveValue(
                     {**template, additional_key: new.value},
                     scenario=CoverageScenario.OBJECT_ADDITIONAL_PROPERTY,
                     description=f"Object with additional property: {new.description}",
+                    canonical=spelling.with_entry(additional_key, canonical),
                 )
 
 
@@ -4471,7 +4626,8 @@ def _negative_type(
         for ty in ("integer", "number", "string"):
             if ty in strategies:
                 restrict(ty, _is_not_boolean_coercible)
-    if ctx.wire.url_part():
+    # An object's text always carries `{`, which no path segment may hold, so the path filter rejects every one.
+    if ctx.wire.url_part() or ctx.location == ParameterLocation.PATH:
         strategies.pop("object", None)
     # Form-urlencoded property-level mutations with null/array/object serialize to empty
     if ctx.wire.urlencoded_body():
@@ -4544,6 +4700,16 @@ def _negative_type(
                 generated_values.append(ctx.generate_from(strategy))
             except Unsatisfiable:
                 break
+    # Spring reads a blank numeric parameter as null; a path segment stays non-empty with a single space.
+    if (
+        ctx.wire.url_part()
+        and ctx.path == ["type"]
+        and {"integer", "number"} & set(types)
+        and {"string", "null"} <= strategies.keys()
+    ):
+        blank = ctx.wire.rendered(" " if ctx.location == ParameterLocation.PATH else "")
+        if not apply_validation or _does_not_match_the_original_schema(blank):
+            generated_values.append(blank)
     if cache_key is not None:
         ctx.session.values[cache_key] = generated_values
     for value in generated_values:

@@ -113,6 +113,7 @@ class Snapshot:
     def list(
         cls,
         service_id: Optional[str] = None,
+        name: Optional[str] = None,
         snapshot_type: Optional[SnapshotType] = None,
         status: Optional[SnapshotStatus] = None,
         limit: int = 50,
@@ -126,7 +127,9 @@ class Snapshot:
         Uses the InstanceSnapshots API which is for sandbox/service instance snapshots.
 
         Args:
-            service_id: Filter by service ID
+            service_id: Filter by service ID (applied to the returned page;
+                the list endpoint has no service_id query param)
+            name: Filter by snapshot name
             snapshot_type: Filter by snapshot type
             status: Filter by snapshot status
             limit: Maximum number of snapshots to return
@@ -176,8 +179,8 @@ class Snapshot:
                 "limit": str(limit),
                 "offset": str(offset),
             }
-            if service_id:
-                list_kwargs["service_id"] = service_id
+            if name:
+                list_kwargs["name"] = name
             if type_param:
                 list_kwargs["type"] = type_param
             if status_param:
@@ -185,14 +188,15 @@ class Snapshot:
 
             reply = clients.instance_snapshots.list_instance_snapshots(**list_kwargs)
 
-            snapshots = []
-            if reply.instance_snapshots:
-                for api_snapshot in reply.instance_snapshots:
-                    snapshots.append(
-                        cls._from_instance_api_snapshot(api_snapshot, api_token, host)
-                    )
+            api_snapshots = list(reply.instance_snapshots or [])
+            # The list endpoint has no service_id query param — the SDK filters the page.
+            if service_id:
+                api_snapshots = [s for s in api_snapshots if s.service_id == service_id]
 
-            return snapshots
+            return [
+                cls._from_instance_api_snapshot(api_snapshot, api_token, host)
+                for api_snapshot in api_snapshots
+            ]
 
         except Exception as e:
             raise SandboxError(f"Failed to list snapshots: {e}") from e

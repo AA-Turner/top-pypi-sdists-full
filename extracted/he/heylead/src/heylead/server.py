@@ -37,6 +37,52 @@ def _err_text(exc: BaseException) -> str:
 _CHANGELOG = """\
 # HeyLead Changelog
 
+## v0.10.480 (2026-10-28)
+- Fix: every comment and close checks the number is an issue first (api #4484, #4552)
+- the client closer acted by default and swallowed the reply (api #4564)
+- guard(closer): semgrep rules: no book_meeting in the client closer; unset mode never reads act (api #4564)
+- New: inspect and help say the closer defaults to observe and never sends an invite (api #4564)
+- wip(closer): client closer never books; observe default; their-words grounding; code-written lines (api #4564)
+- Fix: delivery tests answer with GitHub payloads recorded from production (api #4485)
+- Fix: every write on a GitHub number checks its kind first (api #4484)
+- Fix: an unreadable API read or /moved call is a logged line, not a crash (api #4552)
+- New: Enzo's VM filer files each product stall once and proves it moved in code (api #4552)
+- Fix: ETag sweep never deletes the answer it just kept under a clock that runs ahead (api #4431)
+
+## v0.10.479 (2026-10-27)
+- Fix: remember no messages for invited and connected rows only (api #4374 review r1)
+- P0 posts at 07:30 and is switched by the funnel_watch_mode key (api #4482)
+- P0 runs on the api tick, Denys's decision (#4458)
+- designer checks an email at 375 px (api #4463)
+- #4307 UI QA F1/F2, a held reply hidden by the screens its email links to
+- Fix: the local reply sweep remembers a person with no messages (api #4374)
+- shepherd+devflow: every hold names an owner and a deadline, and goes up a level when it passes (api #3954)
+- Fix: align budget watchdog tests with resume and price scaling behavior (#4102)
+- Scale --max-budget-usd for Flash list prices and enforce outcome cap (#4102)
+
+## v0.10.478 (2026-10-27)
+- Fix: keep a bytecode cache when the host forbids __pycache__ (api #4472)
+- funnel report in its own DM, Denys's decision (#4458)
+- funnel P1 first stage S4, Denys's decision (#4458)
+- funnel north-star target, Denys's decision (#4458)
+- funnel agent lives on heylead-ci, Denys's decision (#4458)
+- funnel agent plan, P0 missed-run fixtures per PM decision (#4458)
+- funnel agent plan, §4.1 matches the stall table (#4458)
+- funnel agent plan, round-two fixes (#4458)
+- funnel agent plan, round-one review fixes (#4458)
+- existing-user funnel agent, a daily review that keeps every connected account bringing leads
+
+## v0.10.477 (2026-10-27)
+- Fix: the merge queue's batch PR passes the PR gates and holds no WIP slot (api #4411)
+- the draft result's launch sentence (api #4301)
+- New: a draft's result names the sentence the person says to launch
+
+## v0.10.476 (2026-10-27)
+- Fix: the queue skip of stop, archive and delete records its reason (api #4311)
+- Fix: "business hours off" no longer promises weekend sends (#4316)
+- Fix: add --final to claude_spend.py and update docs (#4085)
+- New: add --final flag to claude_spend.py (#4085)
+
 ## v0.10.475 (2026-10-27)
 - Fix: normalize schemas for OpenAI; enforce strictness in heylead client (#4125)
 - #4174 UI QA round 1 missed findings F1-F3
@@ -58,6 +104,7 @@ _CHANGELOG = """\
 - proofs: the hands-off week's check, with a floor and idle hours (api #4225)
 
 ## v0.10.474 (2026-10-26)
+- Feat: a chat draft's result names the sentence the person says to launch, per draft state; no launch sentence beside a no-brief or 0-prospect draft (api #4301)
 - Fix: semgrep guard for silent empty competitor defaults (#3400)
 - Fix: repos from repos.BUILT, the queue's live line as a decorator so tick keeps its passes (api #4174)
 - wip(live): five more live-write tests and the live-sender semgrep guard draft (api #4174)
@@ -2299,7 +2346,9 @@ mcp = FastMCP(
         "    was skipped, call inspect() first — it never writes. A hold →\n"
         "    prospect(action='conversation') then send_message(action='reply').\n"
         "    Never paste model-authored text as the LinkedIn message; the send\n"
-        "    tools generate it. Agents default to act. Use\n"
+        "    tools generate it. Agents default to act; the hot-lead closer\n"
+        "    defaults to observe and never sends a calendar invite from this\n"
+        "    computer. Use\n"
         "    edit_campaign(enable_reply_agent='observe'),\n"
         "    edit_campaign(enable_strategist_replan_agent='observe'),\n"
         "    edit_campaign(enable_hot_lead_closer='observe'), or\n"
@@ -3475,7 +3524,9 @@ async def edit_campaign(
         enable_strategist_replan_agent: Strategist replan: "on", "off", or
             "observe". Empty keeps the current value.
         enable_hot_lead_closer: Hot-lead closer: "on", "off", or "observe".
-            Empty keeps the current value.
+            Empty keeps the current value. Unset defaults to observe. It
+            never sends a calendar invite from this computer: "on" notes a
+            call that is ready for you to book.
         enable_coordinator_agent: Coordinator digest/hold: "on", "off", or
             "observe". Empty keeps the current value.
         engagement_mode: Engagement style: "auto" (30% react / 70% comment),

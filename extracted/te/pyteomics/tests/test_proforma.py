@@ -4,13 +4,14 @@ from os import path
 import unittest
 import pickle
 import math
+from itertools import product
 import pyteomics
 pyteomics.__path__ = [path.abspath(
     path.join(path.dirname(__file__), path.pardir, 'pyteomics'))]
 from pyteomics.proforma import (
     Chimeric, PSIModModification, ProForma, TaggedInterval, parse, MassModification, ProFormaError, TagTypeEnum,
     ModificationRule, StableIsotope, GenericModification, Composition, to_proforma, ModificationMassNotFoundError,
-    UnimodModification, ModificationTarget,
+    UnimodModification, ModificationTarget, ResidModification,
     AdductParser, ChargeState, proteoforms, _coerce_string_to_modification,
     std_aa_comp, obo_cache, process_tag_tokens, peptidoforms)
 from pyteomics import mass
@@ -25,6 +26,47 @@ obo_cache.enabled = bool(os.environ.get("OBO_CACHE_ENABLED"))
 
 class ProFormaTest(unittest.TestCase):
     maxDiff = None
+
+    def test_spec_shaped_peptidoform_conformance_matrix(self):
+        """Exercise combinations assembled from the ProForma grammar.
+
+        This deterministic matrix covers optional prefix and suffix productions.
+        Each input has a ``sequence`` production, so the parser must accept it.
+        """
+        prefixes = (
+            "", "{+1}", "[+1]?", "[+1]^2?", "[+1]-", "[+1][+2]-",
+            "[+1][+2][+3]-", "<13C>", "<[+1]@C>",
+        )
+        sequences = ("PEPTIDE", "PEP[+1]TIDE", "(PEP)[+1]TIDE", "(?PEP)TIDE")
+        suffixes = ("", "-[+1]", "-[+1][+2]", "-[+1][+2][+3]", "/2", "/2[+H+]")
+        for prefix, sequence, suffix in product(prefixes, sequences, suffixes):
+            with self.subTest(peptidoform=prefix + sequence + suffix):
+                ProForma.parse(prefix + sequence + suffix)
+
+        # Positive examples added with HUPO-PSI/ProForma issue #33.
+        for peptidoform in (
+            "[Acetyl][Acetyl][Carbamyl]-QPEPTIDE",
+            "PEPTIDEG-[Methyl][Amidated][INFO:A lot of C terminal mods]",
+        ):
+            with self.subTest(peptidoform=peptidoform):
+                ProForma.parse(peptidoform)
+
+    def test_spec_shaped_invalid_peptidoform_conformance_matrix(self):
+        """Reject grammar-breaking mutations of otherwise valid productions."""
+        invalid_peptidoforms = (
+            "",                      # no required sequence
+            "[+1]",                  # a pre-sequence tag needs ?/^n? or -
+            "[+1]-",                 # N-terminus needs a sequence afterwards
+            "{+1}",                  # labile tag without a sequence
+            "<13C>",                 # isotope rule without a sequence
+            "[+1]-[+2]-PEPTIDE",     # repeated modNTerm group
+            "PEPTIDE-[+1]X",         # no content may follow modCTerm
+            "PEPTIDE/2[+H+]X",       # no content may follow an adduct list
+        )
+        for peptidoform in invalid_peptidoforms:
+            with self.subTest(peptidoform=peptidoform):
+                with self.assertRaises(ProFormaError):
+                    ProForma.parse(peptidoform)
 
     def test_complicated_short(self):
         complicated_short = r"<[Carbamidomethyl]@C><13C>[Hydroxylation]?{HexNAc}[Hex]-ST[UNIMOD:Oxidation](EPP)[+18.15]ING"
@@ -450,7 +492,7 @@ class ProFormaTest(unittest.TestCase):
             "<[TMT6plex]@K,N-term:A,N-term:B>ATPEILTCNSIGCLK",
             "EM[Oxidation]EVEES[Phospho]PEK",
             "EM[L-methionine sulfoxide]EVEES[O-phospho-L-serine]PEK",
-            # "EM[R: L-methionine sulfone]EVEES[O-phospho-L-serine]PEK", # don't support RESID
+            "EM[R: L-methionine sulfone]EVEES[O-phospho-L-serine]PEK",
             "EMEVTK[X:DSS#XL1]SESPEK",
             "NEEYN[GNO:G59626AS]K",
             "NEEYN[G:G59626AS]K",
@@ -461,7 +503,7 @@ class ProFormaTest(unittest.TestCase):
             "EM[Oxidation]EVE[Cation:Mg[II]]ES[Phospho]PEK",
             "EM[MOD:00719]EVEES[MOD:00046]PEK",
             "EM[UNIMOD:35]EVEES[UNIMOD:56]PEK",
-            # "EM[RESID:AA0581]EVEES[RESID:AA0037]PEK", # don't support RESID
+            "EM[RESID:AA0581]EVEES[RESID:AA0037]PEK",
             "EMEVTK[XLMOD:02001#XL1]SESPEK[#XL1]",
             "EMK[XLMOD:02000#XL1]EVTKSE[XLMOD:02010#XL2]SK[#XL1]PEK[#XL2]AR",
             "EMEVTK[XLMOD:02001#XL1]SESPEK",
@@ -800,6 +842,68 @@ class PSIModModificationResolverTest(unittest.TestCase):
         self.assertRaises(ModificationMassNotFoundError, lambda: state.resolve())
 
 
+class ResidModificationResolverTest(unittest.TestCase):
+    def test_resolve_by_accession(self):
+        mod = ResidModification("RESID:AA0038").resolve()
+        self.assertEqual(mod['id'], 'AA0038')
+        self.assertEqual(mod['name'], 'O-phospho-L-threonine')
+        self.assertEqual(mod['provider'], 'resid')
+        # The modification mass, not the mass of the modified residue, which
+        # would be 181.014009.
+        self.assertAlmostEqual(mod['mass'], 79.966331, 6)
+
+    def test_resolve_by_name(self):
+        mod = ResidModification("L-methionine sulfone").resolve()
+        self.assertEqual(mod['id'], 'AA0251')
+        self.assertAlmostEqual(mod['mass'], 31.989829, 6)
+
+    def test_short_prefix_tolerates_the_space_the_spec_writes(self):
+        mod = ResidModification("R: L-methionine sulfone").resolve()
+        self.assertEqual(mod['id'], 'AA0251')
+
+    def test_agrees_with_psimod(self):
+        for resid_id, psimod_id in [("RESID:AA0038", "MOD:00047"),
+                                    ("RESID:AA0055", "MOD:00064")]:
+            self.assertAlmostEqual(ResidModification(resid_id).mass,
+                                   PSIModModification(psimod_id).mass, 4)
+
+    def test_bare_accession_resolves_through_the_generic_chain(self):
+        # `[AA0038]` with no prefix. RESID sits after the vocabularies that
+        # share names with it, so this is additive: nothing that resolved
+        # before changes, and 619 bare accessions that resolved to nothing now
+        # resolve.
+        mod = GenericModification("AA0038").resolve()
+        self.assertEqual(mod["provider"], "resid")
+        self.assertEqual(mod["name"], "O-phospho-L-threonine")
+        self.assertAlmostEqual(GenericModification("AA0038").mass, 79.966331, 6)
+
+    def test_shared_names_keep_their_existing_resolver(self):
+        # RESID and PSI-MOD both call MOD:00046/AA0037 O-phospho-L-serine.
+        # Placing RESID after PSI-MOD means the existing answer stands.
+        self.assertEqual(
+            GenericModification("O-phospho-L-serine").resolve()["provider"], "psimod")
+
+    def test_unknown_mass(self):
+        # 2-pyrrolidone-5-carboxylic acid loses ammonia when formed from
+        # glutamine and water when formed from glutamate, so RESID lists no
+        # single delta and none should be invented.
+        state = ResidModification("RESID:AA0031")
+        self.assertRaises(ModificationMassNotFoundError, lambda: state.resolve())
+
+    def test_ambiguous_entry_still_offers_every_delta(self):
+        # Refusing to pick is only defensible if the alternatives are reachable
+        # and right, so check the two that AA0031 actually has.
+        database = ResidModification("RESID:AA0031").resolver.database
+        by_parent = {database[c.parents[0]].name: c.monoisotopic_mass
+                     for c in database['AA0031'].corrections}
+        self.assertAlmostEqual(by_parent['L-glutamine'], -17.026549, 6)
+        self.assertAlmostEqual(by_parent['L-glutamic acid'], -18.010565, 6)
+
+    def test_parses_and_totals(self):
+        seq = ProForma.parse("EM[RESID:AA0581]EVEES[RESID:AA0037]PEK")
+        self.assertAlmostEqual(seq.mass, 1301.4734302, 4)
+
+
 class ModificationTest(unittest.TestCase):
     def test_mass_modification_hashable(self):
         mod = MassModification(57.08)
@@ -997,6 +1101,60 @@ class ProteoformsFunctionTest(unittest.TestCase):
         forms = list(proteoforms(pf, fixed_modifications=fixed_mods))
         self.assertEqual(len(forms), 1)
         self.assertTrue(isinstance(forms[0].sequence[3][1][0], GenericModification))
+
+    def test_strip_removes_modifiers(self):
+        # "Stripping" means removing the position limiters and INFO extras from
+        # every modification tag the combinator generates, leaving bare
+        # modification definitions behind. Masses must not change: stripping
+        # only affects how tags are rendered, not what they mean.
+        seq = "EMECTSESPEK"
+        variable_mods = {"Phospho": ["S", "T"]}
+        fixed_mods = ["Carbamidomethyl|Position:C|INFO:from method"]
+        pf = ProForma.parse(seq)
+
+        annotated = list(proteoforms(
+            pf, variable_modifications=variable_mods,
+            fixed_modifications=fixed_mods))
+        stripped = list(proteoforms(
+            pf, variable_modifications=variable_mods,
+            fixed_modifications=fixed_mods, strip=True))
+
+        # The extra information is present when strip is not requested...
+        self.assertEqual(
+            [str(form) for form in annotated],
+            [
+                'EMEC[Carbamidomethyl|Position:C|INFO:from method]TSESPEK',
+                'EMEC[Carbamidomethyl|Position:C|INFO:from method]T[Phospho|Position:S|Position:T]SESPEK',
+                'EMEC[Carbamidomethyl|Position:C|INFO:from method]TS[Phospho|Position:S|Position:T]ESPEK',
+                'EMEC[Carbamidomethyl|Position:C|INFO:from method]TSES[Phospho|Position:S|Position:T]PEK',
+            ])
+
+        # ...and gone from every generated tag when it is. Fixed and variable
+        # modifications must both be stripped.
+        self.assertEqual(
+            [str(form) for form in stripped],
+            [
+                'EMEC[Carbamidomethyl]TSESPEK',
+                'EMEC[Carbamidomethyl]T[Phospho]SESPEK',
+                'EMEC[Carbamidomethyl]TS[Phospho]ESPEK',
+                'EMEC[Carbamidomethyl]TSES[Phospho]PEK',
+            ])
+
+        # The rendered sequences differ, but each form keeps its mass,
+        # composition, and modification identity.
+        for a, s in zip(annotated, stripped):
+            self.assertAlmostEqual(a.mass, s.mass, 6)
+            self.assertEqual(a.composition(), s.composition())
+            self.assertEqual(
+                [(aa, [tag.key for tag in tags or []]) for aa, tags in a],
+                [(aa, [tag.key for tag in tags or []]) for aa, tags in s])
+
+        # Unmodified stretches carry nothing to strip.
+        self.assertTrue(all(
+            tag.extra == []
+            for form in stripped
+            for _, tags in form
+            for tag in tags or []))
 
     def test_expand_mods_from_list(self):
         seq = "EMEVTSESPEK"

@@ -174,3 +174,28 @@ async def test_ext_1907(skip_unless_run_long_tests, test_env):
         await conn.close()
     assert pool.opened <= pool.max
     await pool.close()
+
+
+async def test_ext_1908(async_tunnel):
+    "E1908 - drop() on a connection whose network is gone"
+    pool = oracledb.create_pool_async(
+        params=async_tunnel.get_pool_params(), min=0, max=1, increment=1
+    )
+    conn = await pool.acquire()
+    await async_tunnel.cut()
+    await pool.drop(conn)
+    async with pool.acquire():
+        pass
+    await pool.close()
+
+
+async def test_ext_1909(async_tunnel):
+    "E1909 - returning a connection whose network is gone"
+    pool = oracledb.create_pool_async(
+        params=async_tunnel.get_pool_params(), min=0, max=1, increment=1
+    )
+    async with pool.acquire():
+        await async_tunnel.cut()
+    async with pool.acquire():
+        pass
+    await pool.close()

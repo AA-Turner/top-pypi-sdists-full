@@ -62,10 +62,6 @@ def resolve_companion_binary(target: str, binary_name: str) -> Optional[str]:
 def ensure_executable(path: str) -> None:
     if os.name == 'nt':
         return
-    # AIDEV-NOTE: Never chmod a binary this process can already execute. Every
-    # client construction lands here, and on overlayfs any metadata write to a
-    # file in a read-only image layer copies the whole binary (over 100 MB)
-    # into the container layer. Mirrors ensureEmbeddedExecutable in the Node SDK.
     if os.access(path, os.X_OK):
         return
     try:

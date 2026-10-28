@@ -3,10 +3,12 @@
 The login email (the account's ``login_email``, else its username when that is an
 address) picks the item, in this order (:func:`resolve_mail_route`):
 
-1. The mailbox of that exact address (``tom@bobwitmiester.com`` -> ``mail-tom``).
+1. The mailbox of that exact address (``tom@bobwitmiester.com`` -> ``mail-tom``), or the
+   account's own ``mail-{account}`` item when it holds that address.
 2. A plus alias's base mailbox (``jim+x@plato.so`` -> ``mail-jim``).
 3. The shared inbox of the address's domain (``collab-3@bobwitmiester.com`` -> ``mail-tom``).
-4. The account's own item, ``mail-{account}``, whatever address it holds.
+
+No match is no route: an own item that holds another address is never read.
 
 Steps 2 and 3 read a mailbox that gets the mail of many addresses, so they set
 ``to_contains`` to the login email. The code reader on the agent VM (``get_otp.py``)
@@ -165,14 +167,13 @@ async def resolve_mail_route(
 ) -> MailRoute | None:
     """The mail item of ``account`` that signs in as ``login_email``, in the module docstring's order.
 
-    A fallback item must hold the base address of its mailbox. An own item with only a
-    username or only a password gives None, so the missing field fails legibly. ``read``
-    gets each field once, and a step 1-3 password only after its username passed.
+    A fallback item must hold the base address of its mailbox. ``read`` gets each field
+    once, and a password only after its username passed.
     """
     fields: dict[tuple[str, str], str | None] = {}
 
     async def read_once(item: str, field: str) -> str | None:
-        # Steps share items (the own item can be step 1's and step 4's).
+        # Steps share items (the own item can be step 1's and step 2's base).
         if (item, field) not in fields:
             fields[item, field] = await read(item, field)
         return fields[item, field]
@@ -204,8 +205,4 @@ async def resolve_mail_route(
             return MailRoute(
                 item=shared.item, imap_user=shared_user, imap_password=shared_password, to_contains=address
             )
-
-    own_user, own_password = await read_once(own_item, "username"), await read_once(own_item, "password")
-    if own_user and own_password:
-        return MailRoute(item=own_item, imap_user=own_user, imap_password=own_password)
     return None

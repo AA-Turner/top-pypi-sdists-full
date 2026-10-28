@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpy-stl
-Version: 4.1.1
+Version: 4.1.3
 Summary: Library to make reading, writing and modifying both binary and ascii STL files easy.
 Author: Rick van Hattem
 Author-email: Rick van Hattem <Wolph@Wol.ph>

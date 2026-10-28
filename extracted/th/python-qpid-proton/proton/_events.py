@@ -17,6 +17,8 @@
 # under the License.
 #
 
+from __future__ import annotations
+
 import threading
 
 from cproton import PN_CONNECTION_BOUND, PN_CONNECTION_FINAL, PN_CONNECTION_INIT, PN_CONNECTION_LOCAL_CLOSE, \
@@ -47,7 +49,7 @@ class Collector:
     def __init__(self) -> None:
         self._impl = pn_collector()
 
-    def put(self, obj: Any, etype: 'EventType') -> None:
+    def put(self, obj: Any, etype: EventType) -> None:
         pn_collector_put_pyref(self._impl, obj, etype)
 
     def peek(self) -> Optional['Event']:
@@ -79,7 +81,7 @@ if "TypeExtender" not in globals():
                 self.number += 1
 
 
-class EventType(object):
+class EventType:
     """
     Connects an event number to an event name, and is used
     internally by :class:`Event` to represent all known
@@ -129,7 +131,7 @@ def _dispatch(handler: Any, method: str, *args) -> None:
         handler.on_unhandled(method, *args)
 
 
-class EventBase(object):
+class EventBase:
 
     def __init__(self, type: EventType) -> None:
         self._type = type
@@ -505,14 +507,14 @@ class Event(EventBase):
         return h
 
     @property
-    def reactor(self) -> 'Container':
+    def reactor(self) -> Container:
         """
         **Deprecated** - The :class:`reactor.Container` (was reactor) associated with the event.
         """
         return self.container
 
     @property
-    def container(self) -> 'Container':
+    def container(self) -> Container:
         """
         The :class:`reactor.Container` associated with the event.
         """
@@ -556,7 +558,7 @@ class Event(EventBase):
         return self._session
 
     @property
-    def link(self) -> Optional[Union['Receiver', 'Sender']]:
+    def link(self) -> Optional[Link]:
         """
         The link associated with the event, or ``None`` if none
         is associated with it.

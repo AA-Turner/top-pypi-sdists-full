@@ -16,6 +16,7 @@ from .modules import (
     CredentialConfig,
     CredentialsSettings,
     EmptySettings,
+    ItsmSettings,
     OAuthCapabilities,
     OAuthConfig,
     OAuthFlowType,
@@ -29,6 +30,8 @@ from .modules import (
     RateLimitStrategy,
     RequestDataType,
     RequestMethod,
+    TicketInfo,
+    TicketInfoCallable,
     ValidateCredentialConfigCallable,
 )
 from .probe import (
@@ -84,6 +87,9 @@ __all__ = [
     "ProbeErrorMapper",
     "ProbeSession",
     "ProbeSettings",
+    "ItsmSettings",
+    "TicketInfo",
+    "TicketInfoCallable",
     "aggregate_probe_status",
     "default_probe_error_mapper",
     "elapsed_ms",

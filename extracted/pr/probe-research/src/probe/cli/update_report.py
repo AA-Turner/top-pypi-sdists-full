@@ -55,7 +55,7 @@ import httpx
 
 from probe import version_policy
 from probe._compat import StrEnum
-from probe._shared import capture_repair, scrub, update_request
+from probe._shared import device_mark, scrub
 from probe.cli import autoupdate, updater, versions
 from probe.cli.capabilities import tracking_plugin_name
 from probe.client_headers import client_version_headers, device_headers
@@ -698,10 +698,9 @@ def _deliver(base_url: str, headers: dict[str, str], body: dict, timeout: float)
     except Exception:  # noqa: BLE001 - offline, DNS, TLS, timeout: all the same here
         return None
     # The refresher's report flush is often the one request a machine that only
-    # runs hooks makes with its device: it hears "update now" here too, and a
-    # staff capture repair (research-os control/073).
-    update_request.note(response.headers)
-    capture_repair.note(response.headers)
+    # runs hooks makes with its device: it hears "update now" here too, a staff
+    # capture repair (research-os control/073) and a settings change (074).
+    device_mark.note_all(response.headers)
     return response.status_code
 
 

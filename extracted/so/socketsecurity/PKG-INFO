@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: socketsecurity
-Version: 2.11.3
+Version: 2.11.4
 Summary: Socket Security CLI for CI/CD
 Project-URL: Homepage, https://socket.dev
 Author-email: Douglas Coburn <douglas@socket.dev>
@@ -34,10 +34,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.11
 Requires-Dist: beautifulsoup4==4.15.0
-Requires-Dist: brotli==1.2.0; platform_python_implementation == 'CPython'
-Requires-Dist: brotlicffi==1.2.0.2; platform_python_implementation != 'CPython'
+Requires-Dist: brotli==1.2.1; platform_python_implementation == 'CPython'
+Requires-Dist: brotlicffi==1.2.1.0; platform_python_implementation != 'CPython'
 Requires-Dist: certifi>=2026.10.19
-Requires-Dist: gitpython==3.2.0
+Requires-Dist: gitpython==3.2.1
 Requires-Dist: markdown==3.11.1
 Requires-Dist: mdutils==1.8.1
 Requires-Dist: packaging==26.3
@@ -48,7 +48,7 @@ Requires-Dist: socketdev==3.6.1
 Provides-Extra: dev
 Requires-Dist: hatch==1.18.1; extra == 'dev'
 Requires-Dist: pre-commit==4.7.0; extra == 'dev'
-Requires-Dist: ruff==0.17.0; extra == 'dev'
+Requires-Dist: ruff==0.17.1; extra == 'dev'
 Requires-Dist: twine==7.0.0; extra == 'dev'
 Requires-Dist: uv==0.13.4; extra == 'dev'
 Provides-Extra: test

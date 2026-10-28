@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 1.2.1
+Version: 1.2.2
 Summary: A programming framework for agentic AI
 Keywords: ai,agent,autogen,ag2,ag2.ai,ag2ai,agentic
 Author: Chi Wang & Qingyun Wu
@@ -39,7 +39,7 @@ Requires-Dist: ag2[mcp] ; extra == 'acp'
 Requires-Dist: starlette>=0.40,<2 ; extra == 'acp'
 Requires-Dist: uvicorn>=0.51.0,<1 ; extra == 'acp'
 Requires-Dist: ag-ui-protocol>=1.0,<2 ; extra == 'ag-ui'
-Requires-Dist: anthropic>=1.9.0,<2 ; extra == 'anthropic'
+Requires-Dist: anthropic>=1.15.0,<3 ; extra == 'anthropic'
 Requires-Dist: aiobotocore>=3.9.1,<4 ; extra == 'bedrock'
 Requires-Dist: dashscope>=1.25.13 ; extra == 'dashscope'
 Requires-Dist: ddgs>=9.0.0,<10 ; extra == 'ddgs'
@@ -54,7 +54,7 @@ Requires-Dist: mcp>=2.2.0,<3 ; extra == 'mcp-ui'
 Requires-Dist: prometheus-client>=0.20.0,<0.30.0 ; extra == 'metrics'
 Requires-Dist: mistralai>=3.2.0,<4 ; extra == 'mistral'
 Requires-Dist: ollama>=0.5.2,<1 ; extra == 'ollama'
-Requires-Dist: openai>=3.27.0,<4 ; extra == 'openai'
+Requires-Dist: openai>=3.37.0,<4 ; extra == 'openai'
 Requires-Dist: perplexityai>=0.30.0,<1 ; extra == 'perplexity'
 Requires-Dist: redis>=5.0,<9 ; extra == 'redis'
 Requires-Dist: tavily-python>=0.7.4,<0.9 ; extra == 'tavily'

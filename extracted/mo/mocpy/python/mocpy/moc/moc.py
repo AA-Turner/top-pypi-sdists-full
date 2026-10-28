@@ -1,11 +1,14 @@
 import contextlib
 import functools
+import json
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
-from io import BytesIO
+from io import BytesIO, StringIO
 from math import log2
 from pathlib import Path
+from tempfile import NamedTemporaryFile
+from typing import List, Literal, Optional, get_args
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 
@@ -22,6 +25,7 @@ from astropy.coordinates import (
     SkyCoord,
 )
 from astropy.io import fits
+from astropy.io.votable import parse_single_table
 from astropy.table import Table
 from astropy.utils.data import download_file
 
@@ -184,6 +188,9 @@ class MOC(AbstractMOC):
     # (do not remove since it may be used externally).
     MAX_ORDER = np.uint8(29)
 
+    # for the query methods
+    _OUTPUT_FORMATS = Literal["csv", "votable", "astropy_table", "raw_votable"]
+
     def __init__(self, store_index):
         """Is a Spatial Coverage (S-MOC).
 
@@ -195,7 +202,14 @@ class MOC(AbstractMOC):
 
     @property
     def max_order(self):
-        """Depth/order of the S-MOC."""
+        """Depth/order of the S-MOC.
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> MOC.from_string("3/0-1").max_order
+        3
+        """
         return mocpy.get_smoc_depth(self.store_index)
 
     @classmethod
@@ -238,6 +252,16 @@ class MOC(AbstractMOC):
         Returns
         -------
         int
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> moc = MOC.from_string("3/0-3")
+        >>> moc.split_count()
+        1
+        >>> moc = MOC.from_string("5/0 5/12")
+        >>> moc.split_count()
+        2
         """
         return mocpy.split_count(self.store_index, include_indirect_neighbours)
 
@@ -258,6 +282,18 @@ class MOC(AbstractMOC):
         Notes
         -----
         Use `~mocpy.moc.MOC.split_count` first to ensure the number is not too high
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> moc = MOC.from_string("3/0-3")
+        >>> len(moc.split())
+        1
+        >>> mocs = MOC.from_string("5/0 5/12").split()
+        >>> mocs[0]
+        5/0
+        >>> mocs[1]
+        5/12
         """
         indices = mocpy.split(self.store_index, include_indirect_neighbours)
         return [MOC(index) for index in indices]
@@ -278,6 +314,13 @@ class MOC(AbstractMOC):
         -------
         `~mocpy.MOC`
             The degraded MOC.
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> moc = MOC.from_string("10/2000-2200")
+        >>> moc.degrade_to_order(5)
+        5/1-2
         """
         if new_order >= self.max_order:
             warnings.warn(
@@ -306,8 +349,6 @@ class MOC(AbstractMOC):
         --------
         >>> from mocpy import MOC
         >>> moc = MOC.from_str("3/10")
-        >>> moc
-        3/10
         >>> moc.refine_to_order(5)
         3/10
         5/
@@ -377,6 +418,19 @@ class MOC(AbstractMOC):
         `~np.ndarray`
             A mask boolean array
 
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> from astropy.coordinates import SkyCoord
+        >>> moc = MOC.from_string("0/0-11") # all the sky
+        >>> coords = SkyCoord([0, 180, 90], [0, 0, 0], unit="deg")
+        >>> moc.contains_skycoords(coords)
+        array([ True,  True,  True])
+        >>> moc = MOC.from_string("3/0")
+        >>> coords = SkyCoord([45, 180], [0, 0], unit="deg")
+        >>> moc.contains_skycoords(coords)
+        array([ True, False])
+
         See Also
         --------
         contains_lonlat
@@ -413,6 +467,7 @@ class MOC(AbstractMOC):
         See Also
         --------
         contains_skycoords
+        contains_lonlat
         """
         warnings.warn(
             "This method is deprecated and has been replaced by contains_lonlat",
@@ -519,8 +574,8 @@ class MOC(AbstractMOC):
         """
         if _missing_plot_dependencies:
             raise ImportError(
-                "the group of optional dependencies `plot` is required to use this method."
-                " Install it with `pip install mocpy[plot]`."
+                "the group of optional dependencies `plots` is required to use this method."
+                " Install it with `pip install mocpy[plots]`."
             )
         fill.fill(self, ax, wcs, optimize=optimize, **kw_mpl_pathpatch)
 
@@ -588,11 +643,24 @@ class MOC(AbstractMOC):
         -------
         [`~astropy.coordinates.SkyCoord`]
             A list of `~astropy.coordinates.SkyCoord` each describing one border.
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> from astropy.coordinates import SkyCoord
+        >>> moc = MOC.from_string("3/0-7")
+        >>> boundaries = moc.get_boundaries() # doctest: +SKIP
+        >>> boundaries # doctest: +SKIP
+        [<SkyCoord (ICRS): (ra, dec) in deg
+            [(50.625, 24.62431835), (45.   , 19.47122063), (39.375, 14.47751219),
+             (33.75 ,  9.59406823), (39.375,  4.78019185), (45.   ,  0.        ),
+             (50.625,  4.78019185), (56.25 ,  9.59406823), (61.875, 14.47751219),
+             (67.5  , 19.47122063), (61.875, 24.62431835), (56.25 , 30.        )]>]
         """
         if _missing_plot_dependencies:
             raise ImportError(
-                "The group of optional dependencies `plot` is required to use this method."
-                " Install it with `pip install mocpy[plot]`."
+                "The group of optional dependencies `plots` is required to use this method."
+                " Install it with `pip install mocpy[plots]`."
             )
         warnings.warn(
             "This method is not stable. A future more stable algorithm will be implemented!",
@@ -797,7 +865,7 @@ class MOC(AbstractMOC):
             catalogs.
         nside : int, optional and deprecated
             It is deprecated in favor of max_depth since version 0.6.0
-            You can switch to maw_depth by calculating max_depht = log2(nside).
+            You can switch to max_depth by calculating max_depth = log2(nside).
 
         Returns
         -------
@@ -953,6 +1021,15 @@ class MOC(AbstractMOC):
         -------
         `~mocpy.MOC`
             The resulting MOC
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> from astropy.coordinates import SkyCoord
+        >>> coords = SkyCoord([0, 1, 2], [0, 1, 2], unit="deg")
+        >>> moc = MOC.from_skycoords(coords, max_norder=5)
+        >>> moc # the three coordinates are in the same two cells of order 5
+        5/4864-4865
         """
         return cls.from_lonlat(
             lon=skycoords.icrs.ra,
@@ -982,6 +1059,16 @@ class MOC(AbstractMOC):
         -------
         `~mocpy.MOC`
             The resulting MOC
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> from astropy.coordinates import Longitude, Latitude
+        >>> lon = Longitude([0, 1, 2], unit="deg")
+        >>> lat = Latitude([0, 1, 2], unit="deg")
+        >>> moc = MOC.from_lonlat(lon, lat, max_norder=5)
+        >>> moc # the three coordinates are in the same two cells of order 5
+        5/4864-4865
         """
         index = mocpy.from_lonlat(
             max_norder,
@@ -1074,6 +1161,24 @@ class MOC(AbstractMOC):
         In wasm compilations (ex for pyodide), this won't raise an error, but will be
         single-threaded.
 
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> import numpy as np
+        >>> from astropy.table import Table
+        >>> moc1 = MOC.from_str("0/0-11")
+        >>> moc2 = MOC.from_str("0/0-11")
+        >>> # Create a multiorder map
+        >>> uniq = [4 + x for x in range(20)]
+        >>> probdensity = np.arange(20, dtype='float64') / 1000
+        >>> multi_order_map = Table([uniq, probdensity], names=("UNIQ", "PROBDENSITY"))
+        >>> probabilities = MOC.probabilities_in_multiordermap([moc1, moc2], multi_order_map)
+        >>> [round(p, 4) for p in probabilities]
+        [np.float64(0.1016), np.float64(0.1016)]
+
+        See Also
+        --------
+        probability_in_multiordermap: calculates the probability for a single MOC
         """
         if not isinstance(multiordermap, Table):
             raise ValueError(
@@ -1201,6 +1306,22 @@ class MOC(AbstractMOC):
         -------
         Tuple(np.ndarray, np.ndarray)
 
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> import numpy as np
+        >>> from astropy.table import Table
+        >>> all_sky = MOC.from_str("0/0-11")
+        >>> # Create a multiorder map with order 0 cells
+        >>> uniq = [4 + x for x in range(8)]
+        >>> column = np.arange(8, dtype='float64')
+        >>> multi_order_map = Table([uniq, column], names=("UNIQ", "column"))
+        >>> values, weights = all_sky.values_and_weights_in_multiordermap(multi_order_map, "column")
+        >>> values
+        array([0., 1., 2., 3., 4., 5., 6., 7.])
+        >>> weights
+        array([1.04719755, 1.04719755, 1.04719755, 1.04719755, 1.04719755,
+               1.04719755, 1.04719755, 1.04719755])
         """
         index = self.store_index
         return mocpy.multiorder_values_and_weights_in_smoc(
@@ -2017,6 +2138,20 @@ class MOC(AbstractMOC):
         `~mocpy.MOC`
             The resulting MOC
 
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> from astropy.coordinates import Angle
+        >>> lon = Angle([0, 10, 10, 0], unit="deg")
+        >>> lat = Angle([0, 0, 10, 10], unit="deg")
+        >>> moc = MOC.from_polygon(lon, lat, max_depth=5)
+        >>> moc
+        4/1131 1134 1216-1217 1219-1222
+        5/4517-4519 4521-4523 4528 4530-4531 4540 4542-4543 4873 4892 4901 4912
+        >>> moc.barycenter()
+        <SkyCoord (ICRS): (ra, dec) in deg
+            (4.92337884, 5.40015256)>
+
         See Also
         --------
         from_polygons
@@ -2208,6 +2343,13 @@ class MOC(AbstractMOC):
         -------
         moc : `~mocpy.MOC`
             The MOC
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> moc = MOC.new_empty(max_depth=5)
+        >>> moc.empty()
+        True
         """
         index = mocpy.new_empty_smoc(np.uint8(max_depth))
         return cls(index)
@@ -2235,6 +2377,17 @@ class MOC(AbstractMOC):
         -------
         `~mocpy.MOC`
             The MOC
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> import numpy as np
+        >>> # Create HEALPix cells at order 3
+        >>> ipix = np.array([5, 10, 15, 20, 25], dtype='uint64')
+        >>> depth = np.array([3] * 5, dtype='uint8')
+        >>> moc = MOC.from_healpix_cells(ipix, depth, max_depth=3)
+        >>> moc
+        3/5 10 15 20 25
         """
         if not isinstance(depth, Iterable):
             depth = np.full(len(ipix), depth, dtype=np.uint8)
@@ -2270,6 +2423,17 @@ class MOC(AbstractMOC):
         -------
         moc : `~mocpy.MOC`
             The MOC
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> import numpy as np
+        >>> # Create an empty MOC using depth29 ranges
+        >>> ranges = np.zeros((0, 2), dtype='uint64')
+        >>> MOC.from_depth29_ranges(25, np.array([[10000, 20000], [40000, 50000]]))
+        23/3 10-11
+        24/10-11 16-18 39 48
+        25/39 76-78
         """
         ranges = np.zeros((0, 2), dtype=np.uint64) if ranges is None else ranges
 
@@ -2295,6 +2459,20 @@ class MOC(AbstractMOC):
         Returns
         -------
         `~mocpy.MOC`
+
+        Examples
+        --------
+        >>> from mocpy import MOC, TimeMOC, STMOC
+        >>> from astropy.time import Time
+        >>> import astropy.units as u
+        >>> from astropy.coordinates import Angle, Longitude, Latitude
+        >>> time_min = Time("2026-01-01")
+        >>> time_max = Time("2026-01-10")
+        >>> tmoc = TimeMOC.from_time_ranges(time_min, time_max)
+        >>> moc = MOC.from_cone(0*u.deg, 0*u.deg, radius=10*u.arcmin, max_depth=5)
+        >>> stmoc = STMOC.from_spatial_coverages(time_min, time_max, [moc])
+        >>> MOC.from_stmoc_time_fold(tmoc, stmoc)
+        5/4351 4522 4693 4864
         """
         store_index = mocpy.project_on_stmoc_space_dim(
             tmoc.store_index, stmoc.store_index
@@ -2351,6 +2529,13 @@ class MOC(AbstractMOC):
         spatial_resolution : `~astropy.coordinates.Angle`
             Spatial resolution.
 
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> MOC.order_to_spatial_resolution(0)
+        <Angle 1.02332671 rad>
+        >>> MOC.order_to_spatial_resolution(5).to("deg")
+        <Angle 1.83225942 deg>
         """
         return Angle(np.sqrt(np.pi / (3 * 4 ** (order))), unit="rad")
 
@@ -2368,6 +2553,15 @@ class MOC(AbstractMOC):
         -------
         order : int
             The order corresponding to the spatial resolution
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> from astropy.coordinates import Angle
+        >>> MOC.spatial_resolution_to_order(Angle(1, "deg"))
+        np.uint8(6)
+        >>> MOC.spatial_resolution_to_order(Angle(5, "arcsec"))
+        np.uint8(16)
         """
         res_rad = spatial_resolution.rad
         order = np.ceil(np.log2(np.pi / (3 * res_rad * res_rad)) / 2)
@@ -2402,21 +2596,62 @@ class MOC(AbstractMOC):
 
     # TODO : move this in astroquery.Simbad.query_region
     # See https://github.com/astropy/astroquery/pull/1466
-    def query_simbad(self, max_rows=10000, timeout=1000):
+    def query_simbad(
+        self,
+        *,
+        max_rows=20,
+        timeout=100,
+        select: Optional[List[str]] = None,
+        output_format: _OUTPUT_FORMATS = "astropy_table",
+    ):
         """Query a view of SIMBAD data for SIMBAD objects in the coverage of the MOC instance.
 
         Parameters
         ----------
+        select: list[str], optional
+                list of columns names to get
+        output_format: str
+                format of the output. Can be ``astropy_table``, ``csv``, ``votable``.
+                Defaults to ``astropy_table``.
         max_rows : int, optional
                 maximum number of row returned
         timeout : float, optional
                 timeout before aborting the query, default to 1000s
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> moc = MOC.from_string("8/8")
+        >>> moc.query_simbad(select=["main_id", "main_type", "ra", "dec"]) # doctest: +SKIP
+        <Table length=20>
+                 main_id          main_type        ra          dec
+                                                  deg          deg
+                  str47             str24       float64      float64
+        ------------------------- ---------- ------------- ------------
+                 UCAC4 452-003925       Star 44.6443212394 0.3253648570
+          2MASS J02583486+0018256  Low-Mass* 44.6452974235 0.3071523434
+         SDSS J025833.42+001827.8     Galaxy 44.6392515000 0.3077166944
+         SDSS J025834.86+001909.4     Galaxy 44.6452449583 0.3192827222
         """
-        return self._query("SIMBAD", max_rows, timeout)
+        return self._query(
+            "SIMBAD",
+            max_rows=max_rows,
+            timeout=timeout,
+            select=select,
+            output_format=output_format,
+        )
 
     # TODO : move this in astroquery.Vizier.query_region
     # See https://github.com/astropy/astroquery/pull/1466
-    def query_vizier_table(self, table_id: str, max_rows=10000, timeout=1000):
+    def query_vizier_table(
+        self,
+        table_id: str,
+        *,
+        max_rows=20,
+        timeout=1000,
+        select: Optional[List[str]] = None,
+        output_format: _OUTPUT_FORMATS = "astropy_table",
+    ):
         """Query a VizieR table for sources in the coverage of the MOC instance.
 
         Parameters
@@ -2424,44 +2659,166 @@ class MOC(AbstractMOC):
         table_id : str
                 corresponds to a VizieR table id
         max_rows : int, optional
-                maximum number of row returned
+                maximum number of row returned.
+                Defaults to 20.
+        select: list[str], optional
+                list of columns names to get
+        output_format: str
+                format of the output. Can be ``astropy_table``, ``csv``, ``votable``, ``raw_votable``.
+                Defaults to ``astropy_table``.
         timeout : float, optional
                 timeout before aborting the query, default to 1000s
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> moc = MOC.from_string("8/8")
+        >>> moc.query_vizier_table("I/356/galcand", select=["_RAJ2000", "_DEJ2000", "Source", "Class"])
+        <Table length=14>
+             _RAJ2000          _DEJ2000         Source     Class
+               deg               deg
+             float64           float64          int64      str15
+        ----------------- ----------------- -------------- ------
+         44.6843243031726   0.3791206034138 71227737716736 GALAXY
+         44.7188162775362   0.4228615299936 72950020326912 GALAXY
+         44.7729085577324   0.4505931771995 73431056703232
+         44.7136268288791   0.4730577467229 74491913012736
+         44.7287948285102   0.4925353924758 74633647504896
+         44.5342650132047   0.4027725848738 75045964534784 GALAXY
+         44.5263730061065   0.4071591551830 75110388154496 GALAXY
+         44.6285193604069   0.4605212441601 75561360607616 GALAXY
+         44.5245963539355   0.4362714696582 75973677274624 GALAXY
+         44.5604330887281   0.4596071816413 76420353872128 GALAXY
+         44.6325844046418   0.4818690478764 77279347329280 GALAXY
+         44.6964365662775   0.5070763948648 77622944909184 GALAXY
+         44.7234359415639   0.5170502484962 77691664219008 GALAXY
+         44.6847962277679   0.5404173644997 77996606346240 GALAXY
         """
-        return self._query(table_id, max_rows, timeout)
+        return self._query(
+            table_id,
+            max_rows=max_rows,
+            timeout=timeout,
+            select=select,
+            output_format=output_format,
+        )
 
     # TODO : move this in astroquery
-    def _query(self, resource_id, max_rows=100000, timeout=1000):
+    def _query(
+        self,
+        resource_id,
+        *,
+        max_rows=None,
+        select: Optional[List[str]] = None,
+        output_format: _OUTPUT_FORMATS = "astropy_table",
+        timeout=1000,
+    ):
         """
         Query Simbad or a VizieR table.
 
         Find sources in the coverage of the MOC instance.
         """
-        import requests
-        from astropy.io.votable import parse_single_table
+        try:
+            import requests
+        except ImportError as err:
+            raise ImportError(
+                "'request' is neeeded to use query methods. Install it "
+                "with `pip install requests`."
+            ) from err
 
-        moc_file = BytesIO()
-        moc_fits = self.serialize(format="fits", pre_v2=True)
-        moc_fits.writeto(moc_file)
+        if output_format == "csv":
+            output_format_json = {"FullPrecSV": ","}
+        elif output_format in ["votable", "astropy_table", "raw_votable"]:
+            output_format_json = "VOTableTableData"
+        else:
+            options = get_args(self._OUTPUT_FORMATS)
+            raise ValueError(
+                f"'{output_format}' is not in the possible output formats: {options}"
+            )
 
-        r = requests.post(
-            "http://cdsxmatch.u-strasbg.fr/QueryCat/QueryCat",
-            data={
-                "mode": "mocfile",
-                "catName": resource_id,
-                "format": "votable",
-                "limit": max_rows,
-            },
-            files={"moc": moc_file.getvalue()},
-            headers={"User-Agent": "MOCPy"},
-            stream=True,
-            timeout=timeout,
+        with NamedTemporaryFile(delete=False) as fp:
+            self.save(fp.name, overwrite=True, format="json")
+
+            mode = {
+                "Positional": {
+                    "lon": "DEFAULT",
+                    "lat": "DEFAULT",
+                    "force": False,
+                    "geom": {
+                        "HpxMOC": {
+                            "moc_file_path": str(fp.name),
+                            "moc_input_fmt": "Json",
+                        }
+                    },
+                },
+            }
+
+            query_params = {
+                "file": resource_id,
+                "has_header": False,
+                "print_header": True,
+                "recno": False,
+                "output": output_format_json,
+                "cgi": False,
+                "mode": mode,
+            }
+
+            if select is not None:
+                # operators like `-` have to be escaped in column names
+                query_params.update(
+                    {"columns": {"cols": [f"${{{col_name}}}" for col_name in select]}}
+                )
+            if max_rows is not None:
+                query_params.update({"limit": max_rows})
+
+            json_dump = StringIO()
+            json.dump(query_params, json_dump)
+
+            multiparts = {
+                "query_params": json_dump.getvalue(),
+                "query_data": (
+                    fp.name,
+                    Path.open(Path(fp.name), mode="rb"),
+                    "application/octet-stream",
+                ),
+            }
+            result = requests.post(
+                "https://vizcat.cds.unistra.fr/cgi-bin/qat2s.cgi",
+                headers={"user-agent": "mocpy"},
+                files=multiparts,
+                timeout=timeout,
+            )
+
+        if result.status_code != 200:
+            raise requests.HTTPError(result.text)
+
+        overflow_message = (
+            f"Returned table has the same number of rows than "
+            f"`max_rows` ({max_rows}). Try setting a higher limit."
         )
 
-        votable = BytesIO()
-        votable.write(r.content)
+        if output_format == "astropy_table":
+            table = parse_single_table(BytesIO(result.content)).to_table(
+                use_names_over_ids=True
+            )
+            if len(table) == max_rows and max_rows == 20:
+                warnings.warn(overflow_message, stacklevel=2)
+            return table
 
-        return parse_single_table(votable).to_table()
+        if output_format == "csv":
+            if max_rows == 20 and result.text.count("\n") == max_rows + 1:
+                warnings.warn(overflow_message, stacklevel=2)
+            return result.text
+
+        if output_format == "votable":
+            votable = parse_single_table(BytesIO(result.content))
+            if max_rows == 20 and votable.nrows == max_rows:
+                warnings.warn(overflow_message, stacklevel=2)
+            return votable
+
+        if output_format == "raw_votable":
+            return result.text
+
+        return None
 
     def wcs(
         self,
@@ -2541,7 +2898,7 @@ class MOC(AbstractMOC):
         """
         if _missing_plot_dependencies:
             raise ImportError(
-                "the group of optional dependencies `plot` is required to use this method."
+                "the group of optional dependencies `plots` is required to use this method."
             )
         warnings.warn(
             "This method is deprecated and is no longer tested."
@@ -2635,6 +2992,10 @@ class MOC(AbstractMOC):
             The format from which the MOC is loaded.
             Possible formats are "fits", "ascii" or "json".
             By default, ``format`` is set to "fits".
+
+        Returns
+        -------
+        `~mocpy.MOC`
         """
         path = str(path)
         if format == "fits":
@@ -2670,6 +3031,16 @@ class MOC(AbstractMOC):
             The format in which the MOC will be serialized before being saved.
             Possible formats are "ascii" or "json".
             By default, ``format`` is set to "ascii".
+
+        Returns
+        -------
+        `~mocpy.MOC`
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> MOC.from_string("3/0-1")
+        3/0-1
         """
         if format == "ascii":
             index = mocpy.spatial_moc_from_ascii_str(value)
@@ -2690,12 +3061,28 @@ class MOC(AbstractMOC):
         The output is not sorted, the order follow the order of HEALPix cells in
         the underlying sorted array of depth29 nested ranges, i.e. the natural order
         of the cells is the underlying z-order curve.
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> moc = MOC.from_string("0/0-11")
+        >>> moc.uniq_hpx
+        array([ 4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15], dtype=uint64)
         """
         return mocpy.to_uniq_hpx(self.store_index)
 
     @property
     def to_depth29_ranges(self):
-        """Return the list of order 29 HEALPix nested ranges this MOC contains."""
+        """
+        Return the list of order 29 HEALPix nested ranges this MOC contains.
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> moc = MOC.from_string("0/0-1")
+        >>> moc.to_depth29_ranges
+        array([[                 0, 576460752303423488]], dtype=uint64)
+        """
         return mocpy.to_ranges(self.store_index)
 
     def to_rgba(self, y_size=300):
@@ -2722,7 +3109,7 @@ class MOC(AbstractMOC):
         """
         if _missing_plot_dependencies:
             raise ImportError(
-                "the group of optional dependencies `plot` is required to use this method."
+                "the group of optional dependencies `plots` is required to use this method."
             )
         import matplotlib.pyplot as plt
 
@@ -2731,12 +3118,32 @@ class MOC(AbstractMOC):
         plt.show()
 
     def barycenter(self):
-        """Return the Barycenter of the MOC."""
+        """Return the Barycenter of the MOC.
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> import astropy.units as u
+        >>> MOC.from_cone(6*u.deg, 15*u.deg,
+        ...               radius=10*u.arcmin, max_depth=13).barycenter()
+        <SkyCoord (ICRS): (ra, dec) in deg
+            (6.00000618, 14.99968594)>
+        """
         lonlat = mocpy.get_barycenter(self.store_index)
         return SkyCoord(lonlat[0], lonlat[1], unit="rad")
 
     def largest_distance_from_coo_to_vertices(self, coo):
-        """Return the largest distance between the given coordinates and vertices of the MOC cells."""
+        """Return the largest distance between the given coordinates and vertices of the MOC cells.
+
+        Examples
+        --------
+        >>> from mocpy import MOC
+        >>> from astropy.coordinates import SkyCoord
+        >>> coo = SkyCoord(0, 0, unit="deg")
+        >>> moc = MOC.from_string("15/600")
+        >>> moc.largest_distance_from_coo_to_vertices(coo).to("deg")
+        <Quantity 44.99314494 deg>
+        """
         angle = mocpy.get_largest_distance_from_coo_to_moc_vertices(
             self.store_index,
             coo.ra.rad,

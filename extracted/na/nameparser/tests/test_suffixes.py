@@ -149,23 +149,25 @@ class SuffixesTestCase(HumanNameTestBase):
         # suffix 'Jr', and shipped this as an xfail.
         # Two halves, and this pin means different things about each.
         # DECIDED 2026-09-01 (v1-xfail triage, decisions/v1-xfail-triage):
-        # 'king' stays in the titles vocabulary, because removing it breaks
-        # the addressing forms it is there for ("King Charles").
-        # decisions/vocabulary-collisions cuts toward keeping it, so the
-        # title chain reaches 'King' at all. The comma format reads the
-        # surname without any of that, and is pinned below as the contrast.
+        # 'king' stays in the titles vocabulary for the addressing forms.
+        # SUPERSEDED 2026-10-26 (#752 phase 2j): 'king' is a given name
+        # outside a title phrase ("His Majesty King Charles" keeps the
+        # title), so the title chain no longer reaches 'King' here and
+        # this row reads as 'Dr Smith Jr' does; 'Dr Pope Jr' is the floor's
+        # row now (tests/v2/cases.py). The comma format is pinned below as
+        # the contrast.
         # WHAT BECOMES OF THE LEFTOVER 'Jr': the improvement this pin
         # anticipated, taken 2026-09-08 (#489, decisions/H3). The title
         # chain used to eat two words and leave 'Jr' to be the name, against
         # rules/S2, which reads a trailing suffix-vocabulary word as a
         # suffix -- and against 'Dr Smith Jr', which reads family 'Smith',
-        # suffix 'Jr' exactly as S2 states. The leading peel now leaves a
-        # name word a suffix cannot be: everything behind the run is a
-        # suffix piece and 'King' is not one, so the run gives it back.
-        # Every field below is now what 'Dr Smith Jr' reads, so what
-        # 'king' being title vocabulary still buys this row is the
-        # 'title-or-name' report on the word left standing -- which is a
-        # 2.0 surface this v1 facade test does not assert.
+        # suffix 'Jr' exactly as S2 states. The leading peel then left a
+        # name word a suffix cannot be: everything behind the run was a
+        # suffix piece and 'King' was not one, so the run gave it back.
+        # Every field below is what 'Dr Smith Jr' reads, as it was while
+        # 'king' was title vocabulary; then the floor's 'title-or-name'
+        # report on the word left standing was the difference, a 2.0
+        # surface this v1 facade test does not assert.
         hn = HumanName("Dr King Jr")
         self.m(hn.title, "Dr", hn)
         self.m(hn.first, "", hn)
@@ -266,13 +268,15 @@ class SuffixesTestCase(HumanNameTestBase):
         self.assertEqual(hn.suffix_delimiter, " - ")
 
     def test_suffix_delimiter_basic(self) -> None:
-        hn = HumanName("Steven Hardman, RN - CRNA", suffix_delimiter=" - ")
+        # ' | ', not ' - ': a hyphen standing alone is built in (#889)
+        hn = HumanName("Steven Hardman, RN | CRNA", suffix_delimiter=" | ")
         self.m(hn.first, "Steven", hn)
         self.m(hn.last, "Hardman", hn)
         self.m(hn.suffix, "RN, CRNA", hn)
 
     def test_suffix_delimiter_multiple(self) -> None:
-        hn = HumanName("John Doe, MD - PhD - FACS", suffix_delimiter=" - ")
+        # ' | ', not ' - ': a hyphen standing alone is built in (#889)
+        hn = HumanName("John Doe, MD | PhD | FACS", suffix_delimiter=" | ")
         self.m(hn.first, "John", hn)
         self.m(hn.last, "Doe", hn)
         self.m(hn.suffix, "MD, PhD, FACS", hn)
@@ -289,13 +293,14 @@ class SuffixesTestCase(HumanNameTestBase):
         self.m(hn.suffix, "MD PhD", hn)
 
     def test_suffix_delimiter_constants_level(self) -> None:
+        # ' | ', not ' - ': a hyphen standing alone is built in (#889)
         # ran on the shared CONSTANTS in v1; 2.0 deprecates shared mutation,
         # so the config-level (non-kwarg) path is exercised on a private
         # Constants passed as constants=
         from nameparser.config import Constants
         c = Constants()
-        c.suffix_delimiter = " - "
-        hn = HumanName("Steven Hardman, RN - CRNA", constants=c)
+        c.suffix_delimiter = " | "
+        hn = HumanName("Steven Hardman, RN | CRNA", constants=c)
         self.m(hn.first, "Steven", hn)
         self.m(hn.last, "Hardman", hn)
         self.m(hn.suffix, "RN, CRNA", hn)
@@ -305,13 +310,14 @@ class SuffixesTestCase(HumanNameTestBase):
         # Through 2.3 (and in v1) that broke parsing -- first 'RN', last
         # 'Steven Hardman', suffix 'CRNA' -- and this test pinned the
         # limitation. Since #603 a credential opening the part after the
-        # comma makes it the suffix part (rules/C13), so the undeclared
-        # delimiter is one more word of that part and the name parses;
-        # the name of the test keeps the history.
+        # comma makes it the suffix part (rules/C13), and since #889 a
+        # hyphen standing alone after the first comma is a delimiter
+        # every policy has (rules/C10), so the suffix parts at it as
+        # #156 asked; the name of the test keeps the history.
         hn = HumanName("Steven Hardman, RN - CRNA")
         self.m(hn.first, "Steven", hn)
         self.m(hn.last, "Hardman", hn)
-        self.m(hn.suffix, "RN - CRNA", hn)
+        self.m(hn.suffix, "RN, CRNA", hn)
 
     def test_suffix_delimiter_trailing_delimiter_ignored(self) -> None:
         # Trailing delimiter must not defeat suffix detection. Using a
@@ -329,33 +335,36 @@ class SuffixesTestCase(HumanNameTestBase):
         self.m(hn.suffix, "MD, PhD", hn)
 
     def test_suffix_delimiter_inverted_format_not_misparsed(self) -> None:
+        # ' | ', not ' - ': a hyphen standing alone is built in (#889)
         # The delimiter only expands parts once they're identified as a
         # suffix group, so a hyphenated given name in inverted format isn't
         # mistaken for a suffix split.
-        hn = HumanName("Doe, Mary - Kate, RN", suffix_delimiter=" - ")
+        hn = HumanName("Doe, Mary | Kate, RN", suffix_delimiter=" | ")
         self.m(hn.first, "Mary", hn)
         self.m(hn.last, "Doe", hn)
         self.m(hn.suffix, "RN", hn)
         # "Kate" stays in the given-name segment rather than being pulled
         # into the suffix, since it's separated from "RN" by its own comma.
-        # The bare "-" landing in middle is a pre-existing, delimiter-
-        # independent quirk of tokenizing a lone hyphen (reproducible with
+        # The bare "|" landing in middle is a pre-existing, delimiter-
+        # independent quirk of tokenizing a lone core (reproducible with
         # suffix_delimiter unset), not something this fix is responsible for.
-        self.m(hn.middle, "- Kate", hn)
+        self.m(hn.middle, "| Kate", hn)
 
     def test_suffix_delimiter_expands_each_comma_segment(self) -> None:
-        # parts[1:] holds two separate comma segments here ("MD - PhD" and
+        # ' | ', not ' - ': a hyphen standing alone is built in (#889)
+        # parts[1:] holds two separate comma segments here ("MD | PhD" and
         # "FACS"); each must be expanded on its own, not just the first.
-        hn = HumanName("John Doe, MD - PhD, FACS", suffix_delimiter=" - ")
+        hn = HumanName("John Doe, MD | PhD, FACS", suffix_delimiter=" | ")
         self.m(hn.first, "John", hn)
         self.m(hn.last, "Doe", hn)
         self.m(hn.suffix, "MD, PhD, FACS", hn)
 
     def test_suffix_delimiter_detection_with_multi_word_side(self) -> None:
+        # ' | ', not ' - ': a hyphen standing alone is built in (#889)
         # The suffix-comma detection check flattens on spaces after
         # expanding on the delimiter, so a multi-word token on one side of
         # the delimiter is still tokenized correctly.
-        hn = HumanName("Doe, John, MD PhD - FACS Fellow", suffix_delimiter=" - ")
+        hn = HumanName("Doe, John, MD PhD | FACS Fellow", suffix_delimiter=" | ")
         self.m(hn.first, "John", hn)
         self.m(hn.last, "Doe", hn)
         self.m(hn.suffix, "MD PhD, FACS Fellow", hn)
@@ -364,8 +373,9 @@ class SuffixesTestCase(HumanNameTestBase):
         # When the comma format isn't recognized as suffix-comma (here the
         # last-name part is a single word), the delimiter must not affect
         # parsing at all: output should match the no-delimiter baseline.
-        with_delim = HumanName("Smith, MD - PhD - FACS", suffix_delimiter=" - ")
-        without_delim = HumanName("Smith, MD - PhD - FACS")
+        # ' | ', not ' - ': a hyphen standing alone is built in (#889)
+        with_delim = HumanName("Smith, MD | PhD | FACS", suffix_delimiter=" | ")
+        without_delim = HumanName("Smith, MD | PhD | FACS")
         self.assertEqual(
             (with_delim.first, with_delim.middle, with_delim.last, with_delim.suffix),
             (without_delim.first, without_delim.middle, without_delim.last, without_delim.suffix),
@@ -464,26 +474,31 @@ class SuffixesTestCase(HumanNameTestBase):
         # A custom suffix_acronyms_ambiguous entry keeps a suffix_acronyms
         # member classified as a nickname instead of a suffix, confirming
         # the exception list -- not a hardcoded check -- drives the behavior.
+        # Title case: capitals in a mixed-case name settle the member as
+        # the credential (rules/S1, #810).
         from nameparser.config import Constants
         C = Constants(
             suffix_acronyms=['xyz'],
             suffix_acronyms_ambiguous=['xyz'],
         )
-        hn = HumanName("Andrew Perkins (XYZ)", constants=C)
-        self.m(hn.nickname, "XYZ", hn)
+        hn = HumanName("Andrew Perkins (Xyz)", constants=C)
+        self.m(hn.nickname, "Xyz", hn)
         self.m(hn.suffix, "", hn)
 
     def test_suffix_acronyms_ambiguous_removal_routes_to_suffix(self) -> None:
-        # Removing 'jd' from a custom suffix_acronyms_ambiguous flips JD
+        # Removing 'jd' from a custom suffix_acronyms_ambiguous flips Jd
         # from nickname to suffix. Uses a trailing-position name (unlike the
         # JEFFREY (JD) BRICKEN regression guard in test_nicknames.py) so
         # parse_full_name's trailing-run suffix detection actually picks it
         # up -- see the known mid-name limitation noted on the tests above.
+        # Title case, which leaves the member a nickname while it is listed
+        # (rules/S1, #810).
         from nameparser.config import Constants
+        assert HumanName("Andrew Perkins (Jd)").nickname == "Jd"
         C = Constants(suffix_acronyms_ambiguous=[])
-        hn = HumanName("Andrew Perkins (JD)", constants=C)
+        hn = HumanName("Andrew Perkins (Jd)", constants=C)
         self.m(hn.nickname, "", hn)
-        self.m(hn.suffix, "JD", hn)
+        self.m(hn.suffix, "Jd", hn)
 
     def test_empty_comma_segment_does_not_drop_following_suffix(self) -> None:
         # Regression: "Doe, John,, Jr." produced an empty third segment, and

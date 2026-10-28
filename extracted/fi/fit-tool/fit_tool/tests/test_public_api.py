@@ -31,8 +31,8 @@ class TestPublicApi(unittest.TestCase):
             validate_fit_file,
         )
 
-        self.assertEqual(SDK_VERSION, '21.212.0')
-        self.assertEqual(PROTOCOL_VERSION, '2.4')
+        self.assertEqual(SDK_VERSION, '21.218.0')
+        self.assertEqual(PROTOCOL_VERSION, '2.0')
         self.assertEqual(FIT_DATA_TYPE, b'.FIT')
         self.assertTrue(issubclass(FitCRCError, FitParseError))
         self.assertTrue(issubclass(FitParseError, FitError))

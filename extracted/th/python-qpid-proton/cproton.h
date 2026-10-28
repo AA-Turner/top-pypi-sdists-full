@@ -29,7 +29,7 @@ typedef struct pn_collector_t pn_collector_t;
 typedef struct pn_condition_t pn_condition_t;
 typedef struct pn_connection_t pn_connection_t;
 typedef struct pn_data_t pn_data_t;
-typedef struct 
+typedef struct
 {
   char bytes[16];
 } pn_decimal128_t;
@@ -38,13 +38,13 @@ typedef uint64_t pn_decimal64_t;
 typedef struct pn_delivery_t pn_delivery_t;
 typedef pn_bytes_t pn_delivery_tag_t;
 typedef struct pn_disposition_t pn_disposition_t;
-typedef enum 
+typedef enum
 {
   PN_DIST_MODE_UNSPECIFIED = 0,
   PN_DIST_MODE_COPY = 1,
   PN_DIST_MODE_MOVE = 2
 } pn_distribution_mode_t;
-typedef enum 
+typedef enum
 {
   PN_NONDURABLE = 0,
   PN_CONFIGURATION = 1,
@@ -52,7 +52,7 @@ typedef enum
 } pn_durability_t;
 typedef struct pn_error_t pn_error_t;
 typedef struct pn_event_t pn_event_t;
-typedef enum 
+typedef enum
 {
   PN_EVENT_NONE = 0,
   PN_REACTOR_INIT,
@@ -114,7 +114,7 @@ typedef enum
   PN_RAW_CONNECTION_WAKE,
   PN_RAW_CONNECTION_DRAIN_BUFFERS
 } pn_event_type_t;
-typedef enum 
+typedef enum
 {
   PN_EXPIRE_WITH_LINK,
   PN_EXPIRE_WITH_SESSION,
@@ -130,7 +130,7 @@ typedef enum
   PN_RCV_SECOND = 1
 } pn_rcv_settle_mode_t;
 typedef struct pn_record_t pn_record_t;
-typedef enum 
+typedef enum
 {
   PN_SASL_NONE = -1,
   PN_SASL_OK = 0,
@@ -143,13 +143,13 @@ typedef struct pn_sasl_t pn_sasl_t;
 typedef uint32_t pn_seconds_t;
 typedef uint32_t pn_sequence_t;
 typedef struct pn_session_t pn_session_t;
-typedef enum 
+typedef enum
 {
   PN_SND_UNSETTLED = 0,
   PN_SND_SETTLED = 1,
   PN_SND_MIXED = 2
 } pn_snd_settle_mode_t;
-typedef enum 
+typedef enum
 {
   PN_SSL_CERT_SUBJECT_COUNTRY_NAME,
   PN_SSL_CERT_SUBJECT_STATE_OR_PROVINCE,
@@ -159,26 +159,26 @@ typedef enum
   PN_SSL_CERT_SUBJECT_COMMON_NAME
 } pn_ssl_cert_subject_subfield;
 typedef struct pn_ssl_domain_t pn_ssl_domain_t;
-typedef enum 
+typedef enum
 {
   PN_SSL_SHA1,
   PN_SSL_SHA256,
   PN_SSL_SHA512,
   PN_SSL_MD5
 } pn_ssl_hash_alg;
-typedef enum 
+typedef enum
 {
   PN_SSL_MODE_CLIENT = 1,
   PN_SSL_MODE_SERVER
 } pn_ssl_mode_t;
-typedef enum 
+typedef enum
 {
   PN_SSL_RESUME_UNKNOWN,
   PN_SSL_RESUME_NEW,
   PN_SSL_RESUME_REUSED
 } pn_ssl_resume_status_t;
 typedef struct pn_ssl_t pn_ssl_t;
-typedef enum 
+typedef enum
 {
   PN_SSL_VERIFY_NULL = 0,
   PN_SSL_VERIFY_PEER,
@@ -187,7 +187,7 @@ typedef enum
 } pn_ssl_verify_mode_t;
 typedef int pn_state_t;
 typedef struct pn_terminus_t pn_terminus_t;
-typedef enum 
+typedef enum
 {
   PN_UNSPECIFIED = 0,
   PN_SOURCE = 1,
@@ -197,7 +197,7 @@ typedef enum
 typedef int64_t pn_timestamp_t;
 typedef int pn_trace_t;
 typedef struct pn_transport_t pn_transport_t;
-typedef enum 
+typedef enum
 {
   PN_NULL = 1,
   PN_BOOL = 2,
@@ -226,7 +226,7 @@ typedef enum
   PN_MAP = 25,
   PN_INVALID = -1
 } pn_type_t;
-typedef struct 
+typedef struct
 {
   char bytes[16];
 } pn_uuid_t;
@@ -406,6 +406,40 @@ void pn_disposition_set_section_offset(pn_disposition_t *disposition, uint64_t s
 void pn_disposition_set_undeliverable(pn_disposition_t *disposition, _Bool undeliverable);
 uint64_t pn_disposition_type(pn_disposition_t *disposition);
 
+typedef struct pn_custom_disposition_t pn_custom_disposition_t;
+typedef struct pn_received_disposition_t pn_received_disposition_t;
+typedef struct pn_rejected_disposition_t pn_rejected_disposition_t;
+typedef struct pn_modified_disposition_t pn_modified_disposition_t;
+typedef struct pn_declared_disposition_t pn_declared_disposition_t;
+typedef struct pn_transactional_disposition_t pn_transactional_disposition_t;
+
+pn_custom_disposition_t *pn_custom_disposition(pn_disposition_t *disposition);
+pn_received_disposition_t *pn_received_disposition(pn_disposition_t *disposition);
+pn_rejected_disposition_t *pn_rejected_disposition(pn_disposition_t *disposition);
+pn_modified_disposition_t *pn_modified_disposition(pn_disposition_t *disposition);
+pn_declared_disposition_t *pn_declared_disposition(pn_disposition_t *disposition);
+pn_transactional_disposition_t *pn_transactional_disposition(pn_disposition_t *disposition);
+
+void pn_custom_disposition_set_type(pn_custom_disposition_t *disposition, uint64_t type);
+uint64_t pn_custom_disposition_get_type(pn_custom_disposition_t *disposition);
+pn_data_t *pn_custom_disposition_data(pn_custom_disposition_t *disposition);
+pn_condition_t *pn_rejected_disposition_condition(pn_rejected_disposition_t *disposition);
+uint32_t pn_received_disposition_get_section_number(pn_received_disposition_t *disposition);
+void pn_received_disposition_set_section_number(pn_received_disposition_t *disposition, uint32_t section_number);
+uint64_t pn_received_disposition_get_section_offset(pn_received_disposition_t *disposition);
+void pn_received_disposition_set_section_offset(pn_received_disposition_t *disposition, uint64_t section_offset);
+_Bool pn_modified_disposition_is_failed(pn_modified_disposition_t *disposition);
+void pn_modified_disposition_set_failed(pn_modified_disposition_t *disposition, _Bool failed);
+_Bool pn_modified_disposition_is_undeliverable(pn_modified_disposition_t *disposition);
+void pn_modified_disposition_set_undeliverable(pn_modified_disposition_t *disposition, _Bool undeliverable);
+pn_data_t *pn_modified_disposition_annotations(pn_modified_disposition_t *disposition);
+pn_bytes_t pn_declared_disposition_get_id(pn_declared_disposition_t *disposition);
+void pn_declared_disposition_set_id(pn_declared_disposition_t *disposition, pn_bytes_t id);
+pn_bytes_t pn_transactional_disposition_get_id(pn_transactional_disposition_t *disposition);
+void pn_transactional_disposition_set_id(pn_transactional_disposition_t *disposition, pn_bytes_t id);
+uint64_t pn_transactional_disposition_get_outcome_type(pn_transactional_disposition_t *disposition);
+void pn_transactional_disposition_set_outcome_type(pn_transactional_disposition_t *disposition, uint64_t outcome);
+
 int pn_error_code(pn_error_t *error);
 const char *pn_error_text(pn_error_t *error);
 
@@ -513,6 +547,8 @@ int pn_message_set_reply_to_group_id(pn_message_t *msg, const char *reply_to_gro
 int pn_message_set_subject(pn_message_t *msg, const char *subject);
 int pn_message_set_ttl(pn_message_t *msg, pn_millis_t ttl);
 int pn_message_set_user_id(pn_message_t *msg, pn_bytes_t user_id);
+pn_delivery_t *pn_unsettled_head(pn_link_t *link);
+pn_delivery_t *pn_unsettled_next(pn_delivery_t *delivery);
 
 pn_link_t *pn_receiver(pn_session_t *session, const char *name);
 
@@ -619,6 +655,8 @@ void pn_transport_require_encryption(pn_transport_t *transport, _Bool required);
 int pn_transport_set_channel_max(pn_transport_t *transport, uint16_t channel_max);
 void pn_transport_set_idle_timeout(pn_transport_t *transport, pn_millis_t timeout);
 void pn_transport_set_max_frame(pn_transport_t *transport, uint32_t size);
+size_t pn_transport_get_max_buffered_delivery_bytes(pn_transport_t *transport);
+void pn_transport_set_max_buffered_delivery_bytes(pn_transport_t *transport, size_t limit);
 void pn_transport_set_server(pn_transport_t *transport);
 void pn_transport_set_tracer(pn_transport_t *transport, pn_tracer_t tracer);
 int64_t pn_transport_tick(pn_transport_t *transport, int64_t now);
@@ -632,6 +670,8 @@ int pn_transport_unbind(pn_transport_t *transport);
 #define PN_REJECTED ...
 #define PN_RELEASED ...
 #define PN_MODIFIED ...
+#define PN_DECLARED ...
+#define PN_TRANSACTIONAL_STATE ...
 
 // Default message priority
 #define PN_DEFAULT_PRIORITY ...

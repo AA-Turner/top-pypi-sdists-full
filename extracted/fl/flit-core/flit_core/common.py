@@ -307,6 +307,35 @@ def hash_file(path, algorithm='sha256'):
         h = hashlib.new(algorithm, f.read())
     return h.hexdigest()
 
+
+def path_is_within_directory(path, directory):
+    """Return whether *path*, fully resolved, lies inside *directory*.
+
+    Both arguments are resolved with :func:`os.path.realpath` before comparison,
+    so a symlink whose target escapes *directory* -- or a ``..`` component that
+    climbs above it -- is detected as outside. This is used to refuse reading or
+    packaging files from outside the project directory at build time, which
+    would otherwise allow a crafted source tree to copy arbitrary host files
+    (e.g. secrets) into the published distribution (CWE-22, CWE-59).
+
+    Parameters
+    ----------
+    path : str or os.PathLike
+        The path to test.
+    directory : str or os.PathLike
+        The directory that *path* must stay within.
+
+    Returns
+    -------
+    bool
+        ``True`` if *path* resolves to *directory* itself or a descendant of it,
+        ``False`` otherwise.
+    """
+    directory = os.path.realpath(directory)
+    resolved = os.path.realpath(path)
+    return resolved == directory or resolved.startswith(directory + os.sep)
+
+
 def normalize_file_permissions(st_mode):
     """Normalize the permission bits in the st_mode field from stat to 644/755
 
@@ -367,23 +396,17 @@ class Metadata:
     def _normalise_field_name(self, n):
         return n.lower().replace('-', '_')
 
-    def _extract_extras(self, req):
-        match = re.search(r'\[([^]]*)\]', req)
-        if match:
-            list_str = match.group(1)
-            return [item.strip() for item in list_str.split(',')]
-        else:
-            return None
-
     def _normalise_requires_dist(self, req):
-        extras = self._extract_extras(req)
-        if extras:
-            normalised_extras = [normalise_core_metadata_name(extra) for extra in extras]
-            normalised_extras_str = ', '.join(normalised_extras)
-            normalised_req = re.sub(r'\[([^]]*)\]', f"[{normalised_extras_str}]", req)
-            return normalised_req
-        else:
+        # Only brackets after the project name denote extras. Brackets can also
+        # appear in a direct URL (IPv6 host) or a quoted environment marker.
+        match = re.match(r'[ \t]*[A-Za-z0-9][A-Za-z0-9._-]*[ \t]*\[([^]]*)\]', req)
+        if not match:
             return req
+
+        extras = [item.strip() for item in match.group(1).split(',')]
+        normalised_extras = [normalise_core_metadata_name(extra) for extra in extras]
+        return (req[:match.start(1)] + ', '.join(normalised_extras)
+                + req[match.end(1):])
 
     def write_metadata_file(self, fp):
         """Write out metadata in the email headers format"""

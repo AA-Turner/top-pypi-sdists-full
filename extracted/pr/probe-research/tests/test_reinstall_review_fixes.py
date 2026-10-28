@@ -549,7 +549,7 @@ def test_r2_p2_a_waiting_install_is_installed_and_configure_never_checks_the_old
     monkeypatch.setattr(install_pipeline, "install_cli", lambda *a, **kw: install_pipeline.CliOutcome(
         ok=False, waiting=why))
     monkeypatch.setattr(install_pipeline, "layout_usable", lambda tools: True)
-    monkeypatch.setattr(install_pipeline, "refusal", lambda: None)
+    monkeypatch.setattr(install_pipeline, "refusal", lambda **_: None)
     monkeypatch.setattr(bootstrap.shutil, "which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(bootstrap, "_foreign_to_move", lambda: None)
     monkeypatch.setattr(bootstrap, "_resolves_on_path", lambda: False)

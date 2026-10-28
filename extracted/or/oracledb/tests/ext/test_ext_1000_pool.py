@@ -184,3 +184,28 @@ def test_ext_1007(skip_unless_run_long_tests, test_env):
         conn.close()
     assert pool.opened <= pool.max
     pool.close()
+
+
+def test_ext_1008(tunnel):
+    "E1008 - drop() on a connection whose network is gone"
+    pool = oracledb.create_pool(
+        params=tunnel.get_pool_params(), min=0, max=1, increment=1
+    )
+    conn = pool.acquire()
+    tunnel.cut()
+    pool.drop(conn)
+    with pool.acquire():
+        pass
+    pool.close()
+
+
+def test_ext_1009(tunnel):
+    "E1009 - returning a connection whose network is gone"
+    pool = oracledb.create_pool(
+        params=tunnel.get_pool_params(), min=0, max=1, increment=1
+    )
+    with pool.acquire():
+        tunnel.cut()
+    with pool.acquire():
+        pass
+    pool.close()

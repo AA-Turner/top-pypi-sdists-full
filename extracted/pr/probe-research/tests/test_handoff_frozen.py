@@ -25,7 +25,7 @@ from pathlib import Path
 from probe._shared import handoff
 
 #: (HANDOFF_VERSION, sha256 of handoff.py): see the module docstring.
-FROZEN_HANDOFF = (2, "4ca1fabf2b99ea060ae414387ad621e1b336aafec0dd00bb8ac753e739523438")
+FROZEN_HANDOFF = (3, "e35fb7f3a32dea1043eecc66ea377037d32d7f578abfe4abc312960d626fe456")
 
 SOURCE = Path(handoff.__file__)
 

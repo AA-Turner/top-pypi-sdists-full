@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from .. import models as _models
 
 
-class Action(_Model):
+class Action(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The action that will be executed.
 
     :ivar action_type: The type of the action. Known values are: "EmailContacts" and "AutoRenew".
@@ -48,7 +48,7 @@ class Action(_Model):
         super().__init__(*args, **kwargs)
 
 
-class AdministratorDetails(_Model):
+class AdministratorDetails(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Details of the organization administrator of the certificate issuer.
 
     :ivar first_name: First name.
@@ -102,7 +102,7 @@ class BackupCertificateResult(_Model):
     """The backup blob containing the backed up certificate."""
 
 
-class CertificateAttributes(_Model):
+class CertificateAttributes(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate management attributes.
 
     :ivar enabled: Determines whether the object is enabled.
@@ -175,7 +175,7 @@ class CertificateAttributes(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateBundle(_Model):
+class CertificateBundle(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """A certificate bundle consists of a certificate (X509) plus its attributes.
 
     :ivar id: The certificate id.
@@ -252,7 +252,7 @@ class CertificateBundle(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateCreateParameters(_Model):
+class CertificateCreateParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate create parameters.
 
     :ivar certificate_policy: The management policy for the certificate.
@@ -304,7 +304,7 @@ class CertificateCreateParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateImportParameters(_Model):
+class CertificateImportParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate import parameters.
 
     :ivar base64_encoded_certificate: Base64 encoded representation of the certificate object to
@@ -371,7 +371,7 @@ class CertificateImportParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateIssuerItem(_Model):
+class CertificateIssuerItem(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate issuer item containing certificate issuer metadata.
 
     :ivar id: Certificate Identifier.
@@ -404,7 +404,7 @@ class CertificateIssuerItem(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateIssuerSetParameters(_Model):
+class CertificateIssuerSetParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate issuer set parameters.
 
     :ivar provider: The issuer provider. Required.
@@ -454,7 +454,7 @@ class CertificateIssuerSetParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateIssuerUpdateParameters(_Model):
+class CertificateIssuerUpdateParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate issuer update parameters.
 
     :ivar provider: The issuer provider.
@@ -504,7 +504,7 @@ class CertificateIssuerUpdateParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateItem(_Model):
+class CertificateItem(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate item containing certificate metadata.
 
     :ivar id: Certificate identifier.
@@ -551,7 +551,7 @@ class CertificateItem(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateMergeParameters(_Model):
+class CertificateMergeParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate merge parameters.
 
     :ivar x509_certificates: The certificate or the certificate chain to merge. Required.
@@ -594,7 +594,7 @@ class CertificateMergeParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateOperation(_Model):
+class CertificateOperation(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """A certificate operation is returned in case of asynchronous requests.
 
     :ivar id: The certificate id.
@@ -676,7 +676,7 @@ class CertificateOperation(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateOperationUpdateParameter(_Model):
+class CertificateOperationUpdateParameter(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate operation update parameters.
 
     :ivar cancellation_requested: Indicates if cancellation was requested on the certificate
@@ -705,7 +705,7 @@ class CertificateOperationUpdateParameter(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificatePolicy(_Model):
+class CertificatePolicy(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Management policy for a certificate.
 
     :ivar id: The certificate id.
@@ -724,6 +724,9 @@ class CertificatePolicy(_Model):
     :vartype issuer_parameters: ~azure.keyvault.certificates._generated.models.IssuerParameters
     :ivar attributes: The certificate attributes.
     :vartype attributes: ~azure.keyvault.certificates._generated.models.CertificateAttributes
+    :ivar platform_managed: Configuration that enables the platform to manage the certificate on
+     behalf of the user. This feature is currently intended for internal use only.
+    :vartype platform_managed: ~azure.keyvault.certificates._generated.models.PlatformManaged
     """
 
     id: Optional[str] = rest_field(visibility=["read"])
@@ -752,6 +755,11 @@ class CertificatePolicy(_Model):
         visibility=["read", "create", "update", "delete", "query"]
     )
     """The certificate attributes."""
+    platform_managed: Optional["_models.PlatformManaged"] = rest_field(
+        name="platformManaged", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Configuration that enables the platform to manage the certificate on behalf of the user. This
+     feature is currently intended for internal use only."""
 
     @overload
     def __init__(
@@ -763,6 +771,7 @@ class CertificatePolicy(_Model):
         lifetime_actions: Optional[list["_models.LifetimeAction"]] = None,
         issuer_parameters: Optional["_models.IssuerParameters"] = None,
         attributes: Optional["_models.CertificateAttributes"] = None,
+        platform_managed: Optional["_models.PlatformManaged"] = None,
     ) -> None: ...
 
     @overload
@@ -776,7 +785,7 @@ class CertificatePolicy(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateRestoreParameters(_Model):
+class CertificateRestoreParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate restore parameters.
 
     :ivar certificate_bundle_backup: The backup blob associated with a certificate bundle.
@@ -807,7 +816,7 @@ class CertificateRestoreParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class CertificateUpdateParameters(_Model):
+class CertificateUpdateParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The certificate update parameters.
 
     :ivar certificate_policy: The management policy for the certificate.
@@ -850,7 +859,7 @@ class CertificateUpdateParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class Contact(_Model):
+class Contact(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The contact information for the vault certificates.
 
     :ivar email_address: Email address.
@@ -888,7 +897,7 @@ class Contact(_Model):
         super().__init__(*args, **kwargs)
 
 
-class Contacts(_Model):
+class Contacts(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The contacts for the vault certificates.
 
     :ivar id: Identifier for the contacts collection.
@@ -922,7 +931,7 @@ class Contacts(_Model):
         super().__init__(*args, **kwargs)
 
 
-class DeletedCertificateBundle(_Model):
+class DeletedCertificateBundle(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """A Deleted Certificate consisting of its previous id, attributes and its tags, as well as
     information on when it will be purged.
 
@@ -1020,7 +1029,7 @@ class DeletedCertificateBundle(_Model):
         super().__init__(*args, **kwargs)
 
 
-class DeletedCertificateItem(_Model):
+class DeletedCertificateItem(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The deleted certificate item containing metadata about the deleted certificate.
 
     :ivar id: Certificate identifier.
@@ -1087,7 +1096,7 @@ class DeletedCertificateItem(_Model):
         super().__init__(*args, **kwargs)
 
 
-class IssuerAttributes(_Model):
+class IssuerAttributes(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The attributes of an issuer managed by the Key Vault service.
 
     :ivar enabled: Determines whether the issuer is enabled.
@@ -1123,7 +1132,7 @@ class IssuerAttributes(_Model):
         super().__init__(*args, **kwargs)
 
 
-class IssuerBundle(_Model):
+class IssuerBundle(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The issuer for Key Vault certificate.
 
     :ivar id: Identifier for the issuer object.
@@ -1177,7 +1186,7 @@ class IssuerBundle(_Model):
         super().__init__(*args, **kwargs)
 
 
-class IssuerCredentials(_Model):
+class IssuerCredentials(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The credentials to be used for the certificate issuer.
 
     :ivar account_id: The user name/account name/account id.
@@ -1210,7 +1219,7 @@ class IssuerCredentials(_Model):
         super().__init__(*args, **kwargs)
 
 
-class IssuerParameters(_Model):
+class IssuerParameters(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Parameters for the issuer of the X509 component of a certificate.
 
     :ivar name: Name of the referenced issuer object or reserved names; for example, 'Self' or
@@ -1254,7 +1263,7 @@ class IssuerParameters(_Model):
         super().__init__(*args, **kwargs)
 
 
-class KeyProperties(_Model):
+class KeyProperties(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Properties of the key pair backing a certificate.
 
     :ivar exportable: Indicates if the private key can be exported. Release policy must be provided
@@ -1342,7 +1351,7 @@ class KeyVaultErrorError(_Model):
     """The key vault server error."""
 
 
-class LifetimeAction(_Model):
+class LifetimeAction(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Action and its trigger that will be performed by Key Vault over the lifetime of a certificate.
 
     :ivar trigger: The condition that will execute the action.
@@ -1375,7 +1384,7 @@ class LifetimeAction(_Model):
         super().__init__(*args, **kwargs)
 
 
-class OrganizationDetails(_Model):
+class OrganizationDetails(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Details of the organization of the certificate issuer.
 
     :ivar id: Id of the organization.
@@ -1411,7 +1420,45 @@ class OrganizationDetails(_Model):
         super().__init__(*args, **kwargs)
 
 
-class SecretProperties(_Model):
+class PlatformManaged(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
+    """Properties of the platform managed certificate. This feature is currently intended for internal
+    use only.
+
+    :ivar certificate_usage: The intended usage of the certificate. Required.
+    :vartype certificate_usage: str
+    :ivar metadata: JSON-formatted platform managed metadata. The schema is intentionally undefined
+     as this feature is currently intended for internal use only.
+    :vartype metadata: dict[str, any]
+    """
+
+    certificate_usage: str = rest_field(
+        name="certificateUsage", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The intended usage of the certificate. Required."""
+    metadata: Optional[dict[str, Any]] = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """JSON-formatted platform managed metadata. The schema is intentionally undefined as this feature
+     is currently intended for internal use only."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        certificate_usage: str,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class SecretProperties(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Properties of the key backing a certificate.
 
     :ivar content_type: The media type (MIME type).
@@ -1441,7 +1488,7 @@ class SecretProperties(_Model):
         super().__init__(*args, **kwargs)
 
 
-class SubjectAlternativeNames(_Model):
+class SubjectAlternativeNames(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """The Subject Alternative Names of a X509 object.
 
     :ivar emails: Email addresses.
@@ -1491,7 +1538,7 @@ class SubjectAlternativeNames(_Model):
         super().__init__(*args, **kwargs)
 
 
-class Trigger(_Model):
+class Trigger(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """A condition to be satisfied for an action to be executed.
 
     :ivar lifetime_percentage: Percentage of lifetime at which to trigger. Value should be between
@@ -1529,7 +1576,7 @@ class Trigger(_Model):
         super().__init__(*args, **kwargs)
 
 
-class X509CertificateProperties(_Model):
+class X509CertificateProperties(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
     """Properties of the X509 component of a certificate.
 
     :ivar subject: The subject name. Should be a valid X509 distinguished Name.

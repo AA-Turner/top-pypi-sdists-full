@@ -3,7 +3,7 @@ from copy import copy
 import django
 from django.db.models import Manager, sql
 from django.db.models.expressions import Ref
-from django.db.models.query import Q, QuerySet, ValuesIterable
+from django.db.models.query import ModelIterable, Q, QuerySet, ValuesIterable
 from django.db.models.sql.datastructures import BaseTable
 
 from .jitmixin import jit_mixin
@@ -41,11 +41,11 @@ class CTE:
     entities (tables, views, functions, other CTE(s), etc.) referenced
     in the given query as well any query to which this CTE will
     eventually be added.
-    :param materialized: Optional parameter (default: False) which enforce
-    using of MATERIALIZED statement for supporting databases.
+    :param materialized: Optional parameter (default: None) which generates
+    the MATERIALIZED / NOT MATERIALIZED statement for supporting databases.
     """
 
-    def __init__(self, queryset, name="cte", materialized=False):
+    def __init__(self, queryset, name="cte", materialized=None):
         self._set_queryset(queryset)
         self.name = name
         self.col = CTEColumns(self)
@@ -71,7 +71,7 @@ class CTE:
         self._iterable_class = getattr(queryset, "_iterable_class", ValuesIterable)
 
     @classmethod
-    def recursive(cls, make_cte_queryset, name="cte", materialized=False):
+    def recursive(cls, make_cte_queryset, name="cte", materialized=None):
         """Recursive Common Table Expression
 
         :param make_cte_queryset: Function taking a single argument (a
@@ -82,7 +82,7 @@ class CTE:
         :param materialized: See `materialized` parameter of `__init__`.
         :returns: The fully constructed recursive cte object.
         """
-        cte = cls(None, name, materialized)
+        cte = cls(None, name=name, materialized=materialized)
         cte._set_queryset(make_cte_queryset(cte))
         return cte
 
@@ -140,7 +140,10 @@ class CTE:
         cte_query = self.query
         qs = cte_query.model._default_manager.get_queryset()
         qs._iterable_class = self._iterable_class
-        qs._fields = ()  # Allow any field names to be used in further annotations
+        if self._iterable_class is not ModelIterable:
+            # Allow any field names to be used in further annotations.
+            # Not done for model querysets, which would break only()/defer().
+            qs._fields = ()
 
         query = jit_mixin(sql.Query(cte_query.model), CTEQuery)
         query.join(BaseTable(self.name, None))

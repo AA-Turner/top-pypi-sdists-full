@@ -414,12 +414,6 @@ class TestRelatedMixin(APITestCase):
         got = view.get_related_instance()
         self.assertEqual(got, self.author.bio)
 
-    def test_get_related_instance_model_field(self):
-        kwargs = {"pk": self.author.id, "related_field": "id"}
-        view = self._get_view(kwargs)
-        got = view.get_related_instance()
-        self.assertEqual(got, self.author.id)
-
     def test_get_related_serializer_class(self):
         kwargs = {"pk": self.author.id, "related_field": "bio"}
         view = self._get_view(kwargs)
@@ -436,15 +430,17 @@ class TestRelatedMixin(APITestCase):
         kwargs = {"pk": self.author.id, "related_field": "author_type"}
         view = self._get_view(kwargs)
         related_serializers = view.get_serializer_class().related_serializers
-        delattr(view.get_serializer_class(), "related_serializers")
+        del view.get_serializer_class().related_serializers
         got = view.get_related_serializer_class()
         self.assertEqual(got, AuthorTypeSerializer)
         view.get_serializer_class().related_serializers = related_serializers
 
     def test_get_related_serializer_class_raises_error(self):
-        kwargs = {"pk": self.author.id, "related_field": "unknown"}
-        view = self._get_view(kwargs)
-        self.assertRaises(NotFound, view.get_related_serializer_class)
+        """Unknown and non relationships fields should raise an error."""
+        for field in {"unknown", "id"}:
+            kwargs = {"pk": self.author.id, "related_field": field}
+            view = self._get_view(kwargs)
+            self.assertRaises(NotFound, view.get_related_serializer_class)
 
     def test_retrieve_related_single_reverse_lookup(self):
         url = reverse(
@@ -546,7 +542,6 @@ class TestValidationErrorResponses(TestBase):
             {
                 "detail": "Received document does not contain primary data",
                 "status": "400",
-                "source": {"pointer": "/data"},
                 "code": "parse_error",
             }
         ]
@@ -580,7 +575,6 @@ class TestValidationErrorResponses(TestBase):
                     "The resource object's type (bad) is not the type that constitute the "
                     "collection represented by the endpoint (blogs)."
                 ),
-                "source": {"pointer": "/data"},
                 "status": "409",
                 "code": "error",
             }

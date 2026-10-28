@@ -51,11 +51,11 @@ def _caps(features: list[str]) -> Any:
         name="test-model", capabilities={"input": ["text"], "output": ["text"], "features": features}))
 
 
-def test_forced_empty_maps_names_the_required_map_only() -> None:
+def test_forced_empty_maps_names_every_map() -> None:
     from matrx_ai.schema.rules import forced_empty_maps
 
-    # `receipt` is a nullable map: null still says "absent", so it is not forced empty.
-    assert forced_empty_maps(LIVE_VISUAL_MAP_OUTPUT_SCHEMA["schema"]) == ["$.spec"]
+    # `receipt` is a nullable map: the strict decoder empties it too, so it is named as well.
+    assert forced_empty_maps(LIVE_VISUAL_MAP_OUTPUT_SCHEMA["schema"]) == ["$.spec", "$.receipt"]
     assert forced_empty_maps({"type": "object", "properties": {"a": {"type": "string"}}, "required": ["a"]}) == []
 
 

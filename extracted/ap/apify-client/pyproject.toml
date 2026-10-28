@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "apify_client"
-version = "3.3.0"
+version = "3.4.0"
 description = "Apify API client for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -19,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries",
 ]
 keywords = [
@@ -31,7 +32,7 @@ keywords = [
 ]
 dependencies = [
     "colorama>=0.4.0",
-    "impit~=0.14.0",
+    "impit>=0.15.1",
     "more_itertools>=10.0.0",
     "pydantic[email]>=2.11.0",
     "typing-extensions>=4.6.0",
@@ -68,7 +69,7 @@ dev = [
     "pytest-timeout<3.0.0",
     "pytest-xdist<4.0.0",
     "pytest<10.0.0",
-    "ruff~=0.16.0",
+    "ruff~=0.17.0",
     "setuptools",
     "types-colorama<0.5.0",
     "ty~=0.0.0",
@@ -246,7 +247,7 @@ disable_timestamp = true
 keep_model_order = true
 
 [tool.apify.openapi-spec]
-version = "v2-2026-10-01T153946Z"
+version = "v2-2026-10-26T112451Z"
 
 [tool.uv]
 exclude-newer = "24 hours"
@@ -262,56 +263,99 @@ apify-client = false
 apify-shared = false
 apify_fingerprint_datapoints = false
 crawlee = false
+impit = false
 
-[tool.poe.tasks]
-clean = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache build dist htmlcov"
-install-sync = "uv sync --all-extras"
-build = "uv build"
-publish-to-pypi = "uv publish --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
-type-check = "uv run ty check"
-unit-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/unit"
-unit-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_client --cov-report=xml:coverage-unit.xml tests/unit"
-integration-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/integration"
-integration-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_client --cov-report=xml:coverage-integration.xml tests/integration"
-check-docstrings = "uv run python -m scripts.check_docstrings"
-fix-docstrings = "uv run python -m scripts.fix_docstrings"
-check-code = [
+[tool.poe.tasks.clean]
+cmd = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache build dist htmlcov"
+help = "Remove build artifacts and clean caches"
+
+[tool.poe.tasks.install-sync]
+cmd = "uv sync --all-extras"
+help = "Sync dependencies with all extras"
+
+[tool.poe.tasks.build]
+cmd = "uv build"
+help = "Build the package"
+
+[tool.poe.tasks.publish-to-pypi]
+cmd = "uv publish --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
+help = "Publish the package to PyPI"
+
+[tool.poe.tasks.type-check]
+cmd = "uv run ty check"
+help = "Run the type checker"
+
+[tool.poe.tasks.unit-tests]
+cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/unit"
+help = "Run unit tests"
+
+[tool.poe.tasks.unit-tests-cov]
+cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_client --cov-report=xml:coverage-unit.xml tests/unit"
+help = "Run unit tests with an XML coverage report"
+
+[tool.poe.tasks.integration-tests]
+cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/integration"
+help = "Run integration tests"
+
+[tool.poe.tasks.integration-tests-cov]
+cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_client --cov-report=xml:coverage-integration.xml tests/integration"
+help = "Run integration tests with an XML coverage report"
+
+[tool.poe.tasks.check-docstrings]
+cmd = "uv run python -m scripts.check_docstrings"
+help = "Check that async client docstrings match their sync counterparts"
+
+[tool.poe.tasks.fix-docstrings]
+cmd = "uv run python -m scripts.fix_docstrings"
+help = "Copy sync client docstrings to their async counterparts"
+
+[tool.poe.tasks.check-code]
+sequence = [
     "lint",
     "type-check",
     "check-docstrings",
     "unit-tests",
 ]
+help = "Run lint, type check, docstring check, and unit tests"
 
 [tool.poe.tasks.install-dev]
 shell = "uv sync --all-extras && uv run pre-commit install"
+help = "Install development dependencies and pre-commit hooks"
 
 [tool.poe.tasks.lint]
 shell = "uv run ruff format --check && uv run ruff check"
+help = "Run the linter and check formatting"
 
 [tool.poe.tasks.format]
 shell = "uv run ruff check --fix && uv run ruff format"
+help = "Fix lint issues and format code"
 
 [tool.poe.tasks.update-docs-theme]
 shell = "pnpm update @apify/docs-theme"
 cwd = "website"
+help = "Update the documentation website theme"
 
 [tool.poe.tasks.build-docs]
 shell = "./build_api_reference.sh && pnpm install && uv run pnpm build"
 cwd = "website"
+help = "Build the documentation website"
 
 [tool.poe.tasks.run-docs]
 shell = "./build_api_reference.sh && pnpm install && uv run pnpm start"
 cwd = "website"
+help = "Run the documentation website locally"
 
 [tool.poe.tasks.generate-models]
 shell = """
 uv run python -m scripts.openapi_spec fetch && uv run datamodel-codegen --input tmp/openapi.json --alias-generator to_camel && uv run datamodel-codegen --input tmp/openapi.json --output src/apify_client/_typeddicts.py --output-model-type typing.TypedDict --no-use-closed-typed-dict && python scripts/postprocess_generated_models.py && uv run python -m scripts.openapi_spec record-version
 """
+help = "Regenerate models from the published OpenAPI specification"
 
 [tool.poe.tasks.generate-models-from-file]
 shell = """
 uv run datamodel-codegen --input $input_file --alias-generator to_camel && uv run datamodel-codegen --input $input_file --output src/apify_client/_typeddicts.py --output-model-type typing.TypedDict --no-use-closed-typed-dict && python scripts/postprocess_generated_models.py && echo "Generated from $input_file - the version in [tool.apify.openapi-spec] still names the published specification, so do not commit these models."
 """
+help = "Generate models from a local OpenAPI specification file (don't commit the result)"
 
 [[tool.poe.tasks.generate-models-from-file.args]]
 name = "input-file"

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hypothesis-jsonschema
-Version: 0.23.1
+Version: 0.23.2
 Summary: Generate test data from JSON schemata with Hypothesis
 Home-page: https://github.com/Zac-HD/hypothesis-jsonschema
 Author: Zac Hatfield-Dodds
@@ -14,18 +14,32 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Education :: Testing
 Classifier: Topic :: Software Development :: Testing
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: hypothesis>=6.84.3
+Requires-Dist: hypothesis>=6.170.10
 Requires-Dist: jsonschema>=4.18.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # hypothesis-jsonschema
 
@@ -82,7 +96,7 @@ As of version 0.11, this includes resolving non-recursive references!
 
 ## Supported versions
 
-`hypothesis-jsonschema` requires Python 3.6 or later.
+`hypothesis-jsonschema` requires Python 3.11 or later.
 In general, 0.x versions will require very recent versions of all dependencies
 because I don't want to deal with compatibility workarounds.
 

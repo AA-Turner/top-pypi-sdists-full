@@ -14,7 +14,8 @@ from yarl import URL
 
 from cassetter._core import HttpResponse as _HttpResponse
 from cassetter._state import get_current_cassette
-from cassetter.cassette import NoMatchError, body_to_bytes
+from cassetter.cassette import NoMatchError
+from cassetter.compare import body_to_bytes
 from cassetter.intercept._shared import apply_before_record_request
 
 
@@ -53,11 +54,13 @@ class AiohttpInterceptor:
             norm_method, uri, headers, body = raw.method, raw.uri, raw.headers, raw.body
 
             try:
-                response = cassette.play(norm_method, uri, headers, body)
-                return build_aiohttp_response(norm_method, uri, response)
+                expected = cassette.match(norm_method, uri, headers, body)
+                if not cassette.verifies:
+                    return build_aiohttp_response(norm_method, uri, expected[1])
             except NoMatchError:
                 if not cassette.can_record:
                     raise
+                expected = None
 
             order = cassette.reserve_record_order()
             real_response = await original_request(session, method, str_or_url, **kwargs)
@@ -73,6 +76,7 @@ class AiohttpInterceptor:
                 response_headers=resp_headers,
                 response_body=resp_body,
                 order=order,
+                expected=expected,
             )
             return real_response
 

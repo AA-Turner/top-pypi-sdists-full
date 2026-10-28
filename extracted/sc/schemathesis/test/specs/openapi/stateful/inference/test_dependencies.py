@@ -4682,6 +4682,464 @@ def test_camelcase_nested_fk_produces_input_slot(ctx):
     assert (nested_slot.resource.name, nested_slot.resource_field) == ("Location", "id")
 
 
+@pytest.mark.parametrize(
+    ("consumer", "parameter", "expected"),
+    [
+        ("/events", {"name": "client_name", "in": "query", "required": True, "schema": {"type": "string"}}, []),
+        ("/clients/{client_name}/events", path_param("client_name"), []),
+        ("/clients/{username}", path_param("username"), []),
+        (
+            "/events",
+            {"name": "client_id", "in": "query", "required": True, "schema": {"type": "integer"}},
+            [
+                [
+                    "#/paths/~1clients/get",
+                    "200",
+                    {
+                        "operationRef": "#/paths/~1events/get",
+                        "x-schemathesis": {"is_inferred": True},
+                        "parameters": {"query.client_id": "$response.body#/*/id"},
+                    },
+                ]
+            ],
+        ),
+    ],
+    ids=["query-name", "path-name", "path-concatenated-name", "query-identifier"],
+)
+def test_name_parameter_does_not_take_identifier(ctx, consumer, parameter, expected):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation(
+                "get",
+                "/clients",
+                "200",
+                {
+                    "type": "array",
+                    "items": {"type": "object", "properties": {"id": {"type": "integer"}, "mac": {"type": "string"}}},
+                },
+            ),
+            **operation("get", consumer, "200", parameters=[parameter]),
+        },
+    )
+
+    assert inferred_links(graph) == expected
+
+
+@pytest.mark.parametrize(
+    ("item_fields", "parameters"),
+    [
+        (["id", "name"], {"path.fileId": "$response.body#/id"}),
+        (
+            ["id", "track_name"],
+            {"path.fileId": "$response.body#/id", "query.track_name": "$response.body#/track_name"},
+        ),
+    ],
+    ids=["other-name-field", "own-name-field"],
+)
+def test_name_query_parameter_takes_only_field_of_same_name(ctx, item_fields, parameters):
+    item = {"type": "object", "properties": {field: {"type": "string"} for field in item_fields}}
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("post", "/files", "200", item),
+            **operation(
+                "patch",
+                "/files/{fileId}",
+                "200",
+                parameters=[
+                    path_param("fileId"),
+                    {"name": "track_name", "in": "query", "required": False, "schema": {"type": "string"}},
+                ],
+            ),
+        },
+    )
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1files/post",
+            "200",
+            {
+                "operationRef": "#/paths/~1files~1{fileId}/patch",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": parameters,
+            },
+        ]
+    ]
+
+
+def test_name_query_parameter_takes_name_of_resource_it_abbreviates(ctx):
+    run = {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}}}
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("post", "/check-runs", "201", run),
+            **operation(
+                "get",
+                "/commits/{ref}/check-runs",
+                "200",
+                parameters=[
+                    path_param("ref"),
+                    {"name": "check_name", "in": "query", "required": False, "schema": {"type": "string"}},
+                ],
+            ),
+        },
+    )
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1check-runs/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1commits~1{ref}~1check-runs/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"query.check_name": "$response.body#/name"},
+            },
+        ]
+    ]
+
+
+def test_name_parameter_takes_name_of_role_it_names(ctx):
+    owned = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "orderer": component_ref("Contact"),
+            "contact": component_ref("Contact"),
+        },
+    }
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("post", "/tasks", "200", owned),
+            **operation(
+                "patch",
+                "/tasks/{id}",
+                "200",
+                parameters=[
+                    path_param("id"),
+                    {"name": "order__orderer__name", "in": "query", "required": False, "schema": {"type": "string"}},
+                ],
+            ),
+        },
+        components={
+            "schemas": {
+                "Contact": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}}}
+            }
+        },
+    )
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1tasks/post",
+            "200",
+            {
+                "operationRef": "#/paths/~1tasks~1{id}/patch",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"path.id": "$response.body#/id"},
+            },
+        ],
+        [
+            "#/paths/~1tasks/post",
+            "200",
+            {
+                "operationRef": "#/paths/~1tasks~1{id}/patch",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"query.order__orderer__name": "$response.body#/orderer/name"},
+            },
+        ],
+    ]
+
+
+@pytest.mark.parametrize("created", ["integer", "string"])
+@pytest.mark.parametrize(
+    "consumer",
+    [
+        operation(
+            "get",
+            "/roles",
+            "200",
+            parameters=[{"name": "permission_name", "in": "query", "required": True, "schema": {"type": "string"}}],
+        ),
+        operation(
+            "get",
+            "/roles",
+            "200",
+            parameters=[{"name": "permission_name", "in": "header", "required": True, "schema": {"type": "string"}}],
+        ),
+        operation_with_body(
+            "post", "/roles", "201", {"type": "object", "properties": {"permission_name": {"type": "string"}}}
+        ),
+    ],
+    ids=["query", "header", "body"],
+)
+def test_created_bare_identifier_does_not_fill_name_parameter(ctx, created, consumer):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("post", "/permissions", "201", {"type": created}),
+            **operation(
+                "get",
+                "/grants",
+                "200",
+                parameters=[{"name": "permission_id", "in": "query", "required": True, "schema": {"type": created}}],
+            ),
+            **consumer,
+        },
+    )
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1permissions/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1grants/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"query.permission_id": "$response.body#/"},
+            },
+        ],
+    ]
+
+
+@pytest.mark.parametrize(
+    ("producer", "consumer", "parameters"),
+    [
+        ("/tags", "/tags/{tagName}", []),
+        ("/tags", "/tags/{tagName}/colors", []),
+        ("/tag", "/tags/{tagName}", []),
+        ("/orgs/{orgId}/tags", "/orgs/{org_id}/tags/{tagName}", [path_param("orgId")]),
+    ],
+    ids=["item", "sub-resource", "singular-collection", "renamed-parent"],
+)
+def test_created_bare_value_fills_name_key_of_its_own_collection(ctx, producer, consumer, parameters):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("post", producer, "201", {"type": "string"}, parameters),
+            **operation(
+                "get",
+                consumer,
+                "200",
+                parameters=[path_param(name) for name in ("org_id", "tagName") if f"{{{name}}}" in consumer],
+            ),
+        },
+    )
+
+    assert inferred_links(graph) == [
+        [
+            f"#/paths/{producer.replace('/', '~1')}/post",
+            "201",
+            {
+                "operationRef": f"#/paths/{consumer.replace('/', '~1')}/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"path.tagName": "$response.body#/"},
+            },
+        ],
+    ]
+
+
+def test_listed_bare_values_fill_name_filter(ctx):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("get", "/tags", "200", {"type": "array", "items": {"type": "string"}}),
+            **operation(
+                "get",
+                "/posts",
+                "200",
+                parameters=[{"name": "tag_name", "in": "query", "required": True, "schema": {"type": "string"}}],
+            ),
+        },
+    )
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1tags/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1posts/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"query.tag_name": "$response.body#/*"},
+            },
+        ],
+    ]
+
+
+def test_created_bare_value_does_not_fill_name_key_of_another_item(ctx):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation(
+                "post",
+                "/agents/{agentNum}/add/{ip}",
+                "200",
+                {"type": "string"},
+                [path_param("agentNum"), path_param("ip")],
+            ),
+            **operation(
+                "post",
+                "/agents/{agentNum}/users/add/{userName}",
+                "200",
+                parameters=[path_param("agentNum"), path_param("userName")],
+            ),
+        },
+    )
+
+    assert inferred_links(graph) == []
+
+
+def name_filter_link(producer, target, parameter, field):
+    return [
+        f"#/paths/{producer}/get",
+        "200",
+        {
+            "operationRef": f"#/paths/{target}/get",
+            "x-schemathesis": {"is_inferred": True},
+            "parameters": {f"query.{parameter}": f"$response.body#/{field}"},
+        },
+    ]
+
+
+NAME_FILTER_PRODUCER = "~1shipment-templates~1{id}"
+
+
+@pytest.mark.parametrize(
+    ("component", "fields", "parameter", "path", "listed", "expected"),
+    [
+        ("ShipmentTemplate", ["Id", "Name", "TemplateName"], "template_name", "/events", False, []),
+        (
+            "ShipmentTemplate",
+            ["Id", "TemplateName"],
+            "template_name",
+            "/events",
+            False,
+            [name_filter_link(NAME_FILTER_PRODUCER, "~1events", "template_name", "TemplateName")],
+        ),
+        (
+            "ShipmentTemplate",
+            ["Id", "Name", "TemplateName"],
+            "template_name",
+            "/shipment-templates",
+            True,
+            [
+                name_filter_link(NAME_FILTER_PRODUCER, "~1shipment-templates", "template_name", "TemplateName"),
+                [
+                    "#/paths/~1shipment-templates/get",
+                    "200",
+                    {
+                        "operationRef": f"#/paths/{NAME_FILTER_PRODUCER}/get",
+                        "x-schemathesis": {"is_inferred": True},
+                        "parameters": {"path.id": "$response.body#/*/Id"},
+                    },
+                ],
+            ],
+        ),
+        (
+            "EnvironmentDescription",
+            ["EnvironmentId", "Name", "EnvironmentName"],
+            "environment_name",
+            "/events",
+            False,
+            [name_filter_link(NAME_FILTER_PRODUCER, "~1events", "environment_name", "EnvironmentName")],
+        ),
+    ],
+    ids=["own-name", "no-own-name", "own-collection", "field-names-resource"],
+)
+def test_name_query_parameter_does_not_take_reference_to_another_resource(
+    ctx, component, fields, parameter, path, listed, expected
+):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("get", "/shipment-templates/{id}", "200", component_ref(component), [path_param("id")]),
+            **operation(
+                "get",
+                path,
+                "200",
+                {"type": "array", "items": component_ref(component)} if listed else None,
+                parameters=[{"name": parameter, "in": "query", "schema": {"type": "string"}}],
+            ),
+        },
+        components={
+            "schemas": {component: {"type": "object", "properties": {field: {"type": "string"} for field in fields}}}
+        },
+    )
+
+    assert inferred_links(graph) == expected
+
+
+@pytest.mark.parametrize("parameter", ["project_name", "projectName", "ProjectName"])
+def test_name_suffixed_query_parameter_links_to_resource_name(ctx, parameter):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation(
+                "get",
+                "/projects/",
+                "200",
+                {"type": "array", "items": component_ref("Project")},
+                operation_id="listProjects",
+            ),
+            **operation(
+                "get",
+                "/reports/",
+                "200",
+                parameters=[{"name": parameter, "in": "query", "required": True, "schema": {"type": "string"}}],
+                operation_id="getReports",
+            ),
+        },
+        version="3.0.3",
+        components={
+            "schemas": {
+                "Project": {
+                    "type": "object",
+                    "properties": {"id": {"type": "integer"}, "name": {"type": "string"}},
+                }
+            }
+        },
+    )
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1projects~1/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1reports~1/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {f"query.{parameter}": "$response.body#/*/name"},
+            },
+        ]
+    ]
+
+
+def test_name_suffixed_path_parameter_keeps_create_body_forward(ctx):
+    # `{domainName}` under `/domainnames` names a `DomainName`, not a `Domain`.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation_with_body(
+                "post",
+                "/domainnames",
+                "200",
+                {"type": "object", "properties": {"domainName": {"type": "string"}}, "required": ["domainName"]},
+            ),
+            **operation("get", "/domainnames/{domainName}", "200", parameters=[path_param("domainName")]),
+        },
+    )
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1domainnames/post",
+            "200",
+            {
+                "operationRef": "#/paths/~1domainnames~1{domainName}/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"path.domainName": "$request.body#/domainName"},
+            },
+        ]
+    ]
+
+
 def test_body_name_suffix_without_path_or_schema_backing_is_dropped(ctx):
     # `_name` body fields are attributes, not FKs, when nothing in the spec backs the name.
     _, graph = analyze_dependencies(

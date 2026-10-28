@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from jinja2 import TemplateNotFound
 
 # Add parent directory to path to allow importing from datacompy
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -193,6 +194,21 @@ def test_save_html_report_nonexistent_dir(tmp_path):
 
     # Check if file exists
     assert temp_path.exists()
+
+
+def test_save_html_report_declares_utf8(tmp_path):
+    """The page declares UTF-8, the encoding it is written in.
+
+    Without the declaration a browser may guess a legacy encoding and show
+    ``café`` as ``cafÃ©``.
+    """
+    temp_file = tmp_path / "report.html"
+    save_html_report("café 日本語", temp_file)
+
+    raw = temp_file.read_bytes()
+    # Browsers only look for a charset declaration in the first 1024 bytes.
+    assert b"<meta charset='UTF-8'/>" in raw[:1024]
+    assert "café 日本語" in raw.decode("utf-8")
 
 
 class TestCompareImplementation(BaseCompare):
@@ -385,6 +401,82 @@ def test_resolve_with_subdirectories(tmp_path, monkeypatch):
     assert resolved_name == "subdir/test_template.j2"
 
 
+@pytest.mark.parametrize(
+    ("requested", "filename"),
+    [
+        ("report.j2", "report.j2"),
+        ("report", "report.j2"),
+        ("report.txt", "report.j2"),
+        ("report.j2", "report"),
+    ],
+)
+def test_render_nested_relative_template(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    requested: str,
+    filename: str,
+) -> None:
+    """Keep nested paths through resolution and Jinja template loading."""
+    templates_dir = tmp_path / "templates"
+    nested_dir = templates_dir / "custom" / "summary"
+    nested_dir.mkdir(parents=True)
+    (nested_dir / filename).write_text(
+        '{% include "shared.j2" %}: {{ value }}', encoding="utf-8"
+    )
+    # A same-named root template must not hide a lost subdirectory.
+    (templates_dir / filename).write_text("Wrong template", encoding="utf-8")
+    (templates_dir / "shared.j2").write_text("Nested report", encoding="utf-8")
+    monkeypatch.setattr("datacompy.base.__file__", str(tmp_path / "base.py"))
+
+    # Native separators are accepted by Path; Jinja names always use slashes.
+    requested_path = str(Path("custom") / "summary" / requested)
+    assert render(requested_path, value=42) == "Nested report: 42"
+
+
+@pytest.mark.parametrize("requested", ["report", "report.j2"])
+def test_render_nested_template_prefers_exact_filename(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, requested: str
+) -> None:
+    """An existing exact path takes precedence over extension fallbacks."""
+    templates_dir = tmp_path / "templates"
+    nested_dir = templates_dir / "custom"
+    nested_dir.mkdir(parents=True)
+    (nested_dir / "report").write_text("Plain report", encoding="utf-8")
+    (nested_dir / "report.j2").write_text("Jinja report", encoding="utf-8")
+    monkeypatch.setattr("datacompy.base.__file__", str(tmp_path / "base.py"))
+
+    expected = "Plain report" if requested == "report" else "Jinja report"
+    assert render(f"custom/{requested}") == expected
+
+
+def test_render_template_next_to_same_named_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A directory of partials does not hide the template it is named after."""
+    templates_dir = tmp_path / "templates"
+    partials_dir = templates_dir / "summary"
+    partials_dir.mkdir(parents=True)
+    (partials_dir / "header.j2").write_text("Header", encoding="utf-8")
+    (templates_dir / "summary.j2").write_text(
+        '{% include "summary/header.j2" %}: {{ value }}', encoding="utf-8"
+    )
+    monkeypatch.setattr("datacompy.base.__file__", str(tmp_path / "base.py"))
+
+    assert render("summary", value=42) == "Header: 42"
+
+
+def test_render_relative_template_rejects_parent_traversal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Keep Jinja's rejection of paths outside the relative template root."""
+    (tmp_path / "templates").mkdir()
+    (tmp_path / "outside.j2").write_text("Outside report", encoding="utf-8")
+    monkeypatch.setattr("datacompy.base.__file__", str(tmp_path / "base.py"))
+
+    with pytest.raises(TemplateNotFound):
+        render("../outside.j2")
+
+
 def test_validate_tolerance_float() -> None:
     """Test validation of float tolerance values."""
     assert validate_tolerance_parameter(0.1, "abs_tol") == {"default": 0.1}
@@ -491,3 +583,67 @@ def test_fixed_width_table_has_no_trailing_whitespace():
     """Trailing padding is stripped so snapshots stay diff friendly."""
     table = fixed_width_table(["Name", "Note"], [["a", "x"], ["bbbb", "y"]], "ll")
     assert all(line == line.rstrip() for line in table.splitlines())
+
+
+def test_fixed_width_table_wide_characters_take_two_columns():
+    """CJK characters print two columns wide, so their column is sized to match."""
+    table = fixed_width_table(["Name", "N"], [["日本語", 1], ["ab", 22]], "lr")
+    assert table.splitlines() == [
+        "Name     N",
+        "------  --",
+        "日本語   1",
+        "ab      22",
+    ]
+
+
+def test_fixed_width_table_combining_marks_take_no_columns():
+    """An accent stored as its own code point adds no width to its letter."""
+    decomposed = "cafe\u0301"  # "e" followed by COMBINING ACUTE ACCENT
+    table = fixed_width_table(["Name", "N"], [[decomposed, 1], ["abcdef", 2]], "lr")
+    assert table.splitlines() == [
+        "Name    N",
+        "------  -",
+        f"{decomposed}    1",
+        "abcdef  2",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("cell", "width"),
+    [
+        pytest.param("café", 4, id="precomposed_accent"),
+        pytest.param("cafe\u0301", 4, id="combining_accent"),
+        pytest.param("日本語", 6, id="cjk"),
+        pytest.param("\uff83\uff7d\uff84", 3, id="halfwidth_katakana"),
+        pytest.param("\uff21\uff22", 4, id="fullwidth_latin"),
+        pytest.param("\u0e01\u0e34\u0e19", 2, id="thai_vowel_sign"),
+        # "한국" decomposed (NFD): six jamo that print as two syllables.
+        pytest.param("\u1112\u1161\u11ab\u1100\u116e\u11a8", 4, id="decomposed_hangul"),
+        pytest.param("\ufeffid", 2, id="byte_order_mark"),
+        pytest.param("\U0001f642", 2, id="emoji"),
+    ],
+)
+def test_fixed_width_table_measures_printed_width(cell, width):
+    """The separator under a column is as long as its widest cell prints."""
+    assert fixed_width_table(["X"], [[cell]]).splitlines()[1] == "-" * width
+
+
+def test_fixed_width_table_right_aligns_non_ascii_cells_and_headers():
+    """Right alignment accounts for both wide characters and combining marks."""
+    table = fixed_width_table(
+        ["旧表", "N"], [["ab", "日本"], ["cafe\u0301", "x"]], "rr"
+    )
+    assert table.splitlines() == [
+        "旧表     N",
+        "----  ----",
+        "  ab  日本",
+        "cafe\u0301     x",
+    ]
+
+
+def test_fixed_width_table_sizes_non_ascii_headers_without_rows():
+    """The header's display width still controls an empty table's separator."""
+    assert fixed_width_table(["日本", "N"], []).splitlines() == [
+        "日本  N",
+        "----  -",
+    ]

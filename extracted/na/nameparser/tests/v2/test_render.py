@@ -557,6 +557,20 @@ def test_capitalized_preserves_mixed_case_unless_forced() -> None:
     assert pn.capitalized(force=True).family == "MacLaine"
 
 
+@pytest.mark.parametrize("text", ["JOHN SMITH MA", "john smith ma",
+                                  "Van Buren", "MARIA DA SILVA E SOUZA"])
+def test_capitalized_keeps_each_reports_alternative(text: str) -> None:
+    """A rebuilt report keeps the reading not taken (#752 phase 2m).
+    `Ambiguity.alternative` is compare=False, so equal names say
+    nothing about it and the alternatives are compared themselves."""
+    pn = parse(text)
+    want = [a.alternative for a in pn.ambiguities]
+    assert want and None not in want
+    for out in (pn.capitalized(), pn.capitalized(force=True),
+                Parser().capitalized(pn)):
+        assert [a.alternative for a in out.ambiguities] == want
+
+
 def test_the_gate_leaves_the_suffixes_out() -> None:
     """rules/R5 (#492): a credential or a generation written the
     way one is written ('III', 'PhD', 'Jr.') is no evidence about how
@@ -1866,3 +1880,42 @@ def test_a_marked_particle_lowercases_only_where_the_particle_arm_would(
     hyphened = Parser(lexicon=Lexicon.default().add(particles={"van-der"}))
     assert str(hyphened.capitalized(hyphened.parse("jan van-der"))) == \
         "Jan Van-Der"
+
+
+@pytest.mark.parametrize("text", [
+    "john smith, PHARM D", "john smith PHARM D", "smith, john PHARM D",
+    "JOHN SMITH, PHARM D", "JOHN SMITH PHARM D", "john smith pharm d"])
+def test_a_split_credential_repairs_as_its_one_word_twin(text: str) -> None:
+    # rules/S12's pair is repaired by its fold's mask ('pharmd' ->
+    # 'PharmD') whatever the comma shape, as 'PHARMD' is; the first
+    # version marked its capitals only where the comma's decision bound
+    # it, so the same words repaired two ways (#752's review)
+    assert parse(text).capitalized().suffix == "Pharm D"
+    twin = text.replace("PHARM D", "PHARMD").replace("pharm d", "pharmd")
+    assert parse(twin).capitalized().suffix == "PharmD"
+
+
+def test_a_split_credential_repair_reads_the_pair_group_merged() -> None:
+    # #752's second review: overlapping pairs ('MB CHB' and 'CHB A',
+    # 'chba' being listed) were both repaired, the second writing over
+    # the first; and a pair in two cases is kept as written unforced,
+    # as its one-word spelling is
+    assert parse("JOHN SMITH MB CHB A").capitalized().suffix == "MB ChB A"
+    assert parse("john smith pharm D").capitalized().suffix == "pharm D"
+    assert parse("john smith pharmD").capitalized().suffix == "pharmD"
+    assert (parse("john smith pharm D").capitalized(force=True).suffix
+            == "Pharm D")
+
+
+@pytest.mark.parametrize("text", [
+    "JEAN DUPONT FILS", "jean dupont fils", "DUMAS, ALEXANDRE FILS",
+    "MARIE FILS", "pedro alves filho", "PEDRO ALVES NETO"])
+def test_repairing_a_generation_word_that_is_also_a_name_keeps_its_reading(
+        text: str) -> None:
+    # rules/S6 reads a generation word's case: Title case leans `fils`
+    # to the name, so a suffix `fils` repairs to lower case, the one
+    # writing that keeps the reading, and a family `Fils` to Title case;
+    # an agnomen's case says nothing and it title-cases as any word does
+    name = parse(text)
+    repaired = name.capitalized()
+    assert parse(str(repaired)).as_dict() == repaired.as_dict()

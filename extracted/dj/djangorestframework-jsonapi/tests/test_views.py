@@ -1,5 +1,6 @@
 import pytest
 from django.urls import path, reverse
+from inline_snapshot import snapshot
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -7,22 +8,64 @@ from rest_framework.routers import SimpleRouter
 from rest_framework.views import APIView
 
 from rest_framework_json_api import serializers
+from rest_framework_json_api.filters import IncludedResourcesFilter
 from rest_framework_json_api.parsers import JSONParser
 from rest_framework_json_api.relations import ResourceRelatedField
 from rest_framework_json_api.renderers import JSONRenderer
 from rest_framework_json_api.utils import format_link_segment
-from rest_framework_json_api.views import ModelViewSet, ReadOnlyModelViewSet
+from rest_framework_json_api.views import (
+    AutoPrefetchMixin,
+    ModelViewSet,
+    ReadOnlyModelViewSet,
+)
 from tests.models import BasicModel, ForeignKeySource
 from tests.serializers import BasicModelSerializer, ForeignKeyTargetSerializer
-from tests.views import (
-    BasicModelViewSet,
-    ForeignKeySourcetHyperlinkedViewSet,
-    ForeignKeySourceViewSet,
-    ForeignKeyTargetViewSet,
-    ManyToManySourceViewSet,
-    NestedRelatedSourceViewSet,
-    URLModelViewSet,
-)
+
+
+def test_auto_prefetch_mixin_deprecation():
+    # subclassing of auto prefetch mixin deprecation check
+    with pytest.warns(DeprecationWarning, match="AutoPrefetchMixin"):
+
+        class TestAutoPrefetchView(AutoPrefetchMixin):
+            pass
+
+    # check that included resources filter is added if not configured
+    with pytest.warns(DeprecationWarning, match="Included"):
+
+        class TestModelView(ModelViewSet):
+            filter_backends = []
+
+    assert TestModelView.filter_backends == [IncludedResourcesFilter]
+
+    # check that included resources filter is added if not configured
+    with pytest.warns(DeprecationWarning, match="Included"):
+
+        class TestReadOnlyView(ReadOnlyModelViewSet):
+            filter_backends = []
+
+    assert TestReadOnlyView.filter_backends == [IncludedResourcesFilter]
+
+    # allow custom included resources filter on ModelViewSet and ReadOnlyModelViewSet
+    class CustomIncludedResourcesFilter(IncludedResourcesFilter):
+        pass
+
+    class TestCustomReadOnlyViewSet(ReadOnlyModelViewSet):
+        filter_backends = [CustomIncludedResourcesFilter]
+
+    class TestCustomModelViewSet(ModelViewSet):
+        filter_backends = [CustomIncludedResourcesFilter]
+
+    assert TestCustomReadOnlyViewSet.filter_backends == [CustomIncludedResourcesFilter]
+    assert TestCustomModelViewSet.filter_backends == [CustomIncludedResourcesFilter]
+
+    # allow custom included resources filter on ReadOnlyModelViewSet
+    class CustomIncludedResourcesFilter(IncludedResourcesFilter):
+        pass
+
+    class TestCustomReadOnlyView(ReadOnlyModelViewSet):
+        filter_backends = [CustomIncludedResourcesFilter]
+
+    assert TestCustomReadOnlyView.filter_backends == [CustomIncludedResourcesFilter]
 
 
 class TestModelViewSet:
@@ -66,29 +109,31 @@ class TestModelViewSet:
 
         assert view.get_related_field_name() == related_model_field_name
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_list(self, client, model):
-        url = reverse("basic-model-list")
+        url = reverse("basicmodel-list")
         response = client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {
-            "data": [
-                {
-                    "type": "BasicModel",
-                    "id": str(model.pk),
-                    "attributes": {"text": "Model"},
-                }
-            ],
-            "links": {
-                "first": "http://testserver/basic_models/?page%5Bnumber%5D=1",
-                "last": "http://testserver/basic_models/?page%5Bnumber%5D=1",
-                "next": None,
-                "prev": None,
-            },
-            "meta": {"pagination": {"count": 1, "page": 1, "pages": 1}},
-        }
+        assert response.json() == snapshot(
+            {
+                "data": [
+                    {
+                        "type": "BasicModel",
+                        "id": str(model.pk),
+                        "attributes": {"text": "Model", "long_text": "LongText"},
+                    }
+                ],
+                "links": {
+                    "first": "http://testserver/basic_models/?page%5Bnumber%5D=1",
+                    "last": "http://testserver/basic_models/?page%5Bnumber%5D=1",
+                    "next": None,
+                    "prev": None,
+                },
+                "meta": {"pagination": {"count": 1, "page": 1, "pages": 1}},
+            }
+        )
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_list_with_include_foreign_key(self, client, foreign_key_source):
         url = reverse("foreignkeysource-list")
         response = client.get(url, data={"include": "target"})
@@ -103,7 +148,7 @@ class TestModelViewSet:
             }
         ] == result["included"]
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_list_with_include_many_to_many_field(
         self, client, many_to_many_source, many_to_many_targets
     ):
@@ -121,11 +166,11 @@ class TestModelViewSet:
             for target in many_to_many_targets
         ] == result["included"]
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_list_with_include_nested_related_field(
         self, client, nested_related_source, many_to_many_sources, many_to_many_targets
     ):
-        url = reverse("nested-related-source-list")
+        url = reverse("nestedrelatedsource-list")
         response = client.get(url, data={"include": "m2m_sources,m2m_sources.targets"})
         assert response.status_code == status.HTTP_200_OK
         result = response.json()
@@ -158,17 +203,6 @@ class TestModelViewSet:
         ]
 
     @pytest.mark.urls(__name__)
-    def test_list_with_invalid_include(self, client, foreign_key_source):
-        url = reverse("foreignkeysource-list")
-        response = client.get(url, data={"include": "invalid"})
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        result = response.json()
-        assert (
-            result["errors"][0]["detail"]
-            == "This endpoint does not support the include parameter for path invalid"
-        )
-
-    @pytest.mark.urls(__name__)
     def test_list_with_default_included_resources(self, client, foreign_key_source):
         url = reverse("default-included-resources-list")
         response = client.get(url)
@@ -183,7 +217,7 @@ class TestModelViewSet:
             }
         ] == result["included"]
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_list_allow_overwriting_url_field(self, client, url_instance):
         """
         Test overwriting of url is possible.
@@ -205,7 +239,7 @@ class TestModelViewSet:
             }
         ]
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_list_allow_overwiritng_url_with_sparse_fields(self, client, url_instance):
         url = reverse("urlmodel-list")
         response = client.get(url, data={"fields[URLModel]": "text"})
@@ -219,9 +253,9 @@ class TestModelViewSet:
             }
         ]
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_list_with_sparse_fields_empty_value(self, client, model):
-        url = reverse("basic-model-list")
+        url = reverse("basicmodel-list")
         response = client.get(url, data={"fields[BasicModel]": ""})
         assert response.status_code == status.HTTP_200_OK
         data = response.json()["data"]
@@ -232,20 +266,22 @@ class TestModelViewSet:
             }
         ]
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_retrieve(self, client, model):
-        url = reverse("basic-model-detail", kwargs={"pk": model.pk})
+        url = reverse("basicmodel-detail", kwargs={"pk": model.pk})
         response = client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {
-            "data": {
-                "type": "BasicModel",
-                "id": str(model.pk),
-                "attributes": {"text": "Model"},
+        assert response.json() == snapshot(
+            {
+                "data": {
+                    "type": "BasicModel",
+                    "id": str(model.pk),
+                    "attributes": {"text": "Model", "long_text": "LongText"},
+                }
             }
-        }
+        )
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_retrieve_with_include_foreign_key(self, client, foreign_key_source):
         url = reverse("foreignkeysource-detail", kwargs={"pk": foreign_key_source.pk})
         response = client.get(url, data={"include": "target"})
@@ -260,7 +296,7 @@ class TestModelViewSet:
             }
         ] == result["included"]
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_retrieve_hyperlinked_with_sparse_fields(self, client, foreign_key_source):
         url = reverse(
             "foreignkeysourcehyperlinked-detail", kwargs={"pk": foreign_key_source.pk}
@@ -274,7 +310,7 @@ class TestModelViewSet:
             "self": f"http://testserver/foreign_key_sources/{foreign_key_source.pk}/"
         }
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_patch(self, client, model):
         data = {
             "data": {
@@ -284,26 +320,28 @@ class TestModelViewSet:
             }
         }
 
-        url = reverse("basic-model-detail", kwargs={"pk": model.pk})
+        url = reverse("basicmodel-detail", kwargs={"pk": model.pk})
         response = client.patch(url, data=data)
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {
-            "data": {
-                "type": "BasicModel",
-                "id": str(model.pk),
-                "attributes": {"text": "changed"},
+        assert response.json() == snapshot(
+            {
+                "data": {
+                    "type": "BasicModel",
+                    "id": str(model.pk),
+                    "attributes": {"text": "changed", "long_text": "LongText"},
+                }
             }
-        }
+        )
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_delete(self, client, model):
-        url = reverse("basic-model-detail", kwargs={"pk": model.pk})
+        url = reverse("basicmodel-detail", kwargs={"pk": model.pk})
         response = client.delete(url)
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert BasicModel.objects.count() == 0
         assert len(response.rendered_content) == 0
 
-    @pytest.mark.urls(__name__)
+    @pytest.mark.urls("tests.urls")
     def test_create_with_sparse_fields(self, client, foreign_key_target):
         url = reverse("foreignkeysource-list")
         data = {
@@ -540,27 +578,7 @@ class CustomIdAPIView(APIView):
         return Response(status=status.HTTP_200_OK, data=serializer.data)
 
 
-# TODO remove basename and use default (lowercase of model)
-# this makes using HyperlinkedIdentityField easier and reduces
-# configuration in general
 router = SimpleRouter()
-router.register(r"basic_models", BasicModelViewSet, basename="basic-model")
-router.register(r"url_models", URLModelViewSet)
-router.register(r"foreign_key_sources", ForeignKeySourceViewSet)
-router.register(r"foreign_key_targets", ForeignKeyTargetViewSet)
-router.register(
-    r"foreign_key_sources_hyperlinked",
-    ForeignKeySourcetHyperlinkedViewSet,
-    "foreignkeysourcehyperlinked",
-)
-router.register(
-    r"many_to_many_sources", ManyToManySourceViewSet, basename="many-to-many-source"
-)
-router.register(
-    r"nested_related_sources",
-    NestedRelatedSourceViewSet,
-    basename="nested-related-source",
-)
 router.register(
     r"default_included_resources",
     DefaultIncludedResourcesViewSet,

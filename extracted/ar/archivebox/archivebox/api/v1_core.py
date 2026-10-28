@@ -3,7 +3,9 @@ __package__ = "archivebox.api"
 import math
 import json
 import mimetypes
+import os
 import re
+from hashlib import sha256
 from html import unescape
 from collections import defaultdict
 from pathlib import Path, PurePosixPath
@@ -13,7 +15,7 @@ from datetime import datetime, time
 
 from django.db import IntegrityError
 from django.db.models import Model, Q
-from django.http import HttpRequest, HttpResponse
+from django.http import FileResponse, HttpRequest, HttpResponse
 from django.http.multipartparser import MultiPartParser, MultiPartParserError
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
@@ -29,11 +31,11 @@ from ninja.pagination import paginate, PaginationBase
 from ninja.errors import HttpError
 
 from archivebox.core.models import Snapshot, ArchiveResult, Tag
-from archivebox.core.permissions import public_snapshots_queryset
+from archivebox.core.permissions import can_view_snapshot, public_snapshots_queryset
 from archivebox.api.auth import authenticated_user_from_request
 from archivebox.config.common import get_config
 from archivebox.core.routes_util import build_snapshot_detail_url, build_web_url
-from archivebox.misc.util import filter_queryset_by_uuid_substring, validate_url_length
+from archivebox.misc.util import equivalent_urls, filter_queryset_by_uuid_substring, validate_url_length
 from archivebox.core.tag_util import (
     add_snapshot_counts,
     build_tag_cards,
@@ -217,7 +219,15 @@ def _with_archiveresult_processes(queryset):
     # (roughly 100 queries), despite the initial Snapshot UUID lookup being fast.
     # Logs and the hydrated hook environment are not response fields; loading
     # those potentially large values would replace round trips with excess I/O.
-    return queryset.select_related("process__binary").defer("process__stdout", "process__stderr", "process__env")
+    # Ownership delegates through snapshot.crawl, including nested results in
+    # SnapshotSchema. Join it here too, but never hydrate the crawl's entire
+    # intake URL list just to serialize one capture's owner.
+    return queryset.select_related("process__binary", "snapshot__crawl__created_by").defer(
+        "process__stdout",
+        "process__stderr",
+        "process__env",
+        "snapshot__crawl__urls",
+    )
 
 
 @router.get("/archiveresults", response=list[ArchiveResultSchema], url_name="get_archiveresult")
@@ -225,7 +235,7 @@ def _with_archiveresult_processes(queryset):
 def get_archiveresults(request: HttpRequest, filters: Query[ArchiveResultFilterSchema]):
     """List all ArchiveResult entries matching these filters."""
     queryset = filters.filter(
-        _with_archiveresult_processes(ArchiveResult.objects.all()).prefetch_related("snapshot__crawl__created_by", "snapshot__tags"),
+        _with_archiveresult_processes(ArchiveResult.objects.all()).prefetch_related("snapshot__tags"),
     )
     if filters.search or filters.snapshot_tag:
         return queryset.distinct()
@@ -255,7 +265,6 @@ def get_archiveresult(request: HttpRequest, archiveresult_id: str):
     """Get a specific ArchiveResult by id."""
     return (
         _with_archiveresult_processes(ArchiveResult.objects.all())
-        .select_related("snapshot__crawl__created_by")
         .prefetch_related("snapshot__tags")
         .get(_uuid_ref_query("id", archiveresult_id))
     )
@@ -365,17 +374,22 @@ def _summarize_archiveresult_output_files(output_files: dict[str, dict[str, Any]
 
 
 def _get_snapshot_by_ref(snapshot_id: str):
-    queryset = Snapshot.objects.select_related("crawl__created_by")
+    # Snapshot metadata needs the owner/persona, not a potentially multi-MB
+    # crawl intake. Keep polling an individual snapshot independent of its size.
+    queryset = Snapshot.objects.select_related("crawl__created_by", "crawl__persona").defer("crawl__urls")
     try:
-        full_id = UUID(snapshot_id)
-    except (TypeError, ValueError):
-        pass
-    else:
-        return queryset.get(pk=full_id)
-    try:
-        return queryset.get(_uuid_ref_query("id", snapshot_id) | Q(timestamp__startswith=snapshot_id))
-    except Snapshot.DoesNotExist:
-        return queryset.get(_uuid_ref_query("id", snapshot_id))
+        try:
+            full_id = UUID(snapshot_id)
+        except (TypeError, ValueError):
+            pass
+        else:
+            return queryset.get(pk=full_id)
+        try:
+            return queryset.get(_uuid_ref_query("id", snapshot_id) | Q(timestamp__startswith=snapshot_id))
+        except Snapshot.DoesNotExist:
+            return queryset.get(_uuid_ref_query("id", snapshot_id))
+    except Snapshot.DoesNotExist as err:
+        raise HttpError(404, "Snapshot not found") from err
 
 
 def _queue_archiveresult_snapshot_maintenance(snapshot: Snapshot) -> None:
@@ -680,7 +694,7 @@ class SnapshotSchema(Schema):
     def resolve_persona(obj):
         # A deduplicated submission can reuse a capture from a different
         # persona. Report its actual DB-backed owner, not the new request's choice.
-        persona = obj.crawl.resolve_persona()
+        persona = obj.crawl.persona
         return persona.name if persona else None
 
     @staticmethod
@@ -858,6 +872,7 @@ def _snapshots_rss_response(
 
 
 class SnapshotFilterSchema(FilterSchema):
+    crawl_id: Annotated[UUID | None, FilterLookup("crawl_id")] = None
     id: Annotated[str | None, FilterLookup(["id__istartswith", "id__iendswith", "timestamp__startswith"])] = None
     created_by_id: Annotated[str | None, FilterLookup("crawl__created_by_id")] = None
     created_by_username: Annotated[str | None, FilterLookup("crawl__created_by__username__icontains")] = None
@@ -893,7 +908,10 @@ def get_snapshots(request: HttpRequest, filters: Query[SnapshotFilterSchema], wi
     """List all Snapshot entries matching these filters."""
     setattr(request, "with_archiveresults", with_archiveresults)
     try:
-        queryset = filter_snapshots_by_status(Snapshot.objects.all(), filters.status)
+        queryset = filter_snapshots_by_status(
+            Snapshot.objects.select_related("crawl__created_by", "crawl__persona").defer("crawl__urls"),
+            filters.status,
+        )
     except ValueError as err:
         raise HttpError(400, str(err)) from err
     queryset = filters.filter(queryset).distinct()
@@ -942,6 +960,44 @@ def get_snapshot(request: HttpRequest, snapshot_id: str, with_archiveresults: bo
     return _get_snapshot_by_ref(snapshot_id)
 
 
+@router.get("/snapshot/{snapshot_id}/screencast.jpg", auth=None, url_name="snapshot_screencast")
+def snapshot_screencast(request: HttpRequest, snapshot_id: str):
+    try:
+        snapshot = Snapshot.objects.select_related("crawl__created_by").get(pk=UUID(snapshot_id))
+    except (ValueError, Snapshot.DoesNotExist):
+        raise HttpError(404, "Snapshot not found")
+    authenticated_user_from_request(request)
+    if not can_view_snapshot(request, snapshot):
+        raise HttpError(404, "Snapshot not found")
+    try:
+        started_at = float(request.GET["after"]) if request.GET.get("after") else None
+    except ValueError:
+        raise HttpError(400, "Invalid screencast start time")
+
+    # Match the hook's lexical path.resolve(SNAP_DIR) without probing remote
+    # storage. Never substitute another capture's shared crawl frame.
+    snapshot_dir = snapshot.get_storage_path_for_version(snapshot.fs_version)
+    candidates = [snapshot_dir]
+    if snapshot_dir.name == snapshot.pk.hex:
+        candidates.append(snapshot_dir.with_name(str(UUID(snapshot.pk.hex))))
+    live_root = Path(get_config(snapshot=snapshot, resolve_plugins=False).TMP_DIR) / "chrome_screencast"
+    for directory in candidates:
+        try:
+            frame = (live_root / sha256(os.path.abspath(directory).encode()).hexdigest() / "latest.jpg").open("rb")
+        except (FileNotFoundError, IsADirectoryError, NotADirectoryError):
+            continue
+        if started_at is not None and os.fstat(frame.fileno()).st_mtime < started_at:
+            frame.close()
+            continue
+        response = FileResponse(frame, content_type="image/jpeg")
+        response["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
+        response["Pragma"] = "no-cache"
+        response["Expires"] = "0"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+    raise HttpError(404, "No frame for this capture yet")
+
+
 @router.post("/snapshots", response=SnapshotSchema, url_name="create_snapshot")
 def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
     tags = normalize_tag_list(data.tags)
@@ -975,13 +1031,19 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
     # Browser uploads must not wait behind the runner's crawl-wide lifecycle
     # lock. The unique insert recovery and CAS update below are the request-side
     # coordination boundary for this idempotent metadata sync.
-    snapshot = Snapshot.objects.filter(url=data.url, crawl=crawl).first()
+    # /über and /%C3%BCber are one URL; match a snapshot stored in either.
+    snapshot = Snapshot.objects.filter(url__in=equivalent_urls(data.url), crawl=crawl).first()
     if snapshot is None and bool(crawl.get_current_config().get("ONLY_NEW", True)):
         # Uploading browser metadata is part of the same submission as /add.
         # It must honor the runner's deduplication policy, even if it arrives
         # before the runner has processed that crawl. Report the actual owner
         # so clients never mistake a reused capture for one they just created.
-        snapshot = Snapshot.objects.filter(url=data.url).exclude(status=Snapshot.DELETING_STATE).order_by("-created_at").first()
+        snapshot = (
+            Snapshot.objects.filter(url__in=equivalent_urls(data.url))
+            .exclude(status=Snapshot.DELETING_STATE)
+            .order_by("-created_at")
+            .first()
+        )
         if snapshot is not None:
             setattr(request, "with_archiveresults", False)
             return snapshot
@@ -1052,16 +1114,9 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
         snapshot = _get_snapshot_by_ref(snapshot_id)
         if "status" in payload:
             try:
-                snapshot.status = normalize_snapshot_status(payload["status"])
+                payload["status"] = normalize_snapshot_status(payload["status"])
             except ValueError as err:
                 raise HttpError(400, str(err)) from err
-            if snapshot.status == Snapshot.StatusChoices.SEALED and "retry_at" not in payload:
-                snapshot.retry_at = None
-            update_fields.append("status")
-
-        if "retry_at" in payload:
-            snapshot.retry_at = payload["retry_at"]
-            update_fields.append("retry_at")
 
         if tags is not None:
             snapshot.save_tags(
@@ -1070,8 +1125,16 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
             )
 
         if payload.get("status") == Snapshot.StatusChoices.SEALED:
+            # Cancellation needs the persisted status and lease: assigning the
+            # requested values first skips sealing or loses its ownership CAS.
             snapshot.cancel()
         else:
+            if "status" in payload:
+                snapshot.status = payload["status"]
+                update_fields.append("status")
+            if "retry_at" in payload:
+                snapshot.retry_at = payload["retry_at"]
+                update_fields.append("retry_at")
             snapshot.save(update_fields=update_fields)
     setattr(request, "with_archiveresults", False)
     return snapshot

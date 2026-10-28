@@ -5,9 +5,10 @@ from typing import ClassVar
 
 import numpy as np
 
-from boxmot.motion.kalman_filters.base import BaseKalmanFilter
 from boxmot.trackers.common.geometry import xywh2xyxy
 from boxmot.trackers.common.geometry.obb import smooth_obb_corners, xywha_to_xyxy
+from boxmot.trackers.common.motion.kalman_filters.base import BaseKalmanFilter
+from boxmot.trackers.common.motion.models import MotionModelAdapter, MotionModelKind
 from boxmot.trackers.common.tracking.track import (
     TrackIdAllocator,
     TrackLifecycleMixin,
@@ -35,9 +36,11 @@ class BoxTrack(TrackLifecycleMixin):
         id_allocator: TrackIdAllocator,
         max_obs: int,
         is_obb: bool = False,
+        motion_model: MotionModelAdapter,
     ) -> None:
         self.id_allocator = id_allocator
         self.is_obb = bool(is_obb)
+        self.motion_model = motion_model
         det = np.asarray(det, dtype=np.float32)
         if self.is_obb:
             self._init_from_obb_detection(det)
@@ -67,9 +70,8 @@ class BoxTrack(TrackLifecycleMixin):
     def _current_aabb_xywh(self) -> np.ndarray:
         raise NotImplementedError
 
-    @classmethod
-    def _reset_inactive_aabb_motion(cls, mean_state: np.ndarray) -> None:
-        mean_state[6:8] = 0
+    def _reset_inactive_aabb_motion(self, mean_state: np.ndarray) -> None:
+        mean_state[:] = self.motion_model.stop_size_velocity(mean_state)
 
     @classmethod
     def _local_tracked_state(cls):
@@ -94,10 +96,11 @@ class BoxTrack(TrackLifecycleMixin):
         mean_state = self.mean.copy()
         if self.state != self._local_tracked_state():
             if self.is_obb:
-                mean_state[7:10] = 0
+                mean_state = self.motion_model.stop_size_velocity(mean_state, include_angle=True)
             else:
                 self._reset_inactive_aabb_motion(mean_state)
-        self.mean, self.covariance = self.kalman_filter.predict(
+        self.mean, self.covariance = self.motion_model.predict(
+            self.kalman_filter,
             mean_state,
             self.covariance,
             dt=dt,
@@ -105,20 +108,24 @@ class BoxTrack(TrackLifecycleMixin):
 
     @classmethod
     def multi_predict(cls, stracks, *, dt: float | None = None) -> None:
-        """Predict batches using each owner's filter and noise configuration."""
+        """Batch shared filters and predict independently owned histories directly."""
         groups: dict[BaseKalmanFilter, list[BoxTrack]] = {}
         for track in stracks:
             groups.setdefault(track.kalman_filter, []).append(track)
         for kalman, tracks in groups.items():
-            multi_mean = np.asarray([track.mean.copy() for track in tracks])
+            # Stacking already owns its data; inactive-state edits must only
+            # change this batch, without copying each source row first.
+            multi_mean = np.asarray([track.mean for track in tracks])
             multi_covariance = np.asarray([track.covariance for track in tracks])
             for index, track in enumerate(tracks):
                 if track.state != cls._local_tracked_state():
                     if track.is_obb:
-                        multi_mean[index][7:10] = 0
+                        multi_mean[index] = track.motion_model.stop_size_velocity(multi_mean[index], include_angle=True)
                     else:
-                        cls._reset_inactive_aabb_motion(multi_mean[index])
-            multi_mean, multi_covariance = kalman.multi_predict(multi_mean, multi_covariance, dt=dt)
+                        track._reset_inactive_aabb_motion(multi_mean[index])
+            multi_mean, multi_covariance = tracks[0].motion_model.multi_predict(
+                kalman, multi_mean, multi_covariance, dt=dt
+            )
             for track, mean, covariance in zip(tracks, multi_mean, multi_covariance):
                 track.mean, track.covariance = mean, covariance
 
@@ -126,7 +133,9 @@ class BoxTrack(TrackLifecycleMixin):
         """Activate a new track."""
         self.kalman_filter = kalman_filter
         self.id = self.id_allocator.alloc()
-        self.mean, self.covariance = self.kalman_filter.initiate(self._measurement_for_update(self))
+        self.mean, self.covariance = self.motion_model.initiate(
+            self.kalman_filter, self._measurement_for_update(self), confidence=float(self.conf)
+        )
         self.tracklet_len = 0
         self.state = self._local_tracked_state()
         if frame_id == 1:
@@ -138,11 +147,17 @@ class BoxTrack(TrackLifecycleMixin):
 
     def re_activate(self, new_track, frame_id, new_id=False):
         """Re-activate a track with a new detection."""
-        self.mean, self.covariance = self.kalman_filter.update(
+        self.mean, self.covariance = self.motion_model.update(
+            self.kalman_filter,
             self.mean,
             self.covariance,
             self._measurement_for_update(new_track),
+            confidence=0.0,
         )
+        self._finish_reactivate(new_track, frame_id, new_id)
+
+    def _finish_reactivate(self, new_track: "BoxTrack", frame_id: int, new_id: bool) -> None:
+        """Apply lifecycle bookkeeping after scalar or batched correction."""
         self.tracklet_len = 0
         self.state = self._local_tracked_state()
         self.is_activated = True
@@ -156,14 +171,19 @@ class BoxTrack(TrackLifecycleMixin):
 
     def update(self, new_track, frame_id):
         """Update the current track with a matched detection."""
-        self.frame_id = frame_id
-        self.tracklet_len += 1
-
-        self.mean, self.covariance = self.kalman_filter.update(
+        self.mean, self.covariance = self.motion_model.update(
+            self.kalman_filter,
             self.mean,
             self.covariance,
             self._measurement_for_update(new_track),
+            confidence=0.0,
         )
+        self._finish_update(new_track, frame_id)
+
+    def _finish_update(self, new_track: "BoxTrack", frame_id: int) -> None:
+        """Store the corrected geometry, detection metadata, and lifecycle."""
+        self.frame_id = frame_id
+        self.tracklet_len += 1
         self.state = self._local_tracked_state()
         self.is_activated = True
         self._copy_detection_metadata(self, new_track)
@@ -171,10 +191,32 @@ class BoxTrack(TrackLifecycleMixin):
         self._append_current_history()
         sync_track_meta(self, self.common_tracked_state)
 
+    @classmethod
+    def multi_update(cls, pairs, frame_id: int, *, reactivate: bool = False, new_id: bool = False) -> None:
+        """Correct shared batches or owned states before ordered lifecycle hooks."""
+        pairs = list(pairs)
+        groups: dict[BaseKalmanFilter, list[tuple[BoxTrack, BoxTrack]]] = {}
+        for track, detection in pairs:
+            groups.setdefault(track.kalman_filter, []).append((track, detection))
+        for kalman, matches in groups.items():
+            mean = np.asarray([track.mean for track, _ in matches])
+            covariance = np.asarray([track.covariance for track, _ in matches])
+            measurement = np.asarray([track._measurement_for_update(detection) for track, detection in matches])
+            model = matches[0][0].motion_model
+            mean, covariance = model.multi_update(kalman, mean, covariance, measurement, confidence=0.0)
+            for (track, _), state, uncertainty in zip(matches, mean, covariance):
+                track.mean, track.covariance = state, uncertainty
+        # Keep original association order for ID allocation and lifecycle hooks.
+        for track, detection in pairs:
+            if reactivate:
+                track._finish_reactivate(detection, frame_id, new_id)
+            else:
+                track._finish_update(detection, frame_id)
+
     def _append_current_history(self) -> None:
         """Store the post-transition geometry used by trajectory rendering."""
-        geometry = self._state_obb_for_plot() if self.is_obb else self.xyxy.copy()
-        self.history_observations.append(np.asarray(geometry, dtype=np.float32).copy())
+        geometry = self._state_obb_for_plot() if self.is_obb else self.xyxy
+        self.history_observations.append(np.array(geometry, dtype=np.float32, copy=True))
 
     def _state_obb_for_plot(self) -> np.ndarray:
         """Return post-update OBB state as corners with state-only angle smoothing."""
@@ -197,16 +239,20 @@ class BoxTrack(TrackLifecycleMixin):
     def xywha(self) -> np.ndarray:
         """Return the current track box as ``(cx, cy, w, h, angle)``."""
         if self.is_obb:
-            ret = self.mean[:5].copy() if self.mean is not None else self.xywh.copy()
+            if self.mean is not None and self.motion_model.kind is not MotionModelKind.XYWH:
+                ret = self.motion_model.to_box(self.mean)[0]
+            else:
+                ret = self.mean[:5].copy() if self.mean is not None else self.xywh.copy()
             return np.asarray(ret, dtype=np.float32)
         xywh = self._current_aabb_xywh()
         return np.array([xywh[0], xywh[1], xywh[2], xywh[3], 0.0], dtype=np.float32)
 
 
 class SortBoxTrack(TrackLifecycleMixin):
-    """Common substrate for SORT-style KalmanBoxTracker implementations."""
+    """Shared identity, counters, and metadata for SORT-style per-object tracks."""
 
     common_initial_state: ClassVar[CommonTrackState] = CommonTrackState.TENTATIVE
+    observation_centric: ClassVar[bool] = False
 
     def _assign_sort_id(
         self,

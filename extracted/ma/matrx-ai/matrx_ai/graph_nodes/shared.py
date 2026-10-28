@@ -178,6 +178,12 @@ class AiUsage(BaseModel):
     total_tokens: int = Field(
         default=0, description="Combined input and output token count across the run."
     )
+    cached_input_tokens: int = Field(
+        default=0, description="Input tokens served from the provider's prompt cache across the run."
+    )
+    cache_write_tokens: int = Field(
+        default=0, description="Input tokens written to the provider's prompt cache across the run."
+    )
     cost_usd: float = Field(default=0.0, description="Total estimated provider cost in US dollars.")
     models: dict[str, AiModelUsage] = Field(
         default_factory=dict, description="Per-model usage breakdown keyed by canonical model name."
@@ -234,6 +240,12 @@ class AiExecutionResult(BaseModel):
     # what kind-filtered edges and triggers route on; final_text remains the
     # verbatim transcript.
     content: list[dict[str, JsonValue]] = Field(default_factory=list)
+
+
+#: The run-envelope fields Run Typed Agent may hand over beside its answer (``run_envelope``;
+#: Arman: never lose a door): exactly :class:`AiExecutionResult`'s fields, so a step converted from
+#: Run Mandate / Run Agent keeps every read it had. ``structured_output`` IS the typed answer.
+RUN_ENVELOPE_FIELDS: frozenset[str] = frozenset(AiExecutionResult.model_fields) - {"structured_output"}
 
 
 #: Node-config field an AUTHOR sets on a step that may legitimately answer
@@ -325,6 +337,7 @@ def normalize_completed_result(
             value = meta.get(key)
             if value is not None:
                 details[key] = value
+        details.update(_caller_refusal_details(completed, meta))
         return failure(
             "ai_turn_failed",
             e.person_message or str(e),
@@ -407,6 +420,33 @@ def normalize_completed_result(
                 },
             )
     return success(normalized)
+
+
+def _caller_refusal_details(completed: Any, meta: dict[str, Any]) -> dict[str, Any]:
+    """A turn a GATE refused (spend approval, protected account, usage limit…) says so on the
+    step's failure — ``caller_refusal`` (the engine never retries it, never re-dispatches it, and
+    recovery never resumes it: matrx_graph.spend_gate) plus the refusal's own envelope, whose
+    ``approval_url`` is where a person approves it. Live run 1aa73a14 (2026-10-27) retried one
+    approval hold across 615 failed items because its failure said only ``ai_turn_failed``."""
+    from matrx_ai.providers.caller_refusal import CALLER_REFUSAL_KEY, is_caller_refusal
+
+    terminal = getattr(completed, "terminal_exception", None)
+    error_type = str(meta.get("error_type") or "")
+    if not (is_caller_refusal(terminal) or is_caller_refusal(error_type)):
+        return {}
+    out: dict[str, Any] = {CALLER_REFUSAL_KEY: True, "refusal_code": error_type}
+    envelope = getattr(terminal, "envelope", None)
+    if callable(envelope):
+        try:
+            env = envelope()
+        except Exception:  # noqa: BLE001 — the flag alone still stops the retry
+            env = {}
+        for key in ("approval_url", "approval_id", "subject_kind", "subject_id", "reason"):
+            if env.get(key):
+                out[key] = env[key]
+        if env.get("error"):
+            out["refusal_code"] = str(env["error"])
+    return out
 
 
 def _structured_output_noun(completed: CompletedRequest) -> str:
@@ -1016,6 +1056,8 @@ def _extract_usage(raw: Any) -> AiUsage:
             input_tokens=int(getattr(total, "input_tokens", 0) or 0),
             output_tokens=int(getattr(total, "output_tokens", 0) or 0),
             total_tokens=int(getattr(total, "total_tokens", 0) or 0),
+            cached_input_tokens=int(getattr(total, "cached_input_tokens", 0) or 0),
+            cache_write_tokens=int(getattr(total, "cache_write_tokens", 0) or 0),
             cost_usd=float(getattr(total, "total_cost", 0.0) or 0.0),
             models=models,
         )

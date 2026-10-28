@@ -32,7 +32,7 @@ from ..sdk.durable import file_lock, fsync_directory, now_iso
 from ..sdk.tls import ssl_context
 from ..tap_core import capture_gate as tap_gate
 from ..tap_core import codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
-from ..tap_core.session_identity import compatible_copy, validate_identity
+from ..tap_core.session_identity import check_identity, compatible_copy, validate_identity
 from ..tap_core.session_journal import (
     DELETED_STATE, RECEIPTED_PROTOCOLS, DeliveryPending, Journal, ProtocolRestarted,
     ReconciliationRequired, SessionDeleted, Wire, prefix_hash,
@@ -363,7 +363,7 @@ def history_sessions(root: Path) -> dict[str, HistoryEntry]:
             continue
         try:
             entry = json.loads(line)
-        except ValueError:
+        except (ValueError, RecursionError):
             continue  # a torn line costs one entry, never the file
         if not isinstance(entry, dict):
             continue
@@ -454,7 +454,7 @@ def read_cwd(path: Path, agent: str, *, max_lines: int = 200) -> str | None:
         # Kimi keeps the session's folder in its own state.json, beside the wire.
         try:
             state = json.loads((path.parent.parent.parent / "state.json").read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except (OSError, ValueError, RecursionError):
             return None
         found = state.get("cwd") if isinstance(state, dict) else None
         return found if isinstance(found, str) and found else None
@@ -465,7 +465,7 @@ def read_cwd(path: Path, agent: str, *, max_lines: int = 200) -> str | None:
                     return None
                 try:
                     event = json.loads(raw)
-                except (ValueError, UnicodeDecodeError):
+                except (ValueError, UnicodeDecodeError, RecursionError):
                     continue
                 if not isinstance(event, dict):
                     continue
@@ -521,7 +521,7 @@ def _is_pi_session_file(path: Path) -> bool:
         return False
     try:
         first = json.loads(head[:newline])
-    except (ValueError, UnicodeDecodeError):
+    except (ValueError, UnicodeDecodeError, RecursionError):
         return False
     return isinstance(first, dict) and first.get("type") == "session"
 
@@ -635,7 +635,7 @@ def discover(
             on_disk.add(session_id)
             try:
                 stat = path.stat()
-                validate_identity(path, agent, session_id)
+                check_identity(path, agent, session_id)
             except ReconciliationRequired:
                 census.identity_unverified += 1
                 continue
@@ -2167,16 +2167,31 @@ def _background_identity(client) -> dict:
     }
 
 
+#: Threads pinning the reviewed transcripts' bytes (`_background_payload`).
+HASH_WORKERS = 4
+
+
 def _background_payload(
     census: Census, *, client, posters, devices, budget_bytes, unpaired,
 ) -> dict:
+    from concurrent.futures import ThreadPoolExecutor
+
     identity = _background_identity(client)
-    files = []
-    for transcript in census.candidates:
-        row = asdict(transcript)
-        row["path"] = str(transcript.path.resolve())
-        row["sha256"] = prefix_hash(transcript.path, transcript.size)
-        files.append(row)
+    # hashlib releases the GIL: a whole history (GBs) hashes ~3x faster on 4 threads.
+    pool = ThreadPoolExecutor(max_workers=HASH_WORKERS)
+    try:
+        digests = pool.map(lambda t: prefix_hash(t.path, t.size), census.candidates)
+        files = []
+        for transcript, digest in zip(census.candidates, digests):
+            row = asdict(transcript)
+            row["path"] = str(transcript.path.resolve())
+            row["sha256"] = digest
+            files.append(row)
+    except BaseException:
+        # A failure or Ctrl-C surfaces now, not after every queued file is hashed.
+        pool.shutdown(wait=False, cancel_futures=True)
+        raise
+    pool.shutdown()
     return {
         "schema": 1,
         "account": identity,

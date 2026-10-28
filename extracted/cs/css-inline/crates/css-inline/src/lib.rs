@@ -41,7 +41,7 @@ use std::{borrow::Cow, fmt::Formatter, io::Write, iter::Peekable, ops::Range, sy
 
 #[cfg(feature = "async")]
 pub use async_trait::async_trait;
-use html::{Document, InliningMode, NodeData, NodeId, Precedence};
+use html::{contains_var, CssVariables, Document, InliningMode, NodeData, NodeId, Precedence};
 use parser::{LayerId, Layers, Rule, Span};
 pub use resolver::{DefaultStylesheetResolver, StylesheetResolver};
 use rustc_hash::FxHashMap;
@@ -235,17 +235,20 @@ impl<'a, 'i> KeptCss<'a, 'i> {
     }
 
     /// Render the spans within `range` of the source together with `items` (offset, text),
-    /// `sep`-separated within `@layer` blocks.
+    /// `sep`-separated within `@layer` blocks. `@`-rules starting before `at_rules_from` are
+    /// skipped, while the layer structure around them stays.
     fn render(
         &self,
         spans: &[Span<'i>],
         range: &Range<usize>,
+        at_rules_from: usize,
         mut items: Vec<(usize, String)>,
         sep: &str,
     ) -> Vec<String> {
         let mut blocks = Vec::new();
         for span in spans.iter().filter(|span| range.contains(&span.start())) {
             match span {
+                Span::AtRule { range: at_rule, .. } if at_rule.start < at_rules_from => {}
                 // An unterminated `@`-rule runs into the following blocks; it ends with its own.
                 Span::AtRule { range: at_rule, .. } => items.push((
                     at_rule.start,
@@ -439,19 +442,19 @@ fn apply_selector_cleanup<'i>(
             continue;
         };
         // Remainders and `@`-rules, keyed by their offset so the block keeps source order.
-        let mut items: Vec<(usize, String)> = Vec::new();
+        let mut items: Vec<(usize, String)> = Vec::with_capacity(chunk_remainders[idx].len());
         for remainder in &chunk_remainders[idx] {
             let mut text = String::new();
             append_rule(&mut text, remainder, declarations);
-            items.push((remainder.offset, text.trim().to_string()));
+            items.push((remainder.offset, text));
         }
-        let rules = kept.render(spans, &chunk.range, items, "\n");
+        let rules = kept.render(spans, &chunk.range, 0, items, "\n");
         if rules.is_empty() {
             handle_empty_remainder(document, chunk, requested_keep_style_tags);
             continue;
         }
         keeps_content = true;
-        overwrite_style_node(document, node_id, &rules.join("\n"));
+        overwrite_style_node(document, node_id, &rules);
     }
     keeps_content
 }
@@ -463,7 +466,7 @@ fn handle_empty_remainder(
 ) {
     if let Some(node_id) = chunk.style_node {
         if requested_keep_style_tags {
-            overwrite_style_node(document, node_id, "");
+            overwrite_style_node(document, node_id, &[]);
         } else {
             document.detach_node(node_id);
         }
@@ -479,6 +482,19 @@ fn append_rule<'i>(
     if start >= end || end > declarations.len() {
         return;
     }
+    let declarations = &declarations[start..end];
+    // `selector, ` per selector, ` name: value;` per declaration and the braces.
+    let size = remainder
+        .selectors
+        .iter()
+        .map(|selector| selector.len().saturating_add(2))
+        .chain(
+            declarations
+                .iter()
+                .map(|(name, value)| name.len().saturating_add(value.len()).saturating_add(4)),
+        )
+        .fold(2, usize::saturating_add);
+    buffer.reserve(size);
     let mut selectors_iter = remainder.selectors.iter().peekable();
     while let Some(selector) = selectors_iter.next() {
         buffer.push_str(selector);
@@ -487,7 +503,7 @@ fn append_rule<'i>(
         }
     }
     buffer.push_str(" {");
-    for (name, value) in &declarations[start..end] {
+    for (name, value) in declarations {
         buffer.push(' ');
         buffer.push_str(name);
         buffer.push(':');
@@ -498,15 +514,22 @@ fn append_rule<'i>(
             buffer.push(';');
         }
     }
-    buffer.push_str(" }\n");
+    buffer.push_str(" }");
 }
 
-fn overwrite_style_node(document: &mut Document, node_id: NodeId, new_css: &str) {
-    let new_css = new_css.trim();
+/// Replace the text of a `<style>` node with `rules` joined by newlines.
+fn overwrite_style_node(document: &mut Document, node_id: NodeId, rules: &[String]) {
     if let Some(text_node_id) = document[node_id].first_child {
         if let NodeData::Text { text } = &mut document[text_node_id].data {
             text.clear();
-            text.push_slice(new_css);
+            for (idx, rule) in rules.iter().enumerate() {
+                // Every rendered rule is non-empty and trimmed, so the joined text needs no trim.
+                debug_assert!(!rule.is_empty() && rule.trim().len() == rule.len());
+                if idx != 0 {
+                    text.push_char('\n');
+                }
+                text.push_slice(rule);
+            }
         }
     }
 }
@@ -687,6 +710,12 @@ fn allocate_output_buffer(html: &str) -> Vec<u8> {
     )
 }
 
+/// Reuse the output buffer instead of copying it into a new `String`.
+fn into_string(out: Vec<u8>) -> String {
+    String::from_utf8(out)
+        .unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned())
+}
+
 impl<'a> CSSInliner<'a> {
     /// Create a new `CSSInliner` instance with given options.
     #[must_use]
@@ -738,7 +767,7 @@ impl<'a> CSSInliner<'a> {
     pub fn inline(&self, html: &str) -> Result<String> {
         let mut out = allocate_output_buffer(html);
         self.inline_to(html, &mut out)?;
-        Ok(String::from_utf8_lossy(&out).to_string())
+        Ok(into_string(out))
     }
 
     /// Inline CSS & write the result to a generic writer. Use it if you want to write
@@ -788,7 +817,7 @@ impl<'a> CSSInliner<'a> {
     pub fn inline_fragment(&self, html: &str, css: &str) -> Result<String> {
         let mut out = allocate_output_buffer(html);
         self.inline_fragment_to(html, css, &mut out)?;
-        Ok(String::from_utf8_lossy(&out).to_string())
+        Ok(into_string(out))
     }
 
     /// Inline CSS into an HTML fragment and write the result to a generic writer.
@@ -832,7 +861,7 @@ impl<'a> CSSInliner<'a> {
     pub async fn inline_async(&self, html: &str) -> Result<String> {
         let mut out = allocate_output_buffer(html);
         self.inline_to_async(html, &mut out).await?;
-        Ok(String::from_utf8_lossy(&out).to_string())
+        Ok(into_string(out))
     }
 
     /// Non-blocking version of [`CSSInliner::inline_to`].
@@ -866,7 +895,7 @@ impl<'a> CSSInliner<'a> {
     pub async fn inline_fragment_async(&self, html: &str, css: &str) -> Result<String> {
         let mut out = allocate_output_buffer(html);
         self.inline_fragment_to_async(html, css, &mut out).await?;
-        Ok(String::from_utf8_lossy(&out).to_string())
+        Ok(into_string(out))
     }
 
     /// Non-blocking version of [`CSSInliner::inline_fragment_to`].
@@ -905,11 +934,8 @@ impl<'a> CSSInliner<'a> {
         let mut missing = Vec::new();
         {
             // Dropped before any `.await`, as `Document` is not `Send`
-            let document = Document::parse_with_options(
-                html.as_bytes(),
-                self.options.preallocate_node_capacity,
-                mode,
-            );
+            let document =
+                Document::parse_with_options(html, self.options.preallocate_node_capacity, mode);
             let mut urls = document
                 .stylesheets()
                 .map(|href| self.get_full_url(href).into_owned())
@@ -948,11 +974,8 @@ impl<'a> CSSInliner<'a> {
         mode: InliningMode,
         retrieve: &dyn Fn(&str) -> Result<String>,
     ) -> Result<()> {
-        let mut document = Document::parse_with_options(
-            html.as_bytes(),
-            self.options.preallocate_node_capacity,
-            mode,
-        );
+        let mut document =
+            Document::parse_with_options(html, self.options.preallocate_node_capacity, mode);
         // CSS rules may overlap, and the final set of rules applied to an element depend on
         // selectors' specificity - selectors with higher specificity have more priority.
         // Inlining happens in two major steps:
@@ -988,6 +1011,7 @@ impl<'a> CSSInliner<'a> {
                 css_buffer.push(style_node, style, true);
             }
         }
+        let styles_end = css_buffer.raw.len();
         if self.options.load_remote_stylesheets {
             let mut links = document.stylesheets().collect::<Vec<&str>>();
             links.sort_unstable();
@@ -1079,13 +1103,11 @@ impl<'a> CSSInliner<'a> {
         for (rule_id, rule) in rule_list.iter().enumerate() {
             let (start, end) = rule.declarations;
             let rank = ranks[rule.layer];
-            // Only CSS Syntax Level 3 is supported, therefore it is OK to split by `,`
-            // With `is` or `where` selectors (Level 4) this split should be done on the parser level
-            for selector in rule.selectors.split(',') {
+            for selector in parser::split_selector_list(rule.selectors) {
                 let mut matched_any = false;
-                // Quick check: skip selectors whose anchor doesn't exist in the document
-                // This avoids parsing selectors that can't possibly match anything
-                if !document.anchor_exists(selector) {
+                // Skip selectors naming a class, ID, or tag absent from the document
+                // without compiling them
+                if !document.may_match(selector) {
                     if let Some(state) = selector_cleanup_state.as_mut() {
                         if let Some(chunk_index) =
                             rule_chunk_indices.get(rule_id).copied().flatten()
@@ -1116,8 +1138,8 @@ impl<'a> CSSInliner<'a> {
                                 element_styles.iter().position(|(n, _, _)| *n == prop_name)
                             {
                                 let entry = &mut element_styles[idx];
-                                let new_important = value.trim_end().ends_with("!important");
-                                let old_important = entry.2.trim_end().ends_with("!important");
+                                let new_important = parser::strip_important(value).is_some();
+                                let old_important = parser::strip_important(entry.2).is_some();
                                 match (new_important, old_important) {
                                     // Both normal; the later layer, then the higher specificity wins.
                                     (false, false) => {
@@ -1175,8 +1197,28 @@ impl<'a> CSSInliner<'a> {
                 self.options.keep_style_tags && !track_selector_cleanup,
             );
             if self.options.keep_at_rules {
-                let rules = kept.render(&spans, &(0..raw_styles.len()), Vec::new(), " ");
-                at_rules = (!rules.is_empty()).then(|| format!("{} ", rules.join(" ")));
+                // `<style>` `@`-rules stay in their blocks when the blocks are kept or rewritten;
+                // only the rest (remote stylesheets, `extra_css`) goes to the new `<style>`, with
+                // the layer order declared before it.
+                let at_rules_from = if self.options.keep_style_tags || track_selector_cleanup {
+                    styles_end
+                } else {
+                    0
+                };
+                let has_at_rules = at_rules_from == 0
+                    || spans.iter().any(|span| {
+                        !matches!(span, Span::LayerBlock { .. }) && span.start() >= at_rules_from
+                    });
+                if has_at_rules {
+                    let rules = kept.render(
+                        &spans,
+                        &(0..raw_styles.len()),
+                        at_rules_from,
+                        Vec::new(),
+                        " ",
+                    );
+                    at_rules = (!rules.is_empty()).then(|| format!("{} ", rules.join(" ")));
+                }
             }
             if let Some(state) = selector_cleanup_state.as_ref() {
                 keep_style_tags |= apply_selector_cleanup(
@@ -1199,7 +1241,15 @@ impl<'a> CSSInliner<'a> {
             mode,
             self.options.apply_width_attributes,
             self.options.apply_height_attributes,
-            self.options.resolve_css_variables,
+            // Inlined values are slices of `raw_styles`; attributes are checked once decoded.
+            if !self.options.resolve_css_variables {
+                CssVariables::Keep
+            } else if contains_var(raw_styles.as_bytes()) || document.has_var_in_style_attributes()
+            {
+                CssVariables::Resolve
+            } else {
+                CssVariables::Drop
+            },
         )?;
         Ok(())
     }

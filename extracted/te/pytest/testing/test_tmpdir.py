@@ -14,6 +14,7 @@ import warnings
 from _pytest import pathlib
 from _pytest.config import Config
 from _pytest.monkeypatch import MonkeyPatch
+from _pytest.pathlib import _chmod_rwx
 from _pytest.pathlib import cleanup_numbered_dir
 from _pytest.pathlib import create_cleanup_lock
 from _pytest.pathlib import make_numbered_dir
@@ -21,6 +22,7 @@ from _pytest.pathlib import maybe_delete_a_numbered_dir
 from _pytest.pathlib import on_rm_rf_error
 from _pytest.pathlib import register_cleanup_lock_removal
 from _pytest.pathlib import rm_rf
+from _pytest.pathlib import symlink_or_skip
 from _pytest.pytester import Pytester
 from _pytest.tmpdir import get_user
 from _pytest.tmpdir import TempPathFactory
@@ -68,6 +70,111 @@ class TestTmpPathHandler:
         tmp2 = t.mktemp("this")
         assert str(tmp2.relative_to(t.getbasetemp())).startswith("this")
         assert tmp2 != tmp
+
+    def test_mktemp_does_not_list_basetemp(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        """Mktemp counts per prefix instead of listing basetemp (#15254)."""
+        config = cast(Config, FakeConfig(tmp_path))
+        t = TempPathFactory.from_config(config, _ispytest=True)
+        (t.getbasetemp() / "world1").mkdir()
+        # Listing basetemp would fail.
+        monkeypatch.setattr("_pytest.tmpdir.find_suffixes", None)
+        names = [t.mktemp("world").name for _ in range(3)]
+        # The existing "world1" is skipped.
+        assert names == ["world0", "world2", "world3"]
+
+    @pytest.mark.parametrize("kind", ["dir", "file", "dangling_symlink"])
+    def test_counted_dir_skips_unexpected_entries(
+        self, tmp_path: Path, kind: str
+    ) -> None:
+        """Something else taking the next name is skipped (#15254)."""
+        config = cast(Config, FakeConfig(tmp_path))
+        t = TempPathFactory.from_config(config, _ispytest=True)
+        first = t._make_counted_dir("test_a")
+        taken = t.getbasetemp() / "test_a1"
+        if kind == "dir":
+            taken.mkdir()
+        elif kind == "file":
+            taken.touch()
+        else:
+            symlink_or_skip(t.getbasetemp() / "missing", taken)
+        names = [t._make_counted_dir("test_a").name for _ in range(2)]
+        assert first.name == "test_a0"
+        assert names == ["test_a2", "test_a3"]
+
+    def test_counted_dir_jumps_past_long_run(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        """A long run of taken names is skipped with one listing (#15254)."""
+        config = cast(Config, FakeConfig(tmp_path))
+        t = TempPathFactory.from_config(config, _ispytest=True)
+        for i in range(50):
+            (t.getbasetemp() / f"test_a{i}").mkdir()
+        listed: list[str] = []
+        orig = pathlib.find_suffixes
+
+        def find_suffixes(root: Path, prefix: str):
+            listed.append(prefix)
+            return orig(root, prefix)
+
+        monkeypatch.setattr("_pytest.tmpdir.find_suffixes", find_suffixes)
+        names = [t._make_counted_dir("test_a").name for _ in range(2)]
+        assert names == ["test_a50", "test_a51"]
+        assert listed == ["test_a"]
+
+    def test_counted_dir_overlapping_prefixes(self, tmp_path: Path) -> None:
+        """Prefixes "test_a" and "test_a1" share names like "test_a10" (#15254)."""
+        config = cast(Config, FakeConfig(tmp_path))
+        t = TempPathFactory.from_config(config, _ispytest=True)
+        names = [
+            t._make_counted_dir(prefix).name
+            for _ in range(30)
+            for prefix in ("test_a", "test_a1")
+        ]
+        assert len(set(names)) == len(names)
+
+    def test_counted_dir_gives_up(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        """A filesystem that reports every name as taken raises instead of
+        looping forever (#15254)."""
+        config = cast(Config, FakeConfig(tmp_path))
+        t = TempPathFactory.from_config(config, _ispytest=True)
+        t.getbasetemp()
+
+        def mkdir(self: Path, mode: int = 0o777) -> None:
+            raise FileExistsError(self)
+
+        monkeypatch.setattr(Path, "mkdir", mkdir)
+        with pytest.raises(OSError, match="after 20 tries"):
+            t._make_counted_dir("test_a")
+
+    def test_counted_dir_retries_other_errors(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        """Other OSErrors are retried too, e.g. PermissionError on Windows for a
+        name that is still being deleted (#15254)."""
+        config = cast(Config, FakeConfig(tmp_path))
+        t = TempPathFactory.from_config(config, _ispytest=True)
+        t.getbasetemp()
+        orig_mkdir = Path.mkdir
+
+        def mkdir(self: Path, mode: int = 0o777) -> None:
+            if self.name == "test_a0":
+                raise PermissionError(self)
+            orig_mkdir(self, mode)
+
+        monkeypatch.setattr(Path, "mkdir", mkdir)
+        assert t._make_counted_dir("test_a").name == "test_a1"
+
+        def always_fail(self: Path, mode: int = 0o777) -> None:
+            raise PermissionError(self)
+
+        monkeypatch.setattr(Path, "mkdir", always_fail)
+        with pytest.raises(OSError, match="after 20 tries") as excinfo:
+            t._make_counted_dir("test_b")
+        assert isinstance(excinfo.value.__cause__, PermissionError)
 
     def test_tmppath_relative_basetemp_absolute(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
@@ -522,6 +629,10 @@ class TestNumberedDir:
         assert dir.is_dir()
 
 
+def _raise_oserror(*args: object, **kwargs: object) -> None:
+    raise OSError("simulated failure")
+
+
 class TestRmRf:
     def test_rm_rf(self, tmp_path):
         adir = tmp_path / "adir"
@@ -566,6 +677,25 @@ class TestRmRf:
 
         assert not adir.is_dir()
 
+    @pytest.mark.skipif(not hasattr(os, "getuid"), reason="unix permissions")
+    def test_rm_rf_with_no_exec_permission_directories(self, tmp_path):
+        """Ensure rm_rf can remove directories without S_IXUSR (#7940).
+
+        This is the exact scenario from the original issue: nested directories
+        and files with all permissions stripped.
+        """
+        p = tmp_path / "foo" / "bar" / "baz"
+        p.parent.mkdir(parents=True)
+        p.touch(mode=0)
+        for parent in p.parents:  # pragma: no branch
+            if parent == tmp_path:
+                break
+            parent.chmod(mode=0)
+
+        rm_rf(tmp_path / "foo")
+
+        assert not (tmp_path / "foo").exists()
+
     def test_on_rm_rf_error(self, tmp_path: Path) -> None:
         adir = tmp_path / "dir"
         adir.mkdir()
@@ -593,16 +723,145 @@ class TestRmRf:
             on_rm_rf_error(None, str(fn), exc_info3, start_path=tmp_path)
             assert fn.is_file()
 
-        # ignored function
-        with warnings.catch_warnings(record=True) as w:
-            exc_info4 = PermissionError()
-            on_rm_rf_error(os.open, str(fn), exc_info4, start_path=tmp_path)
-            assert fn.is_file()
-            assert not [x.message for x in w]
-
+        # os.unlink PermissionError is handled (chmod + retry)
         exc_info5 = PermissionError()
         on_rm_rf_error(os.unlink, str(fn), exc_info5, start_path=tmp_path)
         assert not fn.is_file()
+
+    def test_on_rm_rf_error_os_open_handles_file(self, tmp_path: Path) -> None:
+        """os.open PermissionError on a file is handled by fixing
+        permissions and removing it (#7940)."""
+        adir = tmp_path / "dir"
+        adir.mkdir()
+        fn = adir / "foo.txt"
+        fn.touch()
+        self.chmod_r(fn)
+
+        with warnings.catch_warnings(record=True) as w:
+            exc_info = PermissionError()
+            on_rm_rf_error(os.open, str(fn), exc_info, start_path=tmp_path)
+            assert not fn.exists()
+            assert not [x.message for x in w]
+
+    @pytest.mark.skipif(not hasattr(os, "getuid"), reason="unix permissions")
+    def test_on_rm_rf_error_os_open_handles_directory(self, tmp_path: Path) -> None:
+        """os.open PermissionError on a directory is handled by fixing
+        permissions and recursively removing it (#7940)."""
+        adir = tmp_path / "dir"
+        adir.mkdir()
+        (adir / "child").mkdir()
+        (adir / "child" / "file.txt").touch()
+        os.chmod(str(adir), stat.S_IRUSR | stat.S_IWUSR)
+
+        with warnings.catch_warnings(record=True) as w:
+            exc_info = PermissionError()
+            on_rm_rf_error(os.open, str(adir), exc_info, start_path=tmp_path)
+            assert not adir.exists()
+            assert not [x.message for x in w]
+
+    @pytest.mark.skipif(not hasattr(os, "getuid"), reason="unix permissions")
+    def test_on_rm_rf_error_os_open_parent_perms(self, tmp_path: Path) -> None:
+        """When the PermissionError is caused by the *parent* directory lacking
+        S_IXUSR, fixing the parent is sufficient even if the child already has
+        correct permissions."""
+        parent = tmp_path / "parent"
+        parent.mkdir()
+        child = parent / "child"
+        child.mkdir()
+        (child / "file.txt").touch()
+        # Child has full perms, but parent lacks execute -> os.open(child) fails.
+        os.chmod(str(parent), stat.S_IRUSR | stat.S_IWUSR)
+
+        with warnings.catch_warnings(record=True) as w:
+            exc_info = PermissionError()
+            result = on_rm_rf_error(os.open, str(child), exc_info, start_path=tmp_path)
+            assert result is True
+            assert not child.exists()
+            assert not [x.message for x in w]
+
+    def test_chmod_rwx_returns_false_on_nonexistent_path(self, tmp_path: Path) -> None:
+        """_chmod_rwx returns False when the path doesn't exist (OSError)."""
+        nonexistent = tmp_path / "does_not_exist"
+        assert _chmod_rwx(str(nonexistent)) is False
+
+    def test_chmod_rwx_returns_false_when_chmod_fails(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        """_chmod_rwx returns False when os.chmod raises OSError.
+
+        A real FS layout that makes chmod fail while the path remains
+        (immutable bit, RO mount, foreign ownership) is not portable in CI,
+        so pin this branch with a monkeypatch.
+        """
+        fn = tmp_path / "file.txt"
+        fn.touch(mode=0)  # needs bits so we reach os.chmod
+        monkeypatch.setattr(os, "chmod", _raise_oserror)
+        assert _chmod_rwx(str(fn)) is False
+
+    def test_chmod_rwx_returns_false_when_already_sufficient(
+        self, tmp_path: Path
+    ) -> None:
+        """_chmod_rwx returns False when permissions are already sufficient."""
+        d = tmp_path / "dir"
+        d.mkdir(mode=stat.S_IRWXU)
+        assert _chmod_rwx(str(d)) is False
+
+        f = tmp_path / "file"
+        f.touch(mode=stat.S_IRUSR | stat.S_IWUSR)
+        assert _chmod_rwx(str(f)) is False
+
+    def test_on_rm_rf_error_os_open_returns_false_when_chmod_ineffective(
+        self, tmp_path: Path
+    ) -> None:
+        """os.open handler returns False when neither parent nor path chmod
+        changes anything (recursion guard)."""
+        adir = tmp_path / "dir"
+        adir.mkdir(mode=stat.S_IRWXU)
+        exc_info = PermissionError()
+        result = on_rm_rf_error(os.open, str(adir), exc_info, start_path=tmp_path)
+        assert result is False
+        assert adir.exists()
+
+    def test_on_rm_rf_error_os_open_unlink_fails(
+        self, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        """os.open handler returns False when chmod succeeds but os.unlink
+        still raises OSError (e.g. sandbox or other mechanism)."""
+        fn = tmp_path / "stubborn.txt"
+        fn.touch(mode=0)
+
+        monkeypatch.setattr(os, "unlink", _raise_oserror)
+
+        exc_info = PermissionError()
+        result = on_rm_rf_error(os.open, str(fn), exc_info, start_path=tmp_path)
+        assert result is False
+        assert fn.exists()
+
+    @pytest.mark.skipif(not hasattr(os, "getuid"), reason="unix permissions")
+    def test_on_rm_rf_error_chmod_retry_walks_parents(self, tmp_path: Path) -> None:
+        """The os.rmdir/os.unlink handler walks up through multiple parent
+        directories to fix permissions before retrying."""
+        deep = tmp_path / "a" / "b" / "c"
+        deep.mkdir(parents=True)
+        fn = deep / "file.txt"
+        fn.touch()
+        # Remove write from intermediate dirs (keep exec so traversal works,
+        # but os.unlink needs write on the parent).
+        for parent in fn.parents:  # pragma: no branch
+            if parent == tmp_path:
+                break
+            parent.chmod(
+                stat.S_IRUSR
+                | stat.S_IXUSR
+                | stat.S_IRGRP
+                | stat.S_IXGRP
+                | stat.S_IROTH
+                | stat.S_IXOTH
+            )
+
+        exc_info = PermissionError()
+        on_rm_rf_error(os.unlink, str(fn), exc_info, start_path=tmp_path)
+        assert not fn.exists()
 
 
 def attempt_symlink_to(path, to_path):
@@ -727,3 +986,22 @@ def test_get_user_handles_getpass_oserror(monkeypatch: MonkeyPatch) -> None:
 
     monkeypatch.setattr(getpass, "getuser", _raise_oserror)
     assert get_user() is None
+
+
+def test_tmp_path_retention_policy_invalid(pytester: Pytester) -> None:
+    """An invalid tmp_path_retention_policy fails with a clean usage error."""
+    pytester.makepyprojecttoml(
+        """
+        [tool.pytest]
+        tmp_path_retention_policy = "compress"
+        """
+    )
+    pytester.makepyfile("def test(): pass")
+    result = pytester.runpytest()
+    assert result.ret == pytest.ExitCode.USAGE_ERROR
+    result.stderr.fnmatch_lines(
+        [
+            "*ERROR: *config option 'tmp_path_retention_policy' expects one of "
+            "'all' | 'failed' | 'none', got 'compress'"
+        ]
+    )

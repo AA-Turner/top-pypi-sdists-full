@@ -16,6 +16,9 @@ from istari_digital_client.sdk._common.resource_types import ResourceRevision
 from istari_digital_client.sdk._generated.v3.models.resource_revision_create_dto import (
     ResourceRevisionCreateDto,
 )
+from istari_digital_client.sdk._generated.v3.models.revision_download_url_dto import (
+    RevisionDownloadUrlDto,
+)
 from istari_digital_client.sdk._generated.v3.models.token_create_dto import TokenCreateDto
 
 _log = logging.getLogger(__name__)
@@ -27,8 +30,8 @@ class Revisions(_SupportsRead):
     Aliases: revision version history
 
 
-    Reached via ``istari.resources.revisions``. All methods take ``resource_id``
-    as the first positional argument.
+    Reached via ``istari.resources.revisions``. All methods but ``download_url``
+    take ``resource_id`` as the first positional argument.
 
     Sub-managers: none (revisions are a leaf collection).
 
@@ -48,6 +51,9 @@ class Revisions(_SupportsRead):
 
         # 4. Read its content
         data = rev.read_bytes()
+
+        # 5. Hand a browser a link that downloads it
+        link = istari.resources.revisions.download_url(rev.id).url
     """
 
     def create(
@@ -205,6 +211,31 @@ class Revisions(_SupportsRead):
             )
 
         return self._paginate(fetch, lambda d: ResourceRevision._bind(d, mgr=self))
+
+    def download_url(self, revision_id: str) -> RevisionDownloadUrlDto:
+        """Mint a temporary URL that downloads a revision as a browser attachment.
+
+        Mutates: false
+
+        Aliases: link share browser presigned
+
+        ``revision_id`` is the revision's UUID (``file_revision_id``); no resource id
+        is needed, and workflow-output revisions work too. A plain GET of the
+        returned ``url`` with no Authorization header serves the content with
+        ``Content-Disposition: attachment`` and the revision's name as the filename,
+        so a browser's download manager can save (and resume) it. Each call mints a
+        new URL. For a download into this process use ``download_to`` instead.
+
+        Returns a RevisionDownloadUrlDto with fields: url (str), expires (datetime).
+
+        Raises PermissionDeniedError if the caller cannot view the revision's file.
+        Raises NotFoundError if the revision does not exist or has no stored content.
+        Raises APIStatusError (status_code 410) if the revision's content has been revoked.
+        """
+        return self._call(self._engine.v3_api.generate_revision_download_url, revision_id)
+
+    def _revision_download_url(self, obj: Any) -> RevisionDownloadUrlDto:
+        return self.download_url(obj.file_revision_id)
 
     # The Readable hook (_read_contents) is inherited from _SupportsRead —
     # revisions carry the same content token.

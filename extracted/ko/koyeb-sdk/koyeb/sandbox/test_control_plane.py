@@ -49,7 +49,11 @@ class TestSyncControlPlane(unittest.TestCase):
         defaults = dict(
             apps=SimpleNamespace(
                 get_app=lambda app_id: SimpleNamespace(
-                    app=SimpleNamespace(id=app_id, name="sb-app", domains=[SimpleNamespace(name="d.example")])
+                    app=SimpleNamespace(
+                        id=app_id,
+                        name="sb-app",
+                        domains=[SimpleNamespace(name="d.example")],
+                    )
                 )
             ),
             services=SimpleNamespace(
@@ -84,9 +88,7 @@ class TestSyncControlPlane(unittest.TestCase):
             raise NotFoundException(status=404, reason="Not Found")
 
         cp = SyncControlPlane(
-            self._clients(
-                services=SimpleNamespace(get_service=raise_not_found)
-            )
+            self._clients(services=SimpleNamespace(get_service=raise_not_found))
         )
         with self.assertRaises(SandboxError) as cm:
             cp.get_service("svc-1")
@@ -106,7 +108,9 @@ class TestSyncControlPlane(unittest.TestCase):
     def test_get_service_none_service_maps_not_found(self):
         cp = SyncControlPlane(
             self._clients(
-                services=SimpleNamespace(get_service=lambda id: SimpleNamespace(service=None))
+                services=SimpleNamespace(
+                    get_service=lambda id: SimpleNamespace(service=None)
+                )
             )
         )
         with self.assertRaises(SandboxError) as cm:
@@ -141,7 +145,9 @@ class TestSyncControlPlane(unittest.TestCase):
         cp = SyncControlPlane(
             self._clients(services=SimpleNamespace(list_services=list_services))
         )
-        services, count = cp.list_services(app_id="app-1", name="sb", offset=0, limit=100)
+        services, count = cp.list_services(
+            app_id="app-1", name="sb", offset=0, limit=100
+        )
         self.assertEqual(count, 1)
         self.assertEqual(services[0].id, "svc-1")
         self.assertEqual(calls[0]["types"], ["SANDBOX"])
@@ -155,7 +161,9 @@ class TestSyncControlPlane(unittest.TestCase):
 
         def update_service(id, service):
             sent.append(service)
-            return SimpleNamespace(service=SimpleNamespace(latest_deployment_id="depl-new"))
+            return SimpleNamespace(
+                service=SimpleNamespace(latest_deployment_id="depl-new")
+            )
 
         cp = SyncControlPlane(
             self._clients(services=SimpleNamespace(update_service=update_service))
@@ -200,7 +208,11 @@ class TestAsyncControlPlane(unittest.TestCase):
 
         async def get_app(app_id):
             return SimpleNamespace(
-                app=SimpleNamespace(id=app_id, name="sb-app", domains=[SimpleNamespace(name="d.example")])
+                app=SimpleNamespace(
+                    id=app_id,
+                    name="sb-app",
+                    domains=[SimpleNamespace(name="d.example")],
+                )
             )
 
         defaults = dict(
@@ -266,7 +278,9 @@ class TestAsyncControlPlane(unittest.TestCase):
 
         async def update_service(id, service):
             sent.append(service)
-            return SimpleNamespace(service=SimpleNamespace(latest_deployment_id="depl-new"))
+            return SimpleNamespace(
+                service=SimpleNamespace(latest_deployment_id="depl-new")
+            )
 
         cp = AsyncControlPlane(
             self._clients(services=SimpleNamespace(update_service=update_service))

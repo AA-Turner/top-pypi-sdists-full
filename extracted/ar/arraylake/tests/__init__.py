@@ -1,4 +1,6 @@
+import base64
 import importlib
+import json
 from typing import Optional
 
 import pytest
@@ -33,3 +35,9 @@ def _importorskip(modname: str, minversion: Optional[str] = None) -> tuple[bool,
 
 
 has_typer, requires_typer = _importorskip("typer")
+
+
+def fake_jwt(expires_at: float) -> str:
+    """An unsigned JWT-shaped token whose ``exp`` claim is ``expires_at``."""
+    payload = base64.urlsafe_b64encode(json.dumps({"exp": expires_at}).encode()).decode().rstrip("=")
+    return f"eyJhbGciOiJub25lIn0.{payload}.signature"

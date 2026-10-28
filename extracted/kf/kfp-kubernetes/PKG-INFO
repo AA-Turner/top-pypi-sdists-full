@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfp-kubernetes
-Version: 2.17.3
+Version: 2.18.0
 Summary: Kubernetes platform configuration library and generated protos.
 Home-page: https://github.com/kubeflow/pipelines
 Author: google
@@ -12,21 +12,19 @@ Project-URL: Source, https://github.com/kubeflow/pipelines/tree/master/kubernete
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 Requires-Dist: protobuf<7.0,>=6.33.5
-Requires-Dist: kfp<3,>=2.17.3
+Requires-Dist: kfp<3,>=2.18.0
 Requires-Dist: requests==2.32.5; python_version < "3.10"
 Requires-Dist: requests==2.33.0; python_version >= "3.10"
 Requires-Dist: urllib3==2.6.3; python_version < "3.10"
 Requires-Dist: urllib3==2.8.0; python_version >= "3.10"
-Requires-Dist: certifi>=2026.10.19
-Requires-Dist: cryptography>=50.0.0; python_full_version >= "3.9.2"
 Requires-Dist: oauthlib<5,>=4.0.0
-Requires-Dist: pyasn1>=0.6.4
+Requires-Dist: certifi>=2026.10.19
 Provides-Extra: dev
 Requires-Dist: docformatter==1.4; extra == "dev"
 Requires-Dist: isort==5.10.1; extra == "dev"
 Requires-Dist: mypy==0.941; extra == "dev"
 Requires-Dist: pre-commit==2.19.0; extra == "dev"
-Requires-Dist: pycln==2.1.1; extra == "dev"
+Requires-Dist: pycln==2.6.0; extra == "dev"
 Requires-Dist: pytest==8.4.2; python_version < "3.10" and extra == "dev"
 Requires-Dist: pytest==9.0.3; python_version >= "3.10" and extra == "dev"
 Requires-Dist: pytest-xdist==3.8.0; extra == "dev"

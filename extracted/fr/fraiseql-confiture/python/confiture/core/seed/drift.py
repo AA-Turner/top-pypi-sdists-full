@@ -11,10 +11,9 @@ tree's seed files and reads the rows.
 import hashlib
 import hmac
 import os
-import re
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from string.templatelib import Template
 from typing import Any, Literal
@@ -25,10 +24,11 @@ from psycopg import sql as pgsql
 from confiture.config.environment import Environment, SeedDriftSettings
 from confiture.core import live_catalog
 from confiture.core.builder import SchemaBuilder
-from confiture.core.connection import open_connection
+from confiture.core.connection import open_connection, open_target, resolve_target
 from confiture.core.linting.inventory import label_for
 from confiture.core.linting.schema_linter import first_line
 from confiture.core.linting.seed_secrets import secret_kind
+from confiture.core.relation_exclusion import Exclusion
 from confiture.core.schema_model import RelationName
 from confiture.core.schema_read import SchemaRead
 from confiture.core.schema_sources import read_schema
@@ -50,7 +50,6 @@ from confiture.sql_text import relation
 from confiture.url_redaction import redact_url
 
 #: What an environment's name may be: the stem of a file in ``db/environments/``.
-_ENVIRONMENT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 
 #: A row's key: each key field as PostgreSQL renders it as text.
 Key = tuple[str | None, ...]
@@ -91,15 +90,18 @@ def scope_for(
     *,
     seeds_dir: Path | None = None,
     build: bool = False,
+    exclude: Sequence[str] = (),
 ) -> SeedDriftReport:
     """What a seed-drift run of *env* would compare, compared with nothing (``--list-scope``)."""
     root = project_dir or Path.cwd()
+    environment = Environment.load(env, project_dir=project_dir)
     files = seed_files(env, project_dir, seeds_dir=seeds_dir)
     scope = seed_scope(
         [(label_for(path, root), path.read_text(encoding="utf-8")) for path in files],
         read_schema(env=env, project_dir=project_dir),
-        Environment.load(env, project_dir=project_dir).seed_drift,
+        environment.seed_drift,
     )
+    scope = excluding(scope, Exclusion.of(environment.diff.exclude, exclude))
     return SeedDriftReport(
         seed_side="built" if build else "database",
         against=None,
@@ -107,6 +109,25 @@ def scope_for(
         not_compared=scope.not_compared,
         unused=scope.unused,
         compared=False,
+    )
+
+
+def excluding(scope: SeedScope, exclusion: Exclusion) -> SeedScope:
+    """*scope* with each table *exclusion* names moved to its skipped tables (#767)."""
+    left = {
+        table.relation.qualified: pattern
+        for table in scope.tables
+        if (pattern := exclusion.pattern_for(*table.relation.identity)) is not None
+    }
+    if not left:
+        return scope
+    return replace(
+        scope,
+        tables=tuple(t for t in scope.tables if t.relation.qualified not in left),
+        skipped=(
+            *scope.skipped,
+            *((name, f"diff.exclude: {pattern.written}") for name, pattern in left.items()),
+        ),
     )
 
 
@@ -501,29 +522,6 @@ def compare(
     )
 
 
-def against_target(spec: str, project_dir: Path | None = None) -> tuple[Any, str, str | None]:
-    """``(what to open, how a report names it, the environment name)`` for a ``--against`` value.
-
-    A URL is opened as given and named masked. Anything else is an environment
-    name, opened as its :class:`Environment`, so its ``ssh_tunnel`` is honoured.
-
-    Raises:
-        ConfigurationError: ``CONFIG_001`` for an environment with no config file.
-    """
-    if spec.startswith(("postgres://", "postgresql://")):
-        return spec, redact_url(spec), None
-    if not _ENVIRONMENT_NAME.fullmatch(spec):
-        # Not echoed: a mistyped URL carries its password.
-        raise ConfigurationError(
-            "--against is neither a PostgreSQL URL nor an environment name",
-            error_code="CONFIG_003",
-            resolution_hint=(
-                "Pass postgresql://user@host/db, or the name of a file in db/environments/"
-            ),
-        )
-    return Environment.load(spec, project_dir=project_dir), spec, spec
-
-
 def _resolve(conn: Any, read: SchemaRead, settings: SeedDriftSettings) -> None:
     """Run the tree's prep-seed resolvers, parents first, as level 5 runs them.
 
@@ -592,8 +590,12 @@ def run(
     seeds_dir: Path | None = None,
     build: bool = False,
     scratch_url: str | None = None,
+    exclude: Sequence[str] = (),
 ) -> SeedDriftReport:
     """Compare *env*'s seeded rows with *against*'s.
+
+    A table ``diff.exclude`` or *exclude* names is another tool's: it is skipped,
+    with the pattern as the reason.
 
     The seed side is *env*'s own database, or with *build* a scratch database on
     *scratch_url* (else the environment's ``scratch_url``, never its
@@ -616,6 +618,7 @@ def run(
         read,
         settings,
     )
+    scope = excluding(scope, Exclusion.of(environment.diff.exclude, exclude))
     server = scratch_url or environment.scratch_url
     if build and server is None:
         raise ConfigurationError(
@@ -623,11 +626,11 @@ def run(
             error_code="CONFIG_001",
             resolution_hint="Pass --scratch-url, or set scratch_url in the environment",
         )
-    target, label, against_env = against_target(against, project_dir)
+    live = resolve_target(against, flag="--against", project_dir=project_dir)
     if build:
         _probe_scratch(server or "")
     side: Literal["database", "built"] = "built" if build else "database"
-    with open_connection(target) as live_conn:
+    with open_target(live) as live_conn:
         try:
             seed_cm = (
                 built_side(server or "", env, project_dir, files, read, settings)
@@ -641,15 +644,15 @@ def run(
                     live_conn,
                     settings,
                     seed_side=side,
-                    against=label,
-                    against_env=against_env,
+                    against=live.label,
+                    against_env=live.environment,
                 )
         except (SchemaError, SeedError) as exc:
             if not build:
                 raise
             return SeedDriftReport(
                 seed_side=side,
-                against=label,
+                against=live.label,
                 scope=scope,
                 not_compared=(
                     *scope.not_compared,

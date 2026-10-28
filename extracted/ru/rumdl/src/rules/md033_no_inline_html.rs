@@ -4,7 +4,7 @@
 //! See [docs/md033.md](../../docs/md033.md) for full documentation, configuration, and examples.
 
 use crate::config::MarkdownFlavor;
-use crate::lint_context::HtmlTag;
+use crate::lint_context::{HtmlTag, LintContext};
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::utils::regex_cache::*;
 use std::collections::{HashMap, HashSet};
@@ -66,6 +66,30 @@ pub struct MD033NoInlineHtml {
     strip_wrapper_elements: HashSet<String>,
     allows_no_markdown_equivalent: bool,
     table_allows_no_markdown_equivalent: bool,
+}
+
+/// Point membership in allowed regions, including overlapping and nested ones.
+/// Each sorted start stores the greatest end seen so far, so the predecessor
+/// answers a query without scanning all regions or losing an enclosing one.
+struct AllowedInsideIndex {
+    ranges: Vec<Range<usize>>,
+}
+
+impl AllowedInsideIndex {
+    fn new(mut ranges: Vec<Range<usize>>) -> Self {
+        ranges.sort_unstable_by_key(|range| range.start);
+        let mut end = 0;
+        for range in &mut ranges {
+            end = end.max(range.end);
+            range.end = end;
+        }
+        Self { ranges }
+    }
+
+    fn contains(&self, offset: usize) -> bool {
+        let past = self.ranges.partition_point(|range| range.start <= offset);
+        past > 0 && offset < self.ranges[past - 1].end
+    }
 }
 
 impl Default for MD033NoInlineHtml {
@@ -228,12 +252,6 @@ impl MD033NoInlineHtml {
 
         ranges.extend(open.into_iter().map(|(_, start)| start..ctx.content.len()));
         ranges
-    }
-
-    /// Whether a byte offset falls in one of the ranges `allowed_inside` covers.
-    #[inline]
-    fn is_inside_allowed_element(ranges: &[Range<usize>], byte_offset: usize) -> bool {
-        ranges.iter().any(|range| range.contains(&byte_offset))
     }
 
     /// Check if a tag is in the disallowed set (for disallowed-only mode).
@@ -968,19 +986,84 @@ impl MD033NoInlineHtml {
         false
     }
 
-    /// Whether the tag at `tag_byte_start` opens the HTML block its line starts:
-    /// it is the first thing on the line, the line above is outside any HTML
-    /// block, and its name is not one of the block-level elements (CommonMark
-    /// start condition 7, a complete tag alone on its line).
-    fn opens_an_unnamed_block(ctx: &crate::lint_context::LintContext, line_num: usize, tag_byte_start: usize) -> bool {
-        let Some(info) = ctx.line_info(line_num) else {
+    /// A conversion may replace a complete raw HTML block, but must not leave
+    /// Markdown delimiters inside the remainder of a raw HTML block.
+    fn is_nested_in_html_block(ctx: &LintContext, start: usize, end: usize) -> bool {
+        if let Some((block_start, block_end)) = ctx.html_block_range_at(start) {
+            let block = &ctx.content[block_start..block_end];
+            let trimmed_start = block_start + block.len() - block.trim_start_matches([' ', '\t', '\r', '\n']).len();
+            let trimmed_end = block_end - (block.len() - block.trim_end_matches([' ', '\t', '\r', '\n']).len());
+            start != trimmed_start || end != trimmed_end
+        } else {
+            // Some flavor-specific blocks are marked outside the CommonMark
+            // parser. Retain their conservative fix policy.
+            ctx.is_in_html_block(ctx.offset_to_line_col(start).0)
+        }
+    }
+
+    /// Identify blocks whose replacements must retain Markdown container prefixes.
+    fn is_html_block_in_markdown_container(ctx: &LintContext, start: usize) -> bool {
+        let Some((block_start, _)) = ctx.html_block_range_at(start) else {
             return false;
         };
-        let line = info.content(ctx.content);
-        let trimmed = line.trim_start();
-        info.byte_offset + (line.len() - trimmed.len()) == tag_byte_start
-            && !(line_num > 1 && ctx.is_in_html_block(line_num - 1))
-            && crate::utils::html_block::parse_html_block_start(trimmed).is_none()
+        let line_num = ctx.offset_to_line_col(block_start).0;
+        let Some(line) = ctx.line_info(line_num) else {
+            return true;
+        };
+        line.blockquote.is_some()
+            || line.in_list_block
+            || line.in_footnote_definition
+            || ctx.is_in_definition_list(line_num)
+            || ctx.in_colon_definition(line_num)
+            || line.in_flavor_container()
+            || ctx.content[line.byte_offset..block_start]
+                .bytes()
+                .any(|b| !b.is_ascii_whitespace())
+    }
+
+    /// Raw block bodies contain literal text. Only accept a replacement whose
+    /// parsed inline structure is exactly the intended element and that text.
+    fn block_conversion_preserves_text(markdown: &str, tag_name: &str, expected: &str) -> bool {
+        use pulldown_cmark::{Event, Parser, Tag, TagEnd};
+        // An isolated parse cannot resolve reference links or footnotes defined
+        // elsewhere in the document. Keep their literal HTML text untouched.
+        if matches!(tag_name, "em" | "i" | "strong" | "b") && expected.contains(['[', ']']) {
+            return false;
+        }
+        let mut events = Parser::new_ext(
+            markdown,
+            crate::utils::parser_options::rumdl_parser_options_for(markdown),
+        );
+        if events.next() != Some(Event::Start(Tag::Paragraph)) {
+            return false;
+        }
+        if tag_name == "code" {
+            return events
+                .next()
+                .is_some_and(|e| matches!(e, Event::Code(text) if text.as_ref() == expected))
+                && events.next() == Some(Event::End(TagEnd::Paragraph))
+                && events.next().is_none();
+        }
+        let end = match (tag_name, events.next()) {
+            ("em" | "i", Some(Event::Start(Tag::Emphasis))) => TagEnd::Emphasis,
+            ("strong" | "b", Some(Event::Start(Tag::Strong))) => TagEnd::Strong,
+            ("a", Some(Event::Start(Tag::Link { .. }))) => TagEnd::Link,
+            _ => return false,
+        };
+        let mut text = String::new();
+        for event in events.by_ref() {
+            match event {
+                Event::Text(part) => text.push_str(&part),
+                Event::SoftBreak => text.push('\n'),
+                Event::End(found) if found == end => {
+                    return text == expected
+                        && events.next() == Some(Event::End(TagEnd::Paragraph))
+                        && events.next().is_none();
+                }
+                _ => return false,
+            }
+        }
+        false
     }
 
     /// Calculate fix to remove HTML tags while keeping content.
@@ -991,7 +1074,7 @@ impl MD033NoInlineHtml {
     /// Returns (range, replacement_text) where range is the bytes to replace
     /// and replacement_text is what to put there (content without tags, or empty for self-closing).
     ///
-    /// When `in_html_block` is true, returns None in conservative mode.  In
+    /// Tags nested in a raw HTML block are left alone in conservative mode. In
     /// relaxed mode two exceptions apply:
     /// - Strippable wrapper elements (e.g. `<p>`) bypass the block guard so
     ///   they can be stripped even though they ARE the HTML block.
@@ -999,17 +1082,41 @@ impl MD033NoInlineHtml {
     ///   bypass the guard so inner content can be converted first.
     fn calculate_fix(
         &self,
-        content: &str,
+        ctx: &LintContext,
         closing_tags: &ClosingTagIndex,
         opening_tag: &str,
         tag_byte_start: usize,
-        in_html_block: bool,
+    ) -> Option<(std::ops::Range<usize>, String)> {
+        let fix = self.calculate_fix_candidate(ctx, closing_tags, opening_tag, tag_byte_start)?;
+        if Self::is_html_block_in_markdown_container(ctx, tag_byte_start) {
+            let (start, end) = ctx.html_block_range_at(tag_byte_start)?;
+            // A single-line image or wrapper can retain its existing prefix.
+            // Multi-line blocks and replacements need prefix reconstruction,
+            // including a wrapper that would be stripped on a later pass.
+            if ctx.content[start..end]
+                .trim_end_matches([' ', '\t', '\r', '\n'])
+                .contains(['\n', '\r'])
+                || fix.1.contains(['\n', '\r'])
+            {
+                return None;
+            }
+        }
+        Some(fix)
+    }
+
+    fn calculate_fix_candidate(
+        &self,
+        ctx: &LintContext,
+        closing_tags: &ClosingTagIndex,
+        opening_tag: &str,
+        tag_byte_start: usize,
     ) -> Option<(std::ops::Range<usize>, String)> {
         // Every fix below is opt-in.
         if !self.config.fix {
             return None;
         }
 
+        let content = ctx.content;
         // Extract tag name from opening tag
         let tag_name = opening_tag
             .trim_start_matches('<')
@@ -1027,7 +1134,7 @@ impl MD033NoInlineHtml {
             // are in relaxed mode and the containing block is a strippable
             // wrapper -- this lets the inner element be converted first so the
             // wrapper can be stripped on a subsequent pass.
-            let block_ok = !in_html_block
+            let block_ok = !Self::is_nested_in_html_block(ctx, tag_byte_start, tag_byte_start + opening_tag.len())
                 || (self.is_relaxed_fix_mode() && self.is_inside_strippable_wrapper(content, tag_byte_start));
             if self.config.fix
                 && MD033Config::is_safe_fixable_tag(&tag_name)
@@ -1049,7 +1156,7 @@ impl MD033NoInlineHtml {
             // Extract the content between tags
             let inner_content = &content[search_start..closing_byte_start];
 
-            // In relaxed mode, check wrapper stripping BEFORE the in_html_block
+            // In relaxed mode, check wrapper stripping before is_nested_in_html_block's
             // guard because the wrapper element itself IS the HTML block. We only
             // strip when:
             //  - the wrapper is not nested inside another HTML element
@@ -1067,9 +1174,20 @@ impl MD033NoInlineHtml {
 
             // Skip auto-fix if inside an HTML block (like <pre>, <div>, etc.)
             // Converting tags inside HTML blocks would break the intended structure
-            if in_html_block {
+            if Self::is_nested_in_html_block(ctx, tag_byte_start, closing_byte_end) {
                 return None;
             }
+            let owns_block = ctx.html_block_range_at(tag_byte_start).is_some();
+            let boundary_text = inner_content.trim_matches([' ', '\t', '\r']);
+            if !owns_block && (boundary_text.starts_with('\n') || boundary_text.ends_with('\n')) {
+                return None;
+            }
+            // Block boundary line breaks must not be copied into emphasis delimiters.
+            let markdown_inner = if owns_block {
+                inner_content.trim_matches([' ', '\t', '\r', '\n'])
+            } else {
+                inner_content
+            };
 
             // Skip auto-fix if this tag is nested inside another HTML element
             // e.g., <code><em>text</em></code> - don't convert the inner <em>
@@ -1081,7 +1199,10 @@ impl MD033NoInlineHtml {
             if self.config.fix && MD033Config::is_safe_fixable_tag(&tag_name) {
                 // Handle <a> tags specially - they require attribute extraction
                 if tag_name == "a" {
-                    if let Some(markdown) = self.convert_a_to_markdown(opening_tag, inner_content) {
+                    if let Some(markdown) = self.convert_a_to_markdown(opening_tag, markdown_inner) {
+                        if owns_block && !Self::block_conversion_preserves_text(&markdown, &tag_name, markdown_inner) {
+                            return None;
+                        }
                         return Some((tag_byte_start..closing_byte_end, markdown));
                     }
                     // convert_a_to_markdown returned None - unsafe URL, nested HTML, etc.
@@ -1094,7 +1215,10 @@ impl MD033NoInlineHtml {
                     // User may want to keep the attributes, so leave as-is
                     return None;
                 }
-                if let Some(markdown) = Self::convert_to_markdown(&tag_name, inner_content) {
+                if let Some(markdown) = Self::convert_to_markdown(&tag_name, markdown_inner) {
+                    if owns_block && !Self::block_conversion_preserves_text(&markdown, &tag_name, markdown_inner) {
+                        return None;
+                    }
                     return Some((tag_byte_start..closing_byte_end, markdown));
                 }
                 // convert_to_markdown returned None, meaning content has nested tags or
@@ -1140,11 +1264,11 @@ impl Rule for MD033NoInlineHtml {
         let html_tags = ctx.html_tags();
 
         // Disallowed-only mode is a denylist, which the allowlists take no part in.
-        let allowed_inside_ranges = if self.is_disallowed_mode() {
+        let allowed_inside = AllowedInsideIndex::new(if self.is_disallowed_mode() {
             Vec::new()
         } else {
             self.allowed_inside_ranges(ctx)
-        };
+        });
 
         let closing_tags = if self.config.fix {
             ClosingTagIndex::new(content)
@@ -1224,14 +1348,12 @@ impl Rule for MD033NoInlineHtml {
             } else if ctx.is_in_table_block(line_num) {
                 // An explicit table allowlist is the whole answer for a table cell,
                 // so it decides there instead of the surrounding element.
-                let inside_allowed_element = self.config.table_allowed_elements.is_none()
-                    && Self::is_inside_allowed_element(&allowed_inside_ranges, tag_byte_start);
+                let inside_allowed_element =
+                    self.config.table_allowed_elements.is_none() && allowed_inside.contains(tag_byte_start);
                 if self.is_tag_allowed_in_table(tag, ctx.flavor) || inside_allowed_element {
                     continue;
                 }
-            } else if self.is_tag_allowed(tag, ctx.flavor)
-                || Self::is_inside_allowed_element(&allowed_inside_ranges, tag_byte_start)
-            {
+            } else if self.is_tag_allowed(tag, ctx.flavor) || allowed_inside.contains(tag_byte_start) {
                 continue;
             }
 
@@ -1240,33 +1362,32 @@ impl Rule for MD033NoInlineHtml {
                 continue;
             }
 
-            // Check if we're inside an HTML block (like <pre>, <div>, etc.). A tag
-            // alone on its line that opens a block with no block-level name (such
-            // as `<img src="x.png">`) is the block itself, not part of an
-            // enclosing structure a conversion could break.
-            let in_html_block =
-                ctx.is_in_html_block(line_num) && !Self::opens_an_unnamed_block(ctx, line_num, tag_byte_start);
-
             // Calculate fix to remove HTML tags but keep content
             let fix = self
-                .calculate_fix(content, &closing_tags, tag, tag_byte_start, in_html_block)
+                .calculate_fix(ctx, &closing_tags, tag, tag_byte_start)
                 .map(|(range, replacement)| Fix::new(range, replacement));
 
-            // Calculate actual end line and column for multiline tags
-            // Use byte_end - 1 to get the last character position of the tag
-            let (end_line, end_col) = if html_tag.byte_end > 0 {
-                ctx.offset_to_line_col(html_tag.byte_end - 1)
-            } else {
-                (line_num, html_tag.end_col + 1)
-            };
+            // Advance from the known start instead of rescanning the line
+            // prefix for every warning. Columns count Unicode scalar values;
+            // only LF advances a source line, including within CRLF.
+            let mut end_line = line_num;
+            let mut end_column = html_tag.start_col + 1;
+            for ch in tag.chars() {
+                if ch == '\n' {
+                    end_line += 1;
+                    end_column = 1;
+                } else {
+                    end_column += 1;
+                }
+            }
 
             // Report the HTML tag
             warnings.push(LintWarning {
                 rule_name: Some(self.name().to_string()),
                 line: line_num,
                 column: html_tag.start_col + 1, // Convert to 1-indexed
-                end_line,                       // Actual end line for multiline tags
-                end_column: end_col + 1,        // Actual end column
+                end_line,
+                end_column,
                 message: format!("Inline HTML found: {tag}"),
                 severity: Severity::Warning,
                 fix,
@@ -1354,6 +1475,41 @@ mod tests {
     use crate::rule::Rule;
 
     #[test]
+    fn allowed_inside_index_preserves_nested_ranges_and_boundaries() {
+        for ranges in [
+            vec![],
+            vec![5..20, 8..10, 0..2, 5..7, 20..22, 30..40],
+            vec![0..usize::MAX, 10..11],
+        ] {
+            let index = AllowedInsideIndex::new(ranges.clone());
+            for offset in (0..=45).chain([usize::MAX - 1, usize::MAX]) {
+                assert_eq!(
+                    index.contains(offset),
+                    ranges.iter().any(|range| range.contains(&offset)),
+                    "offset {offset}, ranges {ranges:?}"
+                );
+            }
+        }
+    }
+
+    proptest::proptest! {
+        #![proptest_config(proptest::test_runner::Config::with_cases(128))]
+        #[test]
+        fn allowed_inside_index_matches_linear_search(
+            endpoints in proptest::collection::vec((0_usize..256, 0_usize..256), 0..80)
+        ) {
+            let ranges: Vec<_> = endpoints.into_iter().map(|(a, b)| a.min(b)..a.max(b)).collect();
+            let index = AllowedInsideIndex::new(ranges.clone());
+            for offset in 0..=256 {
+                proptest::prop_assert_eq!(
+                    index.contains(offset),
+                    ranges.iter().any(|range| range.contains(&offset))
+                );
+            }
+        }
+    }
+
+    #[test]
     fn closing_tag_index_finds_what_a_case_insensitive_search_finds() {
         let documents = [
             "<em>a</em> b </EM> </Em>",
@@ -1379,6 +1535,43 @@ mod tests {
                         expected,
                         "{tag_name:?} from {offset} in {content:?}"
                     );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn diagnostic_ends_match_source_positions() {
+        // Include source characters with different UTF-8 widths, combining
+        // marks, tabs, and a lone CR (only LF advances the source line).
+        let prefix = "é日本🙂e\u{301}\t\r".repeat(80);
+        for newline in ["\n", "\r\n"] {
+            for body in [
+                format!("{prefix}<span title=\"é > 🙂\">x</span> <img src=\"日本\"/>"),
+                format!("{prefix}<span\n title=\"é >\n🙂\">x</span> <br/>"),
+                format!("{prefix}<span title=\"é\r🙂\">x</span>"),
+                format!("<span title=\"first\n{prefix}last\">x</span>"),
+            ] {
+                let content = body.replace('\n', newline);
+                for flavor in crate::format_proof::ALL_FLAVORS {
+                    let ctx = LintContext::new(&content, flavor, None);
+                    let warnings = MD033NoInlineHtml::default().check(&ctx).unwrap();
+                    let tags = ctx.html_tags();
+                    assert!(!warnings.is_empty(), "{flavor:?}: {content:?}");
+                    for warning in warnings {
+                        let tag = tags
+                            .iter()
+                            .find(|tag| tag.line == warning.line && tag.start_col + 1 == warning.column)
+                            .unwrap();
+                        // Independent oracle: calculate the legacy position
+                        // from the full source rather than from the tag.
+                        let (end_line, end_col) = ctx.offset_to_line_col(tag.byte_end - 1);
+                        assert_eq!(
+                            (warning.end_line, warning.end_column),
+                            (end_line, end_col + 1),
+                            "{flavor:?}: {content:?}"
+                        );
+                    }
                 }
             }
         }
@@ -2509,6 +2702,353 @@ Regular text with <div>content</div> HTML tag.
     }
 
     #[test]
+    fn test_md033_fix_converts_standalone_type_7_html_block() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        let content = "<em>\nstandalone\n</em>\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+        assert!(ctx.is_in_html_block(1), "the parser classifies this as a type-7 block");
+        assert_eq!(rule.fix(&ctx).unwrap(), "*standalone*\n");
+    }
+
+    #[test]
+    fn test_md033_fix_converts_root_hr_but_not_nested_hr() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+
+        let root = "<hr>\n";
+        let root_ctx = LintContext::new(root, crate::config::MarkdownFlavor::Standard, None);
+        assert!(root_ctx.is_in_html_block(1));
+        assert_eq!(rule.fix(&root_ctx).unwrap(), "\n---\n\n");
+
+        let nested = "<div>\n<hr>\n</div>\n";
+        let nested_ctx = LintContext::new(nested, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(
+            rule.fix(&nested_ctx).unwrap(),
+            nested,
+            "Markdown syntax inside a raw HTML block would render as literal text"
+        );
+    }
+
+    #[test]
+    fn test_md033_fix_skips_block_owned_tags_in_blockquotes() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+
+        for content in ["> <hr>\n", "> <em>\n> standalone\n> </em>\n"] {
+            let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+            assert_eq!(
+                rule.fix(&ctx).unwrap(),
+                content,
+                "a fix must not escape or corrupt its blockquote container"
+            );
+        }
+    }
+
+    #[test]
+    fn test_md033_fix_handles_html_in_list_containers() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+
+        let block_owned = "- <em>\n  standalone\n  </em>\n";
+        let block_ctx = LintContext::new(block_owned, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(
+            rule.fix(&block_ctx).unwrap(),
+            block_owned,
+            "a fix must not escape or corrupt its list container"
+        );
+
+        let inline = "- text <em>inside</em>\n";
+        let inline_ctx = LintContext::new(inline, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(rule.fix(&inline_ctx).unwrap(), "- text *inside*\n");
+    }
+
+    #[test]
+    fn test_md033_fix_skips_multiline_inline_tags() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+
+        for content in [
+            "paragraph\n<em>\ninside\n</em>\n",
+            "> paragraph\n> <em>\n> inside\n> </em>\n",
+        ] {
+            let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+            assert_eq!(
+                rule.fix(&ctx).unwrap(),
+                content,
+                "delimiter-only lines are not a semantics-preserving replacement"
+            );
+        }
+    }
+
+    #[test]
+    fn test_md033_fix_converts_html_inside_mdx_component() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        let content = "<Component>\nBefore\n<em>inside</em>\nAfter\n</Component>\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::MDX, None);
+
+        assert!(ctx.line_info(3).is_some_and(|line| line.in_jsx_block));
+        assert!(!ctx.is_in_html_block(3));
+        assert_eq!(
+            rule.fix(&ctx).unwrap(),
+            "<Component>\nBefore\n*inside*\nAfter\n</Component>\n"
+        );
+    }
+
+    #[test]
+    fn standalone_html_conversion_does_not_activate_reference_links() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        for tag in ["em", "strong", "b", "i"] {
+            for inner in ["[foo]", "[foo][]", "[x][foo]", "[^n]"] {
+                let content = format!("<{tag}>\n{inner}\n</{tag}>\n\n[foo]: https://example.com\n\n[^n]: A note.\n");
+                let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+                assert_eq!(rule.fix(&ctx).unwrap(), content, "literal HTML text: {tag}: {inner}");
+            }
+        }
+    }
+
+    #[test]
+    fn standalone_html_conversion_preserves_literal_punctuation() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        for inner in ["*literal*", "a*", "[link](other)", "![image](x)", "~~strike~~", "a\\*b"] {
+            let content = format!("<em>\n{inner}\n</em>\n");
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.fix(&ctx).unwrap(), content, "literal HTML text: {inner}");
+        }
+    }
+
+    #[test]
+    fn standalone_html_conversion_does_not_create_markdown_blocks_or_breaks() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        for inner in [
+            "foo\n# bar",
+            "foo\n- bar",
+            "foo  \nbar",
+            "foo\\\nbar",
+            "foo\n> bar",
+            "foo\n```\ncode",
+        ] {
+            let content = format!("<em>\n{inner}\n</em>\n");
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.fix(&ctx).unwrap(), content);
+        }
+    }
+
+    #[test]
+    fn html_block_fixes_preserve_footnote_containers() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        for block in ["<hr>", "<em>\n    text\n    </em>"] {
+            let content = format!("[^n]: First paragraph.\n\n    {block}\n\n    more\n\nref[^n]\n");
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.fix(&ctx).unwrap(), content);
+        }
+    }
+
+    #[test]
+    fn html_block_fixes_preserve_definition_list_and_flavor_containers() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        for (content, flavor) in [
+            (
+                "Term\n:   description\n\n    <hr>\n\n    more\n",
+                MarkdownFlavor::Standard,
+            ),
+            ("!!! note\n    <hr>\n", MarkdownFlavor::MkDocs),
+            ("=== \"Tab\"\n    <hr>\n", MarkdownFlavor::MkDocs),
+        ] {
+            let ctx = LintContext::new(content, flavor, None);
+            assert_eq!(rule.fix(&ctx).unwrap(), content);
+        }
+    }
+
+    #[test]
+    fn relaxed_wrapper_conversion_finishes_before_leaving_markdown_in_html() {
+        let rule = relaxed_fix_rule();
+        for content in [
+            "<p align=\"center\"><img src=\"logo.png\"></p>\n",
+            "<p>\n<img src=\"a.png\">\n</p>\ntrailing text\n",
+            "<p align=\"center\">\n  <img src=\"logo.png\">\n</p>\n",
+        ] {
+            let mut fixed = content.to_string();
+            for _ in 0..4 {
+                let ctx = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+                let next = rule.fix(&ctx).unwrap();
+                if next == fixed {
+                    break;
+                }
+                fixed = next;
+            }
+            assert!(fixed.contains("![]("));
+            assert!(!fixed.contains("<p"));
+            let mut html = String::new();
+            pulldown_cmark::html::push_html(&mut html, pulldown_cmark::Parser::new(&fixed));
+            assert!(html.contains("<img src="), "image must render: {html}");
+        }
+    }
+
+    #[test]
+    fn single_line_images_keep_their_markdown_container_prefixes() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        for (content, expected) in [
+            ("- <img src=\"a.png\">\n", "- ![](a.png)\n"),
+            ("> <img src=\"a.png\">\n", "> ![](a.png)\n"),
+            ("- item\n\n  <img src=\"a.png\">\n", "- item\n\n  ![](a.png)\n"),
+            (
+                "[^n]: First paragraph.\n\n    <img src=\"a.png\">\n\nref[^n]\n",
+                "[^n]: First paragraph.\n\n    ![](a.png)\n\nref[^n]\n",
+            ),
+            (
+                "Term\n:   description\n\n    <img src=\"a.png\">\n",
+                "Term\n:   description\n\n    ![](a.png)\n",
+            ),
+        ] {
+            let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+            let fixed = rule.fix(&ctx).unwrap();
+            assert_eq!(fixed, expected);
+            let ctx = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.fix(&ctx).unwrap(), fixed);
+        }
+    }
+
+    #[test]
+    fn relaxed_single_line_wrappers_keep_their_markdown_container_prefixes() {
+        let rule = relaxed_fix_rule();
+        for prefix in ["- ", "> "] {
+            let content = format!("{prefix}<p align=\"center\"><img src=\"a.png\"></p>\n");
+            let mut fixed = content;
+            for _ in 0..4 {
+                let ctx = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+                let next = rule.fix(&ctx).unwrap();
+                if next == fixed {
+                    break;
+                }
+                fixed = next;
+            }
+            assert_eq!(fixed, format!("{prefix}![](a.png)\n"));
+        }
+    }
+
+    #[test]
+    fn container_images_do_not_leave_markdown_in_raw_html_tails_or_wrappers() {
+        for rule in [MD033NoInlineHtml::with_fix(true), relaxed_fix_rule()] {
+            for content in [
+                "- <img src=\"a.png\">\n  tail *literal*\n",
+                "> <img src=\"a.png\">\n> tail *literal*\n",
+                "- <br>\n",
+                "- <hr>\n",
+                "- <p>\n  <img src=\"a.png\">\n  </p>\n",
+            ] {
+                let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+                assert_eq!(rule.fix(&ctx).unwrap(), content);
+            }
+        }
+    }
+
+    #[test]
+    fn standalone_html_links_round_trip_text_and_reject_markdown_images() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        for (content, expected) in [
+            ("<a href=\"https://x.test\">\ntext\n</a>\n", "[text](https://x.test)\n"),
+            (
+                "<a href=\"https://x.test\">\na[b]\n</a>\n",
+                "[a\\[b\\]](https://x.test)\n",
+            ),
+        ] {
+            let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+            let fixed = rule.fix(&ctx).unwrap();
+            assert_eq!(fixed, expected);
+            let ctx = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.fix(&ctx).unwrap(), fixed);
+        }
+        for content in [
+            "<a href=\"https://x.test\">\n![](i.png)\n</a>\n",
+            "<a href=\"a b\">\ntext\n</a>\n",
+        ] {
+            let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.fix(&ctx).unwrap(), content);
+        }
+    }
+
+    #[test]
+    fn inline_html_in_markdown_enabled_html_container_still_converts() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        let content = "<div markdown=\"1\">\n\ntext <em>inside</em> after\n\n</div>\n";
+        let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        assert_eq!(
+            rule.fix(&ctx).unwrap(),
+            "<div markdown=\"1\">\n\ntext *inside* after\n\n</div>\n"
+        );
+    }
+
+    #[test]
+    fn soft_wrapped_inline_html_still_converts() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        let content = "This is <em>wrapped\ntext</em> here.\n";
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert_eq!(rule.fix(&ctx).unwrap(), "This is *wrapped\ntext* here.\n");
+    }
+
+    #[test]
+    fn standalone_html_conversion_preserves_unicode_whitespace() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        for space in ['\u{a0}', '\u{2003}'] {
+            for (content, expected) in [
+                (
+                    format!("<em>\n{space}note\n</em>\n"),
+                    format!("<em>\n{space}note\n</em>\n"),
+                ),
+                (
+                    format!("<code>\n{space}x{space}\n</code>\n"),
+                    format!("`{space}x{space}`\n"),
+                ),
+                (
+                    format!("<a href=\"https://x.test\">\ntext{space}\n</a>\n"),
+                    format!("[text{space}](https://x.test)\n"),
+                ),
+                (format!("<hr>{space}\n"), format!("<hr>{space}\n")),
+                (
+                    format!("<em>\ntext\n</em>{space}\n"),
+                    format!("<em>\ntext\n</em>{space}\n"),
+                ),
+            ] {
+                let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+                let fixed = rule.fix(&ctx).unwrap();
+                assert_eq!(fixed, expected);
+                let ctx = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+                assert_eq!(rule.fix(&ctx).unwrap(), fixed);
+            }
+        }
+    }
+
+    #[test]
+    fn standalone_html_conversion_is_idempotent_and_unicode_safe() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        for (content, expected) in [
+            ("<em>\néén zin\n</em>\n", "*één zin*\n"),
+            ("<strong>\nhello\n</strong>\n", "**hello**\n"),
+            ("<code>\nplain\n</code>\n", "`plain`\n"),
+            ("<em>\r\nhello\r\n</em>\r\n", "*hello*\r\n"),
+        ] {
+            let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+            let fixed = rule.fix(&ctx).unwrap();
+            assert_eq!(fixed, expected);
+            let next = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.fix(&next).unwrap(), fixed);
+            assert!(rule.check(&next).unwrap().is_empty());
+        }
+    }
+
+    #[test]
+    fn html_block_tail_and_nested_content_are_not_reinterpreted() {
+        let rule = MD033NoInlineHtml::with_fix(true);
+        for content in [
+            "<em>\none\n</em>\n*literal tail*\n",
+            "<div>\ntext <em>literal</em>\n</div>\n",
+            "<pre>\ntext <em>literal</em>\n</pre>\n",
+            "<em>\n\ntext\n</em>\n",
+            "- text\n\n  <hr>\n",
+        ] {
+            let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.fix(&ctx).unwrap(), content);
+        }
+    }
+
+    #[test]
     fn test_md033_fix_with_id_attribute() {
         // Tags with id attributes should not be fixed (id might be used for anchors)
         let rule = MD033NoInlineHtml::with_fix(true);
@@ -3319,6 +3859,16 @@ tR += `# ${file}\n\nCreated: ${date}\nIn: ${folder}`;
         assert!(
             reported_tags(&rule_allowing_inside(&["details"]), unclosed).is_empty(),
             "an unclosed element reaches the end of the document"
+        );
+    }
+
+    #[test]
+    fn test_md033_allowed_inside_mismatched_and_unclosed_elements() {
+        let content = "<details><section><b>in</b></details><i>out</i></section><b>out</b>\
+                       <details><section/><i>in</i>";
+        assert_eq!(
+            reported_tags(&rule_allowing_inside(&["details", "section"]), content),
+            vec!["<i>", "<b>"]
         );
     }
 

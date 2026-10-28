@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: narwhals
-Version: 2.27.1
+Version: 2.28.0
 Summary: Extremely lightweight compatibility layer between dataframe libraries
 Keywords: dataframes,interoperability,pandas,polars,pyarrow,dask,modin,cudf
 Author: Marco Gorelli

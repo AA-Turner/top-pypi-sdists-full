@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+from pathlib import Path
 from typing import ClassVar
 
 from asgiref.sync import sync_to_async
@@ -32,16 +33,16 @@ def current_network_interface_with_machine():
 
 
 def normalize_process_env(env: dict) -> dict:
-    normalized = dict(env or {})
-    raw_plugins = normalized.pop("PLUGINS", "")
-    selected_plugins = {name.strip().lower() for name in str(raw_plugins).split(",") if name.strip()}
-    from archivebox.config.common import ArchiveBoxConfig, _archivebox_config_input_names, is_sensitive_config_key
+    from archivebox.config.common import filter_crawl_env, is_sensitive_config_key
+    from archivebox.machine.models import PROCESS_STDERR_FILE_KEY, PROCESS_STDOUT_FILE_KEY
 
-    allowed_config_keys = ArchiveBoxConfig._crawl_runtime_keys()
-    config_input_names = _archivebox_config_input_names()
-    for key in list(normalized):
-        if is_sensitive_config_key(key) or (key in config_input_names and key not in allowed_config_keys):
-            normalized.pop(key, None)
+    raw_plugins = (env or {}).get("PLUGINS", "")
+    selected_plugins = {name.strip().lower() for name in str(raw_plugins).split(",") if name.strip()}
+    normalized = {
+        key: value
+        for key, value in filter_crawl_env(env or {}).items()
+        if not is_sensitive_config_key(key) and key not in (PROCESS_STDOUT_FILE_KEY, PROCESS_STDERR_FILE_KEY)
+    }
     if selected_plugins:
         from archivebox.config.common import _plugin_enabled_config_keys
         from archivebox.plugins.discovery import get_plugin_catalog
@@ -77,9 +78,10 @@ class ProcessService(BaseService):
         return self._iface
 
     async def on_ProcessStartedEvent__save_to_db(self, event: ProcessStartedEvent) -> None:
-        from archivebox.machine.models import Process
+        from archivebox.machine.models import PROCESS_STDERR_FILE_KEY, PROCESS_STDOUT_FILE_KEY, Process
 
         iface = await self.current_iface()
+        owner = await sync_to_async(Process.current, thread_sensitive=True)()
         process_type = event.process_type or Process.TypeChoices.HOOK
         worker_type = event.worker_type or ""
         started_at = parse_event_datetime(event.start_ts)
@@ -96,11 +98,18 @@ class ProcessService(BaseService):
             )
         process = await process_query.order_by("-modified_at").afirst()
         process_env = normalize_process_env(event.env)
+        # Only the host executor can identify these files; never trust child env.
+        process_env[PROCESS_STDOUT_FILE_KEY] = str(event.stdout_file)
+        process_env[PROCESS_STDERR_FILE_KEY] = str(event.stderr_file)
         if process is None:
-            process = await Process.objects.acreate(
+            # Every hook start lands here. Insert the row complete, binary
+            # included, rather than inserting it and then rewriting every
+            # column again: the runner's single DB thread is shared by all
+            # concurrent hooks' starts, results and completions.
+            process = Process(
                 machine=iface.machine,
                 iface=iface,
-                parent_id=None,
+                parent_id=owner.id,
                 process_type=process_type,
                 worker_type=worker_type,
                 pwd=event.output_dir,
@@ -113,42 +122,49 @@ class ProcessService(BaseService):
                 status=Process.StatusChoices.RUNNING,
                 retry_at=None,
             )
-        elif process.iface_id != iface.id or process.machine_id != iface.machine_id:
-            process.iface = iface
-            process.machine = iface.machine
-            await process.asave(update_fields=["iface", "machine", "modified_at"])
+            await sync_to_async(process.hydrate_binary_from_context, thread_sensitive=True)(
+                plugin_name=event.plugin_name,
+                hook_path=event.hook_path,
+            )
+            await process.asave(force_insert=True)
+        else:
+            if process.iface_id != iface.id or process.machine_id != iface.machine_id:
+                process.iface = iface
+                process.machine = iface.machine
+                await process.asave(update_fields=["iface", "machine", "modified_at"])
 
-        process.pwd = event.output_dir
-        process.cmd = [event.hook_path, *event.hook_args]
-        process.env = process_env
-        process.timeout = event.timeout
-        process.pid = event.pid or None
-        process.url = event.url or process.url
-        process.process_type = process_type or process.process_type
-        process.worker_type = worker_type or process.worker_type
-        process.started_at = started_at
-        process.status = process.StatusChoices.RUNNING
-        process.retry_at = None
-        await sync_to_async(process.hydrate_binary_from_context, thread_sensitive=True)(
-            plugin_name=event.plugin_name,
-            hook_path=event.hook_path,
-        )
-        await Process.objects.filter(id=process.id).aupdate(
-            parent_id=process.parent_id,
-            pwd=process.pwd,
-            cmd=process.cmd,
-            env=process.env,
-            timeout=process.timeout,
-            pid=process.pid,
-            url=process.url,
-            process_type=process.process_type,
-            worker_type=process.worker_type,
-            started_at=process.started_at,
-            status=process.status,
-            retry_at=process.retry_at,
-            binary_id=process.binary_id,
-            modified_at=timezone.now(),
-        )
+            process.pwd = event.output_dir
+            process.parent_id = process.parent_id or owner.id
+            process.cmd = [event.hook_path, *event.hook_args]
+            process.env = process_env
+            process.timeout = event.timeout
+            process.pid = event.pid or None
+            process.url = event.url or process.url
+            process.process_type = process_type or process.process_type
+            process.worker_type = worker_type or process.worker_type
+            process.started_at = started_at
+            process.status = process.StatusChoices.RUNNING
+            process.retry_at = None
+            await sync_to_async(process.hydrate_binary_from_context, thread_sensitive=True)(
+                plugin_name=event.plugin_name,
+                hook_path=event.hook_path,
+            )
+            await Process.objects.filter(id=process.id).aupdate(
+                parent_id=process.parent_id,
+                pwd=process.pwd,
+                cmd=process.cmd,
+                env=process.env,
+                timeout=process.timeout,
+                pid=process.pid,
+                url=process.url,
+                process_type=process.process_type,
+                worker_type=process.worker_type,
+                started_at=process.started_at,
+                status=process.status,
+                retry_at=process.retry_at,
+                binary_id=process.binary_id,
+                modified_at=timezone.now(),
+            )
         if event.hook_name.startswith("on_Snapshot"):
             snapshot_event = await self.bus.find(
                 SnapshotEvent,
@@ -198,9 +214,10 @@ class ProcessService(BaseService):
         await self.flush_completed()
 
     async def _save_completed_process_to_db(self, event: ProcessCompletedEvent) -> None:
-        from archivebox.machine.models import Process
+        from archivebox.machine.models import PROCESS_STDERR_FILE_KEY, PROCESS_STDOUT_FILE_KEY, Process
 
         iface = await self.current_iface()
+        owner = await sync_to_async(Process.current, thread_sensitive=True)()
         process_type = event.process_type or Process.TypeChoices.HOOK
         worker_type = event.worker_type or ""
         started_at = parse_event_datetime(event.start_ts)
@@ -221,7 +238,7 @@ class ProcessService(BaseService):
             await Process.objects.acreate(
                 machine=iface.machine,
                 iface=iface,
-                parent_id=None,
+                parent_id=owner.id,
                 process_type=process_type,
                 worker_type=worker_type,
                 pwd=event.output_dir,
@@ -237,6 +254,15 @@ class ProcessService(BaseService):
             process = await process_query.order_by("-modified_at").afirst()
             if process is None:
                 return
+
+        # Completion archives failed/cancelled logs under their original unique
+        # names; successful logs are deleted. Preserve exact live paths otherwise.
+        for key in (PROCESS_STDOUT_FILE_KEY, PROCESS_STDERR_FILE_KEY):
+            recorded = process.env.get(key)
+            if isinstance(recorded, str) and recorded:
+                process_env[key] = (
+                    str(Path(event.output_dir) / Path(recorded).name) if event.exit_code != 0 or event.cancelled else recorded
+                )
 
         missing_cmd = not process.cmd
         updates = {

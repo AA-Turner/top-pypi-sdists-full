@@ -188,7 +188,8 @@ def installed_version() -> str | None:
     return _version_of(binary) if binary else None
 
 
-def ensure_persistent_install(*, dry_run: bool = False, target: str | None = None) -> BootstrapResult:
+def ensure_persistent_install(*, dry_run: bool = False, target: str | None = None,
+                              finish_uninstall: bool = False) -> BootstrapResult:
     """Install the CLI for real if this process is an ephemeral one.
 
     Through the one installer (`install_pipeline.install_cli`: side by side,
@@ -197,11 +198,14 @@ def ensure_persistent_install(*, dry_run: bool = False, target: str | None = Non
     the exact command. Deliberately never a bare `pip install`: on a
     researcher's machine that usually means a conda or system environment,
     and silently mutating it is how you break a training run three days
-    later. Never while an uninstall runs (its barrier is LIVE).
+    later. Never while an uninstall runs (its barrier is LIVE). `finish_uninstall`
+    (an install entry: the wizard's configure, install and update, `probe update`
+    from a temporary copy): an uninstall that stopped halfway is finished first
+    (`install_pipeline.gate`); anything else refuses while it is LIVE.
     """
     from . import install_pipeline
 
-    said = install_pipeline.refusal()
+    said = install_pipeline.refusal(finish=finish_uninstall)
     if said:
         return BootstrapResult(installed=False, already_persistent=False, message=f"! {said}", refused=True)
     foreign = None if dry_run else _foreign_to_move()

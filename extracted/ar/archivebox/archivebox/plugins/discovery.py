@@ -1,11 +1,12 @@
 __package__ = "archivebox.plugins"
 
+import re
 from collections.abc import Iterable
 from functools import lru_cache
 from importlib import import_module
 from pathlib import Path, PurePosixPath
 from types import ModuleType
-from typing import Any, Protocol, TypedDict
+from typing import Any, Protocol, TypedDict, cast
 
 from abx_plugins import get_plugins_dir
 from abx_dl.catalog import PluginCatalog, PluginConfigResolver
@@ -15,7 +16,7 @@ from archivebox.config.constants import CONSTANTS
 
 
 class ConfigLookup(Protocol):
-    def get(self, key: str, default: Any = None) -> Any: ...
+    def get(self, key: str, default: Any = None, /) -> Any: ...
 
     def items(self) -> Iterable[tuple[str, Any]]: ...
 
@@ -192,9 +193,10 @@ def serve_plugin_replay_asset(path: str, config, response_class):
     for module in get_plugin_presentation_modules():
         hook = getattr(module, "serve_replay_asset_response", None)
         if hook is not None and (response := hook(path, config, response_class)) is not None:
-            from archivebox.misc.serve_static import add_replay_image_fallback
+            # WHY: replay URL variants must resolve inside the saved archive, never against the live site.
+            from archivebox.misc.serve_static import add_replay_archive_fallbacks
 
-            return add_replay_image_fallback(response)
+            return add_replay_archive_fallbacks(response)
     return None
 
 
@@ -253,7 +255,7 @@ def get_plugin_special_config(plugin_name: str, config: ConfigLookup, _visited: 
         - {PLUGIN}_TIMEOUT: Plugin-specific timeout (fallback to TIMEOUT, default 300)
         - {PLUGIN}_BINARY: Primary binary path (default to plugin_name)
     """
-    return get_plugin_config_resolver().runtime_settings(plugin_name, dict(config.items()))
+    return cast(PluginSpecialConfig, get_plugin_config_resolver().runtime_settings(plugin_name, dict(config.items())))
 
 
 DEFAULT_TEMPLATES = {
@@ -315,3 +317,52 @@ def get_plugin_icon(plugin: str) -> str:
         return mark_safe(icon_template.strip())
 
     return mark_safe("📁")
+
+
+# A list page repeats each plugin's icon on every row (~40 icons per snapshot),
+# and inline SVG was about half of every row's HTML. Single-SVG icons are drawn
+# once per page as <symbol>s (get_plugin_icon_sprite) and each row <use>s them.
+# The <span> wrapper (classes, tooltip) and outer <svg> box stay per icon, and
+# the symbol carries the drawing attributes, so the rendered icon is unchanged.
+_ICON_SVG_RE = re.compile(r"(<span [^<>]*>)<svg ([^<>]*)>((?:(?!<svg\b|</svg>).)*)</svg></span>", re.S)
+_ICON_SVG_ATTR_RE = re.compile(r'\s*([a-zA-Z][\w:-]*)="([^"<>]*)"')
+_ICON_BOX_ATTRS = ("width", "height", "aria-hidden", "focusable")
+_ICON_SYMBOL_ATTRS = frozenset(("viewBox", "preserveAspectRatio", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"))
+
+
+@lru_cache(maxsize=None)
+def _plugin_icon_sprite_parts(plugin: str) -> tuple[str, str] | None:
+    """(symbol, inline markup using it) for a single-SVG icon; None keeps the icon inline."""
+    if not re.fullmatch(r"[a-z0-9_]+", plugin):
+        return None
+    match = _ICON_SVG_RE.fullmatch(str(get_plugin_icon(plugin)))
+    if match is None:
+        return None
+    span, svg_attrs, drawing = match.groups()
+    attrs = _ICON_SVG_ATTR_RE.findall(svg_attrs)
+    # Anything besides the known box/drawing attributes (class, style, ids...)
+    # might style the outer element differently; keep such icons inline.
+    if "".join(f' {name}="{value}"' for name, value in attrs).strip() != svg_attrs.strip():
+        return None
+    if any(name not in _ICON_BOX_ATTRS and name not in _ICON_SYMBOL_ATTRS for name, _ in attrs):
+        return None
+    if "id=" in drawing or "url(" in drawing:
+        return None
+    symbol_attrs = "".join(f' {name}="{value}"' for name, value in attrs if name in _ICON_SYMBOL_ATTRS)
+    box_attrs = "".join(f' {name}="{value}"' for name, value in attrs if name in _ICON_BOX_ATTRS)
+    symbol = f'<symbol id="abx-icon-{plugin}"{symbol_attrs}>{drawing}</symbol>'
+    return symbol, f'{span}<svg{box_attrs}><use href="#abx-icon-{plugin}"></use></svg></span>'
+
+
+def get_plugin_list_icon(plugin: str) -> str:
+    """Icon markup for list rows; pages that use it must include get_plugin_icon_sprite()."""
+    parts = _plugin_icon_sprite_parts(plugin)
+    return mark_safe(parts[1]) if parts else get_plugin_icon(plugin)
+
+
+@lru_cache(maxsize=1)
+def get_plugin_icon_sprite() -> str:
+    """Hidden <svg> holding every sprite-able plugin icon once (see get_plugin_list_icon)."""
+    symbols = "".join(parts[0] for name in sorted(get_plugin_catalog()) if (parts := _plugin_icon_sprite_parts(name)))
+    # Not display:none: some browsers then skip painting the referenced symbols.
+    return mark_safe(f'<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">{symbols}</svg>')

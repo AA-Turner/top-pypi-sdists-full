@@ -1,6 +1,6 @@
 [project]
 name = "istari-digital-client"
-version = "13.3.4"
+version = "14.0.0"
 description = "Python client for the Istari Digital platform"
 license = { file = "LICENSE" }
 readme = "README.md"
@@ -11,7 +11,6 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -23,7 +22,7 @@ homepage = "https://istaridigital.com"
 documentation = "https://docs.istaridigital.com"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4.0"
+python = ">=3.11,<4.0"
 python-dotenv = "^1.0.1"
 pydantic = "^2.9.0"
 python-dateutil = "^2.9.0.post0"
@@ -32,9 +31,7 @@ typing-extensions = "^4.12.2"
 types-python-dateutil = "^2.9.0.20240906"
 deprecation = "^2.1.0"
 inflection = "^0.5.1"
-istari-digital-core = "7.4.0"
-istari-digital-core-fips = { version = "7.4.0", optional = true }
-boto3 = { version = ">=1.26.0", optional = true }
+boto3 = { version = ">=1.36.0", optional = true }
 awscrt = { version = ">=0.19.0", optional = true }
 # Floor, no ceiling. 49.0.0 is the first release carrying the CVE-2026-34073 and
 # CVE-2026-39892 fixes -- no 48.x has them. A caret here has twice become a CVE
@@ -46,7 +43,6 @@ pyjwt = "^2.15.1"
 [tool.poetry.extras]
 s3 = ["boto3"]
 s3-crt = ["boto3", "awscrt"]
-fips = ["istari-digital-core-fips"]
 
 [[tool.poetry.source]]
 name = "istari"
@@ -59,6 +55,7 @@ url = "https://istaridigital.jfrog.io/artifactory/api/pypi/main-pypi-local/simpl
 priority = "explicit"
 
 [tool.poetry.group.dev.dependencies]
+filelock = ">=4.2.1"
 pytest-cov = "^4.1.0"
 pytest = "^9.0.3"
 setuptools = "^83.0.0"

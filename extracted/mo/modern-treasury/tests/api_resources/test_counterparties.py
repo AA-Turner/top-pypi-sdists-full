@@ -39,10 +39,10 @@ class TestCounterparties:
                     "account_details": [
                         {
                             "account_number": "account_number",
-                            "account_number_type": "au_number",
+                            "account_number_type": "arbitrum_address",
                         }
                     ],
-                    "account_type": "base_wallet",
+                    "account_type": "cash",
                     "contact_details": [
                         {
                             "contact_identifier": "contact_identifier",
@@ -60,16 +60,16 @@ class TestCounterparties:
                         "external_id": "external_id",
                         "ledger_account_category_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                         "ledgerable_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                        "ledgerable_type": "counterparty",
+                        "ledgerable_type": "external_account",
                         "metadata": {
-                            "key": "value",
                             "foo": "bar",
+                            "key": "value",
                             "modern": "treasury",
                         },
                     },
                     "metadata": {
-                        "key": "value",
                         "foo": "bar",
+                        "key": "value",
                         "modern": "treasury",
                     },
                     "name": "name",
@@ -104,11 +104,11 @@ class TestCounterparties:
                         "country": "country",
                         "line1": "line1",
                         "locality": "locality",
-                        "postal_code": "postal_code",
-                        "region": "region",
                         "address_types": ["business"],
                         "line2": "line2",
+                        "postal_code": "postal_code",
                         "primary": True,
+                        "region": "region",
                     }
                 ],
                 "bank_settings": {
@@ -147,7 +147,7 @@ class TestCounterparties:
                 "identifications": [
                     {
                         "id_number": "id_number",
-                        "id_type": "ar_cuil",
+                        "id_type": "ad_nrt",
                         "documents": [
                             {
                                 "document_type": "articles_of_incorporation",
@@ -183,11 +183,11 @@ class TestCounterparties:
                                     "country": "country",
                                     "line1": "line1",
                                     "locality": "locality",
-                                    "postal_code": "postal_code",
-                                    "region": "region",
                                     "address_types": ["business"],
                                     "line2": "line2",
+                                    "postal_code": "postal_code",
                                     "primary": True,
+                                    "region": "region",
                                 }
                             ],
                             "bank_settings": {
@@ -226,7 +226,7 @@ class TestCounterparties:
                             "identifications": [
                                 {
                                     "id_number": "id_number",
-                                    "id_type": "ar_cuil",
+                                    "id_type": "ad_nrt",
                                     "documents": [
                                         {
                                             "document_type": "articles_of_incorporation",
@@ -258,8 +258,8 @@ class TestCounterparties:
                             "legal_structure": "corporation",
                             "listed_exchange": "listed_exchange",
                             "metadata": {
-                                "key": "value",
                                 "foo": "bar",
+                                "key": "value",
                                 "modern": "treasury",
                             },
                             "middle_name": "middle_name",
@@ -334,8 +334,8 @@ class TestCounterparties:
                 "legal_structure": "corporation",
                 "listed_exchange": "listed_exchange",
                 "metadata": {
-                    "key": "value",
                     "foo": "bar",
+                    "key": "value",
                     "modern": "treasury",
                 },
                 "middle_name": "middle_name",
@@ -354,6 +354,7 @@ class TestCounterparties:
                 ],
                 "risk_rating": "low",
                 "service_provider_legal_entity_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                "status": "draft",
                 "suffix": "suffix",
                 "terms_of_use": {
                     "accepted_at": parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -404,8 +405,8 @@ class TestCounterparties:
             },
             legal_entity_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={
-                "key": "value",
                 "foo": "bar",
+                "key": "value",
                 "modern": "treasury",
             },
             send_remittance_advice=True,
@@ -682,10 +683,10 @@ class TestAsyncCounterparties:
                     "account_details": [
                         {
                             "account_number": "account_number",
-                            "account_number_type": "au_number",
+                            "account_number_type": "arbitrum_address",
                         }
                     ],
-                    "account_type": "base_wallet",
+                    "account_type": "cash",
                     "contact_details": [
                         {
                             "contact_identifier": "contact_identifier",
@@ -703,16 +704,16 @@ class TestAsyncCounterparties:
                         "external_id": "external_id",
                         "ledger_account_category_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                         "ledgerable_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                        "ledgerable_type": "counterparty",
+                        "ledgerable_type": "external_account",
                         "metadata": {
-                            "key": "value",
                             "foo": "bar",
+                            "key": "value",
                             "modern": "treasury",
                         },
                     },
                     "metadata": {
-                        "key": "value",
                         "foo": "bar",
+                        "key": "value",
                         "modern": "treasury",
                     },
                     "name": "name",
@@ -747,11 +748,11 @@ class TestAsyncCounterparties:
                         "country": "country",
                         "line1": "line1",
                         "locality": "locality",
-                        "postal_code": "postal_code",
-                        "region": "region",
                         "address_types": ["business"],
                         "line2": "line2",
+                        "postal_code": "postal_code",
                         "primary": True,
+                        "region": "region",
                     }
                 ],
                 "bank_settings": {
@@ -790,7 +791,7 @@ class TestAsyncCounterparties:
                 "identifications": [
                     {
                         "id_number": "id_number",
-                        "id_type": "ar_cuil",
+                        "id_type": "ad_nrt",
                         "documents": [
                             {
                                 "document_type": "articles_of_incorporation",
@@ -826,11 +827,11 @@ class TestAsyncCounterparties:
                                     "country": "country",
                                     "line1": "line1",
                                     "locality": "locality",
-                                    "postal_code": "postal_code",
-                                    "region": "region",
                                     "address_types": ["business"],
                                     "line2": "line2",
+                                    "postal_code": "postal_code",
                                     "primary": True,
+                                    "region": "region",
                                 }
                             ],
                             "bank_settings": {
@@ -869,7 +870,7 @@ class TestAsyncCounterparties:
                             "identifications": [
                                 {
                                     "id_number": "id_number",
-                                    "id_type": "ar_cuil",
+                                    "id_type": "ad_nrt",
                                     "documents": [
                                         {
                                             "document_type": "articles_of_incorporation",
@@ -901,8 +902,8 @@ class TestAsyncCounterparties:
                             "legal_structure": "corporation",
                             "listed_exchange": "listed_exchange",
                             "metadata": {
-                                "key": "value",
                                 "foo": "bar",
+                                "key": "value",
                                 "modern": "treasury",
                             },
                             "middle_name": "middle_name",
@@ -977,8 +978,8 @@ class TestAsyncCounterparties:
                 "legal_structure": "corporation",
                 "listed_exchange": "listed_exchange",
                 "metadata": {
-                    "key": "value",
                     "foo": "bar",
+                    "key": "value",
                     "modern": "treasury",
                 },
                 "middle_name": "middle_name",
@@ -997,6 +998,7 @@ class TestAsyncCounterparties:
                 ],
                 "risk_rating": "low",
                 "service_provider_legal_entity_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                "status": "draft",
                 "suffix": "suffix",
                 "terms_of_use": {
                     "accepted_at": parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -1047,8 +1049,8 @@ class TestAsyncCounterparties:
             },
             legal_entity_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={
-                "key": "value",
                 "foo": "bar",
+                "key": "value",
                 "modern": "treasury",
             },
             send_remittance_advice=True,

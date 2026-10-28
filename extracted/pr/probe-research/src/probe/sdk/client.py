@@ -3175,6 +3175,13 @@ class Client:
         """Unified view of installs, API/MCP credentials, and capture devices."""
         return self.transport.get("/v1/client-installations")
 
+    def retire_client_installations(self, ids: list[str]) -> dict:
+        """Retire these machines (`POST /v1/client-installations/retire`): their
+        rows leave the dashboard, their capture keys and the credentials bound
+        to them only are revoked. Explicit ids only; needs a token with the
+        `delete` scope. 404 when none of them is live (already retired)."""
+        return self.transport.post("/v1/client-installations/retire", {"ids": list(ids)})
+
     # -- workspaces ---------------------------------------------------------
     def list_workspaces(self) -> list[dict]:
         """Every workspace in the team, as an unpaginated list in server order.

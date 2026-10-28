@@ -160,3 +160,33 @@ def test_no_object_is_ever_kept_whole(table: str, metadata: dict, kept: dict) ->
     """Every nested key is a NAMED structure subkey or dropped; a leaf holds no object."""
     out = seal_payload(table, {"id": "x", "conversation_id": CONV, "metadata": metadata}, op_type="update", ctx=_ctx())
     assert out["metadata"] == kept and not _contains_canary(out)
+
+
+def test_the_coordinator_seals_a_direct_queue_even_without_ambient_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The tool ledger queues ``chat.tool_call`` updates straight onto the Coordinator (no funnel),
+    from detached tasks with no ambient context. The sealed run's ``execution_events`` reached the
+    database and the ``chat.refuse_sealed_content`` trigger failed the commit
+    (``persistence_commit_failed``). The Coordinator itself must seal."""
+    from matrx_ai.persistence import coordinator as coord_mod
+    from matrx_ai.persistence.coordinator import Coordinator
+
+    monkeypatch.setattr(coord_mod, "get_model", lambda _t: object)
+    coord = Coordinator(request_id="r", conversation_id=CONV)
+    coord._seal_ctx = _ctx()
+    deferred: list[dict[str, Any]] = []
+
+    class _Session:
+        def defer_update(self, _model: Any, _pk: Any, payload: dict[str, Any]) -> str:
+            deferred.append(payload)
+            return "op"
+
+    coord._session = _Session()
+    coord.queue(
+        "chat.tool_call",
+        {"id": "t", "status": "completed", "output": CANARY, "execution_events": [{"x": CANARY}]},
+        op_type="update",
+        primary_key=("id", "t"),
+    )
+    assert deferred, "the structure update must still be queued"
+    assert not _contains_canary(deferred[0]) and "execution_events" not in deferred[0]
+    assert deferred[0]["status"] == "completed"

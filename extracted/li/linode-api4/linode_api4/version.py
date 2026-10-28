@@ -2,4 +2,4 @@
 The version of this linode_api4 package.
 """
 
-__version__ = "v5.48.0"
+__version__ = "v5.49.0"

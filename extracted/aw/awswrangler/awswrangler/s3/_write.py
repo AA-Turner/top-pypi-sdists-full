@@ -32,6 +32,8 @@ _COMPRESSION_2_EXT: dict[str | None, str] = {
     "xz": ".xz",
     "zip": ".zip",
     "zstd": ".zstd",
+    "brotli": ".brotli",
+    "lz4": ".lz4",
 }
 
 
@@ -239,7 +241,7 @@ class _S3WriteStrategy(ABC):
     ) -> None:
         pass
 
-    def write(  # noqa: PLR0913
+    def write(  # noqa: PLR0913, PLR0917
         self,
         df: pd.DataFrame,
         path: str | None,

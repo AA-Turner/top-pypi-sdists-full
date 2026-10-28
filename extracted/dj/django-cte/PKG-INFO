@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-cte
-Version: 4.0.0
+Version: 5.0.1
 Summary: Common Table Expressions (CTE) for Django
 Author-email: Daniel Miller <millerdev@gmail.com>
 Requires-Python: >= 3.10

@@ -42,7 +42,7 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use chalk_queue::semaphore::renew_many;
+use chalk_queue::semaphore::{release_many, renew_many};
 use chalk_queue::stream_writer;
 use chalk_queue::types::{DeliveryAttempt, QueuedCall};
 use chalk_queue::{
@@ -802,7 +802,7 @@ async fn run_stream_dispatch_loop(
     input_queue: BoundFunctionQueue,
     legacy_queue: Option<BoundFunctionQueue>,
     sem: chalk_queue::DistributedSemaphore,
-    conn: ConnectionManager,
+    mut conn: ConnectionManager,
     consumer_name: String,
     live_calls: LiveCalls,
     handler: Arc<PythonHandler>,
@@ -877,23 +877,23 @@ async fn run_stream_dispatch_loop(
             }
         }
 
+        // Return unused reservations in one round-trip before dispatching work.
+        // Transferring the tokens prevents Drop from also releasing each lease.
+        let used = deliveries.len().min(leases.len());
+        let unused_tokens = leases
+            .split_off(used)
+            .into_iter()
+            .map(SemaphoreLease::into_token)
+            .collect::<Vec<_>>();
+        let _ = release_many(&mut conn, sem.key(), &unused_tokens).await;
+
         if deliveries.is_empty() {
-            for lease in leases {
-                let _ = lease.release().await;
-            }
             tokio::time::sleep(backoff).await;
             backoff = (backoff * 2).min(config.poll_backoff_max);
             continue;
         }
 
         backoff = config.poll_backoff_initial;
-        // `dequeue_many` can return fewer records than requested. Only retain
-        // one lease per record and immediately return the unneeded capacity.
-        let used = deliveries.len().min(leases.len());
-        let unused = leases.split_off(used);
-        for lease in unused {
-            let _ = lease.release().await;
-        }
         for (delivery, lease) in deliveries.into_iter().zip(leases) {
             dispatch_delivery(
                 queue.clone(),

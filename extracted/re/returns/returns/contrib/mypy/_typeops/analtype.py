@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from types import MappingProxyType
 from typing import Final, Literal, overload
 
 from mypy.checkmember import analyze_member_access
@@ -9,14 +8,15 @@ from mypy.types import Type as MypyType
 
 from returns.contrib.mypy._structures.args import FuncArg
 from returns.contrib.mypy._structures.types import CallableContext
+from returns.primitives.compat import make_immutable
 
-#: Mapping for better `call || function` argument compatibility.
-_KIND_MAPPING: Final = MappingProxyType({
+_KIND_MAPPING: Final = make_immutable({
     # We have to replace `ARG_OPT` to `ARG_NAMED`,
     # because `ARG_OPT` is only used in function defs, not calls.
     # And `ARG_NAMED` is the same thing for calls.
     ARG_OPT: ARG_NAMED,
 })
+"""Mapping for better `call || function` argument compatibility."""
 
 
 @overload

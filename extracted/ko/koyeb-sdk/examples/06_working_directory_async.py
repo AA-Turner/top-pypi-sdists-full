@@ -30,7 +30,7 @@ async def main():
 
         # Setup: create directory structure
         await sandbox.exec("mkdir -p /tmp/my_project/src")
-        await sandbox.exec("echo 'print(\\\"hello\\\")' > /tmp/my_project/src/main.py")
+        await sandbox.exec("echo 'print(\"hello\")' > /tmp/my_project/src/main.py")
 
         # Run command in specific directory
         result = await sandbox.exec("pwd", cwd="/tmp/my_project")

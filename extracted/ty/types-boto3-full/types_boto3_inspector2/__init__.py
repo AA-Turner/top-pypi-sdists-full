@@ -31,6 +31,7 @@ Usage::
         ListFindingAggregationsPaginator,
         ListFindingsPaginator,
         ListMembersPaginator,
+        ListOnDemandScansPaginator,
         ListUsageTotalsPaginator,
         SearchVulnerabilitiesPaginator,
     )
@@ -58,6 +59,7 @@ Usage::
     list_finding_aggregations_paginator: ListFindingAggregationsPaginator = client.get_paginator("list_finding_aggregations")
     list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
     list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
+    list_on_demand_scans_paginator: ListOnDemandScansPaginator = client.get_paginator("list_on_demand_scans")
     list_usage_totals_paginator: ListUsageTotalsPaginator = client.get_paginator("list_usage_totals")
     search_vulnerabilities_paginator: SearchVulnerabilitiesPaginator = client.get_paginator("search_vulnerabilities")
     ```
@@ -81,6 +83,7 @@ from .paginator import (
     ListFindingAggregationsPaginator,
     ListFindingsPaginator,
     ListMembersPaginator,
+    ListOnDemandScansPaginator,
     ListUsageTotalsPaginator,
     SearchVulnerabilitiesPaginator,
 )
@@ -111,6 +114,7 @@ __all__ = (
     "ListFindingAggregationsPaginator",
     "ListFindingsPaginator",
     "ListMembersPaginator",
+    "ListOnDemandScansPaginator",
     "ListUsageTotalsPaginator",
     "SearchVulnerabilitiesPaginator",
 )

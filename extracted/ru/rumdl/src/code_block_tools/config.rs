@@ -38,6 +38,16 @@ pub struct CodeBlockToolsConfig {
     #[serde(default, alias = "binary_preferences")]
     pub binary_preferences: BTreeMap<String, BinaryPreference>,
 
+    /// Optional project metadata source for external tool version verification.
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "tool_version_definition")]
+    pub tool_version_definition: Option<ToolVersionDefinition>,
+
+    /// Policy for mismatched or unresolved external tool versions.
+    /// Defaults to `warn` and runs the tool; `fail` skips only that tool.
+    /// Inactive unless a tool-version-definition is configured.
+    #[serde(default = "default_on_tool_version_mismatch", alias = "on_tool_version_mismatch")]
+    pub on_tool_version_mismatch: OnMissing,
+
     /// Policy for unlabeled fenced code blocks.
     #[serde(default, alias = "on_missing_language_tag")]
     pub on_missing_language_tag: OnMissing,
@@ -90,6 +100,10 @@ fn default_timeout() -> u64 {
     30_000
 }
 
+fn default_on_tool_version_mismatch() -> OnMissing {
+    OnMissing::Warn
+}
+
 fn default_on_missing_tool_binary() -> OnMissing {
     OnMissing::Warn
 }
@@ -110,16 +124,25 @@ impl CodeBlockToolsConfig {
     }
 
     pub fn requires_fail_fast(&self) -> bool {
-        self.enabled
-            && [
-                self.on_missing_language_tag,
-                self.unknown_language_policy(),
-                self.on_missing_mode_definition,
-                self.on_missing_language_definition,
-                self.on_missing_tool_binary,
-                self.on_no_tools_run,
-            ]
-            .contains(&OnMissing::FailFast)
+        self.enabled && self.has_fail_fast_policy()
+    }
+
+    pub(crate) fn version_fail_fast(&self) -> bool {
+        self.tool_version_definition.is_some() && self.on_tool_version_mismatch == OnMissing::FailFast
+    }
+
+    /// Processors can also be called directly, without the invocation's enabled gate.
+    pub(crate) fn has_fail_fast_policy(&self) -> bool {
+        [
+            self.on_missing_language_tag,
+            self.unknown_language_policy(),
+            self.on_missing_mode_definition,
+            self.on_missing_language_definition,
+            self.on_missing_tool_binary,
+            self.on_no_tools_run,
+        ]
+        .contains(&OnMissing::FailFast)
+            || self.version_fail_fast()
     }
 }
 
@@ -132,6 +155,8 @@ impl Default for CodeBlockToolsConfig {
             on_missing_language_definition: OnMissing::default(),
             on_missing_tool_binary: default_on_missing_tool_binary(),
             binary_preferences: BTreeMap::new(),
+            tool_version_definition: None,
+            on_tool_version_mismatch: default_on_tool_version_mismatch(),
             on_missing_language_tag: OnMissing::Ignore,
             on_unknown_language_tag: None,
             on_missing_mode_definition: OnMissing::Ignore,
@@ -142,6 +167,42 @@ impl Default for CodeBlockToolsConfig {
             language_aliases: BTreeMap::new(),
             tools: BTreeMap::new(),
             values_withheld: false,
+        }
+    }
+}
+
+/// Supported authoritative sources for external tool versions.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
+pub enum ToolVersionDefinition {
+    /// Select the nearest metadata file, preferring resolved versions and hook pins.
+    #[serde(rename = "auto")]
+    Auto,
+    /// Exact resolved Python package versions in the nearest project lockfile.
+    #[serde(rename = "uv.lock")]
+    UvLock,
+    /// Declared Python dependency and tool version constraints.
+    #[serde(rename = "pyproject.toml")]
+    Pyproject,
+    /// Version-like revisions of supported official pre-commit hook repositories.
+    #[serde(rename = ".pre-commit-config.yaml")]
+    PreCommit,
+    /// Version-like revisions in the alternate pre-commit YAML filename.
+    #[serde(rename = ".pre-commit-config.yml")]
+    PreCommitYml,
+    /// Version-like revisions of supported official prek hook repositories.
+    #[serde(rename = "prek.toml")]
+    Prek,
+}
+
+impl ToolVersionDefinition {
+    pub(super) fn filename(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::UvLock => "uv.lock",
+            Self::Pyproject => "pyproject.toml",
+            Self::PreCommit => ".pre-commit-config.yaml",
+            Self::PreCommitYml => ".pre-commit-config.yml",
+            Self::Prek => "prek.toml",
         }
     }
 }

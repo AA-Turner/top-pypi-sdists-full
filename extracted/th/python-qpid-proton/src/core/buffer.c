@@ -115,25 +115,34 @@ static size_t pni_buffer_tail_space(pn_buffer_t *buf)
 
 int pn_buffer_ensure(pn_buffer_t *buf, size_t size)
 {
+  if (pn_buffer_available(buf) >= size) return 0;
+
+  // Reject the request before adding it to the size, so the sum can't wrap
+  if (size > 0x80000000ULL) {
+    return PN_OUT_OF_MEMORY;
+  }
+  uint64_t needed = (uint64_t) buf->size + size;
+  if (needed < 32) needed = 32;
+  if (needed > 0x80000000ULL) {
+    return PN_OUT_OF_MEMORY;
+  }
+  uint32_t new_capacity = pni_round_up_pow2((uint32_t) needed);
+  char* new_bytes = (char *) pni_mem_subreallocate(PN_CLASSCLASS(pn_buffer), buf, buf->bytes, new_capacity);
+  if (!new_bytes) {
+    return PN_OUT_OF_MEMORY;
+  }
+
   size_t old_capacity = buf->capacity;
   size_t old_head = pni_buffer_head(buf);
   bool wrapped = pni_buffer_wrapped(buf);
 
-  while (pn_buffer_available(buf) < size) {
-    buf->capacity = 2*(buf->capacity ? buf->capacity : 16);
-  }
+  buf->bytes = new_bytes;
+  buf->capacity = new_capacity;
 
-  if (buf->capacity != old_capacity) {
-    char* new_bytes = (char *) pni_mem_subreallocate(PN_CLASSCLASS(pn_buffer), buf, buf->bytes, buf->capacity);
-    if (new_bytes) {
-      buf->bytes = new_bytes;
-
-      if (wrapped) {
-          size_t n = old_capacity - old_head;
-          memmove(buf->bytes + buf->capacity - n, buf->bytes + old_head, n);
-          buf->start = buf->capacity - n;
-      }
-    }
+  if (wrapped) {
+    size_t n = old_capacity - old_head;
+    memmove(buf->bytes + buf->capacity - n, buf->bytes + old_head, n);
+    buf->start = buf->capacity - n;
   }
 
   return 0;

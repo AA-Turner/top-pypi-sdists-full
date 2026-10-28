@@ -89,12 +89,17 @@ class TestRaiseOnErrorOptIn(unittest.TestCase):
         self.assertTrue(result.success)
 
     def test_raise_on_error_non_streaming(self):
-        client = FakeSyncClient(run_response={"stdout": "", "stderr": "boom", "code": 2})
+        client = FakeSyncClient(
+            run_response={"stdout": "", "stderr": "boom", "code": 2}
+        )
         with self.assertRaises(SandboxCommandError) as cm:
             _exec(client, stream=False, raise_on_error=True)
         self.assertEqual(cm.exception.result.stderr, "boom")
         # default still returns the failed result
-        result = _exec(FakeSyncClient(run_response={"stdout": "", "stderr": "boom", "code": 2}), stream=False)
+        result = _exec(
+            FakeSyncClient(run_response={"stdout": "", "stderr": "boom", "code": 2}),
+            stream=False,
+        )
         self.assertEqual(result.status, CommandStatus.FAILED)
 
 
@@ -121,7 +126,9 @@ class TestRaiseOnErrorAsyncMirror(unittest.TestCase):
             _exec_async(client, stream=False, raise_on_error=True)
 
     def test_default_non_streaming_returns_failed_result(self):
-        client = FakeAsyncClient(run_response={"stdout": "", "stderr": "boom", "code": 2})
+        client = FakeAsyncClient(
+            run_response={"stdout": "", "stderr": "boom", "code": 2}
+        )
         result = _exec_async(client, stream=False)
         self.assertEqual(result.status, CommandStatus.FAILED)
 

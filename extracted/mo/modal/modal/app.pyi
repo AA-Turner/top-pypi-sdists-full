@@ -298,6 +298,7 @@ class _App:
         """
         ...
 
+    def _ensure_app_id(self, method: str) -> str: ...
     def _validate_blueprint_value(self, key: str, value: typing.Any): ...
     def _uncreate_all_objects(self): ...
     def _set_local_app(
@@ -902,6 +903,24 @@ class _App:
         """
         ...
 
+    async def stop(self, *, client: typing.Optional[modal.client._Client] = None) -> None:
+        """Stop the App.
+
+        Stopping an App terminates all of its running containers and sandboxes and prevents
+        new inputs from being processed.
+
+        **Examples:**
+
+        ```python notest
+        app = modal.App.lookup("my-app")
+        app.stop()
+        ```
+
+        Args:
+            client: Modal client to use for the RPC.
+        """
+        ...
+
     @classmethod
     def _get_container_app(cls) -> typing.Optional[_App]:
         """Returns the `App` running inside a container.
@@ -1187,6 +1206,7 @@ class App:
 
     get_dashboard_url: __get_dashboard_url_spec
 
+    def _ensure_app_id(self, method: str) -> str: ...
     def _validate_blueprint_value(self, key: str, value: typing.Any): ...
     def _uncreate_all_objects(self): ...
 
@@ -1974,6 +1994,45 @@ class App:
             ...
 
     get_tags: __get_tags_spec
+
+    class __stop_spec(typing_extensions.Protocol):
+        def __call__(self, /, *, client: typing.Optional[modal.client.Client] = None) -> None:
+            """Stop the App.
+
+            Stopping an App terminates all of its running containers and sandboxes and prevents
+            new inputs from being processed.
+
+            **Examples:**
+
+            ```python notest
+            app = modal.App.lookup("my-app")
+            app.stop()
+            ```
+
+            Args:
+                client: Modal client to use for the RPC.
+            """
+            ...
+
+        async def aio(self, /, *, client: typing.Optional[modal.client.Client] = None) -> None:
+            """Stop the App.
+
+            Stopping an App terminates all of its running containers and sandboxes and prevents
+            new inputs from being processed.
+
+            **Examples:**
+
+            ```python notest
+            app = modal.App.lookup("my-app")
+            app.stop()
+            ```
+
+            Args:
+                client: Modal client to use for the RPC.
+            """
+            ...
+
+    stop: __stop_spec
 
     @classmethod
     def _get_container_app(cls) -> typing.Optional[App]:

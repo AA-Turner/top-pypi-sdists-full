@@ -613,6 +613,26 @@ class CompletedRequest:
             _trim_summary = None
             _trim_by_iteration = {}
 
+        # The make-it-fit record (``SendPrep.fit``), landed beside the trim audit by
+        # ``send_boundary._record_fit`` and persisted the same way: iteration 1 reads
+        # ``last_fit``, every iteration its own ``fit_by_iteration`` entry.
+        _last_fit: dict[str, Any] | None = None
+        _fit_by_iteration: dict[int, dict[str, Any]] = {}
+        try:
+            from matrx_ai.context.app_context import try_get_app_context as _fit_app_ctx
+
+            _fit_ctx = _fit_app_ctx()
+            if _fit_ctx is not None:
+                _last_fit = _fit_ctx.metadata.get("last_fit")
+                _fits = _fit_ctx.metadata.get("fit_by_iteration")
+                if isinstance(_fits, dict):
+                    _fit_by_iteration = {
+                        int(k): v for k, v in _fits.items() if isinstance(v, dict)
+                    }
+        except Exception:
+            _last_fit = None
+            _fit_by_iteration = {}
+
         request_rows: list[dict[str, Any]] = []
         for i in range(self.iterations):
             row: dict[str, Any] = {"iteration": i + 1}
@@ -839,6 +859,12 @@ class CompletedRequest:
             if i == self.iterations - 1:
                 fr = self.metadata.get("finish_reason")
                 row["finish_reason"] = str(fr) if fr is not None else None
+
+            _iter_fit = _fit_by_iteration.get(i + 1)
+            if _iter_fit is None and i == 0 and isinstance(_last_fit, dict):
+                _iter_fit = _last_fit
+            if _iter_fit is not None:
+                row.setdefault("metadata", {})["input_fit"] = _iter_fit
 
             request_rows.append(row)
 

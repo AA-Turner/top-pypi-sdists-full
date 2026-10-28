@@ -269,8 +269,9 @@ _test_acquire_and_decode (void)
  * sequence gets wired into dsss_receiver_core.c's own internals (task #95).
  * Mirrors this session's own Python validation methodology (a ramp, not a
  * static offset; bn_fll=0 vs bn_fll>0 to prove the mechanism is NEEDED, not
- * just present) at the SPEC-derived bn_carrier=0.01/bn_fll=0.03 operating
- * point, using the real segments=4 Dll DsssReceiver already relies on. */
+ * just present) at the specification-derived bn_carrier=0.01/bn_fll=0.03
+ * operating point, using the real segments=4 Dll DsssReceiver already relies
+ * on. */
 static double
 _run_ramp_composition (const uint8_t *code, size_t sf, size_t spc, double fs,
                        double rate_hz_per_s, size_t n_periods, double sigma,
@@ -327,14 +328,14 @@ _test_carrier_dll_composition_ramp (void)
 {
   /* sf=7 (CODE7) makes the per-period rate absurdly fast (~143 kHz),
    * trivially tracking a 500 Hz/s ramp with a bare PLL -- not
-   * representative of SPEC's real geometry. Use a PRBS-1023 code + spc=2
-   * to reproduce the same tsamps=2046/fs=4.092e6 operating point this
+   * representative of the specification's real geometry. Use a PRBS-1023 code
+   * + spc=2 to reproduce the same tsamps=2046/fs=4.092e6 operating point this
    * session's real_costas_fll_3_10db.png investigation already validated
    * the standalone Costas object against. */
   const size_t sf            = 1023;
   const size_t spc           = 2;
   const double fs            = 4.092e6;
-  const double rate_hz_per_s = 500.0; /* SPEC's corrected worst case */
+  const double rate_hz_per_s = 500.0; /* the specification's worst case */
   const size_t n_periods     = 2700;  /* matches this session's own
                                           Python floor-sweep scale */
   const double sigma = 0.6;           /* a stressed, not comfortable,
@@ -355,8 +356,8 @@ _test_carrier_dll_composition_ramp (void)
    * this ramp anywhere near as well as bn_fll=0.03 -- proves this isn't
    * passing by accident (e.g. a ramp too gentle to matter). */
   DP_CHECK (err_on < err_off);
-  /* And it must actually WORK: bounded absolute error at SPEC's own
-   * worst-case rate, generous vs. the Python-validated ~63 Hz mean (this
+  /* And it must actually WORK: bounded absolute error at the specification's
+   * own worst-case rate, generous vs. the Python-validated ~63 Hz mean (this
    * is a single-seed C smoke test, not a calibrated statistical sweep --
    * that's what task #97's integration test is for). */
   DP_CHECK (err_on < 300.0);
@@ -364,45 +365,35 @@ _test_carrier_dll_composition_ramp (void)
   return 0;
 }
 
-/* The first sustained-Doppler-rate regression this object has ever had
- * (task #18/#93/#97): the full Acquisition -> carrier(bn_fll) -> Dll ->
- * RateConverter -> MpskReceiver chain, at SPEC's own real operating-point
- * RATIOS (`chip_rate=3.069e6`, `code_len=1023`, `symbol_rate=2700` --
- * CCSDS Gold-1023 @ 3.069 Mcps / async BPSK @ 2700 bps, `SPEC.md`'s own
- * numbers), against a 500 Hz/s ramp -- SPEC's corrected worst case -- must
- * stay locked and decode. Critically, `chip_rate/(code_len*symbol_rate)`
- * ~= 1.111 periods/symbol -- NOT an integer -- so the data-symbol clock is
- * genuinely ASYNCHRONOUS to the code-epoch clock (symbol boundaries drift
- * across period boundaries over the run, exactly the scenario `segments>1`
- * exists to handle; this project's whole "async despreader" story, tasks
- * #40-60). An earlier draft of this test picked `symbol_rate =
- * chip_rate/code_len` for convenience -- an exact 1 period/symbol, i.e. a
- * SYNCHRONOUS clock -- which would have proven the carrier-rate mechanism
- * survives in combination with a clock relationship SPEC doesn't actually
- * have, silently skipping the one dimension (async data) this whole
- * codebase's history says is the hard part. Fixed to use SPEC's real
- * ratio, caught by the user asking "have you tested the SPEC use-case with
- * async data?" before this was committed. cn0 is moderately (not
- * maximally) stressed: the SNR-floor behavior of the mechanism itself is
- * already covered by the Python floor sweep (FINISHING_PLAN.md) and the
- * isolated C composition test above; this test's own job is proving the
- * FULL composed receiver survives a sustained RATE *and* async data
- * end-to-end together, not re-proving the SNR floor. */
+/* Sustained Doppler rate through the full Acquisition -> carrier(bn_fll) ->
+ * Dll -> RateConverter -> MpskReceiver chain, at the specification's
+ * operating-point ratios (docs/design/async-dsss-receiver.md §1:
+ * `chip_rate=3.069e6`, `code_len=1023`, `symbol_rate=2700`, CCSDS Gold-1023
+ * with async BPSK), against its 500 Hz/s worst-case ramp: the receiver must
+ * stay locked and decode. `chip_rate/(code_len*symbol_rate)` ~= 1.111
+ * periods/symbol, NOT an integer, so the data-symbol clock is genuinely
+ * ASYNCHRONOUS to the code-epoch clock and symbol boundaries drift across
+ * period boundaries over the run (the case `segments>1` exists for). A
+ * synchronous `symbol_rate = chip_rate/code_len` would skip the async-data
+ * dimension, which is the hard part. cn0 is moderately (not maximally)
+ * stressed: the isolated C composition test above covers the mechanism's
+ * SNR floor; this test proves the FULL composed receiver survives a
+ * sustained RATE and async data together. */
 static int
 _test_sustained_doppler_rate (void)
 {
 
   const size_t sf        = 1023;
   const size_t spc       = 2;
-  const double chip_rate = 3.069e6; /* SPEC.md's own Gold-1023 rate */
+  const double chip_rate = 3.069e6; /* the specification's Gold-1023 rate */
   const double fs        = chip_rate * (double)spc;
-  const double sym_rate  = 2700.0; /* SPEC.md's own async BPSK rate --
+  const double sym_rate  = 2700.0; /* the specification's async BPSK rate --
                                        chip_rate/(sf*sym_rate) ~= 1.111
                                        periods/symbol, deliberately
                                        NOT an integer (see above). */
   const double tsym          = fs / sym_rate;
   const size_t te            = sf * spc;
-  const double rate_hz_per_s = 500.0; /* SPEC's corrected worst case */
+  const double rate_hz_per_s = 500.0; /* the specification's worst case */
   const size_t n_sym         = 2430;  /* ~2700 code periods' worth of
                                           duration at this async ratio,
                                           matching this session's own
@@ -448,9 +439,10 @@ _test_sustained_doppler_rate (void)
 
   DP_CHECK (dp_dsss_receiver_get_tracking (rx4) == 1);
   /* A receiver that lost lock partway through (the ~117 Hz/s bare-PLL
-   * cliff this session's own investigation found -- SPEC's 500 Hz/s is
-   * ~4x past it) would emit far fewer symbols than the run's own length;
-   * staying locked through most of it is the actual claim under test. */
+   * cliff this session's own investigation found -- the specification's 500
+   * Hz/s is ~4x past it) would emit far fewer symbols than the run's own
+   * length; staying locked through most of it is the actual claim under test.
+   */
   DP_CHECK (n_syms4 > (n_sym / 2));
   /* BER is scored by searching an unknown lag and polarity, so it is never
      asserted alone (see dp_sym_test.h): both truth-free validators must agree

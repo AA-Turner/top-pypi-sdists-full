@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, StrEnum
 from typing import TYPE_CHECKING, NamedTuple, NoReturn, TypeVar
 
@@ -171,6 +171,20 @@ UNCLASSIFIED_TAG = "vocab:unclassified"
 #: membership half, since the stages read both halves from one module.
 SHAPE_ACRONYM_TAG = "shape:acronym"
 
+#: The tags classify writes on the FIRST word of a credential written
+#: split across a space (`_pipeline._vocab.split_pair`), naming the
+#: piece tag the pair merges with: SPLIT_CREDENTIAL_TAG the Ph./D. pair,
+#: merged as an unambiguous suffix ("suffix"), and SPLIT_MEMBER_TAG any
+#: other, merged as a member of the ambiguous class ("split", rules/S12).
+#: Written by classify because it is the one stage that sees every
+#: adjacent pair with the lexicon in hand, so group's merge and
+#: `_comma._pieces` read the decision off a tag, C-level, rather than
+#: each asking the vocabulary of every pair; and defined here, at the
+#: bottom of the graph, because case repair reads them too, repairing
+#: a split credential in the suffix as its one-word twin.
+SPLIT_CREDENTIAL_TAG = "split:credential"
+SPLIT_MEMBER_TAG = "split:member"
+
 #: The one-element tag set its two producers stamp, built once.
 _UNCLASSIFIED = frozenset({UNCLASSIFIED_TAG})
 
@@ -211,16 +225,32 @@ def _guarded_getstate(self: object) -> dict[str, object]:
     return {f.name: getattr(self, f.name) for f in fields}
 
 
+#: The metadata key a field added after a type first shipped carries,
+#: naming the release that added it. Such a field must have a default,
+#: and it is the ONE skew `_guarded_setstate` accepts: a pickle written
+#: before the release lacks it, and loads with the default (2.7, #752).
+#: A field without the key -- every field a type shipped with -- is
+#: still required, default or not, so a pickle missing `Token.tags` is
+#: refused as it always was.
+ADDED_IN = "nameparser.added_in"
+
+
 def _guarded_setstate(self: object, state: dict[str, object]) -> None:
     fields = dataclasses.fields(self)  # type: ignore[arg-type]
     expected = {f.name for f in fields}
-    if set(state) != expected:
-        missing = ", ".join(sorted(expected - set(state))) or "none"
+    added = {f.name: f for f in fields
+             if ADDED_IN in f.metadata and f.default is not dataclasses.MISSING}
+    missing_set = expected - set(state) - set(added)
+    if missing_set or not set(state) <= expected:
+        missing = ", ".join(sorted(missing_set)) or "none"
         unexpected = ", ".join(sorted(set(state) - expected)) or "none"
         raise ValueError(
             f"incompatible {type(self).__name__} pickle: missing "
             f"fields: {missing}; unexpected fields: {unexpected}"
         )
+    for name, f in added.items():
+        if name not in state:
+            object.__setattr__(self, name, f.default)
     for name, value in state.items():
         object.__setattr__(self, name, value)
 
@@ -430,11 +460,12 @@ class AmbiguityKind(StrEnum):
     #: Delimited content is an ambiguous suffix acronym, so it reads
     #: plausibly as either a post-nominal or a nickname -- "JEFFREY
     #: (JD) BRICKEN" keeps the nickname reading, where the
-    #: unambiguous "(MBA)" escapes to suffix on vocabulary alone.
+    #: unambiguous "(MBA)" escapes to suffix on vocabulary alone, and
+    #: "Andrew Perkins (JD)" on its capitals, which settle it.
     SUFFIX_OR_NICKNAME = "suffix-or-nickname"
     #: A trailing word reads plausibly as either a post-nominal or an
     #: ordinary name part. Covers an ambiguous acronym written without
-    #: periods ("John Smith MA" takes MA as a credential because a
+    #: periods ("JOHN SMITH MA" takes MA as a credential because a
     #: family name remains; "JACK MA", written wholly in one case, keeps
     #: it as the name because none would, while in a mixed-case name
     #: the capitals decide outright -- "Jack MA" is the credential and
@@ -447,6 +478,11 @@ class AmbiguityKind(StrEnum):
     #: vd" takes ``vd`` for *van der* and declines the decoration.
     #: Which name part was declined depends on position and
     #: ``name_order``, so ``detail`` names it rather than the kind.
+    #: Since 2.7 a listed member its capitals settle in a mixed-case
+    #: name is not reported at any slot below, as one written with its
+    #: periods is not ("John Smith MA", "Doe, John DO", "John Smith,
+    #: MA" are silent, rules/S6, #785), so the examples below that
+    #: report are written in one case, in lower case or in Title case.
     #: The same doubt covers an input that is nothing BUT post-nominal
     #: vocabulary ("Rinpoche", "QC MP"): with no name word beside it
     #: the first post-nominal is read as the name, because something
@@ -460,7 +496,7 @@ class AmbiguityKind(StrEnum):
     #: comma is not among them, so "Smith, John, MA" is silent; what
     #: such a part does report is rules/C2's to say.
     #: Since 2.4 the given part's trailing slot reports whichever way
-    #: it read the word: "Doe, John MA" reads suffix ``MA`` and says
+    #: it read the word: "DOE, JOHN MA" reads suffix ``MA`` and says
     #: so, "Doe, John Ma" keeps middle ``Ma`` and says so too. Not in
     #: EVERY direction, though: where the member is also a particle
     #: and the particle rule keeps it, that rule reports at its own
@@ -476,11 +512,11 @@ class AmbiguityKind(StrEnum):
     #: that the company leaves holding no name word ("John Smith PhD
     #: MEng", "Doe, Jane PhD MEng" and "Smith, PhD MEng" each report
     #: ``MEng``). A member its own capitals already made the
-    #: credential reports nothing new, so "Smith, PhD MA" and "John
+    #: credential reports nothing, so "Smith, PhD MA" and "John
     #: Smith, PhD MA" read suffix ``PhD MA`` in silence.
     #: Since 2.4 a maiden marker's clause reports at ITS trailing slot
-    #: too, in both directions: "Jane Doe nee Smith MA" gives maiden
-    #: ``Smith`` with suffix ``MA`` and says so, "Jane Doe nee Smith
+    #: too, in both directions: "Jane Doe nee Smith ma" gives maiden
+    #: ``Smith`` with suffix ``ma`` and says so, "Jane Doe nee Smith
     #: Ma" keeps maiden ``Smith Ma`` and says so too, and a member the
     #: clause keeps because it is the only word after the marker
     #: ("Jane Doe nee MA") reports as well. Where no trailing rule
@@ -494,13 +530,15 @@ class AmbiguityKind(StrEnum):
     #: them, and the three that follow are about the member's own
     #: surroundings. Second: a member with something BEHIND it that
     #: the trailing reading does not take was never a fork -- "Doe,
-    #: John MA Smith" reads middle ``MA Smith``, the ordinary reading,
+    #: John ma Smith" reads middle ``ma Smith``, the ordinary reading,
     #: and nothing consulted the class, and inside a clause the same
     #: holds of a name word ("Jane Doe nee MA Smith" keeps maiden
     #: ``MA Smith``), a bare trailing title among them ("Jane Doe nee
-    #: Smith MA Prof" keeps maiden ``Smith MA Prof``, where the
-    #: period-marked "Jane Doe nee Smith MA Prof." reads title
-    #: ``Prof.`` and suffix ``MA`` and reports).
+    #: Smith ma Prof" keeps maiden ``Smith ma Prof``, where the
+    #: period-marked "Jane Doe nee Smith ma Prof." reads title
+    #: ``Prof.`` and suffix ``ma`` and reports). A member its capitals
+    #: settle is no such member: it starts the credential's run
+    #: (rules/S8), so "Doe, John MA Smith" reads suffix ``MA Smith``.
     #: Third -- pre-existing, and untouched by 2.4 -- a member with no
     #: name word IN FRONT of it is not at this
     #: slot either, because the slot is the end of a given part and
@@ -517,8 +555,8 @@ class AmbiguityKind(StrEnum):
     #: the same member, one title in front of it -- reads given ``MA``
     #: in silence. A maiden marker cannot reach this position: after
     #: a family comma it is an ordinary word (rules/M2), so "Doe,
-    #: Dr. nee Smith MA" reads given ``nee``, middle ``Smith`` and
-    #: suffix ``MA`` -- and reports, the ``MA`` ending a given part
+    #: Dr. nee Smith ma" reads given ``nee``, middle ``Smith`` and
+    #: suffix ``ma`` -- and reports, the ``ma`` ending a given part
     #: like any other.
     #: And fourth -- pre-existing and untouched by 2.4 as well --
     #: a JOIN beside the member can
@@ -528,20 +566,21 @@ class AmbiguityKind(StrEnum):
     #: it: "Doe, John van Ma" reads middle ``van Ma`` in silence, and
     #: so does "Doe, John DO Ed", where the member is itself the
     #: particle the chain runs on and the name word behind it joins
-    #: the piece -- though "Doe, John DO" alone reads the credential
-    #: and reports. The particle chain is the commonest joiner but not
-    #: the only one: the bound-given join takes a member into its pair
-    #: the same way, so "Berg, abdul MA" reads given ``abdul MA`` in
-    #: silence. Where a particle the suffix vocabulary does not
+    #: the piece -- though "Doe, John DO" alone reads the credential,
+    #: its capitals settling it. The particle chain is the commonest
+    #: joiner but not the only one: the bound-given join takes a member
+    #: into its pair the same way, so "Berg, abdul ma" reads given
+    #: ``abdul ma`` in silence; neither joins a member its capitals
+    #: settle ("Berg, abdul MA" reads suffix ``MA``). Where a particle the suffix vocabulary does not
     #: also claim as an unambiguous word stands BEHIND it, the given part ends at
     #: that particle as this walk reads it, and the attachment that
     #: moves the particle to the family runs a stage too late to
-    #: re-open the question -- so "Doe, John MA do" keeps middle
-    #: ``MA``, capitals and all, beside family ``do Doe``, reporting
-    #: only the attachment's own ``PARTICLE_OR_GIVEN``. Neither half
-    #: is a rule about particles as such, and the caps spellings show
-    #: it: "Doe, John van MA" reads family ``van Doe``, suffix ``MA``
-    #: and reports both forks, and "Doe, John MA vd" reads suffix
+    #: re-open the question -- so "Doe, John ma do" keeps middle
+    #: ``ma`` beside family ``do Doe``, reporting only the
+    #: attachment's own ``PARTICLE_OR_GIVEN``. Neither half is a rule
+    #: about particles as such, and the caps spellings show it: "Doe,
+    #: John van MA" reads family ``van Doe``, suffix ``MA``, reporting
+    #: the particle's fork alone, and "Doe, John MA vd" reads suffix
     #: ``MA`` past a ``vd`` the suffix vocabulary claims outright.
     #: All four POSITIONS above are silent -- those last two names
     #: are the boundary each one stops at, not instances of it.
@@ -554,7 +593,7 @@ class AmbiguityKind(StrEnum):
     #: ``Smith Ma`` and report nothing. The writer drew the boundary,
     #: so no fork was available to decline -- a settled position
     #: rather than a fork left un-asked. The boundary cuts both ways:
-    #: "Jane Doe (nee Smith) MA" gives suffix ``MA`` and reports, the
+    #: "Jane Doe (nee Smith) ma" gives suffix ``ma`` and reports, the
     #: member standing outside the span.
     SUFFIX_OR_NAME = "suffix-or-name"
     #: An input the title peel eats down to one last word which is
@@ -572,10 +611,15 @@ class AmbiguityKind(StrEnum):
     #: standing by itself, the peel left no word to be read as a
     #: name, and no fork was taken.
     #: One name word that is a JOIN carrying title vocabulary reports
-    #: this kind too ("John of Prince"): the unit is read as a name,
+    #: this kind too ("John of Bishop"): the unit is read as a name,
     #: and whether the title word inside it is a title is the fork.
-    #: Not the title-vs-given-name collision on a word like "Baron",
-    #: which is a question about the VOCABULARY and is not this kind.
+    #: Not a word listed only as a title ("Baron"), whose collision
+    #: with a name is a question about the VOCABULARY and not this kind.
+    #: A title that may also be a given name ("Dean", rules/H9) reports
+    #: it too, where it opens the name outside a title phrase and no
+    #: comma has marked the given name: "Dean Smith" gives given "Dean".
+    #: Only a word some phrase of ``Lexicon.title_phrases`` holds
+    #: reports, so "Grace Smith" does not.
     TITLE_OR_NAME = "title-or-name"
     #: An ambiguous particle is either a particle or a name in its own
     #: right -- "Van Johnson" is the actor's given name, a bare
@@ -688,6 +732,100 @@ class AmbiguityKind(StrEnum):
     SEGMENTATION = "segmentation"
 
 
+class ReadingKind(StrEnum):
+    """What a :class:`Reading` reads a word as. A StrEnum, like
+    :class:`AmbiguityKind`: members ARE their string values. New kinds
+    may be added in minor releases; existing values never change
+    meaning. The kinds are the parse's, not the vocabulary's: a reading
+    a decision weighed is named by the category the decision asked
+    about, so ``"credential"`` covers a word listed as one and a word
+    only shaped like one, which :attr:`Reading.source` tells apart."""
+
+    #: A post-nominal credential or other acronym suffix ("MA", "X.Y.Z.").
+    CREDENTIAL = "credential"
+    #: A generational suffix: a roman numeral, or a word such as "fils".
+    GENERATION = "generation"
+    #: An agnomen, a family word that is also a suffix ("Filho", "Neto").
+    AGNOMEN = "agnomen"
+    #: A listed post-nominal word of another kind ("Rinpoche", "Esq.").
+    POST_NOMINAL = "post-nominal"
+    #: A title ("Dean", "Prince"). The one value shared with a
+    #: :class:`Role`, on purpose: a title reading is the title field's,
+    #: so ``ReadingKind.TITLE == Role.TITLE`` says something true.
+    TITLE = "title"
+    #: A family-name particle ("van", "do").
+    PARTICLE = "particle"
+    #: A connective joining the words beside it ("e", "i").
+    CONJUNCTION = "conjunction"
+    #: An initial standing for a name word ("V" in "John V Smith").
+    INITIAL = "initial"
+    #: An ordinary name word, given or family.
+    NAME = "name"
+
+
+class ReadingSource(StrEnum):
+    """Where a :class:`Reading` comes from. A StrEnum; new sources may
+    be added in minor releases."""
+
+    #: The vocabulary lists the word in this reading's category ("MA"
+    #: as a credential, "van" as a particle).
+    VOCABULARY = "vocabulary"
+    #: The vocabulary declares the word a name as well as listing it in
+    #: another category: "Ma" as a surname, "Dean" as a given name.
+    DECLARED = "declared"
+    #: The word's shape, not a list: a roman numeral, letters run
+    #: together with periods ("X.Y.Z."), a word in capitals.
+    SHAPE = "shape"
+    #: Nothing lists or shapes the word into this reading; it is the
+    #: reading any word has where it stands, an ordinary name word. A
+    #: word a credential run took by position alone ("Jones" in "John
+    #: Smith PhD Jones") has this as its alternative, where "Ma" in
+    #: "JOHN SMITH MA" has :attr:`DECLARED`.
+    POSITION = "position"
+
+
+@dataclass(frozen=True, slots=True)
+class Reading:
+    """One way of reading a word, as a decision of the parse weighed
+    it. :attr:`Ambiguity.alternative` holds the reading the parse did
+    NOT take, so a caller who would have read the name the other way
+    knows which field the word would have gone to and why the reading
+    was available at all."""
+
+    #: What the word is read as.
+    kind: ReadingKind
+    #: The field the word would land in under this reading, with every
+    #: other word of the name read as the parse read it.
+    role: Role
+    #: Where the reading comes from: a listed word, a declared name, a
+    #: shape, or position alone.
+    source: ReadingSource
+
+    # in the class body so @dataclass(slots=True) keeps them
+    __getstate__ = _guarded_getstate
+    __setstate__ = _guarded_setstate
+
+    def __post_init__(self) -> None:
+        # the members the parser passes need no coercion, and a report
+        # pays no frame for it (decisions/parse-cost)
+        if not isinstance(self.kind, ReadingKind):
+            object.__setattr__(
+                self, "kind",
+                _coerce_enum(self.kind, ReadingKind, "ReadingKind", "kinds"))
+        if not isinstance(self.role, Role):
+            object.__setattr__(
+                self, "role", _coerce_enum(self.role, Role, "Role", "roles"))
+        if not isinstance(self.source, ReadingSource):
+            object.__setattr__(
+                self, "source",
+                _coerce_enum(self.source, ReadingSource, "ReadingSource",
+                             "sources"))
+
+    def __repr__(self) -> str:
+        return (f"Reading({self.kind.value!r} as {self.role.value!r}, "
+                f"{self.source.value!r})")
+
+
 @dataclass(frozen=True, slots=True)
 class Ambiguity:
     """A call the parser made that could legitimately have gone the
@@ -704,6 +842,21 @@ class Ambiguity:
     #: Token instances with identical text/span/role/tags satisfy this);
     #: may be empty (e.g. unbalanced-delimiter).
     tokens: tuple[Token, ...]
+    #: The reading the parse did not take: what the tokens would have
+    #: been read as, and the field they would have landed in, had the
+    #: call gone the other way (the first token's field, for a report on
+    #: more than one). None where the kind reports no fork between two
+    #: readings of a word (comma-structure, unbalanced-delimiter,
+    #: segmentation; ``order`` is reserved), and where the parse cannot
+    #: place the other reading in any field: a connective letter
+    #: opening its part ("E JOHN SMITH"), with no word before it to
+    #: join, or a chained particle whose piece ends in a title a
+    #: connective's join made ("Freiherr von Berg Dr. and Ed. Prof.").
+    #: Not compared: two
+    #: ambiguities equal without it, as before 2.7, and
+    #: :meth:`ParsedName.comparison_key` ignores it.
+    alternative: Reading | None = field(
+        default=None, compare=False, metadata={ADDED_IN: "2.7"})
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -713,6 +866,12 @@ class Ambiguity:
         object.__setattr__(
             self, "kind",
             _coerce_enum(self.kind, AmbiguityKind, "AmbiguityKind", "kinds"))
+        if (self.alternative is not None
+                and not isinstance(self.alternative, Reading)):
+            raise TypeError(
+                f"Ambiguity.alternative must be a Reading or None, got "
+                f"{self.alternative!r}"
+            )
         if not isinstance(self.detail, str):
             raise TypeError(
                 f"Ambiguity.detail must be a str, got {self.detail!r}"

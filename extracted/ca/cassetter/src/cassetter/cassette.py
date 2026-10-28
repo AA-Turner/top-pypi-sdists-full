@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import fnmatch
-import json
 import os
 import re
 import stat
@@ -11,6 +10,7 @@ from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from urllib.parse import urlparse
 
 from cassetter._core import (
@@ -30,6 +30,16 @@ from cassetter._core import (
     scrub_grpc_interaction,
     scrub_interaction,
     scrub_ws_interaction,
+)
+from cassetter.compare import (
+    BeforeCompareResponse,
+    Compare,
+    ResponseMismatchError,
+    body_to_bytes,
+    compare_grpc_responses,
+    compare_requests,
+    compare_responses,
+    compare_ws_frames,
 )
 from cassetter.intercept._base import is_localhost
 from cassetter.introspection import RecordedRequest, recorded_request, sent_request
@@ -119,6 +129,10 @@ class Cassette:
         before_record_response: BeforeRecordResponse | None = None,
         uri_normalizer: UriNormalizer | None = None,
         before_record_ws_frame: BeforeRecordWsFrame | None = None,
+        compare: Compare | None = None,
+        before_compare_response: BeforeCompareResponse | None = None,
+        observe_compare: Compare | None = None,
+        observe_timeout: float = 5.0,
     ) -> None:
         self._path = os.fspath(path)
         self._record_mode = record_mode
@@ -134,6 +148,12 @@ class Cassette:
         self._before_record_response = before_record_response
         self._before_record_ws_frame = before_record_ws_frame
         self._uri_normalizer = uri_normalizer
+        self._compare = compare or Compare()
+        self._before_compare_response = before_compare_response
+        self._observe_compare = observe_compare or Compare()
+        self._observe_timeout = observe_timeout
+        self._observed: list[HttpRequest] = []
+        self._observed_arrived = threading.Condition()
         # Mirror of the inner cassette holding copies with normalized URIs, so
         # matching stays on the Rust path. None when no normalizer.
         self._match_inner: _RustCassette | None = None
@@ -157,6 +177,11 @@ class Cassette:
     @property
     def record_mode(self) -> RecordMode:
         return self._record_mode
+
+    @property
+    def verifies(self) -> bool:
+        """Whether a matched request goes live and its response is compared to the recording."""
+        return self._record_mode == RecordMode.VERIFY
 
     @property
     def match_config(self) -> MatchConfig:
@@ -262,6 +287,7 @@ class Cassette:
         """Load the cassette from disk, or create a new one based on record mode."""
         exists = os.path.exists(self._path)
         self._sent_requests = []
+        self._observed = []
 
         # `rewrite` drops the file before recording, so a run that captures
         # nothing leaves no stale cassette behind. The writer copies the mode
@@ -418,6 +444,16 @@ class Cassette:
         body: bytes | None,
     ) -> HttpResponse:
         """Find a matching response for the given request, or raise NoMatchError."""
+        return self.match(method, uri, headers, body)[1]
+
+    def match(
+        self,
+        method: str,
+        uri: str,
+        headers: dict[str, list[str]],
+        body: bytes | None,
+    ) -> tuple[int, HttpResponse]:
+        """Like `play()`, but also returns the index of the matched interaction."""
         if self._inner is None:
             raise NoMatchError("cassette not loaded")
 
@@ -441,7 +477,7 @@ class Cassette:
 
         idx, interaction = result
         self._play_counter[idx] += 1
-        return interaction.response
+        return idx, interaction.response
 
     def _take_normalized_match(self, request: HttpRequest) -> tuple[int, HttpInteraction] | None:
         """Match against the mirror, whose URIs were normalized at load time.
@@ -468,12 +504,16 @@ class Cassette:
         response_headers: dict[str, list[str]],
         response_body: bytes | None,
         order: int | None = None,
+        expected: tuple[int, HttpResponse] | None = None,
     ) -> HttpResponse:
         """Record an interaction and return the response.
 
         Args:
             order: Position claimed by `reserve_record_order()` before the
                 request went out. Defaults to the order this call arrives in.
+            expected: The index and recording `match()` found in `verify` mode. The response
+                is compared against it, with the same processing as a recording,
+                instead of being recorded.
         """
         # Apply before_record_response hook
         if self._before_record_response is not None:
@@ -509,6 +549,15 @@ class Cassette:
         interaction = scrub_interaction(interaction, self._security_config)
         interaction = _retag_content_length(interaction)
 
+        if expected is not None:
+            index, recorded = expected
+            live = interaction.response
+            if self._before_compare_response is not None:
+                recorded, live = self._before_compare_response(recorded, live)
+            label = f"cassette {self._path}, interaction {index} ({method} {interaction.request.uri})"
+            compare_responses(self._compare, recorded, live, label)
+            return interaction.response
+
         if self._inner is None:
             self._inner = _RustCassette()
             self._rebuild_match_inner()
@@ -526,6 +575,51 @@ class Cassette:
                 self._match_inner.add_interaction(self._normalized_copy(interaction))
         self._dirty = True
         return interaction.response
+
+    # --- Observed requests ---
+
+    def observe(self, request: RawRequest) -> None:
+        """Hand in a request the code under test sent to a receiver the test runs, such as a telemetry collector.
+
+        A recording mode stores it after the client interactions, scrubbed like them. `verify` keeps it to compare,
+        in arrival order, when the cassette exits. A replaying mode ignores it.
+        """
+        if not (self.verifies or self.can_record):
+            return
+        content_type = _get_header(request.headers, "content-type")
+        content_encoding = _get_header(request.headers, "content-encoding")
+        body = process_body(request.body or b"", content_type, content_encoding)
+        probe = HttpInteraction(HttpRequest(request.method, request.uri, request.headers, body), HttpResponse(0), "")
+        observed = scrub_interaction(probe, self._security_config).request
+        with self._observed_arrived:
+            if self.verifies:
+                self._observed.append(observed)
+                self._observed_arrived.notify_all()
+                return
+            assert self._inner is not None  # load() ran
+            self._inner.add_observed_request(observed)
+            self._dirty = True
+
+    def check_observed(self) -> None:
+        """In `verify` mode, wait for the recorded number of observed requests, then compare them in order.
+
+        Raises:
+            ResponseMismatchError: An observed request differs from its recording, or one is missing or extra
+                once `observe_timeout` passed.
+        """
+        if not self.verifies:
+            return
+        assert self._inner is not None  # load() ran
+        expected = self._inner.observed_requests
+        with self._observed_arrived:
+            self._observed_arrived.wait_for(lambda: len(self._observed) >= len(expected), self._observe_timeout)
+            observed = list(self._observed)
+        for index, (recorded, live) in enumerate(zip(expected, observed)):
+            compare_requests(self._observe_compare, recorded, live, f"cassette {self._path}, observed request {index}")
+        if len(observed) != len(expected):
+            raise ResponseMismatchError(
+                f"cassette {self._path}: expected {len(expected)} observed requests, got {len(observed)}"
+            )
 
     # --- gRPC ---
 
@@ -563,8 +657,16 @@ class Cassette:
         status_message: str = "OK",
         response_metadata: dict[str, list[str]] | None = None,
         json_debug: dict[str, object] | None = None,
+        expected: GrpcResponse | None = None,
+        messages: Callable[[GrpcResponse], list[Any]] | None = None,
     ) -> GrpcResponse:
-        """Record a gRPC interaction and return the response."""
+        """Record a gRPC interaction and return the response.
+
+        Args:
+            expected: The recording `play_grpc()` matched in `verify` mode. The response is compared
+                against it instead of being recorded.
+            messages: Decodes a response body into the messages `verify` mode compares. Defaults to the raw body.
+        """
         request = GrpcRequest(method, metadata, request_body)
         response = GrpcResponse(status_code, status_message, response_metadata, response_body)
         recorded_at = datetime.now(timezone.utc).isoformat()
@@ -572,6 +674,12 @@ class Cassette:
 
         # Apply security filtering
         interaction = scrub_grpc_interaction(interaction, self._security_config)
+
+        if expected is not None:
+            decode = messages or (lambda response: [response.body.content])
+            label = f"cassette {self._path}, gRPC {method}"
+            compare_grpc_responses(self._compare, expected, interaction.response, decode, label)
+            return interaction.response
 
         if self._inner is None:
             self._inner = _RustCassette()
@@ -627,13 +735,24 @@ class Cassette:
         uri: str,
         headers: dict[str, list[str]],
         frames: list[WsFrame],
+        expected: WsInteraction | None = None,
     ) -> None:
-        """Record a WebSocket interaction."""
+        """Record a WebSocket interaction.
+
+        Args:
+            expected: The recording `play_ws()` matched in `verify` mode. The received frames are compared
+                against it instead of being recorded.
+        """
         recorded_at = datetime.now(timezone.utc).isoformat()
         interaction = WsInteraction(uri, headers, self._recorded_frames(frames), recorded_at)
 
         # Apply security filtering
         interaction = scrub_ws_interaction(interaction, self._security_config)
+
+        if expected is not None:
+            label = f"cassette {self._path}, WebSocket {interaction.uri}"
+            compare_ws_frames(self._compare, expected.frames, interaction.frames, label)
+            return
 
         if self._inner is None:
             self._inner = _RustCassette()
@@ -641,27 +760,6 @@ class Cassette:
 
         self._inner.add_ws_interaction(interaction)
         self._dirty = True
-
-
-def body_to_bytes(body: Body) -> bytes:
-    """Serialize a recorded body to the wire bytes of a replayed response.
-
-    A JSON body is stored parsed, so the original bytes are gone by the time
-    this runs: the output is stdlib `json.dumps` formatting, not a byte-for-byte
-    reproduction of what the server sent. Callers that recompute Content-Length
-    must do so from these bytes.
-
-    `body.content` materializes a fresh Python object on every read, so each
-    branch reads it once.
-    """
-    content = body.content
-    if body.body_type == "json":
-        return json.dumps(content).encode()
-    if body.body_type == "text":
-        return content.encode() if isinstance(content, str) else b""
-    if body.body_type == "binary":
-        return content if isinstance(content, bytes) else b""
-    return b""
 
 
 def _get_header(headers: dict[str, list[str]], name: str) -> str | None:

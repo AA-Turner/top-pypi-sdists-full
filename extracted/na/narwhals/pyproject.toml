@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "narwhals"
-version = "2.27.1"
+version = "2.28.0"
 dependencies = []
 requires-python = ">=3.10"
 license = "MIT"
@@ -80,6 +80,7 @@ tests = [
     "pytest-randomly",
     "pytest-xdist",
     "hypothesis>=6.0.0",
+    "packaging>=21.3",
 ]
 sklearn = ["scikit-learn"]
 typing = [
@@ -295,6 +296,7 @@ extend-ignore-names = [
     "PLR0912",
     "PLR0916",
     "PLR0917",
+    "SIM300",
 ]
 "tpch/tests/*" = ["S101"]
 "tpch/execute/*" = ["T201"]
@@ -419,6 +421,7 @@ exclude_also = [
     'pytest.skip\(',
     'assert_never\(',
     'PANDAS_VERSION < \(',
+    'PANDAS_VERSION < PkgVersion\(',
 ]
 
 [tool.mypy]

@@ -17,11 +17,74 @@ use crate::utils::html_elements::is_void_element;
 use crate::utils::mdg;
 use crate::utils::range_utils::byte_to_char_count;
 use regex::Regex;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 use std::sync::LazyLock;
 
 mod md063_config;
 pub(super) use md063_config::{HeadingCapStyle, MD063Config};
+
+/// Pair closing tags with the nearest matching opener. Successful searches
+/// discard the entries they visit; a failed search leaves them all open. Build
+/// a name index after the first miss so repeated unmatched tags stay linear,
+/// while ordinary paired markup uses only the stack.
+struct OpenElements<N> {
+    elements: Vec<(N, usize)>,
+    counts: Option<HashMap<N, usize>>,
+}
+
+impl<N: Clone + Eq + Hash> OpenElements<N> {
+    fn new() -> Self {
+        Self {
+            elements: Vec::new(),
+            counts: None,
+        }
+    }
+
+    fn push(&mut self, name: N, start: usize) {
+        if let Some(counts) = &mut self.counts {
+            *counts.entry(name.clone()).or_default() += 1;
+        }
+        self.elements.push((name, start));
+    }
+
+    fn close(&mut self, name: &N) -> Option<usize> {
+        if let Some(counts) = &self.counts
+            && !counts.contains_key(name)
+        {
+            return None;
+        }
+        if let Some(depth) = self.elements.iter().rposition(|(open_name, _)| open_name == name) {
+            let start = self.elements[depth].1;
+            if let Some(counts) = &mut self.counts {
+                for (name, _) in self.elements.drain(depth..) {
+                    let count = counts.get_mut(&name).unwrap();
+                    *count -= 1;
+                    if *count == 0 {
+                        counts.remove(&name);
+                    }
+                }
+                // A recovered stack starts fresh: later paired markup should
+                // not pay for an earlier unmatched tag.
+                if self.elements.is_empty() {
+                    self.counts = None;
+                }
+            } else {
+                self.elements.truncate(depth);
+            }
+            Some(start)
+        } else {
+            if self.counts.is_none() && !self.elements.is_empty() {
+                let mut counts = HashMap::new();
+                for (name, _) in &self.elements {
+                    *counts.entry(name.clone()).or_default() += 1;
+                }
+                self.counts = Some(counts);
+            }
+            None
+        }
+    }
+}
 
 // Regex to match inline code spans (backticks)
 static INLINE_CODE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`+[^`]+`+").unwrap());
@@ -108,6 +171,26 @@ pub struct MD063HeadingCapitalization {
     proper_names: Vec<String>,
 }
 
+/// A concrete transformation, resolved once for the document before recasing.
+#[derive(Clone, Copy)]
+enum ResolvedStyle {
+    TitleCase,
+    SentenceCase,
+    AllCaps,
+}
+
+impl ResolvedStyle {
+    const ALL: [Self; 3] = [Self::TitleCase, Self::SentenceCase, Self::AllCaps];
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::TitleCase => "title case",
+            Self::SentenceCase => "sentence case",
+            Self::AllCaps => "ALL CAPS",
+        }
+    }
+}
+
 impl Default for MD063HeadingCapitalization {
     fn default() -> Self {
         Self::new()
@@ -115,6 +198,68 @@ impl Default for MD063HeadingCapitalization {
 }
 
 impl MD063HeadingCapitalization {
+    fn eligible_headings<'a>(
+        &'a self,
+        ctx: &'a crate::lint_context::LintContext<'_>,
+    ) -> impl Iterator<Item = crate::lint_context::ParsedHeading<'a>> + 'a {
+        let edges = crate::utils::blockquote::container_edges(ctx);
+        ctx.headings().filter(move |parsed| {
+            let heading = parsed.heading;
+            let line_index = parsed.line_num - 1;
+            // ParsedHeading records a Setext heading on its last text line.
+            let first_index = line_index + 1 - heading.text_lines;
+            heading.level >= self.config.min_level
+                && heading.level <= self.config.max_level
+                && !(first_index..=line_index).any(|idx| ctx.is_rule_disabled(self.name(), idx + 1))
+                && !(!parsed.is_blockquote()
+                    && matches!(heading.style, crate::lint_context::HeadingStyle::ATX)
+                    && crate::utils::blockquote::is_indented_past_edge(
+                        &edges,
+                        line_index,
+                        parsed.line_info.content(ctx.content),
+                    ))
+        })
+    }
+
+    fn resolve_style(&self, ctx: &crate::lint_context::LintContext) -> ResolvedStyle {
+        match self.config.style {
+            HeadingCapStyle::TitleCase => return ResolvedStyle::TitleCase,
+            HeadingCapStyle::SentenceCase => return ResolvedStyle::SentenceCase,
+            HeadingCapStyle::AllCaps => return ResolvedStyle::AllCaps,
+            HeadingCapStyle::Consistent => {}
+        }
+
+        let mut candidates = 0b111_u8;
+        for parsed in self.eligible_headings(ctx) {
+            let mut valid = 0_u8;
+            for (index, style) in ResolvedStyle::ALL.into_iter().enumerate() {
+                if self.apply_heading_capitalization(ctx, parsed.line_num - 1, parsed.heading, style)
+                    == parsed.heading.raw_text
+                {
+                    valid |= 1 << index;
+                }
+            }
+            // A heading invalid in every style offers no usable evidence.
+            if valid == 0 {
+                continue;
+            }
+            let remaining = candidates & valid;
+            if remaining == 0 {
+                break;
+            }
+            candidates = remaining;
+            if candidates.is_power_of_two() {
+                break;
+            }
+        }
+        // Preserve the earliest evidence; prefer title, sentence, then ALL CAPS
+        // when more than one style still fits. Every evidence heading is valid
+        // under the chosen style and stays unchanged by fixes. Later fixed
+        // headings can only narrow the set while retaining that preferred style,
+        // so formatting again makes the same choice.
+        ResolvedStyle::ALL[candidates.trailing_zeros() as usize]
+    }
+
     pub fn new() -> Self {
         let config = MD063Config::default();
         let lowercase_set = config.lowercase_words.iter().cloned().collect();
@@ -878,10 +1023,11 @@ impl MD063HeadingCapitalization {
         special_regions.sort_by_key(|(start, _, _)| *start);
 
         // Drop regions that overlap one already kept. After sorting by start
-        // position, the earliest-starting region wins a conflict.
+        // position, the earliest-starting region wins a conflict. Kept regions
+        // are nonempty and disjoint, so only the last one can overlap the next.
         let mut filtered_regions: Vec<(usize, usize, HeadingSegment)> = Vec::new();
         for region in special_regions {
-            let overlaps = filtered_regions.iter().any(|(s, e, _)| region.0 < *e && region.1 > *s);
+            let overlaps = filtered_regions.last().is_some_and(|(_, end, _)| region.0 < *end);
             if !overlaps {
                 filtered_regions.push(region);
             }
@@ -931,14 +1077,22 @@ impl MD063HeadingCapitalization {
     /// tag written inside another tag's attribute value is part of that value.
     fn html_regions(text: &str, code_ranges: &[(usize, usize)]) -> Vec<(usize, usize)> {
         let mut regions: Vec<(usize, usize)> = Vec::new();
-        let mut open_elements: Vec<(String, usize)> = Vec::new();
+        let mut open_elements = OpenElements::new();
 
+        // Both regex streams advance in source order; code ranges are disjoint.
+        let mut code_index = 0;
         let mut pos = 0;
         while let Some(token) = HTML_TOKEN_REGEX.captures_at(text, pos) {
             let whole = token.get(0).unwrap();
+            while code_ranges
+                .get(code_index)
+                .is_some_and(|&(_, end)| end <= whole.start())
+            {
+                code_index += 1;
+            }
             if code_ranges
-                .iter()
-                .any(|&(start, end)| start <= whole.start() && whole.start() < end)
+                .get(code_index)
+                .is_some_and(|&(start, _)| start <= whole.start())
                 || is_backslash_escaped(text, whole.start())
             {
                 // The token is text, and text may hold a tag of its own past its `<`.
@@ -949,17 +1103,19 @@ impl MD063HeadingCapitalization {
 
             if let Some(closing) = token.get(1) {
                 let name = closing.as_str().to_ascii_lowercase();
-                if let Some(depth) = open_elements.iter().rposition(|(open_name, _)| *open_name == name) {
-                    let element_start = open_elements[depth].1;
-                    open_elements.truncate(depth);
-                    regions.retain(|&(start, _)| start < element_start);
+                if let Some(element_start) = open_elements.close(&name) {
+                    // Regions stay ordered by start. A completed element
+                    // replaces only the suffix beginning at its opening tag.
+                    while regions.last().is_some_and(|&(start, _)| start >= element_start) {
+                        regions.pop();
+                    }
                     regions.push((element_start, whole.end()));
                     continue;
                 }
             } else if let Some(opening) = token.get(2) {
                 let name = opening.as_str().to_ascii_lowercase();
                 if !whole.as_str().ends_with("/>") && !is_void_element(&name) {
-                    open_elements.push((name, whole.start()));
+                    open_elements.push(name, whole.start());
                 }
             }
 
@@ -986,7 +1142,7 @@ impl MD063HeadingCapitalization {
         }
         tags.sort_unstable_by_key(|tag| tag.byte_offset);
         let mut regions = Vec::new();
-        let mut open = Vec::new();
+        let mut open = OpenElements::new();
         let mut requires_source_map = false;
         for tag in tags {
             let source = &ctx.content[tag.byte_offset..tag.byte_end];
@@ -994,13 +1150,11 @@ impl MD063HeadingCapitalization {
                 .find(source)
                 .is_some_and(|token| token.start() == 0 && token.end() == source.len());
             if tag.is_closing {
-                if let Some(depth) = open.iter().rposition(|(name, _)| *name == tag.tag_name.as_str()) {
-                    let (_, element_start) = open[depth];
-                    open.truncate(depth);
+                if let Some(element_start) = open.close(&tag.tag_name.as_str()) {
                     regions.push((element_start, tag.byte_end));
                 }
             } else if !tag.is_self_closing && !is_void_element(&tag.tag_name) {
-                open.push((tag.tag_name.as_str(), tag.byte_offset));
+                open.push(tag.tag_name.as_str(), tag.byte_offset);
             }
             regions.push((tag.byte_offset, tag.byte_end));
         }
@@ -1013,9 +1167,10 @@ impl MD063HeadingCapitalization {
         ctx: &crate::lint_context::LintContext,
         line_index: usize,
         heading: &crate::lint_context::HeadingInfo,
+        style: ResolvedStyle,
     ) -> String {
         if ctx.flavor != crate::config::MarkdownFlavor::MDX {
-            return self.apply_capitalization(&heading.raw_text, ctx.flavor);
+            return self.apply_capitalization(&heading.raw_text, ctx.flavor, style);
         }
         let line_info = &ctx.lines[line_index];
         if heading.text_lines > 1 {
@@ -1028,7 +1183,7 @@ impl MD063HeadingCapitalization {
             if ctx.overlaps_mdx_inline_code(start, end) || requires_source_map {
                 return heading.raw_text.clone();
             }
-            return self.apply_capitalization(&heading.raw_text, ctx.flavor);
+            return self.apply_capitalization(&heading.raw_text, ctx.flavor, style);
         }
         let line = line_info.content(ctx.content);
         let Some(relative_start) = line.find(&heading.raw_text) else {
@@ -1042,12 +1197,12 @@ impl MD063HeadingCapitalization {
             .into_iter()
             .map(|(range_start, range_end)| (range_start.max(start) - start, range_end.min(end) - start))
             .collect();
-        self.apply_capitalization_with_ranges(&heading.raw_text, ctx.flavor, ranges)
+        self.apply_capitalization_with_ranges(&heading.raw_text, ctx.flavor, ranges, style)
     }
 
     /// Preserve template identifiers and string values while recasing prose.
-    fn apply_capitalization(&self, text: &str, flavor: crate::config::MarkdownFlavor) -> String {
-        self.apply_capitalization_with_ranges(text, flavor, Vec::new())
+    fn apply_capitalization(&self, text: &str, flavor: crate::config::MarkdownFlavor, style: ResolvedStyle) -> String {
+        self.apply_capitalization_with_ranges(text, flavor, Vec::new(), style)
     }
 
     fn apply_capitalization_with_ranges(
@@ -1055,12 +1210,13 @@ impl MD063HeadingCapitalization {
         text: &str,
         flavor: crate::config::MarkdownFlavor,
         mut ranges: Vec<(usize, usize)>,
+        style: ResolvedStyle,
     ) -> String {
         ranges.extend(crate::utils::jinja_utils::find_jinja_ranges(text));
         ranges.extend(crate::utils::shortcode_utils::shortcode_ranges(text));
         ranges.sort_unstable();
         if ranges.is_empty() {
-            return self.apply_capitalization_to_segments(text, flavor);
+            return self.apply_capitalization_to_segments(text, flavor, style);
         }
 
         // Recovery ranges for malformed markup can overlap. Protect their union
@@ -1114,7 +1270,7 @@ impl MD063HeadingCapitalization {
         }
         masked.push_str(&text[last_end..]);
 
-        let capitalized = self.apply_capitalization_to_segments(&masked, flavor);
+        let capitalized = self.apply_capitalization_to_segments(&masked, flavor, style);
         let mut result = String::with_capacity(capitalized.len());
         let mut cursor = 0;
         // Casing preserves token order. Walk forward so restoration does not
@@ -1135,7 +1291,12 @@ impl MD063HeadingCapitalization {
     }
 
     /// Apply capitalization to heading text after protecting template tags.
-    fn apply_capitalization_to_segments(&self, text: &str, flavor: crate::config::MarkdownFlavor) -> String {
+    fn apply_capitalization_to_segments(
+        &self,
+        text: &str,
+        flavor: crate::config::MarkdownFlavor,
+        style: ResolvedStyle,
+    ) -> String {
         // Strip custom ID if present and re-add later
         let (main_text, custom_id) = if let Some(mat) = CUSTOM_ID_REGEX.find(text) {
             (&text[..mat.start()], Some(mat.as_str()))
@@ -1201,10 +1362,10 @@ impl MD063HeadingCapitalization {
                     // the last word should respect lowercase-words.
                     let is_last_text = text_segments.last() == Some(&i) && last_segment_is_text;
 
-                    let capitalized = match self.config.style {
-                        HeadingCapStyle::TitleCase => self.apply_title_case_segment(t, is_first_text, is_last_text),
-                        HeadingCapStyle::SentenceCase => self.apply_sentence_case_from(t, at_sentence_start),
-                        HeadingCapStyle::AllCaps => self.apply_all_caps(t),
+                    let capitalized = match style {
+                        ResolvedStyle::TitleCase => self.apply_title_case_segment(t, is_first_text, is_last_text),
+                        ResolvedStyle::SentenceCase => self.apply_sentence_case_from(t, at_sentence_start),
+                        ResolvedStyle::AllCaps => self.apply_all_caps(t),
                     };
                     let ends_sentence = self.ends_sentence(capitalized.trim_end());
                     result_parts.push(capitalized);
@@ -1221,12 +1382,12 @@ impl MD063HeadingCapitalization {
                 } => {
                     // Apply capitalization to link text only
                     let link_text = &full[*text_start..*text_end];
-                    let capitalized_text = match self.config.style {
-                        HeadingCapStyle::TitleCase => self.apply_title_case(link_text),
+                    let capitalized_text = match style {
+                        ResolvedStyle::TitleCase => self.apply_title_case(link_text),
                         // For sentence case, apply same preservation logic as text
                         // This preserves acronyms (API), brand names (iPhone), etc.
-                        HeadingCapStyle::SentenceCase => self.apply_sentence_case_from(link_text, at_sentence_start),
-                        HeadingCapStyle::AllCaps => self.apply_all_caps(link_text),
+                        ResolvedStyle::SentenceCase => self.apply_sentence_case_from(link_text, at_sentence_start),
+                        ResolvedStyle::AllCaps => self.apply_all_caps(link_text),
                     };
                     // The link's own text ends the sentence, not its destination: a reader
                     // sees `[see:](url)` as `see:`, so the boundary is where they read it.
@@ -1404,7 +1565,7 @@ impl MD063HeadingCapitalization {
         last_idx: usize,
         heading: &crate::lint_context::HeadingInfo,
         quoted: bool,
-        flavor: crate::config::MarkdownFlavor,
+        fixed_text: &str,
     ) -> Option<Vec<String>> {
         let quote_depth = if quoted {
             ctx.lines
@@ -1438,7 +1599,6 @@ impl MD063HeadingCapitalization {
                 }
             })
             .collect();
-        let fixed_text = self.apply_capitalization(&heading.raw_text, flavor);
         let fixed_words: Vec<&str> = fixed_text.split_whitespace().collect();
         let original_words: usize = bodies.iter().map(|(_, body, _)| body.split_whitespace().count()).sum();
         if fixed_words.len() != original_words {
@@ -1483,36 +1643,18 @@ impl Rule for MD063HeadingCapitalization {
 
         let mut warnings = Vec::new();
 
-        let edges = crate::utils::blockquote::container_edges(ctx);
-
-        for parsed in ctx.headings() {
+        let style = self.resolve_style(ctx);
+        for parsed in self.eligible_headings(ctx) {
             let line_num = parsed.line_num - 1;
             let line_info = parsed.line_info;
             let heading = parsed.heading;
-            // Check level filter
-            if heading.level < self.config.min_level || heading.level > self.config.max_level {
-                continue;
-            }
-
-            // Skip headings in code blocks (indented headings)
-            if !parsed.is_blockquote()
-                && crate::utils::blockquote::is_indented_past_edge(&edges, line_num, line_info.content(ctx.content))
-                && matches!(heading.style, crate::lint_context::HeadingStyle::ATX)
-            {
-                continue;
-            }
-
             // Apply capitalization and compare
             let original_text = &heading.raw_text;
-            let fixed_text = self.apply_heading_capitalization(ctx, line_num, heading);
+            let fixed_text = self.apply_heading_capitalization(ctx, line_num, heading, style);
 
             if original_text != &fixed_text {
                 let line = line_info.content(ctx.content);
-                let style_name = match self.config.style {
-                    HeadingCapStyle::TitleCase => "title case",
-                    HeadingCapStyle::SentenceCase => "sentence case",
-                    HeadingCapStyle::AllCaps => "ALL CAPS",
-                };
+                let style_name = style.name();
 
                 // A setext heading's text is the whole paragraph its
                 // underline ends, so the warning covers every one of those
@@ -1521,7 +1663,7 @@ impl Rule for MD063HeadingCapitalization {
                     let first_idx = line_num + 1 - heading.text_lines;
                     let first_line = ctx.lines[first_idx].content(ctx.content);
                     let fix = self
-                        .fix_setext_heading_span(ctx, first_idx, line_num, heading, parsed.is_blockquote(), ctx.flavor)
+                        .fix_setext_heading_span(ctx, first_idx, line_num, heading, parsed.is_blockquote(), &fixed_text)
                         .map(|rewritten| {
                             let range = ctx.line_content_byte_range(first_idx + 1).start
                                 ..ctx.line_content_byte_range(line_num + 1).end;
@@ -1572,32 +1714,13 @@ impl Rule for MD063HeadingCapitalization {
         let lines = ctx.raw_lines();
         let mut fixed_lines: Vec<String> = lines.iter().map(|&s| s.to_string()).collect();
 
-        let edges = crate::utils::blockquote::container_edges(ctx);
-
-        for parsed in ctx.headings() {
+        let style = self.resolve_style(ctx);
+        for parsed in self.eligible_headings(ctx) {
             let line_num = parsed.line_num - 1;
             let line_info = parsed.line_info;
             let heading = parsed.heading;
-            // Skip lines where the rule is disabled via inline config
-            if ctx.is_rule_disabled(self.name(), line_num + 1) {
-                continue;
-            }
-
-            // Check level filter
-            if heading.level < self.config.min_level || heading.level > self.config.max_level {
-                continue;
-            }
-
-            // Skip headings in code blocks
-            if !parsed.is_blockquote()
-                && crate::utils::blockquote::is_indented_past_edge(&edges, line_num, line_info.content(ctx.content))
-                && matches!(heading.style, crate::lint_context::HeadingStyle::ATX)
-            {
-                continue;
-            }
-
             let original_text = &heading.raw_text;
-            let fixed_text = self.apply_heading_capitalization(ctx, line_num, heading);
+            let fixed_text = self.apply_heading_capitalization(ctx, line_num, heading, style);
 
             if original_text != &fixed_text {
                 let line = line_info.content(ctx.content);
@@ -1605,18 +1728,13 @@ impl Rule for MD063HeadingCapitalization {
                 // underline ends, so each of those lines keeps its own words.
                 if heading.text_lines > 1 {
                     let first_idx = line_num + 1 - heading.text_lines;
-                    // The warning is dropped when any of the heading's
-                    // lines is disabled, and the rewrite goes with it.
-                    if (first_idx..line_num).any(|idx| ctx.is_rule_disabled(self.name(), idx + 1)) {
-                        continue;
-                    }
                     if let Some(rewritten) = self.fix_setext_heading_span(
                         ctx,
                         first_idx,
                         line_num,
                         heading,
                         parsed.is_blockquote(),
-                        ctx.flavor,
+                        &fixed_text,
                     ) {
                         fixed_lines[first_idx..=line_num].clone_from_slice(&rewritten);
                     }
@@ -1664,6 +1782,65 @@ impl Rule for MD063HeadingCapitalization {
 mod tests {
     use super::*;
     use crate::lint_context::LintContext;
+
+    #[test]
+    fn test_open_elements_match_stack_pairing() {
+        // Include duplicate opens, missing closes, and case-distinct names.
+        // Sequences exercise both the stack path and the lazily indexed path.
+        let operations = [(true, "a"), (true, "A"), (false, "a"), (false, "A"), (false, "missing")];
+        for mut sequence in 0..operations.len().pow(6) {
+            let mut indexed = OpenElements::new();
+            let mut original = Vec::new();
+            for start in 0..6 {
+                let (opening, name) = operations[sequence % operations.len()];
+                sequence /= operations.len();
+                if opening {
+                    indexed.push(name, start);
+                    original.push((name, start));
+                } else {
+                    let expected = original
+                        .iter()
+                        .rposition(|(open_name, _)| *open_name == name)
+                        .map(|depth| {
+                            let start = original[depth].1;
+                            original.truncate(depth);
+                            start
+                        });
+                    assert_eq!(indexed.close(&name), expected);
+                }
+                assert_eq!(indexed.elements, original);
+                if let Some(counts) = &indexed.counts {
+                    let mut expected = HashMap::new();
+                    for (name, _) in &original {
+                        *expected.entry(*name).or_default() += 1;
+                    }
+                    assert_eq!(*counts, expected);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_paired_elements_do_not_build_a_name_index() {
+        let mut elements = OpenElements::new();
+        assert_eq!(elements.close(&"missing"), None);
+        elements.push("a", 0);
+        elements.push("b", 3);
+        elements.push("a", 6);
+        assert_eq!(elements.close(&"a"), Some(6));
+        assert_eq!(elements.close(&"a"), Some(0));
+        assert!(elements.elements.is_empty());
+        assert!(elements.counts.is_none());
+
+        elements.push("a", 10);
+        assert_eq!(elements.close(&"missing"), None);
+        assert!(elements.counts.is_some());
+        assert_eq!(elements.close(&"a"), Some(10));
+        assert!(elements.counts.is_none());
+        elements.push("b", 20);
+        assert_eq!(elements.close(&"b"), Some(20));
+        assert!(elements.counts.is_none());
+    }
 
     fn create_rule() -> MD063HeadingCapitalization {
         let config = MD063Config {
@@ -4680,7 +4857,11 @@ mod shortcode_delimiter_tests {
         for (open, close) in [("{{<", ">}}"), ("{{%", "%}}")] {
             let tag = format!("{open} note title=`literal {close} friend` {close}");
             assert_eq!(
-                rule.apply_capitalization(&format!("hello {tag} world"), crate::config::MarkdownFlavor::Hugo),
+                rule.apply_capitalization(
+                    &format!("hello {tag} world"),
+                    crate::config::MarkdownFlavor::Hugo,
+                    ResolvedStyle::TitleCase
+                ),
                 format!("Hello {tag} World")
             );
         }

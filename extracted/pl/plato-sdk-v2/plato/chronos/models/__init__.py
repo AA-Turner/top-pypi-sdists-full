@@ -4784,6 +4784,7 @@ class LoginVaultAccountSummary(BaseModel):
     item_updated_at: Annotated[datetime | None, Field(title="Item Updated At")] = None
     last_bake_session_id: Annotated[str | None, Field(title="Last Bake Session Id")] = None
     last_bake_at: Annotated[datetime | None, Field(title="Last Bake At")] = None
+    persona: Annotated[str | None, Field(title="Persona")] = None
 
 
 class LoginVaultAppHint(BaseModel):
@@ -4902,6 +4903,312 @@ class LoginVaultExitUser(BaseModel):
     login_key: Annotated[str, Field(title="Login Key")]
     account: Annotated[str, Field(title="Account")]
     archived: Annotated[bool, Field(title="Archived")]
+
+
+class AddressLine1(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Address Line1")]
+
+
+class AddressLine2(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Address Line2")]
+
+
+class City(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="City")]
+
+
+class Region(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Region")]
+
+
+class PostalCode(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Postal Code")]
+
+
+class Country(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Country")]
+
+
+class Occupation(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Occupation")]
+
+
+class Bio(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Bio")]
+
+
+class PaymentCardEnum(Enum):
+    field_PAYMENT_CARD_ = "{PAYMENT_CARD}"
+
+
+class PaymentCard(RootModel[PaymentCardEnum | None]):
+    root: Annotated[PaymentCardEnum | None, Field(title="Payment Card")] = None
+
+
+class BankAccountEnum(Enum):
+    field_BANK_ACCOUNT_ = "{BANK_ACCOUNT}"
+
+
+class BankAccount(RootModel[BankAccountEnum | None]):
+    root: Annotated[BankAccountEnum | None, Field(title="Bank Account")] = None
+
+
+class BankRoutingEnum(Enum):
+    field_BANK_ROUTING_ = "{BANK_ROUTING}"
+
+
+class BankRouting(RootModel[BankRoutingEnum | None]):
+    root: Annotated[BankRoutingEnum | None, Field(title="Bank Routing")] = None
+
+
+class GovIdEnum(Enum):
+    field_GOV_ID_ = "{GOV_ID}"
+
+
+class GovId(RootModel[GovIdEnum | None]):
+    root: Annotated[GovIdEnum | None, Field(title="Gov Id")] = None
+
+
+class FixtureIdentityInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    dob: Annotated[str | None, Field(title="Dob")] = None
+    address_line1: Annotated[AddressLine1 | None, Field(title="Address Line1")] = None
+    address_line2: Annotated[AddressLine2 | None, Field(title="Address Line2")] = None
+    city: Annotated[City | None, Field(title="City")] = None
+    region: Annotated[Region | None, Field(title="Region")] = None
+    postal_code: Annotated[PostalCode | None, Field(title="Postal Code")] = None
+    country: Annotated[Country | None, Field(title="Country")] = None
+    occupation: Annotated[Occupation | None, Field(title="Occupation")] = None
+    bio: Annotated[Bio | None, Field(title="Bio")] = None
+    payment_card: Annotated[PaymentCard | None, Field(title="Payment Card")] = None
+    bank_account: Annotated[BankAccount | None, Field(title="Bank Account")] = None
+    bank_routing: Annotated[BankRouting | None, Field(title="Bank Routing")] = None
+    gov_id: Annotated[GovId | None, Field(title="Gov Id")] = None
+
+
+class PaymentCard1(PaymentCard):
+    pass
+
+
+class BankAccount1(BankAccount):
+    pass
+
+
+class BankRouting1(BankRouting):
+    pass
+
+
+class GovId1(GovId):
+    pass
+
+
+class FixtureIdentityOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    dob: Annotated[str | None, Field(title="Dob")] = None
+    address_line1: Annotated[AddressLine1 | None, Field(title="Address Line1")] = None
+    address_line2: Annotated[AddressLine2 | None, Field(title="Address Line2")] = None
+    city: Annotated[City | None, Field(title="City")] = None
+    region: Annotated[Region | None, Field(title="Region")] = None
+    postal_code: Annotated[PostalCode | None, Field(title="Postal Code")] = None
+    country: Annotated[Country | None, Field(title="Country")] = None
+    occupation: Annotated[Occupation | None, Field(title="Occupation")] = None
+    bio: Annotated[Bio | None, Field(title="Bio")] = None
+    payment_card: Annotated[PaymentCard1 | None, Field(title="Payment Card")]
+    bank_account: Annotated[BankAccount1 | None, Field(title="Bank Account")]
+    bank_routing: Annotated[BankRouting1 | None, Field(title="Bank Routing")]
+    gov_id: Annotated[GovId1 | None, Field(title="Gov Id")]
+
+
+class PhoneStatus(Enum):
+    active = "active"
+    deprecated = "deprecated"
+    unknown = "unknown"
+
+
+class PersonaMismatch(Enum):
+    email = "email"
+    phone = "phone"
+
+
+class LoginVaultAccountPersonaDeleted(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    ok: Annotated[bool, Field(title="Ok")]
+    deleted: Annotated[bool, Field(title="Deleted")]
+
+
+class PersonKey(RootModel[str]):
+    root: Annotated[str, Field(max_length=255, title="Person Key")]
+
+
+class PersonaState(Enum):
+    free = "free"
+    has_account = "has_account"
+    number_on_app = "number_on_app"
+    number_deprecated = "number_deprecated"
+
+
+class LoginVaultFreePersona(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    persona: Annotated[str, Field(title="Persona")]
+    email: Annotated[str, Field(title="Email")]
+    inbox: Annotated[str | None, Field(title="Inbox")] = None
+    phone: Annotated[str | None, Field(title="Phone")] = None
+    phone_status: Annotated[PhoneStatus | None, Field(title="Phone Status")] = None
+    state: PersonaState
+    accounts: Annotated[list[str], Field(title="Accounts")]
+
+
+class LoginVaultFreePersonas(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str, Field(title="Login Key")]
+    personas: Annotated[list[LoginVaultFreePersona], Field(title="Personas")]
+
+
+class LoginVaultPersona(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    persona: Annotated[str, Field(title="Persona")]
+    email: Annotated[str, Field(title="Email")]
+    inbox: Annotated[str | None, Field(title="Inbox")] = None
+    phone: Annotated[str | None, Field(title="Phone")] = None
+    phone_status: Annotated[PhoneStatus | None, Field(title="Phone Status")] = None
+    fixture: FixtureIdentityOutput
+    accounts: Annotated[list[str], Field(title="Accounts")]
+    updated_by: Annotated[str | None, Field(title="Updated By")] = None
+    updated_at: Annotated[datetime, Field(title="Updated At")]
+
+
+class LoginVaultPersonaList(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    personas: Annotated[list[LoginVaultPersona], Field(title="Personas")]
+    next_cursor: Annotated[str | None, Field(title="Next Cursor")] = None
+
+
+class Email(RootModel[str]):
+    root: Annotated[str, Field(max_length=320, title="Email")]
+
+
+class Inbox(RootModel[str]):
+    root: Annotated[str, Field(max_length=255, title="Inbox")]
+
+
+class Phone2(RootModel[str]):
+    root: Annotated[str, Field(max_length=64, title="Phone")]
+
+
+class LoginVaultPersonaUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    email: Annotated[Email | None, Field(title="Email")] = None
+    inbox: Annotated[Inbox | None, Field(title="Inbox")] = None
+    phone: Annotated[Phone2 | None, Field(title="Phone")] = None
+    fixture: FixtureIdentityInput | None = None
+
+
+class Value(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Value")]
+
+
+class Source2(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Source")]
+
+
+class Note(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Note")]
+
+
+class SourcedValueInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    value: Annotated[Value | None, Field(title="Value")] = None
+    source: Annotated[Source2 | None, Field(title="Source")] = None
+    note: Annotated[Note | None, Field(title="Note")] = None
+
+
+SourcedValueOutput = SourcedValueInput
+
+
+class LiveIdentityInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    name: SourcedValueInput | None = None
+    display_name: SourcedValueInput | None = None
+    first_name: SourcedValueInput | None = None
+    last_name: SourcedValueInput | None = None
+    email: SourcedValueInput | None = None
+    phone: SourcedValueInput | None = None
+    locale: SourcedValueInput | None = None
+    timezone: SourcedValueInput | None = None
+    job_title: SourcedValueInput | None = None
+    company: SourcedValueInput | None = None
+    avatar_asset: SourcedValueInput | None = None
+
+
+class LiveIdentityOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    name: SourcedValueOutput | None = None
+    display_name: SourcedValueOutput | None = None
+    first_name: SourcedValueOutput | None = None
+    last_name: SourcedValueOutput | None = None
+    email: SourcedValueOutput | None = None
+    phone: SourcedValueOutput | None = None
+    locale: SourcedValueOutput | None = None
+    timezone: SourcedValueOutput | None = None
+    job_title: SourcedValueOutput | None = None
+    company: SourcedValueOutput | None = None
+    avatar_asset: SourcedValueOutput | None = None
+
+
+class LoginVaultAccountPersona(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str, Field(title="Login Key")]
+    account: Annotated[str, Field(title="Account")]
+    person_key: Annotated[str | None, Field(title="Person Key")] = None
+    live: LiveIdentityOutput
+    fixture: FixtureIdentityOutput
+    email: Annotated[str | None, Field(title="Email")] = None
+    inbox: Annotated[str | None, Field(title="Inbox")] = None
+    phone: Annotated[str | None, Field(title="Phone")] = None
+    phone_status: Annotated[PhoneStatus | None, Field(title="Phone Status")] = None
+    mismatch: Annotated[list[PersonaMismatch], Field(title="Mismatch")]
+    updated_at: Annotated[datetime | None, Field(title="Updated At")] = None
+
+
+class LoginVaultAccountPersonaList(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    accounts: Annotated[list[LoginVaultAccountPersona], Field(title="Accounts")]
+    next_cursor: Annotated[str | None, Field(title="Next Cursor")] = None
+
+
+class LoginVaultAccountPersonaUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    person_key: Annotated[PersonKey | None, Field(title="Person Key")] = None
+    live: LiveIdentityInput | None = None
+    fixture: FixtureIdentityInput | None = None
 
 
 class LoginVaultImportTableName(Enum):

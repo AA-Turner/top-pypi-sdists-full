@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: istari-digital-client
-Version: 13.3.4
+Version: 14.0.0
 Summary: Python client for the Istari Digital platform
 License: MIT License
          
@@ -13,27 +13,23 @@ License: MIT License
          No license is hereby implied or granted to any patent or patent application relating to the Istari Digital platform itself. The list of patents applicable to the Istari Digital platform may be found at istaridigital.com/patent-list.
 License-File: LICENSE
 Author: Istari Digital Developers
-Requires-Python: >=3.10,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Provides-Extra: fips
 Provides-Extra: s3
 Provides-Extra: s3-crt
 Requires-Dist: awscrt (>=0.19.0) ; extra == "s3-crt"
-Requires-Dist: boto3 (>=1.26.0) ; extra == "s3" or extra == "s3-crt"
+Requires-Dist: boto3 (>=1.36.0) ; extra == "s3" or extra == "s3-crt"
 Requires-Dist: cryptography (>=49.0.0)
 Requires-Dist: deprecation (>=2.1.0,<3.0.0)
 Requires-Dist: inflection (>=0.5.1,<0.6.0)
-Requires-Dist: istari-digital-core (==7.4.0)
-Requires-Dist: istari-digital-core-fips (==7.4.0) ; extra == "fips"
 Requires-Dist: pydantic (>=2.9.0,<3.0.0)
 Requires-Dist: pyjwt (>=2.15.1,<3.0.0)
 Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
@@ -51,7 +47,7 @@ The `istari-digital-client` library is a client SDK for interacting with the [Is
 
 - **Install:** `pip install istari-digital-client`
 - **Documentation and Usage:** Please see [docs.istaridigital.com](https://docs.istaridigital.com).
-- **Supported Versions:** This library supports Python 3.10, 3.11, 3.12, and 3.14
+- **Supported Versions:** This library requires Python 3.11 or newer (Python 4 is not supported).
 - **License:** This library is released under an MIT license with the following clarification:
 
 > No license is hereby implied or granted to any patent or patent application relating to the Istari Digital platform itself. The list of patents applicable to the Istari Digital platform may be found at istaridigital.com/patent-list.
@@ -66,7 +62,7 @@ Install the optional dependency:
 # S3-compatible storage (minio, AWS, etc.)
 pip install istari-digital-client[s3]
 
-# AWS with high-speed CRT transfers (recommended for EC2 containers in same s3 environment as the data plane buckets)
+# Optional AWS CRT support (automatic selection depends on host/environment)
 pip install istari-digital-client[s3-crt]
 ```
 

@@ -14,8 +14,8 @@ marker word (M3), which reassigns the role after the match and so is
 the one thing here that a bucket alone does not decide.
 Reads: Policy.nickname_delimiters, Policy.maiden_delimiters,
 Lexicon.maiden_markers, and
-Lexicon.suffix_words / suffix_acronyms / suffix_acronyms_ambiguous
-through _suffix_shaped.
+Lexicon.suffix_words / suffix_words_ambiguous / suffix_acronyms /
+suffix_acronyms_ambiguous through _suffix_shaped.
 
 Implements rules N1, N2, S1, M1 and M3 of docs/design/rules/ (the #273
 matching mechanism); each is cited at its code below. One scan
@@ -54,7 +54,8 @@ def _suffix_shaped(content: str, lexicon: Lexicon) -> bool:
     veto -- v1 deliberately skipped it here."""
     stripped = _normalize(content)
     acronym = stripped.replace(".", "")
-    return (stripped in lexicon.suffix_words
+    return ((stripped in lexicon.suffix_words
+             and stripped not in lexicon.suffix_words_ambiguous)
             or (acronym in lexicon.suffix_acronyms
                 and acronym not in lexicon.suffix_acronyms_ambiguous)
             or content.endswith("."))

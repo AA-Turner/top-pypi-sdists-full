@@ -76,7 +76,7 @@ class TestSchema(unittest.TestCase):
             {"type": "array", "items": {"type": "integer"}, "uniqueItems": True},
         )
         self.assertEqual(
-            generator.type_to_schema(Union[int, str]),
+            generator.type_to_schema(Union[int, str]),  # noqa: UP007
             {"oneOf": [{"type": "integer"}, {"type": "string"}]},
         )
         self.assertEqual(
@@ -128,7 +128,7 @@ class TestSchema(unittest.TestCase):
                         "type": "string",
                         "pattern": "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*$",
                         "maxLength": 64,
-                        "title": "A unique identifier in DICOM.",
+                        "title": "A unique identifier in DICOM.",  # spellchecker: disable-line
                     }
                 },
                 "$ref": "#/definitions/UID",
@@ -143,7 +143,7 @@ class TestSchema(unittest.TestCase):
                         "type": "string",
                         "pattern": "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*$",
                         "maxLength": 64,
-                        "title": "A unique identifier in DICOM.",
+                        "title": "A unique identifier in DICOM.",  # spellchecker: disable-line
                     }
                 },
                 "$ref": "#/definitions/UID",
@@ -290,7 +290,7 @@ class TestSchema(unittest.TestCase):
         self.assertEqual(generator.type_to_schema(int32), {"format": "int32", "type": "integer"})
         self.assertEqual(generator.type_to_schema(uint64), {"format": "uint64", "type": "integer"})
 
-    def _assert_docstring_equal(self, generator: JsonSchemaGenerator, typ: type) -> None:
+    def _assert_docstring_equal(self, generator: JsonSchemaGenerator, typ: type[Any]) -> None:
         "Checks if the Python class docstring matches the title and description strings in the generated JSON schema."
 
         short_description, long_description = get_class_docstrings(typ)

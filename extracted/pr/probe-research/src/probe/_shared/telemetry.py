@@ -203,6 +203,11 @@ EVENT_OUTBOX_PAUSE_LIFTED = "outbox.pause_lifted"
 #: credentials it fetched were written and their agents' locks lifted (`applied`),
 #: or writing them failed (`write_failed`). Agent slugs and counts only.
 EVENT_CAPTURE_REPAIR_APPLIED = "capture.repair_applied"
+#: Probe staff's one-time settings change reached this machine (research-os
+#: control/074, `probe.cli.remote_settings`): the setting and value, whether the
+#: default moved, how many sessions were switched, and whether the server took the
+#: report. Counts and words only, never a session id.
+EVENT_SETTINGS_REMOTE_APPLIED = "settings.remote_applied"
 #: A TRAINING process's delivery counts (plan 1.12): every 15 min while it
 #: writes and at each run's close. Deltas since its last report, counts only --
 #: never a key, body, name or path -- so we see loss before a customer does.
@@ -939,14 +944,23 @@ def emit_outbox_drained(
     remaining: int,
     passes: int,
     duration_s: float,
+    dead_lettered_by_status: dict[str, int] | None = None,
+    dead_lettered_no_such_run: int = 0,
 ) -> None:
-    """Report one finished drain episode. Never raises: the worker owns data."""
+    """Report one finished drain episode. Never raises: the worker owns data.
+    ``dead_lettered_by_status``: the server's answer per dead letter, keyed like
+    `sdk.delivery.summary`'s (``"404"``; ``"none"`` with no HTTP answer).
+    ``dead_lettered_no_such_run``: how many of them were the run resolver's own
+    "run not found" (`errors.names_no_such_run`), so the loss alert can tell a
+    write naming no run from a 404 that lost it for reasons of ours."""
     try:
         outbox_context(base_url).emit(
             EVENT_OUTBOX_DRAINED,
             outcome=str(outcome),
             delivered=delivered,
             dead_lettered=dead_lettered,
+            dead_lettered_by_status=dict(dead_lettered_by_status or {}) or None,
+            dead_lettered_no_such_run=int(dead_lettered_no_such_run) or None,
             remaining=remaining,
             passes=passes,
             duration_s=round(duration_s, 2),
@@ -1251,6 +1265,39 @@ def emit_capture_repair_applied(
             kept_off=sorted(kept_off or []),
             unsupported=sorted(unsupported or []),
             confirmed=confirmed,
+        )
+        return True
+    except Exception:
+        return False  # observability must never become observable
+
+
+def emit_settings_remote_applied(
+    *,
+    setting: str,
+    value: str,
+    default_changed: bool,
+    sessions_moved: int,
+    env_shadowed: bool,
+    unsupported: bool,
+    reported: bool,
+    base_url: str | None,
+) -> bool:
+    """Report a staff settings change this machine applied (`EVENT_SETTINGS_REMOTE_APPLIED`).
+    Sent beside the command's own context, never as it (`detached_context`). Never
+    raises; True when it was handed to the sender."""
+    try:
+        ctx = detached_context(base_url, via=Via.COMMAND)
+        if not ctx.enabled:
+            return False
+        ctx.emit(
+            EVENT_SETTINGS_REMOTE_APPLIED,
+            setting=setting,
+            value=value,
+            default_changed=default_changed,
+            sessions_moved=sessions_moved,
+            env_shadowed=env_shadowed,
+            unsupported=unsupported,
+            reported=reported,
         )
         return True
     except Exception:

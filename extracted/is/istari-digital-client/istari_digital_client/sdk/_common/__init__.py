@@ -8,6 +8,7 @@ from istari_digital_client.sdk._common.credential_types import Credential
 from istari_digital_client.sdk._common.credentials import Credentials
 from istari_digital_client.sdk._common.job_types import Job
 from istari_digital_client.sdk._common.jobs import Jobs
+from istari_digital_client.sdk._common.libraries import Libraries
 from istari_digital_client.sdk._common.resources import Resources
 from istari_digital_client.sdk._common.system_types import Branch, ChangeRequest, System
 from istari_digital_client.sdk._common.systems import Systems
@@ -23,6 +24,7 @@ __all__ = [
     "Credentials",
     "Job",
     "Jobs",
+    "Libraries",
     "Resources",
     "System",
     "Systems",

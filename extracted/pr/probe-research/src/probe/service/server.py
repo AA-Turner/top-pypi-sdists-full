@@ -3012,7 +3012,15 @@ def _thread_exception(service: Service, args) -> None:
 
 
 def run_service() -> int:
-    """`python -m probe.service`: one instance; exits 0 when idle or as a duplicate."""
+    """`python -m probe.service`: one instance; exits 0 when idle or as a duplicate.
+    Never while `probe uninstall` runs (its barrier is LIVE): exits 0 at once,
+    before it makes a folder or writes a file."""
+    from . import client
+
+    if client.uninstall_barrier() is not None:
+        with contextlib.suppress(OSError, ValueError):
+            print(f"probe service: not started: {client.UNINSTALLING_MESSAGE}", file=sys.stderr)
+        return 0
     try:
         sock_path = paths.ensure_dirs()
     except OSError as exc:

@@ -1,4 +1,6 @@
-"""A2A (agent-to-agent) models."""
+"""A2A (agent-to-agent) models (protocol v1.0)."""
+
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -8,8 +10,18 @@ class AgentProvider(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    organization: str
+    organization: str | None = None
     url: str | None = None
+
+
+class AgentInterface(BaseModel):
+    """A transport interface the agent exposes."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    url: str
+    protocolBinding: str | None = None
+    protocolVersion: str | None = None
 
 
 class AgentCapabilities(BaseModel):
@@ -19,16 +31,7 @@ class AgentCapabilities(BaseModel):
 
     streaming: bool = False
     pushNotifications: bool = False
-    stateTransitionHistory: bool = False
-
-
-class AgentAuthentication(BaseModel):
-    """Authentication schemes advertised by an A2A agent card."""
-
-    model_config = ConfigDict(extra="ignore")
-
-    schemes: list[str]
-    credentials: str | None = None
+    extendedAgentCard: bool = False
 
 
 class AgentSkill(BaseModel):
@@ -52,12 +55,20 @@ class AgentCard(BaseModel):
 
     name: str
     description: str | None = None
-    url: str
+    supportedInterfaces: list[AgentInterface]
     provider: AgentProvider | None = None
     version: str
     documentationUrl: str | None = None
     capabilities: AgentCapabilities
-    authentication: AgentAuthentication | None = None
-    defaultInputModes: list[str] = ["text"]
-    defaultOutputModes: list[str] = ["text"]
+    securitySchemes: dict[str, dict[str, Any]] | None = None
+    securityRequirements: list[dict[str, Any]] | None = None
+    defaultInputModes: list[str] = []
+    defaultOutputModes: list[str] = []
     skills: list[AgentSkill]
+
+    @property
+    def protocol_version(self) -> str | None:
+        """Protocol version of the first advertised interface."""
+        if self.supportedInterfaces:
+            return self.supportedInterfaces[0].protocolVersion
+        return None

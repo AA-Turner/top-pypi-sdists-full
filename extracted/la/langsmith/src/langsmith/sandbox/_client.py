@@ -8,7 +8,7 @@ import posixpath
 import shlex
 import tarfile
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union, overload
 from urllib.parse import quote
@@ -849,6 +849,7 @@ class SandboxClient:
         *,
         expires_in_seconds: int = 600,
         access: None = None,
+        embed_origins: Optional[Sequence[str]] = None,
         headers: RequestHeaders = None,
     ) -> ServiceURL: ...
 
@@ -860,6 +861,7 @@ class SandboxClient:
         *,
         expires_in_seconds: int = 600,
         access: ServiceAccess,
+        embed_origins: Optional[Sequence[str]] = None,
         headers: RequestHeaders = None,
     ) -> ServiceLoginURL: ...
 
@@ -870,6 +872,7 @@ class SandboxClient:
         *,
         expires_in_seconds: int = 600,
         access: Optional[ServiceAccess] = None,
+        embed_origins: Optional[Sequence[str]] = None,
         headers: RequestHeaders = None,
     ) -> Union[ServiceURL, ServiceLoginURL]:
         """Get an authenticated URL for a service running inside a sandbox.
@@ -890,6 +893,12 @@ class SandboxClient:
                 expires, so ``expires_in_seconds`` does not apply. Omit for
                 token mode; a login grant is durable, so token mode is refused
                 with 409 while one is in place.
+            embed_origins: Origins whose pages may show the URL in an iframe,
+                besides LangSmith itself: at most 5, each ``https://host[:port]``
+                (``http`` only on localhost). In token mode they are signed
+                into each token, so every refresh keeps them; open
+                ``embed_url`` in the frame. With ``access`` they are stored on
+                the grant, and each call replaces the grant's list.
             headers: Optional per-request header overrides.
 
         Returns:
@@ -904,6 +913,9 @@ class SandboxClient:
         if access is not None and access not in ("restricted", "workspace"):
             raise ValueError(f'access must be "restricted" or "workspace", got {access!r}')
         login_mode = access is not None
+        # Every refresh re-sends these, so keep a copy: a caller changing its
+        # list later can't change later tokens.
+        origins = list(embed_origins) if embed_origins else None
         self._trace_sandbox(name)
         url = _box_url(self._base_url, name, "service-url")
         payload: dict[str, Any] = {"port": port}
@@ -911,12 +923,15 @@ class SandboxClient:
             payload["expires_in_seconds"] = expires_in_seconds
         if access is not None:
             payload["access"] = access
+        if origins:
+            payload["embed_origins"] = origins
 
         def _refresher() -> ServiceURL:
             return self.service(
                 name,
                 port,
                 expires_in_seconds=expires_in_seconds,
+                embed_origins=origins,
                 headers=headers,
             )
 

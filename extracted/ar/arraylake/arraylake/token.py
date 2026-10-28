@@ -1,8 +1,13 @@
 import asyncio
+import base64
 import concurrent.futures
+import json
+import os
 import pathlib
 import re
+import threading
 import time
+from datetime import UTC, datetime
 from json import JSONDecodeError
 from urllib.parse import urlsplit
 from webbrowser import open_new
@@ -14,8 +19,9 @@ from rich.console import Console, Group
 from rich.panel import Panel
 
 import arraylake
+from arraylake.asyn import sync
 from arraylake.cli.utils import print_user_details
-from arraylake.config import config
+from arraylake.config import config, default_token
 from arraylake.exceptions import AuthException
 from arraylake.types import (
     AuthProviderConfig,
@@ -27,6 +33,9 @@ from arraylake.types import (
 DEFAULT_API_ENDPOINT = "https://api.earthmover.io"
 LEGACY_TOKEN_PATH = pathlib.Path("~/.arraylake/token.json")
 TOKEN_DIR = pathlib.Path("~/.arraylake/tokens")
+LOGIN_HINT = "run `al auth login`"
+# Refresh a cached login when its ID token expires within this many seconds.
+TOKEN_REFRESH_MARGIN_SECONDS = 60
 
 
 def _endpoint_slug(api_endpoint: str) -> str:
@@ -105,7 +114,7 @@ class TokenHandler:
                 raise AuthException("⚠️ Found malformed auth tokens, logout and log back in")
         except FileNotFoundError:
             if raise_if_not_logged_in:
-                raise AuthException("⚠️ Not logged in, please log in with `arraylake auth login`")
+                raise AuthException("⚠️ Not logged in, please log in with `al auth login`")
 
     def _create_async_client(self, **kwargs) -> httpx.AsyncClient:
         """Create an httpx.AsyncClient with proxy and SSL configuration"""
@@ -255,7 +264,7 @@ class TokenHandler:
             async with self._create_async_client() as client:
                 response = await client.send(refresh_request)
                 response.raise_for_status()
-                new_tokens = OauthTokensResponse.model_validate_json(response.text)
+            new_tokens = parse_refreshed_tokens(response.content)
         except httpx.HTTPStatusError as e:
             self.console.print(f"Error response {e.response.status_code} while requesting {e.request.url!r}.")
             raise AuthException(f"Error getting refresh token! {e.response.status_code}: {e.response.text}")
@@ -269,6 +278,30 @@ class TokenHandler:
 
         self.console.print(f"[green][bold]Successfully refreshed tokens![/bold][/green] [dim]Token stored at {self.token_path}[/dim]")
         print_user_details(user)
+
+    async def refresh_quietly(self) -> None:
+        """Refresh tokens without printing, so stdout stays machine-readable."""
+        request = await self.build_refresh_request()
+        async with self._create_async_client() as client:
+            response = await client.send(request)
+            if response.is_error:
+                raise AuthException(f"Could not refresh Arraylake login ({response.status_code}); {LOGIN_HINT}.")
+            tokens = parse_refreshed_tokens(response.content)
+        self.update(tokens)
+
+    async def get_fresh_id_token(self, min_valid_seconds: float = TOKEN_REFRESH_MARGIN_SECONDS) -> str:
+        """Return the cached ID token, quietly refreshing it first if it expires within ``min_valid_seconds``."""
+        if self.tokens is None:
+            raise AuthException(f"Not logged in; {LOGIN_HINT}.")
+        token = self.tokens.id_token.get_secret_value()
+        expires_at = jwt_expiry(token)
+        if expires_at is None:
+            raise AuthException(f"Invalid cached login token; {LOGIN_HINT}.")
+        if expires_at <= time.time() + min_valid_seconds:
+            await self.refresh_quietly()
+            assert self.tokens is not None
+            token = self.tokens.id_token.get_secret_value()
+        return token
 
     def update(self, new_token_data: OauthTokensResponse | dict) -> None:
         if isinstance(new_token_data, OauthTokensResponse):
@@ -391,3 +424,70 @@ class TokenHandler:
 
 def get_auth_handler(api_endpoint: str) -> TokenHandler:
     return TokenHandler(api_endpoint=api_endpoint)
+
+
+def parse_refreshed_tokens(content: str | bytes) -> OauthTokensResponse:
+    """Parse an OAuth refresh response, raising AuthException (without echoing any token) if it is malformed."""
+    try:
+        return OauthTokensResponse.model_validate_json(content)
+    except ValidationError as e:
+        problems = "; ".join(f"{'.'.join(map(str, err['loc']))}: {err['msg']}" for err in e.errors(include_input=False))
+        # `from None`: the ValidationError's traceback would include the token values.
+        raise AuthException(f"Could not refresh Arraylake login: unexpected token response ({problems}); {LOGIN_HINT}.") from None
+
+
+# Serialize refreshes of cached logins across threads (e.g. several catalogs or openEO requests sharing a
+# token file). Reloading the token file inside the lock also picks up logins/refreshes made elsewhere.
+_refresh_lock = threading.Lock()
+
+
+def get_fresh_id_token(api_endpoint: str, *, min_valid_seconds: float = TOKEN_REFRESH_MARGIN_SECONDS) -> str:
+    """Return the cached login's ID token, refreshing it first if it expires within ``min_valid_seconds``.
+
+    Blocking and thread-safe: async callers should use ``asyncio.to_thread``. Raises AuthException if not logged in.
+    """
+    with _refresh_lock:
+        handler = TokenHandler(api_endpoint=api_endpoint, raise_if_not_logged_in=True)
+        return sync(handler.get_fresh_id_token, min_valid_seconds=min_valid_seconds)
+
+
+def jwt_expiry(token: str) -> float | None:
+    """Return a JWT's ``exp`` claim, decoded locally without verifying the signature.
+
+    Returns None if ``token`` isn't a JWT with an ``exp`` claim (e.g. an ``ema_`` API token).
+    """
+    try:
+        payload = token.split(".")[1]
+        return float(json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))["exp"])
+    except (IndexError, ValueError, KeyError, TypeError):
+        return None
+
+
+def describe_token(token: str) -> str:
+    """Describe a bearer token's kind and expiry for messages, without revealing it."""
+    if token.startswith("ema_"):
+        return "API token"
+    expires_at = jwt_expiry(token)
+    if expires_at is None:
+        return "JWT" if token.startswith("ey") else "token"
+    when = datetime.fromtimestamp(expires_at, UTC).strftime("%Y-%m-%d %H:%M UTC")
+    return f"JWT, {'expired' if expires_at <= time.time() else 'expires'} {when}"
+
+
+def describe_cached_login(api_endpoint: str) -> str:
+    """Describe the cached login for ``api_endpoint`` as the source of a rejected request, with the fix."""
+    tokens = TokenHandler(api_endpoint=api_endpoint).tokens
+    detail = f" ({describe_token(tokens.id_token.get_secret_value())})" if tokens is not None else ""
+    return f"using your cached login for {api_endpoint}{detail}; {LOGIN_HINT} to log in again"
+
+
+def describe_token_source(token: str) -> str:
+    """Describe where an explicit token came from as the source of a rejected request, with the fix."""
+    if token == os.environ.get("ARRAYLAKE_TOKEN", "").strip():
+        return (
+            f"using ARRAYLAKE_TOKEN ({describe_token(token)}), which takes precedence over `al auth login`; "
+            "`unset ARRAYLAKE_TOKEN` to use your cached login, or set a valid token"
+        )
+    if token == default_token():
+        return f"using the `token` set in your arraylake config ({describe_token(token)}); remove it to use `al auth login`"
+    return f"using the token passed to Client(token=...) ({describe_token(token)})"

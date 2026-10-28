@@ -3,13 +3,28 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import inspect
 import json
 import math
 import time
 import types
+from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Annotated, Literal, Union, get_args, get_origin, get_type_hints
+from enum import Enum
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Literal,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
+
+if TYPE_CHECKING:
+    from .trajectory import Trajectory
 
 from river_client.renderers import Message
 
@@ -132,12 +147,92 @@ def tool(function) -> Tool:
 
 
 class InfrastructureError(RuntimeError):
-    """A tool or environment failure that should stop the rollout.
+    """An environment failure, not a model-visible task error.
 
-    Raise this for unavailable external services instead of returning a tool
-    error to the model. ``TimeoutError`` and ``ConnectionError`` also stop the
-    rollout rather than becoming task rewards.
+    Like every tool exception, this reaches ``Env.on_error``. The default
+    handler raises it rather than returning an observation, leaving the rollout
+    unscored. An override can choose a different action for any exception type.
     """
+
+
+class ErrorAction(Enum):
+    """Terminal decisions returned by ``Env.on_error``."""
+
+    RAISE = "raise"
+    DROP = "drop"
+
+
+@dataclass(frozen=True)
+class Recover:
+    """Explicit replacement for a failed environment operation's result.
+
+    For a tool failure, supply a string observation; dispatch preserves the
+    tool name and call ID. For ``on_turn``, supply messages, a ``TurnResult``,
+    or explicitly ``None`` to finish and grade normally. For ``reward`` or
+    ``on_truncated``, supply a finite reward. Bare ``None`` is not a decision.
+    """
+
+    result: str | list[Message] | TurnResult | float | None
+
+
+class ErrorOperation(Enum):
+    """Environment operation whose failure reached ``Env.on_error``."""
+
+    TOOL = "tool"
+    ON_TURN = "on_turn"
+    REWARD = "reward"
+    ON_TRUNCATED = "on_truncated"
+
+
+@dataclass(frozen=True)
+class ErrorContext:
+    """Context for a tool, turn, or grading failure.
+
+    ``trajectory`` is live state, not a rollback snapshot. ``cause`` is the
+    truncation cause for ``on_truncated``. ``tool_call`` is a copy of the failed
+    call for ``TOOL`` (``None`` if parsing failed); both are otherwise ``None``.
+    ``row`` is ``None`` when
+    calling ``Env.on_turn`` directly, outside a rollout engine.
+    """
+
+    operation: ErrorOperation
+    trajectory: Trajectory
+    row: object
+    cause: str | None = None
+    tool_call: dict | None = None
+
+
+class _HandledToolError(Exception):
+    """Carry a terminal tool decision past the turn boundary, without rehandling."""
+
+    def __init__(self, error, context, decision):
+        self.error, self.context, self.decision = error, context, decision
+        super().__init__(str(error))
+
+
+@dataclass
+class _ToolErrorScope:
+    row: object
+    invoke: Callable[[Exception, ErrorContext], Awaitable[ErrorAction | Recover]]
+    active: tuple[Exception, ErrorContext] | None = None
+
+
+# A shared Env can serve several trajectories concurrently. Bind engine context
+# to the callback task, not the environment instance or serialized trajectory.
+_tool_error_scope: ContextVar[_ToolErrorScope | None] = ContextVar(
+    "rl_tool_error_scope", default=None
+)
+
+
+def _drop_trajectory(error: Exception, context: ErrorContext):
+    traj = context.trajectory
+    traj.failure = {
+        "operation": context.operation.value,
+        "type": type(error).__name__,
+        "message": str(error),
+    }
+    traj.reward, traj.done, traj.phase = None, True, "dropped"
+    traj.active_turn_max_tokens = None
 
 
 @dataclass(frozen=True)
@@ -198,19 +293,60 @@ class Env:
         """
         message = traj.messages[-1]
         calls = message.get("tool_calls", [])
-        if not calls:
-            if message.get("unparsed_tool_calls"):
-                return [
-                    {
-                        "role": "tool",
-                        "content": "Tool call could not be parsed. Please retry with valid arguments.",
-                    }
-                ]
+        if not calls and not message.get("unparsed_tool_calls"):
             return None
         registry = {t.spec["name"]: t for t in self.tools}
+        scope = _tool_error_scope.get()
+        error_lock = asyncio.Lock()
+
+        async def observation(error, call):
+            context = ErrorContext(
+                ErrorOperation.TOOL,
+                traj,
+                scope.row if scope is not None else None,
+                tool_call=copy.deepcopy(call),
+            )
+            # Serialize policy callbacks within this dispatch. Sibling tools may
+            # still be running; do not cancel successful work just to observe an
+            # error, and never rerun a tool after recovery.
+            async with error_lock:
+                if scope is not None:
+                    scope.active = error, context
+                try:
+                    decision = await (
+                        self.on_error(error, context)
+                        if scope is None
+                        else scope.invoke(error, context)
+                    )
+                    if decision is ErrorAction.RAISE or decision is ErrorAction.DROP:
+                        raise _HandledToolError(error, context, decision)
+                    if not isinstance(decision, Recover) or not isinstance(
+                        decision.result, str
+                    ):
+                        raise TypeError(
+                            "tool on_error must return ErrorAction or Recover(str)"
+                        ) from error
+                    return decision.result
+                except _HandledToolError:
+                    raise
+                except Exception as failure:
+                    if failure is not error:
+                        failure.__context__ = error
+                    raise _HandledToolError(
+                        failure, context, ErrorAction.RAISE
+                    ) from None
+                finally:
+                    if scope is not None:
+                        scope.active = None
 
         async def execute(call):
             started = time.monotonic()
+            if call is None:
+                content = await observation(
+                    ValueError("Tool call could not be parsed"), None
+                )
+                traj.metrics["tool_errors"] = traj.metrics.get("tool_errors", 0) + 1
+                return {"role": "tool", "content": content}
             name = call["function"]["name"]
             traj.metrics["tool_calls"] = traj.metrics.get("tool_calls", 0) + 1
             key = f"tool_calls/{name}"
@@ -224,11 +360,9 @@ class Env:
                 if name not in registry:
                     raise ValueError(f"tool {name!r} is not available")
                 content = await registry[name](**arguments)
-            except (InfrastructureError, TimeoutError, ConnectionError):
-                raise
-            except Exception as exc:
+            except Exception as error:
+                content = await observation(error, call)
                 traj.metrics["tool_errors"] = traj.metrics.get("tool_errors", 0) + 1
-                content = f"Tool error ({type(exc).__name__}): {exc}"
             traj.metrics["tool_seconds"] = (
                 traj.metrics.get("tool_seconds", 0) + time.monotonic() - started
             )
@@ -239,14 +373,49 @@ class Env:
                 "tool_call_id": call.get("id") or "",
             }
 
-        tasks = [asyncio.create_task(execute(call)) for call in calls]
+        tasks = [asyncio.create_task(execute(call)) for call in calls or [None]]
         try:
             return list(await asyncio.gather(*tasks))
+        except _HandledToolError as handled:
+            if scope is not None:
+                raise
+            if handled.decision is ErrorAction.DROP:
+                _drop_trajectory(handled.error, handled.context)
+                return None
+            failure = handled.error
         finally:
             for task in tasks:
                 if not task.done():
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+        # Outside the except block so the private carrier does not become the
+        # public exception's context when on_turn is called without an engine.
+        raise failure
+
+    async def on_error(
+        self, error: Exception, context: ErrorContext
+    ) -> ErrorAction | Recover:
+        """Choose which failures become observations, propagate, or end unscored.
+
+        For ``TOOL``, the default returns ``Recover(str)`` with a tool-error
+        observation, except for ``InfrastructureError`` which it raises. Other
+        operations default to ``ErrorAction.RAISE``. Override either policy;
+        dispatch never classifies exceptions before this hook sees them.
+
+        Return ``ErrorAction.DROP`` to exclude the rollout from training, or
+        ``Recover(result)`` to supply a replacement result for the operation.
+        No operation is automatically retried and side effects are not rolled
+        back. Continuing requires a coherent environment/trajectory.
+
+        Cancellation, internal stop signals, SDK result-validation errors,
+        and errors from this handler bypass the hook. Factory, reset, restore,
+        snapshot, and close failures also propagate without invoking it.
+        """
+        if context.operation is ErrorOperation.TOOL and not isinstance(
+            error, InfrastructureError
+        ):
+            return Recover(f"Tool error ({type(error).__name__}): {error}")
+        return ErrorAction.RAISE
 
     async def on_truncated(self, traj, row, cause: str) -> float:
         """Override for task-specific partial credit. Default is explicit zero."""

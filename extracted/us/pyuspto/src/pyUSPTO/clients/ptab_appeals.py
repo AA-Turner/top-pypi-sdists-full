@@ -95,7 +95,9 @@ class PTABAppealsClient(BaseUSPTOClient[PTABAppealResponse]):
             limit: Maximum number of records to return.
             facets: Facet configuration string.
             fields: Specific fields to return.
-            filters: Filter configuration string.
+            filters: Filter as "field value" (a space, not a colon), e.g.
+                "decisionData.decisionTypeCategory Decision".
+                A value containing a space only works in post_body filters.
             range_filters: Range filter configuration string.
             post_body: Optional POST body for complex queries.
             appeal_number_q: Filter by appeal number.
@@ -124,7 +126,10 @@ class PTABAppealsClient(BaseUSPTOClient[PTABAppealResponse]):
 
             # Search with POST body
             >>> response = client.search_decisions(
-            ...     post_body={"q": "decisionTypeCategory:Affirmed", "limit": 100}
+            ...     post_body={
+            ...         "q": "decisionData.appealOutcomeCategory:Affirmed",
+            ...         "pagination": {"limit": 100},
+            ...     }
             ... )
         """
         endpoint = self.ENDPOINTS["search_decisions"]
@@ -253,7 +258,10 @@ class PTABAppealsClient(BaseUSPTOClient[PTABAppealResponse]):
 
             # POST-based pagination
             >>> for decision in client.paginate_decisions(
-            ...     post_body={"q": "decisionTypeCategory:Affirmed", "limit": 100}
+            ...     post_body={
+            ...         "q": "decisionData.appealOutcomeCategory:Affirmed",
+            ...         "pagination": {"limit": 100},
+            ...     }
             ... ):
             ...     process_decision(decision)
         """

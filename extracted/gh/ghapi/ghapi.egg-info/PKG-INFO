@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: ghapi
-Version: 2.1.4
+Version: 2.1.5
 Summary: A python client for the GitHub API
 Author-email: Jeremy Howard <info@fast.ai>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/fastai/ghapi
 Project-URL: Documentation, https://ghapi.fast.ai/
 Keywords: github,api
@@ -28,6 +28,7 @@ Requires-Dist: pyyaml; extra == "dev"
 Requires-Dist: pysym2md>=0.0.6; extra == "dev"
 Requires-Dist: llms-txt>=0.0.6; extra == "dev"
 Requires-Dist: pyskills>=0.0.30; extra == "dev"
+Requires-Dist: pycachy>=0.0.21; extra == "dev"
 Dynamic: license-file
 
 # ghapi

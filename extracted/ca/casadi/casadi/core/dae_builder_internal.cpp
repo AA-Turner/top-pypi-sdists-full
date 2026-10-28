@@ -768,6 +768,9 @@ void DaeBuilderInternal::load_fmi_description(const std::string& filename) {
   casadi_assert(fmi_desc.has_child("ModelVariables"), "Missing 'ModelVariables'");
   import_model_variables(fmi_desc["ModelVariables"]);
 
+  // No explicit independent variable (FMI 2): expose the automatically added time variable
+  if (orig_time_index_ == -1 && !ignore_time_ && n_variables() > 0) categorize(0, Category::T);
+
   // Process model structure
   if (fmi_desc.has_child("ModelStructure")) {
     import_model_structure(fmi_desc["ModelStructure"]);
@@ -3285,7 +3288,14 @@ Variable& DaeBuilderInternal::add(const std::string& name, Causality causality,
   if (!type.empty()) v.type = to_enum<Type>(type);
   v.causality = causality;
   v.variability = variability;
-  if (!start.empty()) v.value = v.start = start;
+  if (!start.empty()) {
+    // Start attribute length doesn't match variable dimension
+    if (start.size() != v.numel) {
+      casadi_assert(start.size() == 1, "'start' must be scalar or match the number of elements");
+      start.resize(v.numel, start.back());
+    }
+    v.value = v.start = start;
+  }
   if (!initial.empty()) {
     v.initial = to_enum<Initial>(initial);
   } else {
@@ -3301,7 +3311,11 @@ Variable& DaeBuilderInternal::add(const std::string& name, Causality causality,
     case Causality::PARAMETER:
       // Parameter
       if (variability == Variability::TUNABLE) {
-        categorize(v.index, Category::P);
+        if (v.type == Type::FLOAT64 || v.type == Type::FLOAT32) {
+          categorize(v.index, Category::P);
+        } else {
+          categorize(v.index, Category::C);
+        }
       } else if (variability == Variability::FIXED) {
         categorize(v.index, Category::C);
       } else {
@@ -3883,6 +3897,9 @@ void DaeBuilderInternal::import_model_variables(const XmlNode& modvars) {
       continue;
     }
 
+    // Dimension of the variable
+    std::vector<casadi_int> dimension;
+
     // Type specific properties
     Dict opts;
     Type type = Type::NUMEL;
@@ -3890,6 +3907,25 @@ void DaeBuilderInternal::import_model_variables(const XmlNode& modvars) {
     if (fmi_major_ >= 3) {
       // FMI 3.0: Type information in the same node
       type = to_enum<Type>(vnode.name);
+      // Loop over children
+      for (casadi_int i = 0; i < vnode.size(); ++i) {
+        const XmlNode& c = vnode[i];
+        if (c.name == "Dimension") {
+          bool has_start = c.has_attribute("start");
+          bool has_vr = c.has_attribute("valueReference");
+          casadi_assert(has_start ^ has_vr, "Inconsistent attributes");
+          casadi_assert(!has_vr, "Structural parameter dimensions not implemented");
+          auto dim = c.attribute<casadi_int>("start");
+          dimension.push_back(dim);
+        } else if (c.name == "Alias") {
+          // Aliases currently ignored
+        } else if (c.name == "Annotations") {
+          // Annotations currently ignored
+        } else {
+          casadi_error("Cannot handle: " + c.name);
+        }
+      }
+      // Type specific attributes
       switch (type) {
       case Type::FLOAT32:  // fall-through
       case Type::FLOAT64:
@@ -3899,7 +3935,7 @@ void DaeBuilderInternal::import_model_variables(const XmlNode& modvars) {
         opts["min"] = vnode.attribute<double>("min", -inf);
         opts["max"] = vnode.attribute<double>("max", inf);
         opts["nominal"] = vnode.attribute<double>("nominal", 1.);
-        opts["start"] = vnode.attribute<double>("start", 0.);
+        opts["start"] = vnode.attribute<std::vector<double>>("start", std::vector<double>{0.});
         derivative = vnode.attribute<casadi_int>("derivative", -1);
         break;
       case Type::INT8:  // fall-through
@@ -3945,6 +3981,9 @@ void DaeBuilderInternal::import_model_variables(const XmlNode& modvars) {
       }
     }
 
+    // Scalar dimension by default
+    if (dimension.empty()) dimension.push_back(1);
+
     // Description
     std::string description = vnode.attribute<std::string>("description", "");
 
@@ -3982,6 +4021,7 @@ void DaeBuilderInternal::import_model_variables(const XmlNode& modvars) {
     opts["type"] = to_string(type);
     opts["initial"] = to_string(initial);
     opts["description"] = description;
+    opts["dimension"] = dimension;
     Variable& var = add(name, causality, variability, opts);
     if (debug_) uout() << "Added variable: " << var.name << std::endl;
 

@@ -150,3 +150,60 @@ for key in some_dict:
 
 for key in some_dict.keys():
     some_dict[key] = 3 # no error
+
+for key in some_dict.keys():
+    some_dict.pop(key) # B909: 4
+
+for _ in some_dict.values():
+    some_dict.clear() # B909: 4
+
+for value in some_dict.values():
+    some_dict[value] = 1 # B909: 4
+
+for key, value in some_dict.items():
+    some_dict[key] = value * 2 # no error
+    some_dict[key.upper()] = value # B909: 4
+    del some_dict[key] # B909: 4
+
+for [key, value] in some_dict.items():
+    some_dict[key] = value * 2 # no error
+    del some_dict[key] # B909: 4
+
+for item in some_dict.items():
+    some_dict[item] = 1 # B909: 4
+
+for key, value in self.some_dict.items():
+    self.some_dict.update({key.upper(): value}) # B909: 4
+
+for key in list(some_dict.keys()):
+    some_dict.pop(key) # no error
+
+
+# Visit every branch and the condition of an if statement.
+some_list = [1, 2, 3]
+for elem in some_list:
+    if elem == 1:
+        pass
+    elif elem == 2:
+        some_list.remove(elem) # B909: 8
+    else:
+        some_list.clear() # B909: 8
+
+for _ in some_list:
+    if some_list.pop(): # B909: 7
+        break
+
+for elem in some_list:
+    if elem == 1:
+        some_list.remove(elem) # B909: 8
+    else:
+        some_list.clear()
+        break
+
+for elem in some_list:
+    if elem == 1:
+        pass
+    else:
+        some_list.remove(elem) # B909: 8
+        if elem == 2:
+            break

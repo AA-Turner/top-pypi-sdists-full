@@ -252,7 +252,7 @@ class ChildLegalEntity(BaseModel):
     """An individual's prefix."""
 
     primary_social_media_sites: List[str]
-    """A list of primary social media URLs for the business."""
+    """A list of the entity's primary social media URLs."""
 
     regulators: Optional[List[Regulator]] = None
     """Array of regulatory bodies overseeing this institution."""
@@ -263,10 +263,10 @@ class ChildLegalEntity(BaseModel):
     service_provider_legal_entity_id: Optional[str] = None
     """The UUID of the parent legal entity in the service provider tree."""
 
-    status: Optional[Literal["active", "denied", "pending", "suspended"]] = None
+    status: Optional[Literal["active", "denied", "draft", "pending", "suspended"]] = None
     """The activation status of the legal entity.
 
-    One of pending, active, suspended, or denied.
+    One of draft, pending, active, suspended, or denied.
     """
 
     suffix: Optional[str] = None

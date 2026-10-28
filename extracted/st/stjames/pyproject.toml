@@ -1,6 +1,6 @@
 [project]
 name = "stjames"
-version = "0.0.290"
+version = "0.0.291"
 description = "structured JSON atom/molecule encoding scheme"
 readme = "README.md"
 license = "MIT"

@@ -45,7 +45,7 @@ futures-util = "0.3"
 # `[patch.crates-io]` here it builds against vanilla crates.io redis (it only
 # uses standard APIs). Metrics and StatsD share a revision so their client types agree.
 [target.'cfg(target_os = "linux")'.dependencies]
-chalk-queue = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "1460144ea659debbaee9dccadcd4d7dbf383ccf8" }
+chalk-queue = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "6156b025245e28f409bd6c115cfa158ed60203ea" }
 chalk_metrics = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "a0f8932ec10d3b8340af3e98cf63b800d60b4926" }
 chalk_statsd = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "a0f8932ec10d3b8340af3e98cf63b800d60b4926" }
 

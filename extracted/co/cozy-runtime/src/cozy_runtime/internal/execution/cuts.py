@@ -21,6 +21,7 @@ from typing import cast
 import torch
 from torch import Tensor, nn
 
+from cozy_runtime.internal.encoding.leaves import NVFP4
 from cozy_runtime.internal.execution import catch, sizing
 from cozy_runtime.internal.execution.sizing import levelled, levels, pieces
 
@@ -190,10 +191,16 @@ def _ffn(site: str, module: nn.Module, forward: Callable[..., object]) -> Callab
         tokens = x.numel() // max(x.shape[-1], 1)
         if tokens < 2:
             return forward(x)
+        shape = _ffn_shape(module, x)
+        if shape is None:
+            whole.append(True)
+            print(
+                f"cozy-runtime: {site} has no feed-forward layout it reads: whole", file=sys.stderr
+            )
+            return forward(x)
         try:
             run = functools.partial(_tokens, forward, x, tokens)
-            need = levelled(tokens, _ffn_shape(module, x).need(tokens))
-            return catch.cut(site, levels(tokens), need, run)
+            return catch.cut(site, levels(tokens), levelled(tokens, shape.need(tokens)), run)
         except _Whole:
             whole.append(True)
         return forward(x)
@@ -206,25 +213,44 @@ _FUSED = frozenset({"GELU"})
 _GATED = frozenset({"GEGLU", "SwiGLU"})
 
 
-def _ffn_shape(module: nn.Module, x: Tensor) -> sizing.Ffn:
-    """A Diffusers feed-forward's widths (or its activation projection's alone, whose output
-    is its inner width): the projection, the activation's temporaries, the down projection, and
-    whether an encoding leaf quantizes the linears' input rows."""
-    net = getattr(module, "net", None)
+def _ffn_shape(module: nn.Module, x: Tensor) -> sizing.Ffn | None:
+    """A Diffusers feed-forward's widths, read from the linears it has: its `net`'s activation
+    projection (`proj`) and down projection, an activation projection alone (whose output is its
+    inner width), or up projections from the input's width beside one down projection (Z-Image's
+    and Bria FIBO's gated `w1`/`w3` and `w2`); the activation's temporaries; and whether an
+    encoding leaf quantizes the linears' input rows. None when it has none of these."""
+    din, net = int(x.shape[-1]), getattr(module, "net", None)
     act = net[0] if isinstance(net, nn.ModuleList) else module
     kinds = {c.__name__ for c in type(act).__mro__}
-    projected = int(act.proj.out_features)
-    inner = projected // 2 if kinds & _GATED else projected
-    downs = [m for m in net if hasattr(m, "out_features")] if isinstance(net, nn.ModuleList) else []
+    projection = _widths(getattr(act, "proj", None))
+    if projection is not None:
+        projected = projection[1]
+        inner = projected // 2 if kinds & _GATED else projected
+        nets = [w for m in net if (w := _widths(m))] if isinstance(net, nn.ModuleList) else []
+        dout = nets[-1][1] if nets else inner
+        temps = 1 if kinds & _FUSED and not kinds & _GATED else 2
+    else:
+        widths = [w for m in module.children() if (w := _widths(m))]
+        ups, down = [o for i, o in widths if i == din], [w for w in widths if w[0] != din]
+        if not ups or len(down) != 1:
+            return None
+        projected, (inner, dout), temps = sum(ups), down[0], 2
     return sizing.Ffn(
-        din=int(x.shape[-1]),
-        dout=int(downs[-1].out_features) if downs else inner,
+        din=din,
+        dout=dout,
         inner=inner,
         projected=projected,
-        temps=1 if kinds & _FUSED and not kinds & _GATED else 2,
+        temps=temps,
         itemsize=x.element_size(),
         quantized=any(getattr(c, "provider", None) is not None for c in module.modules()),
     )
+
+
+def _widths(module: object) -> tuple[int, int] | None:
+    """A projection's (in, out) widths as it states them: a Linear, or an encoding leaf in its
+    place; None for anything else."""
+    i, o = (getattr(module, k, None) for k in ("in_features", "out_features"))
+    return (i, o) if isinstance(i, int) and isinstance(o, int) else None
 
 
 def _token_local(module: nn.Module) -> bool:
@@ -234,8 +260,6 @@ def _token_local(module: nn.Module) -> bool:
     may silently select a different quantizer/backend. Other approved row quantizers keep
     their full channel/block reduction within each token.
     """
-    from cozy_runtime.internal.encoding.leaves import NVFP4
-
     return not any(getattr(child, "provider", None) == NVFP4 for child in module.modules())
 
 
@@ -459,6 +483,8 @@ def _attend(
 #: section's peak less what was live at its start and the output). A measurement on the live
 #: tensors, never an OOM; fitted once both are in (`sizing.fitted`)
 _MEASURED: dict[str, list[tuple[int, int]]] = {}
+#: split keys whose larger measuring window the device refused: the second point is a smaller one
+_REFUSED: set[str] = set()
 _MEASURED_LOCK = threading.Lock()
 
 
@@ -480,6 +506,7 @@ def split[T](
 
     with _MEASURED_LOCK:
         points = sorted(_MEASURED.get(key, ()))
+        refused = key in _REFUSED
     request = catch.CURRENT.get()
     measured: tuple[int, int] | None = None
 
@@ -502,12 +529,14 @@ def split[T](
 
         return catch.cut(f"split:{key}", deepest, need, at)
     # A whole long sequence at one token per launch is expensive even when it fits.
-    # Start bounded, then measure the next larger window. OOM still descends to the floor.
-    target = (
-        next((lv for lv in range(deepest, -1, -1) if window(lv) > points[-1][0]), 0)
-        if points
-        else min(deepest, max(deepest - 7, 1))
-    )
+    # Start bounded, then measure the next larger window; where the device refused it (a short
+    # axis: H3's 56 heads start at 28 a window), the next smaller. OOM still descends.
+    if not points:
+        target = min(deepest, max(deepest - 7, 1))
+    elif refused:
+        target = next((lv for lv in range(deepest + 1) if window(lv) < points[0][0]), deepest)
+    else:
+        target = next((lv for lv in range(deepest, -1, -1) if window(lv) > points[-1][0]), 0)
 
     def measuring(level: int, granularity: int) -> int:
         return 0 if level >= target else sys.maxsize  # a coarser window is not yet measured
@@ -521,4 +550,6 @@ def split[T](
         if len(known) < 2 and all(measured[0] != w for w, _ in known):
             known.append(measured)
             known.sort()
+        elif len(known) == 1:
+            _REFUSED.add(key)  # the larger window descended to the known one
     return result

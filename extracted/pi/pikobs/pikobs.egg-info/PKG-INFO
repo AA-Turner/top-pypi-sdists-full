@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pikobs
-Version: 3.0.490
+Version: 3.0.491
 Summary: Observation diagnostics for data assimilation: maps, sections, profiles and time series of the departures, and their tests
 Home-page: https://gitlab.science.gc.ca/dlo001/Pikobs
 Author: David Lobon

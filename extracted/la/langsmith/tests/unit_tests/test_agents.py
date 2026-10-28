@@ -2,6 +2,7 @@
 
 import json
 from inspect import isawaitable
+from typing import Literal
 from unittest import mock
 
 import pytest
@@ -12,29 +13,54 @@ from langsmith._internal import _profiles
 from langsmith.schemas import LangSmithInfo
 
 
-def test_agents_create_uses_client_configuration() -> None:
+@pytest.mark.asyncio
+@pytest.mark.parametrize("async_client", [False, True])
+@pytest.mark.parametrize("source_type", [None, "EXTERNAL", "LSD", "MDA", "FLEET"])
+async def test_agents_create_uses_client_configuration(
+    async_client: bool, source_type: Literal["LSD", "MDA", "EXTERNAL", "FLEET"] | None
+) -> None:
     requests = []
+    expected_source_type = "EXTERNAL" if source_type is None else source_type
 
     def respond(request, **kwargs):
         requests.append(request)
-        return httpx.Response(201, json={"id": "example-agent", "source_type": "EXTERNAL"}, request=request)
+        return httpx.Response(201, json={"id": "example-agent", "source_type": expected_source_type}, request=request)
 
-    with mock.patch.object(httpx.Client, "send", side_effect=respond):
-        client = Client(
-            api_url="http://localhost:8080/api/v1",
-            api_key="test-api-key",
-            workspace_id="test-workspace",
-            info=LangSmithInfo(),
+    async def arespond(request, **kwargs):
+        return respond(request, **kwargs)
+
+    with (
+        mock.patch.object(httpx.Client, "send", side_effect=respond),
+        mock.patch.object(httpx.AsyncClient, "send", side_effect=arespond),
+    ):
+        client = (
+            AsyncClient(
+                api_url="http://localhost:8080/api/v1",
+                api_key="test-api-key",
+                workspace_id="test-workspace",
+            )
+            if async_client
+            else Client(
+                api_url="http://localhost:8080/api/v1",
+                api_key="test-api-key",
+                workspace_id="test-workspace",
+                info=LangSmithInfo(),
+            )
         )
-        agent = client.agents.create(id="example-agent", source_type="EXTERNAL")
+        if source_type is None:
+            result = client.agents.create(id="example-agent")
+        else:
+            result = client.agents.create(id="example-agent", source_type=source_type)
+        agent = await result if isawaitable(result) else result
 
     assert agent.id == "example-agent"
+    assert agent.source_type == expected_source_type
     assert len(requests) == 1
     request = requests[0]
     assert str(request.url) == "http://localhost:8080/api/v1/agents"
     assert request.headers["x-api-key"] == "test-api-key"
     assert request.headers["x-tenant-id"] == "test-workspace"
-    assert json.loads(request.content) == {"id": "example-agent", "source_type": "EXTERNAL"}
+    assert json.loads(request.content) == {"id": "example-agent", "source_type": expected_source_type}
 
 
 @pytest.mark.asyncio
@@ -53,9 +79,10 @@ async def test_async_agents_preserves_conflict() -> None:
         )
         client._langsmith_api.max_retries = 0
         with pytest.raises(ConflictError):
-            await client.agents.create(id="example-agent", source_type="EXTERNAL")
+            await client.agents.create(id="example-agent")
 
     assert len(requests) == 1
+    assert json.loads(requests[0].content) == {"id": "example-agent", "source_type": "EXTERNAL"}
     assert str(requests[0].url) == "http://localhost:8080/api/v1/agents"
     assert requests[0].headers["x-tenant-id"] == "test-workspace"
     assert requests[0].headers["x-api-key"] == "test-api-key"

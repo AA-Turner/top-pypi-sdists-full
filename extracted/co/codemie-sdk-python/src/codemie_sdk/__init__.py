@@ -170,8 +170,8 @@ from .models.integration import (
 from .models.a2a import (
     AgentCard,
     AgentProvider,
+    AgentInterface,
     AgentCapabilities,
-    AgentAuthentication,
     AgentSkill,
 )
 from .services.a2a import A2AService
@@ -307,8 +307,8 @@ __all__ = [
     "TypeOfIntegration",
     "AgentCard",
     "AgentProvider",
+    "AgentInterface",
     "AgentCapabilities",
-    "AgentAuthentication",
     "AgentSkill",
     "A2AService",
 ]

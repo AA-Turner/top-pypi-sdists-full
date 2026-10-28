@@ -1,11 +1,16 @@
 # Enrich using https://www.maturin.rs/metadata.html
 [project]
 name = "mocpy"
-dynamic = ["version"]
-# 3.6 is no longer maintained and no more supported by maturin
-requires-python = ">=3.9"
-# https://numpy.org/neps/nep-0029-deprecation_policy.html
-# https://docs.astropy.org/en/stable/changelog.html
+description = "MOCPy allows to create and manipulate MOCs (Multi-Order Coverage maps)"
+dynamic = ["version", "license"]
+requires-python = ">=3.10" # update the abi3 declaration in Cargo.toml at the same time
+authors = [
+  {name = "Matthieu Baumann", email = "matthieu.baumann@astro.unistra.fr"},
+  {name = "Thomas Boch", email = "thomas.boch@astro.unistra.fr"},
+  {name = "Manon Marchand", email = "manon.marchand@astro.unistra.fr"},
+  {name = "F.-X. Pineau", email = "francois-xavier.pineau@astro.unistra.fr"},
+]
+readme = "README.md"
 dependencies = [
     "astropy",
     "numpy"
@@ -18,14 +23,15 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Astronomy",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Education",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 keywords=["astronomy", "astrophysics", "HEALPix"]
+
 
 [project.optional-dependencies]
 # optional for plots
@@ -34,8 +40,8 @@ plots = [
     "cdshealpix>=0.6.4",     # Used in fill and border
     "networkx>=2.5",         # Used in get_boundaries
 ]
-# optional to load FITS from URLs
-query_fits = ["requests"]
+# optional to load FITS from URLs or query external services such as VizieR and SIMBAD
+query = ["requests"]
 # optional to support astropy regions
 astropy_regions = ["regions"]
 # for the documentation
@@ -83,7 +89,7 @@ Changelog = "https://github.com/cds-astro/mocpy/blob/master/CHANGELOG.md"
 
 # Build a mocpy-x.x.x.tar.gz containing sources (from maturin).
 [build-system]
-requires = ["maturin>=0.13"]
+requires = ["maturin>=1.12.3"]
 build-backend = "maturin"
 
 [tool.maturin]
@@ -102,6 +108,16 @@ profile = "release"
 frozen = false
 # Require Cargo.lock is up to date
 locked = false
+
+[tool.maturin.generate-ci.github.emscripten]
+
+[tool.maturin.generate-ci.github.linux]
+
+[tool.maturin.generate-ci.github.musllinux]
+
+[tool.maturin.generate-ci.github.macos]
+
+[tool.maturin.generate-ci.github.windows]
 
 [tool.ruff]
 fix = true
@@ -141,5 +157,8 @@ convention = "numpy"  # Accepts: "google", "numpy", or "pep257"
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"
 doctest_optionflags = "NORMALIZE_WHITESPACE"
+markers = [
+    "remote_data: marks tests that require to download a file from a remote server",
+]
 testpaths = ["python", "docs/examples/user_documentation.rst"]
 

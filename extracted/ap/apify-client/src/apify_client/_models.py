@@ -20,6 +20,7 @@ from apify_client._literals import (
     VersionSourceType,
     WebhookDispatchStatus,
     WebhookEventType,
+    WritableVersionSourceType,
 )
 
 
@@ -56,6 +57,9 @@ class ActVersion(BaseModel):
     )
     source_type: VersionSourceType | None = None
     build_tag: Annotated[str | None, Field(examples=['experimental'])] = None
+    """
+    The build tag of the Actor version this build was created from. Can be `null` when the version has no build tag, in which case the build is tagged on success only if the `tag` parameter was passed when starting it.
+    """
     version_number: Annotated[
         str | None, Field(examples=['0.0'], pattern='^([0-9]|[1-9][0-9])\\.([0-9]|[1-9][0-9])$')
     ] = None
@@ -124,6 +128,14 @@ class ActorDefinition(BaseModel):
     """
     The name of the Actor.
     """
+    title: str | None = None
+    """
+    The human-readable display title of the Actor, shown in Apify Console and Apify Store.
+    """
+    description: str | None = None
+    """
+    The description of the Actor.
+    """
     version: Annotated[str | None, Field(pattern='^[0-9]+(\\.[0-9]+)+$')] = None
     """
     The version of the Actor, typically a dot-separated sequence of numbers (e.g., `0.1`, `1.0`, or `0.0.1`).
@@ -132,6 +144,7 @@ class ActorDefinition(BaseModel):
     """
     The tag name to be applied to a successful build of the Actor. Defaults to 'latest' if not specified.
     """
+    meta: ActorDefinitionMeta | None = None
     environment_variables: dict[str, str] | None = None
     """
     A map of environment variables to be used during local development and deployment.
@@ -151,6 +164,10 @@ class ActorDefinition(BaseModel):
     input: dict[str, Any] | None = None
     """
     The input schema object, the full specification can be found in [Apify docs](https://docs.apify.com/platform/actors/development/actor-definition/input-schema)
+    """
+    output: dict[str, Any] | None = None
+    """
+    The output schema object, the full specification can be found in [Apify docs](https://docs.apify.com/platform/actors/development/actor-definition/output-schema)
     """
     changelog: str | None = None
     """
@@ -172,6 +189,33 @@ class ActorDefinition(BaseModel):
     uses_standby_mode: bool | None = None
     """
     Specifies whether Standby mode is enabled for the Actor.
+    """
+    web_server_schema: dict[str, Any] | None = None
+    """
+    The OpenAPI v3 specification of the web server running in the Actor, the full specification can be found in [Apify docs](https://docs.apify.com/platform/actors/development/actor-definition/web-server-schema)
+    """
+    web_server_mcp_path: str | None = None
+    """
+    The HTTP path where the Actor's web server exposes its MCP (Model Context Protocol) server, for example `/mcp`.
+    """
+
+
+@docs_group('Models')
+class ActorDefinitionMeta(BaseModel):
+    """Additional information about the Actor."""
+
+    model_config = ConfigDict(
+        extra='allow',
+        populate_by_name=True,
+        alias_generator=to_camel,
+    )
+    template_id: str | None = None
+    """
+    The ID of the template from which the Actor was created.
+    """
+    generated_by: str | None = None
+    """
+    The tool or model that generated the Actor.
     """
 
 
@@ -259,6 +303,9 @@ class ActorResource(BaseModel):
         ]
         | None
     ) = None
+    """
+    The Actor's pricing records, including past ones.
+    """
     default_run_options: DefaultRunOptions
     example_run_input: ExampleRunInput | None = None
     is_deprecated: Annotated[bool | None, Field(examples=[False])] = None
@@ -728,6 +775,10 @@ class ChargeRunRequest(BaseModel):
     )
     event_name: Annotated[str, Field(examples=['ANALYZE_PAGE'])]
     count: Annotated[int, Field(examples=[1])]
+    request_id: Annotated[str | None, Field(examples=['7Hs2kQw9LxP4mN1vB'])] = None
+    """
+    ID of the Server Actor request being charged, from the `X-Actor-Request-ID` header of the incoming request. Required for multi-tenant Server Actor runs, where it identifies the request the charge belongs to.
+    """
 
 
 @docs_group('Models')
@@ -780,8 +831,9 @@ class CreateActorRequest(BaseModel):
     """
     is_public: Annotated[bool | None, Field(examples=[False])] = None
     """
-    Whether the Actor is available to users in Apify Store. If `false`, the Actor is private and only visible to you.
+    Whether the Actor is available to users in Apify Store. A new Actor is always private. To publish it, build it first, then update it with `isPublic` set to `true`.
     """
+    actor_permission_level: ActorPermissionLevel | None = None
     seo_title: Annotated[str | None, Field(examples=['Free Instagram scraper'])] = None
     """
     Name of the Actor to display by search engines such as Google. Can be different from the Actor's name displayed in Apify Store and Console. Recommended length is 40-50 characters.
@@ -791,7 +843,7 @@ class CreateActorRequest(BaseModel):
     Description of the Actor to display by search engines such as Google. Recommended length is 140-156 characters.
     """
     restart_on_error: Annotated[bool | None, Field(deprecated=True, examples=[False])] = None
-    versions: list[Version] | None = None
+    versions: Annotated[list[CreateVersionRequest] | None, Field(min_length=1)] = None
     """
     An array of `Version` objects. Each object represents a specific version of the Actor's source code: its location, builds, and environment configuration.
     """
@@ -828,6 +880,7 @@ class CreateOrUpdateScheduleRequest(BaseModel):
     timezone: Annotated[str | None, Field(examples=['UTC'])] = None
     description: Annotated[str | None, Field(examples=['Schedule of actor ...'])] = None
     title: str | None = None
+    notifications: ScheduleNotifications | None = None
     actions: (
         list[Annotated[ScheduleCreateActionRunActor | ScheduleCreateActionRunActorTask, Field(discriminator='type')]]
         | None
@@ -835,23 +888,43 @@ class CreateOrUpdateScheduleRequest(BaseModel):
 
 
 @docs_group('Models')
-class CreateOrUpdateVersionRequest(BaseModel):
+class CreateTaskRequest(BaseModel):
     model_config = ConfigDict(
         extra='allow',
         populate_by_name=True,
         alias_generator=to_camel,
     )
-    version_number: Annotated[
-        str | None, Field(examples=['1.6'], pattern='^([0-9]|[1-9][0-9])\\.([0-9]|[1-9][0-9])$')
-    ] = None
+    act_id: Annotated[str, Field(examples=['asADASadYvn4mBZmm'])]
+    name: Annotated[str | None, Field(examples=['my-task'])] = None
+    options: TaskOptions | None = None
+    input: TaskInput | list[TaskInput] | None = None
+    title: str | None = None
+    description: str | None = None
+    actor_standby: ActorStandby | None = None
+    public_config: TaskPublicConfig | None = None
+    """
+    Configuration that controls how the published task appears on its public landing page.
+    Editing this object requires write permission to the Actor that the task belongs to.
+
+    """
+
+
+@docs_group('Models')
+class CreateVersionRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='allow',
+        populate_by_name=True,
+        alias_generator=to_camel,
+    )
+    version_number: Annotated[str, Field(examples=['1.6'], pattern='^([0-9]|[1-9][0-9])\\.([0-9]|[1-9][0-9])$')]
     """
     The version number of the Actor. Two numbers separated by a dot, that represent the `MAJOR.MINOR` part of the semantic versioning.
     """
-    source_type: VersionSourceType | None = None
+    source_type: WritableVersionSourceType
     """
     Where the source code of the version lives.
     """
-    env_vars: list[EnvVar] | None = None
+    env_vars: list[EnvVarRequest] | None = None
     """
     Environment variables for the version.
     """
@@ -878,28 +951,6 @@ class CreateOrUpdateVersionRequest(BaseModel):
     github_gist_url: Annotated[str | None, Field(alias='gitHubGistUrl')] = None
     """
     URL of the GitHub Gist to clone the source code from. Applies when the `sourceType` is `GITHUB_GIST`.
-    """
-
-
-@docs_group('Models')
-class CreateTaskRequest(BaseModel):
-    model_config = ConfigDict(
-        extra='allow',
-        populate_by_name=True,
-        alias_generator=to_camel,
-    )
-    act_id: Annotated[str, Field(examples=['asADASadYvn4mBZmm'])]
-    name: Annotated[str | None, Field(examples=['my-task'])] = None
-    options: TaskOptions | None = None
-    input: TaskInput | list[TaskInput] | None = None
-    title: str | None = None
-    description: str | None = None
-    actor_standby: ActorStandby | None = None
-    public_config: TaskPublicConfig | None = None
-    """
-    Configuration that controls how the published task appears on its public landing page.
-    Editing this object requires write permission to the Actor that the task belongs to.
-
     """
 
 
@@ -946,9 +997,6 @@ class CurrentPricingInfo(BaseModel):
         bool | None, Field(alias='isPPEPlatformUsagePaidByUser', examples=[False])
     ] = None
     reason_for_change: Annotated[str | None, Field(examples=[None])] = None
-    trial_minutes: Annotated[int | None, Field(examples=[None])] = None
-    unit_name: Annotated[str | None, Field(examples=[None])] = None
-    price_per_unit_usd: Annotated[float | None, Field(examples=[None])] = None
     minimal_max_total_charge_usd: Annotated[float | None, Field(examples=[0.5])] = None
     pricing_per_event: dict[str, Any] | None = None
     """
@@ -1408,15 +1456,23 @@ class EnvVar(BaseModel):
 
 
 @docs_group('Models')
-class EnvVarRequest(EnvVar):
+class EnvVarRequest(BaseModel):
     model_config = ConfigDict(
         extra='allow',
         populate_by_name=True,
         alias_generator=to_camel,
     )
+    name: Annotated[str, Field(examples=['MY_ENV_VAR'])]
+    """
+    The name of the environment variable. Can't contain `=`.
+    """
     value: Annotated[str, Field(examples=['my-value'])]
     """
-    The value of the environment variable. If `isSecret` is `true`, this value isn't returned by the API.
+    The value of the environment variable.
+    """
+    is_secret: Annotated[bool | None, Field(examples=[False])] = None
+    """
+    Whether the environment variable is encrypted. Secret values aren't returned by the API.
     """
 
 
@@ -1486,6 +1542,8 @@ class ExampleRunInput(BaseModel):
 
 @docs_group('Models')
 class FlatPricePerMonthActorPricingInfo(CommonActorPricingInfo):
+    """Rental pricing model, which is no longer supported."""
+
     model_config = ConfigDict(
         extra='allow',
         populate_by_name=True,
@@ -1494,11 +1552,11 @@ class FlatPricePerMonthActorPricingInfo(CommonActorPricingInfo):
     pricing_model: Literal['FLAT_PRICE_PER_MONTH']
     trial_minutes: int
     """
-    For how long this Actor can be used for free in trial period
+    Number of minutes a user could run the Actor for free before having to rent it. Apify no longer offers rental pricing, so you can see this field only in pricing history and in runs started before rented Actors moved to other pricing models.
     """
     price_per_unit_usd: float
     """
-    Monthly flat price in USD
+    Monthly flat price in USD. Apify no longer offers rental pricing, so you can see this field only in pricing history and in runs started before rented Actors moved to other pricing models.
     """
 
 
@@ -1986,18 +2044,6 @@ class MonthlyUsageResponse(BaseModel):
         alias_generator=to_camel,
     )
     data: MonthlyUsage
-
-
-@docs_group('Models')
-class Notifications(BaseModel):
-    """Notification settings for this schedule."""
-
-    model_config = ConfigDict(
-        extra='allow',
-        populate_by_name=True,
-        alias_generator=to_camel,
-    )
-    email: Annotated[bool | None, Field(examples=[True])] = None
 
 
 @docs_group('Models')
@@ -2904,11 +2950,11 @@ class Run(BaseModel):
     """
     usage_total_usd: Annotated[float | None, Field(examples=[0.2654])] = None
     """
-    Total cost in USD for this run. Represents what you actually pay. For run owners: includes platform usage (compute units) and/or event costs depending on the Actor's pricing model. For run non-owners: only available for Pay-Per-Event Actors (event costs only). Requires authentication token to access.
+    Total cost in USD for this run. Represents what you actually pay. For run owners: includes platform usage (compute units) and/or event costs depending on the Actor's pricing model. For run non-owners: only available for pay-per-event Actors (event costs only). Requires authentication token to access.
     """
     usage_usd: RunUsageUsd | None = None
     """
-    Platform usage costs breakdown in USD. Only present if you own the run AND are paying for platform usage (Pay-Per-Usage, Rental, or Pay-Per-Event with usage costs like standby Actors). Not available for standard Pay-Per-Event Actors. Requires authentication token to access.
+    Platform usage costs breakdown in USD. Only present if you own the run and are paying for platform usage (pay-per-usage or pay-per-event with usage costs like Standby Actors). Not available for standard pay-per-event Actors. Requires authentication token to access.
     """
     metamorphs: list[RunMetamorphEvent] | None = None
     """
@@ -3173,10 +3219,7 @@ class Schedule(ScheduleBase):
     )
     description: Annotated[str | None, Field(examples=['Schedule of actor ...'])] = None
     title: str | None = None
-    notifications: Annotated[Notifications | None, Field(title='ScheduleNotifications')] = None
-    """
-    Notification settings for this schedule.
-    """
+    notifications: ScheduleNotifications | None = None
     actions: list[Annotated[ScheduleActionRunActor | ScheduleActionRunActorTask, Field(discriminator='type')]]
 
 
@@ -3261,6 +3304,18 @@ class ScheduleLogResponse(BaseModel):
         alias_generator=to_camel,
     )
     data: list[ScheduleLogEntry]
+
+
+@docs_group('Models')
+class ScheduleNotifications(BaseModel):
+    """Notification settings for this schedule."""
+
+    model_config = ConfigDict(
+        extra='allow',
+        populate_by_name=True,
+        alias_generator=to_camel,
+    )
+    email: Annotated[bool | None, Field(examples=[True])] = None
 
 
 @docs_group('Models')
@@ -3351,6 +3406,14 @@ class Storages(BaseModel):
     dataset: dict[str, Any] | None = None
     """
     Defines the schema of items in your dataset, the full specification can be found in [Apify docs](https://docs.apify.com/platform/actors/development/actor-definition/dataset-schema)
+    """
+    datasets: dict[str, dict[str, Any]] | None = None
+    """
+    Maps dataset aliases to the schemas of the Actor's datasets, the full specification can be found in [Apify docs](https://docs.apify.com/platform/storage/dataset-schema/multiple-datasets)
+    """
+    key_value_store: dict[str, Any] | None = None
+    """
+    Defines the schema of the Actor's default key-value store, the full specification can be found in [Apify docs](https://docs.apify.com/platform/storage/key-value-store-schema)
     """
 
 
@@ -3512,7 +3575,7 @@ class TaskPublicConfig(BaseModel):
     """
     Time when the task was published, or `null` if the task isn't published.
     This field is server-controlled. To publish or unpublish a task, use the
-    [Update task](https://docs.apify.com/api/v2/actor-task-put) endpoint and set `isPublic`.
+    [Update Actor task](https://docs.apify.com/api/v2/actor-task-put) endpoint and set `isPublic`.
 
     """
     seo_title: Annotated[str | None, Field(examples=['Scrape data from a website'], max_length=60)] = None
@@ -3684,7 +3747,7 @@ class UpdateActorRequest(BaseModel):
     Human-readable name of the Actor, displayed in Apify Store and Console. Can contain spaces and capital letters. Recommended length is 40-50 characters. You can change this title without affecting the Actor's URL or SEO.
     """
     restart_on_error: Annotated[bool | None, Field(deprecated=True, examples=[False])] = None
-    versions: list[CreateOrUpdateVersionRequest] | None = None
+    versions: Annotated[list[CreateVersionRequest] | None, Field(min_length=1)] = None
     """
     An array of `Version` objects. Each object represents a specific version of the Actor's source code: its location, builds, and environment configuration.
     """
@@ -3700,6 +3763,9 @@ class UpdateActorRequest(BaseModel):
         ]
         | None
     ) = None
+    """
+    The Actor's pricing records. You can't add the `FLAT_PRICE_PER_MONTH` or `PRICE_PER_DATASET_ITEM` records, because these pricing models are no longer supported.
+    """
     categories: Annotated[list[str] | None, Field(examples=[['SOCIAL_MEDIA']])] = None
     """
     A list of categories that best define the Actor. Reflected in Apify Store's search and filtering options.
@@ -3832,6 +3898,53 @@ class UpdateTaskRequest(BaseModel):
     Set to `true` to publish the task on its public landing page, or `false` to unpublish it.
     Sending the value the task already has does nothing.
 
+    """
+
+
+@docs_group('Models')
+class UpdateVersionRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='allow',
+        populate_by_name=True,
+        alias_generator=to_camel,
+    )
+    version_number: Annotated[
+        str | None, Field(examples=['1.6'], pattern='^([0-9]|[1-9][0-9])\\.([0-9]|[1-9][0-9])$')
+    ] = None
+    """
+    The version number of the Actor. Two numbers separated by a dot, that represent the `MAJOR.MINOR` part of the semantic versioning.
+    """
+    source_type: WritableVersionSourceType | None = None
+    """
+    Where the source code of the version lives.
+    """
+    env_vars: list[EnvVarRequest] | None = None
+    """
+    Environment variables for the version.
+    """
+    apply_env_vars_to_build: Annotated[bool | None, Field(examples=[False])] = None
+    """
+    Whether to inject the environment variables at build time.
+    """
+    build_tag: Annotated[str | None, Field(examples=['latest'])] = None
+    """
+    The tag name to apply to a successful build of this version. Can be `null` when the version has no build tag.
+    """
+    source_files: Annotated[list[SourceCodeFile | SourceCodeFolder] | None, Field(title='VersionSourceFiles')] = None
+    """
+    Applies when the `sourceType` is `SOURCE_FILES`. Represents the Actor's file structure as an array of files and folders.
+    """
+    git_repo_url: str | None = None
+    """
+    URL of the Git repository to clone the source code from. Applies when the `sourceType` is `GIT_REPO`.
+    """
+    tarball_url: str | None = None
+    """
+    URL of the tarball to download the source code from. Applies when the `sourceType` is `TARBALL`.
+    """
+    github_gist_url: Annotated[str | None, Field(alias='gitHubGistUrl')] = None
+    """
+    URL of the GitHub Gist to clone the source code from. Applies when the `sourceType` is `GITHUB_GIST`.
     """
 
 

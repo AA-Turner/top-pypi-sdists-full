@@ -18,18 +18,16 @@ import collections
 import dataclasses
 import itertools
 import re
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Mapping, Optional, Tuple, Union
 import uuid
 
 from google.protobuf import json_format
 import kfp
+from kfp.dsl import container_component_artifact_channel as artifact_channel
 from kfp.dsl import placeholders
 from kfp.dsl import utils
 from kfp.dsl import v1_structures
 from kfp.dsl.component_task_config import TaskConfigPassthrough
-from kfp.dsl.container_component_artifact_channel import \
-    ContainerComponentArtifactChannel
-from kfp.dsl.task_config import TaskConfig
 from kfp.dsl.types import artifact_types
 from kfp.dsl.types import type_annotations
 from kfp.dsl.types import type_utils
@@ -358,6 +356,14 @@ class ContainerSpecImplementation:
             resources=None)  # can only be set on tasks
 
 
+_RETRY_POLICY_MAP = {
+    'Always': 'POLICY_ALWAYS',
+    'OnFailure': 'POLICY_ON_FAILURE',
+    'OnError': 'POLICY_ON_ERROR',
+    'OnTransientError': 'POLICY_ON_TRANSIENT_ERROR',
+}
+
+
 @dataclasses.dataclass
 class RetryPolicy:
     """The retry policy of a container execution.
@@ -367,11 +373,24 @@ class RetryPolicy:
         backoff_duration (int): The the number of seconds to wait before triggering a retry.
         backoff_factor (float): The exponential backoff factor applied to backoff_duration. For example, if backoff_duration="60" (60 seconds) and backoff_factor=2, the first retry will happen after 60 seconds, then after 120, 240, and so on.
         backoff_max_duration (int): The maximum duration during which the task will be retried.
+        policy (str): Controls which failure types trigger a retry. Only
+            supported when using Argo Workflows as the pipeline execution
+            engine. One of ``'Always'``, ``'OnFailure'``, ``'OnError'``, or
+            ``'OnTransientError'``. ``'OnFailure'`` retries container exits,
+            including SIGTERM (exit code 143); ``'OnError'`` retries pods that
+            report no exit code, such as deletion or node loss;
+            ``'OnTransientError'`` retries either when the failure message
+            matches the controller's transient-error pattern; ``'Always'``
+            retries both. Defaults to ``None``, which omits the policy so the
+            deployment's Argo configuration applies; KFP's bundled manifests
+            set ``'OnError'``.
     """
     max_retry_count: Optional[int] = None
     backoff_duration: Optional[str] = None
     backoff_factor: Optional[float] = None
     backoff_max_duration: Optional[str] = None
+    policy: Optional[Literal['Always', 'OnFailure', 'OnError',
+                             'OnTransientError']] = None
 
     def to_proto(self) -> pipeline_spec_pb2.PipelineTaskSpec.RetryPolicy:
         # include defaults so that IR is more reflective of runtime behavior
@@ -383,13 +402,19 @@ class RetryPolicy:
         backoff_duration_seconds = f'{convert_duration_to_seconds(backoff_duration)}s'
         backoff_max_duration_seconds = f'{convert_duration_to_seconds(backoff_max_duration)}s'
 
+        retry_policy_dict = {
+            'max_retry_count': max_retry_count,
+            'backoff_duration': backoff_duration_seconds,
+            'backoff_factor': backoff_factor,
+            'backoff_max_duration': backoff_max_duration_seconds,
+        }
+        if self.policy:
+            if self.policy not in _RETRY_POLICY_MAP:
+                raise ValueError(f'Invalid retry policy {self.policy!r}. '
+                                 f'Must be one of: {sorted(_RETRY_POLICY_MAP)}')
+            retry_policy_dict['policy'] = _RETRY_POLICY_MAP[self.policy]
         return json_format.ParseDict(
-            {
-                'max_retry_count': max_retry_count,
-                'backoff_duration': backoff_duration_seconds,
-                'backoff_factor': backoff_factor,
-                'backoff_max_duration': backoff_max_duration_seconds,
-            }, pipeline_spec_pb2.PipelineTaskSpec.RetryPolicy())
+            retry_policy_dict, pipeline_spec_pb2.PipelineTaskSpec.RetryPolicy())
 
 
 @dataclasses.dataclass
@@ -413,7 +438,9 @@ class TaskSpec:
         enable_caching (optional): whether or not to enable caching for the task.
             Default is True.
         cache_key (optional): Customized cache key for this task.
-            Default is None.
+            The customized cache key is combined with component reference identity to
+            prevent cross-component cache collisions, overriding automatic task
+            fingerprinting. Default is None.
         display_name (optional): the display name of the task. If not specified,
             the task name will be used as the display name.
     """
@@ -509,7 +536,7 @@ def check_placeholder_references_valid_io_name(
         TypeError: if any argument is neither a str nor a placeholder
             instance.
     """
-    if isinstance(arg, ContainerComponentArtifactChannel):
+    if isinstance(arg, artifact_channel.ContainerComponentArtifactChannel):
         raise ValueError(
             'Cannot access artifact by itself in the container definition. Please use .uri or .path instead to access the artifact.'
         )
@@ -856,23 +883,29 @@ class ComponentSpec:
 
         def extract_description(component_yaml: str) -> Optional[str]:
             heading = '# Description: '
-            multi_line_description_prefix = '#             '
-            index_of_heading = 2
-            if heading in component_yaml:
-                description = component_yaml.splitlines()[index_of_heading]
+            multi_line_description_prefix = '#              '
+            lines = component_yaml.splitlines()
+            index_of_heading = None
+            for i, line in enumerate(lines):
+                if line.startswith(heading):
+                    index_of_heading = i
+                    break
 
-                # Multi line
-                comments = component_yaml.splitlines()
-                index = index_of_heading + 1
-                while comments[index][:len(multi_line_description_prefix
-                                          )] == multi_line_description_prefix:
-                    description += '\n' + comments[index][
-                        len(multi_line_description_prefix) + 1:]
-                    index += 1
-
-                return description[len(heading):]
-            else:
+            if index_of_heading is None:
                 return None
+
+            description = lines[index_of_heading]
+            index = index_of_heading + 1
+            while index < len(lines):
+                line = lines[index]
+                if line.startswith(multi_line_description_prefix):
+                    description += '\n' + line[len(multi_line_description_prefix
+                                                  ):]
+                    index += 1
+                else:
+                    break
+
+            return description[len(heading):]
 
         pipeline_spec_dict, platform_spec_dict = load_documents_from_yaml(
             component_yaml)
@@ -1015,6 +1048,7 @@ class ComponentSpec:
 
 def normalize_time_string(duration: str) -> str:
     """Normalizes a time string.
+
         Examples:
             - '1 hour' -> '1h'
             - '2 hours' -> '2h'

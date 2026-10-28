@@ -29,6 +29,27 @@ from istari_digital_client.legacy.exceptions import ApiKeyError
 from istari_digital_client.legacy.exceptions import ApiAttributeError
 from istari_digital_client.legacy.exceptions import ApiException
 
+# Transfer engine: public error types, progress events, and part sources
+from istari_digital_client._transfer import (
+    MultipartUploadRestartRequiredError,
+    ContentVerificationError,
+    EventKind,
+    FileChangedDuringUploadError,
+    InsufficientDiskSpaceError,
+    PartPlanError,
+    SourceReadError,
+    TransferCancelledError,
+    TransferError,
+    TransferEvent,
+)
+from istari_digital_client._transfer.source import (
+    BufferedStreamPartSource,
+    BytesPartSource,
+    FilePartSource,
+    PartSource,
+)
+from istari_digital_client.legacy.storage.api.storage_api import TransferFailedError
+
 # BEGIN GENERATED v2 model re-exports (openapi/scripts/generate-client.py)
 from istari_digital_client.legacy.v2.models.access_relation import AccessRelation
 from istari_digital_client.legacy.v2.models.access_relationship import (
@@ -68,6 +89,14 @@ from istari_digital_client.legacy.v2.models.agent_status_name import AgentStatus
 from istari_digital_client.legacy.v2.models.agent_status_retention_duration import (
     AgentStatusRetentionDuration,
 )
+from istari_digital_client.legacy.v2.models.approval_required_detail import (
+    ApprovalRequiredDetail,
+)
+from istari_digital_client.legacy.v2.models.approval_required_response import (
+    ApprovalRequiredResponse,
+)
+from istari_digital_client.legacy.v2.models.approval_status import ApprovalStatus
+from istari_digital_client.legacy.v2.models.approver_role import ApproverRole
 from istari_digital_client.legacy.v2.models.archive import Archive
 from istari_digital_client.legacy.v2.models.archive_status import ArchiveStatus
 from istari_digital_client.legacy.v2.models.archive_status_name import ArchiveStatusName
@@ -87,18 +116,44 @@ from istari_digital_client.legacy.v2.models.auth_integration_update import (
     AuthIntegrationUpdate,
 )
 from istari_digital_client.legacy.v2.models.authorize_url import AuthorizeUrl
-from istari_digital_client.legacy.v2.models.build_script import BuildScript
-from istari_digital_client.legacy.v2.models.bulk_move_tracked_files import (
-    BulkMoveTrackedFiles,
+from istari_digital_client.legacy.v2.models.branch_commit_dto import BranchCommitDto
+from istari_digital_client.legacy.v2.models.branch_commit_preview_dto import (
+    BranchCommitPreviewDto,
 )
+from istari_digital_client.legacy.v2.models.branch_commit_result_dto import (
+    BranchCommitResultDto,
+)
+from istari_digital_client.legacy.v2.models.branch_file_change import BranchFileChange
+from istari_digital_client.legacy.v2.models.branch_protection_rule_set import (
+    BranchProtectionRuleSet,
+)
+from istari_digital_client.legacy.v2.models.branch_protection_rule_set_create import (
+    BranchProtectionRuleSetCreate,
+)
+from istari_digital_client.legacy.v2.models.branch_protection_rule_set_update import (
+    BranchProtectionRuleSetUpdate,
+)
+from istari_digital_client.legacy.v2.models.build_script import BuildScript
 from istari_digital_client.legacy.v2.models.bulk_sharing_access_relation import (
     BulkSharingAccessRelation,
+)
+from istari_digital_client.legacy.v2.models.change_request_approval import (
+    ChangeRequestApproval,
+)
+from istari_digital_client.legacy.v2.models.change_request_approver import (
+    ChangeRequestApprover,
+)
+from istari_digital_client.legacy.v2.models.change_request_approver_list import (
+    ChangeRequestApproverList,
 )
 from istari_digital_client.legacy.v2.models.change_request_component_type import (
     ChangeRequestComponentType,
 )
 from istari_digital_client.legacy.v2.models.change_request_create_request import (
     ChangeRequestCreateRequest,
+)
+from istari_digital_client.legacy.v2.models.change_request_dependency_diff import (
+    ChangeRequestDependencyDiff,
 )
 from istari_digital_client.legacy.v2.models.change_request_diff_page import (
     ChangeRequestDiffPage,
@@ -165,9 +220,38 @@ from istari_digital_client.legacy.v2.models.credential_update import CredentialU
 from istari_digital_client.legacy.v2.models.credential_validation import (
     CredentialValidation,
 )
+from istari_digital_client.legacy.v2.models.cursor_page_installed_file_dto import (
+    CursorPageInstalledFileDto,
+)
+from istari_digital_client.legacy.v2.models.cursor_page_resolved_folder_dto import (
+    CursorPageResolvedFolderDto,
+)
+from istari_digital_client.legacy.v2.models.cursor_page_system_tree_node_dto import (
+    CursorPageSystemTreeNodeDto,
+)
+from istari_digital_client.legacy.v2.models.dependencies_manifest import (
+    DependenciesManifest,
+)
 from istari_digital_client.legacy.v2.models.dependency import Dependency
+from istari_digital_client.legacy.v2.models.dependency_diagnostic import (
+    DependencyDiagnostic,
+)
+from istari_digital_client.legacy.v2.models.dependency_manifest_dto import (
+    DependencyManifestDto,
+)
+from istari_digital_client.legacy.v2.models.dependency_resolution_dto import (
+    DependencyResolutionDto,
+)
+from istari_digital_client.legacy.v2.models.dependency_resolve_request import (
+    DependencyResolveRequest,
+)
+from istari_digital_client.legacy.v2.models.dependency_update import DependencyUpdate
 from istari_digital_client.legacy.v2.models.deprecation_reason import DeprecationReason
 from istari_digital_client.legacy.v2.models.dry_run_snapshot import DryRunSnapshot
+from istari_digital_client.legacy.v2.models.eligible_approver import EligibleApprover
+from istari_digital_client.legacy.v2.models.eligible_approver_list import (
+    EligibleApproverList,
+)
 from istari_digital_client.legacy.v2.models.file import File
 from istari_digital_client.legacy.v2.models.file_archive_status import FileArchiveStatus
 from istari_digital_client.legacy.v2.models.file_control_tagging import (
@@ -180,6 +264,7 @@ from istari_digital_client.legacy.v2.models.file_revision_archive_status import 
 from istari_digital_client.legacy.v2.models.filter_by import FilterBy
 from istari_digital_client.legacy.v2.models.folder import Folder
 from istari_digital_client.legacy.v2.models.folder_list import FolderList
+from istari_digital_client.legacy.v2.models.folder_ref import FolderRef
 from istari_digital_client.legacy.v2.models.full_text_search import FullTextSearch
 from istari_digital_client.legacy.v2.models.function import Function
 from istari_digital_client.legacy.v2.models.function_auth_secret import (
@@ -220,6 +305,7 @@ from istari_digital_client.legacy.v2.models.infosec_schema_types import (
 )
 from istari_digital_client.legacy.v2.models.input_schema import InputSchema
 from istari_digital_client.legacy.v2.models.input_type import InputType
+from istari_digital_client.legacy.v2.models.installed_file_dto import InstalledFileDto
 from istari_digital_client.legacy.v2.models.integration_catalog_entry import (
     IntegrationCatalogEntry,
 )
@@ -242,7 +328,21 @@ from istari_digital_client.legacy.v2.models.job_agent_information import (
 from istari_digital_client.legacy.v2.models.job_status import JobStatus
 from istari_digital_client.legacy.v2.models.job_status_message import JobStatusMessage
 from istari_digital_client.legacy.v2.models.job_status_name import JobStatusName
+from istari_digital_client.legacy.v2.models.lifecycle import Lifecycle
 from istari_digital_client.legacy.v2.models.manifest import Manifest
+from istari_digital_client.legacy.v2.models.manifest_diagnostic import (
+    ManifestDiagnostic,
+)
+from istari_digital_client.legacy.v2.models.manifest_input_dependencies_manifest import (
+    ManifestInputDependenciesManifest,
+)
+from istari_digital_client.legacy.v2.models.manifest_input_publications_manifest import (
+    ManifestInputPublicationsManifest,
+)
+from istari_digital_client.legacy.v2.models.marking_dto import MarkingDto
+from istari_digital_client.legacy.v2.models.merge_blocked_reason import (
+    MergeBlockedReason,
+)
 from istari_digital_client.legacy.v2.models.merged_change_request_response import (
     MergedChangeRequestResponse,
 )
@@ -255,7 +355,6 @@ from istari_digital_client.legacy.v2.models.module_version import ModuleVersion
 from istari_digital_client.legacy.v2.models.module_version_status import (
     ModuleVersionStatus,
 )
-from istari_digital_client.legacy.v2.models.move_tracked_file import MoveTrackedFile
 from istari_digital_client.legacy.v2.models.new_agent import NewAgent
 from istari_digital_client.legacy.v2.models.new_agent_display_name import (
     NewAgentDisplayName,
@@ -299,6 +398,9 @@ from istari_digital_client.legacy.v2.models.new_job_assigned_agent import (
 from istari_digital_client.legacy.v2.models.new_job_assigned_agent_pool import (
     NewJobAssignedAgentPool,
 )
+from istari_digital_client.legacy.v2.models.new_job_output_control_tag import (
+    NewJobOutputControlTag,
+)
 from istari_digital_client.legacy.v2.models.new_module_author import NewModuleAuthor
 from istari_digital_client.legacy.v2.models.new_operating_system import (
     NewOperatingSystem,
@@ -328,6 +430,9 @@ from istari_digital_client.legacy.v2.models.os import OS
 from istari_digital_client.legacy.v2.models.oauth1_provider_data import (
     Oauth1ProviderData,
 )
+from istari_digital_client.legacy.v2.models.object_control_tagging import (
+    ObjectControlTagging,
+)
 from istari_digital_client.legacy.v2.models.object_store_sha import ObjectStoreSha
 from istari_digital_client.legacy.v2.models.oidc_config_health_check_request import (
     OidcConfigHealthCheckRequest,
@@ -345,6 +450,7 @@ from istari_digital_client.legacy.v2.models.optional_total_page_system import (
 )
 from istari_digital_client.legacy.v2.models.output_schema import OutputSchema
 from istari_digital_client.legacy.v2.models.output_type import OutputType
+from istari_digital_client.legacy.v2.models.package_name import PackageName
 from istari_digital_client.legacy.v2.models.page_agent import PageAgent
 from istari_digital_client.legacy.v2.models.page_agent_pool import PageAgentPool
 from istari_digital_client.legacy.v2.models.page_agent_pool_agent_membership_with_agent import (
@@ -357,6 +463,9 @@ from istari_digital_client.legacy.v2.models.page_agent_status import PageAgentSt
 from istari_digital_client.legacy.v2.models.page_artifact import PageArtifact
 from istari_digital_client.legacy.v2.models.page_auth_integration import (
     PageAuthIntegration,
+)
+from istari_digital_client.legacy.v2.models.page_branch_protection_rule_set import (
+    PageBranchProtectionRuleSet,
 )
 from istari_digital_client.legacy.v2.models.page_change_request_event import (
     PageChangeRequestEvent,
@@ -426,13 +535,38 @@ from istari_digital_client.legacy.v2.models.personal_access_token import (
 from istari_digital_client.legacy.v2.models.personal_access_token_user_type import (
     PersonalAccessTokenUserType,
 )
+from istari_digital_client.legacy.v2.models.placement import Placement
 from istari_digital_client.legacy.v2.models.platform_infosec_settings import (
     PlatformInfosecSettings,
 )
 from istari_digital_client.legacy.v2.models.product import Product
-from istari_digital_client.legacy.v2.models.rename_folder_prefix import (
-    RenameFolderPrefix,
+from istari_digital_client.legacy.v2.models.protected_branch_detail import (
+    ProtectedBranchDetail,
 )
+from istari_digital_client.legacy.v2.models.protected_branch_response import (
+    ProtectedBranchResponse,
+)
+from istari_digital_client.legacy.v2.models.publication_definition import (
+    PublicationDefinition,
+)
+from istari_digital_client.legacy.v2.models.publication_manifest_dto import (
+    PublicationManifestDto,
+)
+from istari_digital_client.legacy.v2.models.publications_manifest import (
+    PublicationsManifest,
+)
+from istari_digital_client.legacy.v2.models.publishing_conflict_detail_dto import (
+    PublishingConflictDetailDto,
+)
+from istari_digital_client.legacy.v2.models.publishing_conflict_response_dto import (
+    PublishingConflictResponseDto,
+)
+from istari_digital_client.legacy.v2.models.requirement import Requirement
+from istari_digital_client.legacy.v2.models.requirer_dto import RequirerDto
+from istari_digital_client.legacy.v2.models.resolution_change_dto import (
+    ResolutionChangeDto,
+)
+from istari_digital_client.legacy.v2.models.resolved_folder_dto import ResolvedFolderDto
 from istari_digital_client.legacy.v2.models.resource_archive_status import (
     ResourceArchiveStatus,
 )
@@ -443,6 +577,12 @@ from istari_digital_client.legacy.v2.models.resource_search_item import (
     ResourceSearchItem,
 )
 from istari_digital_client.legacy.v2.models.resource_type import ResourceType
+from istari_digital_client.legacy.v2.models.response409_merge_change_request import (
+    Response409MergeChangeRequest,
+)
+from istari_digital_client.legacy.v2.models.response409_update_tag import (
+    Response409UpdateTag,
+)
 from istari_digital_client.legacy.v2.models.response_create_snapshot import (
     ResponseCreateSnapshot,
 )
@@ -464,6 +604,12 @@ from istari_digital_client.legacy.v2.models.snapshot_tag_revision import (
     SnapshotTagRevision,
 )
 from istari_digital_client.legacy.v2.models.source import Source
+from istari_digital_client.legacy.v2.models.stale_head_pair_detail import (
+    StaleHeadPairDetail,
+)
+from istari_digital_client.legacy.v2.models.stale_head_pair_response import (
+    StaleHeadPairResponse,
+)
 from istari_digital_client.legacy.v2.models.stale_live_state_detail import (
     StaleLiveStateDetail,
 )
@@ -481,12 +627,31 @@ from istari_digital_client.legacy.v2.models.system_baseline import SystemBaselin
 from istari_digital_client.legacy.v2.models.system_configuration import (
     SystemConfiguration,
 )
+from istari_digital_client.legacy.v2.models.system_tree_dto import SystemTreeDto
+from istari_digital_client.legacy.v2.models.system_tree_entry_dto import (
+    SystemTreeEntryDto,
+)
+from istari_digital_client.legacy.v2.models.system_tree_node_dto import (
+    SystemTreeNodeDto,
+)
 from istari_digital_client.legacy.v2.models.system_webhook import SystemWebhook
 from istari_digital_client.legacy.v2.models.system_webhook_delivery import (
     SystemWebhookDelivery,
 )
 from istari_digital_client.legacy.v2.models.system_webhook_event import (
     SystemWebhookEvent,
+)
+from istari_digital_client.legacy.v2.models.tag_already_in_rule_set_detail import (
+    TagAlreadyInRuleSetDetail,
+)
+from istari_digital_client.legacy.v2.models.tag_already_in_rule_set_response import (
+    TagAlreadyInRuleSetResponse,
+)
+from istari_digital_client.legacy.v2.models.tag_name_taken_detail import (
+    TagNameTakenDetail,
+)
+from istari_digital_client.legacy.v2.models.tag_name_taken_response import (
+    TagNameTakenResponse,
 )
 from istari_digital_client.legacy.v2.models.target_config import TargetConfig
 from istari_digital_client.legacy.v2.models.target_config1 import TargetConfig1
@@ -519,6 +684,7 @@ from istari_digital_client.legacy.v2.models.update_system_webhook import (
 )
 from istari_digital_client.legacy.v2.models.update_tag import UpdateTag
 from istari_digital_client.legacy.v2.models.update_tool import UpdateTool
+from istari_digital_client.legacy.v2.models.updates import Updates
 from istari_digital_client.legacy.v2.models.upload_as import UploadAs
 from istari_digital_client.legacy.v2.models.upstream_remote_info import (
     UpstreamRemoteInfo,
@@ -623,6 +789,7 @@ from istari_digital_client.sdk._common.workflow_types import (
 # ValidationError, which is deliberately omitted here — reach it via `new`).
 from istari_digital_client.sdk._exceptions import (
     IstariError,
+    TransferRetriesExhaustedError,
     DetachedInstanceError,
     APIConnectionError,
     APIStatusError,
@@ -642,6 +809,8 @@ __all__ = [
     "Configuration",
     "ApiResponse",
     "ApiException",
+    "SourceReadError",
+    "MultipartUploadRestartRequiredError",
     # New facade clients
     "Istari",
     "IstariIntegrations",
@@ -656,6 +825,7 @@ __all__ = [
     "WorkflowOutput",
     # New error hierarchy
     "IstariError",
+    "TransferRetriesExhaustedError",
     "DetachedInstanceError",
     "APIConnectionError",
     "APIStatusError",
@@ -666,6 +836,20 @@ __all__ = [
     "ConflictError",
     "RateLimitError",
     "InternalServerError",
+    # Transfer engine
+    "ContentVerificationError",
+    "FileChangedDuringUploadError",
+    "InsufficientDiskSpaceError",
+    "PartPlanError",
+    "TransferCancelledError",
+    "TransferError",
+    "EventKind",
+    "TransferEvent",
+    "TransferFailedError",
+    "BufferedStreamPartSource",
+    "BytesPartSource",
+    "FilePartSource",
+    "PartSource",
     # Hand-written re-exports
     "GeneratedClientCredentials",
     "generate_client_keypair",

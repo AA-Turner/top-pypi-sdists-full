@@ -35,10 +35,10 @@ class TestExternalAccounts:
             account_details=[
                 {
                     "account_number": "account_number",
-                    "account_number_type": "au_number",
+                    "account_number_type": "arbitrum_address",
                 }
             ],
-            account_type="base_wallet",
+            account_type="cash",
             contact_details=[
                 {
                     "contact_identifier": "contact_identifier",
@@ -56,16 +56,16 @@ class TestExternalAccounts:
                 "external_id": "external_id",
                 "ledger_account_category_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                 "ledgerable_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                "ledgerable_type": "counterparty",
+                "ledgerable_type": "external_account",
                 "metadata": {
-                    "key": "value",
                     "foo": "bar",
+                    "key": "value",
                     "modern": "treasury",
                 },
             },
             metadata={
-                "key": "value",
                 "foo": "bar",
+                "key": "value",
                 "modern": "treasury",
             },
             name="name",
@@ -164,7 +164,7 @@ class TestExternalAccounts:
     def test_method_update_with_all_params(self, client: ModernTreasury) -> None:
         external_account = client.external_accounts.update(
             id="id",
-            account_type="base_wallet",
+            account_type="cash",
             counterparty_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={"foo": "string"},
             name="name",
@@ -411,10 +411,10 @@ class TestAsyncExternalAccounts:
             account_details=[
                 {
                     "account_number": "account_number",
-                    "account_number_type": "au_number",
+                    "account_number_type": "arbitrum_address",
                 }
             ],
-            account_type="base_wallet",
+            account_type="cash",
             contact_details=[
                 {
                     "contact_identifier": "contact_identifier",
@@ -432,16 +432,16 @@ class TestAsyncExternalAccounts:
                 "external_id": "external_id",
                 "ledger_account_category_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                 "ledgerable_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                "ledgerable_type": "counterparty",
+                "ledgerable_type": "external_account",
                 "metadata": {
-                    "key": "value",
                     "foo": "bar",
+                    "key": "value",
                     "modern": "treasury",
                 },
             },
             metadata={
-                "key": "value",
                 "foo": "bar",
+                "key": "value",
                 "modern": "treasury",
             },
             name="name",
@@ -540,7 +540,7 @@ class TestAsyncExternalAccounts:
     async def test_method_update_with_all_params(self, async_client: AsyncModernTreasury) -> None:
         external_account = await async_client.external_accounts.update(
             id="id",
-            account_type="base_wallet",
+            account_type="cash",
             counterparty_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={"foo": "string"},
             name="name",

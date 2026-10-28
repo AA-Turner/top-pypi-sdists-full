@@ -57,42 +57,66 @@ def is_map_node(node: Any) -> bool:
 
 
 def forced_empty_maps(schema: Any) -> list[str]:
-    """Paths of every dynamic-key map (:func:`is_map_node`) the answer MUST carry.
+    """Paths of every dynamic-key map (:func:`is_map_node`) a model is asked to fill.
 
     A strict decoder narrows a map to ``{}`` (:func:`enforce_additional_properties_false`),
-    so a required, non-nullable map is FORCED empty: the model cannot write a single key
-    into it. 2026-10-24 live: an agent whose Output Schema is ``visual_map`` (``spec`` is
+    so the model cannot write a single key into it — whether the map is required,
+    optional or nullable: an optional map can only come back absent, ``null`` or ``{}``.
+    2026-10-24 live: an agent whose Output Schema is ``visual_map`` (``spec`` is
     ``dict[str, Any]``) answered ``"spec": {}`` on Haiku 5.5 and Sonnet 5.5 and nothing
-    could be drawn. An optional or nullable map is left out: ``null`` still carries
-    "absent". Walks ``properties`` and array ``items``."""
+    could be drawn. 2026-10-27 live: ``research.suggest_setup`` answered
+    ``keyword_goals: {}`` on every run while that map was optional, and the optional
+    ``patch`` of ``list_change_proposal_v1`` (``flashcards.fix_giveaway_cards``) could
+    never carry a single changed column. Walks ``properties``, array ``items``,
+    ``anyOf`` / ``oneOf`` / ``allOf`` branches and every ``$defs`` / ``definitions``
+    entry a ``$ref`` names (an unreferenced one is pruned before the wire)."""
     out: list[str] = []
-
-    def nullable(node: dict[str, Any]) -> bool:
-        t = node.get("type")
-        return t == "null" or (isinstance(t, list) and "null" in t) or any(
-            isinstance(b, dict) and b.get("type") == "null" for b in node.get("anyOf") or [])
+    referenced = {
+        ref.rsplit("/", 1)[-1]
+        for ref in _iter_refs(schema)
+        if ref.startswith(("#/$defs/", "#/definitions/"))
+    }
 
     def walk(node: Any, path: str) -> None:
         if not isinstance(node, dict):
             return
+        if is_map_node(node):
+            out.append(path)
         props = node.get("properties")
         if isinstance(props, dict):
-            required = set(node.get("required") or [])
             for name, sub in props.items():
-                if not isinstance(sub, dict):
-                    continue
-                sub_path = f"{path}.{name}"
-                if name in required and is_map_node(sub) and not nullable(sub):
-                    out.append(sub_path)
-                walk(sub, sub_path)
+                walk(sub, f"{path}.{name}")
         items = node.get("items")
         if isinstance(items, dict):
-            if is_map_node(items):
-                out.append(f"{path}[]")
             walk(items, f"{path}[]")
+        extra = node.get("additionalProperties")
+        if isinstance(extra, dict):
+            walk(extra, f"{path}.*")
+        for key in ("anyOf", "oneOf", "allOf"):
+            for i, branch in enumerate(node.get(key) or []):
+                walk(branch, f"{path}.{key}[{i}]")
+        for key in ("$defs", "definitions"):
+            defs = node.get(key)
+            if isinstance(defs, dict):
+                for name, sub in defs.items():
+                    if name in referenced:
+                        walk(sub, f"{path}.{key}.{name}")
 
     walk(schema, "$")
     return out
+
+
+def _iter_refs(node: Any) -> Any:
+    """Every ``$ref`` string anywhere in ``node``."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "$ref" and isinstance(value, str):
+                yield value
+            else:
+                yield from _iter_refs(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _iter_refs(item)
 
 
 def enforce_additional_properties_false(

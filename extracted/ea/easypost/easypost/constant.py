@@ -1,6 +1,6 @@
 # flake8: noqa
 # Library version
-VERSION = "10.7.0"
+VERSION = "10.8.0"
 VERSION_INFO = [str(number) for number in VERSION.split(".")]
 
 # Client defaults
@@ -32,15 +32,24 @@ TIMEOUT_ERROR = "Request timed out."
 
 # Internal constants (user's should not use these)
 _TEST_FAILED_INTENTIONALLY_ERROR = "Test failed intentionally."
-_CARRIER_ACCOUNT_TYPES_WITH_CUSTOM_WORKFLOWS = [
-    "FedexAccount",
-    "FedexSmartpostAccount",
-]
-_CARRIER_ACCOUNT_TYPES_WITH_CUSTOM_OAUTH = [
-    "AmazonShippingAccount",
-    "UpsAccount",
-    "UpsMailInnovationsAccount",
-    "UpsSurepostAccount",
-    "UspsShipAccount",
-]
+_CARRIER_ACCOUNT_CREATE_ENDPOINT_TYPES = {
+    "/carrier_accounts/open": (
+        "FedexDefaultAccount",
+        "GofoWalletAccount",
+        "UpsDapAccount",
+        "UniUniWalletAccount",
+        "VehoWalletAccount",
+    ),
+    "/carrier_accounts/register": (
+        "FedexAccount",
+        "FedexSmartpostAccount",
+    ),
+    "/carrier_accounts/register_oauth": (
+        "AmazonShippingAccount",
+        "UpsAccount",
+        "UpsMailInnovationsAccount",
+        "UpsSurepostAccount",
+        "UspsShipAccount",
+    ),
+}
 _FILTERS_KEY = "filters"

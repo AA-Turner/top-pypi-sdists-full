@@ -86,6 +86,11 @@ InterruptObj_interrupt (InterruptObject *self, PyObject *Py_UNUSED (ignored))
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   dp_interrupt_guard_interrupt (self->handle);
   Py_RETURN_NONE;
 }
@@ -93,6 +98,11 @@ InterruptObj_interrupt (InterruptObject *self, PyObject *Py_UNUSED (ignored))
 static PyObject *
 InterruptObj_interrupted (InterruptObject *self, PyObject *Py_UNUSED (ignored))
 {
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   if (!self->handle)
     {
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
@@ -110,6 +120,11 @@ InterruptObj_resume (InterruptObject *self, PyObject *Py_UNUSED (ignored))
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   dp_interrupt_guard_resume (self->handle);
   Py_RETURN_NONE;
 }
@@ -117,6 +132,11 @@ InterruptObj_resume (InterruptObject *self, PyObject *Py_UNUSED (ignored))
 static PyObject *
 InterruptObj_latency_ms (InterruptObject *self, PyObject *Py_UNUSED (ignored))
 {
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   if (!self->handle)
     {
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
@@ -178,7 +198,9 @@ static PyMethodDef InterruptObj_methods[] = {
   { "interrupted", (PyCFunction)InterruptObj_interrupted, METH_NOARGS,
     "interrupted() -> int\n"
     "\n"
-    "Non-zero once a stop has been requested.\n"
+    "How many stops are pending: 0, 1 once a stop has been requested, 2 once "
+    "it has been requested again (\"stop now\": it ends a follow read's "
+    "grace).\n"
     "\n"
     "Returns\n"
     "-------\n"

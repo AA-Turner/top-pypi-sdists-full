@@ -124,7 +124,9 @@ def _fake_sync_clients(env):
         services=SimpleNamespace(
             get_service=lambda **kw: SimpleNamespace(service=_FAKE_SERVICE)
         ),
-        deployments=SimpleNamespace(get_deployment=lambda **kw: _deployment_with_env(env)),
+        deployments=SimpleNamespace(
+            get_deployment=lambda **kw: _deployment_with_env(env)
+        ),
     )
 
 
@@ -157,9 +159,7 @@ class TestNoSandboxSecretRaiseSite(unittest.TestCase):
 
     def test_sync_missing_secret_raises(self):
         clients = _fake_sync_clients(env=[])
-        with patch(
-            "koyeb.sandbox.sandbox.get_api_clients", return_value=clients
-        ):
+        with patch("koyeb.sandbox.sandbox.get_api_clients", return_value=clients):
             with self.assertRaises(NoSandboxSecretError) as cm:
                 Sandbox.get_from_id("svc-1", api_token="tok")
         self.assertIn("SANDBOX_SECRET", str(cm.exception))
@@ -167,17 +167,13 @@ class TestNoSandboxSecretRaiseSite(unittest.TestCase):
     def test_sync_secret_found_returns_handle(self):
         env = [SimpleNamespace(key="SANDBOX_SECRET", value="sec")]
         clients = _fake_sync_clients(env=env)
-        with patch(
-            "koyeb.sandbox.sandbox.get_api_clients", return_value=clients
-        ):
+        with patch("koyeb.sandbox.sandbox.get_api_clients", return_value=clients):
             sb = Sandbox.get_from_id("svc-1", api_token="tok")
         self.assertEqual(sb.sandbox_secret, "sec")
 
     def test_async_missing_secret_raises(self):
         clients = _fake_async_clients(env=[])
-        with patch(
-            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
-        ):
+        with patch("koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients):
             with self.assertRaises(NoSandboxSecretError) as cm:
                 asyncio.run(AsyncSandbox.get_from_id("svc-1", api_token="tok"))
         self.assertIn("SANDBOX_SECRET", str(cm.exception))
@@ -185,9 +181,7 @@ class TestNoSandboxSecretRaiseSite(unittest.TestCase):
     def test_async_secret_found_returns_handle(self):
         env = [SimpleNamespace(key="SANDBOX_SECRET", value="sec")]
         clients = _fake_async_clients(env=env)
-        with patch(
-            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
-        ):
+        with patch("koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients):
             sb = asyncio.run(AsyncSandbox.get_from_id("svc-1", api_token="tok"))
         self.assertEqual(sb.sandbox_secret, "sec")
 

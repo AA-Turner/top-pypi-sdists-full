@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Iterable
 from typing_extensions import Literal
 
 from ..._httpx import httpx
@@ -73,6 +73,7 @@ class BoxesResource(SyncAPIResource):
         mem_bytes: int | Omit = omit,
         mount_config: SandboxMountConfigParam | Omit = omit,
         name: str | Omit = omit,
+        persistent: bool | Omit = omit,
         preserve_memory_on_stop: bool | Omit = omit,
         proxy_config: ProxyConfigParam | Omit = omit,
         restore_memory: bool | Omit = omit,
@@ -82,6 +83,7 @@ class BoxesResource(SyncAPIResource):
         snapshot_name: str | Omit = omit,
         tag_value_ids: SequenceNotStr[str] | Omit = omit,
         vcpus: int | Omit = omit,
+        volumes: Iterable[box_create_params.Volume] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -112,6 +114,15 @@ class BoxesResource(SyncAPIResource):
               for the requested CPU, so a 1 vCPU sandbox accepts 2-6 GiB. Setting memory
               without CPU derives the CPU from the same ratio. Maximum 64 GiB.
 
+          persistent: Persistent (private beta) keeps the sandbox's filesystem across stops (the
+              default, true). Set it to false for a disposable sandbox: its writes are
+              discarded whenever it stops, the next start boots it fresh from its snapshot,
+              and it is never charged for storage. A sandbox that is not persistent cannot
+              preserve memory on stop or have its filesystem captured as a snapshot (exporting
+              a Docker image from it with docker_image still works), and some snapshots
+              captured from other sandboxes cannot start one; such a create is rejected.
+              Setting it to false requires the private beta to be enabled for your workspace.
+
           preserve_memory_on_stop: PreserveMemoryOnStop, when true, suspends the sandbox's memory on a voluntary
               stop (idle timeout or explicit stop) so the next start resumes from where it
               left off. Default false discards memory and keeps only the filesystem, so the
@@ -137,6 +148,10 @@ class BoxesResource(SyncAPIResource):
           snapshot_name: SnapshotName is a synonym for Snapshot, accepted for compatibility with clients
               that predate it. Set one or the other.
 
+          volumes: Volumes (beta) attaches existing volumes at mount paths inside the sandbox. At
+              most 4; requires sandbox volumes to be enabled for your workspace. Attaching a
+              volume requires being its creator or holding sandboxes:exec.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -159,6 +174,7 @@ class BoxesResource(SyncAPIResource):
                     "mem_bytes": mem_bytes,
                     "mount_config": mount_config,
                     "name": name,
+                    "persistent": persistent,
                     "preserve_memory_on_stop": preserve_memory_on_stop,
                     "proxy_config": proxy_config,
                     "restore_memory": restore_memory,
@@ -168,6 +184,7 @@ class BoxesResource(SyncAPIResource):
                     "snapshot_name": snapshot_name,
                     "tag_value_ids": tag_value_ids,
                     "vcpus": vcpus,
+                    "volumes": volumes,
                 },
                 box_create_params.BoxCreateParams,
             ),
@@ -417,6 +434,7 @@ class BoxesResource(SyncAPIResource):
         description: str | Omit = omit,
         docker_image: str | Omit = omit,
         fs_capacity_bytes: int | Omit = omit,
+        image_config: box_create_snapshot_params.ImageConfig | Omit = omit,
         include: List[Literal["all", "mounts", "proxy_config", "env_vars", "resources", "lifecycle", "labels"]]
         | Omit = omit,
         include_memory: bool | Omit = omit,
@@ -448,6 +466,12 @@ class BoxesResource(SyncAPIResource):
           docker_image: sandbox-local Docker image to export
 
           fs_capacity_bytes: required for Docker image export unless the sandbox has a capacity
+
+          image_config: ImageConfig sets the command and ports the snapshot records, as a Docker image's
+              ENTRYPOINT, CMD and EXPOSE do. By default a capture keeps those of the snapshot
+              the sandbox was created from; each field given here replaces that one, and an
+              empty list clears it. A function serving the snapshot runs this command and
+              listens on its one exposed port.
 
           include: Sandbox settings to carry into the snapshot. Sandboxes created from it start
               with each carried setting their create request leaves unset: "mounts" (the
@@ -492,6 +516,7 @@ class BoxesResource(SyncAPIResource):
                     "description": description,
                     "docker_image": docker_image,
                     "fs_capacity_bytes": fs_capacity_bytes,
+                    "image_config": image_config,
                     "include": include,
                     "include_memory": include_memory,
                     "labels": labels,
@@ -662,14 +687,17 @@ class BoxesResource(SyncAPIResource):
     ) -> ServiceURLResponse:
         """
         Create a short-lived JWT for accessing an HTTP service running on a specific
-        port inside a sandbox. Returns a browser_url (sets auth cookie via redirect), a
-        service_url (for use with the X-Langsmith-Sandbox-Service-Token header), the raw
-        token, and its expiry. Set access=restricted|workspace to instead enable durable
-        LangSmith login (no token; users authenticate with their normal LangSmith
-        session), or access=off to disable it. With LangSmith login, embed_origins names
-        the pages that may show the URL in an iframe; a viewer signs in from inside the
-        frame through a LangSmith popup. LangSmith login and token access are mutually
-        exclusive per service URL.
+        port inside a sandbox. Returns a browser_url (sets auth cookie via redirect), an
+        embed_url (for an iframe; carries the token in the URL fragment, so no server or
+        Referer sees it), a service_url (for use with the
+        X-Langsmith-Sandbox-Service-Token header), the raw token, and its expiry. Set
+        access=restricted|workspace to instead enable durable LangSmith login (no token;
+        users authenticate with their normal LangSmith session), or access=off to
+        disable it. embed_origins names the pages that may show the URL in an iframe. In
+        token mode they are bound into the minted token; with LangSmith login they are
+        stored on the grant and a viewer signs in from inside the frame through a
+        LangSmith popup. LangSmith login and token access are mutually exclusive per
+        service URL.
 
         Args:
           access: Access selects the login mode, mutually exclusive with the minted token. Omit
@@ -680,11 +708,11 @@ class BoxesResource(SyncAPIResource):
               and mint a token. A LangSmith login grant is durable; token mode is refused
               (409) while one exists.
 
-          embed_origins: EmbedOrigins are the pages allowed to show a LangSmith login service URL in an
-              iframe, besides LangSmith itself: at most 5 origins such as
-              https://app.example.com (http only for localhost). Valid only with access
-              "restricted" or "workspace". Each call sets the URL's whole list, so omitting
-              the field removes any origins set before.
+          embed_origins: EmbedOrigins are the pages allowed to show the service URL in an iframe, besides
+              LangSmith itself: at most 5 origins such as https://app.example.com (http only
+              for localhost). In token mode they are bound into the minted token, so they last
+              as long as it does. With access "restricted" or "workspace" each call sets the
+              grant's whole list, so omitting the field removes any origins set before.
 
           extra_headers: Send extra headers
 
@@ -903,6 +931,7 @@ class AsyncBoxesResource(AsyncAPIResource):
         mem_bytes: int | Omit = omit,
         mount_config: SandboxMountConfigParam | Omit = omit,
         name: str | Omit = omit,
+        persistent: bool | Omit = omit,
         preserve_memory_on_stop: bool | Omit = omit,
         proxy_config: ProxyConfigParam | Omit = omit,
         restore_memory: bool | Omit = omit,
@@ -912,6 +941,7 @@ class AsyncBoxesResource(AsyncAPIResource):
         snapshot_name: str | Omit = omit,
         tag_value_ids: SequenceNotStr[str] | Omit = omit,
         vcpus: int | Omit = omit,
+        volumes: Iterable[box_create_params.Volume] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -942,6 +972,15 @@ class AsyncBoxesResource(AsyncAPIResource):
               for the requested CPU, so a 1 vCPU sandbox accepts 2-6 GiB. Setting memory
               without CPU derives the CPU from the same ratio. Maximum 64 GiB.
 
+          persistent: Persistent (private beta) keeps the sandbox's filesystem across stops (the
+              default, true). Set it to false for a disposable sandbox: its writes are
+              discarded whenever it stops, the next start boots it fresh from its snapshot,
+              and it is never charged for storage. A sandbox that is not persistent cannot
+              preserve memory on stop or have its filesystem captured as a snapshot (exporting
+              a Docker image from it with docker_image still works), and some snapshots
+              captured from other sandboxes cannot start one; such a create is rejected.
+              Setting it to false requires the private beta to be enabled for your workspace.
+
           preserve_memory_on_stop: PreserveMemoryOnStop, when true, suspends the sandbox's memory on a voluntary
               stop (idle timeout or explicit stop) so the next start resumes from where it
               left off. Default false discards memory and keeps only the filesystem, so the
@@ -967,6 +1006,10 @@ class AsyncBoxesResource(AsyncAPIResource):
           snapshot_name: SnapshotName is a synonym for Snapshot, accepted for compatibility with clients
               that predate it. Set one or the other.
 
+          volumes: Volumes (beta) attaches existing volumes at mount paths inside the sandbox. At
+              most 4; requires sandbox volumes to be enabled for your workspace. Attaching a
+              volume requires being its creator or holding sandboxes:exec.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -989,6 +1032,7 @@ class AsyncBoxesResource(AsyncAPIResource):
                     "mem_bytes": mem_bytes,
                     "mount_config": mount_config,
                     "name": name,
+                    "persistent": persistent,
                     "preserve_memory_on_stop": preserve_memory_on_stop,
                     "proxy_config": proxy_config,
                     "restore_memory": restore_memory,
@@ -998,6 +1042,7 @@ class AsyncBoxesResource(AsyncAPIResource):
                     "snapshot_name": snapshot_name,
                     "tag_value_ids": tag_value_ids,
                     "vcpus": vcpus,
+                    "volumes": volumes,
                 },
                 box_create_params.BoxCreateParams,
             ),
@@ -1247,6 +1292,7 @@ class AsyncBoxesResource(AsyncAPIResource):
         description: str | Omit = omit,
         docker_image: str | Omit = omit,
         fs_capacity_bytes: int | Omit = omit,
+        image_config: box_create_snapshot_params.ImageConfig | Omit = omit,
         include: List[Literal["all", "mounts", "proxy_config", "env_vars", "resources", "lifecycle", "labels"]]
         | Omit = omit,
         include_memory: bool | Omit = omit,
@@ -1278,6 +1324,12 @@ class AsyncBoxesResource(AsyncAPIResource):
           docker_image: sandbox-local Docker image to export
 
           fs_capacity_bytes: required for Docker image export unless the sandbox has a capacity
+
+          image_config: ImageConfig sets the command and ports the snapshot records, as a Docker image's
+              ENTRYPOINT, CMD and EXPOSE do. By default a capture keeps those of the snapshot
+              the sandbox was created from; each field given here replaces that one, and an
+              empty list clears it. A function serving the snapshot runs this command and
+              listens on its one exposed port.
 
           include: Sandbox settings to carry into the snapshot. Sandboxes created from it start
               with each carried setting their create request leaves unset: "mounts" (the
@@ -1322,6 +1374,7 @@ class AsyncBoxesResource(AsyncAPIResource):
                     "description": description,
                     "docker_image": docker_image,
                     "fs_capacity_bytes": fs_capacity_bytes,
+                    "image_config": image_config,
                     "include": include,
                     "include_memory": include_memory,
                     "labels": labels,
@@ -1494,14 +1547,17 @@ class AsyncBoxesResource(AsyncAPIResource):
     ) -> ServiceURLResponse:
         """
         Create a short-lived JWT for accessing an HTTP service running on a specific
-        port inside a sandbox. Returns a browser_url (sets auth cookie via redirect), a
-        service_url (for use with the X-Langsmith-Sandbox-Service-Token header), the raw
-        token, and its expiry. Set access=restricted|workspace to instead enable durable
-        LangSmith login (no token; users authenticate with their normal LangSmith
-        session), or access=off to disable it. With LangSmith login, embed_origins names
-        the pages that may show the URL in an iframe; a viewer signs in from inside the
-        frame through a LangSmith popup. LangSmith login and token access are mutually
-        exclusive per service URL.
+        port inside a sandbox. Returns a browser_url (sets auth cookie via redirect), an
+        embed_url (for an iframe; carries the token in the URL fragment, so no server or
+        Referer sees it), a service_url (for use with the
+        X-Langsmith-Sandbox-Service-Token header), the raw token, and its expiry. Set
+        access=restricted|workspace to instead enable durable LangSmith login (no token;
+        users authenticate with their normal LangSmith session), or access=off to
+        disable it. embed_origins names the pages that may show the URL in an iframe. In
+        token mode they are bound into the minted token; with LangSmith login they are
+        stored on the grant and a viewer signs in from inside the frame through a
+        LangSmith popup. LangSmith login and token access are mutually exclusive per
+        service URL.
 
         Args:
           access: Access selects the login mode, mutually exclusive with the minted token. Omit
@@ -1512,11 +1568,11 @@ class AsyncBoxesResource(AsyncAPIResource):
               and mint a token. A LangSmith login grant is durable; token mode is refused
               (409) while one exists.
 
-          embed_origins: EmbedOrigins are the pages allowed to show a LangSmith login service URL in an
-              iframe, besides LangSmith itself: at most 5 origins such as
-              https://app.example.com (http only for localhost). Valid only with access
-              "restricted" or "workspace". Each call sets the URL's whole list, so omitting
-              the field removes any origins set before.
+          embed_origins: EmbedOrigins are the pages allowed to show the service URL in an iframe, besides
+              LangSmith itself: at most 5 origins such as https://app.example.com (http only
+              for localhost). In token mode they are bound into the minted token, so they last
+              as long as it does. With access "restricted" or "workspace" each call sets the
+              grant's whole list, so omitting the field removes any origins set before.
 
           extra_headers: Send extra headers
 

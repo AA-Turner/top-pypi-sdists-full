@@ -15,7 +15,7 @@ pull in typer or the CLI (`tests/test_core_run.py` pins it).
     step                 {name, status, message, agent}
     device_prompt        {verification_uri, verification_uri_complete, user_code, expires_in}
     onboarding_required  {url}
-    result               {action, agents: [{agent, requested, actual, ok, message}], complete}
+    result               {action, agents: [{agent, requested, actual, ok, message}], complete, reason?}
     error                {code, message}
     done                 {ok, complete, exit_code, steps}
 
@@ -30,8 +30,10 @@ can exit 0 and still be incomplete. A failed marketplace refresh is written as
 installs from the copy on disk, and a plugin that cannot install from it fails
 its own step. `step.agent` and `result.agents[].agent`
 are null for what belongs to the device rather than one coding agent (the
-sign-in). Change this only by adding fields; anything else bumps
-`SCHEMA_VERSION`.
+sign-in). `result.reason` is there only when the action set one
+(`set_reason`): `probe uninstall`'s machine-readable why of an exit 2 or 1,
+`{code, resumed, ...}` (`probe.cli.uninstall.Reason`). Change this only by
+adding fields; anything else bumps `SCHEMA_VERSION`.
 
 Signals (`session`, main thread only). SIGINT stops a run only while it waits
 for a browser approval (`interruptible`), when nothing is being written: the
@@ -152,6 +154,17 @@ class Step(StrEnum):
     SERVICE = "service"
     IDENTITY = "identity"
     REPAIR_INTEGRATIONS = "repair_integrations"
+    #: `probe uninstall`'s phases (`probe.cli.uninstall`), in order. The last,
+    #: `uninstall_finish`, is written by the finisher the CLI becomes
+    #: (`probe/_shared/finisher.py`), which also writes `result` and `done`.
+    UNINSTALL_SCOPE = "uninstall_scope"
+    UNINSTALL_PLAN = "uninstall_plan"
+    UNINSTALL_STOP = "uninstall_stop"
+    UNINSTALL_DRAIN = "uninstall_drain"
+    UNINSTALL_SERVER = "uninstall_server"
+    UNINSTALL_INTEGRATIONS = "uninstall_integrations"
+    UNINSTALL_STATE = "uninstall_state"
+    UNINSTALL_FINISH = "uninstall_finish"
 
 
 def _usage_error(typer: Any) -> type[BaseException]:
@@ -177,6 +190,8 @@ class _Run:
     #: earlier agent's failure ends a multi-agent configure) still gets a row.
     planned: list[str | None] = field(default_factory=list)
     rows: dict[str | None, dict] = field(default_factory=dict)
+    #: Why the action ended as it did, for a program (`set_reason`); None: not said.
+    reason: dict | None = None
     incomplete: bool = False
     errored: bool = False
     broken: bool = False
@@ -291,11 +306,42 @@ def agent_result(
     }
 
 
+def set_reason(reason: dict) -> None:
+    """The `result` event's `reason`: why the action stopped, as data."""
+    if _run is None:
+        return
+    _run.reason = dict(reason)
+
+
 def error(code: ErrorCode, message: str) -> None:
     if _run is None:
         return
     _run.errored = True
     emit({"event": Event.ERROR.value, "code": str(code), "message": message})
+
+
+def handover() -> tuple[dict, int | None]:
+    """What a process that is about to BECOME another one (`probe uninstall`'s
+    finisher, `os.execv`) hands it to end this run's stream: `{action, rows,
+    steps, incomplete}` (the `result` rows as `_finish` would write them) and
+    the events stream's file descriptor (None: no stream of its own, or no
+    run). The new process writes the last events, `done` among them."""
+    run = _run
+    if run is None:
+        return {}, None
+    rows = [
+        run.rows.get(agent)
+        or {"agent": agent, "requested": None, "actual": None, "ok": False, "message": "not attempted"}
+        for agent in run.planned
+    ]
+    rows += [row for agent, row in run.rows.items() if agent not in run.planned]
+    tail = {"action": run.action, "rows": rows, "steps": list(run.steps.values()), "incomplete": run.incomplete}
+    _flush(run.out)
+    try:
+        fd = run.out.fileno() if run.sink is None else None
+    except (AttributeError, OSError, ValueError):
+        fd = None
+    return tail, fd
 
 
 def done_events(*, code: ErrorCode, message: str, exit_code: int) -> None:
@@ -571,6 +617,7 @@ def _finish(exit_code: int) -> None:
                 "action": run.action,
                 "agents": rows,
                 "complete": rows_ok and not (run.incomplete or unfinished),
+                **({"reason": run.reason} if run.reason is not None else {}),
             }
         )
     emit(

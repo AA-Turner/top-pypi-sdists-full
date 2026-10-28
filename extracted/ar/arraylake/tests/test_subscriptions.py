@@ -5,6 +5,7 @@ import pytest
 
 from arraylake import AsyncClient
 from arraylake.api_utils import ArraylakeHttpClient
+from arraylake.types import SubscriptionType
 
 
 async def create_exchange_listing(token: str, org_name: str, repo_id: str, pricing_model: str = "free"):
@@ -25,51 +26,6 @@ async def create_exchange_listing(token: str, org_name: str, repo_id: str, prici
     }
     resp = await client._request("POST", f"/orgs/{org_name}/exchange-listings", content=json.dumps(body))
     assert resp.is_success, f"Failed to create exchange listing in org {org_name}: {resp.status_code} {resp.content}"
-    return resp.json()
-
-
-async def create_subscription_repo(token: str, org_name: str, repo_name: str, listing_id: str):
-    """Create a subscription repo in the specified org that subscribes to the given exchange listing.
-
-    Client does not yet support subscription repo creation, so we use the lower-level HTTP client here.
-    """
-    client = ArraylakeHttpClient("http://localhost:8000", token=token)
-    body = {
-        "name": repo_name,
-        "description": "Subscriber repo for subscription tests",
-        "exchange_listing_id": str(listing_id),
-    }
-    resp = await client._request("POST", f"/orgs/{org_name}/exchange-subscriptions", content=json.dumps(body))
-    assert resp.is_success, f"Failed to create repo in isolated org {org_name}: {resp.status_code} {resp.content}"
-    return resp.json()
-
-
-async def create_filtered_subscription_repo(
-    token: str,
-    org_name: str,
-    repo_name: str,
-    listing_id: str,
-    bucket_nickname: str,
-    target_filter: dict,
-):
-    """Create a filtered subscription repo in the specified org.
-
-    Filtered subscriptions have their own storage bucket and apply a target_filter
-    to select a subset of the provider's data.
-
-    Client does not yet support filtered subscription repo creation, so we use the lower-level HTTP client here.
-    """
-    client = ArraylakeHttpClient("http://localhost:8000", token=token)
-    body = {
-        "name": repo_name,
-        "description": "Filtered subscriber repo for subscription tests",
-        "bucket_nickname": bucket_nickname,
-        "exchange_listing_id": str(listing_id),
-        "subscription_type": "filtered",
-        "target_filter": target_filter,
-    }
-    resp = await client._request("POST", f"/orgs/{org_name}/exchange-subscriptions", content=json.dumps(body))
-    assert resp.is_success, f"Failed to create filtered subscription repo in org {org_name}: {resp.status_code} {resp.content}"
     return resp.json()
 
 
@@ -99,7 +55,9 @@ async def run_subscription_workflow_test(token: str, parent_org: str, subscriber
 
     # Create a subscription repo that subscribes to the parent repo
     repo_name = "subscription-repo"
-    await create_subscription_repo(token, subscriber_org, repo_name, listing["id"])
+    subscription_repo = await aclient.subscribe_to_listing(f"{subscriber_org}/{repo_name}", listing["id"])
+    assert subscription_repo.subscription is not None
+    assert subscription_repo.subscription.subscription_type == SubscriptionType.DIRECT
 
     # Check that the subscription repo has the same branches as the parent repo
     subscription_ic_repo = await aclient.get_repo(f"{subscriber_org}/{repo_name}")

@@ -3,12 +3,14 @@ d_owner/org_id:
     - d_member/org_id
     - ws_viewer/org_id,*
     - w:organization/org_id
+    - r:workspace_user_management/org_id,*
     - w+d:infrastructure/org_id
     - r:audit_logs/org_id
 org_manager/org_id:
     - d_member/org_id
     - ws_member/org_id,*
     - w:organization/org_id
+    - r:workspace_user_management/org_id,*
     - w+d:infrastructure/org_id
     - r:audit_logs/org_id
 d_member/org_id:

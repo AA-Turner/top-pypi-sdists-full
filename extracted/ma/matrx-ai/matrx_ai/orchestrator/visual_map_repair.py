@@ -48,6 +48,8 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 from uuid import uuid4
 
+from matrx_utils.knob_fallback import knob_or_declared_default
+
 from matrx_ai.orchestrator.visual_map_fixes import (
     PATCH_INSTRUCTIONS,
     apply_patch,
@@ -1213,7 +1215,11 @@ async def visual_map_gate(current_request: Any, final_response: Any, exec_ctx: A
         user_id = getattr(ctx, "user_id", None) or None
         request_id = getattr(ctx, "request_id", None) or getattr(current_request, "request_id", None) or ""
         try:
-            knob_values = await delivery.read_knobs(organization_id=org_id, user_id=user_id)
+            knob_values = await knob_or_declared_default(
+                lambda: delivery.read_knobs(organization_id=org_id, user_id=user_id),
+                declared_default={},
+                consequence="Diagram checking uses its built-in settings for this answer.",
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning("[visual_map] knob read failed: %s", exc)
             knob_values = {}

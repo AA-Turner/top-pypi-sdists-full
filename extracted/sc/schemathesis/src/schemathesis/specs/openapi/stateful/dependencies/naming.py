@@ -108,7 +108,7 @@ def referenced_values(
 
 
 @lru_cache(maxsize=2048)
-def from_parameter(parameter: str, path: str, *, body_field: bool = False) -> str | None:
+def from_parameter(parameter: str, path: str, *, body_field: bool = False, query: bool = False) -> str | None:
     parameter = parameter.strip()
     lower = parameter.lower()
 
@@ -127,6 +127,10 @@ def from_parameter(parameter: str, path: str, *, body_field: bool = False) -> st
                 if prefix.lower() in GENERIC_PREFIXES and f"{{{parameter}}}" in path:
                     return from_path(path, parameter_name=parameter)
                 return to_pascal_case(prefix)
+
+    # Query `projectName` -> `Project`. Path parameters and body fields keep the rules below.
+    if query and parameter.endswith("Name") and len(parameter) >= 6:
+        return to_pascal_case(parameter[:-4])
 
     # Snake_case (case-insensitive is fine here)
     # Composite suffixes first (longer patterns match before shorter ones)
@@ -587,6 +591,18 @@ def parameter_names_resource_field(*, parameter: str, field: str, resource: str)
         return True
     words = [word.lower() for word in re.findall(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z0-9]+|[A-Z]+", resource)]
     return any("".join(words[start:]) == hint for start in range(len(words)))
+
+
+def parameter_names_source(*, parameter: str, field: str, resource: str, pointer: str) -> bool:
+    """Whether the part of `parameter` before `field` names `resource` or the response field holding the value."""
+    hint = normalize_for_matching(parameter).removesuffix(normalize_for_matching(field))
+    resource_normalized = normalize_for_matching(resource)
+    # `check_name` takes `CheckRun.name`, `tunnel_name` takes `VpnTunnel.name`.
+    if not hint or resource_normalized.startswith(hint) or resource_normalized.endswith(hint):
+        return True
+    # `order__orderer__name` takes `/orderer/name`, not `/contact/name`, though both hold a `Contact`.
+    segments = [segment for segment in pointer.split("/") if segment and segment != "*"]
+    return bool(segments) and hint.endswith(normalize_for_matching(segments[-1]))
 
 
 def _field_normalized_as(fields: list[str], expected: str) -> str | None:

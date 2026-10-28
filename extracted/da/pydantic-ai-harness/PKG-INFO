@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-harness
-Version: 0.61.0
+Version: 0.63.0
 Summary: The official capability library and harness for Pydantic AI
 Project-URL: Homepage, https://pydantic.dev/docs/ai/harness/
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -9,6 +9,7 @@ Project-URL: Changelog, https://github.com/pydantic/pydantic-ai/releases
 Author-email: Douwe Maan <douwe@pydantic.dev>, David SF <david.sanchez@pydantic.dev>, Aditya Vardhan <aditya@pydantic.dev>
 License-Expression: MIT
 License-File: LICENSE
+License-File: THIRD_PARTY_NOTICES.md
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -24,13 +25,13 @@ Requires-Python: >=3.11
 Requires-Dist: genai-prices>=0.0.71
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: json-repair>=0.58.0
-Requires-Dist: pydantic-ai-slim==2.61.0
+Requires-Dist: pydantic-ai-slim==2.63.0
 Provides-Extra: absurd
 Requires-Dist: absurd-sdk<1,>=0.5.0; extra == 'absurd'
 Provides-Extra: acp
 Requires-Dist: agent-client-protocol<0.12,>=0.11; extra == 'acp'
 Provides-Extra: anthropic
-Requires-Dist: pydantic-ai-slim[anthropic]==2.61.0; extra == 'anthropic'
+Requires-Dist: pydantic-ai-slim[anthropic]==2.63.0; extra == 'anthropic'
 Provides-Extra: aws-lambda
 Requires-Dist: aws-durable-execution-sdk-python<2,>=1.7.0; (python_full_version >= '3.11') and extra == 'aws-lambda'
 Provides-Extra: boxlite
@@ -38,21 +39,21 @@ Requires-Dist: boxlite<0.11,>=0.10.7; (python_full_version < '3.15' and ((sys_pl
 Provides-Extra: browser-use
 Requires-Dist: browser-use<0.14,>=0.13.6; (python_full_version >= '3.11') and extra == 'browser-use'
 Provides-Extra: cli
-Requires-Dist: pydantic-ai-slim[cli]==2.61.0; extra == 'cli'
+Requires-Dist: pydantic-ai-slim[cli]==2.63.0; extra == 'cli'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.61.0; extra == 'code-mode'
-Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'code-mode'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.63.0; extra == 'code-mode'
+Requires-Dist: pydantic-monty<2,>=1.4.0; extra == 'code-mode'
 Provides-Extra: codemode
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.61.0; extra == 'codemode'
-Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'codemode'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.63.0; extra == 'codemode'
+Requires-Dist: pydantic-monty<2,>=1.4.0; extra == 'codemode'
 Provides-Extra: coder
 Requires-Dist: ripgrep==14.1.0; (sys_platform != 'android') and extra == 'coder'
 Provides-Extra: day-ai
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'day-ai'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'day-ai'
 Provides-Extra: daytona
 Requires-Dist: daytona<1,>=0.223.1; extra == 'daytona'
 Provides-Extra: dbos
-Requires-Dist: pydantic-ai-slim[dbos]==2.61.0; extra == 'dbos'
+Requires-Dist: pydantic-ai-slim[dbos]==2.63.0; extra == 'dbos'
 Provides-Extra: dynamic-workflow
 Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'dynamic-workflow'
 Provides-Extra: e2b
@@ -60,49 +61,52 @@ Requires-Dist: e2b>=2.48.0; extra == 'e2b'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.16.0; extra == 'exa'
 Provides-Extra: github
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'github'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'github'
 Provides-Extra: google-workspace
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'google-workspace'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'google-workspace'
 Provides-Extra: grain
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'grain'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'grain'
+Provides-Extra: ipython
+Requires-Dist: ipykernel>=6.29.0; extra == 'ipython'
+Requires-Dist: jupyter-client>=8.6.3; extra == 'ipython'
 Provides-Extra: linear
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'linear'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'linear'
 Provides-Extra: logfire
 Requires-Dist: logfire>=4.31.0; extra == 'logfire'
-Requires-Dist: pydantic-ai-slim[spec]==2.61.0; extra == 'logfire'
+Requires-Dist: pydantic-ai-slim[spec]==2.63.0; extra == 'logfire'
 Requires-Dist: pydantic-handlebars>=0.2.1; extra == 'logfire'
 Provides-Extra: logfire-mcp
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'logfire-mcp'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'logfire-mcp'
 Provides-Extra: modal
 Requires-Dist: modal>=1.5.2; extra == 'modal'
 Provides-Extra: mongodb
 Requires-Dist: pymongo>=4.17.0; extra == 'mongodb'
 Provides-Extra: notion
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'notion'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'notion'
 Provides-Extra: ordinal
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'ordinal'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'ordinal'
 Provides-Extra: pgtask
 Requires-Dist: pgtask<1,>=0.2.0; extra == 'pgtask'
 Provides-Extra: playwright
 Requires-Dist: idna>=3.4; extra == 'playwright'
 Requires-Dist: playwright>=1.61.0; extra == 'playwright'
 Provides-Extra: posthog
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'posthog'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'posthog'
 Provides-Extra: prompt-injection-defender
 Requires-Dist: stackone-defender<0.8,>=0.7.3; (python_full_version >= '3.11') and extra == 'prompt-injection-defender'
 Provides-Extra: prompt-injection-defender-ml
 Requires-Dist: stackone-defender<0.8,>=0.7.3; (python_full_version >= '3.11') and extra == 'prompt-injection-defender-ml'
 Requires-Dist: stackone-defender[onnx]<0.8,>=0.7.3; (python_full_version >= '3.11' and python_version < '3.15') and extra == 'prompt-injection-defender-ml'
 Provides-Extra: pylon
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'pylon'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'pylon'
 Provides-Extra: render
 Requires-Dist: render>=1.2.0; extra == 'render'
 Provides-Extra: researcher
-Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]==2.61.0; extra == 'researcher'
+Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]==2.63.0; extra == 'researcher'
 Provides-Extra: skills
 Requires-Dist: pyyaml>=6.0.2; extra == 'skills'
 Provides-Extra: slack
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'slack'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'slack'
 Provides-Extra: smol
 Requires-Dist: smolmachines<2,>=1.22.2; ((sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64'))) and extra == 'smol'
 Provides-Extra: sprites
@@ -110,9 +114,9 @@ Requires-Dist: sprites-py<0.8,>=0.7.0; extra == 'sprites'
 Provides-Extra: stackone
 Requires-Dist: beartype>=0.23.0rc2; (python_version >= '3.15') and extra == 'stackone'
 Requires-Dist: fastmcp<4,>=3.4.5; extra == 'stackone'
-Requires-Dist: pydantic-ai-slim[mcp]==2.61.0; extra == 'stackone'
+Requires-Dist: pydantic-ai-slim[mcp]==2.63.0; extra == 'stackone'
 Provides-Extra: temporal
-Requires-Dist: pydantic-ai-slim[temporal]==2.61.0; extra == 'temporal'
+Requires-Dist: pydantic-ai-slim[temporal]==2.63.0; extra == 'temporal'
 Provides-Extra: youdotcom
 Requires-Dist: youdotcom<3.2,>=3.1.2; extra == 'youdotcom'
 Description-Content-Type: text/markdown
@@ -343,6 +347,7 @@ How the agent spends its context window: the difference between an agent that de
 | Capability | Package | What it does |
 |---|---|---|
 | [Code Mode](pydantic_ai_harness/code_mode/) | Harness | The model writes one Python script that calls many tools inside a [Monty](https://github.com/pydantic/monty) sandbox: one round-trip instead of N, and intermediate results never enter the context window. The answer to tool-call token bloat |
+| [IPython Code Mode](pydantic_ai_harness/ipython_code_mode/) | Harness | Code Mode with a persistent [IPython](https://ipython.org/) kernel in place of the Monty sandbox: full CPython and any installed package, with state kept between calls. For local agents only; not a sandbox |
 | [Tool Search](https://ai.pydantic.dev/capabilities/tool-search/) | Core | Load tool definitions on demand instead of carrying hundreds in every prompt |
 | [Compaction](https://ai.pydantic.dev/capabilities/compaction/) | Core | Provider-native compaction on OpenAI and Anthropic; the provider summarizes history server-side |
 | [Compaction](pydantic_ai_harness/compaction/) | Harness | Model-agnostic strategies: tool-result clearing, sliding-window trimming, LLM summarization, tiered; all window-relative, with live usage reporting |
@@ -377,6 +382,7 @@ Bounding what the agent may do, and keeping it on-instructions.
 | [Approval Reviewer](pydantic_ai_harness/approval_reviewer/) | Harness | A second model answers one risk question per call waiting for approval, approves the low-risk ones, and leaves the rest to a person |
 | [Handle Deferred Tool Calls](https://ai.pydantic.dev/capabilities/handle-deferred-tool-calls/) | Core | Resolve approval-deferred tool calls programmatically |
 | [System Reminders](pydantic_ai_harness/system_reminders/) | Harness | Cache-safe re-injection of guidance mid-run to counter instruction fade |
+| [Detect Loops](pydantic_ai_harness/detect_loops/) | Harness | Notice repeated tool calls, results, alternations, or responses, and nudge the model, stop the run, or call your handler |
 | [Trajectory Judge](pydantic_ai_harness/trajectory_judge/) | Harness | A second model reviews the live run every N requests over a sliding token window and steers it mid-run |
 
 ### Self-extension

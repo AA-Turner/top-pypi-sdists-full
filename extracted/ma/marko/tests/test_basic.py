@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import textwrap
+import time
 
 import pytest
 
@@ -14,9 +15,46 @@ from tests.normalize import normalize_html
 
 
 class TestBasic:
+    @pytest.mark.parametrize(
+        "line", ["[l{i}]: /u{i}\n", "- [l{i}]: /u{i}\n", "> [l{i}]: /u{i}\n"]
+    )
+    def test_link_ref_def_run_scales_linearly(self, line):
+        def best_of_three(text):
+            best = float("inf")
+            for _ in range(3):
+                start = time.perf_counter()
+                marko.convert(text)
+                best = min(best, time.perf_counter() - start)
+            return best
+
+        small = "".join(line.format(i=i) for i in range(1000))
+        large = "".join(line.format(i=i) for i in range(4000))
+        ratio = best_of_three(large) / best_of_three(small)
+        assert ratio < 8, f"4x the lines took {ratio:.1f}x the time"
+
+    def test_link_ref_defs_in_list_items_still_resolve(self):
+        text = "".join(f"- [l{i}]: /u{i}\n" for i in range(50)) + "\n[l0] [l49]\n"
+        html = marko.convert(text)
+        assert '<a href="/u0">l0</a>' in html
+        assert '<a href="/u49">l49</a>' in html
+
     @pytest.mark.parametrize("text", ["-\r-", "-\f-"])
     def test_non_lf_line_terminators_no_infinite_loop(self, text):
         assert marko.convert(text) == marko.convert("-\n-")
+
+    @pytest.mark.parametrize(
+        "text, paragraph",
+        [
+            ('[foo]: /url\n"title\n\n[foo]', "<p>&quot;title</p>"),
+            ("[foo]: /url\n'title\n\n[foo]", "<p>'title</p>"),
+            ("[foo]: /url\n(title\n\n[foo]", "<p>(title</p>"),
+            ('[foo]: /url\n"title\n\nmore"\n\n[foo]', "<p>&quot;title</p>"),
+        ],
+    )
+    def test_link_ref_def_with_invalid_title_on_next_line(self, text, paragraph):
+        res = marko.convert(text)
+        assert res.startswith(paragraph + "\n")
+        assert '<p><a href="/url">foo</a></p>' in res
 
     def test_xml_renderer(self):
         text = "[Overview](#overview)\n\n* * *"
@@ -70,6 +108,75 @@ class TestBasic:
                 marko.convert(text)
             )
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "```\n```\n",
+            "```\n\n```\n",
+            "```\ncode\n\n```\n",
+            "```python\ncode\n```\n",
+            "````python\nbefore\n```\nafter\n````\n",
+            "~~~\nbefore\n```\nafter\n~~~\n",
+            "~~~\n``````\n```\n~~~\n",
+            "~~~\n  ```\t\n~~~\n",
+            "~~~c`lang\ncode\n~~~\n",
+            "~~~python extra`info\ncode\n~~~\n",
+            "~~~ ~`lang\ncode\n~~~\n",
+            "> ~~~\n> ```\n> ~~~\n",
+            "- ~~~\n  ```\n  ~~~\n",
+        ],
+    )
+    def test_markdown_renderer_code_fence_roundtrip(self, text):
+        markdown = marko.Markdown(renderer=MarkdownRenderer)
+        rerendered = markdown(text)
+        assert marko.convert(rerendered) == marko.convert(text)
+
+    @pytest.mark.parametrize("separator", ["\v", "\x85", "\u2028", "\u2029"])
+    @pytest.mark.parametrize(
+        "template",
+        [
+            "```\na{}b\n```\n",
+            "    a{}b\n",
+            "> ```\n> a{}b\n> ```\n",
+            ">     a{}b\n",
+            "- ```\n  a{}b\n  ```\n",
+            "- item\n\n      a{}b\n",
+        ],
+    )
+    def test_markdown_renderer_preserves_code_block_separators(
+        self, separator, template
+    ):
+        text = template.format(separator)
+        markdown = marko.Markdown(renderer=MarkdownRenderer)
+
+        rerendered = markdown(text)
+
+        assert separator in rerendered
+        assert marko.convert(rerendered) == marko.convert(text)
+        assert markdown(rerendered) == rerendered
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "`code`",
+            "``a`b``",
+            "``` ``x`` ```",
+            "````a`b``c```d````",
+            "`` ` ``",
+            "```` ``` ````",
+            "`` `a` ``",
+            "`  a  `",
+            "` a`",
+            "`a `",
+            "`   `",
+        ],
+    )
+    def test_markdown_renderer_code_span_roundtrip(self, text):
+        markdown = marko.Markdown(renderer=MarkdownRenderer)
+        rerendered = markdown(text)
+        assert rerendered == text + "\n"
+        assert marko.convert(rerendered) == marko.convert(text)
+
     def test_markdown_renderer_preserve_link_refs(self):
         text = textwrap.dedent("""\
             This is a [link ref][1], [1] and a [link](abc "title").
@@ -81,6 +188,35 @@ class TestBasic:
         markdown = marko.Markdown(renderer=MarkdownRenderer, extensions=["footnote"])
         rerendered = markdown.convert(text)
         assert rerendered == text
+
+    @pytest.mark.parametrize("image", [False, True])
+    @pytest.mark.parametrize("title", ["", ' "A title"'])
+    @pytest.mark.parametrize(
+        "destination",
+        [
+            "plain.pdf",
+            "<my file.pdf>",
+            "<my\tfile.pdf>",
+            r"foo\)bar",
+            r"foo\(bar",
+            "foo(bar)",
+            r"foo\\*bar",
+            r"foo\\bar",
+            r"foo\<bar\>",
+            r"<my file\>name.pdf>",
+            "<>",
+            "file&amp;name.pdf",
+        ],
+    )
+    def test_markdown_renderer_link_destinations(self, image, title, destination):
+        text = f"{'!' if image else ''}[doc]({destination}{title})"
+        markdown = marko.Markdown(renderer=MarkdownRenderer)
+        expected = marko.convert(text)
+        assert ("<img " if image else "<a ") in expected
+
+        rerendered = markdown(text)
+        assert marko.convert(rerendered) == expected
+        assert markdown(rerendered) == rerendered
 
 
 class TestExtension:

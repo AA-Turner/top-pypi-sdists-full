@@ -10,17 +10,18 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 from tox.config.loader.api import apply_overrides_to_raw
 from tox.config.loader.ini.factor import active_factors
 from tox.config.loader.replacer import (
-    BACKSLASH_ESCAPE_CHARS,
     MatchError,
+    MatchExpression,
     MatchRecursionError,
     ReplaceReference,
+    find_replace_expr,
     load_posargs,
     replace,
     replace_env,
 )
 from tox.config.loader.stringify import stringify
 from tox.config.set_env import SetEnvReference
-from tox.config.types import Command
+from tox.config.types import Command, EnvList
 from tox.tox_env.python.pip.req_file import PythonConstraints, PythonDeps
 from tox.util.typing_compat import override
 
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from tox.config.loader.api import ConfigLoadArgs
+    from tox.config.loader.replacer import MatchArg
     from tox.config.loader.toml import TomlLoader
     from tox.config.main import Config
     from tox.config.sets import ConfigSet
@@ -123,15 +125,22 @@ class Unroll:
 
     def _replace_env(self, value: dict[str, TomlTypes], depth: int, *, skip_str: bool) -> TomlTypes:
         name = validate(value["name"], str)
-        default = validate(self(value.get("default", ""), depth, skip_str=skip_str), str)
-        if skip_str:
-            return _env_expression(name, default)  # set_env resolves it when read, seeing the keys next to it
+        default = self(value.get("default", ""), depth, skip_str=skip_str)
+        if skip_str:  # set_env resolves it when read, seeing the keys next to it
+            # a parsed expression keeps the default verbatim, which the {env:NAME:DEFAULT} text cannot always do
+            return MatchExpression([["env"], [name], _parse_arg(default)])
         # use a copy of the chain so this substitution's env references do not leak into
         # adjacent entries of the same value tree and spuriously trip the circular check (#2869)
-        return replace_env(self.conf, [name, default], self.args.copy())
+        return replace_env(self.conf, [name, validate(default, str)], self.args.copy())
 
-    def _replace_glob(self, value: dict[str, TomlTypes], _depth: int, *, skip_str: bool) -> TomlTypes:  # ruff:ignore[unused-method-argument]
-        return _replace_glob_toml(self.conf, value)
+    def _replace_glob(self, value: dict[str, TomlTypes], depth: int, *, skip_str: bool) -> TomlTypes:
+        # substitute the pattern and the fallback like the INI ``{glob:PATTERN:DEFAULT}`` form does
+        resolved: dict[str, TomlTypes] = {
+            key: self(value[key], depth, skip_str=skip_str) for key in ("pattern", "default") if key in value
+        }
+        if skip_str:  # set_env resolves it when read, seeing the keys next to it
+            return MatchExpression([["glob"], *(_parse_arg(resolved.get(key, "")) for key in ("pattern", "default"))])
+        return _replace_glob_toml(self.conf, {**value, **resolved})
 
     def _replace_if(self, value: dict[str, TomlTypes], depth: int, *, skip_str: bool) -> TomlTypes:
         return _replace_if_toml(value, self, depth, self.factors, skip_str=skip_str)
@@ -139,14 +148,7 @@ class Unroll:
     def _replace_ref(self, value: dict[str, TomlTypes], depth: int, *, skip_str: bool = False) -> TomlTypes:
         if self.conf is not None and (env := value.get("env")) and (key := value.get("key")):
             # the referenced value arrives converted for its own key, return it in the raw shape a TOML key parses
-            result = self.conf.get_env(cast("str", env))[cast("str", key)]
-            if isinstance(result, (PythonDeps, PythonConstraints)):
-                return cast("TomlTypes", result.lines())
-            if isinstance(result, Command):
-                return cast("TomlTypes", result.raw_args)
-            if isinstance(result, list) and all(isinstance(entry, Command) for entry in result):
-                return cast("TomlTypes", [entry.raw_args for entry in result])
-            return cast("TomlTypes", result)
+            return self._to_raw(self.conf.get_env(cast("str", env))[cast("str", key)])
         if of := value.get("of"):
             validated_of = validate(of, list[str])
             if (path := self.loader.section.SEP.join(validated_of)) in self._refs:
@@ -171,27 +173,25 @@ class Unroll:
                 self._refs.pop()
         return value
 
+    @staticmethod
+    def _to_raw(value: object) -> TomlTypes:
+        if isinstance(value, (PythonDeps, PythonConstraints)):
+            value = value.lines()
+        elif isinstance(value, Command):
+            value = value.raw_args
+        elif isinstance(value, list) and all(isinstance(entry, Command) for entry in value):
+            value = [entry.raw_args for entry in value]
+        elif isinstance(value, Path):
+            value = str(value)
+        elif isinstance(value, EnvList):
+            value = list(value.envs)
+        elif isinstance(value, set):  # sort it like stringify does, so the order is stable
+            value = sorted(value)
+        return cast("TomlTypes", value)
 
-def _env_expression(name: str, default: str) -> str:
-    """Write an ``env`` table as the ``{env:NAME:DEFAULT}`` string that resolves to the same value."""
-    escaped_name = "".join(f"\\{char}" if char in BACKSLASH_ESCAPE_CHARS else char for char in name)
-    # the default keeps its substitutions, but a brace it does not pair would end the expression early
-    parts: list[str] = []
-    unclosed: list[int] = []
-    pos = 0
-    while pos < len(default):
-        piece = default[pos : pos + 2] if default[pos] == "\\" else default[pos]
-        pos += len(piece)
-        if piece == "{":
-            unclosed.append(len(parts))
-        elif piece == "}" and unclosed:
-            unclosed.pop()
-        elif piece == "}":
-            piece = "\\}"
-        parts.append(piece)
-    for index in unclosed:
-        parts[index] = "\\{"
-    return f"{{env:{escaped_name}:{''.join(parts)}}}"
+
+def _parse_arg(value: TomlTypes) -> MatchArg:
+    return find_replace_expr(value if isinstance(value, MatchExpression) else validate(value, str))
 
 
 def _replace_glob_toml(conf: Config | None, value: dict[str, Any]) -> list[TomlTypes] | str:

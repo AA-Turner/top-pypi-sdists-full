@@ -1,11 +1,17 @@
 import asyncio
 import concurrent.futures
+import sys
 from collections.abc import AsyncIterator, Coroutine
 from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppress
 from functools import partial
 from typing import Any, Generic, TypeVar
 
 import structlog
+
+if sys.platform == "win32":
+    _MAIN_LOOP_FACTORY = None
+else:
+    from uvloop import new_event_loop as _MAIN_LOOP_FACTORY
 
 T = TypeVar("T")
 
@@ -42,6 +48,11 @@ def get_event_loop() -> asyncio.AbstractEventLoop:
     if _MAIN_LOOP is None:
         raise RuntimeError("No event loop set")
     return _MAIN_LOOP
+
+
+def run_main_loop(main: Coroutine[object, object, T]) -> T:
+    with asyncio.Runner(loop_factory=_MAIN_LOOP_FACTORY) as runner:
+        return runner.run(main)
 
 
 async def sleep_if_not_done(delay: float, done: asyncio.Event) -> None:

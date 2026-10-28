@@ -436,6 +436,75 @@ def waiting(cwd: str | None = None, *, timeout: float = TIMEOUT_S) -> bool:
         return False
 
 
+#: Codex keeps a trust record per approved hooks.json in `$CODEX_HOME/.hook-trust/`.
+TRUST_DIRNAME = ".hook-trust"
+#: The ones Probe's own approval made, `{path: sha256 of its content}`, in the
+#: service's state folder (never moved by XDG): `probe uninstall` removes
+#: exactly those, while they are unchanged (`uninstall_agents`).
+TRUST_RECORDS_NAME = "codex-hook-trust.json"
+_TRUST_RECORDS_VERSION = 1
+
+
+def _trust_listing() -> dict[str, str]:
+    """`{path: sha256}` of every file in Codex's trust record folder."""
+    import hashlib
+
+    from probe.cli import codex_config
+
+    found: dict[str, str] = {}
+    folder = codex_config.codex_home() / TRUST_DIRNAME
+    try:
+        entries = list(os.scandir(folder))
+    except OSError:
+        return found
+    for entry in entries:
+        try:
+            if entry.is_symlink() or not entry.is_file():
+                continue
+            with open(entry.path, "rb") as handle:
+                found[os.path.abspath(entry.path)] = hashlib.sha256(handle.read(1 << 20)).hexdigest()
+        except OSError:
+            continue
+    return found
+
+
+def trust_records_path() -> Path:
+    from probe.service import paths
+
+    return paths.state_dir() / TRUST_RECORDS_NAME
+
+
+def trust_records() -> dict[str, str]:
+    """What Probe's approvals recorded: `{path: sha256}`; {} when none (an
+    approval before this release recorded nothing). Never raises."""
+    try:
+        data = json.loads(trust_records_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    entries = data.get("entries") if isinstance(data, dict) and data.get("v") == _TRUST_RECORDS_VERSION else None
+    if not isinstance(entries, dict):
+        return {}
+    return {str(k): str(v) for k, v in entries.items() if isinstance(k, str) and isinstance(v, str)}
+
+
+def _remember_trust(before: dict[str, str]) -> None:
+    """Record the trust records Codex made or rewrote during Probe's approval.
+    Never raises: an approval never fails on this."""
+    try:
+        made = {path: digest for path, digest in _trust_listing().items() if before.get(path) != digest}
+        if not made:
+            return
+        from probe.sdk.durable import write_text_atomic
+
+        target = trust_records_path()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        entries = {**trust_records(), **made}
+        write_text_atomic(target, json.dumps({"v": _TRUST_RECORDS_VERSION, "entries": entries}, indent=1),
+                          mode=0o600)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def approve(
     cwd: str | None = None, *, timeout: float = TIMEOUT_S, only: frozenset[str] | None = None
 ) -> Approval | None:
@@ -448,8 +517,12 @@ def approve(
 
     Each call to the app-server gets `timeout` of its own, so a slow start
     cannot leave the write without time. Codex reads approvals when a session
-    starts, so a session already open keeps skipping them until the next one."""
+    starts, so a session already open keeps skipping them until the next one.
+
+    The trust records Codex makes for them (`.hook-trust/`) are recorded
+    (`trust_records`), so an uninstall removes exactly those."""
     server = None
+    trust_before = _trust_listing()
     try:
         from probe.cli.capabilities import MARKETPLACE
 
@@ -488,6 +561,7 @@ def approve(
     finally:
         if server is not None:
             server.close()
+        _remember_trust(trust_before)
 
 
 # -- `probe status` ------------------------------------------------------------

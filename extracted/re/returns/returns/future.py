@@ -37,7 +37,6 @@ _FuncParams = ParamSpec('_FuncParams')
 
 # Aliases:
 _FirstType = TypeVar('_FirstType')
-_SecondType = TypeVar('_SecondType')
 
 
 # Public composition helpers:
@@ -247,8 +246,8 @@ class Future(  # type: ignore[type-var]
         """
         return Future(_future.async_bind(function, self._inner_value))
 
-    #: Alias for `bind` method. Part of the `FutureBasedN` interface.
     bind_future = bind
+    """Alias for `bind` method. Part of the `FutureBasedN` interface."""
 
     def bind_async(
         self,
@@ -280,8 +279,8 @@ class Future(  # type: ignore[type-var]
         """
         return Future(_future.async_bind_async(function, self._inner_value))
 
-    #: Alias for `bind_async` method. Part of the `FutureBasedN` interface.
     bind_async_future = bind_async
+    """Alias for `bind_async` method. Part of the `FutureBasedN` interface."""
 
     def bind_awaitable(
         self,
@@ -471,10 +470,7 @@ class Future(  # type: ignore[type-var]
 
 
 def future(
-    function: Callable[
-        _FuncParams,
-        Coroutine[_FirstType, _SecondType, _ValueType_co],
-    ],
+    function: Callable[_FuncParams, Awaitable[_ValueType_co]],
 ) -> Callable[_FuncParams, Future[_ValueType_co]]:
     """
     Decorator to turn a coroutine definition into ``Future`` container.
@@ -816,9 +812,8 @@ class FutureResult(  # type: ignore[type-var]
             )
         )
 
-    #: Alias for `bind` method.
-    #: Part of the `FutureResultBasedN` interface.
     bind_future_result = bind
+    """Alias for `bind` method. Part of the `FutureResultBasedN` interface."""
 
     def bind_async(
         self,
@@ -858,9 +853,9 @@ class FutureResult(  # type: ignore[type-var]
             )
         )
 
-    #: Alias for `bind_async` method.
-    #: Part of the `FutureResultBasedN` interface.
     bind_async_future_result = bind_async
+    """Alias for `bind_async` method.
+    Part of the `FutureResultBasedN` interface."""
 
     def bind_awaitable(
         self,
@@ -1514,9 +1509,8 @@ def FutureFailure(  # noqa: N802
     return FutureResult.from_failure(inner_value)
 
 
-#: Alias for ``FutureResult[_ValueType_co, Exception]``.
 FutureResultE: TypeAlias = FutureResult[_ValueType_co, Exception]
-
+"""Alias for ``FutureResult[_ValueType_co, Exception]``."""
 
 _ExceptionType = TypeVar('_ExceptionType', bound=Exception)
 
@@ -1526,10 +1520,7 @@ _ExceptionType = TypeVar('_ExceptionType', bound=Exception)
 
 @overload
 def future_safe(
-    exceptions: Callable[
-        _FuncParams,
-        Coroutine[_FirstType, _SecondType, _ValueType_co],
-    ],
+    exceptions: Callable[_FuncParams, Awaitable[_ValueType_co]],
     /,
 ) -> Callable[_FuncParams, FutureResultE[_ValueType_co]]: ...
 
@@ -1538,33 +1529,20 @@ def future_safe(
 def future_safe(
     exceptions: tuple[type[_ExceptionType], ...],
 ) -> Callable[
-    [
-        Callable[
-            _FuncParams,
-            Coroutine[_FirstType, _SecondType, _ValueType_co],
-        ],
-    ],
+    [Callable[_FuncParams, Awaitable[_ValueType_co]]],
     Callable[_FuncParams, FutureResult[_ValueType_co, _ExceptionType]],
 ]: ...
 
 
 def future_safe(  # noqa: WPS212, WPS234,
     exceptions: (
-        Callable[
-            _FuncParams,
-            Coroutine[_FirstType, _SecondType, _ValueType_co],
-        ]
+        Callable[_FuncParams, Awaitable[_ValueType_co]]
         | tuple[type[_ExceptionType], ...]
     ),
 ) -> (
     Callable[_FuncParams, FutureResultE[_ValueType_co]]
     | Callable[
-        [
-            Callable[
-                _FuncParams,
-                Coroutine[_FirstType, _SecondType, _ValueType_co],
-            ],
-        ],
+        [Callable[_FuncParams, Awaitable[_ValueType_co]]],
         Callable[_FuncParams, FutureResult[_ValueType_co, _ExceptionType]],
     ]
 ):
@@ -1621,10 +1599,7 @@ def future_safe(  # noqa: WPS212, WPS234,
     """
 
     def _future_safe_factory(  # noqa: WPS430
-        function: Callable[
-            _FuncParams,
-            Coroutine[_FirstType, _SecondType, _ValueType_co],
-        ],
+        function: Callable[_FuncParams, Awaitable[_ValueType_co]],
         inner_exceptions: tuple[type[_ExceptionType], ...],
     ) -> Callable[_FuncParams, FutureResult[_ValueType_co, _ExceptionType]]:
         async def factory(

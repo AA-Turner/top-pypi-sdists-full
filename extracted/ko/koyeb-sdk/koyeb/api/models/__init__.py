@@ -186,6 +186,7 @@ from koyeb.api.models.digital_ocean_registry_configuration import (
 from koyeb.api.models.discourse_auth_reply import DiscourseAuthReply
 from koyeb.api.models.discourse_auth_request import DiscourseAuthRequest
 from koyeb.api.models.docker_builder import DockerBuilder
+from koyeb.api.models.docker_deployment_metadata import DockerDeploymentMetadata
 from koyeb.api.models.docker_hub_registry_configuration import (
     DockerHubRegistryConfiguration,
 )
@@ -212,6 +213,7 @@ from koyeb.api.models.exec_command_request_terminal_size import (
 from koyeb.api.models.gcp_container_registry_configuration import (
     GCPContainerRegistryConfiguration,
 )
+from koyeb.api.models.grpc_health_check import GRPCHealthCheck
 from koyeb.api.models.get_app_reply import GetAppReply
 from koyeb.api.models.get_budget_reply import GetBudgetReply
 from koyeb.api.models.get_catalog_instance_reply import GetCatalogInstanceReply
@@ -445,6 +447,7 @@ from koyeb.api.models.regional_deployment_definition_type import (
 from koyeb.api.models.regional_deployment_event import RegionalDeploymentEvent
 from koyeb.api.models.regional_deployment_list_item import RegionalDeploymentListItem
 from koyeb.api.models.regional_deployment_mesh import RegionalDeploymentMesh
+from koyeb.api.models.regional_deployment_metadata import RegionalDeploymentMetadata
 from koyeb.api.models.regional_deployment_role import RegionalDeploymentRole
 from koyeb.api.models.regional_deployment_status import RegionalDeploymentStatus
 from koyeb.api.models.regional_deployment_volume import RegionalDeploymentVolume

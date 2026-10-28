@@ -70,7 +70,6 @@ class FeedEntry(BaseModel):
     """One item of a feed, as the feed published it."""
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    kind: Literal["feed_entry"] = Field(default="feed_entry", alias="__kind")
     id: str
     title: str
     url: str = ""
@@ -104,7 +103,6 @@ class FeedEntry(BaseModel):
 
 class ParsedFeed(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    kind: Literal["parsed_feed"] = Field(default="parsed_feed", alias="__kind")
     title: str
     feed_url: str
     #: ``rss`` (RSS 2.0, which has a ``<channel>``), ``atom`` or ``rdf`` (RSS 1.0).

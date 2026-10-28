@@ -96,6 +96,7 @@ from .generic import (
     Fit,
     FloatObject,
     IndirectObject,
+    NamedReferenceLink,
     NameObject,
     NullObject,
     NumberObject,
@@ -538,6 +539,8 @@ class PdfWriter(PdfDocCommon):
             del self._id_translated[id(page_org.indirect_reference.pdf)][  # type: ignore[union-attr]
                 page_org.indirect_reference.idnum  # type: ignore[union-attr]
             ]
+        except MemoryError:  # pragma: no cover  # TODO: BLE001
+            raise
         except Exception:
             pass
 
@@ -607,6 +610,8 @@ class PdfWriter(PdfDocCommon):
             cast(DictionaryObject, self._root_object[CatalogAttributes.ACRO_FORM])[
                 need_appearances
             ] = BooleanObject(state)
+        except MemoryError:  # pragma: no cover  # TODO: BLE001
+            raise
         except Exception as exc:  # pragma: no cover
             logger_warning(
                 "set_need_appearances_writer(%(state)s) catch : %(exc)s",
@@ -1367,6 +1372,7 @@ class PdfWriter(PdfDocCommon):
         """Patch up links that were added to the document earlier, to
         make sure they still point to the same pages.
         """
+        known_names: Optional[set[str]] = None
         for (new_link, old_link) in self._unresolved_links:
             old_page = old_link.find_referenced_page()
             if not old_page:
@@ -1374,7 +1380,12 @@ class PdfWriter(PdfDocCommon):
             new_page = self._merged_in_pages.get(old_page)
             if new_page is None:
                 continue
-            new_link.patch_reference(self, new_page)
+            if isinstance(new_link, NamedReferenceLink):
+                if known_names is None:
+                    known_names = set(self.named_destinations)
+                new_link.patch_reference(self, new_page, known_names=known_names)
+            else:
+                new_link.patch_reference(self, new_page)
 
     def write_stream(self, stream: StreamType) -> None:
         if hasattr(stream, "mode") and "b" not in stream.mode:
@@ -1388,9 +1399,14 @@ class PdfWriter(PdfDocCommon):
 
         if self.incremental:
             assert self._reader is not None, "mypy"
+            has_increment = len(self.list_objects_in_increment()) > 0
+            if has_increment and self._reader.is_encrypted:
+                raise NotImplementedError(
+                    "Writing incremental updates of encrypted PDF files is currently not supported."
+                )
             self._reader.stream.seek(0)
             stream.write(self._reader.stream.read(-1))
-            if len(self.list_objects_in_increment()) > 0:
+            if has_increment:
                 self._write_increment(stream)  # writes objs, xref stream and startxref
         else:
             object_positions, free_objects = self._write_pdf_structure(stream)
@@ -1742,9 +1758,6 @@ class PdfWriter(PdfDocCommon):
                 t = TreeObject(outline)
                 self._replace_object(outline.indirect_reference.idnum, t)
                 outline = t
-            idnum = self._objects.index(outline) + 1
-            outline_ref = IndirectObject(idnum, 0, self)
-            assert outline_ref.get_object() == outline
         else:
             outline = TreeObject()
             outline.update({})
@@ -3066,6 +3079,8 @@ class PdfWriter(PdfDocCommon):
             _i = page
         try:
             return pages[_i.idnum].indirect_reference  # type: ignore[union-attr]
+        except MemoryError:  # pragma: no cover  # TODO: BLE001
+            raise
         except Exception:
             return None
 
@@ -3205,6 +3220,9 @@ class PdfWriter(PdfDocCommon):
         node = node.get_object()
         if is_null_or_none(node):
             node = DictionaryObject()
+        if not isinstance(node, DictionaryObject):
+            logger_warning("Outline node is not a dictionary: %(node)s", source=__name__, node=node)
+            return new_outline
 
         if node.get("/Type", "") == "/Outlines" or "/Title" not in node:
             node_id = id(node)
@@ -3221,6 +3239,9 @@ class PdfWriter(PdfDocCommon):
             cloned_page: Union[IndirectObject, NullObject, None]
             while True:
                 node = node.get_object()
+                if not isinstance(node, DictionaryObject):
+                    logger_warning("Outline node is not a dictionary: %(node)s", source=__name__, node=node)
+                    break
                 node_id = id(node)
                 if node_id in visited:
                     logger_warning("Detected cycle in outlines.", source=__name__)
@@ -3347,11 +3368,15 @@ class PdfWriter(PdfDocCommon):
         elif isinstance(reader, PdfReader):
             try:
                 del self._id_translated[id(reader)]
+            except MemoryError:  # pragma: no cover  # TODO: BLE001
+                raise
             except Exception:
                 pass
         elif isinstance(reader, IndirectObject):
             try:
                 del self._id_translated[id(reader.pdf)]
+            except MemoryError:  # pragma: no cover  # TODO: BLE001
+                raise
             except Exception:
                 pass
         else:

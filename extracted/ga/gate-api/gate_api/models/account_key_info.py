@@ -35,7 +35,7 @@ class AccountKeyInfo(object):
     openapi_types = {
         'state': 'int',
         'mode': 'int',
-        'name': 'list[str]',
+        'name': 'str',
         'currency_pairs': 'list[str]',
         'user_id': 'int',
         'ip_whitelist': 'list[str]',
@@ -61,7 +61,7 @@ class AccountKeyInfo(object):
     }
 
     def __init__(self, state=None, mode=None, name=None, currency_pairs=None, user_id=None, ip_whitelist=None, perms=None, key=None, created_at=None, updated_at=None, last_access=None, local_vars_configuration=None):  # noqa: E501
-        # type: (int, int, list[str], list[str], int, list[str], list[AccountKeyInfoPerms], AccountDetailKey, str, str, str, Configuration) -> None
+        # type: (int, int, str, list[str], int, list[str], list[AccountKeyInfoPerms], AccountDetailKey, str, str, str, Configuration) -> None
         """AccountKeyInfo - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -156,7 +156,7 @@ class AccountKeyInfo(object):
         API Key Remark  # noqa: E501
 
         :return: The name of this AccountKeyInfo.  # noqa: E501
-        :rtype: list[str]
+        :rtype: str
         """
         return self._name
 
@@ -167,7 +167,7 @@ class AccountKeyInfo(object):
         API Key Remark  # noqa: E501
 
         :param name: The name of this AccountKeyInfo.  # noqa: E501
-        :type: list[str]
+        :type: str
         """
 
         self._name = name

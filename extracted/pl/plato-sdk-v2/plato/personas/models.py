@@ -11,6 +11,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from plato.chronos.models import PersonaMismatch
+
 # The fields the walker fills from a persona-values file (exploration_world steps_core.PERSONA_FIELDS).
 WALKER_FIELDS = ("name", "first_name", "last_name", "email", "phone", "display_name")
 
@@ -164,37 +166,37 @@ class PersonaRecord(BaseModel):
     person_key: str | None = None
     live: LiveIdentity = Field(default_factory=LiveIdentity)
     fixture: FixtureIdentity = Field(default_factory=FixtureIdentity)
+    # Chronos: which sign-in facts (email, phone) of the account differ from its persona's. The link stands;
+    # the mismatch is only flagged, and `plato vault persona check` lists it.
+    mismatch: list[PersonaMismatch] = Field(default_factory=list)
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
-
-
-class InventoryAccount(BaseModel):
-    """One account row of the console's login list (GET /api/logins). Other keys (some secret) are dropped."""
-
-    model_config = ConfigDict(extra="ignore")
-    account: str
-    archived: bool = False
-    has_persona: bool = False
-
-
-class InventoryGroup(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    login_key: str
-    accounts: list[InventoryAccount]
-
-
-class LoginInventory(BaseModel):
-    """The console's login list. The lists are required: a reply without them is an error, not zero accounts."""
-
-    model_config = ConfigDict(extra="ignore")
-    groups: list[InventoryGroup]
-    vault_error: str | None = None
 
 
 class CheckProblem(StrEnum):
     no_persona = "no_persona"
     no_name = "no_name"
     no_email = "no_email"
+    # The account signs in with an email (its username) that is not its persona's.
+    email_mismatch = "email_mismatch"
+    # The account's phone is not its persona's (`--fix` only reports it: the number is the persona's).
+    phone_mismatch = "phone_mismatch"
+
+
+class PersonaFixAction(StrEnum):
+    # Linked to the persona that has the account's sign-in email.
+    relinked = "relinked"
+    # No persona had that email: one was made from it (key <login_key>_<account>) and linked.
+    created = "created"
+
+
+class PersonaFixRow(BaseModel):
+    login_key: str
+    account: str
+    action: PersonaFixAction
+    persona: str
+    # What Chronos still flags after the fix (a phone that differs: reported, not changed).
+    mismatch: list[PersonaMismatch] = Field(default_factory=list)
 
 
 class PersonaCheckRow(BaseModel):
@@ -207,6 +209,8 @@ class PersonaCheckReport(BaseModel):
     ok: bool
     checked: int
     problems: list[PersonaCheckRow]
+    # What `check --fix` changed; those accounts are not in `problems`.
+    fixed: list[PersonaFixRow] = Field(default_factory=list)
     # True when the console could not list 1Password: accounts made by hand there may be missing from the check.
     incomplete: bool = False
     vault_error: str | None = None

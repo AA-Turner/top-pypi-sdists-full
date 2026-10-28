@@ -26,8 +26,17 @@ The same file runs in two places:
               run by `lifeboat.sh` with whatever Python works. It installs
               the newest release on a machine that has been behind for 12 h by
               its own clock (5 min, when its service was asked for a check and
-              still has not answered). It never switches back: that is the
+              still has not answered). Since HANDOFF_VERSION 3 it also rebuilds
+              an active env that is broken whatever its version (gone, no
+              Python, or it does not import what its release has:
+              `Layout.broken`), when the service has stayed silent 5 min
+              after an ask, beside it (a generation folder, `<version>+g<N>`,
+              when the version's own is taken), and hands that the update
+              (`Act.BROKEN_ENV`), as a release new enough to take it over
+              (ADOPT_SINCE) only. It never switches back: that is the
               guard's, in release code.
+
+Neither one does anything while an uninstall is LIVE (`uninstalling`).
 
 Modes:
 
@@ -38,14 +47,20 @@ Modes:
     exit 0 normal (nothing to do, or done), 1 a hand-off that failed (logged),
     3 an internal error of its own (the wrapper then tries known-good).
 
-Files (all under L = ~/.local/state/probe/lifeboat, never moved by XDG_STATE_HOME):
+Files (all under S = ~/.local/state/probe and L = S/lifeboat, never moved by XDG_STATE_HOME):
 
     L/env.json     written by RELEASE code; read here (`read_env`)
     L/state.json   written ONLY here, lifeboat mode: its own clocks
     L/acted.json   written here when a lifeboat run rescued; the next release reports it
+    L/rebuilds.json  written ONLY by a rescue's stage 1: fresh copies of the active
+                     version that did not start, held off 24 h (`hold_rebuild`)
+    S/uninstall/barrier.json           read: an uninstall that runs (`uninstalling`)
     <versions_root>/install.lock       the one install lock (`fcntl.flock`)
     <versions_root>/install.lock.json  its holder: {"pid", "start", "cmd", "at", "mono"}
     <versions_root>/active.json        read: the active, rejected and `dropped_with`
+    <versions_root>/<v>/probe-research       a release's env, as the hand-off installs it
+    <versions_root>/<v>+g<N>/probe-research  the same release rebuilt (N >= 2): never a
+                                             release itself; its version is its dist-info's
 
 The install lock (I8): every install and switch, from any path, holds it.
 A waiter waits for a live holder; one that has held it STALE_HOLDER_S (45
@@ -64,7 +79,11 @@ deleted (never the active env) and installed afresh next time; one whose
 check could not run (a timeout) is kept for the next try. `--with`
 packages are left out only as the last try (`attempts`).
 
-Versions: releases are plain X.Y.Z[.N]; anything else is never newer.
+Versions: releases are plain X.Y.Z[.N]; anything else is never newer, and a
+generation folder's name (`0.2.0+g2`) is no release: an env's version is read
+from its dist-info first, everywhere. Handoff v1 and v2 copies read it the same
+way (dist-info first, then a folder name that is a release), so a `+gN` layout
+reads right to them too.
 
 Stdlib only, and nothing from `probe`: the lifeboat runs it outside every
 release, with `-I -S`.
@@ -93,13 +112,46 @@ try:
 except ImportError:  # Windows: no side-by-side installs there (`installs.usable`)
     fcntl = None  # type: ignore[assignment]
 
-HANDOFF_VERSION = 2
+HANDOFF_VERSION = 3
 
 DIST = "probe-research"
 VERSIONS_DIRNAME = "probe-versions"
 ACTIVE_NAME = "active.json"
 LOCK_NAME = "install.lock"
 LOCK_RECORD_NAME = "install.lock.json"
+#: `<version>+g<N>`: a release's env rebuilt beside the folder named for it (N >= 2).
+GENERATION_MARK = "+g"
+FIRST_GENERATION = 2
+#: A rebuilt env's `PROBE_HANDOFF_FROM`: `<version>+broken`, a PEP 440 local
+#: version (the report and the server take it) that never equals the version
+#: rebuilt, so release code reports the rebuild as the change it is.
+BROKEN_MARK = "+broken"
+#: The first release with `probe.core.adopt`, what a hand-off execs into: an
+#: env older than it can take no update over, so it is never rebuilt as
+#: itself (`rescue_version`), and its check asks only for what every release
+#: has (`Layout.broken`): a healthy 0.320 is not a broken 0.330.
+ADOPT_SINCE = "0.328.0"
+#: What a new env's update path must import before it is exec'd (`starts`).
+UPDATE_MODULES = ("probe.core.run", "probe.core.adopt")
+#: What every release imports, however old.
+EVERY_RELEASE_MODULES = ("probe",)
+#: S/uninstall/barrier.json: an uninstall's own record of itself (plan
+#: clean-uninstall-reinstall, Build contract). `{"v", "pid", "start", "at",
+#: "plan", "phase"}`, written atomically.
+BARRIER_DIRNAME = "uninstall"
+BARRIER_NAME = "barrier.json"
+#: Until these phases end an uninstall has changed nothing it cannot take
+#: back: a barrier at one of them whose owner is gone is STALE. Any other
+#: phase -- a later one, an unknown one, none -- is LIVE whoever owns it.
+BARRIER_STALE_PHASES = ("planned", "stopping", "draining")
+#: A barrier that cannot be read is LIVE while its file is this fresh.
+UNREADABLE_BARRIER_LIVE_S = 3600
+#: L/rebuilds.json (written by a rescue's stage 1 alone): a copy of the
+#: ACTIVE version installed afresh that does not start either holds that
+#: version off this long -- the next would fail the same way. Nothing else
+#: does (a timeout, the network, a missing uv: tried again an hour on).
+REBUILDS_NAME = "rebuilds.json"
+REBUILD_HOLD_S = 24 * 3600
 DEFAULT_BASE_URL = "https://api.research.prbe.ai"
 MANIFEST_PATH = "/v1/client-version"
 PYPI_URL = "https://pypi.org/pypi/probe-research/json"
@@ -142,7 +194,7 @@ ASK_FRESH_S = 30 * 60
 KEEPER_CHECK_S = 6 * 3600
 #: The manifest is read at most this often in lifeboat mode.
 MANIFEST_EVERY_S = 3600
-#: A rescue is not started again within this long of the last one.
+#: A rescue of the same release is not started again within this long of the last one.
 ACT_RETRY_S = 3600
 #: A log file past this is started again.
 MAX_LOG_BYTES = 1024 * 1024
@@ -180,6 +232,23 @@ class Result:
     #: Installed, but its import check could not run (a timeout, a kill): kept, tried next time.
     UNCHECKED = "unchecked"
     EXEC_FAILED = "exec_failed"
+    #: An uninstall is LIVE (`uninstalling`): nothing was read, locked or installed.
+    UNINSTALLING = "uninstalling"
+    #: A rescue (`rescue=True`) found the active env starts after all: nothing to rebuild.
+    HEALTHY = "healthy"
+    #: A rescue's release is held: a fresh rebuild of it did not start < 24 h ago (`hold_rebuild`).
+    HELD = "held"
+    #: A rescue's only release is older than ADOPT_SINCE: it could take no update over.
+    TOO_OLD = "too_old"
+
+
+class Act:
+    """Why a lifeboat run started a rescue: `state.json` `last_act` and
+    `acted.json` `reason` (reported as `lifeboat.acted`)."""
+
+    BEHIND = "behind"  # (a) behind for BEHIND_ACT_S by its own clock
+    SERVICE_DOWN = "service_down"  # (b) behind, the service silent after an ask
+    BROKEN_ENV = "broken_env"  # (d) the active env broken, the service silent after an ask
 
 
 class Trigger:
@@ -244,12 +313,34 @@ def newer(candidate: object, base: object) -> bool:
     return bool(a and b and a > b)
 
 
+def generation_of(name: object) -> tuple[str, int] | None:
+    """A generation folder's name (`0.2.0+g2`) as `(its release, N)`, else
+    None. Only ever read to number the next one (`Layout.next_generation`):
+    such a name is never a version (`release` refuses it)."""
+    if not isinstance(name, str) or GENERATION_MARK not in name:
+        return None
+    base, _, number = name.rpartition(GENERATION_MARK)
+    if not number.isdigit() or release(base) is None:
+        return None
+    return base, int(number)
+
+
 # -- paths and files ---------------------------------------------------------------
 
 
+def state_root() -> Path:
+    """`~/.local/state/probe` (`probe.service.paths.state_dir()`'s rule: never moved by XDG)."""
+    return Path.home() / ".local" / "state" / "probe"
+
+
 def lifeboat_dir() -> Path:
-    """`~/.local/state/probe/lifeboat` (`probe.service.paths.state_dir()`'s rule)."""
-    return Path.home() / ".local" / "state" / "probe" / "lifeboat"
+    """`~/.local/state/probe/lifeboat`."""
+    return state_root() / "lifeboat"
+
+
+def barrier_path() -> Path:
+    """`~/.local/state/probe/uninstall/barrier.json`: an uninstall's own record."""
+    return state_root() / BARRIER_DIRNAME / BARRIER_NAME
 
 
 def env_path() -> Path:
@@ -299,7 +390,7 @@ def read_state() -> dict:
     if data.get("v") != 1:
         data = {"v": 1}
     for key in ("first_seen_behind", "behind_version", "service_down_since", "last_keeper_check",
-                "last_manifest", "last_act", "asked_at"):
+                "last_manifest", "last_act", "asked_at", "env_check"):
         data.setdefault(key, None)
     return data
 
@@ -377,17 +468,24 @@ def complete(env: Path, version: str) -> bool:
     )
 
 
-def starts(env: Path) -> tuple[str | None, bool]:
-    """Does the new env's own update path import (`probe.core.run`,
-    `probe.core.adopt`)? `(None, False)` when it does; else `(what it said,
-    broken)`: `broken` when the import itself failed (the release is), not
-    when the check could not finish (a timeout on a loaded machine, an
-    OSError, a kill by a signal -- the OOM killer: the machine's, so the env
-    is kept for the next try). An env that fails is never exec'd: it would
-    die before it could reject itself."""
+def takes_over(version: object) -> bool:
+    """Is `version` a release that can take an update over (it has
+    `probe.core.adopt`: ADOPT_SINCE or newer)?"""
+    found = release(version)
+    return found is not None and found >= release(ADOPT_SINCE)
+
+
+def starts(env: Path, modules: tuple = UPDATE_MODULES) -> tuple[str | None, bool]:
+    """Does `env` import `modules` (by default a new env's own update path,
+    `probe.core.run` and `probe.core.adopt`)? `(None, False)` when it does;
+    else `(what it said, broken)`: `broken` when the import itself failed
+    (the release is), not when the check could not finish (a timeout on a
+    loaded machine, an OSError, a kill by a signal -- the OOM killer: the
+    machine's, so the env is kept for the next try). An env that fails is
+    never exec'd: it would die before it could reject itself."""
     try:
         done = subprocess.run(
-            [str(env_python(env)), "-I", "-c", "import probe.core.run, probe.core.adopt"],
+            [str(env_python(env)), "-I", "-c", "import " + ", ".join(modules)],
             capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=IMPORT_TIMEOUT_S,
             cwd=str(Path.home()), check=False,
         )
@@ -430,19 +528,86 @@ class Layout:
     def active_version(self) -> str | None:
         """The version the tool path runs now: the dist-info of the env it
         resolves to (a `uv tool upgrade` through the link moves it, not the
-        folder's name), else its version folder's name."""
+        folder's name), else its version folder's name when that is a
+        release -- a generation folder's (`0.2.0+g2`) never is."""
         if self.tool_env.exists():
             found = env_version(self.tool_env)
             if found:
                 return found
-        if self.tool_env.is_symlink():
-            with contextlib.suppress(OSError):
-                target = Path(os.readlink(self.tool_env))
-                if not target.is_absolute():
-                    target = self.tool_env.parent / target
-                if release(target.parent.name):
-                    return target.parent.name
+        target = self._link_target()
+        if target is not None and release(target.parent.name):
+            return target.parent.name
         return None
+
+    def _link_target(self) -> Path | None:
+        """Where the tool path's link points (absolute), or None: not a link."""
+        if not self.tool_env.is_symlink():
+            return None
+        with contextlib.suppress(OSError):
+            target = Path(os.readlink(self.tool_env))
+            return target if target.is_absolute() else self.tool_env.parent / target
+        return None
+
+    def structure(self) -> str | None:
+        """What is missing of the active env, seen with a few stats and no
+        interpreter: the env the tool path names is gone, or has no
+        `bin/python` (a deleted env, an interpreter `uv python` removed).
+        None when neither -- and when there is no tool path at all (a
+        person's `uv tool uninstall`: nothing of ours to rebuild)."""
+        env = self.tool_env
+        if not (env.is_symlink() or env.is_dir()):
+            return None
+        if not env.exists():
+            return f"{env} names {self._link_target()}, which is gone"
+        if not env_python(env).exists():
+            return f"{env} has no bin/python"
+        return None
+
+    def broken(self) -> tuple[str | None, bool]:
+        """Is the active env broken: gone, without its python (`structure`), or
+        it does not import what its version has (`starts`: a release that
+        takes updates over, its update path, as every new env before its
+        exec; an older one, or one whose version cannot be read, only what
+        every release has -- `probe.core.adopt` is no part of 0.320)?
+        `(what was found, broken)`: a check that could not finish (a
+        timeout, a kill: the machine's) is not broken."""
+        problem = self.structure()
+        if problem:
+            return problem, True
+        if not (self.tool_env.is_symlink() or self.tool_env.is_dir()):
+            return f"no uv tool env at {self.tool_env}", False
+        version = env_version(self.tool_env)
+        return starts(self.tool_env, UPDATE_MODULES if takes_over(version) else EVERY_RELEASE_MODULES)
+
+    def broken_label(self, active: object) -> str:
+        """How a rebuild names the env it replaces (`PROBE_HANDOFF_FROM`,
+        `acted.json` `from`): `<version>+broken` -- the version the active
+        one was, else the release its folder is named for (a generation's
+        included), else `0+broken`."""
+        base = active if release(active) else None
+        if base is None:
+            target = self._link_target()
+            name = target.parent.name if target is not None else ""
+            found = generation_of(name)
+            base = found[0] if found else name if release(name) else "0"
+        return f"{base}{BROKEN_MARK}"
+
+    def newest_generation(self, version: str) -> int | None:
+        """The highest N of the `probe-versions/<version>+g<N>` folders, or None."""
+        highest = None
+        with contextlib.suppress(OSError):
+            for path in self.root.iterdir():
+                found = generation_of(path.name)
+                if found and found[0] == version and (highest is None or found[1] > highest):
+                    highest = found[1]
+        return highest
+
+    def next_generation(self, version: str) -> str:
+        """The folder name a rebuilt `version` goes to: `<version>+g<N>`, N one
+        past the highest of `probe-versions/<version>+g*` (FIRST_GENERATION at
+        least). Never a folder that exists."""
+        highest = self.newest_generation(version)
+        return f"{version}{GENERATION_MARK}{max(FIRST_GENERATION, (highest or 0) + 1)}"
 
     def dropped_with(self) -> list:
         """The `--with` packages an earlier install had to leave out
@@ -469,6 +634,128 @@ def rejected_recently(record: dict, version: str, at: float | None = None) -> bo
     never blocks a newer one: only the newest release is ever the target."""
     when = rejected_at(record, version)
     return when is not None and (now() if at is None else at) - when < REJECT_TTL_S
+
+
+def rescue_version(latest: object, active: object, record: dict, at: float | None = None,
+                   held: object = ()) -> str | None:
+    """What a broken active env is rebuilt as: the newest release when it is
+    newer than the active one (or the active one's version cannot be read),
+    else the active version. Passed over: a version rejected < 24 h ago, one
+    `held` (a fresh rebuild of it did not start: `held_rebuilds`), and one
+    that cannot take an update over (older than ADOPT_SINCE: its exec could
+    not adopt). None: no release to rebuild (`no_rebuild` says why)."""
+    for pick in _rescue_picks(latest, active):
+        if takes_over(pick) and pick not in held and not rejected_recently(record, pick, at):
+            return pick
+    return None
+
+
+def _rescue_picks(latest: object, active: object) -> list:
+    picks = []
+    if release(latest) and (release(active) is None or newer(latest, active)):
+        picks.append(latest)
+    if release(active):
+        picks.append(active)
+    return picks
+
+
+def no_rebuild(latest: object, active: object, record: dict, held: dict, at: float | None = None) -> dict:
+    """Why `rescue_version` found nothing, as `{"result", "detail"}`, each
+    release it passed over named with its own reason: no release at all
+    (`no_target`); one held after a rebuild that did not start (`held`, until
+    when); one rejected < 24 h ago (`rejected`); one older than ADOPT_SINCE
+    (`too_old`). The first of these that applies is the result."""
+    picks = _rescue_picks(latest, active)
+    if not picks:
+        return {"result": Result.NO_TARGET, "detail": "no release to rebuild it as"}
+    found = []
+    for pick in picks:
+        if not takes_over(pick):
+            found.append((Result.TOO_OLD, f"{pick} is older than {ADOPT_SINCE} and cannot take an update over"))
+        elif pick in held:
+            until = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(held[pick] + REBUILD_HOLD_S))
+            found.append((Result.HELD, f"{pick} is held after a rebuild that did not start, until {until}"))
+        else:
+            found.append((Result.REJECTED, f"{pick} was rejected less than {REJECT_TTL_S // 3600} h ago"))
+    order = (Result.HELD, Result.REJECTED, Result.TOO_OLD)
+    result = min((kind for kind, _ in found), key=order.index)
+    return {"result": result, "detail": "; ".join(said for _, said in found)}
+
+
+def rebuilds_path() -> Path:
+    return lifeboat_dir() / REBUILDS_NAME
+
+
+def held_rebuilds(at: float | None = None) -> dict:
+    """`{version: when}`: the versions a fresh rebuild of which did not
+    start less than REBUILD_HOLD_S ago (`L/rebuilds.json`)."""
+    at = now() if at is None else at
+    failed = _read_json(rebuilds_path()).get("failed")
+    found = {}
+    for version, mark in (failed.items() if isinstance(failed, dict) else ()):
+        when = mark.get("at") if isinstance(mark, dict) else None
+        if isinstance(when, (int, float)) and not isinstance(when, bool) and 0 <= at - when < REBUILD_HOLD_S:
+            found[version] = float(when)
+    return found
+
+
+def hold_rebuild(version: str, detail: str) -> None:
+    """A copy of the active `version` that this rescue installed afresh did
+    not start (its import failed: the release, or this machine's Python, not
+    the network): none again for REBUILD_HOLD_S. Called for nothing else --
+    a timeout, a missing uv, the install's time running out, the network, a
+    copy already there are all tried again an hour on (`L/rebuilds.json`; its
+    one writer is a rescue's stage 1, under the install lock, so no lifeboat
+    run's write of state.json can lose it)."""
+    at = now()
+    held = held_rebuilds(at)
+    failed = _read_json(rebuilds_path()).get("failed")
+    kept = {v: m for v, m in failed.items() if v in held} if isinstance(failed, dict) else {}
+    kept[version] = {"at": at, "detail": str(detail)[:300]}
+    with contextlib.suppress(OSError):
+        _write_json(rebuilds_path(), {"v": 1, "failed": kept})
+
+
+# -- the uninstall barrier ---------------------------------------------------------
+
+
+def uninstalling() -> str | None:
+    """Is an uninstall LIVE (plan clean-uninstall-reinstall, Build contract)?
+    `S/uninstall/barrier.json` is LIVE when its owner (`pid` with its `start`)
+    still runs, or its `phase` is anything but BARRIER_STALE_PHASES -- a
+    later phase, an unknown one or none, whoever owns it (past the point of
+    no return: it must be finished, never undone). A file that cannot be read
+    is LIVE while it is younger than UNREADABLE_BARRIER_LIVE_S. Only one whose
+    owner is gone at one of BARRIER_STALE_PHASES, or an unreadable one older
+    than that, is STALE (an install clears it). While one is LIVE neither
+    stage 1 nor the lifeboat reads, locks, asks or installs anything.
+    Returns why (one line), or None."""
+    path = barrier_path()
+    try:
+        data = json.loads(path.read_bytes().decode("utf-8"))
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError):
+        data = None
+    if not isinstance(data, dict):
+        try:
+            age = time.time() - path.stat().st_mtime  # a file's age: the real clock, never PROBE_HANDOFF_NOW
+        except OSError:
+            return None
+        if abs(age) < UNREADABLE_BARRIER_LIVE_S:
+            return f"an uninstall's barrier cannot be read and is {max(age, 0) / 60:.0f} min old ({path})"
+        return None
+    phase = data.get("phase")
+    if not (isinstance(phase, str) and phase in BARRIER_STALE_PHASES):
+        return f"an uninstall is at phase {phase!r} ({path})"
+    pid = data.get("pid")
+    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 1:
+        return None
+    running = proc_start(pid)
+    recorded = data.get("start")
+    if running is None or (recorded not in (None, "") and str(recorded) != running):
+        return None  # its owner is gone (or the pid is another process now): stale
+    return f"an uninstall runs (pid {pid}, phase {phase!r}; {path})"
 
 
 # -- the network -------------------------------------------------------------------
@@ -918,21 +1205,25 @@ def _is_active(layout: Layout, env: Path) -> bool:
         return True  # unknown: treated as the active one, never deleted
 
 
-def discard(layout: Layout, version: str) -> None:
-    """Delete `probe-versions/<version>` (a failed or broken install), never the active env."""
-    holder = layout.root / version
+def discard(layout: Layout, folder: str) -> None:
+    """Delete `probe-versions/<folder>` (a failed or broken install: a
+    version's folder, or a generation's), never the active env."""
+    holder = layout.root / folder
     if not _is_active(layout, holder / DIST):
         shutil.rmtree(holder, ignore_errors=True)
 
 
-def install(layout: Layout, version: str, inputs: dict, env: dict) -> tuple[Path | None, str, list]:
-    """`probe-versions/<version>/probe-research`, installed by uv, a success
+def install(layout: Layout, version: str, inputs: dict, env: dict,
+            folder: str | None = None) -> tuple[Path | None, str, list]:
+    """`probe-versions/<folder>/probe-research` (`folder`: the version's own
+    name, else a generation's), `version` installed there by uv, a success
     only when uv exits 0 AND leaves a complete env (`complete`), tried in the
     order `attempts` gives (the `--with` packages an earlier install left out,
     `dropped_with`, again first; without any `--with` last), within
     INSTALL_BUDGET_S; a uv that times out ends it. Returns `(env, "", --with
     left out)` or `(None, what uv said, [])`, the folder deleted."""
-    holder = layout.root / version
+    folder = folder or version
+    holder = layout.root / folder
     target = holder / DIST
     if _is_active(layout, target):
         return None, f"{target} is the active environment and not a complete {version}", []
@@ -970,7 +1261,7 @@ def install(layout: Layout, version: str, inputs: dict, env: dict) -> tuple[Path
         if exit_code == 0:
             said = f"`uv tool install` exited 0 but left no complete {version} env: {said}"
         _log(f"`uv tool install` did not leave {version}: {said}")
-    discard(layout, version)
+    discard(layout, folder)
     return None, said, []
 
 
@@ -1005,6 +1296,7 @@ def stage1(
     current: str | None = None,
     wait_s: float = LOCK_WAIT_S,
     acted: dict | None = None,
+    rescue: bool = False,
 ) -> dict:
     """Stage 1 of every update: when a release newer than the active one
     exists (and is not rejected < 24 h ago), install it beside the active one
@@ -1013,13 +1305,20 @@ def stage1(
     returns. Anything else returns `{"result": Result.*, ...}` and the caller
     goes on in-process, as before.
 
+    `rescue` (a lifeboat's `broken_env`): the active env is rebuilt whatever
+    the versions say, if it is still broken under the lock (`_rescue`).
+
     `tools`, `base_url`, `install_inputs` (extras, with, python_request, uv)
     and `current` (the caller's own version, when the active one cannot be
     read) override env.json; `before_exec` runs just before the exec (release
     a lock of the caller's, leave a terminal screen); `acted` is written to
-    `L/acted.json` just before it (a lifeboat rescue)."""
+    `L/acted.json` just before it (a lifeboat rescue). Nothing at all while
+    an uninstall is LIVE (`uninstalling`)."""
     if os.environ.get(ADOPT_ENV):
         return {"result": Result.ADOPT}
+    why = uninstalling()
+    if why:
+        return {"result": Result.UNINSTALLING, "detail": why}
     cfg = read_env()
     env = _child_env(cfg)
     folder = Path(tools) if tools else Path(cfg["tools"]) if isinstance(cfg.get("tools"), str) else _tool_dir(env)
@@ -1030,9 +1329,15 @@ def stage1(
     if fd is None:
         return {"result": Result.BUSY, "detail": f"another update holds {lock_path(layout.root)}"}
     try:
+        why = uninstalling()  # it may have begun while this waited for the lock
+        if why:
+            return {"result": Result.UNINSTALLING, "detail": why}
         active = layout.active_version() or current
         latest, source = latest_release(base_url or cfg.get("base_url"), env)
         answer = {"latest": latest, "active": active, "source": source}
+        handing = _Handing(layout, cfg, env, install_inputs, fd, trigger, active, argv, before_exec, acted, answer)
+        if rescue:
+            return _rescue(handing)
         if latest is None:
             return {"result": Result.NO_TARGET, **answer}
         if not release(active):
@@ -1041,41 +1346,140 @@ def stage1(
             return {"result": Result.CURRENT, **answer}
         if rejected_recently(layout.record(), latest):
             return {"result": Result.REJECTED, **answer}
-        target = layout.root / latest / DIST
-        dropped: list = []
-        if not complete(target, latest):
-            installed, said, dropped = install(layout, latest, _install_inputs(cfg, install_inputs), env)
-            if installed is None:
-                return {"result": Result.INSTALL_FAILED, "detail": said, **answer}
-        problem, broken = starts(target)
-        if problem and broken:
-            # It would die before it could reject itself: never exec'd, and
-            # deleted, so the next update installs it afresh.
-            discard(layout, latest)
-            return {"result": Result.INSTALL_FAILED, "detail": f"CLI {latest} does not start: {problem}", **answer}
-        if problem:
-            # The check could not finish (a loaded machine): kept, tried next time.
-            return {"result": Result.UNCHECKED,
-                    "detail": f"CLI {latest} could not be checked ({problem}); the next update tries again", **answer}
-        exec_env = {**env, ADOPT_ENV: str(target), LOCK_FD_ENV: str(fd), TRIGGER_ENV: trigger, FROM_ENV: active}
-        exec_env.pop(DROPPED_WITH_ENV, None)
-        if dropped:
-            exec_env[DROPPED_WITH_ENV] = json.dumps(dropped)
-
-        def before() -> None:
-            if acted is not None:
-                _write_json(acted_path(), {**acted, "from": active, "to": latest})
-            if before_exec is not None:
-                before_exec()
-
-        _log(f"CLI {active} -> {latest} ({source}): handing the update to {latest}")
-        try:
-            _exec(env_python(target), list(argv or UPDATE_ARGV), exec_env, fd, before)
-        except OSError as exc:
-            return {"result": Result.EXEC_FAILED, "detail": f"{type(exc).__name__}: {exc}", **answer}
-        raise AssertionError("unreachable: execve returned")  # pragma: no cover
+        return _hand_over(handing, latest, latest)
     finally:
         release_lock(fd)
+
+
+class _Handing:
+    """What one stage 1 hands over with: the layout, env.json and the
+    environment, the caller's overrides, the lock fd, and what it read.
+    `came_from` is what the exec'd release reports it came from
+    (`PROBE_HANDOFF_FROM`): the active version, or for a rescue the broken
+    env's `Layout.broken_label`."""
+
+    def __init__(self, layout: Layout, cfg: dict, env: dict, install_inputs: dict | None, fd: int, trigger: str,
+                 active: str | None, argv, before_exec, acted: dict | None, answer: dict) -> None:
+        self.layout, self.cfg, self.env, self.install_inputs, self.fd = layout, cfg, env, install_inputs, fd
+        self.trigger, self.active, self.argv, self.before_exec = trigger, active, argv, before_exec
+        self.acted, self.answer = acted, answer
+        self.came_from = active or ""
+        self.rescue = False
+
+
+def _hand_over(h: _Handing, version: str, folder: str) -> dict:
+    """Install `version` at `probe-versions/<folder>/probe-research` unless a
+    complete env is there, check its update path imports (`starts`), and exec
+    it, the lock handed over -- unless an uninstall began meanwhile. Returns
+    only when it did not exec."""
+    layout, answer = h.layout, h.answer
+    target = layout.root / folder / DIST
+    dropped: list = []
+    fresh = not complete(target, version)
+    if fresh:
+        installed, said, dropped = install(layout, version, _install_inputs(h.cfg, h.install_inputs), h.env,
+                                           folder=folder)
+        if installed is None:
+            return {"result": Result.INSTALL_FAILED, "detail": said, **answer}
+    problem, broken = starts(target)
+    if problem and broken:
+        # It would die before it could reject itself: never exec'd, and
+        # deleted, so the next update installs it afresh (a rescue deletes
+        # only what it installed itself).
+        if fresh or not h.rescue:
+            discard(layout, folder)
+        if h.rescue and fresh and version == h.active:
+            # The one failure a rebuild of the active version would repeat
+            # an hour on: the copy it just installed does not start either.
+            hold_rebuild(version, f"the rebuilt {version} did not start: {problem}")
+        return {"result": Result.INSTALL_FAILED, "detail": f"CLI {version} does not start: {problem}", **answer}
+    if problem:
+        # The check could not finish (a loaded machine): kept, tried next time.
+        return {"result": Result.UNCHECKED,
+                "detail": f"CLI {version} could not be checked ({problem}); the next update tries again", **answer}
+    why = uninstalling()
+    if why:
+        # It began while this installed: nothing is handed over, and what this
+        # run installed goes (the uninstall's list of what to delete was made
+        # before it existed).
+        if fresh:
+            discard(layout, folder)
+        return {"result": Result.UNINSTALLING, "detail": why, **answer}
+    exec_env = {**h.env, ADOPT_ENV: str(target), LOCK_FD_ENV: str(h.fd), TRIGGER_ENV: h.trigger,
+                FROM_ENV: h.came_from}
+    exec_env.pop(DROPPED_WITH_ENV, None)
+    if dropped:
+        exec_env[DROPPED_WITH_ENV] = json.dumps(dropped)
+
+    def before() -> None:
+        if h.acted is not None:
+            _write_json(acted_path(), {**h.acted, "from": h.came_from, "to": version})
+        if h.before_exec is not None:
+            h.before_exec()
+
+    _log(f"CLI {h.came_from or '?'} -> {version} ({answer.get('source') or 'no manifest'}): handing the update "
+         f"to {folder}")
+    try:
+        _exec(env_python(target), list(h.argv or UPDATE_ARGV), exec_env, h.fd, before)
+    except OSError as exc:
+        return {"result": Result.EXEC_FAILED, "detail": f"{type(exc).__name__}: {exc}", **answer}
+    raise AssertionError("unreachable: execve returned")  # pragma: no cover
+
+
+def _rescue(h: _Handing) -> dict:
+    """A lifeboat's `broken_env` (R10): the active env is broken whatever the
+    versions say -- gone, without its python, or its update path does not
+    import (`Layout.broken`, asked again here, under the lock) -- so it is
+    rebuilt: the newest release when the active one is behind it or its
+    version cannot be read, else the active version (`rescue_version`),
+    installed beside it and handed the update, as any stage 1 hands it, in
+    the folder `_rebuild_folder` picks: nothing that exists is replaced or
+    deleted. A check that could not finish is no breakage (`Result.HEALTHY`).
+    The exec'd release reports it came from `<version>+broken`
+    (`Layout.broken_label`): a change, never "already at <version>". A
+    fresh copy of the ACTIVE version that does not start either holds that
+    version off for REBUILD_HOLD_S (`hold_rebuild`, in `_hand_over`); any
+    other failure is tried again an hour on."""
+    layout, answer = h.layout, h.answer
+    problem, broken = layout.broken()
+    answer["problem"] = problem
+    if not broken:
+        return {"result": Result.HEALTHY, **answer}
+    latest, active = answer["latest"], h.active
+    record, held = layout.record(), held_rebuilds()
+    version = rescue_version(latest, active, record, held=held)
+    if version is None:
+        return {**answer, **no_rebuild(latest, active, record, held)}
+    folder = _rebuild_folder(layout, version)
+    answer["folder"] = folder
+    h.came_from, h.rescue = layout.broken_label(active), True
+    _log(f"the active CLI {h.came_from} is broken ({problem}): rebuilding {version} in {folder}")
+    return _hand_over(h, version, folder)
+
+
+def _usable_copy(layout: Layout, folder: str, version: str) -> bool:
+    """Is `probe-versions/<folder>` a complete `version` env, not the active
+    one, whose update path imports (or whose check could not finish: it is
+    then tried as it is, and kept)?"""
+    env = layout.root / folder / DIST
+    return not _is_active(layout, env) and complete(env, version) and not starts(env)[1]
+
+
+def _rebuild_folder(layout: Layout, version: str) -> str:
+    """Where a rescue puts `version`, never over anything that exists: the
+    version's own folder when there is none, or when it holds a usable copy
+    (`_usable_copy`); a folder there in any other state -- the active env, a
+    half-finished or broken copy, most often active.json's `previous` -- is
+    left as it is. Else the newest generation when it is a usable copy (a
+    rescue whose switch did not happen is tried again with it, never with one
+    more download every hour); else a new one (`Layout.next_generation`)."""
+    own = layout.root / version
+    if not _is_active(layout, own / DIST) and (not os.path.lexists(own) or _usable_copy(layout, version, version)):
+        return version
+    newest = layout.newest_generation(version)
+    if newest is not None and _usable_copy(layout, f"{version}{GENERATION_MARK}{newest}", version):
+        return f"{version}{GENERATION_MARK}{newest}"
+    return layout.next_generation(version)
 
 
 # -- the lifeboat ------------------------------------------------------------------
@@ -1138,11 +1542,53 @@ def _this_file() -> str:
     return os.path.abspath(__file__)
 
 
+def _acted_lately(last_act: dict, at: float, target: object) -> bool:
+    """Was a rescue started less than ACT_RETRY_S ago that went for `target`
+    or a newer release? The hour between rescues is for trying the SAME
+    release again: one newer than the last rescue went for (newest wins) is
+    tried at once."""
+    began = last_act.get("at")
+    return isinstance(began, (int, float)) and 0 <= at - began < ACT_RETRY_S and not newer(target, last_act.get("to"))
+
+
+def _broken_env(state: dict, layout: Layout, at: float, target: str) -> tuple[bool, bool]:
+    """(d), a keeper run with the service silent and the machine not behind:
+    `(ask, act)`. Ask first, as (b) does: with the active env visibly broken
+    (`Layout.structure`, or the last check found it so) and no ask younger
+    than ASK_FRESH_S, ask now. Otherwise, once an ask (b's, or (c)'s
+    periodic check) is SERVICE_DOWN_ACT_S to ASK_FRESH_S old and the service
+    has been silent ever since it (`service_down_since` no later), check the
+    env once for that ask (`Layout.broken`: it starts the env's interpreter)
+    -- act only when that check says broken, never on a timeout or a kill.
+    What it found is `state["env_check"]`."""
+    asks = [t for t in (state.get("asked_at"), state.get("last_keeper_check"))
+            if isinstance(t, (int, float)) and not isinstance(t, bool) and t <= at]
+    asked = max(asks) if asks else None
+    age = at - asked if asked is not None else None
+    checked = state.get("env_check") if isinstance(state.get("env_check"), dict) else {}
+    suspect = layout.structure() is not None or checked.get("broken") is True
+    if suspect and (age is None or age >= ASK_FRESH_S):
+        state["asked_at"] = at
+        return True, False
+    silent_since = state.get("service_down_since")
+    if age is None or not SERVICE_DOWN_ACT_S <= age < ASK_FRESH_S or checked.get("ask") == asked \
+            or not isinstance(silent_since, (int, float)) or silent_since > asked:
+        return False, False
+    problem, broken = layout.broken()
+    state["env_check"] = {"at": at, "ask": asked, "broken": broken, "problem": problem, "target": target}
+    if broken:
+        _log(f"the active CLI env is broken ({problem}) and the service silent since it was asked: rebuilding "
+             f"{target}")
+    return False, broken
+
+
 def lifeboat(trigger: str) -> int:
     """One lifeboat run (`lifeboat.sh <trigger>`; the keeper's every minute).
 
-    Cheap first: env.json, state.json and the tool link. It acts only for a
-    managed CLI with automatic updates on:
+    Nothing at all while an uninstall is LIVE (`uninstalling`): not a read of
+    env.json, not a write of its own clocks, not an ask. Cheap first: env.json,
+    state.json and the tool link. It acts only for a managed CLI with
+    automatic updates on:
       (a) behind (newest > active, not rejected) for BEHIND_ACT_S by its own
           clock -> stage 1, detached, trigger `lifeboat`;
       (b) keeper runs, behind, the service silent (no `service.hello`
@@ -1159,7 +1605,21 @@ def lifeboat(trigger: str) -> int:
           guard's, in release code.)
       (c) keeper runs: no check of its own for KEEPER_CHECK_S -> ask the
           service for one (`probe.service.client check-now --trigger keeper`).
+      (d) keeper runs, NOT behind (current, or the active version cannot be
+          read), the service silent after an ask: the active env may be the
+          reason (R10: no version comparison ever sees it). Asked as in (b)
+          (`_broken_env`), then checked once per ask; broken -> stage 1,
+          detached, `--reason broken_env`, which rebuilds the newest release
+          (or the active version, when it is not behind) in a new folder
+          beside it and hands that the update (`stage1(rescue=True)`). Never
+          as a release older than ADOPT_SINCE, nor one whose own rebuild
+          failed in the last REBUILD_HOLD_S (`held_rebuilds`).
+    Each rescue waits ACT_RETRY_S before the same release is tried again.
+    An uninstall that begins during a run is looked for again before it
+    writes or starts anything.
     The clocks are its own (`L/state.json`), never the service's records."""
+    if uninstalling():
+        return EXIT_OK
     cfg = read_env()
     if not cfg or cfg.get("auto_update") is not True or cfg.get("managed") is not True:
         return EXIT_OK
@@ -1187,19 +1647,18 @@ def lifeboat(trigger: str) -> int:
         state["first_seen_behind"] = None
         state["behind_version"] = None
     last_act = state.get("last_act") if isinstance(state.get("last_act"), dict) else {}
-    # The hour between rescues is for trying the SAME release again: a newer
-    # one than the last rescue went for (newest wins) is tried at once.
-    acted_lately = isinstance(last_act.get("at"), (int, float)) and 0 <= at - last_act["at"] < ACT_RETRY_S \
-        and not newer(latest, last_act.get("to"))
+    acted_lately = _acted_lately(last_act, at, latest)
     act: str | None = None
+    target = latest
     if behind and not acted_lately and at - state["first_seen_behind"] >= BEHIND_ACT_S:
-        act = "behind"
+        act = Act.BEHIND
     check = False
     ask = False
     if trigger == Trigger.KEEPER:
         answered = service_answers(cfg.get("socket"))
         if answered is True:
             state["service_down_since"] = None
+            state["env_check"] = None  # it started: whatever an earlier check found is past
         elif answered is False:
             since = state.get("service_down_since")
             if not isinstance(since, (int, float)) or since > at:
@@ -1214,14 +1673,25 @@ def lifeboat(trigger: str) -> int:
                     ask = True
                     state["asked_at"] = at
                 elif age >= SERVICE_DOWN_ACT_S:
-                    act = "service_down"
+                    act = Act.SERVICE_DOWN
+            elif act is None and not behind:
+                # (d): no version comparison sees a broken env at the latest.
+                rebuild = rescue_version(latest, active, layout.record(), at, held=held_rebuilds(at))
+                if rebuild is not None and not _acted_lately(last_act, at, rebuild):
+                    ask, broken = _broken_env(state, layout, at, rebuild)
+                    if broken:
+                        act, target = Act.BROKEN_ENV, rebuild
         last_check = state.get("last_keeper_check")
         if act is None and (not isinstance(last_check, (int, float)) or at - last_check >= KEEPER_CHECK_S
                             or at < last_check):
             check = True
             state["last_keeper_check"] = at
     if act is not None:
-        state["last_act"] = {"at": at, "reason": act, "from": active, "to": latest}
+        state["last_act"] = {"at": at, "reason": act, "from": active, "to": target}
+    if uninstalling():
+        # It began while this run read the network and the env (a minute or
+        # more): nothing written, asked or started after all.
+        return EXIT_OK
     write_state(state)
     if act is not None:
         _detach([sys.executable or "python3", "-I", _this_file(), "--stage1", "--trigger", Trigger.LIFEBOAT,
@@ -1245,6 +1715,7 @@ def selftest() -> int:
 
     assert isinstance(HANDOFF_VERSION, int) and HANDOFF_VERSION >= 1
     assert newer("1.0.10", "1.0.9") and not newer("1.0.0rc1", "0.9.0")
+    assert generation_of("1.0.0+g2") == ("1.0.0", 2) and release("1.0.0+g2") is None
     if os.name != "nt" and fcntl is None:
         return EXIT_FAILED
     return EXIT_OK
@@ -1272,7 +1743,7 @@ def main(argv: list | None = None) -> int:
         if "--stage1" in args:
             reason = _arg(args, "--reason")
             acted = {"at": now(), "reason": reason, "trigger": trigger} if reason else None
-            answer = stage1(trigger, acted=acted)
+            answer = stage1(trigger, acted=acted, rescue=reason == Act.BROKEN_ENV)
             _log(f"stage 1: {answer}")
             failed = answer.get("result") in (Result.INSTALL_FAILED, Result.EXEC_FAILED)
             return EXIT_FAILED if failed else EXIT_OK

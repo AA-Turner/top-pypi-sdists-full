@@ -38,11 +38,11 @@ class TestLegalEntities:
                     "country": "country",
                     "line1": "line1",
                     "locality": "locality",
-                    "postal_code": "postal_code",
-                    "region": "region",
                     "address_types": ["business"],
                     "line2": "line2",
+                    "postal_code": "postal_code",
                     "primary": True,
+                    "region": "region",
                 }
             ],
             bank_settings={
@@ -81,7 +81,7 @@ class TestLegalEntities:
             identifications=[
                 {
                     "id_number": "id_number",
-                    "id_type": "ar_cuil",
+                    "id_type": "ad_nrt",
                     "documents": [
                         {
                             "document_type": "articles_of_incorporation",
@@ -117,11 +117,11 @@ class TestLegalEntities:
                                 "country": "country",
                                 "line1": "line1",
                                 "locality": "locality",
-                                "postal_code": "postal_code",
-                                "region": "region",
                                 "address_types": ["business"],
                                 "line2": "line2",
+                                "postal_code": "postal_code",
                                 "primary": True,
+                                "region": "region",
                             }
                         ],
                         "bank_settings": {
@@ -160,7 +160,7 @@ class TestLegalEntities:
                         "identifications": [
                             {
                                 "id_number": "id_number",
-                                "id_type": "ar_cuil",
+                                "id_type": "ad_nrt",
                                 "documents": [
                                     {
                                         "document_type": "articles_of_incorporation",
@@ -192,8 +192,8 @@ class TestLegalEntities:
                         "legal_structure": "corporation",
                         "listed_exchange": "listed_exchange",
                         "metadata": {
-                            "key": "value",
                             "foo": "bar",
+                            "key": "value",
                             "modern": "treasury",
                         },
                         "middle_name": "middle_name",
@@ -268,8 +268,8 @@ class TestLegalEntities:
             legal_structure="corporation",
             listed_exchange="listed_exchange",
             metadata={
-                "key": "value",
                 "foo": "bar",
+                "key": "value",
                 "modern": "treasury",
             },
             middle_name="middle_name",
@@ -288,6 +288,7 @@ class TestLegalEntities:
             ],
             risk_rating="low",
             service_provider_legal_entity_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            status="draft",
             suffix="suffix",
             terms_of_use={
                 "accepted_at": parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -416,11 +417,11 @@ class TestLegalEntities:
                     "country": "country",
                     "line1": "line1",
                     "locality": "locality",
-                    "postal_code": "postal_code",
-                    "region": "region",
                     "address_types": ["business"],
                     "line2": "line2",
+                    "postal_code": "postal_code",
                     "primary": True,
+                    "region": "region",
                 }
             ],
             bank_settings={
@@ -450,7 +451,7 @@ class TestLegalEntities:
             identifications=[
                 {
                     "id_number": "id_number",
-                    "id_type": "ar_cuil",
+                    "id_type": "ad_nrt",
                     "documents": [
                         {
                             "document_type": "articles_of_incorporation",
@@ -480,8 +481,8 @@ class TestLegalEntities:
             legal_structure="corporation",
             listed_exchange="listed_exchange",
             metadata={
-                "key": "value",
                 "foo": "bar",
+                "key": "value",
                 "modern": "treasury",
             },
             middle_name="middle_name",
@@ -500,6 +501,7 @@ class TestLegalEntities:
             ],
             risk_rating="low",
             service_provider_legal_entity_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            status="pending",
             suffix="suffix",
             terms_of_use={
                 "accepted_at": parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -685,11 +687,11 @@ class TestAsyncLegalEntities:
                     "country": "country",
                     "line1": "line1",
                     "locality": "locality",
-                    "postal_code": "postal_code",
-                    "region": "region",
                     "address_types": ["business"],
                     "line2": "line2",
+                    "postal_code": "postal_code",
                     "primary": True,
+                    "region": "region",
                 }
             ],
             bank_settings={
@@ -728,7 +730,7 @@ class TestAsyncLegalEntities:
             identifications=[
                 {
                     "id_number": "id_number",
-                    "id_type": "ar_cuil",
+                    "id_type": "ad_nrt",
                     "documents": [
                         {
                             "document_type": "articles_of_incorporation",
@@ -764,11 +766,11 @@ class TestAsyncLegalEntities:
                                 "country": "country",
                                 "line1": "line1",
                                 "locality": "locality",
-                                "postal_code": "postal_code",
-                                "region": "region",
                                 "address_types": ["business"],
                                 "line2": "line2",
+                                "postal_code": "postal_code",
                                 "primary": True,
+                                "region": "region",
                             }
                         ],
                         "bank_settings": {
@@ -807,7 +809,7 @@ class TestAsyncLegalEntities:
                         "identifications": [
                             {
                                 "id_number": "id_number",
-                                "id_type": "ar_cuil",
+                                "id_type": "ad_nrt",
                                 "documents": [
                                     {
                                         "document_type": "articles_of_incorporation",
@@ -839,8 +841,8 @@ class TestAsyncLegalEntities:
                         "legal_structure": "corporation",
                         "listed_exchange": "listed_exchange",
                         "metadata": {
-                            "key": "value",
                             "foo": "bar",
+                            "key": "value",
                             "modern": "treasury",
                         },
                         "middle_name": "middle_name",
@@ -915,8 +917,8 @@ class TestAsyncLegalEntities:
             legal_structure="corporation",
             listed_exchange="listed_exchange",
             metadata={
-                "key": "value",
                 "foo": "bar",
+                "key": "value",
                 "modern": "treasury",
             },
             middle_name="middle_name",
@@ -935,6 +937,7 @@ class TestAsyncLegalEntities:
             ],
             risk_rating="low",
             service_provider_legal_entity_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            status="draft",
             suffix="suffix",
             terms_of_use={
                 "accepted_at": parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -1070,11 +1073,11 @@ class TestAsyncLegalEntities:
                     "country": "country",
                     "line1": "line1",
                     "locality": "locality",
-                    "postal_code": "postal_code",
-                    "region": "region",
                     "address_types": ["business"],
                     "line2": "line2",
+                    "postal_code": "postal_code",
                     "primary": True,
+                    "region": "region",
                 }
             ],
             bank_settings={
@@ -1104,7 +1107,7 @@ class TestAsyncLegalEntities:
             identifications=[
                 {
                     "id_number": "id_number",
-                    "id_type": "ar_cuil",
+                    "id_type": "ad_nrt",
                     "documents": [
                         {
                             "document_type": "articles_of_incorporation",
@@ -1134,8 +1137,8 @@ class TestAsyncLegalEntities:
             legal_structure="corporation",
             listed_exchange="listed_exchange",
             metadata={
-                "key": "value",
                 "foo": "bar",
+                "key": "value",
                 "modern": "treasury",
             },
             middle_name="middle_name",
@@ -1154,6 +1157,7 @@ class TestAsyncLegalEntities:
             ],
             risk_rating="low",
             service_provider_legal_entity_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            status="pending",
             suffix="suffix",
             terms_of_use={
                 "accepted_at": parse_datetime("2019-12-27T18:11:19.117Z"),

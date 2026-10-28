@@ -35,7 +35,8 @@ class TestPatchOrganization(unittest.TestCase):
         model = PatchOrganization()
         if include_optional:
             return PatchOrganization(
-                name = ''
+                name = '',
+                agentic_apps_first_dashboard = 'agentic_trace'
             )
         else:
             return PatchOrganization(

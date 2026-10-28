@@ -49,6 +49,9 @@ _WAIT_RETRY_INTERVAL = 2  # seconds
 _COORD_MAX_RETRIES = 10
 _COORD_RETRY_INTERVAL = 1  # seconds
 
+_VISION_ARRAY_RETRIES = 2  # re-asks when /vision/coordinates returns an array x/y
+_VISION_ARRAY_RETRY_TIMEOUT = 15  # seconds per re-ask (first call keeps 30)
+
 _LINUX_RUNTIME_SNAPSHOT_ASSET_PATH = Path(
     "/home/ltuser/foreman/ltuser/aria_snapshot.js"
 )
@@ -446,6 +449,62 @@ async def _query_viewport_size(page):
     return None
 
 
+def _unwrap_array_point(result: dict):
+    """Read an array-shaped /vision/coordinates answer as a viewport point.
+
+    The server returns array x/y as the model sent them, in model grid units
+    (scale_factor). The model puts the whole point in one field (x=[412, 165]),
+    so a 2+ element x is read as [x, y]; a 2+ element y gives its second
+    element as y; otherwise each field gives its first element. Returns (x, y)
+    in pixels, or None when no point can be read.
+    """
+    x, y = result.get("x"), result.get("y")
+    if isinstance(x, list) and len(x) >= 2:
+        gx, gy = x[0], x[1]
+    else:
+        gx = x[0] if isinstance(x, list) and x else x
+        if isinstance(y, list) and len(y) >= 2:
+            gy = y[1]
+        else:
+            gy = y[0] if isinstance(y, list) and y else y
+    if not isinstance(gx, (int, float)) or not isinstance(gy, (int, float)):
+        return None
+    width, height = result.get("screen_width"), result.get("screen_height")
+    scale = result.get("scale_factor")
+    if scale:
+        gx, gy = gx * width / scale, gy * height / scale
+    return max(0, min(int(gx), width - 1)), max(0, min(int(gy), height - 1))
+
+
+async def _post_vision_coordinates(session, url: str, payload: dict, log_tag: str):
+    """POST /vision/coordinates, re-asking up to _VISION_ARRAY_RETRIES times
+    while the answer is an array x/y; a last array answer is unwrapped.
+
+    Returns (status, result); result is None when status is not 200.
+    """
+    for attempt in range(_VISION_ARRAY_RETRIES + 1):
+        timeout = 30 if attempt == 0 else _VISION_ARRAY_RETRY_TIMEOUT
+        async with session.post(
+            url, json=payload, timeout=aiohttp.ClientTimeout(total=timeout)
+        ) as resp:
+            if resp.status != 200:
+                return resp.status, None
+            result = await resp.json()
+        if not result.get("found", False) or not (
+            isinstance(result.get("x"), list) or isinstance(result.get("y"), list)
+        ):
+            return 200, result
+        _log.info(
+            "    [%s] array coordinates x=%s y=%s (attempt %d/%d)",
+            log_tag, result.get("x"), result.get("y"), attempt + 1, _VISION_ARRAY_RETRIES + 1,
+        )
+    point = _unwrap_array_point(result)
+    if point is None:
+        return 200, {**result, "found": False}
+    _log.info("    [%s] unwrapped array coordinates -> (%d, %d)", log_tag, *point)
+    return 200, {**result, "x": point[0], "y": point[1]}
+
+
 async def vision_action(
     page, description: str, action_type: str, direction: str = "down", amount: int = 300
 ) -> bool:
@@ -483,26 +542,26 @@ async def vision_action(
 
     url = f"{_config.get_ai_api_host()}/api/v1/vision/coordinates"
     async with create_session() as session:
-        async with session.post(
+        status, result = await _post_vision_coordinates(
+            session,
             url,
-            json={
+            {
                 "screenshot_b64": screenshot_b64,
                 "action_instruction": description,
                 "action_type": action_type,
                 "width": width,
                 "height": height,
             },
-            timeout=aiohttp.ClientTimeout(total=30),
-        ) as resp:
-            if resp.status != 200:
-                _log.info("    [vision_action] API error status=%d at %s", resp.status, url)
-                return False
-            result = await resp.json()
-            if not result.get("found", False):
-                _log.info("    [vision_action] element not found")
-                return False
-            coord_x = result["x"]
-            coord_y = result["y"]
+            "vision_action",
+        )
+        if status != 200:
+            _log.info("    [vision_action] API error status=%d at %s", status, url)
+            return False
+        if not result.get("found", False):
+            _log.info("    [vision_action] element not found")
+            return False
+        coord_x = result["x"]
+        coord_y = result["y"]
 
     _log.info(
         "    [vision_action] executing %s at (%d, %d)", action_type, coord_x, coord_y
@@ -575,34 +634,34 @@ async def get_vision_coordinates(
 
     url = f"{_config.get_ai_api_host()}/api/v1/vision/coordinates"
     async with create_session() as session:
-        async with session.post(
+        status, result = await _post_vision_coordinates(
+            session,
             url,
-            json={
+            {
                 "screenshot_b64": screenshot_b64,
                 "action_instruction": description,
                 "width": width,
                 "height": height,
             },
-            timeout=aiohttp.ClientTimeout(total=30),
-        ) as resp:
-            if resp.status != 200:
-                raise Exception(f"Vision API error: {resp.status} at {url}")
-            result = await resp.json()
-            if not result.get("found", False):
-                raise Exception(
-                    f"Vision API: element not found for query={description!r}"
-                )
-            coords = {"x": result["x"], "y": result["y"]}
-            _log.info(
-                "    [get_vision_coordinates] found (%d, %d)", coords["x"], coords["y"]
+            "get_vision_coordinates",
+        )
+        if status != 200:
+            raise Exception(f"Vision API error: {status} at {url}")
+        if not result.get("found", False):
+            raise Exception(
+                f"Vision API: element not found for query={description!r}"
             )
-            # Ship the resolved click point via lambda-element-bounds so the
-            # per-step record gets coordinates for the vision-heal path —
-            # page.mouse.click(x, y) bypasses the Locator wrapper that
-            # normally calls _capture_element_bounds. Width/height ship as
-            # 0 — analyzer returns only a click point, not a rect.
-            await _ship_vision_coords(coords["x"], coords["y"])
-            return coords
+        coords = {"x": result["x"], "y": result["y"]}
+        _log.info(
+            "    [get_vision_coordinates] found (%d, %d)", coords["x"], coords["y"]
+        )
+        # Ship the resolved click point via lambda-element-bounds so the
+        # per-step record gets coordinates for the vision-heal path —
+        # page.mouse.click(x, y) bypasses the Locator wrapper that
+        # normally calls _capture_element_bounds. Width/height ship as
+        # 0 — analyzer returns only a click point, not a rect.
+        await _ship_vision_coords(coords["x"], coords["y"])
+        return coords
 
 
 async def _ship_vision_coords(x, y):

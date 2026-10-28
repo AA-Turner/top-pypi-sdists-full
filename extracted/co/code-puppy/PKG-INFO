@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-puppy
-Version: 0.0.946
+Version: 0.0.949
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -32,9 +32,9 @@ Requires-Dist: openai>=2.45.0
 Requires-Dist: packaging>=24.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: playwright>=1.40.0; sys_platform != 'android'
-Requires-Dist: pydantic-ai-harness[code-mode]==0.35.0
-Requires-Dist: pydantic-ai-slim[anthropic,mcp,openai]==2.51.0
-Requires-Dist: pydantic-monty<1
+Requires-Dist: pydantic-ai-harness[code-mode]==0.62.0
+Requires-Dist: pydantic-ai-slim[anthropic,mcp,openai]==2.62.0
+Requires-Dist: pydantic-monty<2,>=1.0.0
 Requires-Dist: pydantic>=2.4.0
 Requires-Dist: pyfiglet>=0.8.post1
 Requires-Dist: python-dotenv>=1.0.0
@@ -422,7 +422,7 @@ Use `custom_openai` for OpenAI-compatible Chat Completions endpoints. If an endp
 
 ## Multiple System Messages
 
-Custom OpenAI-compatible endpoints (`custom_openai`, `openrouter`, `cerebras`, and Zhipu `zai_coding`/`zai_api`) default to merging consecutive leading `system` messages into one. Strict backends (SGLang, some vLLM deployments) reject more than one leading system message — this surfaces after auto-compact, which inserts a compaction-summary system message alongside the agent's own system instructions, as a `400: System message must be at the beginning.`
+Custom OpenAI-compatible endpoints (`custom_openai`, `openrouter`, `cerebras`, and Zhipu `zai_coding`/`zai_api`) default to merging consecutive leading `system` messages into one. Strict backends (SGLang, some vLLM deployments) reject more than one leading system message — this surfaces when the agent's own system instructions are followed by further system prompts (for example from plugins), as a `400: System message must be at the beginning.`
 
 The merge is harmless for endpoints that *do* support multiple system messages. If you know your endpoint handles them, opt out per model with `"supports_multiple_system_messages": true` (a JSON boolean):
 

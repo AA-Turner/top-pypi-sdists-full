@@ -889,10 +889,300 @@ def create_zone_matched(
         return {"pairs": n_pairs, "repeats": repeats}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# The same two tables, read by the unified reader (pikobs.reader)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _use_reader() -> bool:
+    """The unified reader, unless PIKOBS_ZONE_OLD_SQL=1 asks for zone's own
+    SQL (kept for one release, to compare)."""
+    return os.environ.get("PIKOBS_ZONE_OLD_SQL", "") != "1"
+
+
+def _zone_single(*args, **kwargs):
+    return (create_zone_single_reader if _use_reader() else create_zone_single)(*args, **kwargs)
+
+
+def _zone_matched(*args, **kwargs):
+    return (create_zone_matched_reader if _use_reader() else create_zone_matched)(*args, **kwargs)
+
+
+def _columns_of(path):
+    """(header columns, data columns) of one file, lower case; empty sets
+    when it cannot be read."""
+    try:
+        with work_db(attach={"db": path}) as (conn, _):
+            return ({str(c).lower() for c in table_columns(conn, "HEADER", "db")},
+                    {str(c).lower() for c in table_columns(conn, "DATA", "db")})
+    except Exception:
+        return set(), set()
+
+
+def _zv(x):
+    """A value of the reader's rows as zone stores it: NULL for NaN."""
+    return None if x is None or (isinstance(x, float) and x != x) else x
+
+
+def _zn(x) -> int:
+    x = _zv(x)
+    return int(x) if x is not None else 0
+
+
+def _zone_asks(family, regions, flags, channels, land_oceans, id_stn_sql, varnos, lat_band,
+               stn_label, special_on, gpsro, head, data, match, key=()):
+    """The Asks of one zone pass -- one without the channel when 'join' is
+    asked, one by channel for 'all' and the single channels -- and the
+    names of the five values (omp, oma, obs, bcorr, err) in their rows."""
+    from pikobs.reader.reader import Ask, cells
+    FAM, VCOORD, VCOCRIT, STATB, element, VCOTYP = pikobs.family(family)
+    vcoord_expr = (VCOORD or "").strip() or "vcoord"
+    codtyp_col = "codtyp" if "codtyp" in head else "NULL"
+    stn_sel, stn_group = _station_select(stn_label, family, codtyp_col)
+    group = [("stn", stn_sel)]
+    if stn_group and stn_group not in ("NULL", stn_sel):
+        group.append(("stn_key", stn_group))        # one row per codtyp, as zone groups
+    group.append(("varno", "varno"))
+    lat_bin = ("lat_bin", _bin_lat("lat", lat_band))
+    where = f"{_is_num('obsvalue')} AND {_is_num('omp')}"
+    values = ("obsvalue", "omp", "oma", "bias_corr", "obs_error")
+    names = {"omp": "omp", "oma": "oma", "obs": "obsvalue", "bcorr": "bias_corr", "err": "obs_error"}
+    exprs, functions, pre = (), (), ()
+    if gpsro:
+        # ro_ref once per observation (pre), read as d.ref everywhere
+        t = {k: v.replace("ro_ref(d.vcoord)", "d.ref")
+             for k, v in _ro_terms("d", "obs_error" in data, "oma" in data).items()}
+        pre = (("ref", "ro_ref(vcoord)"),)
+        where += t["gates"]
+        exprs = (("omp_r", t["omp"]), ("oma_r", t["oma"]), ("obs_r", t["obs"]), ("err_r", t["err"]))
+        functions = (("ro_ref", 1, _ro_ref),)
+        values = ("bias_corr",)
+        names = {"omp": "omp_r", "oma": "oma_r", "obs": "obs_r", "bcorr": "bias_corr", "err": "err_r"}
+    if id_stn_sql and id_stn_sql.strip():
+        where += f" {id_stn_sql}"
+    common = dict(family=family, cells=cells(regions, flags, land_oceans or ("all",)),
+                  varnos=tuple(int(v) for v in varnos or ()), values=values, exprs=exprs,
+                  functions=functions, match=match, special_column=bool(special_on), where=where,
+                  pre=pre)
+    if key:
+        common["key"] = tuple(key)
+    if match == "on":
+        common["flag_on"] = "ctl"            # zone: the cell of a pair is the control's
+    else:
+        common.update(counts=(("all", "1 = 1"), ("rej", "(flag & 512) = 512"),
+                              ("acc", "(flag & 4096) = 4096")),
+                      distinct="id_obs")
+    asks = {"join": None, "chan": None}
+    if "join" in channels:
+        asks["join"] = Ask(group=tuple(group + [lat_bin]), **common)
+    if any(c != "join" for c in channels):
+        asks["chan"] = Ask(group=tuple(group + [("vcoord_b", vcoord_expr), lat_bin]), **common)
+    return asks, names
+
+
+def _zone_rows(got, kind, channels):
+    """(channel token, row) of one Ask's rows, a single channel kept only
+    where it is that channel."""
+    recs = got.rows.to_dict("records")
+    tokens = ["join"] if kind == "join" else [c for c in channels if c != "join"]
+    for tok in tokens:
+        for r in recs:
+            if kind == "chan" and tok != "all":
+                vb = _zv(r["vcoord_b"])
+                if vb is None or float(vb) != float(tok):
+                    continue
+            yield tok, r
+
+
+_ZONE_COLS_IN = ("region, flag, channel_mode, land_ocean, id_stn, special, varno, vcoord, lat, "
+                 "date, n, n_omp, n_oma, n_err, s_omp, s2_omp, s_oma, s2_oma, s_obs, s2_obs, "
+                 "s_bcorr, s2_bcorr, s_err, s2_err, nrej, nacc, nprofile")
+_ZONE_PAIR_COLS_IN = ("region, flag, channel_mode, land_ocean, id_stn, special, varno, vcoord, "
+                      "lat, date, n, n_oma, n_err, c_omp, c2_omp, e_omp, e2_omp, ce_omp, "
+                      "c_oma, c2_oma, e_oma, e2_oma, ce_oma, c_obs, e_obs, c_err, e_err")
+
+
+def create_zone_single_reader(
+    family: str,
+    new_db: str,
+    cycle_file: str,
+    regions,
+    flags,
+    channels,
+    land_oceans,
+    id_stn_sql: str,
+    varnos,
+    lat_band: float,
+    pathwork: str,
+    stn_label: Optional[str] = None,
+    special_on: bool = True,
+    gpsro: bool = False,
+) -> Optional[int]:
+    """create_zone_single, read by pikobs.reader: the same rows of zone."""
+    from pikobs.reader.reader import read_cycle
+    if not os.path.isfile(cycle_file):
+        print(f"[zone] missing file, skipped: {cycle_file}", file=sys.stderr, flush=True)
+        return None
+    date_match = re.search(r"(\d{10})", os.path.basename(cycle_file))
+    if not date_match:
+        raise ValueError(f"No 10-digit date in: {cycle_file}")
+    date_int = int(date_match.group(1))
+    head, data = _columns_of(cycle_file)
+    if not data:
+        print(f"[zone] no DATA table in {cycle_file}", file=sys.stderr, flush=True)
+        return None
+    asks, nm = _zone_asks(family, regions, flags, channels, land_oceans, id_stn_sql, varnos,
+                          lat_band, stn_label, special_on, gpsro, head, data, "off")
+    out = []
+    for kind, ask in asks.items():
+        if ask is None:
+            continue
+        got = read_cycle(cycle_file, None, ask, date_int, pathwork=pathwork, module="zone")
+        if got is None:
+            return None
+        for tok, r in _zone_rows(got, kind, channels):
+            n = _zn(r["kc_all"])
+            if not n:
+                continue
+
+            def s(name, p):
+                col = nm[name]
+                return _zv(r[f"{p}_{col}"]) if _zn(r[f"nc_{col}"]) else None
+
+            out.append((r["region"], r["flag"], tok, r["land_ocean"], r["stn"],
+                        r["special"] if special_on else "all", _zv(r["varno"]),
+                        "join" if kind == "join" else _zv(r["vcoord_b"]), _zv(r["lat_bin"]),
+                        date_int, n, n, _zn(r[f"nc_{nm['oma']}"]), _zn(r[f"nc_{nm['err']}"]),
+                        s("omp", "sc"), s("omp", "sc2"), s("oma", "sc"), s("oma", "sc2"),
+                        s("obs", "sc"), s("obs", "sc2"), s("bcorr", "sc"), s("bcorr", "sc2"),
+                        s("err", "sc"), s("err", "sc2"),
+                        _zn(r["kc_rej"]), _zn(r["kc_acc"]), _zn(r["nuniqc"])))
+    with work_db(attach={"db": cycle_file}) as (conn, mem_uri):
+        conn.execute(_DDL_SINGLE)
+        conn.executemany(f"INSERT INTO zone ({_ZONE_COLS_IN}) VALUES ({', '.join('?' * 27)});", out)
+        _combine_rows(new_db, mem_uri, "zone", _SINGLE_COLS, ddl=_DDL_SINGLE, module="zone")
+        if stn_label and stn_label != "join" and not _is_composite(family):
+            _save_members(
+                new_db,
+                stn_label,
+                conn.execute(
+                    f"SELECT DISTINCT id_stn FROM db.header WHERE 1=1 " f"{id_stn_sql};"
+                ).fetchall(),
+            )
+    return len(out)
+
+
+def _zone_join_of(rows):
+    """The 'join' rows of a matched pass from its rows by channel: every
+    count and sum added over the channels."""
+    import pandas as pd
+    sums = [c for c in rows.columns
+            if re.match(r"^(nc|sc|sc2|ne|se|se2|sce|nallc|nalle)_", c)]
+    keys = [c for c in rows.columns if c not in sums and c != "vcoord_b"]
+    if rows.empty:
+        return []
+    g = rows.fillna({c: 0 for c in sums}).groupby(keys, dropna=False, sort=False)[sums].sum()
+    return g.reset_index().to_dict("records")
+
+
+def create_zone_matched_reader(
+    family: str,
+    new_db: str,
+    ctl_file: str,
+    exp_file: str,
+    regions,
+    flags,
+    channels,
+    land_oceans,
+    id_stn_sql: str,
+    varnos,
+    lat_band: float,
+    pathwork: str,
+    stn_label: Optional[str] = None,
+    special_on: bool = True,
+    gpsro: bool = False,
+    match_fields=(),
+    names=None,
+):
+    """create_zone_matched, read by pikobs.reader: the same rows of
+    zone_pairs and the same report of the pairing."""
+    from pikobs.reader.reader import read_cycle
+    for path in (ctl_file, exp_file):
+        if not os.path.isfile(path):
+            print(f"[zone] missing file, skipped: {path}", file=sys.stderr, flush=True)
+            return None
+    date_match = re.search(r"(\d{10})", os.path.basename(ctl_file))
+    if not date_match:
+        raise ValueError(f"No 10-digit date in: {ctl_file}")
+    date_int = int(date_match.group(1))
+    names = tuple(names or ("control", "experience"))
+    head_c, data_c = _columns_of(ctl_file)
+    head_e, data_e = _columns_of(exp_file)
+    if not data_c or not data_e:
+        return None
+    # a column in the expressions only when both runs have it
+    asks, nm = _zone_asks(family, regions, flags, channels, land_oceans, id_stn_sql, varnos,
+                          lat_band, stn_label, special_on, gpsro, head_c & head_e,
+                          data_c & data_e, "on", key=match_fields)
+    # one read: with pairs everything is a sum, so 'join' is the sum of the channels
+    derive_join = asks["join"] is not None and asks["chan"] is not None
+    if derive_join:
+        asks = {"join": None, "chan": asks["chan"]}
+    out, info = [], {}
+    for kind, ask in asks.items():
+        if ask is None:
+            continue
+        got = read_cycle(ctl_file, exp_file, ask, date_int, pathwork=pathwork, module="zone")
+        if got is None:
+            return None
+        info = got.info or info
+        pieces = [(tok, r) for tok, r in _zone_rows(got, kind, channels)]
+        if derive_join:
+            pieces += [("join", r) for r in _zone_join_of(got.rows)]
+        for tok, r in pieces:
+            kind = "join" if tok == "join" else "chan"
+            n = _zn(r[f"nc_{nm['omp']}"])
+            if not n:
+                continue
+            no, ne = _zn(r[f"nc_{nm['oma']}"]), _zn(r[f"nc_{nm['err']}"])
+
+            def g(name, p, cnt):
+                return _zv(r[f"{p}_{nm[name]}"]) if cnt else None
+
+            out.append((r["region"], r["flag"], tok, r["land_ocean"], r["stn"],
+                        r["special"] if special_on else "all", _zv(r["varno"]),
+                        "join" if kind == "join" else _zv(r["vcoord_b"]), _zv(r["lat_bin"]),
+                        date_int, n, no, ne,
+                        g("omp", "sc", n), g("omp", "sc2", n), g("omp", "se", n),
+                        g("omp", "se2", n), g("omp", "sce", n),
+                        g("oma", "sc", no), g("oma", "sc2", no), g("oma", "se", no),
+                        g("oma", "se2", no), g("oma", "sce", no),
+                        g("obs", "sc", n), g("obs", "se", n), g("err", "sc", ne), g("err", "se", ne)))
+    repeats = {names[0]: (info.get("rep_keys_c", 0), info.get("rep_rows_c", 0)),
+               names[1]: (info.get("rep_keys_e", 0), info.get("rep_rows_e", 0))}
+    n_pairs = int(info.get("pairs", 0) or 0)
+    if not n_pairs or not out:
+        return {"pairs": 0, "repeats": repeats}
+    with work_db(attach={"db": ctl_file}) as (conn, mem_uri):
+        conn.execute(_DDL_PAIRS)
+        conn.executemany(f"INSERT INTO zone_pairs ({_ZONE_PAIR_COLS_IN}) "
+                         f"VALUES ({', '.join('?' * 27)});", out)
+        _combine_rows(new_db, mem_uri, "zone_pairs", _PAIR_COLS, ddl=_DDL_PAIRS, module="zone")
+        if stn_label and stn_label != "join" and not _is_composite(family):
+            # the control's stations of the selection (zone kept those with a pair)
+            _save_members(
+                new_db,
+                stn_label,
+                conn.execute(
+                    f"SELECT DISTINCT id_stn FROM db.header WHERE 1=1 " f"{id_stn_sql};"
+                ).fetchall(),
+            )
+    return {"pairs": n_pairs, "repeats": repeats}
+
+
 def _extract_task(task: Dict[str, Any]) -> Optional[int]:
     try:
         if task.get("ctl_file"):
-            return create_zone_matched(
+            return _zone_matched(
                 task["family"],
                 task["db_new"],
                 task["ctl_file"],
@@ -911,7 +1201,7 @@ def _extract_task(task: Dict[str, Any]) -> Optional[int]:
                 task.get("match_fields") or (),
                 task.get("names"),
             )
-        return create_zone_single(
+        return _zone_single(
             task["family"],
             task["db_new"],
             task["filein"],

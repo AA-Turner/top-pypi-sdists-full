@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: persistent
-Version: 6.8
+Version: 6.9
 Summary: Translucent persistent objects
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -15,8 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -26,7 +24,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: zope.deferredimport
@@ -80,6 +78,15 @@ release (``https://persistent.readthedocs.io/en/stable/``).
 
 Change log
 ==========
+
+6.9 (2026-10-27)
+----------------
+
+- Build and publish PyPy wheels for macOS, Windows and manylinux.
+
+- Add support for Python 3.15.
+
+- Drop support for Python 3.10.
 
 6.8 (2026-08-20)
 ----------------

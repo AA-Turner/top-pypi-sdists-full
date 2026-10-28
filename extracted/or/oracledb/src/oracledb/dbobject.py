@@ -259,8 +259,9 @@ class DbObjectAttr(metaclass=BaseMetaClass):
     def precision(self) -> int | None:
         """
         This read-only attribute returns the precision of the attribute when
-        the attribute's type is DB_TYPE_NUMBER. For all other types, the value
-        returned is None.
+        the attribute's type is DB_TYPE_NUMBER, DB_TYPE_TIMESTAMP,
+        DB_TYPE_TIMESTAMP_LTZ, DB_TYPE_TIMESTAMP_TZ, DB_TYPE_INTERVAL_DS, or
+        DB_TYPE_INTERVAL_YM. For all other types, the value returned is None.
         """
         if self._impl.precision or self._impl.scale:
             return self._impl.precision
@@ -269,8 +270,9 @@ class DbObjectAttr(metaclass=BaseMetaClass):
     def scale(self) -> int | None:
         """
         This read-only attribute returns the scale of the attribute when the
-        attribute's type is DB_TYPE_NUMBER. For all other types, the value
-        returned is None.
+        attribute's type is DB_TYPE_NUMBER, DB_TYPE_TIMESTAMP,
+        DB_TYPE_TIMESTAMP_LTZ, DB_TYPE_TIMESTAMP_TZ, DB_TYPE_INTERVAL_DS, or
+        DB_TYPE_INTERVAL_YM. For all other types, the value returned is None.
         """
         if self._impl.precision or self._impl.scale:
             return self._impl.scale

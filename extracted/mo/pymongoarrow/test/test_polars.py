@@ -18,8 +18,6 @@ import unittest
 import unittest.mock as mock
 import uuid
 from datetime import datetime
-from test import client_context
-from test.utils import AllowListEventListener
 
 import bson
 import pyarrow as pa
@@ -38,6 +36,8 @@ from pymongoarrow.types import (
     Decimal128Type,
     ObjectIdType,
 )
+from test import client_context
+from test.utils import AllowListEventListener
 
 try:
     import polars as pl
@@ -49,6 +49,19 @@ except ImportError:
 
 if pl is None:
     pytest.skip("Requires polars.", allow_module_level=True)
+
+
+class TestAggregatePolarsParallelism(unittest.TestCase):
+    def test_aggregate_polars_forwards_parallelism(self):
+        collection = mock.Mock()
+        with mock.patch(
+            "pymongoarrow.api.aggregate_arrow_all", return_value=pa.table({"value": [12]})
+        ) as aggregate:
+            result = aggregate_polars_all(collection, [], parallelism="threads")
+        self.assertEqual(result["value"][0], 12)
+        aggregate.assert_called_once_with(
+            collection, [], schema=None, allow_invalid=False, parallelism="threads"
+        )
 
 
 class PolarsTestBase(unittest.TestCase):

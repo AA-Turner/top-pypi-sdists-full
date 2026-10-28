@@ -18,17 +18,13 @@ from fit_tool.encode import (
 from fit_tool.exceptions import FitCRCError, FitEncodingError
 from fit_tool.fit_file_header import FitFileHeader
 from fit_tool.record import Record
-from fit_tool.utils.crc import crc16
+from fit_tool.utils.crc import crc16_chunks
 from fit_tool.utils.logging import logger
 from fit_tool.wire.encoder import encode_document, encode_document_mixed
 from fit_tool.wire.model import FitDocument
 
 if TYPE_CHECKING:
     from fit_tool.validation import ConformanceLevel, ProfileScope, ValidationReport
-
-# Sentinel so explicit ``check_crc=True`` can override ``options.check_crc=False``
-# (a bare default of True is indistinguishable from "caller omitted the kwarg").
-_CHECK_CRC_UNSET: object = object()
 
 
 class FitFile:
@@ -183,11 +179,11 @@ class FitFile:
 
     def to_bytes(
             self,
-            check_crc: bool | object = _CHECK_CRC_UNSET,
+            check_crc: bool | None = None,
             *,
             preserve: bool | None = None,
             mode: EncodeMode | str | None = None,
-            strict: bool = False,
+            strict: bool | None = None,
             options: EncodeOptions | None = None,
     ) -> bytes:
         """Serialize this file.
@@ -215,31 +211,13 @@ class FitFile:
         ``options=`` object (including ``check_crc=True`` vs
         ``EncodeOptions(check_crc=False)``).
         """
-        check_crc_explicit = check_crc is not _CHECK_CRC_UNSET
-        check_crc_value = True if not check_crc_explicit else bool(check_crc)
-
-        if options is None:
-            options = resolve_encode_options(
-                mode=mode,
-                preserve=preserve,
-                strict=strict,
-                check_crc=check_crc_value,
-            )
-        elif (
-            preserve is not None
-            or mode is not None
-            or strict
-            or check_crc_explicit
-        ):
-            # Explicit kwargs win over a partial options object when both given.
-            options = resolve_encode_options(
-                mode=mode if mode is not None else options.mode,
-                preserve=preserve,
-                strict=strict or options.strict,
-                check_crc=(
-                    check_crc_value if check_crc_explicit else options.check_crc
-                ),
-            )
+        options = resolve_encode_options(
+            options=options,
+            mode=mode,
+            preserve=preserve,
+            strict=strict,
+            check_crc=check_crc,
+        )
 
         if options.strict:
             apply_strict_precheck(self)
@@ -332,14 +310,11 @@ class FitFile:
                 self.header.protocol_version, self.header.profile_version, records_size
             )
 
-        calculated_crc = 0
-        bytes_buffer = bytearray()
-        buffer = self.header.to_bytes()
-        calculated_crc = crc16(buffer, crc=calculated_crc)
-        bytes_buffer.extend(buffer)
+        header_bytes = self.header.to_bytes()
+        calculated_crc = crc16_chunks([header_bytes, *record_buffers])
+        bytes_buffer = bytearray(header_bytes)
 
         for buffer in record_buffers:
-            calculated_crc = crc16(buffer, crc=calculated_crc)
             bytes_buffer.extend(buffer)
 
         if self._crc is None:
@@ -396,7 +371,7 @@ class FitFile:
             *,
             preserve: bool | None = None,
             mode: EncodeMode | str | None = None,
-            strict: bool = False,
+            strict: bool | None = None,
     ) -> None:
         with open(path, 'wb') as file_object:
             file_object.write(

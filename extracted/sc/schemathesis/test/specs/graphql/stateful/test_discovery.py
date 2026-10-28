@@ -107,6 +107,38 @@ def _discover(sdl: str) -> set[Handle]:
             Handle("Book", "slug"),
             True,
         ),
+        (
+            """
+            type Note { id: ID! }
+            type DeleteNote { id: ID! ok: Boolean }
+            type Query { note(id: ID!): Note }
+            type Mutation { removeNote(id: ID!): DeleteNote }
+            """,
+            Handle("DeleteNote", "id"),
+            False,
+        ),
+        (
+            """
+            type CloneSession { id: ID! }
+            type Query { cloneSession(id: ID!): CloneSession }
+            type Mutation { _: Boolean }
+            """,
+            Handle("CloneSession", "id"),
+            True,
+        ),
+        (
+            """
+            type Project { id: ID! fullPath: String! }
+            type CreateProjectPayload { project: Project, clientMutationId: String }
+            type Query { _: Boolean }
+            type Mutation {
+                createProject(name: String!): CreateProjectPayload
+                moveIssue(projectPath: String!, title: String!): Boolean
+            }
+            """,
+            Handle("Project", "fullPath"),
+            True,
+        ),
     ],
     ids=[
         "seedable-via-token-arg",
@@ -119,6 +151,9 @@ def _discover(sdl: str) -> set[Handle]:
         "dropped-no-producer-returns-type",
         "dropped-free-text-field",
         "seedable-with-unrelated-producer-argument",
+        "dropped-mutation-result-envelope",
+        "verb-prefixed-resource-kept",
+        "seedable-via-mutation-payload",
     ],
 )
 def test_discover_handles(sdl, handle, present):

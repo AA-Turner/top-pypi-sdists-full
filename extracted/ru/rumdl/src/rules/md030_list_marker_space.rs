@@ -94,6 +94,11 @@ impl Rule for MD030ListMarkerSpace {
 
     crate::impl_rule_config_methods!(MD030Config);
 
+    fn fix_capability(&self) -> crate::rule::FixCapability {
+        // Warnings for lines the parser does not read as list items are advisory only.
+        crate::rule::FixCapability::ConditionallyFixable
+    }
+
     fn fixes_from_diagnostics(&self) -> bool {
         true
     }
@@ -298,6 +303,8 @@ impl MD030ListMarkerSpace {
             drop_structure_changing_fixes(ctx, &mut warnings, Allowed::Nothing);
         }
 
+        let mut previous_indented_query = None;
+
         // Second pass: Detect list-like patterns the parser didn't recognize
         // This handles cases like "1.Text" where there's no space after the marker
         for (line_idx, line) in lines.iter().enumerate() {
@@ -332,12 +339,12 @@ impl MD030ListMarkerSpace {
             }
 
             // Skip indented code blocks
-            if self.is_indented_code_block(line, line_idx, lines) {
+            if Self::is_indented_code_block(line, line_idx, lines, &mut previous_indented_query) {
                 continue;
             }
 
             // Try to detect list-like patterns using regex-based detection
-            if let Some(warning) = self.check_unrecognized_list_marker(ctx, line, line_num, lines) {
+            if let Some(warning) = self.check_unrecognized_list_marker(line, line_num) {
                 warnings.push(warning);
             }
         }
@@ -498,13 +505,7 @@ impl MD030ListMarkerSpace {
 
     /// Detect list-like patterns that the parser didn't recognize (e.g., "1.Text" with no space)
     /// This implements user-intention-based detection: if it looks like a list item, flag it
-    fn check_unrecognized_list_marker(
-        &self,
-        ctx: &crate::lint_context::LintContext,
-        line: &str,
-        line_num: usize,
-        lines: &[&str],
-    ) -> Option<LintWarning> {
+    fn check_unrecognized_list_marker(&self, line: &str, line_num: usize) -> Option<LintWarning> {
         // Strip blockquote prefix to analyze the content.
         // Track the prefix length so fix positions are relative to the original line.
         let (bq_prefix_len, content) = match parse_blockquote_prefix(line) {
@@ -536,10 +537,6 @@ impl MD030ListMarkerSpace {
                     let is_clear_intent = first_char.is_ascii_uppercase() || first_char == '[' || first_char == '(';
 
                     if is_clear_intent {
-                        let is_multi_line = self.is_multi_line_for_unrecognized(line_num, lines);
-                        // Ordered marker `<digits>.` has width `before_dot.len() + 1`.
-                        let expected_spaces = self.config.expected_spaces(true, is_multi_line, before_dot.len() + 1);
-
                         let marker = format!("{before_dot}.");
                         let marker_pos = indent_len;
                         let marker_end = marker_pos + marker.len();
@@ -549,10 +546,6 @@ impl MD030ListMarkerSpace {
                         let (start_line, start_col, end_line, end_col) =
                             calculate_match_range(line_num, line, offset_in_line, 0);
 
-                        let correct_spaces = " ".repeat(expected_spaces);
-                        let line_start_byte = ctx.line_offsets.get(line_num - 1).copied().unwrap_or(0);
-                        let fix_position = line_start_byte + offset_in_line;
-
                         return Some(LintWarning {
                             rule_name: Some("MD030".to_string()),
                             severity: Severity::Warning,
@@ -560,8 +553,11 @@ impl MD030ListMarkerSpace {
                             column: start_col,
                             end_line,
                             end_column: end_col,
-                            message: format!("Spaces after list markers (Expected: {expected_spaces}; Actual: 0)"),
-                            fix: Some(crate::rule::Fix::new(fix_position..fix_position, correct_spaces)),
+                            message: "Possible missing space after ordered list marker; this line is paragraph text, not a list item"
+                                .to_string(),
+                            // The parser does not read this line as a list item, so inserting
+                            // a space would change its meaning (and could turn it into a list).
+                            fix: None,
                         });
                     }
                 }
@@ -571,65 +567,26 @@ impl MD030ListMarkerSpace {
         None
     }
 
-    /// Simplified multi-line check for unrecognized list items
-    fn is_multi_line_for_unrecognized(&self, line_num: usize, lines: &[&str]) -> bool {
-        // For unrecognized list items, we can't rely on parser info
-        // Check if the next line exists and appears to be a continuation
-        if line_num < lines.len() {
-            let next_line = lines[line_num]; // line_num is 1-based, so this is the next line
-            let next_trimmed = next_line.trim();
-            // If next line is non-empty and indented, it might be a continuation
-            if !next_trimmed.is_empty() && next_line.starts_with(' ') {
-                return true;
-            }
-        }
-        false
-    }
-
-    /// Check if a line is part of an indented code block (4+ columns with blank line before)
-    fn is_indented_code_block(&self, line: &str, line_idx: usize, lines: &[&str]) -> bool {
-        // Must have 4+ columns of indentation (accounting for tab expansion)
+    /// Check if an indented run follows a blank line. Queries arrive in source
+    /// order, so a later query only searches the lines since the previous one.
+    fn is_indented_code_block(
+        line: &str,
+        line_idx: usize,
+        lines: &[&str],
+        previous_query: &mut Option<(usize, bool)>,
+    ) -> bool {
         if calculate_indentation_width_default(line) < 4 {
             return false;
         }
 
-        // If it's the first line, it's not an indented code block
-        if line_idx == 0 {
-            return false;
-        }
-
-        // Check if there's a blank line before this line or before the start of the indented block
-        if self.has_blank_line_before_indented_block(line_idx, lines) {
-            return true;
-        }
-
-        false
-    }
-
-    /// Check if there's a blank line before the start of an indented block
-    fn has_blank_line_before_indented_block(&self, line_idx: usize, lines: &[&str]) -> bool {
-        // Walk backwards to find the start of the indented block
-        let mut current_idx = line_idx;
-
-        // Find the first line in this indented block
-        while current_idx > 0 {
-            let current_line = lines[current_idx];
-            let prev_line = lines[current_idx - 1];
-
-            // If current line is not indented (< 4 columns), we've gone too far
-            if calculate_indentation_width_default(current_line) < 4 {
-                break;
-            }
-
-            // If previous line is not indented, check if it's blank
-            if calculate_indentation_width_default(prev_line) < 4 {
-                return prev_line.trim().is_empty();
-            }
-
-            current_idx -= 1;
-        }
-
-        false
+        let (start, previous_result) = previous_query.map_or((0, false), |(index, result)| (index + 1, result));
+        let result = lines[start..line_idx]
+            .iter()
+            .rev()
+            .find(|line| calculate_indentation_width_default(line) < 4)
+            .map_or(previous_result, |line| line.trim().is_empty());
+        *previous_query = Some((line_idx, result));
+        result
     }
 }
 
@@ -638,6 +595,62 @@ mod tests {
     use super::*;
     use crate::lint_context::LintContext;
     use indoc::indoc;
+
+    #[test]
+    fn test_indented_block_cache_matches_backward_scan() {
+        fn original_scan(lines: &[&str], mut index: usize) -> bool {
+            while index > 0 {
+                if calculate_indentation_width_default(lines[index]) < 4 {
+                    break;
+                }
+                if calculate_indentation_width_default(lines[index - 1]) < 4 {
+                    return lines[index - 1].trim().is_empty();
+                }
+                index -= 1;
+            }
+            false
+        }
+
+        let variants = [
+            "",
+            " ",
+            "    ",
+            "\t",
+            "paragraph",
+            "   2.bad",
+            "    2.bad",
+            "\t2.bad",
+            "\u{a0}",
+        ];
+        for mut combination in 0..variants.len().pow(4) {
+            let lines: Vec<_> = (0..4)
+                .map(|_| {
+                    let line = variants[combination % variants.len()];
+                    combination /= variants.len();
+                    line
+                })
+                .collect();
+            // The caller skips recognized markers and literal blocks. Exercise
+            // gaps between queries as well as querying every line.
+            for step in 1..=3 {
+                for first in 0..step {
+                    let mut previous_query = None;
+                    for index in (first..lines.len()).step_by(step) {
+                        assert_eq!(
+                            MD030ListMarkerSpace::is_indented_code_block(
+                                lines[index],
+                                index,
+                                &lines,
+                                &mut previous_query,
+                            ),
+                            original_scan(&lines, index),
+                            "lines={lines:?}, index={index}, step={step}",
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     /// Assert that running `fix()` on content with violations produces output that
     /// passes `check()` with zero remaining violations.

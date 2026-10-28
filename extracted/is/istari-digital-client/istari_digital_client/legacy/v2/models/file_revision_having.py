@@ -1,8 +1,14 @@
 import abc
+import threading
+from pathlib import Path
+from typing import Callable
+
 from pydantic import BaseModel
 
+from istari_digital_client._transfer.events import TransferEvent
+
 from istari_digital_client.legacy.v2.models.file_revision import FileRevision
-from istari_digital_client.legacy.v2.models.readable import Readable
+from istari_digital_client.legacy.v2.models.readable import PathLike, Readable
 from istari_digital_client.legacy.v2.models.properties import Properties
 from istari_digital_client.legacy.log_utils import log_method
 
@@ -29,6 +35,19 @@ class FileRevisionHaving(BaseModel, Readable, abc.ABC):
         """
 
         return self.revision.read_bytes()
+
+    def download_to(
+        self,
+        dest: PathLike,
+        *,
+        progress: Callable[[TransferEvent], None] | None = None,
+        cancel: threading.Event | None = None,
+    ) -> Path:
+        """
+        Download the associated file revision's content to ``dest`` (verified) and return the path.
+        """
+
+        return self.revision.download_to(dest, progress=progress, cancel=cancel)
 
     @property
     @log_method

@@ -27,13 +27,14 @@ def exit_code(report: SeedDriftReport) -> int:
 def drift(
     env: str = env_option(
         help="The seed-built environment: its schema tree, its seed files and its "
-        "seed_drift settings (default: local)"
+        "seed_drift settings"
     ),
     against: str | None = typer.Option(
         None,
         "--against",
         help="The live database to compare with: an environment name (its ssh_tunnel is "
-        "used) or a PostgreSQL URL. Read in a read-only transaction; nothing is written",
+        "used), a .yaml config file or a PostgreSQL URL. Read in a read-only transaction; "
+        "nothing is written",
     ),
     build: bool = typer.Option(
         False,
@@ -68,7 +69,8 @@ def drift(
     migrate-only one gets only the rows a migration inserts. Every table the seed
     tree writes is compared, matched by a key the seed itself writes: rows only
     the seed side holds, rows only the live side holds, and rows whose columns
-    differ. Exit 0: no difference nothing explains; 1: drift, or a seed_drift entry
+    differ. A table the environment's diff.exclude names is another tool's, and is
+    skipped. Exit 0: no difference nothing explains; 1: drift, or a seed_drift entry
     that matches nothing; 2: a table could not be compared (this wins over 1); 3: a
     database did not answer; 5: configuration (no scratch server for --build, an
     unknown environment). Guide: docs/guides/seed-drift.md.

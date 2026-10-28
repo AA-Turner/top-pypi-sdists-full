@@ -390,7 +390,7 @@ DAEMONS = {
     # The researcher's: a no, their agent settings, the guided install, the
     # desktop app's interface (it starts imports), and the agent taking Probe
     # over in CLIs of 2026-10-05..06.
-    "deny", "statusline install", "statusline uninstall", "install", "desktop", "session inline",
+    "deny", "statusline install", "statusline uninstall", "install", "uninstall", "desktop", "session inline",
     "session daemon",
     # The install pipeline in repair mode: it may re-approve the daemon's key
     # and change the researcher's agent settings, as the guided install does.

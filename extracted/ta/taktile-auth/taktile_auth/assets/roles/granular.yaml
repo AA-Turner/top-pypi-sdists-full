@@ -3,7 +3,7 @@
 # the `granular-permissions` feature flag is on. Check that flag's state in
 # decide-ui's featureFlags.ts for the customer's org before recommending any of
 # these roles.
-# P141c workspace admin: manage permissions, API keys, folders and outcome types, view all folders.
+# P141c workspace admin: manage permissions, API keys, folders, outcome types and flow settings, view all folders.
 # Deliberately no w:flows — folder management stays separable from Edit Logic.
 ws_manager/org_id,ws_id:
     - ws_member/org_id,ws_id
@@ -12,6 +12,7 @@ ws_manager/org_id,ws_id:
     - r+w:workspace_api_keys/org_id,ws_id
     - w+d:flow_folders/org_id,ws_id
     - w+d:outcome_type_management/org_id,ws_id
+    - w:flow_settings/org_id,ws_id
 flow_viewer/org_id,ws_id,flow_folder_id:
     - r:flows/org_id,ws_id,flow_folder_id,{env=*}
     - r:jobs/org_id,ws_id,flow_folder_id

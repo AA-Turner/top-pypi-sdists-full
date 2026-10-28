@@ -1,15 +1,24 @@
 import abc
+import io
 import logging
 import os
 import json
+import shutil
+import threading
 import uuid
 from functools import cached_property
-from typing import TypeAlias, Union, Optional, TYPE_CHECKING
+from typing import Callable, TypeAlias, Union, Optional, TYPE_CHECKING
 from pathlib import Path
 import hashlib
 import tempfile
 from threading import Lock
 
+from istari_digital_client import native_crypto
+
+from istari_digital_client._transfer.download import check_written, open_partial, partial_path
+from istari_digital_client._transfer.errors import TransferCancelledError
+from istari_digital_client._transfer.events import EventForwarder, EventKind, TransferEvent
+from istari_digital_client._transfer.http import check_cancel
 from istari_digital_client.legacy.log_utils import log_method
 
 if TYPE_CHECKING:
@@ -20,6 +29,9 @@ if TYPE_CHECKING:
 
 JSON: TypeAlias = dict[str, "JSON"] | list["JSON"] | str | int | float | bool | None
 PathLike = Union[str, os.PathLike, Path]
+ProgressCallback = Callable[[TransferEvent], None]
+
+_COPY_CHUNK = 8 * 1024 * 1024
 
 logger = logging.getLogger("istari-digital-client.readable")
 
@@ -123,16 +135,174 @@ class Readable(abc.ABC):
         return self.read_bytes().decode(encoding)
 
     @log_method
-    def copy_to(self, dest: PathLike) -> Path:
+    def copy_to(
+        self,
+        dest: PathLike,
+        *,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
+    ) -> Path:
         """
-        Copy the contents to a local file.
+        Copy the contents to a local file (an alias of ``download_to``).
 
         :param dest: Path to write the file to. This can be a string, Path, or os.PathLike.
         :raises OSError: If the file cannot be written.
         """
+        return self.download_to(dest, progress=progress, cancel=cancel)
+
+    def download_to(
+        self,
+        dest: PathLike,
+        *,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
+    ) -> Path:
+        """
+        Download the contents to a local file, verified, and return the path.
+
+        The bytes stream to a temp file beside ``dest`` and are renamed into place only
+        after the salted digest verifies, so a corrupt download never lands at ``dest``.
+        A filesystem-cache hit is streamed and verified the same way; on a miss the
+        content is downloaded to ``dest`` and copied into the cache only when it is at
+        most ``filesystem_cache_max_size`` bytes.
+
+        :param dest: Path to write the file to. This can be a string, Path, or os.PathLike.
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
+        :raises OSError: If the file cannot be written.
+        """
+        size = getattr(self, "size", None)
+        progress = EventForwarder(progress, int(size) if size is not None else None)
+        try:
+            check_cancel(cancel)
+            return self._download_to(dest, progress=progress, cancel=cancel)
+        except (TransferCancelledError, KeyboardInterrupt, SystemExit):
+            progress(TransferEvent(EventKind.CANCELLED, 0, None))
+            raise
+
+    def _download_to(
+        self,
+        dest: PathLike,
+        *,
+        progress: EventForwarder,
+        cancel: threading.Event | None,
+    ) -> Path:
+        """Share event ownership across cache copy and remote fallback."""
         dest_path = Path(str(dest))
-        dest_path.write_bytes(self.read_bytes())
+        client = self._require_client()
+        token = self._content_token()
+        if not self._should_use_cache():
+            return client.download_to(token, dest_path, progress=progress, cancel=cancel)
+
+        cache_path = self._cache_path
+        if cache_path is None:
+            return client.download_to(token, dest_path, progress=progress, cancel=cancel)
+
+        with self._cache_path_lock:
+            if cache_path.exists():
+                try:
+                    self._stream_verified_copy(
+                        cache_path, dest_path, token, progress=progress, cancel=cancel
+                    )
+                    self._filesystem_cache_hits += 1
+                    logger.debug("%s cache hit: %s", self._log_msg_pfx, cache_path)
+                    return dest_path
+                except (FileNotFoundError, InvalidChecksumError) as e:
+                    # another Readable's cleanup can unlink the file under us; the lock is per instance
+                    self._filesystem_cache_misses += 1
+                    logger.debug("%s cache file unusable (%s); re-fetching", self._log_msg_pfx, e)
+                    cache_path.unlink(missing_ok=True)
+            else:
+                self._filesystem_cache_misses += 1
+
+            client.download_to(token, dest_path, progress=progress, cancel=cancel)
+            self._cache_from_file(dest_path)
         return dest_path
+
+    def _stream_verified_copy(
+        self,
+        source: Path,
+        dest: Path,
+        token: "Token",
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
+    ) -> None:
+        """Copy ``source`` to ``dest`` through a temp file, verifying the digest before the rename.
+
+        Emits ``part_done`` and a terminal ``complete`` event so a cache hit reports
+        progress the same way a download does.
+        """
+        forward = progress if isinstance(progress, EventForwarder) else EventForwarder(progress)
+        check_cancel(cancel)
+        verifier = native_crypto.VerifyingHasher(token.sha, token.salt)
+        total = source.stat().st_size
+        expected = getattr(self, "size", None)
+        if expected is not None and total != int(expected):
+            raise InvalidChecksumError("cached file size differs from expected object size")
+        done = 0
+        tmp = partial_path(dest)  # named before it exists, so cleanup never waits on the open
+        try:
+            with open_partial(tmp) as raw, io.BufferedWriter(raw) as out, source.open("rb") as inp:
+                while True:
+                    check_cancel(cancel)
+                    chunk = inp.read(_COPY_CHUNK)
+                    if not chunk:
+                        break
+                    verifier.update(chunk)
+                    out.write(chunk)
+                    done += len(chunk)
+                    forward(TransferEvent(EventKind.PART_DONE, done, total))
+            try:
+                verifier.finalize()
+            except ValueError as e:
+                raise InvalidChecksumError(
+                    f"Token data content checksum is invalid for cached file {source}"
+                ) from e
+            if expected is not None and done != int(expected):
+                raise InvalidChecksumError("cached file size differs from expected object size")
+            check_written(tmp, done)
+            check_cancel(cancel)
+            os.replace(tmp, dest)
+        except BaseException as exc:
+            tmp.unlink(missing_ok=True)
+            if isinstance(exc, (TransferCancelledError, KeyboardInterrupt, SystemExit)):
+                forward(TransferEvent(EventKind.CANCELLED, done, total))
+            raise
+        forward(TransferEvent(EventKind.COMPLETE, done, done))
+
+    def _cache_free_bytes(self, directory: Path) -> int:
+        """Return free bytes on the filesystem holding the cache directory."""
+        return shutil.disk_usage(directory).free
+
+    def _cache_has_capacity(self, size: int) -> bool:
+        """Check only the additional cache copy; the destination is already allocated."""
+        max_size = getattr(self._client_config, "filesystem_cache_max_size", None)
+        if max_size is not None and size > int(max_size):
+            return False
+        directory = self._cache_dir
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        return size <= self._cache_free_bytes(directory)
+
+    def _cache_from_file(self, source: Path) -> None:
+        """Best-effort atomic cache insertion of a freshly verified download."""
+        temp_path = None
+        try:
+            cache_path = self._cache_path
+            if cache_path is None or not self._cache_has_capacity(source.stat().st_size):
+                return
+            temp_path = self._cache_dir_mktemp()
+            shutil.copyfile(source, temp_path)
+            temp_path.replace(cache_path)
+            self._filesystem_cache_puts += 1
+            logger.debug("%s cached contents: %s", self._log_msg_pfx, cache_path)
+        except OSError as e:
+            logger.warning("%s could not cache %s: %s", self._log_msg_pfx, source, e)
+        finally:
+            if temp_path is not None:
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError as e:
+                    logger.debug("%s could not clean cache temporary file: %s", self._log_msg_pfx, e)
 
     @log_method
     def read_json(self, encoding: str = "utf-8") -> JSON:
@@ -226,18 +396,36 @@ class Readable(abc.ABC):
         :raises InvalidChecksumError: If checksum verification fails
         """
         content_token = self._content_token()
-        # Content-integrity check, not a security operation — usedforsecurity=False
-        # (see `_cache_identifier`).
-        hasher = hashlib.sha384(usedforsecurity=False)
-        hasher.update(data)
-        hasher.update(content_token.salt.encode("utf-8"))
-        actual = hasher.hexdigest()
-        expected = content_token.sha
-
-        if actual != expected:
-            msg = f"Token data content checksum is invalid ({actual} != {expected})"
-            raise InvalidChecksumError(msg)
+        verifier = native_crypto.VerifyingHasher(content_token.sha, content_token.salt)
+        verifier.update(data)
+        try:
+            verifier.finalize()
+        except ValueError as e:
+            raise InvalidChecksumError(
+                f"Token data content checksum is invalid (expected {content_token.sha})"
+            ) from e
         return data
+
+    def _verify_cache_file(self, cache_path: Path) -> None:
+        """
+        Stream-verify a cache file against the content token.
+
+        :raises InvalidChecksumError: If checksum verification fails
+        """
+        content_token = self._content_token()
+        verifier = native_crypto.VerifyingHasher(content_token.sha, content_token.salt)
+        with cache_path.open("rb") as f:
+            while True:
+                chunk = f.read(_COPY_CHUNK)
+                if not chunk:
+                    break
+                verifier.update(chunk)
+        try:
+            verifier.finalize()
+        except ValueError as e:
+            raise InvalidChecksumError(
+                f"Token data content checksum is invalid for cached file {cache_path}"
+            ) from e
 
     def _read_from_cache(self) -> bytes:
         """
@@ -254,6 +442,9 @@ class Readable(abc.ABC):
             raise FileNotFoundError(f"Cache file not found: {cache_path}")
 
         data = cache_path.read_bytes()
+        expected = getattr(self, "size", None)
+        if expected is not None and len(data) != int(expected):
+            raise InvalidChecksumError("cached file size differs from expected object size")
         return self._verify_checksum(data)
 
     def _write_to_cache(self, data: bytes) -> None:
@@ -262,33 +453,24 @@ class Readable(abc.ABC):
 
         :param data: Data to cache
         """
-        cache_path = self._cache_path
-        if cache_path is None:
-            raise CacheError("Cache path is not available")
-
-        # Ensure cache directory exists
-        cache_dir = self._cache_dir
-        if not cache_dir.exists():
-            cache_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-
-        # Write to temporary file first for atomic operation
-        temp_path = self._cache_dir_mktemp()
+        temp_path = None
         try:
+            cache_path = self._cache_path
+            if cache_path is None or not self._cache_has_capacity(len(data)):
+                return
+            temp_path = self._cache_dir_mktemp()
             temp_path.write_bytes(data)
-            size = temp_path.stat().st_size
             temp_path.replace(cache_path)
-
-            logger.debug(
-                "%s cached contents (size: %d): %s",
-                self._log_msg_pfx,
-                size,
-                cache_path,
-            )
             self._filesystem_cache_puts += 1
-        except Exception:
-            # Clean up temp file if something goes wrong
-            temp_path.unlink(missing_ok=True)
-            raise
+            logger.debug("%s cached contents (size: %d): %s", self._log_msg_pfx, len(data), cache_path)
+        except OSError as e:
+            logger.warning("%s could not cache contents: %s", self._log_msg_pfx, e)
+        finally:
+            if temp_path is not None:
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError as e:
+                    logger.debug("%s could not clean cache temporary file: %s", self._log_msg_pfx, e)
 
     def _filesystem_caching_read_bytes(self) -> bytes:
         """
@@ -319,18 +501,14 @@ class Readable(abc.ABC):
                 if cache_path.exists():
                     cache_path.unlink(missing_ok=True)
 
-                # Fetch fresh data
+                # Fetch fresh data (read_contents verifies the digest inline)
                 logger.debug("%s fetching fresh content", self._log_msg_pfx)
 
                 data = self.read_contents()
 
-                # Verify the fresh data before caching
-                verified_data = self._verify_checksum(data)
+                self._write_to_cache(data)
 
-                # Cache the verified data
-                self._write_to_cache(verified_data)
-
-                return verified_data
+                return data
 
     def get_cache_stats(self) -> dict[str, int]:
         """

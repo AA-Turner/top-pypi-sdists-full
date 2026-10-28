@@ -29,6 +29,7 @@ from awswrangler.typing import (
     AthenaPartitionProjectionSettings,
     BucketingInfoTuple,
     GlueTableSettings,
+    OrcCompression,
     _S3WriteDataReturnValue,
 )
 
@@ -314,7 +315,7 @@ def to_orc(
     df: pd.DataFrame,
     path: str | None = None,
     index: bool = False,
-    compression: str | None = None,
+    compression: OrcCompression | None = None,
     pyarrow_additional_kwargs: dict[str, Any] | None = None,
     max_rows_by_file: int | None = None,
     use_threads: bool | int = True,
@@ -368,7 +369,7 @@ def to_orc(
         True to store the DataFrame index in file, otherwise False to ignore it.
         Is not supported in conjunction with `max_rows_by_file` when running the library with Ray/Modin.
     compression
-        Compression style (``None``, ``snappy``, ``gzip``, ``zstd``).
+        Compression style (``None``, ``snappy``, ``zlib``, ``lz4``, ``zstd``).
     pyarrow_additional_kwargs
         Additional parameters forwarded to pyarrow.
         e.g. pyarrow_additional_kwargs={'coerce_timestamps': 'ns', 'use_deprecated_int96_timestamps': False,
@@ -407,7 +408,7 @@ def to_orc(
     concurrent_partitioning
         If True will increase the parallelism level during the partitions writing. It will decrease the
         writing time and increase the memory usage.
-        https://aws-sdk-pandas.readthedocs.io/en/3.17.1/tutorials/022%20-%20Writing%20Partitions%20Concurrently.html
+        https://aws-sdk-pandas.readthedocs.io/en/3.18.0/tutorials/022%20-%20Writing%20Partitions%20Concurrently.html
     mode
         ``append`` (Default), ``overwrite``, ``overwrite_partitions``. Only takes effect if dataset=True.
     catalog_versioning
@@ -416,7 +417,7 @@ def to_orc(
         If True allows schema evolution (new or missing columns), otherwise a exception will be raised. True by default.
         (Only considered if dataset=True and mode in ("append", "overwrite_partitions"))
         Related tutorial:
-        https://aws-sdk-pandas.readthedocs.io/en/3.17.1/tutorials/014%20-%20Schema%20Evolution.html
+        https://aws-sdk-pandas.readthedocs.io/en/3.18.0/tutorials/014%20-%20Schema%20Evolution.html
     database
         Glue/Athena catalog: Database name.
     table

@@ -3,28 +3,58 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from pathlib import Path
+from dataclasses import replace
 from typing import Any, Protocol, overload
 
 import numpy as np
 import torch
 
-from boxmot.components.timing import timed_component_phase
-from boxmot.motion.kalman_filters.noise import KALMAN_NOISE_OPTIONS, KALMAN_TIMING_OPTIONS, normalize_kalman_options
 from boxmot.native.trackers._common import NativeTrackBatch
+from boxmot.reid.protocols import AppearanceEncoder
+from boxmot.reid.specs import ReIDConfig
 from boxmot.structures import Boxes, Detections, Frame, OrientedBoxes, Tracks
 from boxmot.trackers.common.appearance.live import _REID_OPTION_UNSET, LiveReIDMixin
+from boxmot.trackers.common.config import (
+    flatten_tracker_options,
+    get_tracker_config_class,
+    load_tracker_defaults,
+)
 from boxmot.trackers.common.geometry.obb import align_obb_measurement
 from boxmot.trackers.common.input import (
     frame_image_size,
     pack_numpy_track_rows,
     parse_numpy_detection_rows,
     prepare_frame,
+    resolve_sample_id,
 )
-from boxmot.trackers.config import load_tracker_defaults
-from boxmot.trackers.protocols import TrackerRequirements
+from boxmot.trackers.common.mask_guidance import MASK_GUIDANCE_OPTIONS
+from boxmot.trackers.common.motion.kalman_filters.config import normalize_kalman_config
+from boxmot.trackers.common.motion.kalman_filters.noise import (
+    KALMAN_NOISE_OPTIONS,
+    KALMAN_TIMING_OPTIONS,
+)
+from boxmot.trackers.common.protocols import TrackerRequirements
 
 ASSOCIATION_FUNCTIONS = frozenset({"centroid", "ciou", "diou", "giou", "hmiou", "iou"})
+NATIVE_FUSION_DEFAULTS = {
+    "motion_fusion": "off",
+    "fuse_iou": False,
+    "fuse_detection_score": False,
+}
+
+
+def validate_native_fusion_options(tracker_name: str, options: Mapping[str, Any]) -> None:
+    """Reject enabled fusion policies absent from the native tracker ABIs."""
+    unsupported = [
+        name for name, disabled in NATIVE_FUSION_DEFAULTS.items()
+        if options.get(name, disabled) != disabled
+    ]
+    if unsupported:
+        raise ValueError(
+            f"Native {tracker_name} does not implement these fusion options: "
+            + ", ".join(unsupported)
+            + ". Use the Python tracker backend to enable them."
+        )
 
 
 class NativeTrackerLibrary(Protocol):
@@ -76,14 +106,20 @@ def load_native_tracker_config(
     *,
     native_only_keys: Iterable[str] = (),
 ) -> dict[str, Any]:
-    """Load defaults and reject options unsupported by one native backend."""
+    """Resolve typed algorithm defaults and reject unsupported native options."""
 
-    resolved = load_tracker_defaults(tracker_name)
+    resolved = {
+        key: value for key, value in load_tracker_defaults(tracker_name).items() if key not in MASK_GUIDANCE_OPTIONS
+    }
     if options is not None:
+        options = flatten_tracker_options(options)
+        mask_options = sorted(set(options).intersection(MASK_GUIDANCE_OPTIONS))
+        if mask_options:
+            raise ValueError("Native trackers do not support mask guidance options: " + ", ".join(mask_options))
         accepted_keys = (
             set(resolved)
             | set(native_only_keys)
-            | {"variable_dt"}
+            | {"kalman.variable_dt"}
             | set(KALMAN_NOISE_OPTIONS)
             | set(KALMAN_TIMING_OPTIONS)
         )
@@ -92,10 +128,14 @@ def load_native_tracker_config(
             unexpected = next(key for key in options if key in unexpected_keys)
             raise TypeError(f"Native tracker '{tracker_name}' got an unexpected option {unexpected!r}.")
         resolved.update(options)
-    variable_dt = resolved.pop("variable_dt", False)
-    normalize_kalman_options(resolved, variable_dt=variable_dt, tracker_name=tracker_name, backend="cpp")
-    for option in (*KALMAN_NOISE_OPTIONS, *KALMAN_TIMING_OPTIONS):
-        resolved.pop(option, None)
+    config_type = get_tracker_config_class(tracker_name)
+    algorithm = config_type.from_mapping({name: resolved[name] for name in config_type.fields() if name in resolved})
+    resolved.update(algorithm.to_dict())
+    validate_native_fusion_options(tracker_name, resolved)
+    kalman = normalize_kalman_config(resolved, tracker_name=tracker_name, backend="cpp")
+    resolved = {key: value for key, value in resolved.items() if not key.startswith("kalman.")}
+    if kalman.ams is not None:
+        resolved.update({f"ams_{key}": value for key, value in kalman.ams.to_dict().items()})
     return resolved
 
 
@@ -152,11 +192,7 @@ class NativeTrackerAdapter(LiveReIDMixin):
         use_embeddings: bool,
         requires_frame: bool,
         frame_dimensions_only: bool = False,
-        reid_model: Any | None = _REID_OPTION_UNSET,
-        reid_weights: str | Path | list[str | Path] | tuple[str | Path, ...] | None = _REID_OPTION_UNSET,
-        device: Any = _REID_OPTION_UNSET,
-        half: bool = _REID_OPTION_UNSET,
-        reid_preprocess: str | None = _REID_OPTION_UNSET,
+        reid: ReIDConfig | AppearanceEncoder | None = _REID_OPTION_UNSET,
     ) -> None:
         if geometry not in {"aabb", "obb"}:
             raise ValueError("Native tracker geometry must be 'aabb' or 'obb'.")
@@ -165,13 +201,7 @@ class NativeTrackerAdapter(LiveReIDMixin):
         self.geometry = geometry
         self.is_obb = geometry == "obb"
         self.use_embeddings = use_embeddings
-        self._init_live_reid(
-            reid_model=reid_model,
-            reid_weights=reid_weights,
-            device=device,
-            half=half,
-            reid_preprocess=reid_preprocess,
-        )
+        self._init_live_reid(reid=reid)
         self._requirements = TrackerRequirements(
             embeddings=use_embeddings,
             frame=requires_frame,
@@ -179,6 +209,7 @@ class NativeTrackerAdapter(LiveReIDMixin):
         )
         self._library = library
         self._handle = self._library.create(self.cfg)
+        self._sample_index = 0
         self._obb_output_by_track_id: dict[int, np.ndarray] = {}
         self._dimension_only_images: dict[tuple[int, int], np.ndarray] = {}
 
@@ -223,10 +254,17 @@ class NativeTrackerAdapter(LiveReIDMixin):
             # Canonical dataclasses are frozen, but their tensor storage remains
             # mutable. Revalidate before exposing that storage to ctypes.
             detections.validate()
+            self._validate_detection_inputs(detections)
             if detections.is_obb != is_obb:
                 raise ValueError(f"Native {self._native_display_name} is fixed to {self.geometry.upper()} geometry.")
-            if isinstance(frame, Frame) and frame.sample_id != detections.sample_id:
-                raise ValueError("Frame and detections must have the same sample_id.")
+            sample_id = resolve_sample_id(
+                detections.sample_id,
+                frame.sample_id if isinstance(frame, Frame) else None,
+                frame_index=self._sample_index,
+            )
+            if detections.sample_id is None:
+                detections = replace(detections, sample_id=sample_id)
+                canonical_detections = detections
             if (
                 detections.masks is not None
                 and frame is not None
@@ -236,7 +274,6 @@ class NativeTrackerAdapter(LiveReIDMixin):
                     "Detection masks must match the frame spatial size, "
                     f"got {detections.masks.image_size} and {frame_image_size(frame)}."
                 )
-            sample_id = detections.sample_id
             geometry = detections.geometry.values.detach().numpy()
             scores = detections.scores.detach().numpy()
             class_ids = detections.class_ids.detach().numpy()
@@ -253,17 +290,6 @@ class NativeTrackerAdapter(LiveReIDMixin):
             class_ids = rows.class_ids
             embeddings = None
 
-        prepared_bgr = None
-        if (
-            embeddings is None
-            and self.generates_embeddings
-            and len(geometry)
-            and frame is not None
-            and self._reid_encoder_spec is None
-        ):
-            with timed_component_phase("reid", "preprocess", device=self._reid_device):
-                prepared_bgr = self._frame_to_bgr(frame)
-
         embeddings = self._resolve_input_embeddings(
             geometry=geometry,
             embeddings=embeddings,
@@ -271,7 +297,6 @@ class NativeTrackerAdapter(LiveReIDMixin):
             detections=canonical_detections,
             scores=scores,
             class_ids=class_ids,
-            prepared_bgr=prepared_bgr,
         )
         if self.requirements.embeddings and embeddings is None:
             raise ValueError(f"Native {self._native_display_name} requires detection embeddings.")
@@ -279,8 +304,8 @@ class NativeTrackerAdapter(LiveReIDMixin):
             raise ValueError(f"Native {self._native_display_name} requires a frame.")
 
         self._mark_live_reid_updated()
-        image = prepared_bgr
-        if frame is not None and (image is None or self.requirements.frame_dimensions_only):
+        image = None
+        if frame is not None:
             image = _frame_to_bgr(
                 frame,
                 dimensions_only=self.requirements.frame_dimensions_only,
@@ -309,7 +334,7 @@ class NativeTrackerAdapter(LiveReIDMixin):
             )
 
         if numpy_input:
-            return pack_numpy_track_rows(
+            tracks = pack_numpy_track_rows(
                 geometry=output_geometry,
                 track_ids=batch.track_ids,
                 scores=batch.scores,
@@ -319,21 +344,24 @@ class NativeTrackerAdapter(LiveReIDMixin):
                 detection_count=len(scores),
                 owner=f"Native {self._native_display_name}",
             )
-
-        assert sample_id is not None
-        output_batch = NativeTrackBatch(
-            geometry=output_geometry,
-            scores=batch.scores,
-            track_ids=batch.track_ids,
-            class_ids=batch.class_ids,
-            detection_indices=batch.detection_indices,
-        )
-        return _to_tracks(output_batch, sample_id=sample_id, is_obb=is_obb)
+        else:
+            assert sample_id is not None
+            output_batch = NativeTrackBatch(
+                geometry=output_geometry,
+                scores=batch.scores,
+                track_ids=batch.track_ids,
+                class_ids=batch.class_ids,
+                detection_indices=batch.detection_indices,
+            )
+            tracks = _to_tracks(output_batch, sample_id=sample_id, is_obb=is_obb)
+        self._sample_index += 1
+        return tracks
 
     def reset(self) -> None:
         """Reset native state and OBB continuity state."""
 
         self._library.reset(self._handle)
+        self._sample_index = 0
         self._obb_output_by_track_id.clear()
         self._dimension_only_images.clear()
         self._reset_live_reid_sequence()

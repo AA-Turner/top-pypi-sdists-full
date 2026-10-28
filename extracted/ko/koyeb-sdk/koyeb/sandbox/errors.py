@@ -56,7 +56,19 @@ class SandboxTimeoutError(SandboxError):
 
 
 class SandboxDeploymentError(SandboxError):
-    """Raised when a sandbox deployment reaches an error state"""
+    """Raised when a sandbox deployment reaches a terminal state.
+
+    Carries the sandbox name and the terminal status, so callers can branch
+    (e.g. wake on SLEEPING) instead of parsing the message.
+    """
+
+    def __init__(self, sandbox_name: str, status: str):
+        super().__init__(
+            f"Sandbox '{sandbox_name}' deployment reached status {status} "
+            f"— it will not become ready; wake or redeploy the sandbox."
+        )
+        self.sandbox_name = sandbox_name
+        self.status = status
 
 
 class SandboxRequestError(SandboxError):

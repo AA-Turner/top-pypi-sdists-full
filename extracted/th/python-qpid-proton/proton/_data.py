@@ -17,18 +17,11 @@
 # under the License.
 #
 
-import uuid
-from typing import Callable, List, Tuple, Union, Optional, Any, Dict, Iterable, TypeVar
-try:
-    from typing import Literal
-except ImportError:
-    # https://www.python.org/dev/peps/pep-0560/#class-getitem
-    class GenericMeta(type):
-        def __getitem__(self, item):
-            pass
+from __future__ import annotations
 
-    class Literal(metaclass=GenericMeta):  # type: ignore[no-redef]
-        pass
+import uuid
+from collections.abc import Iterable
+from typing import Callable, Union, Optional, Any, TypeVar
 
 from cproton import PN_ARRAY, PN_BINARY, PN_BOOL, PN_BYTE, PN_CHAR, PN_DECIMAL128, PN_DECIMAL32, PN_DECIMAL64, \
     PN_DESCRIBED, PN_DOUBLE, PN_FLOAT, PN_INT, PN_LIST, PN_LONG, PN_MAP, PN_NULL, PN_OVERFLOW, PN_SHORT, PN_STRING, \
@@ -51,14 +44,7 @@ from ._exceptions import DataException, EXCEPTIONS
 
 long = int
 unicode = str
-
 _T = TypeVar('_T')
-
-PythonAMQPData = Union[
-    Dict['PythonAMQPData', 'PythonAMQPData'],
-    List['PythonAMQPData'],
-    'Described', 'Array', int, str, 'symbol', bytes, float, None]
-"""This type annotation represents Python data structures that can be encoded as AMQP Data"""
 
 
 class UnmappedType:
@@ -77,10 +63,10 @@ class ulong(long):
     An unsigned 64 bit integer in the range :math:`0` to :math:`2^{64} - 1` inclusive.
     """
 
-    def __init__(self, u64: int) -> None:
+    def __new__(self, u64: int) -> ulong:
         if u64 < 0:
-            raise AssertionError("initializing ulong with negative value")
-        super(ulong, self).__new__(ulong, u64)
+            raise ValueError("initializing ulong with negative value")
+        return super().__new__(ulong, u64)
 
     def __repr__(self) -> str:
         return "ulong(%s)" % long.__repr__(self)
@@ -162,10 +148,10 @@ class ubyte(int):
     An 8 bit unsigned integer in the range :math:`0` to :math:`2^8 - 1` inclusive.
     """
 
-    def __init__(self, i: int) -> None:
+    def __new__(self, i: int) -> ubyte:
         if i < 0:
-            raise AssertionError("initializing ubyte with negative value")
-        super(ubyte, self).__new__(ubyte, i)
+            raise ValueError("initializing ubyte with negative value")
+        return super().__new__(ubyte, i)
 
     def __repr__(self) -> str:
         return "ubyte(%s)" % int.__repr__(self)
@@ -178,10 +164,10 @@ class ushort(int):
     A 16 bit unsigned integer in the range :math:`0` to :math:`2^{16} - 1` inclusive.
     """
 
-    def __init__(self, i: int) -> None:
+    def __new__(self, i: int) -> ushort:
         if i < 0:
-            raise AssertionError("initializing ushort with negative value")
-        super(ushort, self).__new__(ushort, i)
+            raise ValueError("initializing ushort with negative value")
+        return super().__new__(ushort, i)
 
     def __repr__(self) -> str:
         return "ushort(%s)" % int.__repr__(self)
@@ -194,10 +180,10 @@ class uint(long):
     A 32 bit unsigned integer in the range :math:`0` to :math:`2^{32} - 1` inclusive.
     """
 
-    def __init__(self, u32: int) -> None:
+    def __new__(self, u32: int) -> uint:
         if u32 < 0:
-            raise AssertionError("initializing uint with negative value")
-        super(uint, self).__new__(uint, u32)
+            raise ValueError("initializing uint with negative value")
+        return super().__new__(uint, u32)
 
     def __repr__(self) -> str:
         return "uint(%s)" % long.__repr__(self)
@@ -247,7 +233,7 @@ class decimal128(bytes):
         return "decimal128(%s)" % bytes.__repr__(self)
 
 
-class Described(object):
+class Described:
     """
     A described AMQP type.
 
@@ -276,7 +262,7 @@ class Described(object):
 UNDESCRIBED = Constant("UNDESCRIBED")
 
 
-class Array(object):
+class Array:
     """
     An AMQP array, a sequence of AMQP values of a single type.
 
@@ -318,11 +304,18 @@ class Array(object):
             return False
 
 
+PythonAMQPData = Union[
+    dict['PythonAMQPData', 'PythonAMQPData'],
+    list['PythonAMQPData'],
+    Described, Array, int, str, symbol, bytes, float, None]
+"""This type annotation represents Python data structures that can be encoded as AMQP Data"""
+
+
 def _check_type(
         s: _T,
         allow_ulong: bool = False,
         raise_on_error: bool = True
-) -> Union[symbol, ulong, _T]:
+) -> Union[symbol, _T]:
     if isinstance(s, symbol):
         return s
     if allow_ulong and isinstance(s, ulong):
@@ -334,11 +327,11 @@ def _check_type(
     return s
 
 
-def _check_is_symbol(s: _T, raise_on_error: bool = True) -> Union[symbol, ulong, _T]:
+def _check_is_symbol(s: _T, raise_on_error: bool = True) -> Union[symbol, _T]:
     return _check_type(s, allow_ulong=False, raise_on_error=raise_on_error)
 
 
-def _check_is_symbol_or_ulong(s: _T, raise_on_error: bool = True) -> Union[symbol, ulong, _T]:
+def _check_is_symbol_or_ulong(s: _T, raise_on_error: bool = True) -> Union[symbol, _T]:
     return _check_type(s, allow_ulong=True, raise_on_error=raise_on_error)
 
 
@@ -352,7 +345,7 @@ class RestrictedKeyDict(dict):
             raise_on_error: bool = True,
             **kwargs
     ) -> None:
-        super(RestrictedKeyDict, self).__init__()
+        super().__init__()
         self.validation_fn = validation_fn
         self.raise_on_error = raise_on_error
         self.update(e, **kwargs)
@@ -360,7 +353,7 @@ class RestrictedKeyDict(dict):
     def __setitem__(self, key: Union[symbol, str], value: Any) -> None:
         """Checks if the key is a :class:`symbol` type before setting the value"""
         try:
-            return super(RestrictedKeyDict, self).__setitem__(self.validation_fn(key, self.raise_on_error), value)
+            return super().__setitem__(self.validation_fn(key, self.raise_on_error), value)
         except TypeError:
             pass
         # __setitem__() must raise a KeyError, not TypeError
@@ -419,11 +412,11 @@ class PropertyDict(RestrictedKeyDict):
     """
 
     def __init__(self, e: Optional[Any] = None, raise_on_error: bool = True, **kwargs) -> None:
-        super(PropertyDict, self).__init__(_check_is_symbol, e, raise_on_error, **kwargs)
+        super().__init__(_check_is_symbol, e, raise_on_error, **kwargs)
 
     def __repr__(self):
         """ Representation of PropertyDict """
-        return 'PropertyDict(%s)' % super(PropertyDict, self).__repr__()
+        return 'PropertyDict(%s)' % super().__repr__()
 
 
 class AnnotationDict(RestrictedKeyDict):
@@ -463,15 +456,15 @@ class AnnotationDict(RestrictedKeyDict):
 
     def __init__(
             self,
-            e: Optional[Union[Dict, List, Tuple, Iterable]] = None,
+            e: Union[dict, list, tuple, Iterable, None] = None,
             raise_on_error: bool = True,
             **kwargs
     ) -> None:
-        super(AnnotationDict, self).__init__(_check_is_symbol_or_ulong, e, raise_on_error, **kwargs)
+        super().__init__(_check_is_symbol_or_ulong, e, raise_on_error, **kwargs)
 
     def __repr__(self):
         """ Representation of AnnotationDict """
-        return 'AnnotationDict(%s)' % super(AnnotationDict, self).__repr__()
+        return 'AnnotationDict(%s)' % super().__repr__()
 
 
 class SymbolList(list):
@@ -505,17 +498,17 @@ class SymbolList(list):
 
     def __init__(
             self,
-            t: Optional[List[Any]] = None,
+            t: Optional[list[Any]] = None,
             raise_on_error: bool = True
     ) -> None:
-        super(SymbolList, self).__init__()
+        super().__init__()
         self.raise_on_error = raise_on_error
         if isinstance(t, (str, symbol)):
             self.append(t)
         else:
             self.extend(t)
 
-    def _check_list(self, t: Iterable[Any]) -> List[Any]:
+    def _check_list(self, t: Iterable[Any]) -> list[Any]:
         """ Check all items in list are :class:`symbol`s (or are converted to symbols). """
         item = []
         if t:
@@ -528,23 +521,23 @@ class SymbolList(list):
 
     def append(self, v: str) -> None:
         """ Add a single value v to the end of the list """
-        return super(SymbolList, self).append(_check_is_symbol(v, self.raise_on_error))
+        return super().append(_check_is_symbol(v, self.raise_on_error))
 
     def extend(self, t: Iterable[str]) -> None:
         """ Add all elements of an iterable t to the end of the list """
-        return super(SymbolList, self).extend(self._check_list(t))
+        return super().extend(self._check_list(t))
 
     def insert(self, i: int, v: str) -> None:
         """ Insert a value v at index i """
-        return super(SymbolList, self).insert(i, _check_is_symbol(v, self.raise_on_error))
+        return super().insert(i, _check_is_symbol(v, self.raise_on_error))
 
-    def __add__(self, t: Iterable[Any]) -> 'SymbolList':
+    def __add__(self, t: Iterable[Any]) -> SymbolList:
         """ Handles list1 + list2 """
-        return SymbolList(super(SymbolList, self).__add__(self._check_list(t)), raise_on_error=self.raise_on_error)
+        return SymbolList(super().__add__(self._check_list(t)), raise_on_error=self.raise_on_error)
 
     def __iadd__(self, t):
         """ Handles list1 += list2 """
-        return super(SymbolList, self).__iadd__(self._check_list(t))
+        return super().__iadd__(self._check_list(t))
 
     def __eq__(self, other):
         """ Handles list1 == list2 """
@@ -552,11 +545,11 @@ class SymbolList(list):
 
     def __setitem__(self, i: int, t: Any) -> None:
         """ Handles list[i] = v """
-        return super(SymbolList, self).__setitem__(i, _check_is_symbol(t, self.raise_on_error))
+        return super().__setitem__(i, _check_is_symbol(t, self.raise_on_error))
 
     def __repr__(self) -> str:
         """ Representation of SymbolList """
-        return 'SymbolList(%s)' % super(SymbolList, self).__repr__()
+        return 'SymbolList(%s)' % super().__repr__()
 
 
 class Data:
@@ -1154,7 +1147,7 @@ class Data:
         """
         return pn_data_get_map(self._data)
 
-    def get_array(self) -> Tuple[int, bool, Optional[int]]:
+    def get_array(self) -> tuple[int, bool, Optional[int]]:
         """
         If the current node is an array, return a tuple of the element
         count, a boolean indicating whether the array is described, and
@@ -1374,7 +1367,7 @@ class Data:
         """
         return symbol(pn_data_get_symbol(self._data))
 
-    def copy(self, src: 'Data') -> None:
+    def copy(self, src: Data) -> None:
         """
         Copy the contents of another pn_data_t object. Any values in the
         data object will be lost.
@@ -1409,7 +1402,7 @@ class Data:
         """
         pn_data_dump(self._data)
 
-    def put_dict(self, d: Dict[Any, Any]) -> None:
+    def put_dict(self, d: dict[Any, Any]) -> None:
         """
         A convenience method for encoding the contents of a Python ``dict``
         as an AMQP map.
@@ -1426,7 +1419,7 @@ class Data:
         finally:
             self.exit()
 
-    def get_dict(self) -> Dict[Any, Any]:
+    def get_dict(self) -> dict[Any, Any]:
         """
         A convenience method for decoding an AMQP map as a Python ``dict``.
 
@@ -1446,7 +1439,7 @@ class Data:
                 self.exit()
             return result
 
-    def put_sequence(self, s: List[Any]) -> None:
+    def put_sequence(self, s: list[Any]) -> None:
         """
         A convenience method for encoding a Python ``list`` as an
         AMQP list.
@@ -1462,7 +1455,7 @@ class Data:
         finally:
             self.exit()
 
-    def get_sequence(self) -> List[Any]:
+    def get_sequence(self) -> list[Any]:
         """
         A convenience method for decoding an AMQP list as a Python ``list``.
 

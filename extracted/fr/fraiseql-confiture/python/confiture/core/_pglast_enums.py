@@ -54,6 +54,8 @@ REQUIRED_MEMBERS: Final[dict[str, tuple[str, ...]]] = {
         "AT_SetUnLogged",
         "AT_SetRelOptions",
         "AT_ResetRelOptions",
+        "AT_AttachPartition",
+        "AT_AddInherit",
     ),
     "ConstrType": (
         "CONSTR_NOTNULL",
@@ -93,6 +95,8 @@ REQUIRED_MEMBERS: Final[dict[str, tuple[str, ...]]] = {
         "OBJECT_FOREIGN_TABLE",
     ),
     "SetOperation": ("SETOP_NONE",),
+    "GrantTargetType": ("ACL_TARGET_OBJECT",),
+    "DropBehavior": ("DROP_CASCADE",),
     "A_Expr_Kind": ("AEXPR_OP",),
     "BoolExprType": ("AND_EXPR",),
     "NullTestType": ("IS_NULL", "IS_NOT_NULL"),

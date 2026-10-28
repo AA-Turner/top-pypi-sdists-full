@@ -1,6 +1,6 @@
 """`success` means THE ACTION HAPPENED — never "the call was delivered".
 
-Live evidence, 2026-09-17 (manage.aimatrx.com/administration/users/limits):
+Live evidence, 2026-09-17 (manage.aimatrx.com/admin/users/limits):
   * a `cloud_browser` click on a tab returned ``"success": true`` while the very
     same payload carried ``error_message: "Page.click: Timeout 10000ms
     exceeded."``. A caller that checks ``success`` — the natural thing — believed

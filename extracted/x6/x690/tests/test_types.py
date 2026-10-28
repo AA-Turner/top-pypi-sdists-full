@@ -1,13 +1,15 @@
 # pylint: skip-file
 
-import sys
+import codecs
 from unittest import TestCase
 
 import pytest
 
+import x690.types as t
 from x690.exc import IncompleteDecoding, UnexpectedType, X690Error
 from x690.types import (
     Boolean,
+    GraphicString,
     Integer,
     Null,
     ObjectIdentifier,
@@ -18,7 +20,7 @@ from x690.types import (
     X690Type,
     decode,
 )
-from x690.util import TypeInfo
+from x690.util import TypeClass
 
 from .conftest import assert_bytes_equal
 
@@ -477,33 +479,74 @@ class TestOctetString(TestCase):
         assert result_def == result_indef
 
 
+OMEGA = "\u03a9"  # GREEK CAPITAL LETTER OMEGA, what T.61 0xE0 decodes to
+
+
 class TestT61String(TestCase):
     def test_encode_empty(self):
         result = T61String().encode_raw()
         assert result == b""
 
     def test_encoding(self):
-        value = T61String("hello Ω")
+        value = T61String(f"hello {OMEGA}")
         result = bytes(value)
         expected = b"\x14\x07hello \xe0"
         assert_bytes_equal(result, expected)
 
     def test_decoding(self):
         result, _ = decode(b"\x14\x07hello \xe0")
-        expected = T61String("hello Ω")
+        expected = T61String(f"hello {OMEGA}")
         self.assertEqual(result, expected)
 
+    def test_ohm_sign_is_not_omega(self):
+        # U+2126 (OHM SIGN) is a different code point than U+03A9
+        result, _ = decode(b"\x14\x07hello \xe0")
+        assert result.value == "hello \u03a9"
+        assert result.value != "hello \u2126"
+
     def test_pythonize_from_string(self):
-        obj = T61String("hello Ω")
+        obj = T61String(f"hello {OMEGA}")
         result = obj.pythonize()
-        expected = "hello Ω"
+        expected = f"hello {OMEGA}"
         self.assertEqual(result, expected)
 
     def test_pythonize_from_bytes(self):
         obj = T61String(b"hello \xe0")
         result = obj.pythonize()
-        expected = "hello Ω"
+        expected = f"hello {OMEGA}"
         self.assertEqual(result, expected)
+
+    def test_decode_accented_letters(self):
+        result, _ = decode(b"\x14\x05Caf\xc2e")
+        assert result.value == "Caf\u00e9"
+
+    def test_encode_accented_letters(self):
+        assert_bytes_equal(bytes(T61String("Caf\u00e9")), b"\x14\x05Caf\xc2e")
+
+    def test_valid_t61_decodes_strictly(self):
+        # 0xFC is valid T.61 (thorn)
+        assert T61String(b"M\xfcller").value == "M\u00feller"
+
+    def test_invalid_t61_raises(self):
+        for raw in (b"Stra\xdfe", b"abc\xc2", b"\x80"):
+            with self.subTest(raw=raw):
+                with pytest.raises(UnicodeDecodeError):
+                    T61String(raw)
+                with pytest.raises(UnicodeDecodeError):
+                    T61String.decode_raw(raw)
+                with pytest.raises(UnicodeDecodeError):
+                    result, _ = decode(b"\x14" + bytes([len(raw)]) + raw)
+                    result.pythonize()
+
+    def test_encode_unrepresentable_raises(self):
+        with pytest.raises(UnicodeEncodeError):
+            bytes(T61String("\u65e5\u672c"))
+
+    def test_no_global_codec_registration(self):
+        decode(b"\x14\x07hello \xe0")
+        bytes(T61String("Caf\u00e9"))
+        with pytest.raises(LookupError):
+            codecs.lookup("t61")
 
 
 class TestSequence(TestCase):
@@ -675,7 +718,6 @@ class TestUnknownType(TestCase):
 
     def test_repr(self):
         result = repr(UnknownType(b"abc", 99))
-        typeinfo = TypeInfo("application", "constructed", 3)
         expected = "<UnknownType 99 b'abc' application/constructed/3>"
         self.assertEqual(result, expected)
 
@@ -771,11 +813,36 @@ def test_incomplete_decoding():
     assert exc.value.remainder == b"junk-bytes"
 
 
+def test_incomplete_decoding_single_byte():
+    """
+    Ensure strict decoding raises on a single trailing byte, and accepts
+    input with no trailing bytes at all.
+    """
+    data = bytes(Integer(1)) + b"X"
+    with pytest.raises(IncompleteDecoding) as exc:
+        decode(data, strict=True)
+    assert exc.value.remainder == b"X"
+    assert decode(bytes(Integer(1)), strict=True) == (Integer(1), 3)
+
+
 @pytest.mark.parametrize("cls", X690Type.all())
 def test_repr(cls):
     obj = cls()
     result = repr(obj)
     assert cls.__name__ in result
+
+
+def test_sequence_subclass_repr():
+    """
+    Ensure repr() of a Sequence subclass starts with the subclass name
+    """
+
+    class Sub(Sequence):
+        TYPECLASS = TypeClass.PRIVATE
+        TAG = 30
+
+    assert repr(Sub([Integer(1)])) == "Sub([Integer(1)])"
+    assert repr(Sequence([Integer(1)])) == "Sequence([Integer(1)])"
 
 
 def test_helpful_noarg_error():
@@ -794,3 +861,37 @@ def test_helpful_noarg_error():
     with pytest.raises(X690Error) as exc:
         Foo.from_bytes(b"hello")
     exc.match("no-arg.*x690.types.UNINITIALISED")
+
+
+def test_graphic_string_encoding():
+    """
+    Ensure a GraphicString can be encoded from a str value.
+    """
+    assert bytes(GraphicString("abc")) == b"\x19\x03abc"
+
+
+def test_graphic_string_round_trip():
+    """
+    Ensure decoding GraphicString bytes and encoding them again yields the
+    original bytes.
+    """
+    data = b"\x19\x03abc"
+    value, _ = decode(data)
+    assert value.value == "abc"
+    assert bytes(GraphicString(value.value)) == data
+
+
+def test_graphic_string_non_ascii():
+    """
+    Ensure encoding a non-ASCII GraphicString raises UnicodeEncodeError.
+    """
+    with pytest.raises(UnicodeEncodeError):
+        bytes(GraphicString("abcé"))
+
+
+def test_uninitialised_repr():
+    """
+    Ensure the sentinel is readable in signatures and error messages.
+    """
+    assert repr(t.UNINITIALISED) == "UNINITIALISED"
+    assert isinstance(t.UNINITIALISED, t.Uninitialised)

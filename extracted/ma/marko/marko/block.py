@@ -227,6 +227,10 @@ class CodeBlock(BlockElement):
             else:
                 source.reset()
                 break
+        # Blank lines following the code block are not part of it, even if they
+        # carry more indentation than the code block prefix.
+        while len(lines) > 1 and not lines[-1].strip():
+            lines.pop()
         return "".join(lines).rstrip("\n") + "\n"
 
     @staticmethod
@@ -508,7 +512,7 @@ class List(BlockElement):
 
     priority = 6
     _prefix = ""
-    pattern = re.compile(r" {,3}(\d{1,9}[.)]|[*\-+])[ \t\n\r\f]")
+    pattern = re.compile(r" {,3}(\d{1,9}[.)]|[*\-+])(?:[ \t\n\r\f]|$)")
 
     class ParseInfo(NamedTuple):
         bullet: str
@@ -577,7 +581,7 @@ class ListItem(BlockElement):
 
     virtual = True
     _tight = False
-    pattern = re.compile(r" {,3}(\d{1,9}[.)]|[*\-+])[ \t\n\r\f]")
+    pattern = re.compile(r" {,3}(\d{1,9}[.)]|[*\-+])(?:[ \t\n\r\f]|$)")
 
     class ParseInfo(NamedTuple):
         indent: int
@@ -647,7 +651,7 @@ class LinkRefDef(BlockElement):
     [label]: destination "title"
     """
 
-    pattern = re.compile(r" {,3}(\[[\s\S]*?)(?=\n\n|\Z)", flags=re.MULTILINE)
+    pattern = re.compile(r" {,3}(\[)", flags=re.MULTILINE)
 
     class ParseInfo(NamedTuple):
         link_label: inline_parser.Group

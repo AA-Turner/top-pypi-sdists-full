@@ -34,6 +34,7 @@ class FileType(str, Enum):
     DATA_SOURCE = "Data Source"
     SODA_CLOUD = "Soda Cloud"
     CONTRACT = "Contract"
+    DATA_PRODUCT = "Data Product"
     YAML = "YAML"
 
 
@@ -120,22 +121,26 @@ class YamlSource:
 
     def _ensure_yaml_str(self) -> None:
         if not isinstance(self.yaml_str, str) and isinstance(self.file_path, str) and not self.is_file_read:
-            # There should be only 1 reading attempt.
+            # There should be only 1 reading attempt, so only the first parse() raises why the file can't be read.
             self.is_file_read = True
+            # A file that cannot be read raises its reason, so the caller reports it once.
             try:
-                with open(self.file_path) as f:
+                with open(self.file_path, encoding="utf-8") as f:
                     self.yaml_str = f.read()
                     self.yaml_str_original = self.yaml_str
-                    if len(self.yaml_str) == 0:
-                        logger.error(f"{self.description} is empty")
-
+            # The reason comes from the error open() raised, not from a second look at the path, which can differ.
+            except UnicodeDecodeError:
+                raise YamlParserException(f"{self.description} is not UTF-8 text") from None
+            except FileNotFoundError:
+                raise YamlParserException(f"{self.description} does not exist") from None
+            except IsADirectoryError:
+                raise YamlParserException(f"{self.description} is a directory") from None
             except OSError as e:
-                if not os.path.exists(self.file_path):
-                    logger.error(f"{self.description} does not exist")
-                elif not os.path.isdir(self.file_path):
-                    logger.error(f"{self.description} is a directory")
-                else:
-                    logger.error(f"{self.description} can't be read", exc_info=True)
+                # The OS reason, such as 'Permission denied', never holds file content.
+                reason: str = e.strerror or type(e).__name__
+                raise YamlParserException(f"{self.description} can't be read: {reason}") from None
+            if len(self.yaml_str) == 0:
+                raise YamlParserException(f"{self.description} is empty")
 
     def parse_and_resolve(
         self,
@@ -185,15 +190,6 @@ class YamlSource:
 
         try:
             root_yaml_object: any = self.__yaml_parser.ruamel_yaml_parser.load(self.yaml_str)
-            if isinstance(root_yaml_object, dict):
-                return YamlObject(self, root_yaml_object)
-            else:
-                yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
-                yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
-                raise YamlParserException(
-                    f"{self.description} root must be an object, " f"but was {yaml_type}", str(location)
-                )
-
         except MarkedYAMLError as e:
             message: str = "YAML syntax error"
             mark = e.context_mark if e.context_mark else e.problem_mark
@@ -207,6 +203,17 @@ class YamlSource:
             col = mark.column + 1
             location = Location(file_path=self.file_path, line=line, column=col)
             raise YamlParserException(message, str(location))
+        except Exception as e:
+            # ruamel raises more than MarkedYAMLError on a malformed file: a NUL byte, a tag such as '!!bool maybe'
+            # or nesting too deep. Their text can quote a value, a password in a data source file, so the message
+            # names only the kind of failure and the chain is dropped.
+            raise YamlParserException(f"{self.description} could not be parsed: {type(e).__name__}") from None
+
+        if isinstance(root_yaml_object, dict):
+            return YamlObject(self, root_yaml_object)
+        yaml_type: str = root_yaml_object.__class__.__name__ if root_yaml_object is not None else "empty"
+        yaml_type = "a list" if yaml_type == "CommentedSeq" else yaml_type
+        raise YamlParserException(f"{self.description} root must be an object, but was {yaml_type}", str(location))
 
 
 class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
@@ -348,7 +355,8 @@ class YamlObject(YamlValue):
 
     # TODO: should we move this into the `ContractYaml` class?
     def read_dataset_identifier(self, yaml_key: str, required: bool = True) -> Optional[str]:
-        dataset_qualified_name: Optional[str] = self.read_string_opt(yaml_key)
+        # A missing, null or wrongly typed required value raises through read_string, naming this key.
+        dataset_qualified_name: Optional[str] = self.read_string(yaml_key, required=required)
         if isinstance(dataset_qualified_name, str):
             parts = dataset_qualified_name.split("/")
             if len(parts) < 2:
@@ -358,14 +366,12 @@ class YamlObject(YamlValue):
                     extra={ExtraKeys.LOCATION: self.create_location_from_yaml_dict_key(yaml_key)},
                 )
                 return None
-        elif required:
-            raise YamlParserException("The YAML is missing the required 'dataset' property", str(self.location))
         return dataset_qualified_name
 
     def read_object(self, key: str) -> Optional[YamlObject]:
         """
-        An error is generated if the value is missing or not a YAML object.
-        :return: a YamlObject if the value for the key is a YAML object, otherwise None.
+        Raises YamlParserException if the value is missing, null or not a YAML object.
+        :return: the YamlObject for the key.
         """
         return self.read_value(key=key, expected_type=dict, required=True, default_value=None)
 
@@ -380,8 +386,9 @@ class YamlObject(YamlValue):
         self, key: str, expected_element_type: Optional[type] = None, required: bool = True
     ) -> Optional[YamlList]:
         """
-        An error is generated if the value is missing or not a YAML list.
-        :return: a list if the value for the key is a YAML list, otherwise None.
+        Raises YamlParserException if the value is required and missing, null or not a YAML list. A value that is not
+        required reads as None when missing or null, and is logged and read as None when not a list.
+        :return: the list for the key, or None.
         """
         list_value: Optional[YamlList] = self.read_value(
             key=key, expected_type=list, required=required, default_value=None
@@ -414,10 +421,10 @@ class YamlObject(YamlValue):
         return self.read_value(key=key, expected_type=list, required=False, default_value=None)
 
     def read_list_of_objects_opt(self, key: str) -> Optional[YamlList]:
-        return self.read_list_of_objects(key) if key in self.yaml_dict else None
+        return self.read_list_of_objects(key, required=False)
 
-    def read_list_of_objects(self, key: str) -> Optional[YamlList]:
-        list_value: Optional[YamlList] = self.read_list(key=key, expected_element_type=YamlObject)
+    def read_list_of_objects(self, key: str, required: bool = True) -> Optional[YamlList]:
+        list_value: Optional[YamlList] = self.read_list(key=key, expected_element_type=YamlObject, required=required)
         if isinstance(list_value, YamlList):
             for i in range(0, len(list_value.yaml_list)):
                 element = list_value.yaml_list[i]
@@ -444,8 +451,9 @@ class YamlObject(YamlValue):
 
     def read_string(self, key: str, env_var: Optional[str] = None, required: bool = True) -> Optional[str]:
         """
-        An error is generated if the value is missing or not a string.
-        :return: a str if the value for the key is a YAML string, otherwise None.
+        Raises YamlParserException if the value is required and missing, null or not a string. A value that is not
+        required reads as None when missing or null, and is logged and read as None when not a string.
+        :return: the str for the key, or None.
         """
         return self.read_value(key=key, env_var=env_var, expected_type=str, required=required, default_value=None)
 
@@ -460,8 +468,8 @@ class YamlObject(YamlValue):
 
     def read_bool(self, key: str) -> Optional[bool]:
         """
-        An appropriate error log is generated if the value is not a bool or if the key is missing
-        :return: a bool if the value for the key is a YAML boolean, otherwise None.
+        Raises YamlParserException if the value is missing, null or not a bool.
+        :return: the bool for the key.
         """
         return self.read_value(key=key, expected_type=bool, required=True, default_value=None)
 
@@ -474,8 +482,8 @@ class YamlObject(YamlValue):
 
     def read_number(self, key: str) -> Optional[Number]:
         """
-        An appropriate error log is generated if the value is not a number or if the key is missing
-        :return: a bool if the value for the key is a YAML number, otherwise None.
+        Raises YamlParserException if the value is missing, null or not a number.
+        :return: the Number for the key.
         """
         return self.read_value(key=key, expected_type=Number, required=True, default_value=None)
 
@@ -504,6 +512,8 @@ class YamlObject(YamlValue):
             value = os.environ[env_var]
         elif key in self.yaml_dict:
             value = self.yaml_dict.get(key)
+            if value is None and required:
+                raise YamlParserException(f"{key_description} must not be null", str(location))
         else:
             if required:
                 raise YamlParserException(f"{key_description} is required", str(location))
@@ -523,22 +533,29 @@ class YamlObject(YamlValue):
                 actual_type_str = "YAML object"
             elif isinstance(value, list):
                 actual_type_str = "YAML list"
-            logger.error(
-                msg=f"{key_description} expected one of {[et.__name__ for et in expected_types]}, "
-                f"but was {actual_type_str}",
-                extra={
-                    ExtraKeys.LOCATION: location,
-                },
+            message: str = (
+                f"{key_description} expected one of {[et.__name__ for et in expected_types]}, but was {actual_type_str}"
             )
+            # A required value is missing, null or of the wrong type: each one stops reading.
+            if required:
+                raise YamlParserException(message, str(location))
+            logger.error(msg=message, extra={ExtraKeys.LOCATION: location})
             value = None
 
-        return self.yaml_wrap(value, location=location, resolve=key not in self.yaml_source.unresolved_keys)
+        wrapped_value = self.yaml_wrap(value, location=location, resolve=key not in self.yaml_source.unresolved_keys)
+        # The checks above see the value as written; a lone variable that resolves to nothing only shows here.
+        if required and wrapped_value is None:
+            raise YamlParserException(f"{key_description} has no value after resolving its variables", str(location))
+        return wrapped_value
 
     def create_location_from_yaml_dict_key(self, key) -> Optional[Location]:
         if isinstance(self.yaml_dict, CommentedMap):
             if key in self.yaml_dict:
                 try:
-                    ruamel_location = self.yaml_dict.lc.value(key)
+                    # ruamel places a null value at the start of whatever follows it, so a null points at its key.
+                    ruamel_location = (
+                        self.yaml_dict.lc.key(key) if self.yaml_dict[key] is None else self.yaml_dict.lc.value(key)
+                    )
                     line: int = ruamel_location[0]
                     column: int = ruamel_location[1]
                 except (KeyError, TypeError):

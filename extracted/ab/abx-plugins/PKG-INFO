@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: abx-plugins
-Version: 1.13.568
+Version: 1.13.581
 Summary: ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)
 Project-URL: Homepage, https://plugins.archivebox.io/
 Project-URL: Source, https://github.com/ArchiveBox/abx-plugins
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.12
 Requires-Dist: abxbus==2.5.79
-Requires-Dist: abxpkg==1.13.70
+Requires-Dist: abxpkg==1.13.73
 Requires-Dist: certifi>=2026.10.19
 Requires-Dist: imagesize>=2.0.0
 Requires-Dist: rich-click>=1.9.7
@@ -140,6 +140,14 @@ is used as a fallback, adding at most 256 KiB of text. HTML parsing itself is
 bounded to 16 MiB of cleaned input per source and 64 MiB per snapshot. Sonic
 snapshot metadata also has a 16 MiB cleaned-input bound before JSON decoding.
 Search limits never modify the saved capture files.
+
+LiteParse declares LibreOffice alongside its parser because upstream converts
+Office documents and spreadsheets, including CSV/TSV, to PDF before extracting
+text and structured pages. The apt dependency includes Writer, Calc, and Impress
+for the advertised document families; macOS uses the LibreOffice cask with its
+required installation actions enabled (`--skip-post-install` is formula-only). Keeping
+this in `required_binaries` makes clean installs behave like developer machines
+without adding a second document parser or changing archived source bytes.
 
 - `SNAP_DIR` - base snapshot directory (default: `.`)
 - `CRAWL_DIR` - base crawl directory (default: `.`)

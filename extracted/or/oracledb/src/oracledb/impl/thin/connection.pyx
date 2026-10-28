@@ -69,6 +69,8 @@ cdef class ThinConnImpl(BaseConnImpl):
         bint _action_modified
         str _dbop
         bint _dbop_modified
+        bint _database_opentelemetry_tracing
+        bint _database_opentelemetry_tracing_modified
         str _client_info
         bint _client_info_modified
         str _client_identifier
@@ -99,7 +101,6 @@ cdef class ThinConnImpl(BaseConnImpl):
         uint32_t _call_timeout
         str _cclass
         int _dbobject_type_cache_num
-        bytes _combo_key
         bytes _connection_id_bytes
         str _connection_id
         bint _is_pooled
@@ -110,7 +111,8 @@ cdef class ThinConnImpl(BaseConnImpl):
         uint8_t pipeline_mode
         uint8_t _session_state_desired
         _SessionlessData _sessionless_data
-        EndUserSecurityContextImpl security_context
+        EndUserSecurityContextImpl _security_context
+        bint _send_full_security_context
         bint _send_ha_readiness
 
     def __init__(self, bint is_async = False):
@@ -130,16 +132,19 @@ cdef class ThinConnImpl(BaseConnImpl):
 
     def _close(self):
         """
-        Closes the connection to the database.
+        Closes the connection to the database. If recovery should not be
+        attempted, the logoff and eof messages are not sent, since they will
+        result in an error anyway.
         """
         cdef WriteBuffer buf = self._protocol._write_buf
         try:
             self._clear_dbobject_type_cache()
             self._protocol._check_is_healthy()
-            if self._protocol._transport is not None and not self._drcp_enabled:
+            if self._protocol._should_attempt_recovery() \
+                    and not self._drcp_enabled:
                 yield self._create_message(LogoffMessage, "logoff")
             self._protocol._check_is_healthy()
-            if self._protocol._transport is not None:
+            if self._protocol._should_attempt_recovery():
                 buf.start_request(TNS_PACKET_TYPE_DATA, "eof", 0,
                                   TNS_DATA_FLAGS_EOF)
                 buf.end_request()
@@ -304,6 +309,7 @@ cdef class ThinConnImpl(BaseConnImpl):
                 if packet_flags & TNS_PACKET_FLAG_TLS_RENEG:
                     negotiate_tls_sub_op = \
                             NegotiateTlsSubOp.__new__(NegotiateTlsSubOp)
+                    negotiate_tls_sub_op.params = self.connect_params
                     negotiate_tls_sub_op.description = description
                     negotiate_tls_sub_op.address = address
                     negotiate_tls_sub_op.conn_impl = self
@@ -318,6 +324,7 @@ cdef class ThinConnImpl(BaseConnImpl):
         an exception will be raised.
         """
         cdef:
+            NetworkServicesMessage network_services_message
             DataTypesMessage data_types_message
             FastAuthMessage fast_auth_message
             ProtocolMessage protocol_message
@@ -346,11 +353,21 @@ cdef class ThinConnImpl(BaseConnImpl):
             )
 
         # send the network services message, if applicable
-        if self.connect_params.externalauth and address.protocol == "tcps" \
-                and description.wallet_location is not None:
-            yield self._create_message(
+        if (self.connect_params.use_eztls and address.protocol == "tcp") \
+                or (self.connect_params.externalauth \
+                        and address.protocol == "tcps" \
+                        and description.wallet_location is not None):
+            network_services_message = self._create_message(
                 NetworkServicesMessage, "network_services"
             )
+            if self.connect_params.use_eztls and address.protocol == "tcp":
+                network_services_message.enable_eztls()
+            yield network_services_message
+            if network_services_message.tls_wrapper is not None:
+                network_services_message.complete_negotiation()
+                network_services_message.send(self._protocol._write_buf)
+                self._protocol._transport._tls_wrapper = \
+                        network_services_message.tls_wrapper
 
         # create the messages that need to be sent to the server
         protocol_message = self._create_message(ProtocolMessage, "protocol")
@@ -547,8 +564,14 @@ cdef class ThinConnImpl(BaseConnImpl):
             SessionReleaseMessage message
             int cache_num
 
+        # reset database OpenTelemetry tracing
+        if self._database_opentelemetry_tracing:
+            self._database_opentelemetry_tracing = False
+            self._database_opentelemetry_tracing_modified = True
+
         # clear end user security context and any pending warning
-        self.security_context = None
+        self._security_context = None
+        self._send_full_security_context = True
         self.warning = None
 
         # clear cursors in database object type cache, if applicable
@@ -616,6 +639,7 @@ cdef class ThinConnImpl(BaseConnImpl):
         cdef:
             dict session_data = auth_message.session_data
             ReadBuffer buf = self._protocol._read_buf
+            str server_eusc_flag
         self._session_id = <uint32_t> int(session_data["AUTH_SESSION_ID"])
         self._serial_num = <uint16_t> int(session_data["AUTH_SERIAL_NUM"])
         self._db_domain = session_data.get("AUTH_SC_DB_DOMAIN")
@@ -627,6 +651,10 @@ cdef class ThinConnImpl(BaseConnImpl):
         self._instance_name = session_data.get("AUTH_INSTANCENAME")
         self._max_identifier_length = \
                 int(session_data.get("AUTH_MAX_IDEN_LENGTH", 30))
+        if server_eusc_flag := session_data.get("AUTH_CLIENT_EUSC_FLAG"):
+            self._protocol._caps.supports_end_user_security_context_hash = (
+                int(server_eusc_flag) & TNS_EUSC_HASH_SUPPORTED
+            ) != 0
         self.server_version = auth_message._get_version_tuple(buf)
         self.supports_bool = \
                 buf._caps.ttc_field_version >= TNS_CCAP_FIELD_VERSION_23_1
@@ -634,6 +662,14 @@ cdef class ThinConnImpl(BaseConnImpl):
         self.warning = auth_message.warning
         buf._pending_error_num = 0
         self._protocol._in_connect = False
+        if self.connect_params.use_eztls:
+            self._protocol._transport._requires_verify_write = True
+            # ensure that the first packet does not exceed the maximum allowed
+            # for encryption expansion and the server verification structure
+            # - 24 bytes for verification structure
+            # - 64 bytes for digest of server certificate
+            # - 128 bytes for encryption expansion
+            self._protocol._write_buf.set_padding_size(24 + 64 + 128)
 
     async def _process_async_operation_sub_op(self, object sub_op):
         """
@@ -710,6 +746,15 @@ cdef class ThinConnImpl(BaseConnImpl):
         result_impl.warning = cursor.warning
         result_impl.fetch_metadata = cursor._impl.fetch_metadata
 
+    cdef bytes _session_key(self):
+        """
+        Returns the session key that is used to encrypt/decrypt secrets sent
+        to and received from the database. If password authentication was not
+        used, this value is None.
+        """
+        if self._protocol._transport is not None:
+            return self._protocol._transport._session_key
+
     cdef int _start_sessionless_transaction(
         self,
         bytes transaction_id,
@@ -776,7 +821,8 @@ cdef class ThinConnImpl(BaseConnImpl):
         """
         Clears the end user security context.
         """
-        self.security_context = None
+        self._security_context = None
+        self._send_full_security_context = True
 
     def close(self):
         """
@@ -1128,7 +1174,8 @@ cdef class ThinConnImpl(BaseConnImpl):
             errors._raise_err(
                 errors.ERR_UNSUPPORTED_DEEP_DATA_SECURITY_FEATURE
             )
-        self.security_context = context
+        self._security_context = context
+        self._send_full_security_context = True
 
     def set_external_name(self, value):
         self._external_name = value
@@ -1143,6 +1190,30 @@ cdef class ThinConnImpl(BaseConnImpl):
         # action to be set as well (which eliminates this error)
         self._action_modified = True
 
+    def set_opentelemetry_trace_context(self, traceparent, tracestate):
+        """
+        Sets the OpenTelemetry trace context, or disables it if traceparent is
+        None.
+        """
+        cdef:
+            bint enabled = traceparent is not None
+            str trace_context
+        if not self._protocol._caps.supports_opentelemetry_tracing:
+            errors._raise_err(errors.ERR_UNSUPPORTED_DB_OPENTELEMETRY_FEATURE)
+        if not enabled:
+            trace_context = ""
+        else:
+            trace_context = f"traceparent: {traceparent}\r\n"
+            if tracestate:
+                trace_context += f"tracestate: {tracestate}\r\n"
+        self.set_app_context(
+            "CLIENTCONTEXT",
+            **{"ORA$OPENTELEM$TRACECTX": trace_context},
+        )
+        if self._database_opentelemetry_tracing != enabled:
+            self._database_opentelemetry_tracing = enabled
+            self._database_opentelemetry_tracing_modified = True
+
     def set_stmt_cache_size(self, uint32_t value):
         self._statement_cache.resize(value)
 
@@ -1155,6 +1226,12 @@ cdef class ThinConnImpl(BaseConnImpl):
             errors._raise_err(errors.ERR_UNSUPPORTED_TXN_PRIORITY)
         self._txn_priority = value
         self._txn_priority_modified = True
+
+    def supports_opentelemetry_tracing(self):
+        """
+        Returns whether the database supports OpenTelemetry tracing or not.
+        """
+        return self._protocol._caps.supports_opentelemetry_tracing
 
     def supports_pipelining(self):
         """
@@ -1328,6 +1405,7 @@ cdef class TcpConnectSubOp(SubOperation):
 cdef class NegotiateTlsSubOp(SubOperation):
     cdef:
         ThinConnImpl conn_impl
+        ConnectParamsImpl params
         Description description
         Address address
         object orig_transport
@@ -1337,7 +1415,7 @@ cdef class NegotiateTlsSubOp(SubOperation):
         Runs the callback synchronously.
         """
         self.conn_impl._protocol._transport.renegotiate_tls(
-            self.address, self.description
+            self.params, self.address, self.description
         )
 
     async def process_async(self):
@@ -1346,5 +1424,8 @@ cdef class NegotiateTlsSubOp(SubOperation):
         """
         self.conn_impl._protocol._transport._transport = self.orig_transport
         await self.conn_impl._protocol._transport.negotiate_tls_async(
-            self.conn_impl._protocol, self.address, self.description
+            self.conn_impl._protocol,
+            self.params,
+            self.address,
+            self.description,
         )

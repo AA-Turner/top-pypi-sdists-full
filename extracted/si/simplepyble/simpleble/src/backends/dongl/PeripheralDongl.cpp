@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <memory>
 #include <thread>
@@ -19,7 +20,7 @@
 #include "protocol/simpleble.pb.h"
 #include "simpleble/Types.h"
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 using namespace SimpleBLE;
 using namespace std::chrono_literals;
@@ -93,11 +94,12 @@ void PeripheralDongl::connect() {
     {
         std::unique_lock<std::mutex> lock(connection_mutex_);
         // Waiting past the Dongl's own deadline means the Dongl stopped responding. Don't resend the command.
-        const bool reported = connection_cv_.wait_for(lock, CONNECT_TIMEOUT + CONNECT_RESULT_MARGIN,
-                                                      [this]() { return _connect_result.has_value(); });
+        connection_cv_.wait_for(lock, CONNECT_TIMEOUT + CONNECT_RESULT_MARGIN,
+                                [this]() { return _connect_result.has_value() || _lost; });
         _connect_pending = false;
-        if (!reported) {
+        if (!_connect_result.has_value()) {
             _conn_handle = BLE_CONN_HANDLE_INVALID;
+            if (_lost) throw Exception::OperationFailed("Lost the connection to the Dongl");
             throw Exception::OperationFailed("Dongl did not report the connection result");
         }
         result = *_connect_result;
@@ -185,6 +187,53 @@ void PeripheralDongl::set_numeric_comparison_callback(const std::function<bool(c
     }
 }
 
+void PeripheralDongl::secure_connection(bool mitm) {
+    if (!is_connected()) throw Exception::NotConnected();
+
+    // The result can arrive before the response to the command, so register the request first. The id is random so
+    // that a late result from an earlier request isn't taken for this one.
+    const uint8_t request_id = std::rand() % 255 + 1;
+    {
+        std::lock_guard<std::mutex> lock(connection_mutex_);
+        _security_result.reset();
+        _security_request_id = request_id;
+    }
+
+    simpleble_SecureConnectionRsp response;
+    try {
+        response = _serial_protocol->simpleble_secure_connection(_conn_handle, request_id, mitm);
+    } catch (...) {
+        std::lock_guard<std::mutex> lock(connection_mutex_);
+        _security_request_id = 0;
+        throw;
+    }
+    if (response.ret_code != 0) {
+        std::lock_guard<std::mutex> lock(connection_mutex_);
+        _security_request_id = 0;
+        throw Exception::OperationFailed(fmt::format("Failed to secure the connection: {}", response.ret_code));
+    }
+
+    simpleble_SecurityCompleteEvt result;
+    {
+        std::unique_lock<std::mutex> lock(connection_mutex_);
+        connection_cv_.wait_for(lock, SECURITY_RESULT_TIMEOUT,
+                                [this]() { return _security_result.has_value() || _lost; });
+        _security_request_id = 0;
+        if (!_security_result.has_value()) {
+            if (_lost) throw Exception::OperationFailed("Lost the connection to the Dongl");
+            throw Exception::OperationFailed("Dongl did not report the security result");
+        }
+        result = *_security_result;
+    }
+
+    if (result.ret_code != 0) {
+        // The Dongl disconnects when it can't secure the connection, so wait for the disconnection.
+        std::unique_lock<std::mutex> lock(disconnection_mutex_);
+        disconnection_cv_.wait_for(lock, 500ms, [this]() { return !is_connected(); });
+        throw Exception::OperationFailed(fmt::format("Failed to secure the connection: {}", result.ret_code));
+    }
+}
+
 SharedPtrVector<ServiceBase> PeripheralDongl::available_services() {
     SharedPtrVector<ServiceBase> service_list;
     for (auto& service : _services) {
@@ -206,8 +255,12 @@ SharedPtrVector<ServiceBase> PeripheralDongl::available_services() {
 
 SharedPtrVector<ServiceBase> PeripheralDongl::advertised_services() {
     std::lock_guard<std::mutex> lock(_advertising_mutex);
+    // The advertisement wins over the scan response, as insert() keeps existing keys.
+    auto service_data = _advertisement.service_data;
+    service_data.insert(_scan_response.service_data.begin(), _scan_response.service_data.end());
+
     SharedPtrVector<ServiceBase> service_list;
-    for (auto& [service_uuid, data] : _service_data) {
+    for (auto& [service_uuid, data] : service_data) {
         service_list.push_back(std::make_shared<ServiceBase>(service_uuid, data));
     }
 
@@ -216,10 +269,8 @@ SharedPtrVector<ServiceBase> PeripheralDongl::advertised_services() {
 
 std::map<uint16_t, ByteArray> PeripheralDongl::manufacturer_data() {
     std::lock_guard<std::mutex> lock(_advertising_mutex);
-    auto data = _scan_response.manufacturer_data;
-    for (auto& [company_id, bytes] : _advertisement.manufacturer_data) {
-        data[company_id] = bytes;
-    }
+    auto data = _advertisement.manufacturer_data;
+    data.insert(_scan_response.manufacturer_data.begin(), _scan_response.manufacturer_data.end());
     return data;
 }
 
@@ -394,10 +445,7 @@ void PeripheralDongl::update_advertising_data(Dongl::advertising_data_t advertis
     auto& packet = advertising_data.scan_response ? _scan_response : _advertisement;
     packet.tx_power = advertising_data.tx_power;
     packet.manufacturer_data = std::move(advertising_data.manufacturer_data);
-
-    for (auto& [uuid, data] : advertising_data.service_data) {
-        _service_data[uuid] = std::move(data);
-    }
+    packet.service_data = std::move(advertising_data.service_data);
 }
 
 void PeripheralDongl::_resolve_missing_uuids() {
@@ -464,6 +512,17 @@ void PeripheralDongl::notify_disconnected() {
     if (notify) {
         SAFE_CALLBACK_CALL(this->_callback_on_disconnected);
     }
+}
+
+void PeripheralDongl::notify_lost() {
+    // The Dongl can't report the result of a pending connection anymore, so wake up connect().
+    {
+        std::lock_guard<std::mutex> lock(connection_mutex_);
+        _lost = true;
+    }
+    connection_cv_.notify_all();
+
+    notify_disconnected();
 }
 
 void PeripheralDongl::notify_service_discovered(simpleble_ServiceDiscoveredEvt const& evt) {
@@ -537,16 +596,13 @@ void PeripheralDongl::notify_connect_complete(simpleble_ConnectCompleteEvt const
     if (orphaned) {
         // connect() already gave up on this attempt, so nobody will use the link.
         SIMPLEBLE_LOG_WARN("Connection completed after connect() gave up; disconnecting");
-        task_runner_.dispatch(
-            [this, conn_handle = evt.conn_handle]() -> std::optional<std::chrono::milliseconds> {
-                try {
-                    _serial_protocol->simpleble_disconnect(conn_handle);
-                } catch (const std::exception& e) {
-                    SIMPLEBLE_LOG_ERROR(fmt::format("Failed to disconnect abandoned connection: {}", e.what()));
-                }
-                return std::nullopt;
-            },
-            0ms);
+        _enqueue([this, conn_handle = evt.conn_handle]() {
+            try {
+                _serial_protocol->simpleble_disconnect(conn_handle);
+            } catch (const std::exception& e) {
+                SIMPLEBLE_LOG_ERROR(fmt::format("Failed to disconnect abandoned connection: {}", e.what()));
+            }
+        });
     }
 }
 
@@ -561,37 +617,30 @@ void PeripheralDongl::notify_value_changed(simpleble_ValueChangedEvt const& evt)
 void PeripheralDongl::notify_passkey_display(simpleble_PasskeyDisplayEvt const& evt) {
     const std::string passkey = evt.passkey;
     if (evt.match_request) {
-        task_runner_.dispatch(
-            [this, conn_handle = evt.conn_handle, request_id = evt.request_id,
-             passkey]() -> std::optional<std::chrono::milliseconds> {
-                bool accept = false;
-                try {
-                    accept = numeric_comparison_callback_(passkey);
-                } catch (const std::exception& e) {
-                    SIMPLEBLE_LOG_ERROR(fmt::format("Numeric comparison callback failed: {}", e.what()));
-                } catch (...) {
-                    SIMPLEBLE_LOG_ERROR("Numeric comparison callback failed with an unknown exception");
-                }
+        _enqueue([this, conn_handle = evt.conn_handle, request_id = evt.request_id, passkey]() {
+            bool accept = false;
+            try {
+                accept = numeric_comparison_callback_(passkey);
+            } catch (const std::exception& e) {
+                SIMPLEBLE_LOG_ERROR(fmt::format("Numeric comparison callback failed: {}", e.what()));
+            } catch (...) {
+                SIMPLEBLE_LOG_ERROR("Numeric comparison callback failed with an unknown exception");
+            }
 
-                _send_auth_key_reply(conn_handle, request_id, {}, accept);
-                return std::nullopt;
-            },
-            0ms);
+            _send_auth_key_reply(conn_handle, request_id, {}, accept);
+        });
         return;
     }
 
-    task_runner_.dispatch(
-        [this, passkey]() -> std::optional<std::chrono::milliseconds> {
-            try {
-                passkey_display_callback_(passkey);
-            } catch (const std::exception& e) {
-                SIMPLEBLE_LOG_ERROR(fmt::format("Passkey display callback failed: {}", e.what()));
-            } catch (...) {
-                SIMPLEBLE_LOG_ERROR("Passkey display callback failed with an unknown exception");
-            }
-            return std::nullopt;
-        },
-        0ms);
+    _enqueue([this, passkey]() {
+        try {
+            passkey_display_callback_(passkey);
+        } catch (const std::exception& e) {
+            SIMPLEBLE_LOG_ERROR(fmt::format("Passkey display callback failed: {}", e.what()));
+        } catch (...) {
+            SIMPLEBLE_LOG_ERROR("Passkey display callback failed with an unknown exception");
+        }
+    });
 }
 
 void PeripheralDongl::notify_auth_key_request(simpleble_AuthKeyRequestEvt const& evt) {
@@ -600,34 +649,47 @@ void PeripheralDongl::notify_auth_key_request(simpleble_AuthKeyRequestEvt const&
         SIMPLEBLE_LOG_WARN(fmt::format("Unsupported pairing key type: {}", static_cast<int>(evt.key_type)));
     }
 
-    task_runner_.dispatch(
-        [this, request_passkey, conn_handle = evt.conn_handle,
-         request_id = evt.request_id]() -> std::optional<std::chrono::milliseconds> {
-            std::optional<std::string> passkey;
-            try {
-                if (request_passkey) {
-                    passkey = passkey_request_callback_();
-                }
-            } catch (const std::exception& e) {
-                SIMPLEBLE_LOG_ERROR(fmt::format("Passkey request callback failed: {}", e.what()));
-            } catch (...) {
-                SIMPLEBLE_LOG_ERROR("Passkey request callback failed with an unknown exception");
+    _enqueue([this, request_passkey, conn_handle = evt.conn_handle, request_id = evt.request_id]() {
+        std::optional<std::string> passkey;
+        try {
+            if (request_passkey) {
+                passkey = passkey_request_callback_();
             }
+        } catch (const std::exception& e) {
+            SIMPLEBLE_LOG_ERROR(fmt::format("Passkey request callback failed: {}", e.what()));
+        } catch (...) {
+            SIMPLEBLE_LOG_ERROR("Passkey request callback failed with an unknown exception");
+        }
 
-            std::vector<uint8_t> key;
-            const bool accept = passkey && passkey->size() == 6 &&
-                                std::all_of(passkey->begin(), passkey->end(),
-                                            [](char c) { return c >= '0' && c <= '9'; });
-            if (accept) {
-                key.assign(passkey->begin(), passkey->end());
-            } else if (passkey) {
-                SIMPLEBLE_LOG_WARN("Passkey request callback returned an invalid passkey");
-            }
+        std::vector<uint8_t> key;
+        const bool accept = passkey && passkey->size() == 6 &&
+                            std::all_of(passkey->begin(), passkey->end(), [](char c) { return c >= '0' && c <= '9'; });
+        if (accept) {
+            key.assign(passkey->begin(), passkey->end());
+        } else if (passkey) {
+            SIMPLEBLE_LOG_WARN("Passkey request callback returned an invalid passkey");
+        }
 
-            _send_auth_key_reply(conn_handle, request_id, key, accept);
-            return std::nullopt;
-        },
-        0ms);
+        _send_auth_key_reply(conn_handle, request_id, key, accept);
+    });
+}
+
+void PeripheralDongl::notify_security_complete(simpleble_SecurityCompleteEvt const& evt) {
+    {
+        std::lock_guard<std::mutex> lock(connection_mutex_);
+        // Every peripheral receives this event, so only take the result of our own request.
+        if (evt.request_id != _security_request_id) return;
+        _security_result = evt;
+    }
+    connection_cv_.notify_all();
+}
+
+void PeripheralDongl::_enqueue(std::function<void()> func) {
+    std::lock_guard<std::mutex> lock(scheduler_mutex_);
+    if (!scheduler_) {
+        scheduler_.emplace();
+    }
+    scheduler_->enqueue(std::move(func));
 }
 
 void PeripheralDongl::_send_auth_key_reply(uint16_t conn_handle, uint32_t request_id, const std::vector<uint8_t>& key,
@@ -672,8 +734,10 @@ PeripheralDongl::CharacteristicDefinition& PeripheralDongl::_find_characteristic
 
 PeripheralDongl::CharacteristicDefinition& PeripheralDongl::_find_characteristic_from_uuid(
     BluetoothUUID const& service_uuid, BluetoothUUID const& characteristic_uuid) {
+    bool service_found = false;
     for (auto& service : _services) {
         if (service.uuid == service_uuid) {
+            service_found = true;
             for (auto& characteristic : service.characteristics) {
                 if (characteristic.uuid == characteristic_uuid) {
                     return characteristic;
@@ -682,7 +746,8 @@ PeripheralDongl::CharacteristicDefinition& PeripheralDongl::_find_characteristic
         }
     }
 
-    throw std::runtime_error(fmt::format("Characteristic {} not found", characteristic_uuid));
+    if (!service_found) throw Exception::ServiceNotFound(service_uuid);
+    throw Exception::CharacteristicNotFound(characteristic_uuid);
 }
 
 PeripheralDongl::DescriptorDefinition& PeripheralDongl::_find_descriptor_from_uuid(
@@ -694,5 +759,5 @@ PeripheralDongl::DescriptorDefinition& PeripheralDongl::_find_descriptor_from_uu
         }
     }
 
-    throw std::runtime_error(fmt::format("Descriptor {} not found", descriptor_uuid));
+    throw Exception::DescriptorNotFound(descriptor_uuid);
 }

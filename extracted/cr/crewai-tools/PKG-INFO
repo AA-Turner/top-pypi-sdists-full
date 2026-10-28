@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: crewai-tools
-Version: 1.15.30
+Version: 1.15.32
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI
@@ -8,7 +8,7 @@ Project-URL: Documentation, https://docs.crewai.com
 Author-email: João Moura <joaomdmoura@gmail.com>
 Requires-Python: <3.14,>=3.10
 Requires-Dist: beautifulsoup4<5,>=4.13.4
-Requires-Dist: crewai==1.15.30
+Requires-Dist: crewai==1.15.32
 Requires-Dist: pymupdf~=1.26.6
 Requires-Dist: python-docx~=1.2.0
 Requires-Dist: pytube~=15.0.0
@@ -19,7 +19,8 @@ Provides-Extra: apify
 Requires-Dist: langchain-apify<1.0.0,>=0.1.2; extra == 'apify'
 Provides-Extra: azure-documentdb
 Requires-Dist: azure-identity<2,>=1.17.0; extra == 'azure-documentdb'
-Requires-Dist: pymongo>=4.18.2; extra == 'azure-documentdb'
+Requires-Dist: pymongo<4.18.3,>=4.18.2; (python_version < '3.11') and extra == 'azure-documentdb'
+Requires-Dist: pymongo>=4.18.3; (python_version >= '3.11') and extra == 'azure-documentdb'
 Provides-Extra: beautifulsoup4
 Requires-Dist: beautifulsoup4>=4.12.3; extra == 'beautifulsoup4'
 Provides-Extra: bedrock
@@ -58,7 +59,8 @@ Provides-Extra: mcp
 Requires-Dist: mcp<2,>=1.30.0; extra == 'mcp'
 Requires-Dist: mcpadapt>=0.1.9; extra == 'mcp'
 Provides-Extra: mongodb
-Requires-Dist: pymongo>=4.18.2; extra == 'mongodb'
+Requires-Dist: pymongo<4.18.3,>=4.18.2; (python_version < '3.11') and extra == 'mongodb'
+Requires-Dist: pymongo>=4.18.3; (python_version >= '3.11') and extra == 'mongodb'
 Provides-Extra: multion
 Requires-Dist: multion>=1.1.0; extra == 'multion'
 Provides-Extra: mysql

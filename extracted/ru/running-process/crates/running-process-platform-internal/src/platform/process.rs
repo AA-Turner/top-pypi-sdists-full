@@ -365,13 +365,13 @@ pub trait SpawnedChildControl:
     fn wait(&mut self) -> std::io::Result<i32>;
     fn try_wait(&mut self) -> std::io::Result<Option<i32>>;
     fn shutdown(&mut self);
-    #[cfg(feature = "independent-spawn")]
-    fn retain_exit_identity(&mut self) {}
+    fn retain_exit_identity(&mut self) -> std::io::Result<()> {
+        Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
+    }
     #[cfg(feature = "independent-spawn")]
     fn detach(&mut self) -> std::io::Result<()> {
         Ok(())
     }
-    #[cfg(feature = "independent-spawn")]
     fn kill_tree(&mut self) -> std::io::Result<()> {
         self.kill()
     }
@@ -402,9 +402,11 @@ impl SpawnedChild {
         }
     }
 
-    #[cfg(feature = "independent-spawn")]
-    pub(crate) fn retain_exit_identity(&mut self) {
-        self.inner.retain_exit_identity();
+    /// Ask the control backend to preserve child identity through cleanup.
+    /// The native Unix backend retains the waitable leader only when the
+    /// drain watcher was disabled at spawn. Unsupported controls fail closed.
+    pub fn retain_exit_identity(&mut self) -> std::io::Result<()> {
+        self.inner.retain_exit_identity()
     }
     #[cfg(feature = "independent-spawn")]
     pub(crate) fn commit_detached(&mut self) -> std::io::Result<()> {
@@ -412,8 +414,13 @@ impl SpawnedChild {
         self.kill_on_drop = false;
         Ok(())
     }
-    #[cfg(feature = "independent-spawn")]
-    pub(crate) fn kill_tree(&mut self) -> std::io::Result<()> {
+    /// Request termination of the contained process tree.
+    /// Native contained backends target the group or Job Object; custom
+    /// controls default to terminating only the direct child. This initiates
+    /// termination and does not itself wait for every descendant to exit.
+    /// Unix group signaling is best effort and can fail without an error;
+    /// callers needing confirmed termination must verify it separately.
+    pub fn kill_tree(&mut self) -> std::io::Result<()> {
         self.inner.kill_tree()
     }
     /// Return the operating-system process identifier.
@@ -525,24 +532,14 @@ pub enum OwnerDeathCleanupStage {
 }
 
 /// A failure to install owner-death containment, and the step it failed at.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("{stage:?}: {source}")]
 pub struct OwnerDeathCleanupError {
     /// The step that failed.
     pub stage: OwnerDeathCleanupStage,
     /// What the host reported.
+    #[source]
     pub source: std::io::Error,
-}
-
-impl std::fmt::Display for OwnerDeathCleanupError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}: {}", self.stage, self.source)
-    }
-}
-
-impl std::error::Error for OwnerDeathCleanupError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.source)
-    }
 }
 
 pub use crate::{
@@ -569,11 +566,13 @@ pub enum ProcessInspectErrorKind {
 }
 
 /// A failure to inspect or signal a process, and what kind of failure it was.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("{kind:?}: {source}")]
 pub struct ProcessInspectError {
     /// Which of the four situations this is.
     pub kind: ProcessInspectErrorKind,
     /// What the host reported.
+    #[source]
     pub source: std::io::Error,
 }
 
@@ -592,18 +591,6 @@ impl ProcessInspectError {
             kind,
             source: std::io::Error::other(message.to_string()),
         }
-    }
-}
-
-impl std::fmt::Display for ProcessInspectError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}: {}", self.kind, self.source)
-    }
-}
-
-impl std::error::Error for ProcessInspectError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.source)
     }
 }
 
@@ -812,4 +799,18 @@ mod exit_signal_tests {
         assert!(status.success());
         assert_eq!(super::exit_signal(&status), None);
     }
+}
+
+/// Validate argv restrictions imposed by the native process backend.
+pub fn validate_spawn_argv_platform(
+    argv: &[std::ffi::OsString],
+    cwd: Option<&std::path::Path>,
+    env: Option<&[(std::ffi::OsString, std::ffi::OsString)]>,
+) -> std::io::Result<()> {
+    crate::validate_spawn_argv_platform(argv, cwd, env)
+}
+
+/// Prepare stdio for argv mode while preserving the native child identity.
+pub fn prepare_argv_stdio(stdio: SpawnStdio<'_>) -> SpawnStdio<'_> {
+    crate::prepare_argv_stdio(stdio)
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: resolve-robotics-uri-py
-Version: 0.6.0
+Version: 0.6.1
 Summary: Pure python package to solve ROS-style package:// and Gazebo-style model:// URIs in absolute paths.
 Home-page: https://github.com/ami-iit/resolve-robotics-uri-py
 Author: Silvio Traversaro

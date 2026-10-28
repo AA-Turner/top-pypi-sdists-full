@@ -119,13 +119,11 @@ from .model import (
 )
 from .optimizers import SGD, Adam, Optimizer, RAdam
 from .schedules import (
-    Schedule,
     compounding,
     constant,
     constant_then,
     cyclic_triangular,
     decaying,
-    plateau,
     slanted_triangular,
     warmup_linear,
 )
@@ -162,11 +160,6 @@ from .util import (
     xp2torch,
 )
 
-try:
-    from .backends import AppleOps
-except ImportError:
-    AppleOps = None
-
 # fmt: off
 __all__ = [
     # .config
@@ -186,8 +179,8 @@ __all__ = [
     # .optimizers
     "Adam", "RAdam", "SGD", "Optimizer",
     # .schedules
-    "Schedule", "cyclic_triangular", "warmup_linear", "constant", "constant_then",
-    "decaying", "slanted_triangular", "compounding", "plateau",
+    "cyclic_triangular", "warmup_linear", "constant", "constant_then",
+    "decaying", "slanted_triangular", "compounding",
     # .types
     "Ragged", "Padded", "ArgsKwargs", "Unserializable",
     # .util
@@ -203,7 +196,7 @@ __all__ = [
     "has_cupy",
     # .backends
     "get_ops", "set_current_ops", "get_current_ops", "use_ops",
-    "Ops", "AppleOps", "CupyOps", "MPSOps", "NumpyOps", "set_gpu_allocator",
+    "Ops", "CupyOps", "MPSOps", "NumpyOps", "set_gpu_allocator",
     "use_pytorch_for_gpu_memory", "use_tensorflow_for_gpu_memory",
     # .layers
     "Dropout", "Embed", "expand_window", "HashEmbed", "LayerNorm", "Linear",

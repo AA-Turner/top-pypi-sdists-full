@@ -23,6 +23,7 @@ from fit_tool.fit_file_header import FitFileHeader, ProfileVersion, ProtocolVers
 from fit_tool.profile.messages.field_description_message import FieldDescriptionMessage
 from fit_tool.record import Record, RecordHeader
 from fit_tool.wire.model import (
+    TIMESTAMP_FIELD_ID,
     FitDocument,
     FitSegment,
     RawDataRecord,
@@ -30,8 +31,6 @@ from fit_tool.wire.model import (
     RawFileHeader,
     RawRecord,
 )
-
-_TIMESTAMP_FIELD_ID = 253
 
 
 def project_header(raw: RawFileHeader) -> FitFileHeader:
@@ -157,7 +156,7 @@ def project_data_record(
 
 def _apply_resolved_timestamp(message: DataMessage, timestamp: int) -> None:
     """Inject a reconstructed FIT date_time into field 253 when present."""
-    field = message.get_field(_TIMESTAMP_FIELD_ID)
+    field = message.get_field(TIMESTAMP_FIELD_ID)
     if field is None:
         return
     if field.size == 0:
@@ -199,8 +198,24 @@ def register_developer_field(
     fields_by_id[developer_field.field_id] = developer_field
 
 
-# Backward-compatible private alias used by earlier Stage 2 code / tests.
-_register_developer_field = register_developer_field
+def project_raw_record(
+        raw: RawRecord,
+        developer_fields_by_data_index: dict[int, dict[int, DeveloperField]],
+        *,
+        accumulators: dict[tuple[int, int], int] | None = None,
+) -> Record:
+    """Project one wire record and register any Field Description it carries."""
+    if isinstance(raw, RawDefinitionRecord):
+        return project_definition_record(raw)
+    if isinstance(raw, RawDataRecord):
+        record = project_data_record(
+            raw,
+            developer_fields_by_data_index,
+            accumulators=accumulators,
+        )
+        register_developer_field(record, developer_fields_by_data_index)
+        return record
+    raise FitRecordError(f'Unsupported wire record type: {type(raw)!r}')
 
 
 def project_segment(
@@ -215,18 +230,13 @@ def project_segment(
         accumulators = {}
 
     for raw in segment.records:
-        if isinstance(raw, RawDefinitionRecord):
-            record = project_definition_record(raw)
-        elif isinstance(raw, RawDataRecord):
-            record = project_data_record(
+        records.append(
+            project_raw_record(
                 raw,
                 developer_fields_by_data_index,
                 accumulators=accumulators,
             )
-            register_developer_field(record, developer_fields_by_data_index)
-        else:
-            raise FitRecordError(f'Unsupported wire record type: {type(raw)!r}')
-        records.append(record)
+        )
 
     return records
 
@@ -238,21 +248,3 @@ def project_document(document: FitDocument) -> list[Record]:
     for segment in document.segments:
         records.extend(project_segment(segment, accumulators=accumulators))
     return records
-
-
-def project_records(records: list[RawRecord]) -> list[Record]:
-    """Project a sequence of raw records (used by unit tests)."""
-    segment = FitSegment(
-        header=RawFileHeader(
-            header_size=14,
-            protocol_version=0x20,
-            profile_version=0,
-            records_size=0,
-            data_type=b'.FIT',
-            crc=None,
-            source_offset=0,
-            source_bytes=b'',
-        ),
-        records=list(records),
-    )
-    return project_segment(segment)

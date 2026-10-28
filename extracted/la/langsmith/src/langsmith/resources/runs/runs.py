@@ -19,6 +19,14 @@ from ..._httpx import httpx
 from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
 from ..._compat import cached_property
+from .streaming import (
+    StreamingResource,
+    AsyncStreamingResource,
+    StreamingResourceWithRawResponse,
+    AsyncStreamingResourceWithRawResponse,
+    StreamingResourceWithStreamingResponse,
+    AsyncStreamingResourceWithStreamingResponse,
+)
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
     to_raw_response_wrapper,
@@ -37,6 +45,10 @@ __all__ = ["RunsResource", "AsyncRunsResource"]
 
 
 class RunsResource(SyncAPIResource):
+    @cached_property
+    def streaming(self) -> StreamingResource:
+        return StreamingResource(self._client)
+
     @cached_property
     def share(self) -> ShareResource:
         return ShareResource(self._client)
@@ -126,6 +138,7 @@ class RunsResource(SyncAPIResource):
         filter: str | Omit = omit,
         has_error: bool | Omit = omit,
         ids: SequenceNotStr[str] | Omit = omit,
+        include_subtree_usage: bool | Omit = omit,
         is_root: bool | Omit = omit,
         max_feedback_modified_at: Union[str, datetime] | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
@@ -178,6 +191,12 @@ class RunsResource(SyncAPIResource):
               (false).
 
           ids: `ids` optionally limits the request to these run UUIDs.
+
+          include_subtree_usage: `include_subtree_usage` enriches selected token and cost fields on root and
+              intermediate runs with subtree totals, and selected `first_token_time` with the
+              earliest observed subtree timestamp. Descendants contribute regardless of this
+              request's filters or time bounds. Runs without observed descendants retain their
+              original values. Defaults to false.
 
           is_root: `is_root` returns only root runs (true) or only non-root runs (false).
 
@@ -256,6 +275,7 @@ class RunsResource(SyncAPIResource):
                     "filter": filter,
                     "has_error": has_error,
                     "ids": ids,
+                    "include_subtree_usage": include_subtree_usage,
                     "is_root": is_root,
                     "max_feedback_modified_at": max_feedback_modified_at,
                     "max_start_time": max_start_time,
@@ -399,6 +419,10 @@ class RunsResource(SyncAPIResource):
 
 class AsyncRunsResource(AsyncAPIResource):
     @cached_property
+    def streaming(self) -> AsyncStreamingResource:
+        return AsyncStreamingResource(self._client)
+
+    @cached_property
     def share(self) -> AsyncShareResource:
         return AsyncShareResource(self._client)
 
@@ -487,6 +511,7 @@ class AsyncRunsResource(AsyncAPIResource):
         filter: str | Omit = omit,
         has_error: bool | Omit = omit,
         ids: SequenceNotStr[str] | Omit = omit,
+        include_subtree_usage: bool | Omit = omit,
         is_root: bool | Omit = omit,
         max_feedback_modified_at: Union[str, datetime] | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
@@ -539,6 +564,12 @@ class AsyncRunsResource(AsyncAPIResource):
               (false).
 
           ids: `ids` optionally limits the request to these run UUIDs.
+
+          include_subtree_usage: `include_subtree_usage` enriches selected token and cost fields on root and
+              intermediate runs with subtree totals, and selected `first_token_time` with the
+              earliest observed subtree timestamp. Descendants contribute regardless of this
+              request's filters or time bounds. Runs without observed descendants retain their
+              original values. Defaults to false.
 
           is_root: `is_root` returns only root runs (true) or only non-root runs (false).
 
@@ -617,6 +648,7 @@ class AsyncRunsResource(AsyncAPIResource):
                     "filter": filter,
                     "has_error": has_error,
                     "ids": ids,
+                    "include_subtree_usage": include_subtree_usage,
                     "is_root": is_root,
                     "max_feedback_modified_at": max_feedback_modified_at,
                     "max_start_time": max_start_time,
@@ -779,6 +811,10 @@ class RunsResourceWithRawResponse:
         )
 
     @cached_property
+    def streaming(self) -> StreamingResourceWithRawResponse:
+        return StreamingResourceWithRawResponse(self._runs.streaming)
+
+    @cached_property
     def share(self) -> ShareResourceWithRawResponse:
         return ShareResourceWithRawResponse(self._runs.share)
 
@@ -802,6 +838,10 @@ class AsyncRunsResourceWithRawResponse:
         self.query = async_to_raw_response_wrapper(
             runs.query,
         )
+
+    @cached_property
+    def streaming(self) -> AsyncStreamingResourceWithRawResponse:
+        return AsyncStreamingResourceWithRawResponse(self._runs.streaming)
 
     @cached_property
     def share(self) -> AsyncShareResourceWithRawResponse:
@@ -829,6 +869,10 @@ class RunsResourceWithStreamingResponse:
         )
 
     @cached_property
+    def streaming(self) -> StreamingResourceWithStreamingResponse:
+        return StreamingResourceWithStreamingResponse(self._runs.streaming)
+
+    @cached_property
     def share(self) -> ShareResourceWithStreamingResponse:
         return ShareResourceWithStreamingResponse(self._runs.share)
 
@@ -852,6 +896,10 @@ class AsyncRunsResourceWithStreamingResponse:
         self.query = async_to_streamed_response_wrapper(
             runs.query,
         )
+
+    @cached_property
+    def streaming(self) -> AsyncStreamingResourceWithStreamingResponse:
+        return AsyncStreamingResourceWithStreamingResponse(self._runs.streaming)
 
     @cached_property
     def share(self) -> AsyncShareResourceWithStreamingResponse:

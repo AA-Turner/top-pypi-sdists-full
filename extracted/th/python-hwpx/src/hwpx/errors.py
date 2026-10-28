@@ -259,6 +259,7 @@ ERROR_CODES: dict[str, str] = {
     "story-linkage": "기존 머리말/꼬리말 컨트롤과 구역 적용 정보가 서로 맞지 않는다.",
     # -- 문서 파트(doc.parts) ----------------------------------------------
     "parts-no-header-part": "문서에 header.xml 파트가 없다(doc.parts 경로).",
+    "package-text-replacement-key-empty": "치환할 텍스트(키)가 비어 있다.",
     "parts-auto-spacing-unknown-para-pr": "그 id 의 hh:paraPr 를 문서에서 찾지 못했다.",
     "header-compat-empty-target-program": "target_program 값이 비어 있다.",
     "header-compat-empty-flag-name": "layout compatibility 플래그 이름이 비어 있다.",
@@ -280,6 +281,7 @@ ERROR_CODES: dict[str, str] = {
     "style-list-level-invalid": "글머리표/번호 수준이 1 이상 10 이하의 int 가 아니다(bool 도 거부, 한/글 목록은 10수준까지다).",
     "style-list-property-failed": "번호 문단모양을 만들지 못했다.",
     "style-font-face-empty": "face 값이 비어 있다.",
+    "style-run-font-by-lang-invalid": "font_by_lang 이 언어 이름 → 글꼴 이름 매핑이 아니다(문자열 아닌 키·값, 같은 언어 두 번).",
     "style-font-lang-invalid": "lang 값이 OWPML 어휘(HANGUL/LATIN/HANJA/JAPANESE/OTHER/SYMBOL/USER) 밖이다.",
     "style-font-type-invalid": "font_type/subst_type 값이 OWPML 어휘(REP/TTF/HFT) 밖이다.",
     "style-font-substitute-incomplete": "대체 글꼴 인자가 일부만 주어졌다(subst_face 가 필요하다).",

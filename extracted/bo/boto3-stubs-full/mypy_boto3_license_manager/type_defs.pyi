@@ -28,6 +28,7 @@ from .literals import (
     EntitlementDataUnitType,
     EntitlementUnitType,
     GrantStatusType,
+    GrantTypeType,
     InventoryFilterConditionType,
     LicenseAssetGroupStatusType,
     LicenseConfigurationStatusType,
@@ -301,12 +302,13 @@ class ConsumedLicenseSummaryTypeDef(TypedDict):
 class ProvisionalConfigurationTypeDef(TypedDict):
     MaxTimeToLiveInMinutes: int
 
+class OptionsTypeDef(TypedDict):
+    ActivationOverrideBehavior: NotRequired[ActivationOverrideBehaviorType]
+    DesiredStatus: NotRequired[GrantStatusType]
+
 class TagTypeDef(TypedDict):
     Key: NotRequired[str]
     Value: NotRequired[str]
-
-class OptionsTypeDef(TypedDict):
-    ActivationOverrideBehavior: NotRequired[ActivationOverrideBehaviorType]
 
 class LicenseAssetGroupConfigurationTypeDef(TypedDict):
     UsageDimension: NotRequired[str]
@@ -432,6 +434,7 @@ class ReceivedMetadataTypeDef(TypedDict):
     ReceivedStatus: NotRequired[ReceivedStatusType]
     ReceivedStatusReason: NotRequired[str]
     AllowedOperations: NotRequired[list[AllowedOperationType]]
+    GrantType: NotRequired[GrantTypeType]
 
 class InventoryFilterTypeDef(TypedDict):
     Name: str
@@ -715,23 +718,6 @@ class ConsumptionConfigurationTypeDef(TypedDict):
     ProvisionalConfiguration: NotRequired[ProvisionalConfigurationTypeDef]
     BorrowConfiguration: NotRequired[BorrowConfigurationTypeDef]
 
-class CreateGrantRequestTypeDef(TypedDict):
-    ClientToken: str
-    GrantName: str
-    LicenseArn: str
-    Principals: Sequence[str]
-    HomeRegion: str
-    AllowedOperations: Sequence[AllowedOperationType]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: list[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class TagResourceRequestTypeDef(TypedDict):
-    ResourceArn: str
-    Tags: Sequence[TagTypeDef]
-
 class CreateGrantVersionRequestTypeDef(TypedDict):
     ClientToken: str
     GrantArn: str
@@ -754,6 +740,26 @@ class GrantTypeDef(TypedDict):
     GrantedOperations: list[AllowedOperationType]
     StatusReason: NotRequired[str]
     Options: NotRequired[OptionsTypeDef]
+    GrantType: NotRequired[GrantTypeType]
+
+class CreateGrantRequestTypeDef(TypedDict):
+    ClientToken: str
+    GrantName: str
+    LicenseArn: str
+    Principals: Sequence[str]
+    HomeRegion: str
+    AllowedOperations: Sequence[AllowedOperationType]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    GrantType: NotRequired[GrantTypeType]
+    Options: NotRequired[OptionsTypeDef]
+
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class TagResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+    Tags: Sequence[TagTypeDef]
 
 class CreateLicenseAssetGroupRequestTypeDef(TypedDict):
     Name: str

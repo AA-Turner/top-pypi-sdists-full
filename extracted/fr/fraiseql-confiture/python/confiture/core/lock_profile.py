@@ -26,28 +26,16 @@ per row (baseline: PostgreSQL 17 documentation, "Explicit Locking" and
 "ALTER TABLE").
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from typing import TYPE_CHECKING
 
 from confiture.core.replica.classifier import (
-    AddColumn,
-    AddConstraint,
-    AddEnumValue,
+    KIND_BY_OP,
     Benign,
-    ChangeColumnType,
-    CreateIndex,
-    CreateTable,
     DdlOperation,
-    DropColumn,
     DropObject,
-    DropTable,
-    RenameColumn,
-    RenameObject,
     ReplaceObject,
-    Revoke,
-    SetNotNull,
-    Truncate,
 )
 
 if TYPE_CHECKING:
@@ -59,6 +47,7 @@ __all__ = [
     "LockProfile",
     "constraint_profile",
     "lock_profile",
+    "on_created_relation",
     "profile_for_kind",
     "validated_under",
     "worst_profile",
@@ -181,6 +170,21 @@ _NO_LOCK = LockProfile(
 )
 
 
+def on_created_relation(profile: LockProfile) -> LockProfile:
+    """*profile* on a relation the same migration created: it takes its lock, and waits on no one.
+
+    No session outside the migration can see the relation yet, so the lock
+    blocks no reader or writer. What the operation scans or rewrites it still
+    does: a relation created from a query holds rows.
+    """
+    return replace(
+        profile,
+        blocks_reads=False,
+        blocks_writes=False,
+        note="on a relation this migration creates: no other session can see it yet",
+    )
+
+
 def validated_under(held: LockProfile) -> LockProfile:
     """``VALIDATE CONSTRAINT`` in the transaction whose ``ADD`` took *held*: the scan holds it."""
     return LockProfile(
@@ -242,7 +246,10 @@ def profile_for_kind(
     """
     if kind == "add_column":
         return _add_column(
-            has_default=has_default, nullable=nullable, server_version=server_version
+            has_default=has_default,
+            nullable=nullable,
+            server_version=server_version,
+            rewrites=bool(rewrites),
         )
     if kind == "set_not_null":
         return _set_not_null(server_version, proven_by_check=proven_by_check)
@@ -396,32 +403,19 @@ _PROFILE_BY_KIND: dict[str, LockProfile] = {
     ),
 }
 
-# DdlOperation class → the kind naming the same change. The typed classifier and
-# the change-set vocabulary meet here and nowhere else.
-_KIND_BY_OP: dict[type[DdlOperation], str] = {
-    AddColumn: "add_column",
-    DropColumn: "drop_column",
-    RenameColumn: "rename_column",
-    RenameObject: "rename_object",
-    ChangeColumnType: "alter_column_type",
-    AddConstraint: "add_constraint",
-    CreateIndex: "create_index",
-    CreateTable: "create_table",
-    DropTable: "drop_table",
-    Truncate: "truncate",
-    Revoke: "revoke",
-    SetNotNull: "set_not_null",
-    AddEnumValue: "alter_type",
-}
-
 
 def lock_profile(op: DdlOperation, *, server_version: int | None = None) -> LockProfile:
     """The lock and rewrite cost of a typed operation. See :func:`profile_for_kind`."""
+    profile = _typed_profile(op, server_version=server_version)
+    return on_created_relation(profile) if op.fresh else profile
+
+
+def _typed_profile(op: DdlOperation, *, server_version: int | None) -> LockProfile:
     if isinstance(op, Benign):
         return profile_for_kind(op.kind, server_version=server_version)
     if isinstance(op, (DropObject, ReplaceObject)):
         return _NO_LOCK
-    kind = _KIND_BY_OP.get(type(op))
+    kind = KIND_BY_OP.get(type(op))
     if kind is None:
         return _UNKNOWN
     return profile_for_kind(
@@ -430,13 +424,28 @@ def lock_profile(op: DdlOperation, *, server_version: int | None = None) -> Lock
         nullable=getattr(op, "nullable", True),
         concurrently=getattr(op, "concurrently", False),
         not_valid=getattr(op, "not_valid", False),
+        rewrites=getattr(op, "rewrites", None),
         server_version=server_version,
     )
 
 
-def _add_column(*, has_default: bool, nullable: bool, server_version: int | None) -> LockProfile:
-    """`ADD COLUMN` is metadata-only; a default is too, once a server says it can be."""
+def _add_column(
+    *, has_default: bool, nullable: bool, server_version: int | None, rewrites: bool = False
+) -> LockProfile:
+    """`ADD COLUMN` is metadata-only; a default is too, once a server says it can be.
+
+    A volatile default (``rewrites``) is computed for every row: a rewrite on every version.
+    """
     del nullable  # named for the call sites; both NOT NULL forms cost the same
+    if rewrites:
+        return LockProfile(
+            lock=LockLevel.ACCESS_EXCLUSIVE,
+            rewrites_table=True,
+            blocks_reads=True,
+            blocks_writes=True,
+            duration=Duration.MINUTES_PLUS,
+            note="a volatile default is computed for every row, which rewrites the table",
+        )
     if not has_default:
         return _METADATA_ALTER
     if server_version is not None:

@@ -17,7 +17,7 @@ from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, distribution
 from time import monotonic
-from typing import IO, Any, cast
+from typing import IO, Any, TypeVar, cast
 from urllib.parse import quote, urlencode
 
 from .exceptions import (
@@ -59,6 +59,22 @@ SENSITIVE_KEY_SUFFIXES = (
 )
 
 REQUEST_DEADLINE_MESSAGE = "request deadline exceeded"
+
+
+IteratorItem = TypeVar("IteratorItem")
+
+
+@contextmanager
+def closing_iterator(
+    source: Iterator[IteratorItem],
+) -> Iterator[Iterator[IteratorItem]]:
+    """Release a closable iterator before the caller starts another request."""
+    try:
+        yield source
+    finally:
+        close = getattr(source, "close", None)
+        if close is not None:
+            close()
 
 
 def remaining_timeout(
@@ -181,10 +197,8 @@ class RequestSpec:
     # delay expiry until it returns.
     # None uses only the client's configured timeout.
     deadline: float | None = None
-    # SSE only: bound the idle gap between reads. None keeps the
-    # stream open indefinitely (the server sends keepalives); a
-    # deadline-driven follower sets its remaining budget here so a
-    # silent stream cannot outlive the caller's timeout
+    # SSE read inactivity limit. Any incoming data, including ping frames,
+    # renews this budget. None disables it; deadline still bounds the stream.
     read_timeout: float | None = None
 
 

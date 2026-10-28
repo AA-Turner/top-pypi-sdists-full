@@ -175,6 +175,7 @@ def update(
     --migrate-only: eagerly finish pending filesystem migrations for known rows.
     --index-only: reconcile known snapshot assets/metadata and backfill search.
     --rescan: discover filesystem orphans first, then repair known snapshots.
+              With filters, repair only the selected database snapshots.
     Explicit scans default to newest first; --reverse selects oldest first.
     Filters select existing database snapshots for targeted updates.
     """
@@ -252,8 +253,8 @@ def update(
     exit_code = 0
 
     try:
-        if rescan and (is_filtered_update or resume or continuous):
-            raise click.UsageError("--rescan cannot be combined with filters, --resume, or --continuous; rerun it to resume automatically.")
+        if rescan and (resume or continuous):
+            raise click.UsageError("--rescan cannot be combined with --resume or --continuous; rerun it to resume automatically.")
         if rescan:
             migrate_only = True  # Discovery must not schedule new captures.
         wait_for_turn()
@@ -261,16 +262,36 @@ def update(
         with foreground_shutdown_signals(), foreground_parent_watchdog():
             while True:
                 if rescan:
-                    from archivebox.cli.rescan import rescan_snapshots
+                    from archivebox.cli.rescan import reconcile_known_snapshots, rescan_snapshots
 
-                    rescan_snapshots(
-                        wait_for_turn=wait_for_turn,
-                        reverse=reverse,
-                        scan_legacy=lambda: drain_old_archive_dirs(batch_size=batch_size, reverse=reverse),
-                    )
-                do_migrate = migrate_only or is_filtered_update and not index_only
+                    if is_filtered_update:
+                        snapshots = _build_filtered_snapshots_queryset(
+                            filter_patterns=filter_patterns,
+                            filter_type=filter_type,
+                            status=status,
+                            url__icontains=url__icontains,
+                            url__istartswith=url__istartswith,
+                            tag=tag,
+                            crawl_id=crawl_id,
+                            limit=limit,
+                            sort=sort,
+                            search=search,
+                            before=before,
+                            after=after,
+                            reverse=reverse,
+                        )
+                        reconcile_known_snapshots(snapshots, wait_for_turn=wait_for_turn, repair_unattributed_size=True)
+                    else:
+                        rescan_snapshots(
+                            wait_for_turn=wait_for_turn,
+                            reverse=reverse,
+                            scan_legacy=lambda: drain_old_archive_dirs(batch_size=batch_size, reverse=reverse),
+                        )
+                # Filtered reconciliation already migrates these directories
+                # synchronously; a runner pass would touch sealed rows again.
+                do_migrate = not (rescan and is_filtered_update) and (migrate_only or is_filtered_update and not index_only)
                 do_index = index_only
-                if not do_migrate and not do_index:
+                if not do_migrate and not do_index and not rescan:
                     print(
                         "[*] Collection ready. Filesystem migrations remain lazy; use --migrate-only, --index-only, or --rescan for explicit scans.",
                     )
@@ -464,7 +485,7 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500
     from archivebox.crawls.models import Crawl
     from django.utils import timezone
 
-    stats = {"processed": 0, "migrated": 0, "queued": 0, "skipped": 0, "invalid": 0, "removed_symlinks": 0}
+    stats = {"processed": 0, "migrated": 0, "queued": 0, "skipped": 0, "invalid": 0, "errors": 0, "removed_symlinks": 0}
     crawl_url_lines: dict[str, list[str]] = {}
     crawl_url_sets: dict[str, set[str]] = {}
     dirty_crawl_ids: set[str] = set()
@@ -544,10 +565,16 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500
 
             try:
                 snapshot.status = Snapshot.StatusChoices.SEALED
-                snapshot.retry_at = timezone.now()
+                snapshot.retry_at = None
                 # Snapshot.save() owns URL validation and filesystem/index side
                 # effects. Do not use bulk_create() here; it bypasses save().
-                snapshot.save()
+                snapshot.save(force_insert=True)
+                snapshot.migrate_filesystem_to_current_version(source_dir=entry_path)
+                if snapshot._imported_dates:
+                    Snapshot.objects.filter(pk=snapshot.pk).update(**snapshot._imported_dates)
+                    for name, value in snapshot._imported_dates.items():
+                        setattr(snapshot, name, value)
+                snapshot.write_index_jsonl()
 
                 crawl = _get_snapshot_crawl(snapshot)
                 if crawl is not None:
@@ -563,10 +590,11 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500
                         existing_urls.add(snapshot.url)
                         dirty_crawl_ids.add(crawl_cache_key)
 
-                stats["queued"] += 1
-                print(f"    [{stats['processed']}] Imported orphaned snapshot and queued migration: {entry_path.name}")
+                stats["migrated"] += 1
+                print(f"    [{stats['processed']}] Imported orphaned snapshot: {entry_path.name}")
             except Exception as e:
                 stats["skipped"] += 1
+                stats["errors"] += 1
                 print(f"    [{stats['processed']}] Skipped (error: {e}): {entry_path.name}")
             continue
 
@@ -848,7 +876,7 @@ def print_index_stats(stats: dict[str, Any]) -> None:
 @click.option(
     "--rescan",
     is_flag=True,
-    help="Scan all snapshot directories for orphans and metadata repairs (slow, opt-in, safe to restart)",
+    help="Repair metadata in selected snapshots, or scan all directories for orphans when unfiltered (slow, opt-in, safe to restart)",
 )
 @snapshot_filter_options(default_filter_type="exact")
 @docstring(update.__doc__)

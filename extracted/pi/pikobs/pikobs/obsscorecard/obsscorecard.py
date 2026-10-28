@@ -863,16 +863,21 @@ def arg_call() -> None:
         print(f"--{arg} {getattr(args, arg)}", flush=True)
     for attr in ("pathwork", "datestart", "dateend"):
         if getattr(args, attr) in _UNSET:
-            raise ValueError(f"--{attr} is required")
+            p.error(f"--{attr} is required ({attr.upper()} in the wrapper)")
     paths = [x for x in split_tokens(args.path_experience_files) if x not in _UNSET]
     names = [x for x in split_tokens(args.experience_name) if x not in _UNSET]
     if not paths or len(paths) != len(names):
-        raise ValueError("--path_experience_files and --experience_name: one name per path")
+        p.error("one EXPERIENCE_NAME for each path of PATH_EXPERIENCE_FILES")
     if args.path_control_files in _UNSET or args.control_name in _UNSET:
-        raise ValueError("--path_control_files and --control_name are required")
+        p.error("a scorecard compares experiences with a control: PATH_CONTROL_FILES and "
+                "CONTROL_NAME are required. With a single run there is nothing to score: "
+                "see cardio's resume, timeserie or vdedr")
+    bad = [m for m in split_tokens(args.match) if m not in ("on", "off", "no")]
+    if bad:
+        p.error(f"--match takes on, off and no (several at once too), not {bad}")
     unknown = [t for t in args.themes if t not in SCORECARD_THEMES]
     if unknown:
-        raise ValueError(f"--themes: unknown {unknown}; known: {list(SCORECARD_THEMES)}")
+        p.error(f"--themes: unknown {unknown}; known: {' '.join(SCORECARD_THEMES)}")
     control = (args.control_name, args.path_control_files.rstrip("/") or "/")
     experiments = [(n, x.rstrip("/") or "/") for n, x in zip(names, paths)]
     maybe_submit_to_pbs(args)

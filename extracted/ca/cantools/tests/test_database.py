@@ -142,10 +142,18 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(signal.raw_initial, 16120)
         self.assertEqual(signal.initial, 16.120)
 
+        # GenSigStartValue is INT in vehicle.dbc, so no float literal
+        self.assertIn('BA_ "GenSigStartValue" SG_ 2303355937 Accuracy_Accel 127;',
+                      db.as_dbc_string())
+
     def test_dbc_gensigstartval_from_raw_initial(self):
         sig = Signal(name='s', start=0, length=8, raw_initial=47)
         msg = Message(frame_id=0x42, name='m', length=8, signals=[sig])
         expected_db = cantools.database.Database(messages=[msg])
+
+        # without a definition in the database, the FLOAT fallback is used
+        self.assertIn('BA_ "GenSigStartValue" SG_ 66 s 47.0;',
+                      expected_db.as_dbc_string())
 
         actual_db = cantools.database.Database()
         actual_db.add_dbc_string(expected_db.as_dbc_string())
@@ -2167,10 +2175,30 @@ DBC: "unused SIG_VALTYPE_ entries in DBC:
             'Value to show faults related to the wheel speed sensor.  '
             '0 - Signal ok, 1 - Wiring related fault, 2 - Signal related fault')
 
+    def test_as_sym_string_multiplexer_comment(self):
+        # The multiplexer signal is written on the Mux line only, so its
+        # comment must be written there too.
+        db = cantools.database.load_file('tests/files/dbc/multiplex.dbc')
+        sym = db.as_sym_string()
+        self.assertIn('Mux="Multiplexor" 2,6 8h'
+                      ' // Defines data content for response messages.\n',
+                      sym)
+
+        reloaded = cantools.database.load_string(sym, 'sym')
+        multiplexor = reloaded.get_message_by_name(
+            'Message1').get_signal_by_name('Multiplexor')
+        self.assertEqual(multiplexor.comment,
+                         'Defines data content for response messages.')
+
+        db = cantools.database.load_file(
+            'tests/files/sym/comments_hex_and_motorola.sym')
+        reloaded = cantools.database.load_string(db.as_sym_string(), 'sym')
+        sig1 = reloaded.get_message_by_name('Msg1').get_signal_by_name('sig1')
+        self.assertEqual(sig1.comment, 'a comment')
+
     def test_as_sym_string_hex_multiplexer_ids(self):
-        # SYM hex numbers must start with a digit; a multiplexer id
-        # whose hex form starts with A-F (10, 160, ...) needs a leading 0,
-        # after the sign of a negative id.
+        # Keep the writer's digit prefix for compatibility with other readers
+        # that require it, including after the sign of a negative mux id.
         mux_ids = [0, 9, 10, 15, 16, 159, 160, 255, 256, 4095, -1, -10]
         signals = [Signal(name='Mux', start=0, length=16,
                           is_multiplexer=True)]
@@ -2829,6 +2857,64 @@ DBC: "unused SIG_VALTYPE_ entries in DBC:
     def test_load_bad_format(self):
         with self.assertRaises(UnsupportedDatabaseFormatError):
             cantools.database.load(StringIO(''))
+
+    def test_load_string_warns_about_an_unrelated_error(self):
+        """An error unrelated to the format is reported with its traceback."""
+        duplicate_message_dbc = (
+            'VERSION ""\n'
+            '\n'
+            'BU_: ECU\n'
+            '\n'
+            'BO_ 256 Msg: 8 ECU\n'
+            ' SG_ Sig1 : 0|8@1+ (1,0) [0|0] "" ECU\n'
+            '\n'
+            'BO_ 256 Msg: 8 ECU\n'
+            ' SG_ Sig2 : 8|8@1+ (1,0) [0|0] "" ECU\n'
+        )
+
+        # emit() raises OSError on the duplicate-message warning the loader logs
+        class FailingHandler(logging.Handler):
+            def emit(self, record):
+                raise OSError(5, 'Input/output error')
+
+        logger = logging.getLogger('cantools')
+        handler = FailingHandler()
+        logger.addHandler(handler)
+        propagate = logger.propagate
+        logger.propagate = False
+
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter('always')
+                with self.assertRaises(UnsupportedDatabaseFormatError):
+                    cantools.database.load_string(duplicate_message_dbc,
+                                                  strict=False)
+        finally:
+            logger.removeHandler(handler)
+            logger.propagate = propagate
+
+        reported = [str(w.message) for w in caught
+                    if 'does not say whether' in str(w.message)]
+        self.assertEqual(len(reported), 1)
+        self.assertIn('probing for dbc raised OSError', reported[0])
+        self.assertIn('github.com/cantools/cantools/issues', reported[0])
+        self.assertIn('Input/output error', reported[0])
+
+    def test_load_string_does_not_warn_about_a_format_error(self):
+        """A string which is simply not a database warns about nothing."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            with self.assertRaises(UnsupportedDatabaseFormatError):
+                cantools.database.load_string('not a database at all')
+
+        self.assertEqual([w for w in caught
+                          if 'does not say whether' in str(w.message)], [])
+
+    def test_load_string_still_reports_a_bad_format(self):
+        """Narrowing the probe must not stop genuine format failures being caught."""
+        for content in ['not a database at all', '', '\x00\x01\x02']:
+            with self.assertRaises(UnsupportedDatabaseFormatError):
+                cantools.database.load_string(content)
 
     def test_add_bad_kcd_string(self):
         db = cantools.database.Database()
@@ -3550,6 +3636,56 @@ DBC: "unused SIG_VALTYPE_ entries in DBC:
 
         self.assertEqual(attribute['BusType'].type_name, "STRING")
 
+    @parameterized.expand([
+        ('empty', '', '""'),
+        ('plain', 'demo_2', '"demo_2"'),
+        ('quotes', 'say "hello"', r'"say \"hello\""'),
+        ('only_quotes', '""', r'"\"\""'),
+        ('backslashes', r'C:\tools\logs', r'"C:\tools\logs"'),
+        ('backslash_before_quote', r'path\"name', r'"path\\"name"'),
+        ('two_backslashes_before_quote', r'path\\"name', r'"path\\\"name"'),
+    ])
+    def test_string_attribute_escaping_dump(self, _, value, formatted_value):
+        db = cantools.database.load_file(
+            'tests/files/dbc/string_attribute_escaping.dbc')
+
+        def attributes(database):
+            return [
+                database.dbc.attributes['DatabaseText'],
+                database.nodes[0].dbc.attributes['NodeText'],
+                database.messages[0].dbc.attributes['MessageText'],
+                database.messages[0].signals[0].dbc.attributes['SignalText'],
+                database.dbc.environment_variables['EnvVar'].dbc.attributes[
+                    'EnvironmentText'],
+                database.dbc.relation_attributes.node_signal_relations[
+                    1]['Signal']['Node']['SignalRelationText'],
+                database.dbc.relation_attributes.node_message_relations[
+                    1]['Node']['MessageRelationText'],
+            ]
+
+        for attribute in attributes(db):
+            self.assertEqual(attribute.value, 'say "hello"')
+            attribute.value = value
+
+        for _round in range(2):
+            dumped = db.as_dbc_string()
+            assignments = [
+                line for line in dumped.splitlines()
+                if line.startswith(('BA_ ', 'BA_REL_ '))
+                and 'Text"' in line
+            ]
+            self.assertEqual(len(assignments), 7)
+            for line in assignments:
+                self.assertTrue(line.endswith(f' {formatted_value};'), line)
+
+            db = cantools.database.load_string(dumped, database_format='dbc')
+            for attribute in attributes(db):
+                self.assertEqual(attribute.value, value)
+                self.assertEqual(attribute.definition.type_name, 'STRING')
+            for name, expected in [('IntegerValue', 7), ('HexValue', 15),
+                                   ('FloatValue', 1.5), ('EnumValue', 1)]:
+                self.assertEqual(db.dbc.attributes[name].value, expected)
+
     def test_extended_id_dump(self):
         db = cantools.database.load_file('tests/files/dbc/test_extended_id_dump.dbc')
         dumped_db = cantools.database.load_string(db.as_dbc_string())
@@ -3574,6 +3710,79 @@ DBC: "unused SIG_VALTYPE_ entries in DBC:
         self.assertEqual(db.messages[0].send_type, 'Event')
         self.assertEqual(db.messages[0].frame_id, 1234)
         self.assertEqual( db.messages[0].name, 'INV2EventMsg1')
+
+    def test_dbc_unquoted_attributes(self):
+        filename = 'tests/files/dbc/unquoted_attributes.dbc'
+        db = cantools.database.load_file(filename)
+        attributes = [
+            (db.dbc.attributes['DatabaseText'], 'DatabaseValue'),
+            (db.nodes[0].dbc.attributes['NodeText'], '_NodeValue_2'),
+            (db.messages[0].dbc.attributes['MessageText'], 'MessageValue3'),
+            (db.messages[0].signals[0].dbc.attributes['SignalText'],
+             'SignalValue'),
+            (db.dbc.environment_variables['TestEnvironment'].dbc.attributes[
+                'EnvironmentText'], 'EnvironmentValue'),
+        ]
+
+        dumped = db.as_dbc_string()
+        for attribute, expected in attributes:
+            self.assertEqual(attribute.value, expected)
+            self.assertEqual(attribute.definition.type_name, 'STRING')
+            self.assertIn(f'"{expected}";', dumped)
+
+        self.assert_dbc_dump(db, filename)
+
+    @parameterized.expand([
+        ('bare', 'demo', 'demo'),
+        ('underscore', '_demo_2', '_demo_2'),
+        ('quoted', '"demo"', 'demo'),
+        ('empty', '""', ''),
+        ('punctuation', '"two words-a.b"', 'two words-a.b'),
+        ('keyword', '"VERSION"', 'VERSION'),
+        ('number', '123', '123'),
+        ('scientific', '1.25e+2', '1.25e+2'),
+    ])
+    def test_dbc_attribute_string_values(self, _name, literal, expected):
+        db = cantools.database.load_string(
+            f'BA_DEF_ "Text" STRING ;\nBA_ "Text" {literal};\n',
+            database_format='dbc')
+        self.assertEqual(db.dbc.attributes['Text'].value, expected)
+        reloaded = cantools.database.load_string(
+            db.as_dbc_string(), database_format='dbc')
+        self.assertEqual(reloaded.dbc.attributes['Text'].value, expected)
+
+    def test_dbc_attribute_string_values_with_escaped_quote(self):
+        db = cantools.database.load_string(
+            r'BA_DEF_ "Text" STRING ; BA_ "Text" "say \"hello\"";',
+            database_format='dbc')
+        self.assertEqual(db.dbc.attributes['Text'].value, 'say "hello"')
+
+    @parameterized.expand([
+        ('spaces', 'two words'),
+        ('hyphen', 'some-value'),
+        ('dot', 'some.value'),
+        ('digit_prefix', '123abc'),
+        ('keyword', 'VERSION'),
+        ('missing', ''),
+    ])
+    def test_dbc_attribute_rejects_non_word_values(self, _name, literal):
+        with self.assertRaises(UnsupportedDatabaseFormatError):
+            cantools.database.load_string(
+                f'BA_DEF_ "Text" STRING ;\nBA_ "Text" {literal};\n',
+                database_format='dbc')
+
+    @parameterized.expand([
+        ('integer', 'INT 0 10'),
+        ('hex', 'HEX 0 10'),
+        ('float', 'FLOAT 0 10'),
+        ('enum', 'ENUM "one","two"'),
+    ])
+    def test_dbc_numeric_attribute_rejects_word(self, _name, definition):
+        with self.assertRaises(UnsupportedDatabaseFormatError):
+            cantools.database.load_string(
+                f'BA_DEF_ "Numeric" {definition};\n'
+                'BA_ "Numeric" Vendor;\n',
+                database_format='dbc')
 
     def test_attributes(self):
         filename = 'tests/files/dbc/attributes.dbc'

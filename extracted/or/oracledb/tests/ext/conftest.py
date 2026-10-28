@@ -27,9 +27,14 @@
 # with some methods used to determine which extended tests to run.
 # -----------------------------------------------------------------------------
 
+import asyncio
 import configparser
 import os
 import pytest
+import socket
+import threading
+
+import oracledb
 
 DATABASES_SECTION_NAME = "Databases"
 
@@ -69,6 +74,194 @@ def skip_unless_deep_data_security(
         or not extended_config.get_str_value("deep_data_security_xs_user")
     ):
         pytest.skip("missing Deep Data Security configuration")
+
+
+# defines class used for setting up a tunnel that can easily be cut for testing
+# certain aspects of pool and connection behaviour
+class Tunnel:
+
+    def __init__(self, test_env):
+        self.params = test_env.get_connect_params()
+        self.params.parse_connect_string(test_env.connect_string)
+        if isinstance(self.params.port, list):
+            pytest.skip("multiple addressses cannot be tunneled")
+        self.pool_params = test_env.get_pool_params()
+        self.pool_params.parse_connect_string(test_env.connect_string)
+        self.pool_params.set(
+            getmode=oracledb.POOL_GETMODE_TIMEDWAIT, wait_timeout=5_000
+        )
+        self.connections = []
+
+    def _close(self, *socks):
+        """
+        Closes both halves of the pipe.
+        """
+        for s in socks:
+            try:
+                s.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            s.close()
+
+    def _pipe(self, src, dst):
+        """
+        Transmit data unchecked.
+        """
+        try:
+            while data := src.recv(65536):
+                dst.sendall(data)
+        finally:
+            self._close(src, dst)
+
+    def _serve(self):
+        """
+        Accept connections and upon connection, create pipes that simply
+        transmit the data unchecked, but keep track of the connections made so
+        that they can be severed on demand.
+        """
+        while True:
+            client, _ = self.listener.accept()
+            target = (self.params.host, self.params.port)
+            upstream = socket.create_connection(target)
+            with self.lock:
+                self.connections.append((client, upstream))
+                for src, dst in ((client, upstream), (upstream, client)):
+                    thread = threading.Thread(
+                        target=self._pipe, args=(src, dst), daemon=True
+                    )
+                    thread.start()
+
+    def cut(self):
+        """
+        Cuts the connection on all connections made so far.
+        """
+        with self.lock:
+            for pair in self.connections:
+                self._close(*pair)
+            self.connections.clear()
+
+    def get_connect_params(self):
+        """
+        Return the connection parameters used to establish a connection to the
+        database. The existing parameters are retained and only the host and
+        port are substituted so that the connection goes through the tunnel.
+        """
+        params = self.params.copy()
+        params.set(host=self.host, port=self.port)
+        return params
+
+    def get_pool_params(self):
+        """
+        Return the pool parameters used to create a pool of connections to the
+        database. The existing parameters are retained and only the host and
+        port are substituted so that the connection goes through the tunnel.
+        """
+        params = self.pool_params.copy()
+        params.set(host=self.host, port=self.port)
+        return params
+
+    def start(self):
+        """
+        Starts the tunnel.
+        """
+        self.lock = threading.Lock()
+        self.listener = socket.create_server(("127.0.0.1", 0))
+        self.host, self.port = self.listener.getsockname()
+        thread = threading.Thread(target=self._serve, daemon=True)
+        thread.start()
+
+
+@pytest.fixture
+def tunnel(skip_unless_run_long_tests, test_env):
+    tunnel = Tunnel(test_env)
+    tunnel.start()
+    yield tunnel
+
+
+# defines class used for setting up a tunnel that can easily be cut for testing
+# certain aspects of pool and connection behaviour
+class AsyncTunnel(Tunnel):
+
+    def _close(self, *socks):
+        """
+        Closes both halves of the pipe.
+        """
+        for s in socks:
+            try:
+                s.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            s.close()
+
+    async def _pipe(self, reader, writer):
+        """
+        Transmit data unchecked.
+        """
+        try:
+            while data := await reader.read(65536):
+                writer.write(data)
+                await writer.drain()
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    async def _handle_client(self, local_reader, local_writer):
+        """
+        Handles a new client connecting to the tunnel.
+        """
+        tasks = []
+        remote_reader, remote_writer = await asyncio.open_connection(
+            self.params.host, self.params.port
+        )
+        async with self.lock:
+            for reader, writer in (
+                (local_reader, remote_writer),
+                (remote_reader, local_writer),
+            ):
+                self.connections.append(writer)
+                tasks.append(asyncio.create_task(self._pipe(reader, writer)))
+        await asyncio.gather(*tasks)
+
+    async def cut(self):
+        """
+        Cuts the connection on all connections made so far.
+        """
+        async with self.lock:
+            for writer in self.connections:
+                writer.close()
+                await writer.wait_closed()
+            self.connections.clear()
+
+    async def start(self, event):
+        """
+        Starts the tunnel.
+        """
+        self.lock = asyncio.Lock()
+        self.listener = await asyncio.start_server(
+            self._handle_client, host="127.0.0.1"
+        )
+        self.host, self.port = self.listener.sockets[0].getsockname()
+        event.set()
+        async with self.listener:
+            await self.listener.serve_forever()
+
+    async def stop(self):
+        """
+        Stops the tunnel.
+        """
+        await self.cut()
+        self.listener.close()
+        await self.listener.wait_closed()
+
+
+@pytest.fixture
+async def async_tunnel(skip_unless_run_long_tests, test_env):
+    tunnel = AsyncTunnel(test_env)
+    event = asyncio.Event()
+    _task = asyncio.create_task(tunnel.start(event))
+    await event.wait()
+    yield tunnel
+    await tunnel.stop()
 
 
 class ExtendedConfig:

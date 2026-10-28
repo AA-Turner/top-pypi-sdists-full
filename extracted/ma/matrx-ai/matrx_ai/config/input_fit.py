@@ -192,8 +192,17 @@ async def ensure_fits(
     # is wasted and rows of the turn can be lost. An over-limit loop iteration takes the forced
     # trim below (it rewrites blocks in place, never removes a message); the next turn's resolve
     # condenses.
+    from matrx_ai.config.request_firewall import active_request_firewall
+
+    firewall = active_request_firewall()
     if _compactor is not None and stage != _STAGE_RESOLVE:
         record["passes"].append({"pass": "compaction", "changed": False, "skipped": "loop_stage"})
+    elif _compactor is not None and firewall is not None and firewall.firewall.must_not_contain:
+        # A REQUEST FIREWALL lists terms: condensing would send the whole conversation through a
+        # second model call this step never asked for — refused there, it would fail the step
+        # AFTER its own answer. Skipped, said; the forced trim below makes the call fit, or the
+        # pre-flight refuses it BEFORE anything is sent.
+        record["passes"].append({"pass": "compaction", "changed": False, "skipped": "request_firewall"})
     elif _compactor is not None:
         from matrx_ai.context.app_context import try_get_app_context
 

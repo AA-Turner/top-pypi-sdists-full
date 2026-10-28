@@ -1,7 +1,7 @@
-#  ************************** Copyrights and license ***************************  # noqa: D104
+#  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.7
+# This file is part of gcovr 8.8, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.8
 #
 # _____________________________________________________________________________
 #
@@ -14,3 +14,5 @@
 # For more information, see the README.rst file.
 #
 # ****************************************************************************
+
+"""GCOVR parsers for gcov format."""

@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: python-qpid-proton
-Version: 0.40.0
+Version: 0.41.1
 Summary: An AMQP based messaging library.
 Author-email: Apache Qpid <users@qpid.apache.org>
-License: Apache Software License
+License-Expression: Apache-2.0
 Project-URL: homepage, http://qpid.apache.org/proton/
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -14,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/x-rst
 Requires-Dist: cffi>=1.0.0
 Provides-Extra: opentracing

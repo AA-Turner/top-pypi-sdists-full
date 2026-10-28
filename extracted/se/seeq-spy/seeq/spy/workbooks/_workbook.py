@@ -7,7 +7,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Type, Union, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Type, Union, Tuple
 from urllib.parse import urljoin
 
 import numpy as np
@@ -19,6 +19,7 @@ from seeq.sdk import *
 from seeq.spy import _common
 from seeq.spy import _metadata
 from seeq.spy import _search as _spy_search
+from seeq.spy import _swap
 from seeq.spy import _url
 from seeq.spy import _version
 from seeq.spy._context import WorkbookContext
@@ -1148,15 +1149,23 @@ class Workbook(ItemWithOwnerAndAcl):
         Handles ThresholdMetrics and Charts differently using their specific APIs.
         """
         status = context.status
-        session = context.session
-        items_api = ItemsApi(session.client)
-        metrics_api = MetricsApi(session.client)
-        formulas_api = FormulasApi(session.client)
 
         status.log('Updating calculated item formula parameters for datasource swap')
 
+        # Asset swapped items must wait until their swap sources have been updated.
+        deferred_swap_items: List[CalculatedItem] = list()
+        # The asset swapped item update only needs to be done on Swap Source items which have actually changed.
+        changed_swap_source_ids: Set[str] = set()
+        # The non-swap calculated items we processed, in case they have to be revisited below
+        calculated_items: List[CalculatedItem] = list()
+
         for item_id, item in self.item_inventory.items():
             if not isinstance(item, CalculatedItem):
+                continue
+
+            if 'Swap Key' in item:
+                status.log(f'Deferring swap item {item} until its swap source has been updated')
+                deferred_swap_items.append(item)
                 continue
 
             # Skip if already mapped (means it was explicitly mapped in datasource map override)
@@ -1168,91 +1177,324 @@ class Workbook(ItemWithOwnerAndAcl):
                 status.log(f'Skipping global {item} -- global_inventory set to "do not touch"')
                 continue
 
+            calculated_items.append(item)
+
+            if self._push_in_place_datasource_swap_calculated_item(context, item_map, item):
+                changed_swap_source_ids.add(item_id)
+
+        remapped_swap_item_ids = self._push_in_place_datasource_swap_asset_swapped_items(
+            context, item_map, deferred_swap_items, changed_swap_source_ids)
+
+        self._push_in_place_datasource_swap_swap_item_dependents(context, item_map, calculated_items,
+                                                                 remapped_swap_item_ids)
+
+    def _push_in_place_datasource_swap_calculated_item(self, context: WorkbookPushContext, item_map: ItemMap,
+                                                       item: CalculatedItem,
+                                                       log_when_unchanged: bool = True) -> bool:
+        """
+        Remaps a single calculated item's formula parameters. Returns True if the item was updated (or would have
+        been during a dry run).
+        """
+        status = context.status
+        session = context.session
+        items_api = ItemsApi(session.client)
+        metrics_api = MetricsApi(session.client)
+        formulas_api = FormulasApi(session.client)
+
+        item_id = item.id
+
+        formula_params = item.get('Formula Parameters')
+        if not formula_params:
+            return False
+
+        # Map the formula parameters to new IDs
+        formula_params_str = json.dumps(formula_params)
+        mapped_params_str = item_map.replace_items(formula_params_str)
+        if formula_params_str == mapped_params_str:
+            if log_when_unchanged:
+                status.log(f'No formula parameter changes for {item} -- skipping')
+            return False
+
+        if _common.get(item, 'Scoped To') is None:
+            if context.dry_run:
+                status.log(f'[Dry Run] Global would be modified: {item}', level=logging.WARNING)
+            else:
+                status.log(f'Global being modified: {item}', level=logging.WARNING)
+
+        mapped_params = json.loads(mapped_params_str)
+
+        try:
+            if isinstance(item, ThresholdMetric):
+                # Handle ThresholdMetrics differently
+                threshold_metric_input = ThresholdMetricInputV1()
+
+                # First populate basic fields like name, description, etc. from the item
+                _metadata.dict_to_threshold_metric_input(item.definition_dict, threshold_metric_input)
+
+                # Then fill in the formula parameters (already mapped)
+                _metadata.fill_in_threshold_metric_input_from_formula_parameters(
+                    threshold_metric_input, mapped_params)
+
+                if not context.dry_run:
+                    _metadata._put_threshold_metric(metrics_api, item_id, threshold_metric_input)
+                    status.log(f'Updated {item}')
+                else:
+                    status.log(f'[Dry Run] Would update {item}')
+            elif isinstance(item, Chart):
+                # Handle Chart/Function items using FormulasApi
+                function_input = FunctionInputV1()
+
+                # Populate basic fields like name, description, etc. from the item
+                _metadata.dict_to_function_input(item.definition_dict, function_input)
+
+                # Set the formula
+                formula = item.get('Formula')
+                if formula:
+                    function_input.formula = Item.formula_string_from_list(formula) if isinstance(formula,
+                                                                                                  list) else formula
+
+                # Build the parameters list
+                function_input.parameters = []
+                for param_name, param_value in mapped_params.items():
+                    if _common.is_guid(param_value):
+                        # It's an item ID reference
+                        function_input.parameters.append(FormulaParameterInputV1(name=param_name, id=param_value))
+                    else:
+                        # It's a formula string
+                        function_input.parameters.append(FormulaParameterInputV1(
+                            name=param_name, formula=param_value, unbound=True))
+
+                if not context.dry_run:
+                    formulas_api.update_function(id=item_id, body=function_input)
+                    status.log(f'Updated {item}')
+                else:
+                    status.log(f'[Dry Run] Would update {item}')
+            else:
+                # Handle regular calculated items (Signals, Conditions, Scalars)
+                formula = item.get('Formula')
+                if formula:
+                    formula_str = Item.formula_string_from_list(formula) if isinstance(formula, list) else formula
+
+                    # Convert mapped_params dict to list of "param_name=param_value" strings
+                    params_list = [f'{k}={v}' for k, v in mapped_params.items()]
+                    params_list.sort(key=lambda p: p.split('=')[0])
+
+                    if not context.dry_run:
+                        items_api.set_formula(id=item_id, body=FormulaUpdateInputV1(
+                            formula=formula_str, parameters=params_list))
+                        status.log(f'Updated formula parameters for {item}')
+                    else:
+                        status.log(f'[Dry Run] Would update formula parameters for {item}')
+            return True
+        except Exception as e:
+            message = f'Error updating {item}: {str(e)}'
+            status.log(message, level=logging.ERROR)
+            self._push_errors.add(message)
+            return False
+
+    def _push_in_place_datasource_swap_swap_item_dependents(self, context: WorkbookPushContext, item_map: ItemMap,
+                                                            calculated_items: List[CalculatedItem],
+                                                            remapped_swap_item_ids: Set[str]):
+        """
+        Re-points calculations that took a re-created swap item as a formula parameter.
+
+        Re-creating a swap item gives it a new ID, so anything holding the old one is left pointing at the item we
+        just superseded. An ordinary calculation keeps its own ID when we re-point it, so nothing downstream of it
+        changes ID in turn and one pass settles them all.
+        """
+        if not remapped_swap_item_ids:
+            return
+
+        status = context.status
+
+        for item in calculated_items:
             formula_params = item.get('Formula Parameters')
             if not formula_params:
                 continue
 
-            # Map the formula parameters to new IDs
-            formula_params_str = json.dumps(formula_params)
-            mapped_params_str = item_map.replace_items(formula_params_str)
-            if formula_params_str == mapped_params_str:
-                status.log(f'No formula parameter changes for {item} -- skipping')
+            # Only revisit the items that actually referenced a superseded swap item. Everything else was already
+            # pushed by the first pass and re-pushing it would be a redundant round trip.
+            formula_params_str = json.dumps(formula_params).upper()
+            if not any(swap_item_id in formula_params_str for swap_item_id in remapped_swap_item_ids):
                 continue
 
-            if _common.get(item, 'Scoped To') is None:
-                if context.dry_run:
-                    status.log(f'[Dry Run] Global would be modified: {item}', level=logging.WARNING)
-                else:
-                    status.log(f'Global being modified: {item}', level=logging.WARNING)
+            status.log(f'Re-pointing {item} at the re-created swap item(s) it depends on')
+            self._push_in_place_datasource_swap_calculated_item(context, item_map, item, log_when_unchanged=False)
 
-            mapped_params = json.loads(mapped_params_str)
+    def _push_in_place_datasource_swap_asset_swapped_items(self, context: WorkbookPushContext, item_map: ItemMap,
+                                                           swap_items: List[CalculatedItem],
+                                                           changed_swap_source_ids: Set[str]) -> Set[str]:
+        """
+        Re-creates asset swap variants against the swapped-in assets during in-place datasource swap mode.
+        Performed by making a new swap clone using the originally-swapped source item (after its parameters have been
+        updated) and the new asset IDs, then change the worksteps to reference the new swap variants instead of the old.
+
+        This must run after _push_in_place_datasource_swap_calculated_items() has updated the swap sources, and
+        before the worksteps are pushed so that item_map can redirect them. Returns the IDs of the swap items
+        that were replaced, so that calculations depending on them can be re-pointed.
+
+        An asset swap variant's "Swap Key" and "Swap Source ID" properties are protected, so we can't just remap them
+        like we do formula parameters. Worse, if we call set_formula() on a variant directly, Appserver reverse-swaps
+        the new parameters through the (now stale) swap key and writes the result onto the swap source, corrupting
+        it.
+        """
+        remapped_swap_item_ids: Set[str] = set()
+
+        if len(swap_items) == 0:
+            return remapped_swap_item_ids
+
+        status = context.status
+        items_api = ItemsApi(context.session.client)
+
+        status.log(f'Processing {len(swap_items)} swap item(s) for datasource swap')
+
+        def _error(_message):
+            status.log(_message, level=logging.ERROR)
+            self._push_errors.add(_message)
+
+        def _map_swap_pairs(_swap_pairs) -> Tuple[Optional[List[Tuple[str, str]]], Optional[str]]:
+            # Returns the swap key's asset pairs mapped through the item map for the happy path.
+            # Otherwise returns None plus the ID of the first asset that isn't in the map. A partially-mapped swap key
+            # would build a variant out of a mixture of the old and new datasources, so a single unmappable asset fails
+            # the whole key. Whether that's worth an error depends on context of the caller.
+            _mapped = list()
+            for _swapped_out_id, _swapped_in_id in _swap_pairs:
+                _mapped_out, _mapped_in = item_map.get(_swapped_out_id), item_map.get(_swapped_in_id)
+                if _mapped_out is None:
+                    return None, _swapped_out_id
+                if _mapped_in is None:
+                    return None, _swapped_in_id
+
+                _mapped.append((_mapped_out, _mapped_in))
+
+            return _mapped, None
+
+        for item in swap_items:
+            item_id = item.id
+
+            # Skip if already mapped (likely it was explicitly mapped in datasource map override)
+            if item_id in item_map and item_map[item_id] != item_id:
+                status.log(f'Skipping swap item {item} - already explicitly mapped')
+                continue
+
+            # A global variant has a global swap source, which the inventory scrape won't have picked up because it
+            # follows formula parameters rather than "Swap Source ID".
+            if context.current_params.global_inventory == 'do not touch' and _common.get(item, 'Scoped To') is None:
+                status.log(f'Skipping global swap item {item} -- global_inventory set to "do not touch"')
+                continue
+
+            swap_source_id = _common.get(item, 'Swap Source ID')
+            if swap_source_id is None:
+                _error(f'Cannot re-create swap item {item}: it has a "Swap Key" but no "Swap Source ID"')
+                continue
+            # "Swap Source ID" isn't upper-cased on the way in, so it arrives in whatever case Appserver stored it.
+            swap_source_id = swap_source_id.upper()
+
+            swap_source = self.item_inventory.get(swap_source_id)
+            if swap_source is None:
+                # This happens when only the variant is on a worksheet and its swap source is globally scoped: the
+                # inventory scrape follows the variant's formula parameters, not its "Swap Source ID". The swap
+                # source was therefore never updated, so re-creating the variant from it would produce garbage.
+                _error(f'Cannot re-create swap item {item}: its swap source {swap_source_id} is not in the '
+                       f'workbook inventory, so it was not updated for the datasource swap')
+                continue
+
+            if (context.current_params.global_inventory == 'do not touch'
+                    and _common.get(swap_source, 'Scoped To') is None):
+                # A re-created variant inherits the scope of its swap source, so a global swap source makes this a
+                # global modification even when the variant itself is scoped to this workbook.
+                status.log(f'Skipping swap item {item} with global swap source {swap_source} -- global_inventory '
+                           f'set to "do not touch"')
+                continue
+
+            mapped_swap_source_id = item_map.get(swap_source_id)
+            if mapped_swap_source_id is None:
+                _error(f'Cannot re-create swap item {item}: its swap source {swap_source} is not in the item map')
+                continue
 
             try:
-                if isinstance(item, ThresholdMetric):
-                    # Handle ThresholdMetrics differently
-                    threshold_metric_input = ThresholdMetricInputV1()
+                swap_pairs = _swap.parse_swap_key(item['Swap Key'])
+            except SPyValueError as e:
+                _error(f'Cannot re-create swap item {item}: {e}')
+                continue
 
-                    # First populate basic fields like name, description, etc. from the item
-                    _metadata.dict_to_threshold_metric_input(item.definition_dict, threshold_metric_input)
+            # A datasource map override can point the swap source at a different item entirely. The first pass skips
+            # such a source, so it never lands in changed_swap_source_ids, but the variant still has to follow it.
+            swap_source_changed = (mapped_swap_source_id in changed_swap_source_ids
+                                   or mapped_swap_source_id != swap_source_id)
+            mapped_swap_pairs, unmapped_asset_id = _map_swap_pairs(swap_pairs)
 
-                    # Then fill in the formula parameters (already mapped)
-                    _metadata.fill_in_threshold_metric_input_from_formula_parameters(
-                        threshold_metric_input, mapped_params)
+            if mapped_swap_pairs is None:
+                # A variant whose swapped assets are all unknown to this push isn't part of this datasource swap.
+                # That's the normal state for a variant superseded by an earlier swap: a prior push replaced it and
+                # left it behind, still keyed on assets this workbook no longer references.
+                belongs_to_this_swap = any(item_map.get(asset_id) is not None
+                                           for pair in swap_pairs for asset_id in pair)
+                unmapped_asset = self.item_inventory.get(unmapped_asset_id)
 
-                    if not context.dry_run:
-                        _metadata._put_threshold_metric(metrics_api, item_id, threshold_metric_input)
-                        status.log(f'Updated {item}')
-                    else:
-                        status.log(f'[Dry Run] Would update {item}')
-                elif isinstance(item, Chart):
-                    # Handle Chart/Function items using FormulasApi
-                    function_input = FunctionInputV1()
-
-                    # Populate basic fields like name, description, etc. from the item
-                    _metadata.dict_to_function_input(item.definition_dict, function_input)
-
-                    # Set the formula
-                    formula = item.get('Formula')
-                    if formula:
-                        function_input.formula = Item.formula_string_from_list(formula) if isinstance(formula,
-                                                                                                      list) else formula
-
-                    # Build the parameters list
-                    function_input.parameters = []
-                    for param_name, param_value in mapped_params.items():
-                        if _common.is_guid(param_value):
-                            # It's an item ID reference
-                            function_input.parameters.append(FormulaParameterInputV1(name=param_name, id=param_value))
-                        else:
-                            # It's a formula string
-                            function_input.parameters.append(FormulaParameterInputV1(
-                                name=param_name, formula=param_value, unbound=True))
-
-                    if not context.dry_run:
-                        formulas_api.update_function(id=item_id, body=function_input)
-                        status.log(f'Updated {item}')
-                    else:
-                        status.log(f'[Dry Run] Would update {item}')
+                if not belongs_to_this_swap:
+                    status.log(f'Skipping swap item {item} -- none of its swapped assets are in this workbook. It '
+                               f'was superseded by an earlier datasource swap')
+                elif swap_source_changed:
+                    _error(f'Cannot re-create swap item {item}: swapped asset '
+                           f'{unmapped_asset if unmapped_asset is not None else unmapped_asset_id} is not in the '
+                           f'item map, so it is either not in the workbook inventory or it was not mapped')
                 else:
-                    # Handle regular calculated items (Signals, Conditions, Scalars)
-                    formula = item.get('Formula')
-                    if formula:
-                        formula_str = Item.formula_string_from_list(formula) if isinstance(formula, list) else formula
+                    status.log(f'No swap changes for {item} -- skipping')
+                continue
 
-                        # Convert mapped_params dict to list of "param_name=param_value" strings
-                        params_list = [f'{k}={v}' for k, v in mapped_params.items()]
-                        params_list.sort(key=lambda p: p.split('=')[0])
+            # Both halves of a pair mapping onto the same item means the datasource map collapsed two assets into one.
+            # Unlike an unmappable asset, which can mean "not part of this swap", this can never produce a valid swap.
+            collapsed_pair = next((pair for pair, mapped in zip(swap_pairs, mapped_swap_pairs)
+                                   if mapped[0] == mapped[1]), None)
+            if collapsed_pair is not None:
+                _error(f'Cannot re-create swap item {item}: assets {collapsed_pair[0]} and {collapsed_pair[1]} both '
+                       f'map to {item_map.get(collapsed_pair[0])}, which is not a valid swap')
+                continue
 
-                        if not context.dry_run:
-                            items_api.set_formula(id=item_id, body=FormulaUpdateInputV1(
-                                formula=formula_str, parameters=params_list))
-                            status.log(f'Updated formula parameters for {item}')
-                        else:
-                            status.log(f'[Dry Run] Would update formula parameters for {item}')
-            except Exception as e:
-                message = f'Error updating {item}: {str(e)}'
-                status.log(message, level=logging.ERROR)
-                self._push_errors.add(message)
+            if not swap_source_changed and mapped_swap_pairs == swap_pairs:
+                status.log(f'No swap changes for {item} -- skipping')
+                continue
+
+            # A new variant is created in the swap source's scope, so a global swap source means we're about to add
+            # to the global inventory even when the variant we're replacing is scoped to this workbook
+            if _common.get(swap_source, 'Scoped To') is None:
+                if context.dry_run:
+                    status.log(f'[Dry Run] Global would be modified: {swap_source}', level=logging.WARNING)
+                else:
+                    status.log(f'Global being modified: {swap_source}', level=logging.WARNING)
+
+            if context.dry_run:
+                swaps = ', '.join(f'{out} -> {_in}' for out, _in in mapped_swap_pairs)
+                status.log(f'[Dry Run] Would re-create swap item {item} from swap source '
+                           f'{mapped_swap_source_id} using {swaps}')
+                continue
+
+            try:
+                swapped_item = items_api.find_swap(
+                    id=mapped_swap_source_id,
+                    body=[SwapInputV1(swap_out=out, swap_in=_in) for out, _in in mapped_swap_pairs])
+            except ApiException as e:
+                _error(f'Error re-creating swap item {item}:\n{_common.format_exception(e)}')
+                continue
+
+            new_id = swapped_item.id.upper()
+            if new_id == mapped_swap_source_id:
+                # Appserver returns the swap source itself when the swap would be a no-op. Deliberately don't map the
+                # variant in that case, because doing so would silently collapse it onto its swap source.
+                _error(f'Could not re-create swap item {item}: the swapped-in assets produced no change relative to '
+                       f'swap source {mapped_swap_source_id}')
+            elif new_id == item_id:
+                status.log(f'Swap item {item} is already swapped to the correct assets -- skipping')
+            else:
+                item_map[item_id] = new_id
+                remapped_swap_item_ids.add(item_id)
+                status.log(f'Re-created swap item {item} as {new_id} using the swapped-in assets')
+                status.log(f'Swap item {item} has been superseded by {new_id} and left in place; its formula '
+                           f'parameters may now be incorrect. Archive it if it is no longer needed.',
+                           level=logging.WARNING)
+
+        return remapped_swap_item_ids
 
     def _create_folder_path_if_necessary(self, context: WorkbookPushContext, path: str, owner_id: str):
         session = context.session
@@ -1347,8 +1589,8 @@ class Workbook(ItemWithOwnerAndAcl):
                     if content.type == 'Folder' and content_name == content.name:
                         if parent_id is not None:
                             # When parent_id is specified, ensure the folder's parent matches
-                            if content.ancestors is not None and len(content.ancestors) >= 1 and content.ancestors[
-                                    -1].id != parent_id:
+                            if (content.ancestors is not None and len(content.ancestors) >= 1
+                                    and content.ancestors[-1].id != parent_id):
                                 continue
                         else:
                             # When parent_id is None (root level), ensure the folder is at the root level by checking

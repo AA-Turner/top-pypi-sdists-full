@@ -73,6 +73,7 @@ def push(
   agent_name: str | None = None,
   upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
   upload_max_retries: int = DEFAULT_UPLOAD_MAX_RETRIES,
+  reuse_uploads: bool = True,
 ) -> IngestBenchmarkResponse:
   """Call start_push and wait for registration and any requested image builds."""
   result = start_push(
@@ -86,6 +87,7 @@ def push(
     agent_name=agent_name,
     upload_timeout=upload_timeout,
     upload_max_retries=upload_max_retries,
+    reuse_uploads=reuse_uploads,
   ).result()
   return IngestBenchmarkResponse(
     bench_id=result.status.bench_id,
@@ -107,6 +109,7 @@ def start_push(
   agent_name: str | None = None,
   upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
   upload_max_retries: int = DEFAULT_UPLOAD_MAX_RETRIES,
+  reuse_uploads: bool = True,
 ) -> BenchmarkOperation:
   """Upload files and return an operation while registration and optional image builds continue."""
   if not isinstance(manifest, BenchmarkSpec):
@@ -134,6 +137,7 @@ def start_push(
         idempotency_key=idempotency_key,
         upload_timeout=upload_timeout,
         upload_max_retries=upload_max_retries,
+        reuse_uploads=reuse_uploads,
       )
       return operation
     except BaseException as error:

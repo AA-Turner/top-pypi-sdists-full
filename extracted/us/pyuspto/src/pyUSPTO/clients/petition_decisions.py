@@ -1,13 +1,13 @@
-"""clients.petition_decisions - Client for USPTO Final Petition Decisions API.
+"""clients.petition_decisions - Clients for the USPTO Petition Decisions API.
 
-This module provides a client for interacting with the USPTO Final Petition
-Decisions API. It allows you to search for and retrieve final agency petition
-decisions in publicly available patent applications and patents filed in 2001 or later.
+This module provides clients for interacting with the USPTO Petition Decisions
+API. It allows you to search for and retrieve petition decisions in publicly
+available patent applications and patents filed in 2001 or later.
 """
 
 import warnings
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, ClassVar
 
 import requests
 
@@ -22,14 +22,14 @@ from pyUSPTO.models.petition_decisions import (
 from pyUSPTO.warnings import USPTODataMismatchWarning
 
 
-class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
-    """Client for interacting with the USPTO Final Petition Decisions API.
+class PetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
+    """Client for interacting with the USPTO Petition Decisions API.
 
     This client provides methods to search for petition decisions, retrieve specific
     decisions by ID, download decision data, and download associated documents.
 
-    Final petition decisions data are incrementally added to the USPTO Open Data Portal
-    on a monthly basis starting with data from 2022 and later.
+    Since USPTO ODP Release 5.0 the API returns all petition decisions, final and
+    non-final. Use ``FinalPetitionDecisionsClient`` for final decisions only.
     """
 
     ENDPOINTS = {
@@ -38,17 +38,25 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
         "download_decisions": "api/v1/petition/decisions/search/download",
     }
 
+    # Filters added to every search and download request, as {field: value}.
+    # Subclasses set this to scope the client to a subset of decisions.
+    FIXED_FILTERS: ClassVar[dict[str, str]] = {}
+
+    # Paginated sorts end on this unique field: the API orders tied records
+    # differently on each request, so offset pages would repeat and skip decisions.
+    TIEBREAK_SORT_FIELD: ClassVar[str] = "petitionDecisionRecordIdentifier"
+
     def __init__(
         self,
         config: USPTOConfig | None = None,
         base_url: str | None = None,
     ):
-        """Initialize the FinalPetitionDecisionsClient.
+        """Initialize the PetitionDecisionsClient.
 
         Args:
             config: USPTOConfig instance containing API key and settings. If not provided,
                 creates config from environment variables (requires USPTO_API_KEY).
-            base_url: Optional base URL override for the USPTO Final Petition Decisions API.
+            base_url: Optional base URL override for the USPTO Petition Decisions API.
                 If not provided, uses config.petition_decisions_base_url or default.
         """
         # Use provided config or create from environment
@@ -100,10 +108,44 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
             )
         return decision
 
+    def _add_fixed_filters(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Add FIXED_FILTERS to GET params as repeated ``filters`` values.
+
+        The API ANDs repeated ``filters`` parameters, so these combine with any
+        filters the caller passed.
+        """
+        if not self.FIXED_FILTERS:
+            return params
+        existing = params.get("filters")
+        if existing is None:
+            values: list[str] = []
+        elif isinstance(existing, str):
+            values = [existing]
+        else:
+            values = list(existing)
+        values.extend(f"{name} {value}" for name, value in self.FIXED_FILTERS.items())
+        return {**params, "filters": values}
+
+    def _add_fixed_filters_to_body(self, post_body: dict[str, Any]) -> dict[str, Any]:
+        """Return a copy of a POST body with FIXED_FILTERS added to its ``filters`` list.
+
+        Builds new containers so the caller's body, which pagination reuses for
+        every page, is never modified.
+        """
+        if not self.FIXED_FILTERS:
+            return post_body
+        fixed = [
+            {"name": name, "value": [value]}
+            for name, value in self.FIXED_FILTERS.items()
+        ]
+        existing = post_body.get("filters")
+        caller_filters = [] if existing is None else existing
+        return {**post_body, "filters": [*caller_filters, *fixed]}
+
     def search_decisions(
         self,
         query: str | None = None,
-        sort: str | None = None,
+        sort: str | list[str] | None = None,
         offset: int | None = 0,
         limit: int | None = 25,
         facets: str | None = None,
@@ -117,7 +159,7 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
         inventor_name_q: str | None = None,
         applicant_name_q: str | None = None,
         invention_title_q: str | None = None,
-        decision_type_code_q: str | None = None,
+        decided_petition_type_code_q: str | None = None,
         decision_date_from_q: str | None = None,
         decision_date_to_q: str | None = None,
         petition_mail_date_from_q: str | None = None,
@@ -126,7 +168,7 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
         final_deciding_office_name_q: str | None = None,
         additional_query_params: dict[str, Any] | None = None,
     ) -> PetitionDecisionResponse:
-        """Return final petition decisions matching the given criteria.
+        """Return petition decisions matching the given criteria.
 
         This method can perform either a GET request using query parameters or a POST
         request if post_body is specified. When using GET, you can provide either a
@@ -135,12 +177,15 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
 
         Args:
             query: Direct query string in USPTO search syntax.
-            sort: Sort order for results.
+            sort: Sort as "field order", e.g. "decisionDate desc". A list sends one
+                sort parameter per key; the API rejects comma-joined keys.
             offset: Number of records to skip (pagination).
             limit: Maximum number of records to return.
             facets: Facet configuration string.
             fields: Specific fields to return.
-            filters: Filter configuration string.
+            filters: Filter as "field value" (a space, not a colon), e.g.
+                "decidedPetitionTypeCode A".
+                A value containing a space only works in post_body filters.
             range_filters: Range filter configuration string.
             post_body: Optional POST body for complex queries.
             application_number_q: Filter by application number.
@@ -148,7 +193,8 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
             inventor_name_q: Filter by inventor name.
             applicant_name_q: Filter by applicant name.
             invention_title_q: Filter by invention title.
-            decision_type_code_q: Filter by decision type code.
+            decided_petition_type_code_q: Filter by decided type code ("A" GRANTED,
+                "B" GRANTED-IN-PART, "C" DENIED, "D" DISMISSED).
             decision_date_from_q: Filter decisions from this date (YYYY-MM-DD).
             decision_date_to_q: Filter decisions to this date (YYYY-MM-DD).
             petition_mail_date_from_q: Filter petition mail dates from (YYYY-MM-DD).
@@ -173,7 +219,7 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
 
             # Search with POST body
             >>> response = client.search_decisions(
-            ...     post_body={"q": "technologyCenter:1700", "limit": 100}
+            ...     post_body={"q": "technologyCenter:1700", "pagination": {"limit": 100}}
             ... )
         """
         endpoint = self.ENDPOINTS["search_decisions"]
@@ -184,7 +230,7 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
                 method="POST",
                 endpoint=endpoint,
                 response_class=PetitionDecisionResponse,
-                json_data=post_body,
+                json_data=self._add_fixed_filters_to_body(post_body),
                 params=additional_query_params,
             )
         else:
@@ -220,8 +266,10 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
                         else invention_title_q
                     )
                     q_parts.append(f"inventionTitle:{v}")
-                if decision_type_code_q:
-                    q_parts.append(f"decisionTypeCode:{decision_type_code_q}")
+                if decided_petition_type_code_q:
+                    q_parts.append(
+                        f"decidedPetitionTypeCode:{decided_petition_type_code_q}"
+                    )
                 if technology_center_q:
                     q_parts.append(f"technologyCenter:{technology_center_q}")
                 if final_deciding_office_name_q:
@@ -280,51 +328,42 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
                 method="GET",
                 endpoint=endpoint,
                 response_class=PetitionDecisionResponse,
-                params=params,
+                params=self._add_fixed_filters(params),
             )
         return result
 
     def get_decision_by_id(
         self,
         petition_decision_record_identifier: str,
-        include_documents: bool | None = None,
     ) -> PetitionDecision | None:
         """Retrieve a specific petition decision by its record identifier.
+
+        The decision's documents are included. The request sends no query
+        parameters: with any present, including the documented
+        ``includeDocuments``, the API ignores the identifier and returns
+        unrelated decisions.
 
         Args:
             petition_decision_record_identifier: The unique identifier for the petition
                 decision record (UUID format).
-            include_documents: Whether to include associated documents in the response.
-                If True, adds includeDocuments=true query parameter.
 
         Returns:
             Optional[PetitionDecision]: The petition decision if found, None otherwise.
 
         Examples:
-            # Get decision without documents
             >>> decision = client.get_decision_by_id(
-            ...     "9f1a4a2b-eee1-58ec-a3aa-167c4075aed4"
-            ... )
-
-            # Get decision with documents
-            >>> decision = client.get_decision_by_id(
-            ...     "34044333-4b40-515f-a684-2515325c57c5",
-            ...     include_documents=True
+            ...     "1a552446-1d2b-570a-9bb6-b4fef39b0a91"
             ... )
         """
         endpoint = self.ENDPOINTS["get_decision_by_id"].format(
             petitionDecisionRecordIdentifier=petition_decision_record_identifier
         )
 
-        params = {}
-        if include_documents is not None:
-            params["includeDocuments"] = str(include_documents).lower()
-
         response_data = self._get_model(
             method="GET",
             endpoint=endpoint,
             response_class=PetitionDecisionResponse,
-            params=params if params else None,
+            params=None,
         )
         return self._get_decision_from_response(
             response_data=response_data,
@@ -366,7 +405,9 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
             offset: Number of records to skip (pagination).
             limit: Maximum number of records to return.
             fields: Specific fields to return.
-            filters: Filter configuration string.
+            filters: Filter as "field value" (a space, not a colon), e.g.
+                "decidedPetitionTypeCode A".
+                A value containing a space only works in post_body filters.
             range_filters: Range filter configuration string.
             application_number_q: Filter by application number.
             patent_number_q: Filter by patent number.
@@ -392,7 +433,7 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
             # Download as JSON
             >>> download = client.download_decisions(
             ...     format="json",
-            ...     technology_center_q="1700",
+            ...     query="technologyCenter:1700",
             ...     limit=1000
             ... )
             >>> for decision in download.petition_decision_data:
@@ -471,6 +512,8 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
         if additional_query_params:
             params.update(additional_query_params)
 
+        params = self._add_fixed_filters(params)
+
         if format.lower() == "json":
             # For JSON, parse the response
             return self._get_model(
@@ -505,8 +548,13 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
         This method simplifies fetching all petition decisions matching a search query
         by automatically handling pagination. Supports both GET and POST requests.
 
-        The offset and limit parameters are managed by the pagination logic;
-        setting them directly in kwargs or post_body might lead to unexpected behavior.
+        The offset is managed by the pagination logic. Set the page size with
+        ``limit`` (GET) or ``post_body["pagination"]["limit"]`` (POST).
+
+        Results are sorted on ``petitionDecisionRecordIdentifier`` last, ascending
+        unless your sort already includes it. The API orders tied records
+        differently on each request, so pages would otherwise repeat and skip
+        decisions.
 
         Args:
             post_body: Optional POST body for complex search queries
@@ -520,17 +568,32 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
         Examples:
             # GET pagination through all decisions for a technology center
             >>> for decision in client.paginate_decisions(technology_center_q="1700"):
-            ...     print(f"{decision.application_number_text}: {decision.decision_type_code}")
+            ...     print(f"{decision.application_number_text}: {decision.decided_petition_type_code}")
 
-            # POST pagination with date range
+            # POST pagination with a date range
             >>> for decision in client.paginate_decisions(
-            ...     post_body={
-            ...         "decision_date_from_q": "2023-01-01",
-            ...         "decision_date_to_q": "2023-12-31"
-            ...     }
+            ...     post_body={"q": "decisionDate:[2023-01-01 TO 2023-12-31]"}
             ... ):
             ...     process_decision(decision)
         """
+        field = self.TIEBREAK_SORT_FIELD
+        if post_body is not None:
+            body_sort = post_body.get("sort") or []
+            if not any(key.get("field") == field for key in body_sort):
+                post_body = {
+                    **post_body,
+                    "sort": [*body_sort, {"field": field, "order": "asc"}],
+                }
+        else:
+            caller_sort = kwargs.get("sort")
+            sort_keys = (
+                [caller_sort]
+                if isinstance(caller_sort, str)
+                else list(caller_sort or [])
+            )
+            if not any(key.split(" ", 1)[0] == field for key in sort_keys):
+                sort_keys.append(f"{field} asc")
+            kwargs["sort"] = sort_keys
         return self.paginate_results(
             method_name="search_decisions",
             response_container_attr="petition_decision_data_bag",
@@ -566,8 +629,7 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
         Examples:
             # Download first document from a decision
             >>> decision = client.get_decision_by_id(
-            ...     "34044333-4b40-515f-a684-2515325c57c5",
-            ...     include_documents=True
+            ...     "1a552446-1d2b-570a-9bb6-b4fef39b0a91"
             ... )
             >>> if decision.document_bag:
             ...     doc = decision.document_bag[0]
@@ -592,3 +654,33 @@ class FinalPetitionDecisionsClient(BaseUSPTOClient[PetitionDecisionResponse]):
             file_name=file_name,
             overwrite=overwrite,
         )
+
+
+class FinalPetitionDecisionsClient(PetitionDecisionsClient):
+    """Client for final petition decisions only.
+
+    Works like ``PetitionDecisionsClient``, but every search, pagination, and
+    ``download_decisions`` call is restricted to decisions whose
+    ``finalPetitionDecisionIndicator`` is true. The API can't filter lookups by
+    ID, so ``get_decision_by_id`` returns None for a decision that isn't final.
+    """
+
+    FIXED_FILTERS = {"finalPetitionDecisionIndicator": "true"}
+
+    def get_decision_by_id(
+        self,
+        petition_decision_record_identifier: str,
+    ) -> PetitionDecision | None:
+        """Retrieve a final petition decision by its record identifier.
+
+        Args:
+            petition_decision_record_identifier: The unique identifier for the petition
+                decision record (UUID format).
+
+        Returns:
+            Optional[PetitionDecision]: The decision if found and final, None otherwise.
+        """
+        decision = super().get_decision_by_id(petition_decision_record_identifier)
+        if decision is None or decision.final_petition_decision_indicator is not True:
+            return None
+        return decision

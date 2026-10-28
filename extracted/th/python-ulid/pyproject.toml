@@ -7,7 +7,7 @@ name = "python-ulid"
 description = "Universally unique lexicographically sortable identifier"
 dynamic = ["version", "readme"]
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Martin Domke", email = "mail@martindomke.net" },
 ]
@@ -19,7 +19,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -27,7 +26,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
-    "typing-extensions; python_version < '3.11'",
+    "typing-extensions; python_version < '3.12'",
 ]
 
 [project.urls]
@@ -60,7 +59,7 @@ exclude = [
 
 [tool.ruff]
 extend = ".ruff_defaults.toml"
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 
 [tool.ruff.format]
@@ -112,12 +111,13 @@ preset = "strict"
 project-excludes = ["docs"]
 
 [tool.poe.tasks]
-test = "uv run --extra pydantic coverage run -m pytest"
-check-code = "ruff check"
-check-fmt = "ruff format --check"
+test = "uv run --extra pydantic pytest --cov --cov-report=term-missing"
+check-code = "uv run ruff check"
+check-fmt = "uv run ruff format --check"
 check-types = "uv run --extra pydantic pyrefly check"
-check-docs = "doc8 docs/source"
-fmt = "ruff format"
+check-docs = "uv run doc8 docs/source"
+fmt = "uv run ruff format"
+fix = "uv run ruff check --fix"
 build = "uv build"
 cov-combine = "coverage combine"
 cov-xml = "coverage xml"
@@ -146,17 +146,18 @@ max-line-length = 100
 
 [dependency-groups]
 dev = [
-    "coverage==7.15.*",
+    "coverage==7.17.*",
     "freezegun==1.5.*",
-    "poethepoet==0.48.*",
-    "prek==0.4.*",
-    "pyrefly==1.1.*",
+    "poethepoet==0.49.*",
+    "prek==0.5.*",
+    "pyrefly==1.4.*",
     "pytest==9.1.*",
-    "ruff==0.15.*",
+    "pytest-cov==7.1.*",
+    "ruff==0.17.*",
 ]
 doc = [
     "doc8>=2.0.0",
-    "sphinx==8.1.*",
+    "sphinx<9.0",
 ]
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]

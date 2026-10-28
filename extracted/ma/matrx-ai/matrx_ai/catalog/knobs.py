@@ -21,6 +21,8 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+from matrx_utils.knob_fallback import knob_or_declared_default_sync
+
 FEATURE = "agents.model_catalog"
 
 _reader: Callable[[str], Any] | None = None
@@ -51,7 +53,13 @@ def catalog_knob(key: str, mirror: Any) -> Any:
             )
         return mirror
     try:
-        return _reader(key)
+        return knob_or_declared_default_sync(
+            lambda: _reader(key),
+            feature=FEATURE,
+            key=key,
+            declared_default=mirror,
+            consequence=f"The model catalog uses its built-in value {mirror!r} for {key}, and an admin cannot change it.",
+        )
     except Exception as exc:  # noqa: BLE001 — announced, never a crashed parse
         # The host is bound but cannot answer (typically a process that never
         # primed its knob snapshot). Say so once per key, with the remedy, and

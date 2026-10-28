@@ -935,6 +935,35 @@ def test_v11_migration_adds_azure_surface_without_rewriting_existing_authority(
         migrated.close()
 
 
+def test_v31_admits_the_azure_responses_surface(tmp_path: Path) -> None:
+    """A migrated database stores the Responses surface and still refuses unknown ones."""
+    path = tmp_path / "gateway.db"
+    initialize_database(path)
+    connection = connect_database(path)
+    try:
+        definition = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE name = 'provider_connection_revisions'"
+        ).fetchone()[0]
+        assert "'openai_deployments', 'model_inference', 'responses'" in definition
+        connection.execute("INSERT INTO organizations VALUES ('org', 'org', 'Org', 1, 't', 't')")
+        connection.execute(
+            "INSERT INTO provider_connections (connection_id, organization_id, active, "
+            "created_at, updated_at) VALUES ('azure', 'org', 1, 't', 't')"
+        )
+        insert = (
+            "INSERT INTO provider_connection_revisions (revision_id, organization_id, "
+            "connection_id, revision_number, provider, base_url, api_key_env, api_version, "
+            "azure_api_surface, connection_sha256, created_at) VALUES "
+            "(?, 'org', 'azure', ?, 'azure', 'https://r.openai.azure.com', "
+            "'AZURE_OPENAI_API_KEY', 'v1', ?, ?, 't')"
+        )
+        connection.execute(insert, ("rev-1", 1, "responses", "a" * 64))
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(insert, ("rev-2", 2, "bogus", "b" * 64))
+    finally:
+        connection.close()
+
+
 def test_v12_adds_bedrock_auth_locators_and_preserves_ambient_authority(
     tmp_path: Path,
 ) -> None:
@@ -1180,10 +1209,11 @@ def test_surface_migration_preserves_requests_attempts_and_constraints(
                 None,
                 0,
             )
-            # Plus the v29 frozen unit card and billed media units (5 columns).
+            # Frozen media units (v29) and default-false recovery provenance (v32).
             assert tuple(migrated.execute("SELECT * FROM gateway_attempts").fetchone()) == (
                 *before_attempt,
                 *(None for _ in range(16)),
+                0,
             )
         surviving = migrated.execute(
             "SELECT api_surface FROM gateway_requests WHERE request_id = 'req-1'"

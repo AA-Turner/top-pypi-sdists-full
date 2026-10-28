@@ -90,6 +90,23 @@ DEFAULT_LIVE_VAD: dict[str, Any] = {"silence_duration_ms": 700}
 #: caller for that model sends ``"scheduling": null`` and none is attached.
 DEFAULT_TOOL_SCHEDULING = "WHEN_IDLE"
 
+#: The catalog setting that says whether a Live offering takes a tool-response
+#: scheduling at all (``ai.setting`` ``tool_response_scheduling``): a translation
+#: cell ``{"supported": false}`` on an offering means "send none".
+TOOL_RESPONSE_SCHEDULING_SETTING = "tool_response_scheduling"
+
+
+def live_tool_response_scheduling(profile: ResolvedCallProfile) -> str | None:
+    """The scheduling a tool response to this Live offering carries, from the catalog:
+    ``None`` when the offering's cells declare the setting unsupported, else WHEN_IDLE.
+    A direct (browser) session receives this with its token and sends it verbatim."""
+    controls = getattr(profile, "controls", None)
+    rules = getattr(controls, "rules", None) or {}
+    rule = rules.get(TOOL_RESPONSE_SCHEDULING_SETTING)
+    if rule is not None and (getattr(rule, "supported", None) is False or getattr(rule, "drop", False)):
+        return None
+    return DEFAULT_TOOL_SCHEDULING
+
 
 class GoogleLiveFunction(BaseModel):
     """One function tool the Live model may call.
@@ -109,6 +126,10 @@ class GoogleLiveFunction(BaseModel):
     non_blocking: bool = True
 
 
+#: Google's hosted Live tools, in Google's own setup names.
+GoogleLiveBuiltinTool = Literal["google_search", "code_execution", "url_context"]
+
+
 class GoogleLiveOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -117,6 +138,10 @@ class GoogleLiveOptions(BaseModel):
     #: drop — and announce — whatever is asked; extended-thinking defaults to low).
     thinking_level: Literal["minimal", "low", "medium", "high"] | None = None
     tools: list[GoogleLiveFunction] = Field(default_factory=list)
+    #: Google's own hosted tools for the session, in Google's names (the host maps its
+    #: catalog vocabulary to these). They run at Google — no tool_call reaches the client —
+    #: and sit beside ``tools`` in the same setup.
+    builtin_tools: list[GoogleLiveBuiltinTool] = Field(default_factory=list)
     #: Sliding-window context compression: lifts the audio-length cap on a session.
     context_window_compression: bool = True
     #: Google's own enum strings ARE the canonical values (``ai.setting`` turn_coverage).
@@ -135,6 +160,9 @@ class GoogleLiveOptions(BaseModel):
     input_audio_transcription: bool = True
     output_audio_transcription: bool = True
     system_instruction: str | None = None
+    #: A Gemini prebuilt voice (catalog ``ai.voices.provider_voice_id``, e.g. ``puck``) →
+    #: ``speech_config.voice_config.prebuilt_voice_config.voice_name``. None = Google's default.
+    voice_name: str | None = None
 
     @model_validator(mode="after")
     def _modalities_are_unique(self) -> GoogleLiveOptions:
@@ -199,6 +227,22 @@ def _translate_session_settings(
     return out
 
 
+def _builtin_tool(name: str) -> types.Tool:
+    if name == "google_search":
+        return types.Tool(google_search=types.GoogleSearch())
+    if name == "code_execution":
+        return types.Tool(code_execution=types.ToolCodeExecution())
+    if name == "url_context":
+        return types.Tool(url_context=types.UrlContext())
+    raise ValueError(f"unknown Google Live builtin tool {name!r}")
+
+
+def _live_tools(options: GoogleLiveOptions) -> list[types.Tool]:
+    """The session's tools: our function declarations plus Google's hosted tools."""
+    builtins = [_builtin_tool(name) for name in dict.fromkeys(options.builtin_tools)]
+    return _function_tools(options.tools) + builtins
+
+
 def _function_tools(functions: Sequence[GoogleLiveFunction]) -> list[types.Tool]:
     if not functions:
         return []
@@ -217,12 +261,14 @@ def _function_tools(functions: Sequence[GoogleLiveFunction]) -> list[types.Tool]
     ]
 
 
-def _tool_responses(message: dict[str, Any]) -> list[types.FunctionResponse]:
+def _tool_responses(
+    message: dict[str, Any], default_scheduling: str | None = DEFAULT_TOOL_SCHEDULING
+) -> list[types.FunctionResponse]:
     """Client ``tool_response`` message -> SDK function responses (scheduling
     WHEN_IDLE unless the message says ``"scheduling": null`` or names another)."""
     out: list[types.FunctionResponse] = []
     for item in message.get("responses") or []:
-        scheduling = item.get("scheduling", DEFAULT_TOOL_SCHEDULING)
+        scheduling = item.get("scheduling", default_scheduling) if default_scheduling else None
         out.append(
             types.FunctionResponse(
                 id=item.get("id"),
@@ -289,7 +335,16 @@ def build_live_config(
             if options.context_window_compression
             else None
         ),
-        tools=_function_tools(options.tools) or None,
+        tools=_live_tools(options) or None,
+        speech_config=(
+            types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=options.voice_name)
+                )
+            )
+            if options.voice_name
+            else None
+        ),
     )
     return config
 
@@ -356,7 +411,9 @@ class GoogleLiveSession:
             )
             return
         if kind == "tool_response":
-            await session.send_tool_response(function_responses=_tool_responses(message))
+            await session.send_tool_response(
+                function_responses=_tool_responses(message, live_tool_response_scheduling(self.profile))
+            )
             return
         if kind == "audio_stream_end":
             await session.send_realtime_input(audio_stream_end=True)

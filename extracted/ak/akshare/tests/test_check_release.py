@@ -8,25 +8,20 @@ from check_release import (
 )
 
 
-def make_repo(tmp_path, version="1.18.91", init_version=None, changelog_version=None):
+def make_repo(tmp_path, version="1.18.91", changelog_version=None):
     """
-    造一个只含发布校验所需三个文件的最小仓库。
+    造一个只含发布校验所需两个文件的最小仓库。
 
     :param tmp_path: pytest 提供的临时目录
     :param version: 写入 _version.py 的版本号
-    :param init_version: 写入 __init__.py 版本历史的版本号，默认与 version 相同
     :param changelog_version: 写入 changelog 的版本号，默认与 version 相同
     :return: 仓库根目录
     """
-    init_version = version if init_version is None else init_version
     changelog_version = version if changelog_version is None else changelog_version
     (tmp_path / "akshare").mkdir()
     (tmp_path / "docs").mkdir()
     (tmp_path / "akshare" / "_version.py").write_text(
         f'__version__ = "{version}"\n', encoding="utf-8"
-    )
-    (tmp_path / "akshare" / "__init__.py").write_text(
-        f'"""\n{init_version} fix: fix some interface\n"""\n', encoding="utf-8"
     )
     (tmp_path / "docs" / "changelog.md").write_text(
         f"## 更新说明详情\n\n{changelog_version} fix: fix some interface\n\n"
@@ -37,12 +32,12 @@ def make_repo(tmp_path, version="1.18.91", init_version=None, changelog_version=
 
 
 def test_parse_tag_extracts_version():
-    assert parse_tag("release-v1.18.91") == "1.18.91"
+    assert parse_tag("v1.18.91") == "1.18.91"
 
 
 @pytest.mark.parametrize(
     "tag",
-    ["v1.18.91", "release-v1.18", "release-1.18.91", "release-v1.18.91-rc1", ""],
+    ["release-v1.18.91", "v1.18", "1.18.91", "v1.18.91-rc1", "V1.18.91", ""],
 )
 def test_parse_tag_rejects_malformed(tag):
     """tag 格式必须严格，否则版本号可能被截取成意料之外的值。"""
@@ -73,32 +68,24 @@ def test_has_version_entry_requires_line_start():
 
 def test_collect_problems_passes_when_all_aligned(tmp_path):
     repo = make_repo(tmp_path)
-    assert collect_problems(repo, "release-v1.18.91") == []
+    assert collect_problems(repo, "v1.18.91") == []
 
 
 def test_collect_problems_detects_tag_version_mismatch(tmp_path):
     repo = make_repo(tmp_path, version="1.18.91")
-    problems = collect_problems(repo, "release-v1.18.99")
+    problems = collect_problems(repo, "v1.18.99")
     assert len(problems) == 1
     assert "不一致" in problems[0]
 
 
 def test_collect_problems_detects_missing_changelog_entry(tmp_path):
     repo = make_repo(tmp_path, version="1.18.91", changelog_version="1.18.90")
-    problems = collect_problems(repo, "release-v1.18.91")
+    problems = collect_problems(repo, "v1.18.91")
     assert any("changelog" in p for p in problems)
-
-
-def test_collect_problems_detects_missing_init_history(tmp_path):
-    repo = make_repo(tmp_path, version="1.18.91", init_version="1.18.90")
-    problems = collect_problems(repo, "release-v1.18.91")
-    assert any("__init__.py" in p for p in problems)
 
 
 def test_collect_problems_reports_every_problem_at_once(tmp_path):
     """一次报全，避免修一个再跑一次 CI 才发现下一个。"""
-    repo = make_repo(
-        tmp_path, version="1.18.91", init_version="1.18.90", changelog_version="1.18.89"
-    )
-    problems = collect_problems(repo, "release-v1.18.99")
-    assert len(problems) == 3
+    repo = make_repo(tmp_path, version="1.18.91", changelog_version="1.18.89")
+    problems = collect_problems(repo, "v1.18.99")
+    assert len(problems) == 2

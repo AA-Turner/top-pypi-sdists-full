@@ -44,7 +44,7 @@ def is_postgres(config: Any | None = None) -> bool:
 
             config = get_config()
 
-        _IS_POSTGRES = (config.DATABASE_ENGINE or "sqlite").strip().lower().startswith("postgres")
+        _IS_POSTGRES = str(config.DATABASE_ENGINE or "sqlite").strip().lower().startswith("postgres")
 
     return _IS_POSTGRES
 
@@ -99,6 +99,41 @@ def database_exists() -> bool:
         return False
 
 
+def load_db_secret(config) -> str | None:
+    """Read an adopted collection secret before Django's app registry exists."""
+    import json
+    import logging
+    import sqlite3
+    from contextlib import closing
+
+    try:
+        if os.environ.get("SECRET_KEY"):
+            return None  # Preserve explicit process overrides.
+        if not is_postgres(config) and not Path(config.DATABASE_NAME).exists():
+            return None
+        with closing(
+            _psycopg_connect()
+            if is_postgres(config)
+            else sqlite3.connect(f"{Path(config.DATABASE_NAME).absolute().as_uri()}?mode=ro", uri=True),
+        ) as db:
+            if not is_postgres(config) and not db.execute("SELECT 1 FROM sqlite_master WHERE name='machine_machine'").fetchone():
+                return None
+            configs = [
+                json.loads(row[0]) if isinstance(row[0], str) else row[0] for row in db.execute("SELECT config FROM machine_machine")
+            ]
+            keys = {
+                value["SECRET_KEY"]
+                for value in configs
+                if isinstance(value, dict) and value.get("_SECRET_KEY_DB") and value.get("SECRET_KEY")
+            }
+            if len(keys) > 1:
+                raise ValueError("Conflicting collection secrets in Machine.config")
+            return next(iter(keys), None)
+    except Exception as err:
+        logging.getLogger(__name__).warning("Unable to read collection secret from DB; retaining file/env key (%s)", type(err).__name__)
+        return None
+
+
 def database_display_location() -> str:
     """Human-readable location of the database (file path or postgres DSN)."""
     if not is_postgres():
@@ -119,6 +154,7 @@ def ensure_database_ready() -> None:
         return
 
     import psycopg
+    from psycopg import sql
     from rich import print as rich_print
 
     params = postgres_db_params()
@@ -135,8 +171,7 @@ def ensure_database_ready() -> None:
 
     with _psycopg_connect(dbname="postgres") as conn:
         conn.autocommit = True
-        safe_name = params["NAME"].replace('"', '""')
-        conn.execute(f'CREATE DATABASE "{safe_name}"')
+        conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(params["NAME"])))
         rich_print(f"    + Created PostgreSQL database {params['NAME']}")
 
 
@@ -299,7 +334,7 @@ def sqlite_lock_holders(db_path: Path = CONSTANTS.DATABASE_FILE) -> list[str]:
     for proc in psutil.process_iter(["pid", "ppid", "name", "cmdline", "status"]):
         try:
             open_files = proc.open_files()
-        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess):
+        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, RuntimeError):
             continue
         for open_file in open_files:
             try:
@@ -370,7 +405,9 @@ def migration_lock(stdout: TextIO | None = None):
     from archivebox.config.paths import get_or_create_working_tmp_dir
     from rich.console import Console
 
-    lock_path = get_or_create_working_tmp_dir(autofix=True, quiet=True) / "migrate.lock"
+    tmp_dir = get_or_create_working_tmp_dir(autofix=True, quiet=False)
+    assert tmp_dir is not None
+    lock_path = tmp_dir / "migrate.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+") as lock_file:
         try:

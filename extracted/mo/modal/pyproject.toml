@@ -20,7 +20,7 @@ dependencies = [
     "grpclib>=0.4.9,<0.4.10 ; python_version >= '3.14'",
     "protobuf>=3.19,<8.0,!=4.24.0",
     "rich>=12.0.0",
-    "synchronicity~=0.12.6",
+    "synchronicity~=0.12.7",
     "toml",
     "types-certifi",
     "types-toml",
@@ -38,6 +38,9 @@ classifiers = [
 
 [project.optional-dependencies]
 api-proxy-support = ["python-socks[asyncio]>=2.5", "aiohttp-socks>=0.8"]
+oauth = [
+    "pyjwt[crypto]>=2.7",
+]
 
 [dependency-groups]
 dev = [
@@ -46,7 +49,7 @@ dev = [
     "grpclib==0.4.9",
     "invoke~=2.2",
     "httpx~=0.28.1",
-    "pyjwt~=2.15.0",
+    "pyjwt[crypto]~=2.15.0",
     "pre-commit>=2.21,<4",
     "mypy~=1.18.2",
     "packaging>=23.1",
@@ -76,7 +79,6 @@ dev = [
     "python-json-logger==2.0.7",
     "build~=1.3.0",
     "ddtrace==4.8.4",
-
     "mypy-protobuf",
     "grpcio-tools",
     # Additional test-only dependencies (used by the Bazel client test
@@ -214,7 +216,7 @@ extend-select = ['PLR1702']
 "modal_docs/**" = ['T201']
 "modal_global_objects/**" = ['T201']
 "tasks.py" = ['T201']
-"compile_protos.py" = ['T201']
+"scripts/compile_protos.py" = ['T201']
 "modal/__init__.py" = ['T201']
 "modal/experimental/ipython.py" = ['T201']
 
@@ -256,5 +258,7 @@ exclude = [
     "modal/parallel_map.py",  # 18 errors, needs some thought around implementation / interface types
     "modal/sandbox/_sandbox.py",  # 31 errors together with stub
     "modal/sandbox/_sidecar.py",
+    "modal/sandbox/_impl_v1.py",  # proto args passed as `str | None`, moved from _sandbox.py
+    "modal/sandbox/_impl_v2.py",
     "modal/sandbox/sandbox.pyi",
 ]

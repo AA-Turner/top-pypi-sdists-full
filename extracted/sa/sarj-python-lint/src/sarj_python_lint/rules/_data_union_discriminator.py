@@ -124,7 +124,7 @@ class _DataUnions:
                     message=f"Data union `{name}` has no shared disjoint Literal discriminator. "
                     "Add a common field such as `kind` or `scope` with non-overlapping Literal values "
                     "on every variant; preserve constructor and serialized contracts when choosing defaults.",
-                    severity=Severity.WARNING,
+                    severity=Severity.ERROR,
                 )
             )
         return findings
@@ -563,7 +563,7 @@ def _wrapped_annotation(node: ast.Subscript, symbol: str | None, *, required: bo
 
 
 def _direct_initvar_field(field: ast.AnnAssign, context: PythonFileContext, provenance: ResourceProvenance) -> bool:
-    if field.value is not None or not isinstance(field.annotation, ast.Subscript):
+    if not isinstance(field.annotation, ast.Subscript):
         return False
     target = field.annotation.value
     if not _untouched(target, provenance) or not context.module_imports.resolves(

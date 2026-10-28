@@ -1,5 +1,6 @@
 """Platform compatibility internals."""
 
+from istari_digital_client.sdk._compatibility._api_version import SDK_API_VERSION
 from istari_digital_client.sdk._compatibility.checker import CompatibilityChecker, CompatibilityResult
 
 try:
@@ -7,4 +8,4 @@ try:
 except ImportError:
     API_HASHES: dict[str, str] = {}  # type: ignore[no-redef]
 
-__all__ = ["API_HASHES", "CompatibilityChecker", "CompatibilityResult"]
+__all__ = ["API_HASHES", "SDK_API_VERSION", "CompatibilityChecker", "CompatibilityResult"]

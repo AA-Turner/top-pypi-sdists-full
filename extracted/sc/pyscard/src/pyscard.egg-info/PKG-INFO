@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pyscard
-Version: 2.3.1
+Version: 2.3.2
 Summary: Smartcard module for Python.
 Home-page: https://github.com/LudovicRousseau/pyscard
-Download-URL: https://sourceforge.net/projects/pyscard/files/pyscard/pyscard%202.3.1/pyscard-2.3.1.tar.gz/download
+Download-URL: https://sourceforge.net/projects/pyscard/files/pyscard/pyscard%202.3.2/pyscard-2.3.2.tar.gz/download
 Author: Ludovic Rousseau
 Author-email: ludovic.rousseau@free.fr
 Platform: linux
@@ -19,6 +19,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Security
 Requires-Python: >=3.9
 License-File: LICENSE

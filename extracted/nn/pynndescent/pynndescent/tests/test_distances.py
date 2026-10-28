@@ -1,3 +1,4 @@
+import numba
 import pytest
 import numpy as np
 from numpy.testing import assert_array_equal, assert_array_almost_equal
@@ -66,7 +67,12 @@ def test_spatial_check(spatial_data, metric):
     ],
 )
 def test_binary_check(binary_data, metric):
-    dist_matrix = pairwise_distances(binary_data, metric=metric)
+    # In never versions of scipy sokalmichener was deprecated for rogerstanimoto
+    # They should be the same in scipy's implementation
+    if metric == 'sokalmichener':
+        dist_matrix = pairwise_distances(binary_data, metric='rogerstanimoto')
+    else:
+        dist_matrix = pairwise_distances(binary_data, metric=metric)
     if metric in ("jaccard", "dice", "sokalsneath", "yule"):
         dist_matrix[np.where(~np.isfinite(dist_matrix))] = 0.0
     if metric == "russellrao":
@@ -172,9 +178,14 @@ def test_sparse_spatial_check(sparse_spatial_data, metric, decimal=6):
 )
 def test_sparse_binary_check(sparse_binary_data, metric):
     if metric in spdist.sparse_named_distances:
-        dist_matrix = pairwise_distances(
-            np.asarray(sparse_binary_data.todense()), metric=metric
-        )
+        if metric == "sokalmichener":
+            dist_matrix = pairwise_distances(
+                np.asarray(sparse_binary_data.todense()), metric="rogerstanimoto"
+            )        
+        else:
+            dist_matrix = pairwise_distances(
+                np.asarray(sparse_binary_data.todense()), metric=metric
+            )
     if metric in ("jaccard", "dice", "sokalsneath"):
         dist_matrix[np.where(~np.isfinite(dist_matrix))] = 0.0
     if metric == "russellrao":
@@ -182,6 +193,7 @@ def test_sparse_binary_check(sparse_binary_data, metric):
         # And because distance between all zero vectors should be zero
         dist_matrix[10, 11] = 0.0
         dist_matrix[11, 10] = 0.0
+    
 
     dist_function = spdist.sparse_named_distances[metric]
     if metric in spdist.sparse_need_n_features:
@@ -301,6 +313,32 @@ def test_haversine(spatial_data):
         dist_matrix,
         err_msg="Distances don't match for metric haversine",
     )
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("latitude", [-89.0, -85.0, 85.0, 89.0])
+def test_haversine_antipodal(dtype, latitude):
+    x = np.deg2rad(np.array([latitude, 15.0], dtype=dtype))
+    y = np.deg2rad(np.array([-latitude, -165.0], dtype=dtype))
+
+    assert dist.haversine(x, y) == pytest.approx(np.pi, abs=1e-6)
+    assert dist.haversine(y, x) == pytest.approx(np.pi, abs=1e-6)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "x, y, expected",
+    [
+        ([0.0, 0.0], [0.0, 0.0], 0.0),
+        ([0.0, 0.0], [0.0, 90.0], np.pi / 2),
+        ([0.0, 0.0], [90.0, 0.0], np.pi / 2),
+    ],
+)
+def test_haversine_regular_points(dtype, x, y, expected):
+    x = np.deg2rad(np.array(x, dtype=dtype))
+    y = np.deg2rad(np.array(y, dtype=dtype))
+
+    assert dist.haversine(x, y) == pytest.approx(expected, abs=1e-6)
 
 
 def test_spearmanr():
@@ -430,3 +468,102 @@ def test_bit_jaccard():
             d1 = 1.0 - np.exp(-dist.bit_jaccard(test_data[i], test_data[j]))
             d2 = all_pairs[i, j]
             assert np.isclose(d1, d2)
+
+
+F4 = numba.float32[::1]
+U1 = numba.uint8[::1]
+I4 = numba.int32[::1]
+DENSE_F4 = [
+    "alternative_cosine",
+    "alternative_dot",
+    "alternative_hellinger",
+    "alternative_inner_product",
+    "alternative_jaccard",
+    "dot",
+    "hellinger",
+    "inner_product",
+    "proxy_circular_kantorovich",
+    "proxy_inner_product",
+    "proxy_jensen_shannon",
+    "proxy_kantorovich",
+    "proxy_sinkhorn",
+    "proxy_symmetric_kl",
+    "proxy_wasserstein_1d",
+    "squared_euclidean",
+]
+QUANTIZED_F4 = [
+    "quantized_uint4_alternative_cosine",
+    "quantized_uint4_alternative_dot",
+    "quantized_uint4_sq_euclidean",
+    "quantized_uint8_alternative_cosine",
+    "quantized_uint8_alternative_dot",
+    "quantized_uint8_sq_euclidean",
+]
+SPARSE_F4 = [
+    "sparse_alternative_jaccard",
+    "sparse_bray_curtis",
+    "sparse_dot_product",
+    "sparse_squared_euclidean",
+]
+
+
+@pytest.mark.parametrize(
+    "kernel,args,return_type",
+    [(getattr(dist, name), (F4, F4), numba.float32) for name in DENSE_F4]
+    + [(getattr(dist, name), (F4, U1, F4), numba.float32) for name in QUANTIZED_F4]
+    + [
+        (getattr(dist, name), (U1, U1), numba.float32)
+        for name in ("bit_hamming", "bit_jaccard")
+    ]
+    + [(getattr(spdist, name), (I4, F4, I4, F4), numba.float32) for name in SPARSE_F4]
+    + [(spdist.fast_intersection_size, (I4, I4), numba.int32)],
+)
+def test_lazy_kernel_return_types(kernel, args, return_type):
+    # Kernels compile on first use, so their return dtype comes from inference
+    # rather than an explicit signature; callers compare against float32 heaps.
+    kernel.compile(args)
+    assert kernel.overloads[args].signature.return_type == return_type
+
+
+def test_tsss_matches_definition():
+    # https://github.com/lmcinnes/pynndescent/issues/233
+    # TS-SS (Heidarian & Dinneen, 2016) is the product of the triangle area
+    # |x||y|sin(theta)/2 and the sector area pi*(ED + MD)^2*theta/360 with theta
+    # in degrees, i.e. (ED + MD)^2*theta/2 with theta in radians.
+    x = np.array([1.0, 2.0, 3.0])
+    y = np.array([2.0, 0.5, 1.0])
+    norm_x = np.linalg.norm(x)
+    norm_y = np.linalg.norm(y)
+    theta = np.arccos(x @ y / (norm_x * norm_y)) + np.radians(10)
+    triangle = norm_x * norm_y * np.sin(theta) / 2
+    sector = (np.linalg.norm(x - y) + abs(norm_x - norm_y)) ** 2 * theta / 2
+    assert dist.tsss(x, y) == pytest.approx(triangle * sector)
+
+
+def test_sparse_correlation_with_zero_centred_shared_entry():
+    # Index 1 is stored in both rows and x[1] equals mean(x), so its centred
+    # product is exactly zero; it must still be treated as a shared index.
+    x = np.array([3.0, 1.0, 0.0, 0.0], dtype=np.float32)
+    y = np.array([1.0, 2.0, 0.0, 0.0], dtype=np.float32)
+    sx = csr_matrix(x[None, :])
+    sy = csr_matrix(y[None, :])
+    result = spdist.sparse_correlation(
+        sx.indices, sx.data, sy.indices, sy.data, x.shape[0]
+    )
+    expected = pairwise_distances(x[None, :], y[None, :], metric="correlation")[0, 0]
+    assert_array_almost_equal(result, expected, decimal=6)
+
+
+@pytest.mark.parametrize("empty_first", [True, False])
+def test_sparse_dot_product_with_empty_vector(empty_first):
+    # Empty vectors are usually slices of larger arrays (an empty CSR row, or
+    # an empty search-tree hyperplane), so the memory just past them holds
+    # real indices and values that must not be read.
+    full_inds = np.array([5], dtype=np.int32)
+    full_data = np.array([3.0], dtype=np.float32)
+    empty = (full_inds[0:0], full_data[0:0])
+    other = (np.array([5], dtype=np.int32), np.array([2.0], dtype=np.float32))
+    args = empty + other if empty_first else other + empty
+
+    assert spdist.sparse_dot_product(*args) == 0.0
+    assert spdist.sparse_dot(*args) == 1.0

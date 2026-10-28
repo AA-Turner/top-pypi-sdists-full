@@ -975,14 +975,13 @@ def test_removing_probe_no_longer_claims_the_account_survives(monkeypatch):
     assert not any("Settings" in message for message in messages)
 
 
-def test_a_removed_device_reads_as_fresh_again(monkeypatch, isolate):
-    """`Capabilities.configured` decides whether the next install offers the
-    fresh defaults or "whatever is currently on" -- and after a removal that is
-    nothing at all, so a device stuck at configured=True reinstalls with every
-    box unticked.
-
-    Two leftovers used to keep it True forever: the `.disabled` killswitch the
-    teardown writes, and the `last_attempt` record `save(enabled=False)` keeps.
+def test_removing_one_agent_clears_its_killswitch_and_keeps_the_devices_auto_update(monkeypatch, isolate):
+    """`remove_everything` is the per-agent removal (`--agent A`): the
+    `.disabled` killswitch its teardown wrote guards nothing once that agent's
+    plugin and every credential are gone, so it goes. The automatic-updates
+    choice is ONE device-wide file (`autoupdate`), not this agent's: it stays,
+    record and all. The whole-device `probe uninstall` removes it with the
+    rest of Probe's state.
     """
     from probe.cli import autoupdate, claude_cli
     from probe.cli.capabilities import tap_plugin_dir
@@ -991,6 +990,7 @@ def test_a_removed_device_reads_as_fresh_again(monkeypatch, isolate):
         autoupdate.Attempt(at=1, ok=True, detail="upgraded", from_version="1", to_version="2")
     )
     autoupdate.save(enabled=True)
+    before = autoupdate.load()
     monkeypatch.setattr(
         setup,
         "turn_off",
@@ -1008,10 +1008,9 @@ def test_a_removed_device_reads_as_fresh_again(monkeypatch, isolate):
     assert not (tap_plugin_dir() / ".disabled").exists(), (
         "the killswitch guards nothing once the plugin and every credential are gone"
     )
-    assert autoupdate.load() == autoupdate.Settings(enabled=False), (
-        "the auto-update record is this device's Probe bookkeeping; Probe is gone"
+    assert autoupdate.load() == before and before.enabled, (
+        "removing one agent must not change the device-wide auto-update choice"
     )
-    assert not Capabilities(capture_killswitched=False).configured
 
 
 def test_the_killswitch_survives_a_removal_that_did_not_verify(monkeypatch, isolate):

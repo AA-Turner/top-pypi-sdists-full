@@ -9859,7 +9859,7 @@ class TasksPerformanceSummarySort(pycarlo.lib.types.Enum):
     )
 
 
-class TeammateChannelAction(pycarlo.lib.types.Enum):
+class TeammateAudienceAction(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
     * `DISABLE`None
@@ -10311,7 +10311,7 @@ class TraceSortField(pycarlo.lib.types.Enum):
     cost. FEEDBACK orders by each trace's newest end-user rating:
     negative, unrated, then positive ascending. Traces with no
     feedback sort last in both directions. Only Snowflake Cortex and
-    Genie agents have feedback. The ClickHouse backend rejects it.
+    Genie agents have feedback.
 
     Enumeration Choices:
 
@@ -10584,6 +10584,25 @@ class TsaInvestigationBillingStatus(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("FREE", "INCLUDED_IN_BATCH", "NEW_BATCH")
+
+
+class TsaTrialStatus(pycarlo.lib.types.Enum):
+    """Where the account stands on the Troubleshooting Agent trial.
+
+    Enumeration Choices:
+
+    * `ACTIVE`: A trial is running. The monthly investigation limit is
+      not enforced.
+    * `ELIGIBLE`: No trial has started. Connecting an MCP server
+      starts one.
+    * `EXPIRED`: The account's trial has ended. An account gets one
+      trial.
+    * `NOT_ELIGIBLE`: No trial has started and the account cannot
+      start one.
+    """
+
+    __schema__ = schema
+    __choices__ = ("ACTIVE", "ELIGIBLE", "EXPIRED", "NOT_ELIGIBLE")
 
 
 class TuningUnavailableReason(pycarlo.lib.types.Enum):
@@ -18046,22 +18065,18 @@ class NodeInput(sgqlc.types.Input):
 
 
 class NotificationDigestSettings(sgqlc.types.Input):
+    """Deprecated. No longer supported."""
+
     __schema__ = schema
     __field_names__ = ("start_time", "interval_minutes", "digest_type")
     start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
-    """Start time of scheduled digest. If not set, by default it is UTC
-    00:00 daily
-    """
+    """Deprecated. No longer supported."""
 
     interval_minutes = sgqlc.types.Field(Int, graphql_name="intervalMinutes")
-    """Interval of how frequently to run the schedule. If not set, by
-    default it is 1440 minutes(24h)
-    """
+    """Deprecated. No longer supported."""
 
     digest_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="digestType")
-    """Type of digest. Supported options include: anomalies_digest,
-    misconf_digest, inactive_digest
-    """
+    """Deprecated. No longer supported."""
 
 
 class NotificationExtra(sgqlc.types.Input):
@@ -20853,8 +20868,9 @@ class TraceFiltersInput(sgqlc.types.Input):
         graphql_name="feedbackRatings",
     )
     """Filter by the rating of each trace's newest end-user feedback (OR
-    logic). Only Snowflake Cortex and Genie agents have feedback. Not
-    supported on ClickHouse.
+    logic). Only Snowflake Cortex and Genie agents have feedback. On
+    ClickHouse it needs the agent's feedback collected there, and the
+    tool overview, tool time series and top tools refuse it.
     """
 
     has_feedback_comment = sgqlc.types.Field(
@@ -20862,7 +20878,10 @@ class TraceFiltersInput(sgqlc.types.Input):
         graphql_name="hasFeedbackComment",
     )
     """Filter by whether each trace's newest end-user feedback carries a
-    comment (OR logic). Not supported on ClickHouse.
+    comment (OR logic). Only Snowflake Cortex and Genie agents have
+    feedback. On ClickHouse it needs the agent's feedback collected
+    there, and the tool overview, tool time series and top tools
+    refuse it.
     """
 
     search_query = sgqlc.types.Field(String, graphql_name="searchQuery")
@@ -25703,9 +25722,9 @@ class AgentFeedback(sgqlc.types.Type):
     feedback_available = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="feedbackAvailable"
     )
-    """False when feedback is not collected for this agent. Snowflake
-    Cortex agents have it, and Genie agents once their collector is
-    upgraded.
+    """False when this agent's feedback is not collected for this trace
+    store. Snowflake Cortex agents have it, and Genie agents once
+    their collector is upgraded.
     """
 
     traces = sgqlc.types.Field(
@@ -25722,7 +25741,9 @@ class AgentFeedbackComments(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TraceFeedbackComment"))),
         graphql_name="traces",
     )
-    """One entry per trace with feedback. Empty when content is withheld."""
+    """One entry per trace with feedback, except traces whose comments
+    are withheld.
+    """
 
     content_withheld_reason = sgqlc.types.Field(
         RawContentWithheldReason, graphql_name="contentWithheldReason"
@@ -26964,8 +26985,8 @@ class AgentObservabilityBillingInfo(sgqlc.types.Type):
 class AgentObservabilitySummary(sgqlc.types.Type):
     """Observed agents and current known dependencies within an alert
     window.  Null metrics are unavailable; unavailableFields lists
-    their field names. Runtime totals, historical comparisons, evals,
-    and spend are not yet available.
+    their field names. totalRuns, run success rate, p95 latency,
+    historical comparisons, evals, and spend are not yet available.
     """
 
     __schema__ = schema
@@ -26985,6 +27006,8 @@ class AgentObservabilitySummary(sgqlc.types.Type):
         "run_success_rate",
         "p95_latency_seconds",
         "average_latency_seconds",
+        "total_traces",
+        "error_count",
         "eval_score",
         "spend",
         "spend_unit",
@@ -27053,6 +27076,18 @@ class AgentObservabilitySummary(sgqlc.types.Type):
     Includes successful and failed traces with finite, nonnegative
     durations. Null when no traces qualify or any source is
     unavailable.
+    """
+
+    total_traces = sgqlc.types.Field(BigInt, graphql_name="totalTraces")
+    """Traces starting in [startTime, endTime), using the agent overview
+    totalTraces definition. Null when any source is unavailable or
+    startTime is before retained span history.
+    """
+
+    error_count = sgqlc.types.Field(BigInt, graphql_name="errorCount")
+    """Traces counted in totalTraces whose root span errored, using the
+    agent overview errorCount definition. Null when totalTraces is
+    null.
     """
 
     eval_score = sgqlc.types.Field(Float, graphql_name="evalScore")
@@ -35966,16 +36001,6 @@ class CreateTableauAssetWarning(sgqlc.types.Type):
     __field_names__ = ("tableau_warning_id",)
     tableau_warning_id = sgqlc.types.Field(String, graphql_name="tableauWarningId")
     """ID of the created warning in Tableau ID space."""
-
-
-class CreateTeammateChannel(sgqlc.types.Type):
-    """Make a Slack channel a domain's teammate channel."""
-
-    __schema__ = schema
-    __field_names__ = ("teammate_channel",)
-    teammate_channel = sgqlc.types.Field(
-        sgqlc.types.non_null("TeammateChannel"), graphql_name="teammateChannel"
-    )
 
 
 class CreateUnifiedUserAssignment(sgqlc.types.Type):
@@ -49585,7 +49610,7 @@ class MetaSummarizerCandidateAgentIssue(sgqlc.types.Type):
     """The newest report's recommended fix."""
 
     ledger = sgqlc.types.Field("MetaSummarizerLedgerEntry", graphql_name="ledger")
-    """The channel's latest decision on the issue. Null before the first
+    """The teammate's latest decision on the issue. Null before the first
     one.
     """
 
@@ -49672,13 +49697,13 @@ class MetaSummarizerCandidateAlert(sgqlc.types.Type):
     """
 
     ledger = sgqlc.types.Field("MetaSummarizerLedgerEntry", graphql_name="ledger")
-    """The channel's latest decision on the alert. Null before the first
+    """The teammate's latest decision on the alert. Null before the first
     one.
     """
 
 
 class MetaSummarizerLedgerEntry(sgqlc.types.Type):
-    """The channel's latest decision on an item. Alerts and agent issues
+    """The teammate's latest decision on an item. Alerts and agent issues
     share this type.
     """
 
@@ -49770,7 +49795,7 @@ class MetaSummarizerPostItem(sgqlc.types.Type):
 
 
 class MetaSummarizerRecentPost(sgqlc.types.Type):
-    """A post the teammate made to the channel."""
+    """A post the teammate made to the teammate audience."""
 
     __schema__ = schema
     __field_names__ = (
@@ -49845,21 +49870,21 @@ class MetaSummarizerRemediationSummary(sgqlc.types.Type):
 
 
 class MetaSummarizerState(sgqlc.types.Type):
-    """A teammate channel's alerts and recent posts, as the meta-
+    """A teammate audience's alerts and recent posts, as the meta-
     summarizer reads them.
     """
 
     __schema__ = schema
     __field_names__ = ("domain_id", "domain_name", "watch_notes", "alerts", "recently_posted")
     domain_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainId")
-    """The channel's domain."""
+    """The teammate audience's domain."""
 
     domain_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="domainName")
     """The domain's name."""
 
     watch_notes = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="watchNotes")
-    """True when the channel wants a note when the teammate starts
-    watching an item.
+    """True when the teammate audience wants a note when the teammate
+    starts watching an item.
     """
 
     alerts = sgqlc.types.Field(
@@ -49880,7 +49905,7 @@ class MetaSummarizerState(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(MetaSummarizerRecentPost))),
         graphql_name="recentlyPosted",
     )
-    """The channel's posts from the last 7 days, newest first."""
+    """The teammate audience's posts from the last 7 days, newest first."""
 
 
 class MetaSummarizerTriage(sgqlc.types.Type):
@@ -52908,8 +52933,8 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_agent_evaluation_monitor",
         "create_or_update_json_schema_monitor",
         "validate_cron",
-        "create_teammate_channel",
-        "update_teammate_channel",
+        "set_teammate_audience",
+        "update_teammate_audience",
         "configure_agentic_platform",
         "trigger_agentic_platform_pipeline",
         "run_monitoring_for_domain",
@@ -63682,19 +63707,13 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `anomaly_types` (`[String]`): Limit notifications to specific
-      incident types (default=all). Supported options include:
-      anomalies, schema_changes, json_schema_changes, deleted_tables,
-      metric_anomalies, agent_metric_anomalies,
-      agent_evaluation_anomalies, agent_anomalies,
-      metric_comparison_anomalies, custom_rule_anomalies,
-      performance_anomalies, dbt_errors, etl_errors,
-      pseudo_integration_test, rule_run_execution_error, merged
+    * `anomaly_types` (`[String]`): Deprecated. No longer supported
+      for notification settings.
     * `audience_id` (`UUID`): Audience associated with the recipient
-    * `custom_message` (`String`): A custom message to be sent with
-      triggered notification
-    * `digest_settings` (`NotificationDigestSettings`): Digest
-      settings. Only valid when notification schedule type is digest
+    * `custom_message` (`String`): Deprecated. No longer supported for
+      notification settings.
+    * `digest_settings` (`NotificationDigestSettings`): Deprecated. No
+      longer supported for notification settings.
     * `dry` (`Boolean`): Test destination is reachable by sending a
       sample alert. Note - setting is not saved and rules are not
       evaluated. (default: `false`)
@@ -63703,9 +63722,8 @@ class Mutation(sgqlc.types.Type):
       to specific incident sub types (default=all). Deprecated. No
       longer supported for notification settings.
     * `integration_id` (`UUID`): Integration ID for the recipient
-    * `notification_schedule_type` (`String`): Specify the
-      notification schedule type. Supported values: realtime, digest,
-      backup_or_failure
+    * `notification_schedule_type` (`String`): Deprecated. No longer
+      supported for notification settings.
     * `notification_type` (`String!`): Specify the notification
       integration to use. Supported options include: email, opsgenie,
       pagerduty, slack, slack_v2, google_chat, webhook, msteams,
@@ -63713,7 +63731,8 @@ class Mutation(sgqlc.types.Type):
       datadog, azure_devops, firehydrant
     * `recipient` (`String`): Deprecated
     * `recipients` (`[String]`): Destination to send notifications to
-    * `rules` (`NotificationRoutingRules`): Routing rules
+    * `rules` (`NotificationRoutingRules`): Deprecated. No longer
+      supported for notification settings.
     * `setting_id` (`UUID`): For updating a notification setting
     """
 
@@ -64112,8 +64131,8 @@ class Mutation(sgqlc.types.Type):
     * `custom_message` (`String`): A custom message to be sent with
       triggered notification
     * `dataset_ids` (`[UUID]`): Allowlist by dataset identifiers
-    * `digest_settings` (`NotificationDigestSettings`): Digest
-      settings.
+    * `digest_settings` (`NotificationDigestSettings`): Deprecated. No
+      longer supported for audience routing rules.
     * `domain_ids` (`[UUID]`): Allowlist by domain identifiers
     * `exclude_all_tag_key_values` (`[[NotificationTagPairs]]`)None
     * `exclude_assets_mcons` (`[String]`): Denylist by asset mcons
@@ -71193,14 +71212,16 @@ class Mutation(sgqlc.types.Type):
     * `cron` (`String!`): CRON expression
     """
 
-    create_teammate_channel = sgqlc.types.Field(
-        CreateTeammateChannel,
-        graphql_name="createTeammateChannel",
+    set_teammate_audience = sgqlc.types.Field(
+        "SetTeammateAudience",
+        graphql_name="setTeammateAudience",
         args=sgqlc.types.ArgDict(
             (
                 (
-                    "allow_shared_channel",
-                    sgqlc.types.Arg(Boolean, graphql_name="allowSharedChannel", default=False),
+                    "audience_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="audienceUuid", default=None
+                    ),
                 ),
                 (
                     "domain_uuid",
@@ -71208,49 +71229,33 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
                     ),
                 ),
-                (
-                    "slack_channel_id",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="slackChannelId", default=None
-                    ),
-                ),
-                (
-                    "slack_team_id",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="slackTeamId", default=None
-                    ),
-                ),
             )
         ),
     )
-    """(experimental) Make a Slack channel a domain's teammate channel,
-    where Monte Carlo's AI agents post the domain's updates. One
-    channel per domain, and one domain per channel. A domain whose
-    channel is disabled gets it re-enabled, or moved to the new
-    channel. Requires AI agent settings edit access to the domain.
+    """(experimental) Make an audience a domain's teammate audience.
+    Monte Carlo's AI agents post the domain's updates to each Slack
+    channel of the audience; other destinations get nothing. Creates
+    the binding, moves it to another audience, or re-enables a
+    disabled one. Refuses an audience with no Slack channel the Monte
+    Carlo AI app can post to. Joins public channels the app is not in,
+    and lists the channels it cannot post to. Requires AI agent
+    settings edit access to the domain.
 
     Arguments:
 
-    * `allow_shared_channel` (`Boolean`): When true, allow a channel
-      shared with another Slack workspace (Slack Connect). When false
-      or null, such a channel is refused. (default: `false`)
+    * `audience_uuid` (`UUID!`): The audience to post to.
     * `domain_uuid` (`UUID!`): A metadata domain.
-    * `slack_channel_id` (`String!`): Slack channel id, not its name.
-      The app joins a public channel. For a private channel, invite
-      the app first.
-    * `slack_team_id` (`String!`): Slack workspace (team) id where the
-      Monte Carlo AI app is installed.
     """
 
-    update_teammate_channel = sgqlc.types.Field(
-        "UpdateTeammateChannel",
-        graphql_name="updateTeammateChannel",
+    update_teammate_audience = sgqlc.types.Field(
+        "UpdateTeammateAudience",
+        graphql_name="updateTeammateAudience",
         args=sgqlc.types.ArgDict(
             (
                 (
                     "action",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(TeammateChannelAction),
+                        sgqlc.types.non_null(TeammateAudienceAction),
                         graphql_name="action",
                         default=None,
                     ),
@@ -71266,16 +71271,15 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """(experimental) Disable, pause or resume a domain's teammate
-    channel. Requires AI agent settings edit access to the domain.
+    audience. Requires AI agent settings edit access to the domain.
 
     Arguments:
 
-    * `action` (`TeammateChannelAction!`): DISABLE stops using the
-      channel for the domain. PAUSE stops posts for now and needs a
-      reason. RESUME undoes a pause.
-    * `domain_uuid` (`UUID!`): The channel's domain.
-    * `reason` (`String`): Why the channel is paused. Required for
-      PAUSE.
+    * `action` (`TeammateAudienceAction!`): DISABLE stops posting the
+      domain's updates. PAUSE stops posts for now and needs a reason.
+      RESUME undoes a pause.
+    * `domain_uuid` (`UUID!`): The teammate audience's domain.
+    * `reason` (`String`): Why posting is paused. Required for PAUSE.
     """
 
     configure_agentic_platform = sgqlc.types.Field(
@@ -84273,6 +84277,7 @@ class Query(sgqlc.types.Type):
         "get_tsa_availability",
         "is_tsa_available_for_alert",
         "get_troubleshooting_agent_config",
+        "get_tsa_trial_state",
         "get_user_settings",
         "get_use_cases",
         "get_use_case_table_summary",
@@ -86420,7 +86425,12 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) End-user feedback (thumbs up or down, and whether a
     comment was left) on a page of an agent's traces. Collected from
-    the warehouse after each span collection.
+    the warehouse after each span collection. On a ClickHouse trace
+    store, AGENT_FEEDBACK_UNAVAILABLE means the check for the agent's
+    feedback got no answer or ran out of time, the store does not hold
+    the newest feedback yet, or feedback collection is turned off for
+    the account. REQUEST_TIMEOUT means the feedback read ran out of
+    time. Other query failures are returned unchanged.
 
     Arguments:
 
@@ -86460,9 +86470,9 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) The comment and user on each trace's newest end-
-    user feedback, read live from the warehouse. Returns
-    contentWithheldReason instead of the text when the user may not
-    read raw content or the read fails.
+    user feedback, read live from the warehouse. Traces whose comments
+    are withheld are left out, and contentWithheldReason says why: the
+    user may not read raw content, or the read fails.
 
     Arguments:
 
@@ -88967,8 +88977,8 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Get billed Troubleshooting Agent investigations and
-    the credits each one charged.
+    """(experimental) Get Troubleshooting Agent investigations and the
+    credits each one charged (0 for free runs).
 
     Arguments:
 
@@ -105918,6 +105928,11 @@ class Query(sgqlc.types.Type):
     settings (the admin-set monthly investigation cap).
     """
 
+    get_tsa_trial_state = sgqlc.types.Field("TsaTrialState", graphql_name="getTsaTrialState")
+    """(experimental) Get the caller's account Troubleshooting Agent
+    trial: whether it can start one, and when a started trial ends.
+    """
+
     get_user_settings = sgqlc.types.Field(
         sgqlc.types.list_of("UserSettings"),
         graphql_name="getUserSettings",
@@ -109247,11 +109262,11 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) What the teammate (Monte Carlo's hourly domain
-    agent) posted to the domain's teammate channel in a window, newest
-    first, at most 50 posts. omittedCount says how many more posts the
-    window holds. The window is at most 7 days long. until defaults to
-    now, and since to 7 days before until. Requires alerts access to
-    the domain.
+    agent) posted to the domain's teammate audience in a window,
+    newest first, at most 50 posts. omittedCount says how many more
+    posts the window holds. The window is at most 7 days long. until
+    defaults to now, and since to 7 days before until. Requires alerts
+    access to the domain.
 
     Arguments:
 
@@ -109349,15 +109364,15 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Everything the meta-summarizer needs about a
-    teammate channel's alerts that getAlerts does not return: ledger
+    teammate audience's alerts that getAlerts does not return: ledger
     entries, the latest triage verdict, cadence, recovery history,
-    troubleshooting and remediation summaries, and the channel's
-    recent posts. Null when the channel is missing, inactive, or
-    outside the caller's domains. Requires alerts access.
+    troubleshooting and remediation summaries, and its recent posts.
+    Null when it is missing, inactive, or outside the caller's
+    domains. Requires alerts access.
 
     Arguments:
 
-    * `subscription_uuid` (`UUID!`): The teammate channel.
+    * `subscription_uuid` (`UUID!`): The teammate audience.
     * `created_after` (`DateTime!`): Alerts created at or after this
       time are candidates; at most 14 days back.
     """
@@ -109379,17 +109394,16 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) The reinforcement-loop issues the meta-summarizer
-    considers for a teammate channel: the domain's live issues served
+    considers for a teammate audience: the domain's live issues served
     MEDIUM or above, most urgent and newest first, at most 200, plus
-    every issue the channel has an open post for, at any priority or
-    state, each with the channel's ledger entry. Empty when the
-    channel is missing, inactive, or outside the caller's domains, and
-    for an account not on reinforcement loop V2. Requires alerts
-    access.
+    every issue it has an open post for, at any priority or state,
+    each with its ledger entry. Empty when it is missing, inactive, or
+    outside the caller's domains, and for an account not on
+    reinforcement loop V2. Requires alerts access.
 
     Arguments:
 
-    * `subscription_uuid` (`UUID!`): The teammate channel.
+    * `subscription_uuid` (`UUID!`): The teammate audience.
     """
 
     get_tsa_analysis_result = sgqlc.types.Field(
@@ -115059,6 +115073,26 @@ class SetSloPolicies(sgqlc.types.Type):
     )
 
 
+class SetTeammateAudience(sgqlc.types.Type):
+    """Make an audience a domain's teammate audience."""
+
+    __schema__ = schema
+    __field_names__ = ("teammate_audience", "unreachable_slack_channels")
+    teammate_audience = sgqlc.types.Field(
+        sgqlc.types.non_null("TeammateAudience"), graphql_name="teammateAudience"
+    )
+
+    unreachable_slack_channels = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("TeammateUnreachableSlackChannel"))
+        ),
+        graphql_name="unreachableSlackChannels",
+    )
+    """Slack channels of the audience the app cannot post to. They get no
+    posts.
+    """
+
+
 class SetTutorialState(sgqlc.types.Type):
     """Set the state of a tutorial step"""
 
@@ -116026,6 +116060,7 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
         "days_since_latest_read",
         "total_row_count",
         "total_byte_count",
+        "query_log_days",
         "tickets",
     )
     project_name = sgqlc.types.Field(String, graphql_name="projectName")
@@ -116109,6 +116144,14 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
 
     total_byte_count = sgqlc.types.Field(Float, graphql_name="totalByteCount")
     """Most recent byte count for this table"""
+
+    query_log_days = sgqlc.types.Field(Int, graphql_name="queryLogDays")
+    """Days, out of the last 30, on which Monte Carlo collected query
+    logs for this table's warehouse. Read and write dates cover only
+    those days, so a warehouse with fewer days can show a table as
+    unread when its reads were not collected. Null when not yet
+    measured.
+    """
 
     tickets = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(StorageCandidateTicket))),
@@ -116391,16 +116434,22 @@ class TSAAvailability(sgqlc.types.Type):
     monthly_run_limit = sgqlc.types.Field(Int, graphql_name="monthlyRunLimit")
     """Effective monthly limit on investigations in force: the free-usage
     ceiling when restricted to free usage, the admin-set cap when one
-    is configured, or null when the account is unrestricted. Automated
-    and user-initiated investigations both count against it.
+    is configured, or null when the account is unrestricted. It stays
+    set during a trial, when it is not enforced. Automated and user-
+    initiated investigations both count against it, except
+    investigations during a trial.
     """
 
     monthly_run_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monthlyRunCount")
-    """Investigations for the account this calendar month (UTC)."""
+    """Investigations this calendar month (UTC) that count against the
+    monthly limit. Investigations during a trial are free and not
+    counted.
+    """
 
     remaining_monthly_runs = sgqlc.types.Field(Int, graphql_name="remainingMonthlyRuns")
     """Investigations left this month (UTC) against the effective limit
-    (never negative); null when the account is unrestricted.
+    (never negative); null when the account is unrestricted or during
+    a trial, when the limit is not enforced.
     """
 
 
@@ -117929,39 +117978,49 @@ class TaskPerformanceSummaryEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
-class TeammateChannel(sgqlc.types.Type):
-    """A domain's teammate channel: the Slack channel Monte Carlo's AI
-    agents post the domain's updates to.
+class TeammateAudience(sgqlc.types.Type):
+    """A domain's teammate audience: the audience Monte Carlo's AI agents
+    post the domain's updates to.
     """
 
     __schema__ = schema
     __field_names__ = (
         "id",
         "domain_uuid",
-        "slack_team_id",
-        "slack_channel_id",
+        "audience_uuid",
         "enabled",
         "paused_reason",
+        "slack_channels",
+        "skipped_destination_types",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
-    """Teammate channel id."""
+    """Teammate audience id."""
 
     domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
-    """The domain the channel is for."""
+    """The domain whose updates are posted."""
 
-    slack_team_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="slackTeamId")
-    """Slack workspace (team) id."""
-
-    slack_channel_id = sgqlc.types.Field(
-        sgqlc.types.non_null(String), graphql_name="slackChannelId"
-    )
-    """Slack channel id."""
+    audience_uuid = sgqlc.types.Field(UUID, graphql_name="audienceUuid")
+    """The audience. Null when it was deleted; nothing is posted then."""
 
     enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
-    """False once the channel is disabled."""
+    """False once it is disabled."""
 
     paused_reason = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="pausedReason")
-    """Why the channel is paused. Empty when it is not paused."""
+    """Why posting is paused. Empty when it is not paused."""
+
+    slack_channels = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TeammateSlackChannel"))),
+        graphql_name="slackChannels",
+    )
+    """The audience's Slack channels, which get the posts."""
+
+    skipped_destination_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="skippedDestinationTypes",
+    )
+    """Types of the audience's other destinations, such as email. They
+    get no posts.
+    """
 
 
 class TeammateDecisionEntry(sgqlc.types.Type):
@@ -118115,15 +118174,17 @@ class TeammatePost(sgqlc.types.Type):
     """Agent issues the post is about."""
 
     parent_post_id = sgqlc.types.Field(UUID, graphql_name="parentPostId")
-    """The post whose thread this one replies in. Null for a top-level
-    post.
-    """
+    """The post this one replies to. Null for a top-level post."""
 
     permalink = sgqlc.types.Field(String, graphql_name="permalink")
-    """Slack link to the message. Null until it is sent."""
+    """Slack link to the post in the first Slack channel that has one.
+    Null until it is sent.
+    """
 
     status = sgqlc.types.Field(sgqlc.types.non_null(TeammatePostStatus), graphql_name="status")
-    """Delivery state. Only SENT posts reached Slack."""
+    """Delivery state of the post's furthest Slack message. SENT means at
+    least one Slack channel got it.
+    """
 
     is_fallback = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isFallback")
     """True when code wrote the post because the agent did not handle a
@@ -118156,6 +118217,41 @@ class TeammatePostFeedback(sgqlc.types.Type):
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
     """When they clicked."""
+
+
+class TeammateSlackChannel(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("slack_team_id", "slack_channel_id")
+    slack_team_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="slackTeamId")
+    """Slack workspace (team) id."""
+
+    slack_channel_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="slackChannelId"
+    )
+    """Slack channel id."""
+
+
+class TeammateUnreachableSlackChannel(sgqlc.types.Type):
+    """A Slack channel of the audience that the Monte Carlo AI app cannot
+    post to.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("slack_team_id", "slack_channel_id", "reason")
+    slack_team_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="slackTeamId")
+    """Slack workspace (team) id. Empty when the destination has none."""
+
+    slack_channel_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="slackChannelId"
+    )
+    """Slack channel id."""
+
+    reason = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="reason")
+    """Why the app cannot post: app_not_connected, app_not_installed,
+    not_in_channel, no_slack_workspace (the destination has no
+    workspace id; recreate it), or the Slack error code, such as
+    channel_not_found.
+    """
 
 
 class TeammateUpdates(sgqlc.types.Type):
@@ -121291,9 +121387,10 @@ class TsaInvestigation(sgqlc.types.Type):
     billing_status = sgqlc.types.Field(
         sgqlc.types.non_null(TsaInvestigationBillingStatus), graphql_name="billingStatus"
     )
-    """FREE: within the monthly free investigations. NEW_BATCH: opened a
-    new batch of paid investigations and was charged for it.
-    INCLUDED_IN_BATCH: covered by a batch already charged this month.
+    """FREE: within the monthly free investigations, or run during a
+    Troubleshooting Agent trial. NEW_BATCH: opened a new batch of paid
+    investigations and was charged for it. INCLUDED_IN_BATCH: covered
+    by a batch already charged this month.
     """
 
     units = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="units")
@@ -121313,7 +121410,24 @@ class TsaInvestigationResults(sgqlc.types.Type):
     investigations = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(TsaInvestigation)), graphql_name="investigations"
     )
-    """Billed investigations, oldest first."""
+    """Investigations with what each one charged, oldest first. Free
+    runs, such as runs during a trial, are FREE with 0 credits.
+    """
+
+
+class TsaTrialState(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("status", "started_at", "expires_at")
+    status = sgqlc.types.Field(sgqlc.types.non_null(TsaTrialStatus), graphql_name="status")
+    """Where the account stands on the Troubleshooting Agent trial."""
+
+    started_at = sgqlc.types.Field(DateTime, graphql_name="startedAt")
+    """When the trial started; null until a trial starts."""
+
+    expires_at = sgqlc.types.Field(DateTime, graphql_name="expiresAt")
+    """When the trial ends; null until a trial starts. Investigations
+    above the monthly limit are allowed until then.
+    """
 
 
 class TuneTableMonitorAssetRuleThreshold(sgqlc.types.Type):
@@ -122554,13 +122668,13 @@ class UpdateTableauCredentialsV2Mutation(sgqlc.types.Type):
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
 
 
-class UpdateTeammateChannel(sgqlc.types.Type):
-    """Disable, pause or resume a domain's teammate channel."""
+class UpdateTeammateAudience(sgqlc.types.Type):
+    """Disable, pause or resume a domain's teammate audience."""
 
     __schema__ = schema
-    __field_names__ = ("teammate_channel",)
-    teammate_channel = sgqlc.types.Field(
-        sgqlc.types.non_null(TeammateChannel), graphql_name="teammateChannel"
+    __field_names__ = ("teammate_audience",)
+    teammate_audience = sgqlc.types.Field(
+        sgqlc.types.non_null(TeammateAudience), graphql_name="teammateAudience"
     )
 
 

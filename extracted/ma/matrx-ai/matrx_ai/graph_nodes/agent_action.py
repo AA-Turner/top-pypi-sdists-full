@@ -86,11 +86,13 @@ class AgentStartConfig(BaseModel):
             "workflow studio. Not sent to the agent — only used for edge wiring."
         ),
     )
-    variable_sources: dict[str, Literal["default", "connected", "custom"]] = Field(
+    variable_sources: dict[str, Literal["default", "connected", "custom", "optional"]] = Field(
         default_factory=dict,
         description=(
             "Per-variable source selection persisted by the Studio. This is "
-            "execution wiring, not a form field."
+            "execution wiring, not a form field. 'optional' = the connected value "
+            "when one arrives, else the step's own value, else the agent's default "
+            "(a mandate binding's when_absent skip / use_default)."
         ),
         json_schema_extra=field_extras(hidden=True),
     )
@@ -1025,7 +1027,17 @@ def _fold_broadcast_agent_result(
 #: refuses a key it does not declare. Every other step-input field is a declared host field
 #: (guard: ``aidream/api/tests/test_start_bodies_declare_every_key_clients_send.py``).
 HOST_REQUEST_EXCLUDED_INPUTS: frozenset[str] = frozenset(
-    {"agent_id", "mandate_key", "runtime_config_overrides", "provision_values"}
+    {
+        "agent_id",
+        "mandate_key",
+        "runtime_config_overrides",
+        "provision_values",
+        # Run Mandate's request firewall — enforced at the host's dispatch door, never a request field.
+        "must_not_contain",
+        "must_not_contain_match",
+        "no_tools",
+        "no_auto_context",
+    }
 )
 
 
@@ -1037,7 +1049,7 @@ def build_agent_request(
     node_type: str,
     top_config_overrides: dict[str, Any] | None = None,
     declared_variables: list[str] | None = None,
-    variable_sources: dict[str, Literal["default", "connected", "custom"]] | None = None,
+    variable_sources: dict[str, Literal["default", "connected", "custom", "optional"]] | None = None,
     include_org_catalog: bool = True,
 ) -> Any:
     """Build the host ``AgentStartRequest`` for one workflow agent step.
@@ -1160,14 +1172,16 @@ def build_agent_request(
 def _resolve_variable_sources(
     authored_variables: dict[str, Any],
     incoming_variables: dict[str, Any],
-    variable_sources: dict[str, Literal["default", "connected", "custom"]],
+    variable_sources: dict[str, Literal["default", "connected", "custom", "optional"]],
 ) -> dict[str, Any]:
     """Apply the saved source mode without losing falsy authored values.
 
     Unspecified names retain the established precedence: an incoming edge
     overrides the node's authored literal. ``default`` omits a key so the
     agent's saved definition applies it; ``custom`` keeps only the authored
-    value; and ``connected`` keeps only the edge value.
+    value; ``connected`` keeps only the edge value; and ``optional`` keeps the
+    edge value when one arrived, else the authored one, else none (the agent's
+    default) — never an error for a value that may be absent.
     """
     variables = {**authored_variables, **incoming_variables}
     for name, source in variable_sources.items():

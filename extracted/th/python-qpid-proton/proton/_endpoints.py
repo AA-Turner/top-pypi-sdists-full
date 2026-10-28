@@ -21,6 +21,8 @@
 The proton.endpoints module
 """
 
+from __future__ import annotations
+
 import weakref
 
 from cproton import PN_CONFIGURATION, PN_COORDINATOR, PN_DELIVERIES, PN_DIST_MODE_COPY, PN_DIST_MODE_MOVE, \
@@ -54,8 +56,7 @@ from cproton import PN_CONFIGURATION, PN_COORDINATOR, PN_DELIVERIES, PN_DIST_MOD
     pn_terminus_is_dynamic, pn_terminus_outcomes, pn_terminus_properties, pn_terminus_set_address, \
     pn_terminus_set_distribution_mode, pn_terminus_set_durability, pn_terminus_set_dynamic, \
     pn_terminus_set_expiry_policy, pn_terminus_set_timeout, pn_terminus_set_type, \
-    pn_link_properties, pn_link_remote_properties, \
-    isnull
+    pn_link_properties, pn_link_remote_properties, pn_unsettled_head
 
 from ._condition import cond2obj, obj2cond
 from ._data import Data, dat2obj, obj2dat, PropertyDict, SymbolList
@@ -64,7 +65,10 @@ from ._exceptions import ConnectionException, EXCEPTIONS, LinkException, Session
 from ._handler import Handler
 from ._transport import Transport
 from ._wrapper import Wrapper
-from typing import Dict, List, Optional, Union, TYPE_CHECKING, Any
+
+from collections.abc import Iterator
+from enum import IntFlag
+from typing import Any, Callable, ClassVar, Optional, Union, TYPE_CHECKING, overload
 
 if TYPE_CHECKING:
     from ._condition import Condition
@@ -73,25 +77,11 @@ if TYPE_CHECKING:
     from ._message import Message
 
 
-class Endpoint(object):
+class EndpointState(IntFlag):
     """
-    Abstract class from which :class:`Connection`, :class:`Session`
-    and :class:`Link` are derived, and which defines the state
-    of these classes.
-
-    The :class:`Endpoint` state is an integral value with flags that
+    The state of an AMQP endpoint. This is a bit field with flags that
     encode both the local and remote state of an AMQP Endpoint
     (:class:`Connection`, :class:`Link`, or :class:`Session`).
-    The individual bits may be accessed using :const:`LOCAL_UNINIT`,
-    :const:`LOCAL_ACTIVE`, :const:`LOCAL_CLOSED`, and
-    :const:`REMOTE_UNINIT`, :const:`REMOTE_ACTIVE`, :const:`REMOTE_CLOSED`.
-
-    Every AMQP endpoint (:class:`Connection`, :class:`Link`, or
-    :class:`Session`) starts out in an uninitialized state and then
-    proceeds linearly to an active and then closed state. This
-    lifecycle occurs at both endpoints involved, and so the state
-    model for an endpoint includes not only the known local state,
-    but also the last known state of the remote endpoint.
     """
 
     LOCAL_UNINIT = PN_LOCAL_UNINIT
@@ -112,12 +102,45 @@ class Endpoint(object):
     REMOTE_CLOSED = PN_REMOTE_CLOSED
     """ The remote endpoint state is closed. """
 
-    def _init(self) -> None:
+
+class Endpoint(Wrapper):
+    """
+    Abstract class from which :class:`Connection`, :class:`Session`
+    and :class:`Link` are derived, and which defines the state
+    of these classes.
+
+    The :class:`Endpoint` state is an integral value with flags that
+    encode both the local and remote state of an AMQP Endpoint
+    (:class:`Connection`, :class:`Link`, or :class:`Session`).
+    The individual bits may be accessed using :const:`LOCAL_UNINIT`,
+    :const:`LOCAL_ACTIVE`, :const:`LOCAL_CLOSED`, and
+    :const:`REMOTE_UNINIT`, :const:`REMOTE_ACTIVE`, :const:`REMOTE_CLOSED`.
+
+    Every AMQP endpoint (:class:`Connection`, :class:`Link`, or
+    :class:`Session`) starts out in an uninitialized state and then
+    proceeds linearly to an active and then closed state. This
+    lifecycle occurs at both endpoints involved, and so the state
+    model for an endpoint includes not only the known local state,
+    but also the last known state of the remote endpoint.
+    """
+
+    LOCAL_UNINIT = EndpointState.LOCAL_UNINIT
+    REMOTE_UNINIT = EndpointState.REMOTE_UNINIT
+    LOCAL_ACTIVE = EndpointState.LOCAL_ACTIVE
+    REMOTE_ACTIVE = EndpointState.REMOTE_ACTIVE
+    LOCAL_CLOSED = EndpointState.LOCAL_CLOSED
+    REMOTE_CLOSED = EndpointState.REMOTE_CLOSED
+
+    get_condition: ClassVar[Callable[[Any], Any]]
+    get_remote_condition: ClassVar[Callable[[Any], Any]]
+    get_state: ClassVar[Callable[[Any], EndpointState]]
+
+    def __init__(self) -> None:
         self.condition: Optional['Condition'] = None
         self._handler: Optional[Handler] = None
 
     def _update_cond(self) -> None:
-        obj2cond(self.condition, self._get_cond_impl())
+        obj2cond(self.condition, type(self).get_condition(self._impl))
 
     @property
     def remote_condition(self) -> Optional['Condition']:
@@ -125,14 +148,18 @@ class Endpoint(object):
         The remote condition associated with the connection endpoint.
         See :class:`Condition` for more information.
         """
-        return cond2obj(self._get_remote_cond_impl())
+        return cond2obj(type(self).get_remote_condition(self._impl))
 
-    # the following must be provided by subclasses
-    def _get_cond_impl(self):
-        assert False, "Subclass must override this!"
-
-    def _get_remote_cond_impl(self):
-        assert False, "Subclass must override this!"
+    @property
+    def state(self) -> EndpointState:
+        """
+        The state of the endpoint as a bit field. The state has a local
+        and a remote component. Each of these can be in one of three
+        states: ``UNINIT``, ``ACTIVE`` or ``CLOSED``. These can be tested by masking
+        against :const:`LOCAL_UNINIT`, :const:`LOCAL_ACTIVE`, :const:`LOCAL_CLOSED`, :const:`REMOTE_UNINIT`,
+        :const:`REMOTE_ACTIVE` and :const:`REMOTE_CLOSED`.
+        """
+        return type(self).get_state(self._impl)
 
     @property
     def handler(self) -> Optional[Handler]:
@@ -154,37 +181,28 @@ class Endpoint(object):
             self._handler.add(handler)
 
 
-class Connection(Wrapper, Endpoint):
+class Connection(Endpoint):
     """
     A representation of an AMQP connection.
     """
 
-    @staticmethod
-    def wrap(impl):
-        if isnull(impl):
-            return None
-        else:
-            return Connection(impl)
+    constructor = pn_connection
+    get_context = pn_connection_attachments
+    get_condition = pn_connection_condition
+    get_remote_condition = pn_connection_remote_condition
+    get_state = pn_connection_state
 
     def __init__(self, impl: Any = None) -> None:
-        if impl is None:
-            Wrapper.__init__(self, constructor=pn_connection, get_context=pn_connection_attachments)
-        else:
-            Wrapper.__init__(self, impl, pn_connection_attachments)
-
-    def _init(self) -> None:
-        Endpoint._init(self)
-        self.offered_capabilities_list = None
-        self.desired_capabilities_list = None
-        self.properties = None
-        self.url = None
-        self._acceptor = None
-
-    def _get_attachments(self):
-        return pn_connection_attachments(self._impl)
+        if self.Uninitialized():
+            Endpoint.__init__(self)
+            self.offered_capabilities_list = None
+            self.desired_capabilities_list = None
+            self.properties = None
+            self.url = None
+            self._acceptor = None
 
     @property
-    def connection(self) -> 'Connection':
+    def connection(self) -> Connection:
         """
         Get this connection.
         """
@@ -205,14 +223,8 @@ class Connection(Wrapper, Endpoint):
         else:
             return err
 
-    def _get_cond_impl(self):
-        return pn_connection_condition(self._impl)
-
-    def _get_remote_cond_impl(self):
-        return pn_connection_remote_condition(self._impl)
-
     # TODO: Blacklisted API call
-    def collect(self, collector: 'Collector') -> None:
+    def collect(self, collector: Collector) -> None:
         if collector is None:
             pn_connection_collect(self._impl, None)
         else:
@@ -411,18 +423,7 @@ class Connection(Wrapper, Endpoint):
             s.terminate()
             s.update()
 
-    @property
-    def state(self) -> int:
-        """
-        The state of the connection as a bit field. The state has a local
-        and a remote component. Each of these can be in one of three
-        states: ``UNINIT``, ``ACTIVE`` or ``CLOSED``. These can be tested by masking
-        against :const:`LOCAL_UNINIT`, :const:`LOCAL_ACTIVE`, :const:`LOCAL_CLOSED`, :const:`REMOTE_UNINIT`,
-        :const:`REMOTE_ACTIVE` and :const:`REMOTE_CLOSED`.
-        """
-        return pn_connection_state(self._impl)
-
-    def session(self) -> 'Session':
+    def session(self) -> Session:
         """
         Returns a new session on this connection.
 
@@ -435,7 +436,7 @@ class Connection(Wrapper, Endpoint):
         else:
             return Session(ssn)
 
-    def session_head(self, mask: int) -> Optional['Session']:
+    def session_head(self, mask: EndpointState) -> Optional['Session']:
         """
         Retrieve the first session from a given connection that matches the
         specified state mask.
@@ -453,7 +454,19 @@ class Connection(Wrapper, Endpoint):
         """
         return Session.wrap(pn_session_head(self._impl, mask))
 
-    def link_head(self, mask: int) -> Optional[Union['Sender', 'Receiver']]:
+    def sessions(self, mask: EndpointState) -> Iterator['Session']:
+        """
+        Returns a generator of sessions owned by the connection with the
+        given state mask.
+
+        :return: Generator of sessions.
+        """
+        session = self.session_head(mask)
+        while session:
+            yield session
+            session = session.next(mask)
+
+    def link_head(self, mask: EndpointState) -> Optional['Link']:
         """
         Retrieve the first link that matches the given state mask.
 
@@ -469,6 +482,18 @@ class Connection(Wrapper, Endpoint):
             mask, else ``None`` if no link matches.
         """
         return Link.wrap(pn_link_head(self._impl, mask))
+
+    def links(self, mask: EndpointState) -> Iterator['Link']:
+        """
+        Returns a generator of links owned by this connection with the
+        given state mask.
+
+        :return: Generator of links.
+        """
+        link = self.link_head(mask)
+        while link:
+            yield link
+            link = link.next(mask)
 
     @property
     def error(self):
@@ -508,7 +533,7 @@ class Connection(Wrapper, Endpoint):
     @offered_capabilities.setter
     def offered_capabilities(
             self,
-            offered_capability_list: Optional[Union['Array', List['symbol'], SymbolList, List[str]]]
+            offered_capability_list: Optional[Union['Array', list['symbol'], SymbolList, list[str]]]
     ) -> None:
         self.offered_capabilities_list = SymbolList(offered_capability_list)
 
@@ -525,7 +550,7 @@ class Connection(Wrapper, Endpoint):
     @desired_capabilities.setter
     def desired_capabilities(
             self,
-            desired_capability_list: Optional[Union['Array', List['symbol'], SymbolList, List[str]]]
+            desired_capability_list: Optional[Union['Array', list['symbol'], SymbolList, list[str]]]
     ) -> None:
         self.desired_capabilities_list = SymbolList(desired_capability_list)
 
@@ -541,33 +566,24 @@ class Connection(Wrapper, Endpoint):
         return self.properties_dict
 
     @properties.setter
-    def properties(self, properties_dict: Optional[Union[PropertyDict, Dict[str, 'PythonAMQPData']]]) -> None:
+    def properties(self, properties_dict: Optional[Union[PropertyDict, dict[str, 'PythonAMQPData']]]) -> None:
         if isinstance(properties_dict, dict):
             self.properties_dict = PropertyDict(properties_dict, raise_on_error=False)
         else:
             self.properties_dict = properties_dict
 
 
-class Session(Wrapper, Endpoint):
+class Session(Endpoint):
     """A container of links"""
-    @staticmethod
-    def wrap(impl):
-        if isnull(impl):
-            return None
-        else:
-            return Session(impl)
+
+    get_context = pn_session_attachments
+    get_condition = pn_session_condition
+    get_remote_condition = pn_session_remote_condition
+    get_state = pn_session_state
 
     def __init__(self, impl):
-        Wrapper.__init__(self, impl, pn_session_attachments)
-
-    def _get_attachments(self):
-        return pn_session_attachments(self._impl)
-
-    def _get_cond_impl(self):
-        return pn_session_condition(self._impl)
-
-    def _get_remote_cond_impl(self):
-        return pn_session_remote_condition(self._impl)
+        if self.Uninitialized():
+            Endpoint.__init__(self)
 
     @property
     def incoming_capacity(self) -> int:
@@ -629,7 +645,7 @@ class Session(Wrapper, Endpoint):
         self._update_cond()
         pn_session_close(self._impl)
 
-    def next(self, mask):
+    def next(self, mask: EndpointState) -> Optional['Session']:
         """
         Retrieve the next session for this connection that matches the
         specified state mask.
@@ -647,14 +663,6 @@ class Session(Wrapper, Endpoint):
         return Session.wrap(pn_session_next(self._impl, mask))
 
     @property
-    def state(self) -> int:
-        """
-        The endpoint state flags for this session. See :class:`Endpoint` for
-        details of the flags.
-        """
-        return pn_session_state(self._impl)
-
-    @property
     def connection(self) -> Connection:
         """
         The parent connection for this session.
@@ -668,7 +676,7 @@ class Session(Wrapper, Endpoint):
         """
         return self.connection.transport
 
-    def sender(self, name: str) -> 'Sender':
+    def sender(self, name: str) -> Sender:
         """
         Create a new :class:`Sender` on this session.
 
@@ -676,7 +684,7 @@ class Session(Wrapper, Endpoint):
         """
         return Sender(pn_sender(self._impl, name))
 
-    def receiver(self, name: str) -> 'Receiver':
+    def receiver(self, name: str) -> Receiver:
         """
         Create a new :class:`Receiver` on this session.
 
@@ -695,7 +703,7 @@ class Session(Wrapper, Endpoint):
         pn_session_free(self._impl)
 
 
-class Link(Wrapper, Endpoint):
+class Link(Endpoint):
     """
     A representation of an AMQP link (a unidirectional channel for
     transferring messages), of which there are two concrete
@@ -714,24 +722,21 @@ class Link(Wrapper, Endpoint):
     RCV_SECOND = PN_RCV_SECOND
     """The receiver will only settle deliveries after the sender settles."""
 
-    @staticmethod
-    def wrap(impl):
-        if isnull(impl):
-            return None
+    get_context = pn_link_attachments
+    get_condition = pn_link_condition
+    get_remote_condition = pn_link_remote_condition
+    get_state = pn_link_state
+
+    def __new__(cls, impl) -> Link:
         if pn_link_is_sender(impl):
-            return Sender(impl)
+            return super().__new__(Sender, impl)
         else:
-            return Receiver(impl)
+            return super().__new__(Receiver, impl)
 
     def __init__(self, impl):
-        Wrapper.__init__(self, impl, pn_link_attachments)
-
-    def _init(self) -> None:
-        Endpoint._init(self)
-        self.properties = None
-
-    def _get_attachments(self):
-        return pn_link_attachments(self._impl)
+        if self.Uninitialized():
+            Endpoint.__init__(self)
+            self.properties = None
 
     def _check(self, err: int) -> int:
         if err < 0:
@@ -739,12 +744,6 @@ class Link(Wrapper, Endpoint):
             raise exc("[%s]: %s" % (err, pn_error_text(pn_link_error(self._impl))))
         else:
             return err
-
-    def _get_cond_impl(self):
-        return pn_link_condition(self._impl)
-
-    def _get_remote_cond_impl(self):
-        return pn_link_remote_condition(self._impl)
 
     def open(self) -> None:
         """
@@ -774,20 +773,7 @@ class Link(Wrapper, Endpoint):
         pn_link_close(self._impl)
 
     @property
-    def state(self) -> int:
-        """
-        The state of the link as a bit field. The state has a local
-        and a remote component. Each of these can be in one of three
-        states: ``UNINIT``, ``ACTIVE`` or ``CLOSED``. These can be
-        tested by masking against :const:`LOCAL_UNINIT`,
-        :const:`LOCAL_ACTIVE`, :const:`LOCAL_CLOSED`,
-        :const:`REMOTE_UNINIT`, :const:`REMOTE_ACTIVE` and
-        :const:`REMOTE_CLOSED`.
-        """
-        return pn_link_state(self._impl)
-
-    @property
-    def source(self) -> 'Terminus':
+    def source(self) -> Terminus:
         """
         The source of the link as described by the local peer. The
         returned object is valid until the link is freed.
@@ -795,7 +781,7 @@ class Link(Wrapper, Endpoint):
         return Terminus(pn_link_source(self._impl))
 
     @property
-    def target(self) -> 'Terminus':
+    def target(self) -> Terminus:
         """
         The target of the link as described by the local peer. The
         returned object is valid until the link is freed.
@@ -803,7 +789,7 @@ class Link(Wrapper, Endpoint):
         return Terminus(pn_link_target(self._impl))
 
     @property
-    def remote_source(self) -> 'Terminus':
+    def remote_source(self) -> Terminus:
         """
         The source of the link as described by the remote peer. The
         returned object is valid until the link is freed. The remote
@@ -814,7 +800,7 @@ class Link(Wrapper, Endpoint):
         return Terminus(pn_link_remote_source(self._impl))
 
     @property
-    def remote_target(self) -> 'Terminus':
+    def remote_target(self) -> Terminus:
         """
         The target of the link as described by the remote peer. The
         returned object is valid until the link is freed. The remote
@@ -905,6 +891,28 @@ class Link(Wrapper, Endpoint):
         return pn_link_unsettled(self._impl)
 
     @property
+    def unsettled_head(self) -> Optional[Delivery]:
+        """
+        The first unsettled delivery for this link.
+
+        This operation will return the first unsettled delivery on the
+        link, or ``None`` if there are no unsettled deliveries.
+        """
+        return Delivery.wrap(pn_unsettled_head(self._impl))
+
+    @property
+    def unsettled_deliveries(self) -> Iterator[Delivery]:
+        """
+        Returns a generator of unsettled deliveries for this link.
+
+        :return: Generator of unsettled deliveries.
+        """
+        delivery = self.unsettled_head
+        while delivery:
+            yield delivery
+            delivery = delivery.unsettled_next
+
+    @property
     def credit(self) -> int:
         """
         The amount of outstanding credit on this link.
@@ -953,7 +961,7 @@ class Link(Wrapper, Endpoint):
         """
         return pn_link_queued(self._impl)
 
-    def next(self, mask: int) -> Optional[Union['Sender', 'Receiver']]:
+    def next(self, mask: EndpointState) -> Optional['Link']:
         """
         Retrieve the next link that matches the given state mask.
 
@@ -1133,7 +1141,7 @@ class Link(Wrapper, Endpoint):
         return self._properties_dict
 
     @properties.setter
-    def properties(self, properties_dict: Optional[Dict['symbol', 'PythonAMQPData']]) -> None:
+    def properties(self, properties_dict: Optional[dict['symbol', 'PythonAMQPData']]) -> None:
         if isinstance(properties_dict, dict):
             self._properties_dict = PropertyDict(properties_dict, raise_on_error=False)
         else:
@@ -1162,7 +1170,12 @@ class Sender(Link):
         """
         return self._check(pn_link_send(self._impl, data))
 
-    def send(self, obj: Union[bytes, 'Message'], tag: Optional[str] = None) -> Union[int, Delivery]:
+    @overload
+    def send(self, obj: bytes) -> int: ...
+    @overload
+    def send(self, obj: Message, tag: Optional[str] = None) -> Delivery: ...
+
+    def send(self, obj: Union[bytes, Message], tag: Optional[str] = None) -> Union[int, Delivery]:
         """
         A convenience method to send objects as message content.
 
@@ -1251,7 +1264,7 @@ class Receiver(Link):
         return pn_link_draining(self._impl)
 
 
-class Terminus(object):
+class Terminus:
     """
     A source or target for messages.
     """
@@ -1408,7 +1421,7 @@ class Terminus(object):
         """
         return Data(pn_terminus_filter(self._impl))
 
-    def copy(self, src: 'Terminus') -> None:
+    def copy(self, src: Terminus) -> None:
         """
         Copy another terminus object.
 

@@ -333,6 +333,7 @@ __all__ = (
     "GetCapacityManagerMetricDimensionsPaginatorName",
     "GetCapacityManagerMonitoredTagKeysPaginatorName",
     "GetGroupsForCapacityReservationPaginatorName",
+    "GetImageFindingsPaginatorName",
     "GetInstanceTypesFromInstanceRequirementsPaginatorName",
     "GetIpamAddressHistoryPaginatorName",
     "GetIpamDiscoveredAccountsPaginatorName",
@@ -609,6 +610,7 @@ __all__ = (
     "ServiceName",
     "ServiceStateType",
     "ServiceTypeType",
+    "SeverityLabelType",
     "ShutdownBehaviorType",
     "SnapshotAttributeNameType",
     "SnapshotBlockPublicAccessStateType",
@@ -1313,6 +1315,7 @@ GetCapacityManagerMetricDataPaginatorName = Literal["get_capacity_manager_metric
 GetCapacityManagerMetricDimensionsPaginatorName = Literal["get_capacity_manager_metric_dimensions"]
 GetCapacityManagerMonitoredTagKeysPaginatorName = Literal["get_capacity_manager_monitored_tag_keys"]
 GetGroupsForCapacityReservationPaginatorName = Literal["get_groups_for_capacity_reservation"]
+GetImageFindingsPaginatorName = Literal["get_image_findings"]
 GetInstanceTypesFromInstanceRequirementsPaginatorName = Literal[
     "get_instance_types_from_instance_requirements"
 ]
@@ -3601,6 +3604,7 @@ ServiceLinkVirtualInterfaceConfigurationStateType = Literal[
 ServiceManagedType = Literal["alb", "nlb", "rds", "rnat"]
 ServiceStateType = Literal["Available", "Deleted", "Deleting", "Failed", "Pending"]
 ServiceTypeType = Literal["Gateway", "GatewayLoadBalancer", "Interface"]
+SeverityLabelType = Literal["critical", "high", "informational", "low", "medium"]
 ShutdownBehaviorType = Literal["stop", "terminate"]
 SnapshotAttributeNameType = Literal["createVolumePermission", "productCodes"]
 SnapshotBlockPublicAccessStateType = Literal["block-all-sharing", "block-new-sharing", "unblocked"]
@@ -4436,6 +4440,7 @@ PaginatorName = Literal[
     "get_capacity_manager_metric_dimensions",
     "get_capacity_manager_monitored_tag_keys",
     "get_groups_for_capacity_reservation",
+    "get_image_findings",
     "get_instance_types_from_instance_requirements",
     "get_ipam_address_history",
     "get_ipam_discovered_accounts",

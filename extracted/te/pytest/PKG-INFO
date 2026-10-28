@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest
-Version: 9.1.1
+Version: 9.2.0
 Summary: pytest: simple powerful testing with Python
 Author: Brianna Laugher, Bruno Oliveira, Floris Bruynooghe, Freya Bruhin, Holger Krekel, Others (See AUTHORS), Ronny Pfannschmidt
 License-Expression: MIT
@@ -32,16 +32,22 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: colorama>=0.4; sys_platform == "win32"
 Requires-Dist: exceptiongroup>=1; python_version < "3.11"
-Requires-Dist: iniconfig>=1.0.1
-Requires-Dist: packaging>=22
-Requires-Dist: pluggy<2,>=1.5
-Requires-Dist: pygments>=2.7.2
-Requires-Dist: tomli>=1; python_version < "3.11"
+Requires-Dist: iniconfig>=2
+Requires-Dist: packaging>=24
+Requires-Dist: pluggy<2,>=1.6
+Requires-Dist: pygments>=2.15
+Requires-Dist: tomli>=2; python_version < "3.11"
 Provides-Extra: dev
 Requires-Dist: argcomplete; extra == "dev"
-Requires-Dist: attrs>=19.2; extra == "dev"
-Requires-Dist: hypothesis>=3.56; extra == "dev"
+Requires-Dist: asynctest; python_version < "3.11" and extra == "dev"
+Requires-Dist: attrs>=23.1; extra == "dev"
+Requires-Dist: coverage>=7.5; extra == "dev"
+Requires-Dist: hypothesis>=6.75; extra == "dev"
 Requires-Dist: mock; extra == "dev"
+Requires-Dist: numpy>=1.26; extra == "dev"
+Requires-Dist: pexpect>=4.9; extra == "dev"
+Requires-Dist: pytest-xdist>=3.5; extra == "dev"
+Requires-Dist: pyyaml; extra == "dev"
 Requires-Dist: requests; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"
 Requires-Dist: xmlschema; extra == "dev"

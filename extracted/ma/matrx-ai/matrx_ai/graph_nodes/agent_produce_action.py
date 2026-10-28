@@ -43,21 +43,43 @@ Everything else — mandate resolution, conversation gating, tools, context,
 variables, streaming, cost — is the SAME code ``ai.agent.start`` runs. This is
 not a second way to run an agent; it is the same way, with the declaration
 carried through instead of dropped.
+
+Run Typed Agent — what a mandate gave, on the step (Arman, 2026-10-27)
+---------------------------------------------------------------------
+*"Instead of running a mandate that in turn runs an agent, you just run the
+agent directly"* (generic-only VISION § Mandates inside workflows). This step
+IS that step, extended in place rather than built beside it: it already bound
+an agent to its kind, which is the half of a mandate a workflow needs. The
+other half rides on the step's config (:class:`TypedAgentConfig`):
+
+* ``goal`` — what the step must achieve, written on the step and shown in the
+  Studio; ``goal_approved`` — a person approved that sentence (a goal carried
+  over from a mandate whose goal is human-grounded arrives approved).
+* After a successful answer the host's ``typed_step_judge`` grades it against
+  THAT goal with the SAME judge every mandate run reaches
+  (``mandate_outcome.judge.judge_finalized_run``: sampled by the same knob,
+  forced by "judge every output", an unapproved goal is never judged), filed
+  under the workflow and step. A judge never changes the step's outcome.
+* Cost attribution is the step's ``source_feature`` input; run once per key and
+  fan-out are the engine's (``data.once`` + :func:`step_result_version`,
+  ``control.map``) exactly as for Run Mandate.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from matrx_graph.actions import register_node
 from matrx_graph.errors import ExecutionError
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import RESERVED_PAYLOAD_FIELDS, NodeResult, failure, success
-from pydantic import BaseModel, ConfigDict
+from matrx_graph.types.usl import field_extras
+from pydantic import BaseModel, ConfigDict, Field
 
+from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.graph_nodes.agent_action import (
     AgentStartConfig,
     AgentStartInput,
@@ -70,6 +92,7 @@ from matrx_ai.graph_nodes.agent_action import (
 )
 from matrx_ai.graph_nodes.iteration_limit import resolve_step_iteration_limit
 from matrx_ai.graph_nodes.shared import (
+    RUN_ENVELOPE_FIELDS,
     AiExecutionResult,
     ai_output_failure,
     normalize_completed_result,
@@ -125,17 +148,116 @@ class AgentProducedOutput(BaseModel):
     )
 
 
-def _declared_kind(ctx: NodeExecutionContext) -> str:
-    kind = (getattr(ctx, "output_kind", None) or "").strip()
+class TypedAgentConfig(AgentStartConfig):
+    """Run Agent's author-time config, plus the step's GOAL (what a mandate used to carry).
+
+    A subclass, not a copy: every Run Agent setting stays available here by construction.
+    """
+
+    goal: str | None = Field(
+        default=None,
+        title="Goal",
+        description=(
+            "What this step must achieve. Every answer can be graded against it by the same "
+            "judge mandates use."
+        ),
+    )
+    goal_approved: bool = Field(
+        default=False,
+        title="Goal approved",
+        description="A person approved this goal. Only an approved goal is graded.",
+    )
+    #: Who grounded the goal, kept distinct on the verdict ledger (H human, V verified, A agent).
+    #: Set by the converter from the mandate's ``goal_grounding``; unset = H when approved, else A.
+    goal_grounding: Literal["H", "V", "A"] | None = Field(
+        default=None, json_schema_extra=field_extras(hidden=True),
+    )
+    #: Keys the answer must carry (a mandate's ``required_output_keys``), checked by the same
+    #: answer check mandates use before the goal is graded.
+    required_output_keys: list[str] = Field(default_factory=list, json_schema_extra=field_extras(hidden=True))
+    #: Which job this run is, when one step runs several jobs that share agent, kind AND goal (a
+    #: quiz and a practice test): appended to the verdict key so their grades stay apart.
+    label: str | None = Field(
+        default=None,
+        title="Label",
+        description=(
+            "Names this job when one step runs several with the same agent, kind and goal "
+            "(e.g. {'$input': 'output_name'}), so each is graded apart."
+        ),
+    )
+    run_envelope: list[str] = Field(
+        default_factory=list,
+        title="Also hand over",
+        description=(
+            "Run facts handed downstream beside the answer, under their own names "
+            "(final_text, content, messages, usage, conversation_id, metadata, ...) - "
+            "the same fields Run Agent and Run Mandate hand over."
+        ),
+    )
+    output_kind: str | None = Field(
+        default=None,
+        title="Output kind",
+        description=(
+            "The kind the agent answers in, when the step itself declares none. Lets a reusable "
+            "workflow take the kind as an argument ({'$input': 'output_kind'}) together with the "
+            "agent and the goal, so its caller names all three once."
+        ),
+    )
+
+
+def _with_run_envelope(
+    payload: dict[str, Any], normalized: AiExecutionResult, fields: list[str], kind: str
+) -> tuple[dict[str, Any], list[str]] | NodeResult[Any]:
+    """The answer plus the asked-for run facts under their own names, or a named refusal."""
+    wanted = [f for f in dict.fromkeys(fields or []) if f]
+    if not wanted:
+        return payload, []
+    unknown = sorted(set(wanted) - RUN_ENVELOPE_FIELDS)
+    if unknown:
+        return failure(
+            "run_envelope_unknown_field",
+            f"'Also hand over' names {unknown}, which a run does not have. Choose from {sorted(RUN_ENVELOPE_FIELDS)}.",
+            details={"fields": unknown},
+        )
+    clash = sorted(set(wanted) & payload.keys())
+    if clash:
+        return failure(
+            "run_envelope_field_clash",
+            (
+                f"Kind '{kind}' has its own field(s) {clash}, so the run's {clash} cannot be handed over "
+                "beside it under the same name. Read the kind's field, or remove it from 'Also hand over'."
+            ),
+            details={"declared_kind": kind, "fields": clash},
+        )
+    envelope = normalized.model_dump(mode="json", include=set(wanted))
+    return {**payload, **envelope}, wanted
+
+
+#: The one plain-text kind this step accepts besides structural kinds (coordinator decision,
+#: 2026-10-27: goal + grading are the point, so text-output agents convert too). Its payload is
+#: the registered ``text`` kind's shape: ``{"__kind": "text", "text": <the answer>}``.
+TEXT_KIND = "text"
+
+
+def _declared_kind(ctx: NodeExecutionContext, config: TypedAgentConfig | None = None) -> str:
+    # The step's own declaration wins; a step that declares none may take the kind from its
+    # config (a run input in a reusable workflow). The payload then carries ``__kind`` and the
+    # scheduler validates it against that kind (it reads the payload's marker when no kind is
+    # declared on the node).
+    kind = (getattr(ctx, "output_kind", None) or "").strip() or (
+        (getattr(config, "output_kind", None) or "").strip()
+    )
     if not kind:
         raise ExecutionError(
             f"{_NODE_TYPE} step '{getattr(ctx, 'node_id', '?')}' declares no output "
             "kind. This node exists to make an agent answer IN a registered "
             "platform kind, so the kind is not optional: set the node's "
-            "`output_kind` (data.output_kind) to the kind slug this step "
+            "`output_kind` (data.output_kind, or the step setting output_kind) to the kind slug this step "
             "produces — e.g. 'flashcard_set'. For a free-text or free-JSON "
             "agent step, use ai.agent.start instead."
         )
+    if kind == TEXT_KIND:
+        return kind
     if not is_bindable_kind(kind):
         raise ExecutionError(
             f"{_NODE_TYPE} step '{getattr(ctx, 'node_id', '?')}' declares "
@@ -239,12 +361,80 @@ def _record_spend(ctx: NodeExecutionContext, normalized: AiExecutionResult) -> N
     )
 
 
+#: The host seam that grades a typed step's answer against the step's own goal.
+TYPED_STEP_JUDGE_EXT = "typed_step_judge"
+
+
+def _judge_against_goal(
+    ctx: NodeExecutionContext,
+    config: TypedAgentConfig | None,
+    *,
+    kind: str,
+    payload: dict[str, Any],
+    normalized: AiExecutionResult,
+    agent_id: str,
+    variables: dict[str, Any] | None,
+    user_input: Any,
+) -> None:
+    """Hand the finished answer to the host's goal judge, DETACHED: the step never waits for the
+    judge (up to two paid calls). Never raises, never changes the outcome.
+
+    A goal-less step is still handed over — the host says why it was not graded, and surfaces it
+    when the run asked to judge every output. A host with no judge seam is said loudly.
+    """
+    goal = (getattr(config, "goal", None) or "").strip()
+    node_id = getattr(ctx, "node_id", None) or "?"
+    if not has_ext(TYPED_STEP_JUDGE_EXT):
+        logger.warning(
+            "%s step '%s': this host installs no %r — the answer is not graded.",
+            _NODE_TYPE, node_id, TYPED_STEP_JUDGE_EXT,
+        )
+        return
+    grounding = getattr(config, "goal_grounding", None) or (
+        "H" if getattr(config, "goal_approved", False) else "A"
+    )
+    kwargs = dict(
+            workflow_id=str(getattr(ctx, "workflow_id", "") or "") or None,
+            run_id=str(getattr(ctx, "run_id", "") or "") or None,
+            node_id=node_id,
+            organization_id=getattr(ctx, "organization_id", None),
+            user_id=str(getattr(ctx, "user_id", "") or "") or None,
+            goal=goal,
+            goal_grounding=grounding,
+            required_output_keys=list(getattr(config, "required_output_keys", None) or []),
+            output_kind=kind,
+            artifact=payload,
+            variables=dict(variables or {}),
+            user_input=user_input if isinstance(user_input, str) else None,
+            agent_id=agent_id,
+            model_id=next(iter(normalized.usage.models), None),
+            conversation_id=normalized.conversation_id or None,
+            label=(getattr(config, "label", None) or "").strip() or None,
+    )
+    from matrx_connect.context.app_context import set_app_context, try_get_app_context
+    from matrx_utils.utils.detached_task import detached_task
+
+    app = try_get_app_context()
+
+    async def _judged() -> None:
+        # A detached task starts in a fresh context (never the step's DB connection); the request
+        # identity is CARRIED in explicitly, never rebuilt.
+        if app is not None:
+            set_app_context(app)
+        try:
+            await get_ext(TYPED_STEP_JUDGE_EXT)(**kwargs)
+        except Exception:  # noqa: BLE001 — the answer was produced and paid for; a judge never sinks it
+            logger.exception("%s step '%s': the goal judge failed; the answer stands.", _NODE_TYPE, node_id)
+
+    detached_task(_judged(), name=f"typed-step-judge:{node_id}")
+
+
 @register_node(
     name=_NODE_TYPE,
-    display_name="Agent → Typed Result",
+    display_name="Run Typed Agent",
     description=(
         "Run one of your saved agents and get back a real, checked result of "
-        "the kind this step declares — ready to render, no parsing step."
+        "the kind this step declares, graded against the step's goal."
     ),
     category=NodeCategory.AGENT,
     determinism=ActionTier.NON_DETERMINISTIC,
@@ -256,19 +446,19 @@ def _record_spend(ctx: NodeExecutionContext, normalized: AiExecutionResult) -> N
     # nothing anyone can render.
     output_kind=None,
     dynamic_output=True,
-    config_schema=AgentStartConfig,
+    config_schema=TypedAgentConfig,
     icon="bot",
-    tags=("ai", "agent", "llm", "kinds"),
+    tags=("ai", "agent", "llm", "kinds", "goal"),
     result_version=step_result_version,
 )
 async def agent_produce(
     ctx: NodeExecutionContext,
     inputs: AgentProduceInput,
-    config: AgentStartConfig | None = None,
+    config: TypedAgentConfig | None = None,
 ) -> NodeResult[AgentProducedOutput]:
     require_agent_host(_NODE_TYPE)
     node_id = getattr(ctx, "node_id", None) or "?"
-    kind = _declared_kind(ctx)
+    kind = _declared_kind(ctx, config)
 
     resolved = await resolve_step_agent_full(inputs, consumer=f"{_NODE_TYPE}:{node_id}")
     _assert_declarations_agree(ctx, kind, resolved.declared_output_kind)
@@ -282,7 +472,9 @@ async def agent_produce(
         node_type=_NODE_TYPE,
         # ABOVE every other layer: the declaration is this node's contract, and
         # an authored config_overrides must never be able to unbind it.
-        top_config_overrides={"response_format": await _response_format_for(ctx, kind)},
+        top_config_overrides=(
+            {} if kind == TEXT_KIND else {"response_format": await _response_format_for(ctx, kind)}
+        ),
         declared_variables=list(getattr(config, "exposed_variables", None) or []),
         variable_sources=dict(getattr(config, "variable_sources", None) or {}),
         include_org_catalog=getattr(config, "include_org_catalog", True),
@@ -305,7 +497,9 @@ async def agent_produce(
     if isinstance(completed, AiExecutionResult):
         outcome: NodeResult[AiExecutionResult] = success(completed)
     else:
-        outcome = limit.name_on(await asyncio.to_thread(normalize_completed_result, completed))
+        outcome = limit.name_on(
+            await asyncio.to_thread(normalize_completed_result, completed, step_config=config)
+        )
     if outcome.status == "error":
         # A failed paid turn already carries its billed usage in
         # error.details['usage'] — the scheduler settles cost from there.
@@ -315,6 +509,9 @@ async def agent_produce(
     _record_spend(ctx, normalized)
 
     payload = normalized.structured_output
+    if kind == TEXT_KIND:
+        text = (normalized.final_text or "").strip()
+        payload = {"__kind": TEXT_KIND, "text": text} if text else None
     if not isinstance(payload, dict):
         # The richer source wins: a CompletedRequest still knows the request's
         # configured ceiling even when no truncation marker was stamped.
@@ -335,6 +532,10 @@ async def agent_produce(
                 "final_text_preview": normalized.final_text[:400],
             },
         )
+    # ``__kind`` is part of the data: the answer names the kind it was bound to (a runtime kind
+    # has no node declaration for the scheduler to stamp from).
+    if payload.get("__kind") in (None, ""):
+        payload = {"__kind": kind, **payload}
     collisions = sorted(RESERVED_PAYLOAD_FIELDS & payload.keys())
     if collisions:
         return failure(
@@ -346,4 +547,21 @@ async def agent_produce(
             ),
             details={"declared_kind": kind, "fields": collisions},
         )
+    judged = payload
+    beside = _with_run_envelope(payload, normalized, list(getattr(config, "run_envelope", None) or []), kind)
+    if not isinstance(beside, tuple):
+        return beside  # type: ignore[return-value]
+    payload, envelope_fields = beside
+    if envelope_fields:
+        ctx.declare_beside_kind(envelope_fields)
+    _judge_against_goal(
+        ctx,
+        config,
+        kind=kind,
+        payload=judged,
+        normalized=normalized,
+        agent_id=resolved.agent_id,
+        variables=getattr(request, "variables", None),
+        user_input=getattr(request, "user_input", None),
+    )
     return success(AgentProducedOutput.model_validate(payload))

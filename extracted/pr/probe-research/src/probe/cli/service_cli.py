@@ -106,8 +106,17 @@ def update_line(update: object) -> str:
 @service_app.command("start")
 def start_cmd() -> None:
     """Start the Probe service if it is not running, and wait for it to answer."""
+    from probe._shared import uninstall_barrier
+    from probe.cli import uninstall
     from probe.service import client, paths
 
+    # An uninstall running, or stopped halfway: nothing starts, and this is no
+    # installer, so it never finishes one (that would leave the env it runs
+    # from on disk, tracked by nothing). `probe uninstall` finishes it.
+    said = uninstall_barrier.refusal()
+    if said:
+        typer.echo(f"probe service: not started: {said}", err=True)
+        raise typer.Exit(uninstall.EXIT_REFUSED)
     record_runtime(force=True)
     outcome = client.ensure(wait=START_WAIT_S)
     status = _status()

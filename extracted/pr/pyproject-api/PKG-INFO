@@ -1,8 +1,9 @@
 Metadata-Version: 2.5
 Name: pyproject-api
-Version: 1.12.0
+Version: 1.12.2
+Import-Name: pyproject_api
 Summary: API to interact with the python pyproject.toml based projects
-Project-URL: Changelog, https://github.com/tox-dev/pyproject-api/releases
+Project-URL: Changelog, https://github.com/tox-dev/pyproject-api/blob/main/docs/changelog.rst
 Project-URL: Homepage, https://pyproject-api.readthedocs.io
 Project-URL: Source, https://github.com/tox-dev/pyproject-api
 Project-URL: Tracker, https://github.com/tox-dev/pyproject-api/issues
@@ -10,11 +11,9 @@ Author-email: Bernát Gábor <gaborjbernat@gmail.com>
 Maintainer-email: Bernát Gábor <gaborjbernat@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
-Keywords: environments,isolated,testing,virtual
+Keywords: build-system,metadata,pyproject
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Framework :: tox
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
@@ -25,7 +24,6 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
-Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
 Requires-Python: >=3.11
 Requires-Dist: packaging>=26.3

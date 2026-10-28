@@ -105,6 +105,15 @@ def _update_barrier(argv: list[str] | None) -> int | None:
     args = sys.argv[1:] if argv is None else argv
     worker = args[:2] == ["daemon", "worker"]
     try:
+        if worker:
+            # `probe uninstall` runs: no worker starts on the files it removes
+            # (its supervisor comes back later, by which time it is gone).
+            from probe._shared import uninstall_barrier
+
+            if uninstall_barrier.live():
+                print("probe: Probe is being uninstalled on this computer; no daemon worker starts.",
+                      file=sys.stderr)
+                return barrier.WORKER_BUSY_EXIT_CODE
         if worker and barrier.workers_held():
             print(f"probe: {barrier.MESSAGE}.", file=sys.stderr)
             return barrier.WORKER_BUSY_EXIT_CODE

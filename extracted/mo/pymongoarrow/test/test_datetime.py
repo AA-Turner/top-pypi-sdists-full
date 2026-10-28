@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import unittest
-from datetime import datetime, timedelta, timezone
-from test import client_context
+from datetime import UTC, datetime, timedelta
 
 import pytz
 from bson.codec_options import CodecOptions
@@ -23,6 +22,7 @@ from pymongo import ASCENDING, WriteConcern
 
 from pymongoarrow.api import Schema, find_arrow_all
 from pymongoarrow.context import PyMongoArrowContext
+from test import client_context
 
 
 class TestDateTimeType(unittest.TestCase):
@@ -36,8 +36,8 @@ class TestDateTimeType(unittest.TestCase):
         self.coll.drop()
         self.coll.insert_many(
             [
-                {"_id": 1, "data": datetime.now(timezone.utc) + timedelta(milliseconds=10)},
-                {"_id": 2, "data": datetime.now(timezone.utc) + timedelta(milliseconds=25)},
+                {"_id": 1, "data": datetime.now(UTC) + timedelta(milliseconds=10)},
+                {"_id": 2, "data": datetime.now(UTC) + timedelta(milliseconds=25)},
             ]
         )
         self.expected_times = []

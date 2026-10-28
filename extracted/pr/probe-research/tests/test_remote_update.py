@@ -21,7 +21,7 @@ import httpx
 import pytest
 
 from probe import version_policy
-from probe._shared import update_request
+from probe._shared import device_mark, update_request
 from probe.cli import autoupdate, update_report
 from probe.sdk.config import Settings
 from probe.sdk.transport import Transport
@@ -81,7 +81,7 @@ def test_one_process_rewrites_the_mark_at_most_every_five_minutes(monkeypatch):
     assert _mark_path().read_text() == first
 
     later = time.monotonic() + update_request.WRITE_EVERY_S + 1
-    monkeypatch.setattr(update_request.time, "monotonic", lambda: later)
+    monkeypatch.setattr(device_mark.time, "monotonic", lambda: later)
     update_request.note({update_request.HEADER: "1793000999"})
     assert json.loads(_mark_path().read_text())["requested_at"] == 1793000999
 

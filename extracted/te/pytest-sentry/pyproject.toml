@@ -1,6 +1,6 @@
 [project]
 name = "pytest-sentry"
-version = "0.6.0"
+version = "0.7.0"
 description = "A pytest plugin to send testrun information to Sentry.io"
 readme = "README.md"
 license = "BSD-2-Clause"
@@ -15,7 +15,7 @@ classifiers = [
 ]
 dependencies = [
     "pytest>=9.1.1",
-    "sentry-sdk>=3.0.0a7",
+    "sentry-sdk>=2.66.0",
     "wrapt>=2.5.1",
 ]
 
@@ -39,12 +39,6 @@ dev = [
 [build-system]
 requires = ["uv_build>=0.13.4,<0.14"]
 build-backend = "uv_build"
-
-[tool.uv]
-constraint-dependencies = [
-    "opentelemetry-api<1.44",
-    "opentelemetry-sdk<1.44",
-]
 
 [tool.uv.build-backend]
 module-root = ""

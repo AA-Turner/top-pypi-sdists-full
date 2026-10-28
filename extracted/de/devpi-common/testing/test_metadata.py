@@ -1,7 +1,7 @@
 from devpi_common.metadata import BasenameMeta
 from devpi_common.metadata import Version
-from devpi_common.metadata import get_pyversion_filetype
 from devpi_common.metadata import get_latest_version
+from devpi_common.metadata import get_pyversion_filetype
 from devpi_common.metadata import get_sorted_versions
 from devpi_common.metadata import parse_requirement
 from devpi_common.metadata import splitbasename
@@ -195,6 +195,7 @@ class TestBasenameMeta:
 def test_parse_requirement():
     req = parse_requirement("hello>=1.0")
     assert req.project_name == "hello"
+    assert req.specifier.prereleases == type(req)("hello>=1.0").specifier.prereleases
     assert "1.0" in req
     assert "1.1.dev0" in req
     assert "1.0.dev0" not in req

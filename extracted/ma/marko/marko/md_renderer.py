@@ -75,18 +75,24 @@ class MarkdownRenderer(Renderer):
 
     def render_fenced_code(self, element: block.FencedCode) -> str:
         extra = f" {element.extra}" if element.extra else ""
-        lines = [self._prefix + f"```{element.lang}{extra}"]
-        lines.extend(
-            self._second_prefix + line
-            for line in self.render_children(element).splitlines()
+        info = f"{element.lang}{extra}"
+        code = self.render_children(element)
+        marker = "~" if "`" in info else "`"
+        fence = marker * max(
+            3, max(map(len, re.findall(marker + "+", code)), default=0) + 1
         )
-        lines.append(self._second_prefix + "```")
+        if info.startswith(marker):
+            info = " " + info
+        lines = [self._prefix + fence + info]
+        code_lines = code.removesuffix("\n").split("\n") if code else []
+        lines.extend(self._second_prefix + line for line in code_lines)
+        lines.append(self._second_prefix + fence)
         self._prefix = self._second_prefix
         return "\n".join(lines) + "\n"
 
     def render_code_block(self, element: block.CodeBlock) -> str:
         indent = " " * 4
-        lines = self.render_children(element).splitlines()
+        lines = self.render_children(element).removesuffix("\n").split("\n")
         lines = [self._prefix + indent + lines[0]] + [
             self._second_prefix + indent + line for line in lines[1:]
         ]
@@ -136,6 +142,13 @@ class MarkdownRenderer(Renderer):
     def render_inline_html(self, element: inline.InlineHTML) -> str:
         return cast(str, element.children)
 
+    @staticmethod
+    def _render_link_destination(dest: str) -> str:
+        escaped = re.sub(r"([\\<>])", r"\\\1", dest)
+        if not dest or re.search(r"\s|[()<>]", dest):
+            return f"<{escaped}>"
+        return escaped
+
     def render_link(self, element: inline.Link) -> str:
         link_text = self.render_children(element)
         link_title = (
@@ -155,7 +168,7 @@ class MarkdownRenderer(Renderer):
                 return f"[{label}]"
             return f"[{link_text}][{label}]"
         title = f" {link_title}" if link_title is not None else ""
-        return f"[{link_text}]({element.dest}{title})"
+        return f"[{link_text}]({self._render_link_destination(element.dest)}{title})"
 
     def render_auto_link(self, element: inline.AutoLink) -> str:
         return f"<{element.dest}>"
@@ -165,7 +178,11 @@ class MarkdownRenderer(Renderer):
         title = (
             ' "{}"'.format(element.title.replace('"', '\\"')) if element.title else ""
         )
-        return template.format(self.render_children(element), element.dest, title)
+        return template.format(
+            self.render_children(element),
+            self._render_link_destination(element.dest),
+            title,
+        )
 
     def render_literal(self, element: inline.Literal) -> str:
         return f"\\{element.children}"
@@ -179,7 +196,14 @@ class MarkdownRenderer(Renderer):
         return "\n" if element.soft else "\\\n"
 
     def render_code_span(self, element: inline.CodeSpan) -> str:
-        text = element.children
-        if text and text[0] == "`" or text[-1] == "`":
-            return f"`` {text} ``"
-        return f"`{element.children}`"
+        text = cast(str, element.children)
+        delimiter = "`" * (
+            max((len(m.group()) for m in re.finditer(r"`+", text)), default=0) + 1
+        )
+        if (
+            text.startswith("`")
+            or text.endswith("`")
+            or (text.startswith(" ") and text.endswith(" ") and text.strip())
+        ):
+            text = f" {text} "
+        return f"{delimiter}{text}{delimiter}"

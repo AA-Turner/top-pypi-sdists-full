@@ -37,7 +37,8 @@ def get_snapshot_permissions(snapshot) -> str:
 
 def can_view_snapshot(request: HttpRequest, snapshot) -> bool:
     permissions = get_snapshot_permissions(snapshot)
-    return permissions in {PERMISSIONS_PUBLIC, PERMISSIONS_UNLISTED} or is_admin_user(request)
+    unlisted_ok = permissions == PERMISSIONS_UNLISTED and not getattr(snapshot, "matched_by_prefix", False)
+    return permissions == PERMISSIONS_PUBLIC or unlisted_ok or is_admin_user(request)
 
 
 def _persona_ids_for_permissions(allowed_permissions: set[str]) -> list[str]:
@@ -58,6 +59,12 @@ def filter_snapshots_by_permissions(queryset: QuerySet, *, direct: bool = False,
 
 def public_snapshots_queryset(queryset: QuerySet) -> QuerySet:
     return filter_snapshots_by_permissions(queryset, direct=False)
+
+
+def discoverable_snapshots_queryset(request: HttpRequest | None, queryset: QuerySet) -> QuerySet:
+    # Incomplete references and URL lookups must not reveal unlisted/private captures.
+    # Local exports have no request and retain captures of every permission level.
+    return queryset if request is None or is_admin_user(request) else public_snapshots_queryset(queryset)
 
 
 def direct_snapshots_queryset(request: HttpRequest, queryset: QuerySet) -> QuerySet:

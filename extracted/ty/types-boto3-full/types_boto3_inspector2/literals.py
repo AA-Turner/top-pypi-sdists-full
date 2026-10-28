@@ -27,6 +27,9 @@ __all__ = (
     "AggregationFindingTypeType",
     "AggregationResourceTypeType",
     "AggregationTypeType",
+    "AmiConfigurationStatusType",
+    "AmiScanDurationType",
+    "AmiScanModeType",
     "AmiSortByType",
     "ArchitectureType",
     "AssociationResultStatusCodeType",
@@ -125,9 +128,14 @@ __all__ = (
     "ListFindingAggregationsPaginatorName",
     "ListFindingsPaginatorName",
     "ListMembersPaginatorName",
+    "ListOnDemandScansPaginatorName",
     "ListUsageTotalsPaginatorName",
+    "MachineImagePlatformType",
     "MapComparisonType",
     "NetworkProtocolType",
+    "OnDemandResourceTypeType",
+    "OnDemandScanStatusReasonType",
+    "OnDemandScanStatusType",
     "OperationType",
     "PackageManagerType",
     "PackageSortByType",
@@ -151,6 +159,7 @@ __all__ = (
     "RuntimeType",
     "SbomReportFormatType",
     "ScanModeType",
+    "ScanSourceType",
     "ScanStatusCodeType",
     "ScanStatusReasonType",
     "ScanTypeType",
@@ -207,6 +216,9 @@ AggregationTypeType = Literal[
     "TITLE",
     "VM_INSTANCE",
 ]
+AmiConfigurationStatusType = Literal["FAILED", "PENDING", "SUCCESS"]
+AmiScanDurationType = Literal["DAYS_14", "DAYS_180", "DAYS_30", "DAYS_60", "DAYS_7", "DAYS_90"]
+AmiScanModeType = Literal["SCAN_ALL", "TARGET_SCANNING"]
 AmiSortByType = Literal["AFFECTED_INSTANCES", "ALL", "CRITICAL", "HIGH"]
 ArchitectureType = Literal["ARM64", "X86_64"]
 AssociationResultStatusCodeType = Literal[
@@ -288,6 +300,7 @@ CoverageResourceTypeType = Literal[
     "AWS_ECR_REPOSITORY",
     "AWS_LAMBDA_FUNCTION",
     "CODE_REPOSITORY",
+    "MACHINE_IMAGE",
     "Microsoft.Compute/virtualMachines",
     "Microsoft.ContainerRegistry/registries",
     "Microsoft.ContainerRegistry/registry/containerImage",
@@ -360,6 +373,7 @@ FreeTrialTypeType = Literal[
     "ECR",
     "LAMBDA",
     "LAMBDA_CODE",
+    "MACHINE_IMAGE",
     "SERVERLESS_FUNCTION",
     "VM",
 ]
@@ -402,9 +416,21 @@ ListFiltersPaginatorName = Literal["list_filters"]
 ListFindingAggregationsPaginatorName = Literal["list_finding_aggregations"]
 ListFindingsPaginatorName = Literal["list_findings"]
 ListMembersPaginatorName = Literal["list_members"]
+ListOnDemandScansPaginatorName = Literal["list_on_demand_scans"]
 ListUsageTotalsPaginatorName = Literal["list_usage_totals"]
+MachineImagePlatformType = Literal["LINUX", "UNKNOWN", "WINDOWS"]
 MapComparisonType = Literal["EQUALS"]
 NetworkProtocolType = Literal["TCP", "UDP"]
+OnDemandResourceTypeType = Literal["AMI"]
+OnDemandScanStatusReasonType = Literal[
+    "ACCESS_DENIED",
+    "EXTRACTION_COLLECTION_TIME_LIMIT_EXCEEDED",
+    "INTERNAL_ERROR",
+    "RESOURCE_TERMINATED",
+    "STORAGE_LIMIT_EXCEEDED",
+    "UNSUPPORTED_OS",
+]
+OnDemandScanStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCESSFUL"]
 OperationType = Literal[
     "DISABLE_REPOSITORY", "DISABLE_SCANNING", "ENABLE_REPOSITORY", "ENABLE_SCANNING"
 ]
@@ -467,6 +493,7 @@ ResourceTypeType = Literal[
     "AWS_ECR_REPOSITORY",
     "AWS_LAMBDA_FUNCTION",
     "CODE_REPOSITORY",
+    "MACHINE_IMAGE",
     "Microsoft.Compute/virtualMachines",
     "Microsoft.ContainerRegistry/registry/containerImage",
     "Microsoft.Web/sites",
@@ -510,6 +537,7 @@ SbomReportFormatType = Literal["CYCLONEDX_1_4", "SPDX_2_3"]
 ScanModeType = Literal[
     "EC2_AGENTLESS", "EC2_INSPECTOR_AGENT_BASED", "EC2_SSM_AGENT_BASED", "VM_INSPECTOR_AGENT_BASED"
 ]
+ScanSourceType = Literal["INSTANCE_SCAN", "MACHINE_IMAGE_SCAN"]
 ScanStatusCodeType = Literal["ACTIVE", "INACTIVE"]
 ScanStatusReasonType = Literal[
     "ACCESS_DENIED",
@@ -522,10 +550,12 @@ ScanStatusReasonType = Literal[
     "DEEP_INSPECTION_PACKAGE_COLLECTION_LIMIT_EXCEEDED",
     "EC2_INSTANCE_STOPPED",
     "EXCLUDED_BY_TAG",
+    "EXTRACTION_COLLECTION_TIME_LIMIT_EXCEEDED",
     "IMAGE_ARCHIVED",
     "IMAGE_SIZE_EXCEEDED",
     "INTEGRATION_CONNECTION_LOST",
     "INTERNAL_ERROR",
+    "INVALID_ARTIFACT",
     "NO_INVENTORY",
     "NO_RESOURCES_FOUND",
     "NO_SCAN_CONFIGURATION_ASSOCIATED",
@@ -540,6 +570,7 @@ ScanStatusReasonType = Literal[
     "SCAN_FREQUENCY_SCAN_ON_PUSH",
     "SCAN_IN_PROGRESS",
     "STALE_INVENTORY",
+    "STORAGE_LIMIT_EXCEEDED",
     "SUCCESSFUL",
     "UNMANAGED_EC2_INSTANCE",
     "UNSUPPORTED_CODE_ARTIFACTS",
@@ -590,6 +621,7 @@ UsageTypeType = Literal[
     "CODE_REPOSITORY_SAST",
     "CODE_REPOSITORY_SCA",
     "EC2_AGENTLESS_INSTANCE_HOURS",
+    "EC2_AMI_HOURS",
     "EC2_INSTANCE_HOURS",
     "ECR_INITIAL_SCAN",
     "ECR_RESCAN",
@@ -1057,6 +1089,7 @@ PaginatorName = Literal[
     "list_finding_aggregations",
     "list_findings",
     "list_members",
+    "list_on_demand_scans",
     "list_usage_totals",
     "search_vulnerabilities",
 ]

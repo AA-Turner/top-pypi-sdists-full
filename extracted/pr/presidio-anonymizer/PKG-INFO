@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: presidio_anonymizer
-Version: 2.2.365
+Version: 2.2.366
 Summary: Presidio Anonymizer package - replaces analyzed text with desired values.
 License-Expression: MIT
 Keywords: presidio_anonymizer
 Author: Presidio
 Author-email: presidio@dataprivacystack.org
-Requires-Python: >=3.10,<3.15
+Requires-Python: >=3.11,<3.15
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13

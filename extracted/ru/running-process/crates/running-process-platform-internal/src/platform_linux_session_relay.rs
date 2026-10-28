@@ -35,8 +35,8 @@ impl Direction {
         destination: RawFd,
         committed: Arc<AtomicBool>,
     ) -> io::Result<Self> {
-        let source = AsyncFd::new(duplicate(source)?)?;
-        let destination = AsyncFd::new(duplicate(destination)?)?;
+        let source = register(duplicate(source)?)?;
+        let destination = register(duplicate(destination)?)?;
         let (pipe_read, pipe_write) = pipe()?;
         Ok(Self {
             source,
@@ -113,6 +113,19 @@ impl Direction {
 
 fn injected_splice_error() -> io::Error {
     io::Error::other("injected SESSION splice failure")
+}
+
+/// Register an owned descriptor with the reactor.
+///
+/// tokio 1.54 deprecates the safe `AsyncFd::new` as unsound
+/// (RUSTSEC-2026-0386): it trusted `as_raw_fd()` to stay valid and stable.
+fn register(fd: OwnedFd) -> io::Result<AsyncFd<OwnedFd>> {
+    // OwnedFd keeps its descriptor open and stable until it is dropped, so it
+    // upholds the invariant that older Tokio's safe constructor failed to
+    // enforce for arbitrary AsRawFd implementations. Keep compatibility with
+    // Tokio 1.53, which does not yet provide AsyncFd::register.
+    #[allow(deprecated)] // Tokio 1.54 deprecates new; OwnedFd satisfies its invariant.
+    AsyncFd::new(fd)
 }
 
 fn duplicate(fd: RawFd) -> io::Result<OwnedFd> {

@@ -1,4 +1,5 @@
 import dataclasses
+import itertools
 import pickle
 import re
 import unicodedata
@@ -9,10 +10,11 @@ from nameparser import (
     Lexicon, Locale, Parser, Policy, PolicyPatch, locales, parse, parser_for,
 )
 from nameparser._policy import (
-    CapsSuffixes, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, PatronymicRule,
+    CapsSuffixes, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, GIVEN_FIRST,
+    PatronymicRule,
 )
 from nameparser._types import (UNJOINED_CONJUNCTION_TAG, UNJOINED_TAG,
-                               AmbiguityKind, Role, Segmentation)
+                               AmbiguityKind, ParsedName, Role, Segmentation)
 
 
 def test_parser_defaults_and_properties() -> None:
@@ -196,8 +198,10 @@ def test_phd_split_mid_name_is_a_suffix() -> None:
 def test_ambiguous_acronym_reports_the_reading_it_took() -> None:
     # 'ma' is both a post-nominal and a surname, so whichever way the
     # peel resolves it is a guess -- the same shape as the leading
-    # ambiguous particle that already reports PARTICLE_OR_GIVEN
-    took_suffix = parse("John Smith MA")
+    # ambiguous particle that already reports PARTICLE_OR_GIVEN. In a
+    # name written in one case: in a name of mixed case the capitals
+    # settle the word and nothing reports it (rules/S6, #785)
+    took_suffix = parse("JOHN SMITH MA")
     assert took_suffix.suffix == "MA"
     assert [a.kind for a in took_suffix.ambiguities] == \
         [AmbiguityKind.SUFFIX_OR_NAME]
@@ -206,12 +210,18 @@ def test_ambiguous_acronym_reports_the_reading_it_took() -> None:
     # MOVED by #289, not deleted: 'MA' is written in capitals inside a
     # mixed-case name, so it now leans CREDENTIAL and is taken with no
     # words to spare -- 'Jack' is the only name word left, which is
-    # what also turns on the GIVEN_OR_FAMILY fork (decisions/S6).
+    # what also turns on the GIVEN_OR_FAMILY fork (decisions/S6). The
+    # capitals settled 'MA', so that fork is the only one (#785).
     took_family = parse("Jack MA")
     assert took_family.suffix == "MA"
     assert not took_family.family
     assert set(a.kind for a in took_family.ambiguities) == \
-        {AmbiguityKind.SUFFIX_OR_NAME, AmbiguityKind.GIVEN_OR_FAMILY}
+        {AmbiguityKind.GIVEN_OR_FAMILY}
+    # and in one case the count decides, and reports the family it kept
+    took_family = parse("JACK MA")
+    assert took_family.family == "MA"
+    assert [a.kind for a in took_family.ambiguities] == \
+        [AmbiguityKind.SUFFIX_OR_NAME]
 
 
 @pytest.mark.parametrize("text", [
@@ -219,6 +229,7 @@ def test_ambiguous_acronym_reports_the_reading_it_took() -> None:
     "Ma, Jack",                          # a comma fixes the family
     "Joao da Silva do Amaral de Souza",  # 'do' mid-name, never at the peel
     "John Smith PhD",                    # unambiguous vocabulary
+    "John Smith MA",                     # capitals settle it (#785)
 ])
 def test_no_suffix_ambiguity_when_nothing_was_guessed(text: str) -> None:
     assert [a for a in parse(text).ambiguities
@@ -242,7 +253,8 @@ def test_delimited_ambiguous_acronym_reports_suffix_or_nickname() -> None:
 def test_every_ambiguous_acronym_in_a_name_is_reported() -> None:
     # one coin-flip per acronym: a single-slot record dropped all but
     # the last, which defeats the point of reporting at all
-    n = parse("John Smith MA JD")
+    # (in one case, where no writing settles either word, rules/S6)
+    n = parse("JOHN SMITH MA JD")
     # the scenery the record is read off; only its separator moved (#436)
     assert n.suffix == "MA JD"
     assert [a.kind for a in n.ambiguities] == \
@@ -512,14 +524,14 @@ def test_bound_given_name_that_is_also_a_particle() -> None:
     # reason. Through 2.1 it read correctly only because the title
     # displaced 'abu' out of the leading position and the prefix chain
     # claimed 'Bakar' -- a side effect of the #367 bug, not a rule. Now
-    # the bound given-name join reads it: "Sheik" is a given-name
+    # the bound given-name join reads it: "Sir" is a given-name
     # title, which licenses the join with one word to spare
     # (rules/P5), so the particle never enters into it -- and a
     # bound word read as the bound word is not a fork, so the
     # PARTICLE_OR_GIVEN report the chain used to emit is gone. The
     # same precedence, untitled, is what "Abu Bakar Salim" has always
     # had; where the reserve blocks the join, P4 and its report stand.
-    titled = parse("Sheik Abu Bakar")
+    titled = parse("Sir Abu Bakar")
     assert (titled.given, titled.ambiguities) == ("Abu Bakar", ())
     assert parse("Abu Bakar Salim").ambiguities == ()
     assert [a.kind for a in parse("Abu Bakar").ambiguities] == \
@@ -532,23 +544,25 @@ def test_a_given_name_title_licenses_the_bound_given_join() -> None:
     # particle -- now joins the same way, and for the same reason. A
     # plain title does not license it: "Dr." addresses by family, so
     # the second word stays the family name.
-    licensed = parse("Sheik abdul salam")
+    # `sheik` has been a title only inside a title phrase since #752
+    # phase 2j, so `Sir` stands in for it here, reading as it did.
+    licensed = parse("Sir abdul salam")
     assert (licensed.title, licensed.given, licensed.family) == \
-        ("Sheik", "abdul salam", "")
+        ("Sir", "abdul salam", "")
     plain = parse("Dr. abdul salam")
     assert (plain.title, plain.given, plain.family) == \
         ("Dr.", "abdul", "salam")
     # and the pair's report. Until #614 a bound word read as the bound
-    # word was no fork, so 'Sheik abdul Ma' reported nothing where
-    # 'Sheik John Ma' reports its pick (the #369 precedent). S2's run is
+    # word was no fork, so 'Sir abdul Ma' reported nothing where
+    # 'Sir John Ma' reports its pick (the #369 precedent). S2's run is
     # read once now, before the join, and the read weighs 'Ma' as a
     # credential and declines it before the join makes it part of the
     # given pair -- so the pick reports in both (decisions/P5,
     # 2026-10-07)
-    for text in ("Sheik abdul Ma", "Sheik John Ma"):
+    for text in ("Sir abdul Ma", "Sir John Ma"):
         assert [a.kind for a in parse(text).ambiguities] == \
             [AmbiguityKind.SUFFIX_OR_NAME], text
-    assert parse("Sheik abdul Ma").given == "abdul Ma"
+    assert parse("Sir abdul Ma").given == "abdul Ma"
 
 
 def test_the_bound_given_reserve_spares_the_family_assign_will_keep() -> None:
@@ -599,12 +613,12 @@ def test_the_reserve_counts_what_the_trailing_read_left() -> None:
     n = parse("John J. V")
     assert (n.middle, n.family, n.suffix) == ("J.", "V", "")
     # and behind a merged credential, which assign drops from its walk
-    # so the V is last in it, the family survives
+    # so the V is last in it, the numeral is the name word it is behind
+    # 'PhD' (rules/S10, #752), so the name reads as its one-word twin
     n = parse("abdul Smith V Ph. D.")
-    # no comma between the numeral and the merged credential, so the two
-    # are one entry (#436); the V-is-last-in-the-walk point above is a
-    # claim about the ROLES and is untouched
-    assert (n.given, n.family, n.suffix) == ("abdul", "Smith", "V Ph. D.")
+    assert (n.given, n.family, n.suffix) == ("abdul Smith", "V", "Ph. D.")
+    twin = parse("abdul Smith V PhD")
+    assert (twin.given, twin.family, twin.suffix) == ("abdul Smith", "V", "PhD")
 
 
 def test_the_reserve_spares_the_family_the_acronym_fork_would_take() -> None:
@@ -654,13 +668,13 @@ def test_the_leading_piece_never_anchors_under_any_name_order() -> None:
 
 
 def test_a_joined_pair_is_never_peeled_as_a_title() -> None:
-    # The conjunction merge derives a title tag for 'Sheikh and Ahmad';
+    # The conjunction merge derives a title tag for 'Sir and Ahmad';
     # the bound join takes the piece (a mid-name title word is a name
     # word, as 1.4.0 read it) and the pair must stay the given name,
     # not inherit the tag and be peeled as a leading title.
-    n = parse("abdul Sheikh and Ahmad Bakar")
+    n = parse("abdul Sir and Ahmad Bakar")
     assert (n.title, n.given, n.family) == \
-        ("", "abdul Sheikh and Ahmad", "Bakar")
+        ("", "abdul Sir and Ahmad", "Bakar")
     # the title-word class: name words to P5, as v1 read them --
     # parity restored for the post-comma shape, never lost for the
     # main-walk one
@@ -761,6 +775,28 @@ def test_the_numeral_fork_fires_on_the_last_piece_only() -> None:
         assert (n.family, n.suffix) == (family, "Jr")
 
 
+@pytest.mark.parametrize("text, fragment", [
+    # rules/S10's Title-case lean, worded for what declined the numeral
+    ("John Smith Vi", "written in Title case, which leans to the name"),
+    ("Jane Doe nee Smith Vi", "written in Title case it leans to the name"),
+    # one-letter, declined for want of words to spare, as #718 words it
+    ("John V", "the name has no other word to spare"),
+    # a declined numeral a credential run in front then takes is the
+    # run's absorbed name word (rules/S8), not a numeral read as a name
+    ("John Smith III Vi", "follows a credential"),
+    ("John Smith PhD Vi", "follows a credential"),
+])
+def test_a_declined_numeral_is_reported_for_what_declined_it(
+        text: str, fragment: str) -> None:
+    # #752's review: the Title-case pick first took #718's "no other
+    # word to spare" wording, and one a run took read "as a suffix
+    # rather than a generational suffix"
+    details = [a.detail for a in parse(text).ambiguities]
+    assert any(fragment in d for d in details), (text, details)
+    assert not any("rather than a generational suffix" in d
+                   and "suffix rather" in d for d in details), details
+
+
 @pytest.mark.parametrize("bound", ["abd", "abu"])
 @pytest.mark.parametrize("numeral", ["I", "X"])
 def test_every_bound_word_spares_the_family_before_every_numeral(
@@ -774,8 +810,8 @@ def test_every_bound_word_spares_the_family_before_every_numeral(
 
 
 @pytest.mark.parametrize("title", [
-    "Sir", "Sheikh", "King", "الشيخ", "Dr.", "Mr.", "Mr. Sir", "Sir Dr.",
-    "Sir and Dame", "Mr. and Mrs.", "Sheik and Mrs"])
+    "Sir", "Swami", "Pope", "الشيخ", "Dr.", "Mr.", "Mr. Sir", "Sir Dr.",
+    "Sir and Dame", "Mr. and Mrs.", "Swami and Mrs"])
 def test_the_p5_licence_and_h1_read_a_title_run_the_same_way(
         title: str) -> None:
     # The licence's one invariant, as a contract: P5 lifts the reserve
@@ -924,7 +960,7 @@ def test_each_suffix_or_name_branch_describes_itself() -> None:
     # roman-numeral branch turns on the letter being a numeral. Sharing
     # one template made "V written without periods" -- a distinction
     # that does not exist for V -- and hid which branch fired.
-    acronym = parse("John Smith MA").ambiguities[0].detail
+    acronym = parse("JOHN SMITH MA").ambiguities[0].detail
     assert "periods" in acronym and "post-nominal" in acronym
 
     numeral = parse("John Smith V").ambiguities[0].detail
@@ -1202,16 +1238,16 @@ def test_revise_leaves_a_policy_delimiter_unparted_without_a_tail_segment() -> N
     # core is dropped -- and so parts entries -- only on a TAIL
     # segment, which a value gets only where its own words read as a
     # name. A run of post-nominals has none, with or without a comma
-    # of its own, so the dash stays a word; a value that reads as a
+    # of its own, so the core stays a word; a value that reads as a
     # name does part. The round-trip is unaffected because the
     # whole-name view already rendered that boundary as a comma.
-    p = Parser(policy=Policy(extra_suffix_delimiters=frozenset({" - "})))
-    n = p.parse("Doe, John, MD PhD - FACS")
+    p = Parser(policy=Policy(extra_suffix_delimiters=frozenset({" | "})))
+    n = p.parse("Doe, John, MD PhD | FACS")
     assert n.suffix == "MD PhD, FACS"
-    assert p.revise(n, suffix="MD PhD - FACS").suffix == "MD PhD - FACS"
-    assert p.revise(n, suffix="MD, PhD - FACS").suffix == "MD, PhD - FACS"
+    assert p.revise(n, suffix="MD PhD | FACS").suffix == "MD PhD | FACS"
+    assert p.revise(n, suffix="MD, PhD | FACS").suffix == "MD, PhD | FACS"
     assert p.revise(n, suffix=n.suffix).suffix == "MD PhD, FACS"
-    assert (p.revise(n, suffix="John Doe, MD - FACS").suffix
+    assert (p.revise(n, suffix="John Doe, MD | FACS").suffix
             == "John Doe, MD, FACS")
 
 
@@ -1248,8 +1284,10 @@ _HONORIFIC_PEEL = frozenset({"김민준씨, J.씨", "김민준씨., J.씨",
 #: a maiden marker the whole name left a word -- in a tail part, or
 #: taken into #602's credential run behind a credential -- and that
 #: the value's own sub-parse consumes mid-value, as revise() documents.
+#: 'Smith, John, MD - née Jones Smith' left it in #889: the built-in
+#: hyphen parts its suffix ('MD, née Jones Smith'), whose sub-parse
+#: reads the marker as a word too.
 _MARKER_IN_SUFFIX = frozenset({"Jane Doe PhD nee Smith",
-                               "Smith, John, MD - née Jones Smith",
                                "Smith, John, PhD née Jones"})
 
 
@@ -1944,7 +1982,7 @@ _NFD_ROWS = [
     "Janez Novak, univ. dipl. inž.",
     "Novak, inž. Janez",
     "Smith, inž. Ž.Š.",
-    # the comma shapes AGENTS.md asks of every comma grid
+    # the comma shapes nameparser/AGENTS.md asks of every comma grid
     ", inž.",
     "(Bob), inž.",
     # paired initials (rules/C5)
@@ -2152,3 +2190,87 @@ def test_a_declined_cjk_credential_word_does_not_peel_off_a_glued_name(
     # 長 alone is a borne given name, so 阿部長 can be 阿部 + 長 (#707).
     assert word not in Parser().lexicon.honorific_tails
     assert Parser().parse(f"田中{word}").suffix == ""
+
+
+# rules/S13 (#810): where a bracketed member reads differently from its
+# twin, a bracketed unambiguous credential in the same place. The twin
+# is MBA, a word no head holds, so the twin's reading maps back by
+# replacing its text. 1,080 texts, about 2s.
+_TWIN_HEADS = (
+    "John Smith {c}", "Jack {c}", "{c}", "John {c}", "JOHN SMITH {c}",
+    "Smith, John {c}", "Smith, {c}", ", {c}", "(Bob), {c}",
+    "John Smith {c}, PhD", "John Smith, PhD {c}", "John Smith PhD {c}",
+    "Dr. Jack {c}", "Dr. {c}", "Freiherr von Berg {c}", "Juan de la Vega {c}",
+    "Jane Doe nee Smith {c}", "John Smith {c} née Jones",
+    "John Smith {c} Dr.", "John Smith {c} VI", "John Smith {c} Ph. D.",
+    "Smith, Jane {c} Mrs", "Ortega y Gasset, José {c}",
+    "Smith, Freiherr von Berg {c}", "Doe, John van {c}",
+    # a third comma part, and a clause whose settling another makes
+    # possible, the first settled word making the name mixed case
+    "Smith, John, Jr. {c}", "JOHN SMITH (m.a) {c}",
+    "john smith (M.A) {c}", "Smith, John, X.Y.Z. {c}",
+    "Smith, John, Bob {c}",
+)
+_TWIN_MEMBERS = ("MA", "M.A", "JD", "DO", "D.O", "MENG")
+_TWIN_PAIRS = (("(", ")"), ('"', '"'))
+_TWIN_ORDERS = (GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST)
+
+
+def _twin_reading(name: ParsedName, twin: str | None, word: str) -> tuple[
+        dict[str, str], list[tuple[str, str]]]:
+    def back(text: str) -> str:
+        return text.replace(twin, word) if twin else text
+    return ({k: back(v) for k, v in name.as_dict().items() if v},
+            [(a.kind.value, back(a.detail)) for a in name.ambiguities])
+
+
+#: The census, by head and by whether the member was settled or left
+#: the nickname, recorded 2026-10-26 (#810). rules/S13's Accepted bullets
+#: and its Except bullets name each shape: a lone name word stays N3's
+#: family name beside a settled member where its twin's is given; the
+#: maiden clause stays the maiden name where the twin's credential run
+#: takes it; a part past a second comma reports what is left without
+#: the member; a name written in one case settles no capitals; a name
+#: with no word of its own (a title, a nickname, nothing) settles no
+#: clause, where the twin escapes, read as the name ('(MBA)' given
+#: 'MBA', 'Dr. (MBA)' given 'Dr.') or as the suffix behind a comma
+#: (', (MBA)'); and a clause another
+#: settled one would make settle, on a second reading, is left the
+#: nickname.
+_TWIN_CENSUS = {
+    ("(Bob), {c}", "nickname"): 36,
+    (", {c}", "nickname"): 36,
+    ("Dr. {c}", "nickname"): 36,
+    ("JOHN SMITH (m.a) {c}", "nickname"): 24,
+    ("JOHN SMITH {c}", "nickname"): 24,
+    ("Jack {c}", "settled"): 36,
+    ("John Smith {c} née Jones", "settled"): 36,
+    ("John {c}", "settled"): 36,
+    ("Smith, John, Bob {c}", "settled"): 36,
+    ("Smith, John, X.Y.Z. {c}", "settled"): 36,
+    ("john smith (M.A) {c}", "nickname"): 24,
+    ("{c}", "nickname"): 36,
+}
+
+
+def test_where_a_bracketed_member_reads_otherwise_than_its_twin() -> None:
+    """A census, not a guarantee: one pass decides S13 once the roles are
+    read, so the rest of the name is read around the clause as a
+    nickname, and that differs from the twin's reading in the shapes
+    _TWIN_CENSUS names. A change that moves a count, or adds a head, is
+    a change to what rules/S13 accepts: re-record it there and here.
+    The twin reading folded to a fixed point (the PR's fourth draft,
+    declined by Derek for one pass) differed in none of the settled
+    rows."""
+    census: dict[tuple[str, str], int] = {}
+    for (open_, close), word, head, order in itertools.product(
+            _TWIN_PAIRS, _TWIN_MEMBERS, _TWIN_HEADS, _TWIN_ORDERS):
+        parser = Parser(policy=Policy(name_order=order))
+        name = parser.parse(head.format(c=f"{open_}{word}{close}"))
+        twin = parser.parse(head.format(c=f"{open_}MBA{close}"))
+        if _twin_reading(name, None, word) != _twin_reading(
+                twin, "MBA", word):
+            key = (head, "nickname" if word in name.nickname.split()
+                   else "settled")
+            census[key] = census.get(key, 0) + 1
+    assert census == _TWIN_CENSUS

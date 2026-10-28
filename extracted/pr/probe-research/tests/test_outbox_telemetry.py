@@ -115,6 +115,57 @@ def test_clean_drain_reports_the_happy_path(tmp_path, monkeypatch, captured):
     assert props["passes"] == 2
 
 
+def test_the_drained_report_says_what_the_server_answered_each_dead_letter(
+    tmp_path, monkeypatch, captured
+):
+    """Bucket, 2026-10-27: one write naming a run that does not exist (a 404)
+    posted "Data loss" in Slack. The alert can only say "refused: no such run"
+    if the event carries each dead letter's answer, keyed as
+    `sdk.delivery.summary` keys it, across every pass of the episode."""
+    journal = seeded_journal(tmp_path)
+
+    def dead(*statuses, no_such_run=False):
+        return [
+            {"run_ref": "r", "op_id": "o", "error": "e", "status": s, "no_such_run": no_such_run}
+            for s in statuses
+        ]
+
+    reports = [
+        DrainReport(dead_lettered=2, remaining=1, dead_letter_records=dead(404, 422)),
+        DrainReport(
+            dead_lettered=3,
+            remaining=0,
+            dead_letter_records=dead(404, no_such_run=True) + dead(404, None),
+        ),
+    ]
+    monkeypatch.setattr("probe.sdk.journal.drain", draining(journal, reports))
+    monkeypatch.setattr(outbox_worker.time, "sleep", lambda s: None)
+
+    assert outbox_worker.run(str(journal.dir)) == 0
+
+    (props,) = events(captured, tm.EVENT_OUTBOX_DRAINED)
+    assert props["dead_lettered"] == 5
+    assert props["dead_lettered_by_status"] == {"404": 3, "422": 1, "none": 1}
+    # Only the server's own "run not found" counts as naming no run: the other
+    # two 404s (a run token's refusal, a swept upload) are losses of ours.
+    assert props["dead_lettered_no_such_run"] == 1
+
+
+def test_a_drain_with_no_dead_letters_sends_no_status_breakdown(
+    tmp_path, monkeypatch, captured
+):
+    journal = seeded_journal(tmp_path)
+    reports = [DrainReport(delivered=1, remaining=0)]
+    monkeypatch.setattr("probe.sdk.journal.drain", draining(journal, reports))
+    monkeypatch.setattr(outbox_worker.time, "sleep", lambda s: None)
+
+    assert outbox_worker.run(str(journal.dir)) == 0
+
+    (props,) = events(captured, tm.EVENT_OUTBOX_DRAINED)
+    assert "dead_lettered_by_status" not in props
+    assert "dead_lettered_no_such_run" not in props
+
+
 def test_auth_block_reports_the_state_a_human_must_fix(tmp_path, monkeypatch, captured):
     journal = seeded_journal(tmp_path)
     monkeypatch.setattr(

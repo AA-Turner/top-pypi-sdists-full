@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import io
 import json
 import re
@@ -23,6 +24,7 @@ from exp.cli.app import app
 from exp.cli.gateway.compatibility import ProjectGatewayCompatibility
 from exp.cli.gateway.setup import InteractiveSetupResult
 from exp.runtime.gateway.auth import IssuedVirtualKey
+from exp.runtime.gateway.native_bridge import NativeControlPlane
 from exp.runtime.gateway.sqlite.alias_activation import AliasActivationOutcomeUnknownError
 
 
@@ -43,6 +45,7 @@ def test_run_command_starts_the_gateway_directly(
             bool,
             float,
             int,
+            float,
         ]
     ] = []
 
@@ -58,6 +61,7 @@ def test_run_command_starts_the_gateway_directly(
         check: bool,
         graceful_timeout: float,
         max_active_requests: int,
+        request_timeout: float,
     ) -> None:
         """Capture the shared launcher arguments without starting a server."""
         captured.append(
@@ -72,6 +76,7 @@ def test_run_command_starts_the_gateway_directly(
                 check,
                 graceful_timeout,
                 max_active_requests,
+                request_timeout,
             )
         )
 
@@ -95,6 +100,8 @@ def test_run_command_starts_the_gateway_directly(
             "4.5",
             "--max-active-requests",
             "7",
+            "--request-timeout",
+            "900",
         ],
     )
 
@@ -111,16 +118,19 @@ def test_run_command_starts_the_gateway_directly(
             True,
             4.5,
             7,
+            900.0,
         )
     ]
 
 
 @pytest.mark.parametrize("ghost", [False, True])
 @pytest.mark.parametrize("check", [False, True])
+@pytest.mark.parametrize("graceful_timeout", [0.25, 600.0])
 def test_project_option_launches_the_native_gateway_on_loopback(
     monkeypatch: pytest.MonkeyPatch,
     ghost: bool,
     check: bool,
+    graceful_timeout: float,
 ) -> None:
     """Both project compatibility modes launch the ordinary native gateway.
 
@@ -128,11 +138,14 @@ def test_project_option_launches_the_native_gateway_on_loopback(
         monkeypatch: Scoped replacements for runtime and server boundaries.
         ghost: Whether the invocation disables durable interaction state.
         check: Whether readiness returns before starting the native server.
+        graceful_timeout: Native serving budget, independent of bounded accounting joins.
     """
     prepared: list[tuple[str, Path, str | None]] = []
     loaded: list[tuple[Path, frozenset[str] | None]] = []
     served: list[tuple[object, str, int]] = []
     control_planes: list[object] = []
+    owner_events: list[str] = []
+    drain_results = iter((False, True))
     closed: list[float] = []
     guardrails = SimpleNamespace(close=lambda *, timeout_seconds: closed.append(timeout_seconds))
 
@@ -190,9 +203,16 @@ def test_project_option_launches_the_native_gateway_on_loopback(
             components=value,
             reconciled_expired_requests=0,
             reconciled_unknown_attempts=0,
+            close=drain,
         )
         control_planes.append(plane)
         return plane
+
+    def drain(*, timeout_seconds: float) -> bool:
+        """Keep the instance lock until the retained meter has been recovered."""
+        assert timeout_seconds == min(300.0, graceful_timeout)
+        owner_events.append("drain")
+        return next(drain_results)
 
     @contextmanager
     def instance_lock(root: Path, *, port: int) -> Iterator[None]:
@@ -208,6 +228,7 @@ def test_project_option_launches_the_native_gateway_on_loopback(
         assert root == Path("/tmp/local-exp")
         assert port == 8123
         yield
+        owner_events.append("unlock")
 
     def serve(value: object, *, host: str, port: int, **kwargs: object) -> None:
         """Capture the control plane and loopback bind without serving.
@@ -250,7 +271,7 @@ def test_project_option_launches_the_native_gateway_on_loopback(
         "8123",
         "--json",
         "--graceful-timeout",
-        "0.25",
+        str(graceful_timeout),
     ]
     if ghost:
         arguments.append("--ghost")
@@ -262,7 +283,8 @@ def test_project_option_launches_the_native_gateway_on_loopback(
     assert prepared == [("project-a", Path("/tmp/local-exp"), "policy-a")]
     assert loaded == [(Path("/tmp/local-exp"), frozenset({"project-a"}))]
     assert served == ([] if check else [(control_planes[0], "127.0.0.1", 8123)])
-    assert closed == [0.25]
+    assert closed == [graceful_timeout]
+    assert owner_events == ["drain", "drain", "unlock"]
     receipt = json.loads(result.stdout)
     assert receipt["launch_mode"] == "project_alias"
     assert receipt["base_url"] == "http://127.0.0.1:8123/v1"
@@ -329,6 +351,7 @@ def test_unbindable_port_fails_before_any_ready_receipt(
             reconciled_unknown_attempts=0,
             request_timeout_seconds=120.0,
             guardrail_detectors={},
+            close=lambda *, timeout_seconds: True,
         ),
     )
 
@@ -546,3 +569,19 @@ def test_first_run_unknown_setup_outcome_delivers_the_only_raw_key(
     assert "export EXP_GATEWAY_KEY=exp_vk_unknown_secret" in transcript
     assert "Preserve this one-time gateway key: exp_vk_unknown_secret" in transcript
     assert "exp config gateway key issue default --key-id RECOVERY_KEY --json" in transcript
+
+
+def test_cli_default_deadline_matches_the_control_plane_default() -> None:
+    """``exp run`` without ``--request-timeout`` keeps the control plane's own budget."""
+    default = inspect.signature(NativeControlPlane).parameters["request_timeout_seconds"].default
+    assert run_app.DEFAULT_REQUEST_TIMEOUT_SECONDS == default
+
+
+def test_request_timeout_rejects_values_outside_its_bounds(tmp_path: Path) -> None:
+    """A zero or multi-hour deadline is refused before anything starts."""
+    for value in ("0", "7200"):
+        result = CliRunner().invoke(
+            app, ["run", "--root", str(tmp_path), "--request-timeout", value]
+        )
+        assert result.exit_code != 0
+        assert "--request-timeout" in result.output

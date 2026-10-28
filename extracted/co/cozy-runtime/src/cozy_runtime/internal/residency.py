@@ -9,24 +9,31 @@ from __future__ import annotations
 
 import hashlib
 import math
+import sys
 import threading
 import time
 import weakref
+from collections import OrderedDict
 from collections.abc import Callable, Collection, Hashable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from itertools import pairwise
 from typing import Any, Protocol
 
 import tensorfs
 import torch
+from tensorfs import varena
 from tensorfs.raw import parts as stored_parts
 from torch import Tensor, nn
 from torch.utils._pytree import tree_leaves, tree_map
 
-from cozy_runtime.author._errors import Fault, fault
+from cozy_runtime import graphs
+from cozy_runtime.author._context import CURRENT
+from cozy_runtime.author._errors import CapabilityError, Fault, fault
+from cozy_runtime.internal import proctree
+from cozy_runtime.internal.accel import allocation, host_memory, release_cached
 
 __all__ = [
     "Binding",
@@ -49,7 +56,26 @@ __all__ = [
 
 progress = 0
 _RESERVE = 512 << 20
+
+
+def _torch_bytes(device: torch.device) -> tuple[int, int, int]:
+    """Torch's allocated, reserved and peak allocated CUDA bytes in one allocator read.
+    `torch.cuda.memory_allocated` and its siblings each flatten the allocator's whole statistics
+    dict (0.1 ms); a cut site read them three to five times, 5 s of each SDXL request at 3 GB."""
+    stats = torch.cuda.memory_stats_as_nested_dict(device)
+    allocated, reserved = stats["allocated_bytes"]["all"], stats["reserved_bytes"]["all"]
+    return int(allocated["current"]), int(reserved["current"]), int(allocated["peak"])
+
+
+#: Streamed (non-preferred) blocks resident at once: the one the GPU runs, the one entering, and
+#: the next one being read. The read takes the oldest completed block's room (Varena evicts it on
+#: its last-consumer events, never waiting), so it overlaps compute instead of following it.
+_STREAMED = 3
+#: Other overlays' pages a block keeps parked: base and a LoRA alternate with one.
+_PARKED = 2
 _HOST_STAGING = 64 << 20
+#: Host RAM the baked-page cache leaves free (`Memory._keep_baked`).
+_BAKED_HEADROOM = 8 << 30
 _DTYPES = {
     name: kind
     for name, kind in (
@@ -105,6 +131,9 @@ class Room:
     warm: int
     granularity: int = 512
     floor: int = 0
+    #: Torch's reserved, unallocated bytes: a cut's level counts them (its activations reuse
+    #: them first); its pre-reclaim compares with `free`, which returns them before weights.
+    cached: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,7 +156,9 @@ class Filling(Protocol):
 
     def overlay(self, block: str, keys: Collection[str], /) -> Hashable: ...
 
-    def __call__(self, block: str, parts: Mapping[str, Mapping[str, Tensor]], /) -> None: ...
+    def __call__(self, block: str, parts: Mapping[str, Mapping[str, Tensor]], /) -> bool:
+        """Fill `block`'s parts in place; whether their bytes now differ from the stored ones."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -268,6 +299,9 @@ class _Block:
     preferred: bool = False
     preference_set: bool = False
     native_storage: int | None = None
+    #: the Varena Uses behind the raw and final views; `_used` declares their consumer streams
+    native_use: Any = None
+    final_native_use: Any = None
     aliases: dict[str, dict[str, str]] | None = None
     raw_views: dict[tuple[int, str], tuple[int, _Part]] = field(default_factory=dict)
     finals: dict[str, dict[str, _Part]] = field(default_factory=dict)
@@ -280,6 +314,8 @@ class _Block:
     next: _Block | None = None
     #: the fill overlay (`Filling.overlay`) its page was written with
     overlay: Hashable = None
+    #: native pages of other overlays, parked for reuse (`_switch_overlay`): (raw, final) regions
+    parked: dict[Hashable, tuple[Any, Any]] = field(default_factory=dict)
 
     def paged(self) -> bool:
         """Whether a page a fill wrote may still serve: bound data or a native region."""
@@ -376,6 +412,8 @@ class Model:
         self.closed = False
         # Once a block streams, later blocks cannot grow the resident prefix again.
         self.prefix: int | None = None
+        #: the block entered last, whose successor in execution order `_enter` records (`next`)
+        self.entered: _Block | None = None
 
     def wanted_identity(self) -> str | None:
         fill = "stored" if self.fill is None else self.fill.identity
@@ -414,6 +452,25 @@ class Model:
             yield self
         finally:
             self.memory._close(self, executing=executing)
+
+    @contextmanager
+    def lending(self) -> Iterator[None]:
+        """This thread's open pass lends its common block to a native stage preparation, which
+        needs every input idle, and takes it back after. A failed take-back stays lent."""
+        if (
+            not getattr(self.local, "depth", 0)
+            or self.common is None
+            or getattr(self.local, "lent", False)
+        ):
+            yield
+            return
+        self.memory._exit(self.common)
+        self.local.lent = True
+        try:
+            yield
+        finally:
+            self.memory._enter(self.common)
+            self.local.lent = False
 
     def retain(self, paths: Collection[str] = ("",)) -> Binding:
         self._claim()
@@ -459,8 +516,6 @@ class Model:
                     _HOST_STAGING,
                 )
             if free_only and missing > self.memory.room().free:
-                from cozy_runtime.internal.accel import release_cached
-
                 release_cached(torch, self.memory.device.type)
                 if missing > self.memory.room().free:
                     return None
@@ -498,6 +553,7 @@ class Model:
             self.handles.clear()
             for block in self.groups():
                 self.memory._discard(block, forget=True)
+            self.memory._forget_baked(self)
             self.memory.models.pop(self.module, None)
 
 
@@ -633,51 +689,65 @@ class Binding:
                 return f"{name} block {b.path or '(common)'}: raw {_state(b.region)}{final}"
         return ""
 
+    def _load_refusal(self, stage: bool, region_input: bool, routes: type) -> str:
+        """The first reason `prepare_load` refuses this binding, or empty when it can load."""
+        memory, model = self.model.memory, self.model
+        if why := self._invalid():
+            return f"binding {why}"
+        for why, refused in (
+            ("binding already prepared", self.used),
+            ("binding holds its blocks", self.held),
+            ("a load slot is open", self._load_slot is not None),
+            ("a stage source is open", self._stage_source is not None),
+            ("memory is not CUDA", not memory.cuda),
+            ("a capture is active", memory.capturing()),
+            ("no native memory", memory.native is None),
+            ("TensorFS cannot take region inputs", not region_input),
+            ("the model has a fill", model.fill is not None),
+        ):
+            if refused:
+                return why
+        for block in self.groups:
+            finals = sorted(block.finals)
+            encoded = any(set(parts) != {"value"} for parts in block.parts.values())
+            for why, refused in (
+                ("has no declared layout", block.aliases is None),
+                (f"has {len(finals)} final rows ({', '.join(finals[:3])})", finals),
+                (
+                    "has encoded parts outside a routed stage",
+                    encoded and (not stage or not isinstance(model.finals, routes)),
+                ),
+                ("has no storage", not block.storage_bytes),
+                (
+                    "has packed F4 parts",
+                    any(p.dtype == "F4" for parts in block.parts.values() for p in parts.values()),
+                ),
+                (f"is in use ({block.count})", block.count),
+                (f"is retained ({block.retained})", block.retained),
+                ("is loading", block.loading),
+            ):
+                if refused:
+                    return f"block {block.path or '(common)'} {why}"
+        return ""
+
     def prepare_load(self, *, stage: bool = False) -> Any:
         """Create capture-private views for immutable raw blocks, without reading weights.
 
         Ordinary block data is never changed here. The native slot atomically retains ready
         regions and owns unpublished missing fills; its views are installed only by prepare().
         """
-        from tensorfs import varena
-
         from cozy_runtime.internal.weights import _Routes
 
         memory, model = self.model.memory, self.model
         with self.lock:
             model._claim()
             try:
-                if (
-                    not self.valid()
-                    or self.used
-                    or self.held
-                    or self._load_slot is not None
-                    or self._stage_source is not None
-                    or not memory.cuda
-                    or memory.capturing()
-                    or memory.native is None
-                    or not getattr(varena.LoadSlot, "supports_region_input", False)
-                    or model.fill is not None
-                    or any(
-                        block.aliases is None
-                        or block.finals
-                        or (
-                            any(set(parts) != {"value"} for parts in block.parts.values())
-                            and (not stage or not isinstance(model.finals, _Routes))
-                        )
-                        or not block.storage_bytes
-                        or any(
-                            part.dtype == "F4"
-                            for parts in block.parts.values()
-                            for part in parts.values()
-                        )
-                        or block.count
-                        or block.retained
-                        or block.loading
-                        for block in self.groups
-                    )
+                if why := self._load_refusal(
+                    stage, getattr(varena.LoadSlot, "supports_region_input", False), _Routes
                 ):
-                    raise StaleBinding("native component loading needs idle immutable raw layouts")
+                    raise StaleBinding(
+                        f"native component loading needs idle immutable raw layouts: {why}"
+                    )
                 if any(
                     getattr(module, "_compiled_call_impl", None) is not None
                     or hasattr(module, "_orig_mod")
@@ -1116,10 +1186,16 @@ class Memory:
         self._phase_names: frozenset[str] | None = None
         self._phase_request: str | None = None
         self._forward_depth = 0
+        #: (set, block, fill identity, overlay) -> a refilled block's baked bytes in host RAM:
+        #: its next refill copies them back, with no store read, factor read or bake
+        self._baked: OrderedDict[tuple[object, ...], Tensor] = OrderedDict()
+        self._baked_bytes = 0
+        #: resident pages baked once: kept from their first refill
+        self._baked_once: set[tuple[object, ...]] = set()
+        #: host RAM this process could still take at the cache's last look; -1 unreadable
+        self._baked_room = -1
         if self.cuda:
             try:
-                from tensorfs import varena
-
                 if budget_bytes is not None:
                     varena.set_activation_limit(self.device.index or 0, budget_bytes)
                 self.native = varena.Arena(self.device.index or 0)
@@ -1173,11 +1249,8 @@ class Memory:
     def _figures(self) -> tuple[int, int, int]:
         if self.cuda and torch.cuda.is_initialized():
             resident = int(self.native.stats()["resident_bytes"]) if self.native is not None else 0
-            return (
-                int(torch.cuda.memory_allocated(self.device)) + resident,
-                int(torch.cuda.memory_reserved(self.device)) + resident,
-                int(torch.cuda.max_memory_allocated(self.device)) + resident,
-            )
+            allocated, reserved, peak = _torch_bytes(self.device)
+            return allocated + resident, reserved + resident, peak + resident
         if self.device.type == "mps":
             used = int(torch.mps.current_allocated_memory())
             return used, int(torch.mps.driver_allocated_memory()), used
@@ -1187,24 +1260,19 @@ class Memory:
         self.apply_budget()
         if self.cuda:
             free, _ = torch.cuda.mem_get_info(self.device)
-            _, reserved, _ = self._figures()
             # reserved - allocated includes graph-private storage that ordinary eager
             # allocation cannot necessarily reuse. Driver free is a conservative bound.
             free = max(int(free) - _RESERVE, 0)
             if self.budget_bytes is not None:
                 # Account native backing beside Torch reservations, including graph pools.
                 # Unused private-pool bytes are not headroom for an eager allocation.
-                free = min(free, max(self.budget_bytes - reserved, 0))
+                free = min(free, max(self.budget_bytes - self._figures()[1], 0))
         elif self.device.type == "mps":
-            from cozy_runtime.internal.accel import allocation
-
             figures = allocation(torch, "mps")
             free, reserved = figures["driver_free_bytes"], figures["reserved_bytes"]
             if self.budget_bytes is not None:
                 free = min(free, max(self.budget_bytes - reserved, 0))
         else:
-            from cozy_runtime.internal.accel import host_memory
-
             free = host_memory().free_bytes
         if self.native is not None:
             # Native pins, including escaped Torch storage aliases, are the authority.
@@ -1287,7 +1355,7 @@ class Memory:
             ).hexdigest()
             model.identity = model.wanted_identity()
             self.window_bytes = max(
-                [self.window_bytes, *(b.allocation_bytes for b in model.groups())]
+                [self.window_bytes, *(_STREAMED * b.allocation_bytes for b in model.groups())]
             )
             self.native.set_streaming_limit(self.window_bytes)
         _placeholders(model)
@@ -1397,7 +1465,7 @@ class Memory:
             layout_identity = hashlib.sha256(
                 repr([(b.path, b.aliases, b.finals) for _, b in layouts]).encode()
             ).hexdigest()
-            window = max([self.window_bytes, *(b.allocation_bytes for _, b in layouts)])
+            window = max([self.window_bytes, *(_STREAMED * b.allocation_bytes for _, b in layouts)])
 
         def apply() -> None:
             if self.capturing():
@@ -1514,8 +1582,6 @@ class Memory:
             raise StaleBinding("an immutable binding layout changed; reconstruct the model")
         identity = model.wanted_identity()
         if identity != model.identity or identity is None:
-            from cozy_runtime import graphs
-
             graphs.retire_stale(torch, model.module)
             if any(b.retained for b in model.groups()):
                 raise StaleBinding("retire old graph bindings before changing a weight fill")
@@ -1525,28 +1591,84 @@ class Memory:
                 raise ResidencyError("a weight fill cannot change during an active use")
             for block in model.groups():
                 self._discard(block, forget=True)
+            self._forget_baked(model)
             model.identity = identity
             model.generation += 1
 
-    def _forget_overlay(self, block: _Block) -> None:
+    def _keep_baked(self, page: tuple[object, ...], tensor: Tensor, *, streams: bool) -> None:
+        """A block's baked bytes, kept in host RAM for its next refill: process lifetime, never on
+        disk, each page once. A streaming block's from its first bake, a resident one's from its
+        first refill. Only into room beyond the headroom, evicting nothing for it: blocks refill
+        in a fixed order, so replacing the least recently used would miss every refill."""
+        if page in self._baked:
+            return
+        if not streams and page not in self._baked_once:
+            self._baked_once.add(page)
+            return
+        nbytes = tensor.numel()
+        if self._trim_baked() - nbytes < _BAKED_HEADROOM:
+            return
+        kept = torch.empty(nbytes, dtype=torch.uint8)
+        kept.copy_(tensor)  # pageable: complete when this returns
+        self._baked[page] = kept
+        self._baked_bytes += nbytes
+
+    def _trim_baked(self) -> int:
+        """The host RAM this process can still take (its tightest cgroup's, on Linux), after kept
+        pages go, least recently used first, while it is under the headroom; -1 unreadable, and
+        then they all go."""
+        room = self._baked_room = (
+            proctree.available_host_bytes() if sys.platform == "linux" else host_memory().free_bytes
+        )
+        while self._baked and room < _BAKED_HEADROOM:
+            nbytes = self._baked.popitem(last=False)[1].numel()
+            self._baked_bytes -= nbytes
+            if room >= 0:
+                room += nbytes
+        return room
+
+    def _forget_baked(self, model: Model) -> None:
+        """`model`'s kept baked pages go: its fill changed, or it closed."""
+        for page in [page for page in self._baked if page[0] == model.name]:
+            self._baked_bytes -= self._baked.pop(page).numel()
+        self._baked_once = {page for page in self._baked_once if page[0] != model.name}
+
+    def _switch_overlay(self, block: _Block, overlay: Hashable) -> None:
         """`block`'s page was filled under another overlay than this use wants (a base page for
-        a LoRA forward, or the reverse): as for a changed fill, its model's holds go first, then
-        the page, so the next fill writes the wanted overlay."""
+        a LoRA forward, or the reverse). As for a changed fill, its model's holds go first. A
+        native page is parked under its overlay, first for reclaim to take, and the wanted
+        overlay's parked page serves again: alternating overlays refill nothing while both fit.
+        Off native backing the page is dropped and the next fill writes the wanted overlay."""
         for hold in list(block.model.holds):
             hold.shed()
         if block.count or block.retained or block.loading or self.capturing():
             raise StaleBinding("a weight block in use cannot change its fill overlay")
-        self._discard(block, forget=True)
-        if block.paged():
-            raise StaleBinding("a weight block's page under another overlay could not be dropped")
+        if self.native is None:
+            self._discard(block, forget=True)
+            if block.paged():
+                raise StaleBinding("a weight block's page under another overlay was not dropped")
+            return
+        self._discard(block)
+        current = (block.region, block.final_region)
+        if current != (None, None):
+            for region in current:
+                if region is not None:
+                    region.set_preferred(False)
+            block.parked[block.overlay] = current
+        while len(block.parked) > _PARKED:
+            block.parked.pop(next(iter(block.parked)))
+        block.region, block.final_region = block.parked.pop(overlay, (None, None))
+        block.overlay = overlay
+        block.preferred = block.preference_set = False
+        block.generation += 1
 
     def _idle(self, block: _Block) -> None:
         if self.native is not None and not (block.count or block.retained or block.loading):
             # The DLPack storage owner holds the physical pin. A surviving external alias
-            # retains it after these references disappear; native eviction also joins the
-            # CUDA context before unmapping. record_stream is not that ownership fence.
+            # retains it after these references disappear; native eviction waits on the
+            # region's last-consumer events (`_used`). record_stream is not that ownership fence.
             block.data = block.assigned = block.ready = None
-            block.native_storage = None
+            block.native_storage = block.native_use = None
             self._drop_final(block)
 
     def _drop_final(self, block: _Block, *, forget: bool = False) -> None:
@@ -1554,7 +1676,7 @@ class Memory:
             # A failed writer may have exported an alias. The next attempt needs a new
             # reservation; that alias retains its old owner and unspecified partial bytes.
             forget = True
-        block.final_use = block.final_data = block.final_storage = None
+        block.final_use = block.final_data = block.final_storage = block.final_native_use = None
         if forget:
             block.final_region = None
 
@@ -1571,12 +1693,13 @@ class Memory:
                 self._settle_prefetch(cancel=True)
             present = block.data is not None
             block.data = block.assigned = block.ready = None
-            block.native_storage = None
+            block.native_storage = block.native_use = None
             self._drop_final(block, forget=forget)
             if forget:
                 # Never overwrite an old fill beneath an escaped alias. Its pin keeps
                 # the old reservation alive independently of this model's new identity.
                 block.region = None
+                block.parked.clear()
                 block.preferred = False
                 block.preference_set = False
             if present or forget:
@@ -1599,8 +1722,6 @@ class Memory:
 
     def reclaim(self, need: int = 0, *, current: Collection[str] = ()) -> int:
         """Discard idle local owners at a preparation boundary; never inside an allocator."""
-        from cozy_runtime.internal.accel import release_cached
-
         if self.capturing():
             return 0
         before_allocated, before_reserved, _ = self._figures()
@@ -1816,7 +1937,7 @@ class Memory:
             incoming = [m for m in self.models.values() if m.name in names]
             # An unrelated registered model must not enlarge this phase's streaming
             # headroom. Native admission still permits an unexpectedly larger group.
-            self.window_bytes = max(
+            self.window_bytes = _STREAMED * max(
                 (b.allocation_bytes for m in incoming for b in m.groups()), default=0
             )
             self.native.set_streaming_limit(self.window_bytes)
@@ -1840,13 +1961,13 @@ class Memory:
                     if block.cached():
                         block.preferred = block.preference_set = True
             wanted = missing + self.window_bytes
-            before = int(torch.cuda.memory_reserved(self.device))
-            unused = max(before - int(torch.cuda.memory_allocated(self.device)), 0)
+            allocated, before, _ = _torch_bytes(self.device)
+            unused = max(before - allocated, 0)
             if wanted > self.room().free and unused:
                 # The previous phase's inactive Torch segments are not weight capacity.
                 # Return them once here, not on each block or allocation callback.
                 torch.cuda.empty_cache()
-            returned = max(before - int(torch.cuda.memory_reserved(self.device)), 0)
+            returned = max(before - _torch_bytes(self.device)[1], 0)
             # Protect the incoming cached bytes above; only other idle backing may go.
             need = max(wanted - self.room().free, 0)
             reclaimed = int(self.native.reclaim_unpreferred(need)) if need else 0
@@ -1870,6 +1991,18 @@ class Memory:
         model = block.model
         region = self._native_region(block, final=final)
         needed = int(region.allocated_bytes)
+        if (
+            reclaim
+            and self.budget_bytes is None
+            and not region.resident
+            and not self.capturing()
+            and needed > self.room().free
+            and (figures := _torch_bytes(self.device))[1] > figures[0]
+        ):
+            # Common weights may bind before their model's first forward enters its phase.
+            # Return unused Torch cache first; native allocation still decides whether idle
+            # weights actually need eviction. Budgeted demand already does this in reclaim().
+            release_cached(torch, self.device.type)
         if not region.resident and (not reclaim or self.budget_bytes is not None):
             if reclaim and needed > self.room().free:
                 self.reclaim(needed, current={model.name})
@@ -2029,11 +2162,11 @@ class Memory:
                 or block.cached()
             ):
                 return
-            # Capacity is checked before native admission and includes already resident
-            # weights/activation reservations. The native call also refuses window trimming,
-            # OOM recovery and abandoned-writer joins; it never requests a context join.
-            needed = block.allocation_bytes + (self.window_bytes if queued is not None else 0)
-            if needed > self.room().free:
+            # A queued request's read is admitted only into free room. Demand's next block may
+            # also take the room of the oldest streamed block whose consumers completed: Varena
+            # evicts it on its last-consumer events and refuses rather than wait or join.
+            needed = block.allocation_bytes + self.window_bytes
+            if queued is not None and needed > self.room().free:
                 if request is not None:
                     request.prefetch_skipped += 1
                     if queued is not None:
@@ -2068,7 +2201,12 @@ class Memory:
                 try:
                     if provisional:
                         region.set_preferred(True)  # native end-of-prefix watermark still wins
-                    read = region.prepare_read(block.model.source.ck, parts, reclaim=False)
+                    read = region.prepare_read(
+                        block.model.source.ck,
+                        parts,
+                        reclaim=False,
+                        evict_completed=queued is None,
+                    )
                 finally:
                     if provisional:
                         # The prepared Fill owns its pin. Only demand may assign a lasting
@@ -2144,8 +2282,6 @@ class Memory:
             began = time.perf_counter_ns()
             complete = False
             try:
-                from cozy_runtime.author._context import CURRENT
-
                 context = CURRENT.get()
                 try:
                     if context is not None and not cancel:
@@ -2210,7 +2346,7 @@ class Memory:
         if not block.finals:
             return
         use = self._prepare_native(block, reclaim, final=True) if block.final_bytes else None
-        block.final_use = use
+        block.final_use = block.final_native_use = use
         request = _REQUEST.get()
         if use is not None and use.needs_fill and request is not None and request.idle:
             raise StaleBinding("final weight backing changed before idle graph preparation")
@@ -2243,7 +2379,8 @@ class Memory:
             block.loading = True
         data: dict[str, dict[str, Tensor]] = {}
         read_bytes = read_ns = 0
-        use = None
+        use = kept = None
+        kept_ns = 0
         try:
             with self.lock:
                 if self._prefetch is not None:
@@ -2272,7 +2409,20 @@ class Memory:
                     # commit() publishes the whole logical region, including alignment
                     # gaps between stored parts. Initialize them before publication.
                     use.tensor.zero_()
+                block.native_use = use
                 block.native_storage = int(use.tensor.untyped_storage().data_ptr())
+            page: tuple[object, ...] | None = None
+            if block.model.fill is not None and use is not None and use.needs_fill:
+                page = (block.model.name, block.path, block.model.identity, overlay)
+                if self._baked:
+                    self._trim_baked()  # host pressure gives kept pages back here
+                found = self._baked.get(page)
+                if found is not None and found.numel() == use.tensor.numel():
+                    # The bytes this page's first bake wrote: no store read, factor read or bake.
+                    kept, began = found, time.perf_counter_ns()
+                    use.tensor.copy_(kept)  # pageable: the host copy is done when this returns
+                    kept_ns = time.perf_counter_ns() - began
+                    self._baked.move_to_end(page)
             offset = 0
             for key, parts in block.parts.items():
                 views = data[key] = {}
@@ -2283,7 +2433,7 @@ class Memory:
                         else self._empty(part.nbytes, reclaim)
                     )
                     offset += (part.nbytes + 255) // 256 * 256
-                    if use is None or use.needs_fill:
+                    if (use is None or use.needs_fill) and kept is None:
                         began = time.perf_counter_ns()
                         try:
                             self._read_into(tensors, key, raw, part.role or None)
@@ -2307,7 +2457,9 @@ class Memory:
                     views[role] = view.view(shape)
             if block.model.fill is not None and (use is None or use.needs_fill):
                 # `overlay` was read on this thread just before; no package code ran since.
-                block.model.fill(block.path, data)
+                changed = kept is None and block.model.fill(block.path, data)
+                if changed and page is not None and use is not None:
+                    self._keep_baked(page, use.tensor, streams=not block.preferred)
                 block.overlay = overlay
             if use is not None:
                 use.commit()
@@ -2324,12 +2476,15 @@ class Memory:
             if use is not None and use.needs_fill:
                 block.region = None
                 block.preferred = False
+            block.native_storage = block.native_use = None
             self._drop_final(block)
             raise
         finally:
             request = _REQUEST.get()
             if request is not None and read_bytes:
                 request.read(block, read_ns, read_bytes)
+            if request is not None and kept is not None:
+                request.read(block, kept_ns, kept.numel(), origin="baked")
             with self.lock:
                 block.loading = False
 
@@ -2352,8 +2507,6 @@ class Memory:
     def _enter(self, block: _Block, reclaim: bool = True) -> None:
         declared = _CAPTURE_BLOCKS.get()
         if declared is not None and id(block) not in declared:
-            from cozy_runtime.author._errors import CapabilityError
-
             raise CapabilityError(
                 "model stage reads a block outside its declared paths",
                 code="prepared_graph_ineligible",
@@ -2361,8 +2514,8 @@ class Memory:
         global progress
         model = block.model
         overlay = None if model.fill is None else model.fill.overlay(block.path, block.parts)
-        if overlay != block.overlay and block.paged():
-            self._forget_overlay(block)
+        if overlay != block.overlay and (block.paged() or block.parked):
+            self._switch_overlay(block, overlay)
         with self.lock:
             if not model.users or model.thread != threading.get_ident():
                 raise ResidencyError("weight preparation requires an active model scope")
@@ -2372,6 +2525,15 @@ class Memory:
             capturing = self.capturing()
             if capturing and (not nested or not block.retained or block.assigned is None):
                 raise ResidencyError("capture requires an active prepared weight binding")
+            if not nested and not capturing:
+                # Prefetch reads the block after this one in execution order. Registration
+                # order lists a down/up block's attentions before its resnets (Diffusers'
+                # UNets), so SDXL read 15 blocks a step on demand at 3 GB; the order a forward
+                # actually takes replaces it, the last block's successor being the next
+                # call's first.
+                if model.entered is not None and model.entered is not block:
+                    model.entered.next = block
+                model.entered = block
             if not nested:
                 request = _REQUEST.get()
                 reclaim = reclaim and not (request is not None and request.idle)
@@ -2404,6 +2566,11 @@ class Memory:
     def _used(self, block: _Block) -> None:
         if self.cuda:
             stream = self.stream()
+            # Varena records its own last-consumer event on each declared stream when the
+            # storage's final alias goes, so reclaim waits on that region, not the context.
+            for use in (block.native_use, block.final_native_use):
+                if use is not None:
+                    use.consume_on(stream.cuda_stream)
             for tensor in block.tensors():
                 if tensor.untyped_storage().data_ptr() not in (
                     block.native_storage,
@@ -2430,8 +2597,6 @@ class Memory:
         global progress
         declared = _CAPTURE_BLOCKS.get()
         if declared is not None and id(block) not in declared:
-            from cozy_runtime.author._errors import CapabilityError
-
             raise CapabilityError(
                 "model stage reads a block outside its declared paths",
                 code="prepared_graph_ineligible",
@@ -2522,8 +2687,9 @@ class Memory:
                             if self._prefetch is not None and self._prefetch.block.model is model:
                                 self._settle_prefetch(cancel=True)
                     finally:
-                        if model.common is not None:
+                        if model.common is not None and not getattr(model.local, "lent", False):
                             self._exit(model.common)
+                        model.local.lent = False
                 finally:
                     request = getattr(model.local, "request", None)
                     if request is not None:
@@ -2593,6 +2759,7 @@ class Request:
         self.peak = 0
         self.overlap = False  # Historical measurement attribution, never a live policy gate.
         self.moved = self.read_ns = 0
+        self.baked_hits = self.baked_bytes = self.baked_ns = 0
         self.final_fills = self.final_hits = 0
         self.prefetch_started = self.prefetch_completed = self.prefetch_canceled = 0
         self.prefetch_skipped = self.prefetch_failed = self.prefetch_wait_ns = 0
@@ -2638,7 +2805,11 @@ class Request:
 
     def room(self, step: int | None = None) -> Room:
         current = self.current if step is None or step >= len(self.steps) else self.steps[step]
-        return self.memory.room(current)
+        room = self.memory.room(current)
+        if not self.memory.cuda or not torch.cuda.is_initialized():
+            return room
+        allocated, reserved, _ = _torch_bytes(self.memory.device)
+        return replace(room, cached=max(reserved - allocated, 0))
 
     def reclaim(self, need: int = 0) -> int:
         """A known pure cut may shed the step's speculative whole-model hold.
@@ -2680,16 +2851,30 @@ class Request:
             torch.cuda.reset_peak_memory_stats(self.memory.device)
         return peak
 
-    def read(self, block: _Block, ns: int, nbytes: int, *, speculative: bool = False) -> None:
-        self.moved += nbytes
-        self.read_ns += ns
+    def read(
+        self,
+        block: _Block,
+        ns: int,
+        nbytes: int,
+        *,
+        speculative: bool = False,
+        origin: str = "store",
+    ) -> None:
+        """A block filled: from the store, or (`baked`) from its kept baked bytes."""
+        if origin == "store":
+            self.moved += nbytes
+            self.read_ns += ns
+        else:
+            self.baked_hits += 1
+            self.baked_bytes += nbytes
+            self.baked_ns += ns
         self.trace.append(
             {
                 "sequence": len(self.trace),
                 "set": block.model.name,
                 "block": block.index,
                 "bytes": nbytes,
-                "origin": "store",
+                "origin": origin,
                 "speculative": speculative,
             }
         )
@@ -2707,7 +2892,15 @@ class Request:
             "sets": {
                 m.name: sum(b.nbytes for b in m.groups()) for m in self.memory.models.values()
             },
-            "moved": {"store": {"bytes": self.moved, "ns": self.read_ns}},
+            "moved": {
+                "store": {"bytes": self.moved, "ns": self.read_ns},
+                "baked": {"bytes": self.baked_bytes, "fills": self.baked_hits, "ns": self.baked_ns},
+            },
+            "baked_pages": {
+                "pages": len(self.memory._baked),
+                "bytes": self.memory._baked_bytes,
+                "room": self.memory._baked_room,
+            },
             "trace": list(self.trace),
             "trace_scope": "fills",
             "phases": list(self.phase_changes),
@@ -2929,7 +3122,7 @@ def _assign(block: _Block) -> list[tuple[_Site, Tensor]]:
                 if block.region is not None:
                     block.region.set_preferred(False)
                 block.data = {}
-                block.native_storage = None
+                block.native_storage = block.native_use = None
         # Only ordinary owning views remain. The native region can become evictable
         # once those views (including every escaped storage alias) disappear.
         block.final_use = None

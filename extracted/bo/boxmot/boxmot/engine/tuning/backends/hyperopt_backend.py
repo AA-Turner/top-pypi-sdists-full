@@ -59,27 +59,28 @@ def _hyperopt_conditional_param(hp, param: str, details: dict, parents_with_chil
     if t not in ("choice", "grid_search") or not opts:
         raise ValueError(
             f"HyperOpt conditional parent '{param}' must be a choice/grid_search "
-            "parameter with boolean-like options."
+            "parameter; truthy choices activate its children."
         )
+
+    # Reuse child distributions when several choices enable the same branch.
+    # Distinct nodes with the same label make HyperOpt reject numeric parents.
+    children = {}
+    if any(bool(value) for value in opts):
+        for child_name, child_details in parents_with_children.get(param, {}).items():
+            if not isinstance(child_details, dict):
+                continue
+            if child_name in parents_with_children:
+                child_value = _hyperopt_conditional_param(hp, child_name, child_details, parents_with_children)
+            else:
+                child_value = _hyperopt_param(hp, child_name, child_details)
+            if child_value is not None:
+                children[child_name] = child_value
 
     branches = []
     for parent_value in list(opts):
         branch = {param: parent_value}
         if bool(parent_value):
-            for child_name, child_details in parents_with_children.get(param, {}).items():
-                if not isinstance(child_details, dict):
-                    continue
-                if child_name in parents_with_children:
-                    child_value = _hyperopt_conditional_param(
-                        hp,
-                        child_name,
-                        child_details,
-                        parents_with_children,
-                    )
-                else:
-                    child_value = _hyperopt_param(hp, child_name, child_details)
-                if child_value is not None:
-                    branch[child_name] = child_value
+            branch.update(children)
         branches.append(branch)
 
     if not branches:
@@ -95,6 +96,45 @@ def yaml_to_hyperopt_space(config: dict) -> dict:
     ``normalize_trial_config`` before it reaches the tracker/evaluator.
     """
     from hyperopt import hp
+
+    from boxmot.engine.tuning.conditions import branch_parameters, categorical_branch, resolve_fixed_cases
+
+    config = resolve_fixed_cases(config)
+    if any(isinstance(entry, dict) and "depends_on" in entry for entry in flatten_yaml_config(config).values()):
+        controlled = branch_parameters(config)
+
+        class ScopedHP:
+            """Keep optimizer labels distinct while returning canonical runtime keys."""
+
+            def __init__(self, prefix: str) -> None:
+                self.prefix = prefix
+
+            def __getattr__(self, method: str):
+                return lambda name, *args: getattr(hp, method)(self.prefix + name, *args)
+
+        def build(schema: dict, prefix: str = "") -> dict:
+            scoped = ScopedHP(prefix)
+            branch = categorical_branch(schema, controlled)
+            if branch is not None:
+                parent, cases = branch
+                controlled.add(parent)
+                return {parent: scoped.choice(parent, [
+                    build(case, f"{prefix}{parent}:{index}/") for index, (_, case) in enumerate(cases)
+                ])}
+            space = _resolved_hyperopt_space(schema, scoped)
+            space.update({
+                name: entry["default"] for name, entry in flatten_yaml_config(schema).items()
+                if name in controlled and set(entry) == {"default"}
+            })
+            return space
+
+        return build(config)
+
+    return _resolved_hyperopt_space(config, hp)
+
+
+def _resolved_hyperopt_space(config: dict, hp: Any) -> dict:
+    """Build distributions after categorical case selectors have been resolved."""
 
     flat = flatten_yaml_config(config)
     parents_with_children, child_params, _ = conditional_yaml_tree(config)
@@ -181,11 +221,14 @@ class HyperOptBackend(BaseTuneBackend):
         since ``points_to_evaluate`` is incompatible with HyperOpt's native
         ``hp.choice`` conditional branching (causes hangs or lookup errors).
         """
-        flat = flatten_yaml_config(self.yaml_cfg)
-        _, child_params, _ = conditional_yaml_tree(self.yaml_cfg)
+        from boxmot.engine.tuning.conditions import resolve_fixed_cases
+
+        schema = resolve_fixed_cases(self.yaml_cfg)
+        flat = flatten_yaml_config(schema)
+        _, child_params, _ = conditional_yaml_tree(schema)
 
         # If conditionals exist, skip baseline entirely
-        if child_params:
+        if child_params or any(isinstance(entry, dict) and "depends_on" in entry for entry in flat.values()):
             return None
 
         source = self.baseline_config

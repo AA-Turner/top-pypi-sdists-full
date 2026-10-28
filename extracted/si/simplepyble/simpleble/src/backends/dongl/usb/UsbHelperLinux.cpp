@@ -2,6 +2,8 @@
 
 #include <fcntl.h>
 #include <poll.h>
+#include <sys/file.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -13,7 +15,11 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <optional>
 #include <stdexcept>
+#include <string>
+
+#include <simpleble/Exceptions.h>
 
 #include "LoggingInternal.h"
 
@@ -34,11 +40,19 @@ bool read_hex_uint16(const std::filesystem::path& path, uint16_t& value) {
     return true;
 }
 
-bool is_dongl_tty(const std::filesystem::path& tty_path) {
+std::string read_line(const std::filesystem::path& path) {
+    std::ifstream stream(path);
+    std::string line;
+    std::getline(stream, line);
+    return line;
+}
+
+// Returns the sysfs directory of the USB device behind a tty, if that device is a Dongl.
+std::optional<std::filesystem::path> dongl_usb_device(const std::filesystem::path& tty_path) {
     std::error_code error;
     auto current_path = std::filesystem::canonical(tty_path / "device", error);
     if (error) {
-        return false;
+        return std::nullopt;
     }
 
     while (current_path != current_path.root_path()) {
@@ -46,20 +60,24 @@ bool is_dongl_tty(const std::filesystem::path& tty_path) {
         uint16_t product_id;
         if (read_hex_uint16(current_path / "idVendor", vendor_id) &&
             read_hex_uint16(current_path / "idProduct", product_id)) {
-            return vendor_id == UsbHelperImpl::DONGL_VENDOR_ID && product_id == UsbHelperImpl::DONGL_PRODUCT_ID;
+            if (vendor_id == UsbHelperImpl::DONGL_VENDOR_ID && product_id == UsbHelperImpl::DONGL_PRODUCT_ID) {
+                return current_path;
+            }
+            return std::nullopt;
         }
 
         current_path = current_path.parent_path();
     }
 
-    return false;
+    return std::nullopt;
 }
 
 }  // namespace
 
 UsbHelperLinux::UsbHelperLinux(const std::string& device_path) : UsbHelperImpl(device_path) {
     if (!_open_serial_port()) {
-        throw std::runtime_error("Failed to open serial port " + _device_path + ": " + std::strerror(errno));
+        if (errno == EBUSY) throw Exception::AdapterInUse(_device_path);
+        throw Exception::OperationFailed("Failed to open serial port " + _device_path + ": " + std::strerror(errno));
     }
 
     try {
@@ -85,7 +103,7 @@ UsbHelperLinux::~UsbHelperLinux() {
 void UsbHelperLinux::tx(const kvn::bytearray& data) {
     std::scoped_lock lock(_serial_mutex);
     if (!_running || _serial_fd < 0) {
-        throw std::runtime_error("Serial port is not available: " + _device_path);
+        throw Exception::OperationFailed("Serial port is not available: " + _device_path);
     }
 
     size_t offset = 0;
@@ -114,18 +132,19 @@ void UsbHelperLinux::tx(const kvn::bytearray& data) {
             if (poll_result == 0) {
                 _running = false;
                 _close_serial_port();
-                throw std::runtime_error("Timed out writing to serial port: " + _device_path);
+                throw Exception::OperationFailed("Timed out writing to serial port: " + _device_path);
             }
 
             _running = false;
             _close_serial_port();
-            throw std::runtime_error("Serial port became unavailable while writing: " + _device_path);
+            throw Exception::OperationFailed("Serial port became unavailable while writing: " + _device_path);
         }
 
         const int write_error = bytes_written == 0 ? EIO : errno;
         _running = false;
         _close_serial_port();
-        throw std::runtime_error("Failed to write to serial port " + _device_path + ": " + std::strerror(write_error));
+        throw Exception::OperationFailed("Failed to write to serial port " + _device_path + ": " +
+                                         std::strerror(write_error));
     }
 }
 
@@ -133,21 +152,26 @@ void UsbHelperLinux::set_rx_callback(std::function<void(const kvn::bytearray&)> 
     _rx_callback.load(callback);
 }
 
-std::vector<std::string> UsbHelperLinux::get_dongl_devices() {
-    std::vector<std::string> dongl_devices;
+std::vector<DonglDevice> UsbHelperLinux::get_dongl_devices() {
+    std::vector<DonglDevice> dongl_devices;
     std::error_code error;
 
     for (const auto& entry : std::filesystem::directory_iterator("/sys/class/tty", error)) {
-        if (is_dongl_tty(entry.path())) {
-            const auto device_path = std::filesystem::path("/dev") / entry.path().filename();
-            if (std::filesystem::exists(device_path, error) && !error) {
-                dongl_devices.push_back(device_path.string());
-            }
-            error.clear();
+        const auto usb_device = dongl_usb_device(entry.path());
+        if (!usb_device.has_value()) {
+            continue;
         }
+
+        const auto device_path = std::filesystem::path("/dev") / entry.path().filename();
+        if (std::filesystem::exists(device_path, error) && !error) {
+            dongl_devices.push_back(
+                {device_path.string(), read_line(*usb_device / "serial"), read_line(*usb_device / "product")});
+        }
+        error.clear();
     }
 
-    std::sort(dongl_devices.begin(), dongl_devices.end());
+    std::sort(dongl_devices.begin(), dongl_devices.end(),
+              [](const DonglDevice& a, const DonglDevice& b) { return a.path < b.path; });
     return dongl_devices;
 }
 
@@ -155,6 +179,19 @@ bool UsbHelperLinux::_open_serial_port() {
     _serial_fd = open(_device_path.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
     if (_serial_fd < 0) {
         return false;
+    }
+
+    // Prevent other processes from using the port while we hold it, as they would take bytes meant for us.
+    // NOTE: TIOCEXCL doesn't stop root or a process opening the port at the same time, so we also take
+    // a lock that other SimpleBLE processes will respect.
+    if (flock(_serial_fd, LOCK_EX | LOCK_NB) != 0) {
+        const int lock_error = errno == EWOULDBLOCK ? EBUSY : errno;
+        _close_serial_port();
+        errno = lock_error;
+        return false;
+    }
+    if (ioctl(_serial_fd, TIOCEXCL) == -1) {
+        SIMPLEBLE_LOG_WARN(fmt::format("Failed to get exclusive access to {}: {}", _device_path, std::strerror(errno)));
     }
 
     try {
@@ -177,7 +214,7 @@ void UsbHelperLinux::_close_serial_port() {
 void UsbHelperLinux::_configure_serial_port() {
     termios tty;
     if (tcgetattr(_serial_fd, &tty) != 0) {
-        throw std::runtime_error("Failed to get serial port attributes: " + std::string(std::strerror(errno)));
+        throw Exception::OperationFailed("Failed to get serial port attributes: " + std::string(std::strerror(errno)));
     }
 
     cfmakeraw(&tty);
@@ -187,13 +224,13 @@ void UsbHelperLinux::_configure_serial_port() {
     tty.c_cc[VTIME] = 0;
 
     if (cfsetispeed(&tty, B1000000) != 0 || cfsetospeed(&tty, B1000000) != 0) {
-        throw std::runtime_error("Failed to set serial port speed: " + std::string(std::strerror(errno)));
+        throw Exception::OperationFailed("Failed to set serial port speed: " + std::string(std::strerror(errno)));
     }
     if (tcsetattr(_serial_fd, TCSANOW, &tty) != 0) {
-        throw std::runtime_error("Failed to set serial port attributes: " + std::string(std::strerror(errno)));
+        throw Exception::OperationFailed("Failed to set serial port attributes: " + std::string(std::strerror(errno)));
     }
     if (tcflush(_serial_fd, TCIOFLUSH) != 0) {
-        throw std::runtime_error("Failed to flush serial port: " + std::string(std::strerror(errno)));
+        throw Exception::OperationFailed("Failed to flush serial port: " + std::string(std::strerror(errno)));
     }
 }
 
@@ -223,11 +260,13 @@ void UsbHelperLinux::_run() {
             _running = false;
             SIMPLEBLE_LOG_ERROR(
                 fmt::format("Error polling serial port {}: {}", _device_path, std::strerror(poll_error)));
+            _lost_callback();
             break;
         }
         if (descriptor.revents & (POLLERR | POLLHUP | POLLNVAL)) {
             _running = false;
             SIMPLEBLE_LOG_WARN(fmt::format("Serial port disconnected: {}", _device_path));
+            _lost_callback();
             break;
         }
         if (!(descriptor.revents & POLLIN)) {
@@ -253,6 +292,7 @@ void UsbHelperLinux::_run() {
             _running = false;
             SIMPLEBLE_LOG_ERROR(
                 fmt::format("Error reading from serial port {}: {}", _device_path, std::strerror(read_error)));
+            _lost_callback();
             break;
         }
     }

@@ -495,17 +495,18 @@ def test_the_connective_carveout_counts_the_surviving_name() -> None:
         ["Jane and Zee", "Jones"]]
 
 
-_DASH = Policy(extra_suffix_delimiters=frozenset({" - "}))
+# " | ", not " - ": a hyphen standing alone is built in (#889)
+_DASH = Policy(extra_suffix_delimiters=frozenset({" | "}))
 
 
 def test_a_delimiter_core_in_a_suffix_tail_is_not_maiden_text() -> None:
     """A tail segment is cut at its delimiter cores before the marker
     pass, and the cores are dropped (#206, #549). A core is not a word
     the marker can take, and the marker cannot take across one: 'PhD
-    née - Jones' reads as 'PhD née, Jones' does, the marker ending its
+    née | Jones' reads as 'PhD née, Jones' does, the marker ending its
     part with nothing behind it, so there is no clause."""
-    out = _grouped("Smith, John, PhD née - Jones", policy=_DASH)
-    core = next(i for i, t in enumerate(out.tokens) if t.text == "-")
+    out = _grouped("Smith, John, PhD née | Jones", policy=_DASH)
+    core = next(i for i, t in enumerate(out.tokens) if t.text == "|")
     assert core in out.dropped
     assert not any(t.role is Role.MAIDEN for t in out.tokens)
     twin = _grouped("Smith, John, PhD née, Jones")
@@ -517,7 +518,7 @@ def test_a_marker_in_a_suffix_part_is_a_word() -> None:
     # (rules/M2, #601), so in a tail part it takes nothing, core or
     # no core. This was the #549 test that a trailing core is cut
     # before the walk, and the walk no longer runs in a tail part.
-    out = _grouped("Smith, John, PhD née Jones V -", policy=_DASH)
+    out = _grouped("Smith, John, PhD née Jones V |", policy=_DASH)
     assert not any(t.role is Role.MAIDEN for t in out.tokens)
 
 
@@ -526,9 +527,9 @@ def test_a_core_is_screened_before_the_marker_looks_for_a_word_ahead() -> None:
     marker standing behind nothing but a core is a leading marker and
     is not taken -- the core, which is not the segment's only token,
     parts the segment there and is dropped (#549)."""
-    out = _grouped("Smith, John, - née Jones", policy=_DASH)
+    out = _grouped("Smith, John, | née Jones", policy=_DASH)
     assert not any(t.role is Role.MAIDEN for t in out.tokens)
-    core = next(i for i, t in enumerate(out.tokens) if t.text == "-")
+    core = next(i for i, t in enumerate(out.tokens) if t.text == "|")
     assert core in out.dropped
     assert _piece_texts(out)[2] == ["née", "Jones"]
 
@@ -734,12 +735,17 @@ def test_the_reserve_counts_the_names_the_read_left_before_a_numeral() -> None:
 def test_the_numeral_is_last_among_the_pieces_assign_keeps() -> None:
     # assign drops a group-flagged credential piece (the Ph. D. merge)
     # from its walk at ANY position before the trailing peel, so a
-    # numeral can be last in that walk without being the last piece:
-    # 'abdul Smith V Ph. D.' read given 'abdul Smith', family '',
-    # suffix 'V, Ph. D.' where 'John Smith V Ph. D.' keeps family
-    # 'Smith'. Found by the code review.
+    # numeral can be last in that walk without being the last piece.
+    # A one-letter numeral with the merged credential behind it is a
+    # name word, as it is behind 'PhD' (rules/S10, #752), so the bound
+    # given-name join has the three name words it needs and joins as it
+    # does for 'abdul Smith V PhD'. (Until #752 the walk read the V as
+    # the generation here, which kept the pair apart: the first fix of
+    # this test's defect, found by the code review, pinned that.)
     out = _grouped("abdul Smith V Ph. D.")
-    assert _piece_texts(out) == [["abdul", "Smith", "V", "Ph. D."]]
+    assert _piece_texts(out) == [["abdul Smith", "V", "Ph. D."]]
+    assert (_piece_texts(_grouped("abdul Smith V PhD"))
+            == [["abdul Smith", "V", "PhD"]])
 
 
 def test_the_numeral_fork_is_not_mirrored_after_a_family_comma() -> None:
@@ -847,9 +853,9 @@ def test_the_joined_pair_is_a_given_name_whatever_tag_the_word_carried() -> None
     # join takes it as v1 did -- but the conjunction merge derives a
     # `title` piece tag for "mr and mrs", and merge_pieces' tag union
     # would hand that tag to the joined pair, which assign then peels
-    # as a leading title: 'abdul Sheikh and Ahmad Bakar Smith' read
-    # title 'abdul Sheikh and Ahmad' on 2.0 and 2.1, and the shorter
-    # 'abdul Sheikh and Ahmad Bakar' would have too once the count's
+    # as a leading title: 'abdul Sir and Ahmad Bakar Smith' read
+    # title 'abdul Sir and Ahmad' on 2.0 and 2.1 (written with `Sheikh`,
+    # a title then), and the shorter 'abdul Sir and Ahmad Bakar' would have too once the count's
     # title exclusion went. The bound join drops the tag: the pair is
     # a given name. Found by the code review.
     out = _grouped("abdul mr and mrs Smith Berg")
@@ -1392,8 +1398,8 @@ def test_the_marker_placements_reach_both_answers() -> None:
 # vocabulary, so each test below builds the overlap it is about. That
 # is the point of the rule -- it is keyed on the CLASS, never on the
 # letter -- and a test using the shipped sets would walk the right
-# branch while proving nothing about it (AGENTS.md: "Pin the decision,
-# not the vocabulary").
+# branch while proving nothing about it (_pipeline/AGENTS.md: "Pin the
+# decision, not the vocabulary").
 _LINK_LEX = _LEX.add(conjunctions={"i"}, suffix_words={"i"})
 #: the same letter as a connective that is NOT generational vocabulary
 _PLAIN_LEX = _LEX.add(conjunctions={"i"})
@@ -1782,15 +1788,16 @@ def test_a_core_beside_a_connective_in_a_credential_tail_is_dropped(
     Soler' and 'PhD - and MD' -- the core kept inside the piece a
     connective joined across it.
     """
-    dash = Parser(policy=Policy(extra_suffix_delimiters=frozenset({" - "})))
-    assert str(dash.parse("Smith, John, PhD - i Soler").suffix) == \
+    # ' | ', not ' - ': a hyphen standing alone is built in (#889)
+    dash = Parser(policy=Policy(extra_suffix_delimiters=frozenset({" | "})))
+    assert str(dash.parse("Smith, John, PhD | i Soler").suffix) == \
         "PhD, i Soler"
-    assert str(dash.parse("Smith, John, - i Puig").suffix) == "i Puig"
-    assert str(dash.parse("Smith, John, Puig - i Soler").suffix) == \
+    assert str(dash.parse("Smith, John, | i Puig").suffix) == "i Puig"
+    assert str(dash.parse("Smith, John, Puig | i Soler").suffix) == \
         "Puig, i Soler"
-    assert str(dash.parse("Smith, John, Puig i - Soler").suffix) == \
+    assert str(dash.parse("Smith, John, Puig i | Soler").suffix) == \
         "Puig i, Soler"
-    assert str(dash.parse("Smith, John, PhD - and MD").suffix) == \
+    assert str(dash.parse("Smith, John, PhD | and MD").suffix) == \
         "PhD, and MD"
 
 
@@ -1843,7 +1850,9 @@ def test_a_trailing_title_does_not_hide_the_suffix_run_from_the_join(
         "title": "Prof.", "given": "John", "middle": "Quincy",
         "family": "Adams", "suffix": "i MA", "nickname": "", "maiden": ""}
     assert name.initials() == "J. Q. A."
-    assert [a.kind.value for a in name.ambiguities] == ["suffix-or-name"]
+    # 'MA' in capitals in a name of mixed case is settled by its
+    # writing, so nothing reports it (rules/S6, #785)
+    assert name.ambiguities == ()
     # a LOWER-CASE title is the same shape and reaches the same
     # bound: the vocabulary lookup is folded, so 'prof.' peels like
     # 'Prof.'
@@ -1919,7 +1928,7 @@ def test_the_first_word_floor_holds_a_title_out_of_the_chain() -> None:
     """A title straight after the marker stays the maiden name: the
     floor is the title chain's own, so the chain never takes that word
     and stops at it, taking only the titles behind it."""
-    assert _maiden_texts(_grouped("Jane Doe nee King.", lexicon=Lexicon.default())) == ["King."]
+    assert _maiden_texts(_grouped("Jane Doe nee Pope.", lexicon=Lexicon.default())) == ["Pope."]
     assert _maiden_texts(_grouped("Jane Doe nee Prof. Dr.", lexicon=Lexicon.default())) == ["Prof."]
 
 
@@ -1929,8 +1938,8 @@ def test_the_floor_keeps_the_first_word_in_the_chains_count() -> None:
     first word after the marker, so the re-peel's count still holds
     it and a trailing suffix behind a chained title reads as
     'Jane Doe nee Smith ba' reads it."""
-    out = _grouped("Jane Doe nee King. ba", lexicon=Lexicon.default())
-    assert _maiden_texts(out) == ["King."]
+    out = _grouped("Jane Doe nee Pope. ba", lexicon=Lexicon.default())
+    assert _maiden_texts(out) == ["Pope."]
     # the control: an unlisted first word gives the same count
     ok = _grouped("Jane Doe nee Smith ba", lexicon=Lexicon.default())
     assert _maiden_texts(ok) == ["Smith"]

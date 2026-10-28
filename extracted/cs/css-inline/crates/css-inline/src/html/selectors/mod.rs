@@ -11,8 +11,11 @@ pub(super) use pseudo_classes::PseudoClass;
 pub(super) use pseudo_elements::PseudoElement;
 pub(super) use selector_impl::InlinerSelectors;
 
+use super::document::NameSet;
 use selectors::{
-    parser::{Component, ParseRelative, Selector as GenericSelector, SelectorParseErrorKind},
+    parser::{
+        Combinator, Component, ParseRelative, Selector as GenericSelector, SelectorParseErrorKind,
+    },
     SelectorList,
 };
 use smallvec::SmallVec;
@@ -54,32 +57,83 @@ pub(crate) enum SelectorAnchor<'a> {
     Class(&'a LocalName),
     /// Tag selector - O(k) lookup where k = elements with this tag
     Tag(&'a LocalName),
+    /// Attribute selector - O(k) lookup where k = elements with this attribute
+    Attribute(&'a LocalName),
+    /// `:root` - only the top-level elements
+    Root,
     /// No usable anchor - must scan all elements
     None,
 }
 
 /// Extract the best anchor from a single selector.
-/// Analyzes the rightmost compound selector (matched first) to find ID/class/tag.
+/// Analyzes the rightmost compound selector (matched first) to find `:root` or ID/class/tag,
+/// falling back to an attribute name.
 #[inline]
 fn selector_anchor(selector: &Selector) -> SelectorAnchor<'_> {
+    let mut anchor = None;
+    let mut attribute = None;
     // Iterate in match order (rightmost first)
     for component in selector.iter_raw_match_order() {
         match component {
+            // The most selective anchor, wherever it is in the compound
+            Component::Root => return SelectorAnchor::Root,
             Component::ID(id) => {
-                return SelectorAnchor::Id(id);
+                anchor.get_or_insert(SelectorAnchor::Id(id));
             }
             Component::Class(class) => {
-                return SelectorAnchor::Class(class);
+                anchor.get_or_insert(SelectorAnchor::Class(class));
             }
-            Component::LocalName(local_name) => {
-                return SelectorAnchor::Tag(&local_name.name);
+            // Mixed-case names match differently on HTML and foreign elements, so only
+            // lowercase ones are used
+            Component::LocalName(local_name) if local_name.name == local_name.lower_name => {
+                anchor.get_or_insert(SelectorAnchor::Tag(&local_name.name));
+            }
+            Component::AttributeInNoNamespace { local_name, .. } => {
+                attribute.get_or_insert(local_name);
+            }
+            Component::AttributeInNoNamespaceExists {
+                local_name,
+                local_name_lower,
+            } if local_name == local_name_lower => {
+                attribute.get_or_insert(local_name);
             }
             // Stop at combinators - we only analyze the rightmost compound
             Component::Combinator(_) => break,
             _ => {}
         }
     }
-    SelectorAnchor::None
+    anchor.unwrap_or_else(|| attribute.map_or(SelectorAnchor::None, SelectorAnchor::Attribute))
+}
+
+/// Names that some ancestor element of every element matching the selector has.
+/// Only names outside of nested selectors (`:not()`, ...) count.
+pub(crate) fn ancestor_names(selector: &Selector) -> NameSet {
+    let mut names = NameSet::default();
+    // A compound left of ` ` or `>` matches an ancestor. One left of `+` or `~` matches a
+    // sibling and is skipped; siblings share the parent, so compounds further left of
+    // ` ` or `>` still match ancestors.
+    let mut on_ancestor = false;
+    for component in selector.iter_raw_match_order() {
+        match component {
+            Component::Combinator(Combinator::Descendant | Combinator::Child) => {
+                on_ancestor = true;
+            }
+            Component::Combinator(Combinator::NextSibling | Combinator::LaterSibling) => {
+                on_ancestor = false;
+            }
+            Component::Combinator(_) => return NameSet::default(),
+            // Matching runs in no-quirks mode, where IDs and classes are case-sensitive
+            Component::ID(id) if on_ancestor => names.insert_id(id.as_bytes()),
+            Component::Class(class) if on_ancestor => names.insert_class(class.as_bytes()),
+            // HTML elements match `lower_name`, foreign ones match `name`; both lowercase to
+            // `lower_name`, and ancestor tags are stored lowercased
+            Component::LocalName(local_name) if on_ancestor => {
+                names.insert_tag(local_name.lower_name.as_bytes());
+            }
+            _ => {}
+        }
+    }
+    names
 }
 
 impl Selectors {
@@ -144,6 +198,23 @@ mod tests {
                 ),
             }
         };
+        ($selector:expr, Attribute, $value:expr) => {
+            let compiled = Selectors::compile($selector).unwrap();
+            match compiled.anchor() {
+                SelectorAnchor::Attribute(name) => assert_eq!(name.as_inner(), $value),
+                other => panic!(
+                    "Expected Attribute({:?}) for {:?}, got {:?}",
+                    $value, $selector, other
+                ),
+            }
+        };
+        ($selector:expr, Root) => {
+            let compiled = Selectors::compile($selector).unwrap();
+            match compiled.anchor() {
+                SelectorAnchor::Root => {}
+                other => panic!("Expected Root for {:?}, got {:?}", $selector, other),
+            }
+        };
         ($selector:expr, None) => {
             let compiled = Selectors::compile($selector).unwrap();
             match compiled.anchor() {
@@ -172,6 +243,7 @@ mod tests {
     #[test_case(".btn[disabled]", "btn"; "class_with_attr")]
     #[test_case("*.myclass", "myclass"; "universal_with_class")]
     #[test_case(".item:not(.disabled)", "item"; "class_with_not")]
+    #[test_case("DIV.item", "item"; "uppercase_tag_with_class")]
     fn test_class_anchor(selector: &str, expected: &str) {
         assert_anchor!(selector, Class, expected);
     }
@@ -201,11 +273,55 @@ mod tests {
         assert_anchor!(selector, Tag, expected);
     }
 
+    // Attribute selectors
+    #[test_case("[hidden]", "hidden"; "attribute_exists")]
+    #[test_case("[type=button]", "type"; "attribute_value")]
+    #[test_case("[data-role~=\"tab\"]", "data-role"; "attribute_includes")]
+    #[test_case("[data-a][data-b]", "data-a"; "multiple_attributes")]
+    #[test_case("[data-a]:hover", "data-a"; "attribute_with_pseudo")]
+    #[test_case(".nav [data-x]", "data-x"; "descendant_attribute")]
+    fn test_attribute_anchor(selector: &str, expected: &str) {
+        assert_anchor!(selector, Attribute, expected);
+    }
+
+    // ID, class and tag take precedence over attributes
+    #[test_case("[data-x]#myid", "myid"; "attribute_with_id")]
+    fn test_attribute_with_id_anchor(selector: &str, expected: &str) {
+        assert_anchor!(selector, Id, expected);
+    }
+
+    #[test_case("[data-x].item", "item"; "attribute_with_class")]
+    fn test_attribute_with_class_anchor(selector: &str, expected: &str) {
+        assert_anchor!(selector, Class, expected);
+    }
+
+    #[test_case(":root"; "root")]
+    #[test_case("html:root"; "tag_root")]
+    #[test_case(":root.dark"; "root_class")]
+    #[test_case("#x:root"; "id_root")]
+    #[test_case("[data-x]:root"; "attribute_root")]
+    #[test_case("body :root"; "descendant_root")]
+    fn test_root_anchor(selector: &str) {
+        assert_anchor!(selector, Root);
+    }
+
+    #[test_case(":root > body", "body"; "root_child")]
+    #[test_case(":root p", "p"; "root_descendant")]
+    fn test_root_not_rightmost_anchor(selector: &str, expected: &str) {
+        assert_anchor!(selector, Tag, expected);
+    }
+
     // None (multiple selectors or universal)
     #[test_case("h1, h2, h3"; "multiple_tags")]
     #[test_case("div, .class, #id"; "multiple_mixed")]
     #[test_case("div, span"; "two_tags")]
     #[test_case("*"; "universal")]
+    #[test_case("[viewBox]"; "mixed_case_attribute")]
+    #[test_case("H1"; "uppercase_tag")]
+    #[test_case("svg foreignObject"; "mixed_case_tag")]
+    #[test_case("[data-x] *"; "attribute_in_ancestor")]
+    #[test_case(":not(:root)"; "not_root")]
+    #[test_case(":root, p"; "root_in_list")]
     fn test_none_anchor(selector: &str) {
         assert_anchor!(selector, None);
     }

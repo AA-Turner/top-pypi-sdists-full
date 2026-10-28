@@ -3,17 +3,14 @@ from pytest_factoryboy import register
 from rest_framework.test import APIClient
 
 from example.factories import (
-    ArtProjectFactory,
     AuthorBioFactory,
     AuthorBioMetadataFactory,
     AuthorFactory,
     AuthorTypeFactory,
     BlogFactory,
     CommentFactory,
-    CompanyFactory,
     EntryFactory,
     QuestionnaireFactory,
-    ResearchProjectFactory,
     TaggedItemFactory,
 )
 
@@ -25,9 +22,6 @@ register(AuthorTypeFactory)
 register(EntryFactory)
 register(CommentFactory)
 register(TaggedItemFactory)
-register(ArtProjectFactory)
-register(ResearchProjectFactory)
-register(CompanyFactory)
 register(QuestionnaireFactory)
 
 
@@ -55,19 +49,6 @@ def single_comment(blog, author, entry_factory, comment_factory):
     entry = entry_factory(blog=blog, authors=(author,))
     comment_factory(entry=entry)
     return comment_factory(entry=entry)
-
-
-@pytest.fixture
-def single_company(art_project_factory, research_project_factory, company_factory):
-    company = company_factory(
-        future_projects=(research_project_factory(), art_project_factory())
-    )
-    return company
-
-
-@pytest.fixture
-def single_art_project(art_project_factory):
-    return art_project_factory()
 
 
 @pytest.fixture

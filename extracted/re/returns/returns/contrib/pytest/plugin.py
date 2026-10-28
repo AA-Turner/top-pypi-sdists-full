@@ -1,10 +1,10 @@
 import inspect
 import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from functools import partial, wraps
-from types import FrameType, MappingProxyType
-from typing import TYPE_CHECKING, Any, Final, TypeAlias, TypeVar, Union, final
+from types import FrameType
+from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar, Union, final
 from unittest import mock
 
 import pytest
@@ -62,7 +62,7 @@ class ReturnsAsserts:
     def assert_trace(  # noqa: WPS602
         trace_type: _ReturnsResultType,
         function_to_search: _FunctionType,
-    ) -> Iterator[None]:
+    ) -> Generator[None]:
         """
         Ensures that a given function was called during execution.
 
@@ -101,10 +101,30 @@ def _trace_function(
     )
     if is_desired_type_call:
         current_call_stack = inspect.stack()
-        function_to_search_code = getattr(function_to_search, '__code__', None)
         for frame_info in current_call_stack:
-            if function_to_search_code is frame_info.frame.f_code:
+            if _is_function_frame(function_to_search, frame_info.frame):
                 raise _DesiredFunctionFound
+
+
+def _is_function_frame(function: _FunctionType, frame: FrameType) -> bool:
+    function_code = getattr(function, '__code__', None)
+    if frame.f_code is not function_code:
+        return False
+
+    closure = getattr(function, '__closure__', None)
+    if not closure:
+        # Fast path: without a closure the code object is enough,
+        # so we don't touch the frame's locals at all:
+        return True
+
+    # Functions created by the same decorator share the same code object,
+    # so we also compare their closure variables to tell them apart:
+    frame_locals = frame.f_locals
+    return all(
+        frame_locals[name] is cell.cell_contents
+        for name, cell in zip(function_code.co_freevars, closure, strict=True)
+        if name in frame_locals
+    )
 
 
 class _DesiredFunctionFound(BaseException):  # noqa: WPS418
@@ -135,12 +155,12 @@ def returns() -> Iterator[ReturnsAsserts]:
 
 
 @contextmanager
-def _spy_error_handling() -> Iterator[_ErrorsHandled]:
+def _spy_error_handling() -> Generator[_ErrorsHandled]:
     """Track error handling of containers."""
     errs: _ErrorsHandled = {}
     with ExitStack() as cleanup:
         for container in _containers_to_patch():
-            for method, patch in _ERROR_HANDLING_PATCHERS.items():
+            for method, patch in _error_handling_patchers().items():
                 cleanup.enter_context(
                     mock.patch.object(
                         container,
@@ -172,6 +192,16 @@ def _containers_to_patch() -> list:
         RequiresContextFutureResult,
         FutureResult,
     ]
+
+
+def _error_handling_patchers() -> Mapping[str, Callable]:
+    from returns.primitives.compat import make_immutable  # noqa: PLC0415
+
+    return make_immutable({
+        'lash': _patched_error_handler,
+        'map': _patched_error_copier,
+        'alt': _patched_error_copier,
+    })
 
 
 def _patched_error_handler(
@@ -216,10 +246,3 @@ def _patched_error_copier(
         return original_result
 
     return wraps(original)(sync_wrapper)  # type: ignore
-
-
-_ERROR_HANDLING_PATCHERS: Final = MappingProxyType({
-    'lash': _patched_error_handler,
-    'map': _patched_error_copier,
-    'alt': _patched_error_copier,
-})

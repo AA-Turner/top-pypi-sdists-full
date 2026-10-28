@@ -54,7 +54,8 @@ from cproton_ffi.lib import (PN_ACCEPTED, PN_ARRAY, PN_BINARY, PN_BOOL, PN_BYTE,
                              PN_SSL_RESUME_UNKNOWN, PN_SSL_SHA1, PN_SSL_SHA256, PN_SSL_SHA512,
                              PN_SSL_VERIFY_PEER, PN_SSL_VERIFY_PEER_NAME, PN_STRING, PN_SYMBOL,
                              PN_TARGET, PN_TIMEOUT, PN_TIMER_TASK, PN_TIMESTAMP, PN_TRACE_DRV,
-                             PN_TRACE_FRM, PN_TRACE_OFF, PN_TRACE_RAW, PN_TRANSPORT,
+                             PN_TRACE_FRM, PN_TRACE_OFF, PN_TRACE_RAW, PN_DECLARED,
+                             PN_TRANSACTIONAL_STATE, PN_TRANSPORT,
                              PN_TRANSPORT_CLOSED, PN_TRANSPORT_ERROR, PN_TRANSPORT_HEAD_CLOSED,
                              PN_TRANSPORT_TAIL_CLOSED, PN_UBYTE, PN_UINT, PN_ULONG, PN_UNSPECIFIED,
                              PN_USHORT, PN_UUID, PN_VERSION_MAJOR, PN_VERSION_MINOR,
@@ -115,7 +116,8 @@ from cproton_ffi.lib import (PN_ACCEPTED, PN_ARRAY, PN_BINARY, PN_BOOL, PN_BYTE,
                              pn_link_set_drain, pn_link_set_max_message_size,
                              pn_link_set_rcv_settle_mode, pn_link_set_snd_settle_mode,
                              pn_link_snd_settle_mode, pn_link_source, pn_link_state, pn_link_target,
-                             pn_link_unsettled, pn_message, pn_message_annotations, pn_message_body,
+                             pn_link_unsettled, pn_unsettled_head, pn_unsettled_next,
+                             pn_message, pn_message_annotations, pn_message_body,
                              pn_message_clear, pn_message_error, pn_message_free,
                              pn_message_get_creation_time, pn_message_get_delivery_count,
                              pn_message_get_expiry_time, pn_message_get_group_sequence,
@@ -145,20 +147,42 @@ from cproton_ffi.lib import (PN_ACCEPTED, PN_ARRAY, PN_BINARY, PN_BOOL, PN_BYTE,
                              pn_terminus_properties, pn_terminus_set_distribution_mode,
                              pn_terminus_set_durability, pn_terminus_set_dynamic,
                              pn_terminus_set_expiry_policy, pn_terminus_set_timeout,
-                             pn_terminus_set_type, pn_transport, pn_transport_attachments,
+                             pn_terminus_set_type, pn_transactional_disposition,
+                             pn_transactional_disposition_get_outcome_type,
+                             pn_transactional_disposition_set_outcome_type, pn_transport, pn_transport_attachments,
                              pn_transport_bind, pn_transport_capacity, pn_transport_close_head,
                              pn_transport_close_tail, pn_transport_closed, pn_transport_condition,
                              pn_transport_connection, pn_transport_error,
                              pn_transport_get_channel_max, pn_transport_get_frames_input,
                              pn_transport_get_frames_output, pn_transport_get_idle_timeout,
+                             pn_transport_get_max_buffered_delivery_bytes,
                              pn_transport_get_max_frame, pn_transport_get_remote_idle_timeout,
                              pn_transport_get_remote_max_frame, pn_transport_is_authenticated,
                              pn_transport_is_encrypted, pn_transport_pending, pn_transport_pop,
                              pn_transport_remote_channel_max, pn_transport_require_auth,
                              pn_transport_require_encryption, pn_transport_set_channel_max,
                              pn_transport_set_idle_timeout, pn_transport_set_max_frame,
+                             pn_transport_set_max_buffered_delivery_bytes,
                              pn_transport_set_server, pn_transport_tick, pn_transport_trace,
-                             pn_transport_unbind)
+                             pn_transport_unbind,
+                             pn_custom_disposition,
+                             pn_custom_disposition_get_type,
+                             pn_custom_disposition_set_type,
+                             pn_custom_disposition_data,
+                             pn_rejected_disposition,
+                             pn_rejected_disposition_condition,
+                             pn_received_disposition,
+                             pn_received_disposition_get_section_number,
+                             pn_received_disposition_set_section_number,
+                             pn_received_disposition_get_section_offset,
+                             pn_received_disposition_set_section_offset,
+                             pn_modified_disposition,
+                             pn_modified_disposition_is_failed,
+                             pn_modified_disposition_set_failed,
+                             pn_modified_disposition_is_undeliverable,
+                             pn_modified_disposition_set_undeliverable,
+                             pn_modified_disposition_annotations,
+                             pn_declared_disposition)
 
 
 def isnull(obj):
@@ -200,8 +224,8 @@ def bytes2pybytes(b):
     return bytes(ffi.buffer(b.start, b.size))
 
 
-def bytes2string(b, encoding='utf8'):
-    return ffi.unpack(b.start, b.size).decode(encoding)
+def bytes2string(b, encoding='utf8', errors='surrogateescape'):
+    return ffi.unpack(b.start, b.size).decode(encoding, errors)
 
 
 def py2bytes(py):
@@ -213,8 +237,8 @@ def py2bytes(py):
         return len(s), s
 
 
-def string2bytes(py, encoding='utf8'):
-    s = ffi.from_buffer(py.encode(encoding))
+def string2bytes(py, encoding='utf8', errors='surrogateescape'):
+    s = ffi.from_buffer(py.encode(encoding, errors))
     return len(s), s
 
 
@@ -340,24 +364,14 @@ def pn_collector_put_pyref(collector, obj, etype):
     lib.pn_collector_put_py(collector, d, etype.number)
 
 
-def pn_record_def_py(record):
-    lib.pn_record_def_py(record)
-
-
 def pn_record_get_py(record):
     d = lib.pn_record_get_py(record)
     if d == ffi.NULL:
-        return None
-    return ffi.from_handle(d)
-
-
-def pn_record_set_py(record, value):
-    if value is None:
-        d = ffi.NULL
-    else:
-        d = ffi.new_handle(value)
+        d = ffi.new_handle({})
         retained_objects.add(d)
-    lib.pn_record_set_py(record, d)
+        lib.pn_record_def_py(record)
+        lib.pn_record_set_py(record, d)
+    return ffi.from_handle(d)
 
 
 def pn_event_class_name(event):
@@ -756,3 +770,19 @@ def pn_ssl_get_peer_hostname(ssl, size):
 
 def pn_ssl_set_peer_hostname(ssl, hostname):
     return lib.pn_ssl_set_peer_hostname(ssl, string2utf8(hostname))
+
+
+def pn_transactional_disposition_get_id(disp):
+    return bytes2pybytes(lib.pn_transactional_disposition_get_id(disp))
+
+
+def pn_transactional_disposition_set_id(disp, id):
+    return lib.pn_transactional_disposition_set_id(disp, py2bytes(id))
+
+
+def pn_declared_disposition_get_id(disp):
+    return bytes2pybytes(lib.pn_declared_disposition_get_id(disp))
+
+
+def pn_declared_disposition_set_id(disp, id):
+    return lib.pn_declared_disposition_set_id(disp, py2bytes(id))

@@ -1,6 +1,6 @@
 """Persona records: one person per vault account, bound into the walker's persona-values file.
 
-PersonaConsole is not re-exported, so importing the models never imports the vault CLI."""
+PersonaVault (the Chronos client) is not re-exported."""
 
 from plato.personas.bind import bind_pack, record_values
 from plato.personas.fixture_pool import load_pool

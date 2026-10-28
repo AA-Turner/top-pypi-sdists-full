@@ -25,6 +25,8 @@
 
 #include "onnx_model.hpp"
 
+#include <onnx/shape_inference/implementation.h>
+
 /// \cond INTERNAL
 namespace casadi {
 
@@ -56,6 +58,43 @@ namespace casadi {
       values.assign(tensor.int32_data().begin(), tensor.int32_data().end());
     }
     return true;
+  }
+
+  // Whether two stored shapes broadcast against each other (equal or 1 along each axis)
+  static bool broadcastable(const MX& a, const MX& b) {
+    return (a.size1() == b.size1() || a.size1() == 1 || b.size1() == 1)
+        && (a.size2() == b.size2() || a.size2() == 1 || b.size2() == 1);
+  }
+
+  // Orient a vector operand v towards the other operand o of a binary op
+  static void orient_vector(MX* v, const MX& o) {
+    if (!v->is_vector()) return;
+    // Two equal-length vectors in different orientations are the same rank-1 tensor;
+    // settle on the column form, the convention for rank-1 initializers and inputs
+    if (o.is_vector() && v->numel() == o.numel()) {
+      if (v->size1() != o.size1()) *v = reshape(*v, v->numel(), 1);
+      return;
+    }
+    if (broadcastable(*v, o)) return;
+    if (v->numel() == o.size1()) *v = reshape(*v, o.size1(), 1);
+    else if (v->numel() == o.size2()) *v = reshape(*v, 1, o.size2());
+  }
+
+  // ONNX (numpy-style) broadcasting of two operands in the 2-D stored representation.
+  // A rank-1 tensor may be stored as a row or a column depending on where it came from
+  // (Gather/Slice results are rows; initializers and graph inputs are columns), so a vector
+  // that is not already broadcast-compatible is first oriented along the other operand's
+  // matching dimension, e.g. a Gemm/Add bias [N] against a stored (N,M) result.
+  static void broadcast_pair(MX* x, MX* y) {
+    if (x->is_scalar() || y->is_scalar()) return;
+    orient_vector(x, *y);
+    orient_vector(y, *x);
+    casadi_int nr = std::max(x->size1(), y->size1()), nc = std::max(x->size2(), y->size2());
+    for (MX* v : {x, y}) {
+      casadi_assert(broadcastable(*v, MX::zeros(nr, nc)), "ONNX import: cannot broadcast "
+        + x->dim() + " with " + y->dim());
+      if (v->size1() != nr || v->size2() != nc) *v = repmat(*v, nr / v->size1(), nc / v->size2());
+    }
   }
 
   // ONNX initializers are pre-loaded constants
@@ -112,13 +151,49 @@ namespace casadi {
       // input pattern -- make a SPARSE input symbol and feed it AS-IS, so CasADi propagates the
       // true sparsity through the body (no densification on entry; densify only where an ONNX op
       // requires
-      // the dense layout, e.g. Reshape). Transpose-rep: the ONNX input is declared (c,r).
+      // the dense layout, e.g. Reshape). Transpose-rep: a rank-2 ONNX input (r,c) is stored as
+      // (c,r); a rank<2 input [n] is a column (n,1), matching tensor_to_dm for initializers so
+      // that e.g. a 1-D Gemm bias broadcasts the same whether it is an initializer or an input.
       Sparsity ov = input_pattern(graph, input_name);
-      MX mx_input = ov.is_null() ? MX::sym(input_name, cols, rows) : MX::sym(input_name, ov);
+      MX mx_input = !ov.is_null() ? MX::sym(input_name, ov)
+                  : shape.dim_size() < 2 ? MX::sym(input_name, rows, cols)
+                  : MX::sym(input_name, cols, rows);
       value_map[input_name] = mx_input;
       func_inputs.push_back(mx_input);
       input_names.push_back(input_name);
     }
+  }
+
+  // ONNX ranks the graph declares (inputs, intermediate value_info, outputs, initializers)
+  static std::map<std::string, casadi_int> declared_ranks(const onnx::GraphProto& graph) {
+    std::map<std::string, casadi_int> ranks;
+    for (const auto* infos : {&graph.input(), &graph.value_info(), &graph.output()}) {
+      for (const auto& info : *infos) {
+        if (info.type().tensor_type().has_shape()) {
+          ranks[info.name()] = info.type().tensor_type().shape().dim_size();
+        }
+      }
+    }
+    for (const auto& tensor : graph.initializer()) ranks[tensor.name()] = tensor.dims_size();
+    return ranks;
+  }
+
+  // ONNX counts a negative "axis" attribute from the end, relative to the rank of input 0
+  // (OneHot, relative to the output rank, aside). CasADi values are 2-D and do not keep the ONNX
+  // rank, e.g. [1, n] and [n] are both stored as (n, 1), so resolve the axis against the rank
+  // the graph declares. Returns node itself if there is nothing to resolve, else *copy.
+  static const onnx::NodeProto& resolve_negative_axis(const onnx::NodeProto& node,
+      const std::map<std::string, casadi_int>& ranks, onnx::NodeProto* copy) {
+    if (node.op_type() == "OneHot" || node.input_size() == 0) return node;
+    for (int a = 0; a < node.attribute_size(); ++a) {
+      if (node.attribute(a).name() != "axis" || node.attribute(a).i() >= 0) continue;
+      auto it = ranks.find(node.input(0));
+      if (it == ranks.end()) return node;  // undeclared rank: leave it to the op
+      *copy = node;
+      copy->mutable_attribute(a)->set_i(node.attribute(a).i() + it->second);
+      return *copy;
+    }
+    return node;
   }
 
   // Process all nodes in the graph
@@ -133,11 +208,14 @@ namespace casadi {
       if (integer_tensor(tensor, values)) integer_constants[tensor.name()] = std::move(values);
     }
 
+    std::map<std::string, casadi_int> ranks = declared_ranks(graph);
+
     // Per-graph capture of kron operands, keyed by the exporter's node-name tag "kron<k>".
     std::map<std::string, MX> kron_operand_a_, kron_operand_b_;
 
     for (int i = 0; i < graph.node_size(); ++i) {
-      const onnx::NodeProto& node = graph.node(i);
+      onnx::NodeProto resolved;
+      const onnx::NodeProto& node = resolve_negative_axis(graph.node(i), ranks, &resolved);
       std::string op_type = node.op_type();
 
       if (verbose) {
@@ -421,7 +499,7 @@ namespace casadi {
       value_map[output_name] = output;
 
       if (verbose) {
-        uout() << "    -> " << output_name << std::endl;
+        uout() << "    -> " << output_name << " " << output.dim() << std::endl;
       }
     }
   }
@@ -461,9 +539,33 @@ namespace casadi {
     return nullptr;
   }
 
+  // Whether a node has a negative axis that resolve_negative_axis cannot resolve
+  static bool has_unresolved_negative_axis(const onnx::GraphProto& graph) {
+    std::map<std::string, casadi_int> ranks = declared_ranks(graph);
+    for (const auto& node : graph.node()) {
+      if (node.op_type() == "OneHot" || node.input_size() == 0) continue;
+      if (get_int_attribute(node, "axis", 0) < 0 && !ranks.count(node.input(0))) return true;
+    }
+    return false;
+  }
+
   Function Onnx::create(const std::string& name) {
     casadi_assert(has_model_, "No ONNX model loaded. Call load() first.");
-    return function_from_graph(model_.graph(), name);
+    if (!has_unresolved_negative_axis(model_.graph())) {
+      return function_from_graph(model_.graph(), name);
+    }
+    // Exporters need not declare the shapes of intermediate tensors (PyTorch's TorchScript
+    // exporter doesn't). Infer them on a copy, leaving model_ as loaded, so that negative axes
+    // can be resolved. If inference fails, import as is: the affected op reports the axis.
+    onnx::ModelProto inferred = model_;
+    try {
+      onnx::shape_inference::InferShapes(inferred, onnx::OpSchemaRegistry::Instance(),
+        onnx::ShapeInferenceOptions(false, 0, true));
+    } catch (const std::exception& e) {
+      if (verbose_) uout() << "ONNX shape inference failed: " << e.what() << std::endl;
+      return function_from_graph(model_.graph(), name);
+    }
+    return function_from_graph(inferred.graph(), name);
   }
 
   Function Onnx::function_from_graph(const onnx::GraphProto& graph,
@@ -529,6 +631,109 @@ namespace casadi {
     return v;
   }
 
+  // Numerically stable softplus log(1 + exp(x)). Above x = 40, log1p(exp(x)) == x in double;
+  // the clamp keeps exp finite in the discarded branch, so reverse mode gets no 0*inf = NaN.
+  static MX softplus(const MX& x) {
+    return if_else(x > 40, x, log1p(exp(fmin(x, 50))));
+  }
+
+  // Equal to 1/(1 + exp(-x)), but with no overflow for large |x|
+  static MX sigmoid(const MX& x) {
+    return 0.5 * (1 + tanh(0.5 * x));
+  }
+
+  // alpha * (exp(x) - 1) for x <= 0, x otherwise. The clamp keeps expm1 finite for large x.
+  static MX elu(const MX& x, double alpha) {
+    return if_else(x > 0, x, alpha * expm1(fmin(x, 1)));
+  }
+
+  static bool is_activation(const std::string& op_type) {
+    static const std::set<std::string> ops = {"Relu", "LeakyRelu", "PRelu", "Sigmoid",
+      "HardSigmoid", "HardSwish", "Softplus", "Softsign", "Elu", "Selu", "Celu", "Mish", "Gelu",
+      "Clip", "ThresholdedRelu", "Shrink", "Swish"};
+    return ops.count(op_type) > 0;
+  }
+
+  // Element-wise activation functions, composed of CasADi primitives so that AD and code
+  // generation work unchanged. Non-smooth ones get CasADi's usual subgradients at the kinks.
+  // Attribute defaults are float literals: ONNX float attributes are float32.
+  static MX activation(const std::string& op_type, const onnx::NodeProto& node,
+                       const std::vector<MX>& node_inputs) {
+    casadi_assert(node_inputs.size() >= 1, op_type + " requires 1 input");
+    const MX& x = node_inputs[0];
+
+    if (op_type == "Relu") {
+      return fmax(x, 0);
+    } else if (op_type == "LeakyRelu") {
+      return if_else(x >= 0, x, get_float_attribute(node, "alpha", 0.01f) * x);
+    } else if (op_type == "PRelu") {
+      casadi_assert(node_inputs.size() >= 2, "PRelu requires 2 inputs");
+      MX bx = x, slope = node_inputs[1];
+      broadcast_pair(&bx, &slope);
+      return if_else(bx >= 0, bx, slope * bx);
+    } else if (op_type == "ThresholdedRelu") {
+      return if_else(x > get_float_attribute(node, "alpha", 1.0), x, 0);
+    } else if (op_type == "Shrink") {
+      double lambd = get_float_attribute(node, "lambd", 0.5);
+      double bias = get_float_attribute(node, "bias", 0.0);
+      return if_else(x < -lambd, x + bias, if_else(x > lambd, x - bias, 0));
+    } else if (op_type == "Sigmoid") {
+      return sigmoid(x);
+    } else if (op_type == "Swish") {
+      return x * sigmoid(get_float_attribute(node, "alpha", 1.0) * x);
+    } else if (op_type == "HardSigmoid") {
+      double alpha = get_float_attribute(node, "alpha", 0.2f);
+      double beta = get_float_attribute(node, "beta", 0.5f);
+      return fmax(0, fmin(1, alpha * x + beta));
+    } else if (op_type == "HardSwish") {
+      return x * fmax(0, fmin(1, x / 6 + 0.5));
+    } else if (op_type == "Softplus") {
+      return softplus(x);
+    } else if (op_type == "Softsign") {
+      return x / (1 + fabs(x));
+    } else if (op_type == "Elu") {
+      return elu(x, get_float_attribute(node, "alpha", 1.0));
+    } else if (op_type == "Selu") {
+      double alpha = get_float_attribute(node, "alpha", 1.67326319217681884765625f);
+      double gamma = get_float_attribute(node, "gamma", 1.05070102214813232421875f);
+      return gamma * elu(x, alpha);
+    } else if (op_type == "Celu") {
+      // max(0, x) + min(0, alpha * (exp(x / alpha) - 1)) is, for either sign of alpha, x for
+      // x > 0 and alpha * expm1(x / alpha) otherwise. Written so that it stays C1 at 0.
+      double alpha = get_float_attribute(node, "alpha", 1.0);
+      casadi_assert(alpha != 0, "Celu requires a nonzero alpha");
+      return if_else(x > 0, x, alpha * expm1(fmin(x, std::fabs(alpha)) / alpha));
+    } else if (op_type == "Mish") {
+      return x * tanh(softplus(x));
+    } else if (op_type == "Gelu") {
+      std::string approximate = get_string_attribute(node, "approximate");
+      if (approximate.empty() || approximate == "none") {
+        return 0.5 * x * (1 + erf(x / std::sqrt(2.0)));
+      }
+      casadi_assert(approximate == "tanh",
+                    "Gelu: unsupported approximate '" + approximate + "'");
+      return 0.5 * x * (1 + tanh(std::sqrt(2 / pi) * (x + 0.044715 * pow(x, 3))));
+    } else if (op_type == "Clip") {
+      // Opset >= 11: optional inputs min and max (an empty name is absent).
+      // Opset < 11: attributes min and max. An absent bound is not applied.
+      MX output = x;
+      for (size_t k = 1; k <= 2; ++k) {
+        MX bound;
+        if (node_inputs.size() > k) {
+          bound = node_inputs[k];
+        } else {
+          double inf = std::numeric_limits<double>::infinity();
+          double b = get_float_attribute(node, k == 1 ? "min" : "max", k == 1 ? -inf : inf);
+          if (!std::isinf(b)) bound = b;
+        }
+        if (bound.is_empty()) continue;
+        output = k == 1 ? fmax(output, bound) : fmin(output, bound);
+      }
+      return output;
+    }
+    casadi_error("Unsupported activation '" + op_type + "'");
+  }
+
   MX Onnx::process_node_operation(
       const std::string& op_type,
       const onnx::NodeProto& node,
@@ -588,13 +793,14 @@ namespace casadi {
         }
       } else if (mapping->arity == 2) {
         casadi_assert(node_inputs.size() >= 2, op_type + " requires 2 inputs");
-        const MX& y = node_inputs[1];
+        MX bx = x, by = node_inputs[1];
+        broadcast_pair(&bx, &by);
         switch (mapping->casadi_op) {
-          case OP_ADD: return x + y;
-          case OP_SUB: return x - y;
-          case OP_MUL: return x * y;
-          case OP_DIV: return x / y;
-          case OP_POW: return pow(x, y);
+          case OP_ADD: return bx + by;
+          case OP_SUB: return bx - by;
+          case OP_MUL: return bx * by;
+          case OP_DIV: return bx / by;
+          case OP_POW: return pow(bx, by);
           default: break;
         }
       }
@@ -613,6 +819,14 @@ namespace casadi {
     } else if (op_type == "LessOrEqual") {
       casadi_assert(node_inputs.size() >= 2, "LessOrEqual requires 2 inputs");
       output = if_else(node_inputs[0] <= node_inputs[1], MX(1.0), MX(0.0));
+
+    } else if (op_type == "Greater") {
+      casadi_assert(node_inputs.size() >= 2, "Greater requires 2 inputs");
+      output = if_else(node_inputs[0] > node_inputs[1], MX(1.0), MX(0.0));
+
+    } else if (op_type == "GreaterOrEqual") {
+      casadi_assert(node_inputs.size() >= 2, "GreaterOrEqual requires 2 inputs");
+      output = if_else(node_inputs[0] >= node_inputs[1], MX(1.0), MX(0.0));
 
     } else if (op_type == "Min") {
       casadi_assert(node_inputs.size() >= 2, "Min requires 2 inputs");
@@ -670,7 +884,9 @@ namespace casadi {
       MX B = get_int_attribute(node, "transA", 0) ? node_inputs[0].T() : node_inputs[0];
       output = get_float_attribute(node, "alpha", 1.0) * mtimes(A, B);
       if (node_inputs.size() >= 3) {
-        output = output + get_float_attribute(node, "beta", 1.0) * node_inputs[2];
+        MX C = node_inputs[2];  // unidirectionally broadcastable to the result, e.g. a bias [N]
+        broadcast_pair(&output, &C);
+        output = output + get_float_attribute(node, "beta", 1.0) * C;
       }
 
     } else if (op_type == "Sum") {
@@ -1017,6 +1233,9 @@ namespace casadi {
         // Runtime indices -> parametric getnonzeros (OP_GETNONZEROS_PARAM).
         flat.get_nz(output, false, idx_vec);
       }
+
+    } else if (is_activation(op_type)) {
+      output = activation(op_type, node, node_inputs);
 
     } else {
       casadi_error("Unsupported operation '" + op_type + "'");

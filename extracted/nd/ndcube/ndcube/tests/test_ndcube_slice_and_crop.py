@@ -194,7 +194,7 @@ def test_ellipsis_usage(ndc, item, expected_shape):
     assert sliced_cube.data.shape == expected_shape
 
 def test_ellipsis_error(ndcube_4d_ln_l_t_lt):
-    with pytest.raises(IndexError, match="An index can only have a single ellipsis"):
+    with pytest.raises(IndexError, match=r"an index can only have a single ellipsis \('\.\.\.'\)"):
         ndcube_4d_ln_l_t_lt[..., ..., 1]
 
 
@@ -206,6 +206,56 @@ def test_crop(ndcube_4d_ln_lt_l_t):
     expected = cube[1:3, 0:2, 0:2, 0:3]
     output = cube.crop(lower_corner, upper_corner)
     helpers.assert_cubes_equal(output, expected)
+
+
+@pytest.mark.parametrize("cdelt", [0.2, 0.3, 0.6, 1.7, 0.599489, 2.402792, 19.183648])
+def test_crop_at_pixel_edges_with_inexact_cdelt(cdelt):
+    # the bounds of pixels are the edges below pixel 1 and above pixel 2.
+    # Dividing them back by cdelt is not exact for any cdelt that is not a power of
+    # two, so the pixel coordinate lands a little either side of the edge and
+    # must not be rounded.
+    wcs = astropy.wcs.WCS({"CTYPE1": "WAVE", "CUNIT1": "Angstrom",
+                           "CDELT1": cdelt, "CRPIX1": 1, "CRVAL1": 0})
+    cube = NDCube(np.arange(10), wcs=wcs)
+    output = cube.crop([0.5 * cdelt * u.Angstrom], [2.5 * cdelt * u.Angstrom], keepdims=True)
+    np.testing.assert_array_equal(output.data, [1, 2])
+
+
+@pytest.mark.parametrize("unit", [u.Angstrom, u.nm, u.m, u.cm, u.mm])
+def test_crop_is_independent_of_input_unit(unit):
+    # 0.3 Angstrom is the edge between pixel 0 and pixel 1, so pixel 0 holds no
+    # wavelength longer than the one asked for and is not part of the result.
+    # Writing that same wavelength in another unit must not change which pixels
+    # are returned, but converting it moves it off the edge by an ULP or so.
+    wcs = astropy.wcs.WCS({"CTYPE1": "WAVE", "CUNIT1": "Angstrom",
+                           "CDELT1": 0.2, "CRPIX1": 0, "CRVAL1": 0})
+    cube = NDCube(np.arange(10), wcs=wcs)
+    lower = (0.3 * u.Angstrom).to(unit)
+    output = cube.crop([lower], [0.45 * u.Angstrom], keepdims=True)
+    np.testing.assert_array_equal(output.data, [1])
+
+
+@pytest.mark.parametrize(("bottom_left", "top_right", "expected_shape"), [
+    ((0.5, 0.5), (2.5, 2.5), (2, 2)),
+    ((0.5, 0.5), (4.5, 2.5), (2, 4)),
+    ((-0.5, -0.5), (0.5, 0.5), (1, 1)),
+    ((1.5, 2.5), (5.5, 6.5), (4, 4)),
+    ((0.5, 0.5), (1.5, 6.5), (6, 1)),
+    ((2.5, 0.5), (8.5, 8.5), (8, 6)),
+])
+def test_crop_roundtrips_pixel_edges_through_world(ndcube_2d_ln_lt, bottom_left,
+                                                   top_right, expected_shape):
+    # This deliberately round trips: pixel edges are converted to world coordinates
+    # here and crop converts them straight back to pixel coordinates.
+    cube = ndcube_2d_ln_lt
+    x = np.array([bottom_left[0], top_right[0], top_right[0], bottom_left[0]])
+    y = np.array([bottom_left[1], bottom_left[1], top_right[1], top_right[1]])
+    # Use the low level API so we always get an array
+    low_level = cube.wcs.low_level_wcs
+    world = low_level.pixel_to_world_values(x, y)
+    units = [u.Unit(unit) for unit in low_level.world_axis_units]
+    corners = [[values[i] * unit for values, unit in zip(world, units)] for i in range(4)]
+    assert cube.crop_by_values(*corners, keepdims=True).shape == expected_shape
 
 
 def test_crop_tuple_non_tuple_input(ndcube_2d_ln_lt):
@@ -242,7 +292,7 @@ def test_crop_with_nones(ndcube_4d_ln_lt_l_t):
 
 def test_crop_1d_independent(ndcube_4d_ln_lt_l_t):
     cube_1d = ndcube_4d_ln_lt_l_t[0, 0, :, 0]
-    wl_range = SpectralCoord([3e-11, 4.5e-11], unit=u.m)
+    wl_range = SpectralCoord([2.5e-11, 4.5e-11], unit=u.m)
     expected = cube_1d[0:2]
     output = cube_1d.crop([wl_range[0]], [wl_range[-1]])
     helpers.assert_cubes_equal(output, expected)
@@ -258,7 +308,8 @@ def test_crop_1d_dependent(ndcube_4d_ln_lt_l_t):
 
 def test_crop_reduces_dimensionality(ndcube_4d_ln_lt_l_t):
     cube = ndcube_4d_ln_lt_l_t
-    point = (None, SpectralCoord([3e-11], unit=u.m), None)
+    # deliberately avoid a pixel edge.
+    point = (None, SpectralCoord([2.5e-11], unit=u.m), None)
     expected = cube[:, :, 0, :]
     output = cube.crop(point)
     helpers.assert_cubes_equal(output, expected)
@@ -266,7 +317,8 @@ def test_crop_reduces_dimensionality(ndcube_4d_ln_lt_l_t):
 
 def test_crop_keepdims(ndcube_4d_ln_lt_l_t):
     cube = ndcube_4d_ln_lt_l_t
-    point = (None, SpectralCoord([3e-11], unit=u.m), None)
+    # deliberately avoid a pixel edge.
+    point = (None, SpectralCoord([2.5e-11], unit=u.m), None)
     output = cube.crop(point, keepdims=True)
     expected = cube[:, :, 0:1, :]
     assert output.shape == (5, 8, 1, 12)
@@ -637,3 +689,40 @@ def test_crop_by_values_quantity_table_coordinate():
                                    wcs=cube.extra_coords)
     assert cropped.shape == (10, 5)
     np.testing.assert_array_equal(cropped.data, data[3:13, 1:6])
+
+
+@pytest.mark.parametrize(("item", "expected"), [(np.s_[-2:], np.s_[3:]), (np.s_[1:-1], np.s_[1:4]), (np.s_[:10], np.s_[:])])
+def test_slice_negative_and_out_of_range_bounds(ndcube_4d_axis_aware_meta, item, expected):
+    cube = ndcube_4d_axis_aware_meta
+    helpers.assert_cubes_equal(cube[item], cube[expected])
+
+
+def test_slice_negative_integer_drops_correct_coordinate(ndcube_4d_ln_lt_l_t):
+    cube = ndcube_4d_ln_lt_l_t
+    assert cube[..., -1].global_coords["time"] == cube[..., 11].global_coords["time"]
+    assert cube[..., 1:][..., -1].global_coords["time"] == cube[..., 11].global_coords["time"]
+
+
+def test_slice_nested_with_step_one(ndcube_4d_ln_lt_l_t):
+    assert ndcube_4d_ln_lt_l_t[1:][:2:1].shape == (2, 8, 10, 12)
+
+
+@pytest.mark.parametrize("item", [np.s_[2:2], np.s_[3:1], np.s_[-1:1], np.s_[10:]])
+def test_slice_to_length_0_raises(ndcube_4d_ln_lt_l_t, item):
+    with pytest.raises(IndexError, match="length-0"):
+        ndcube_4d_ln_lt_l_t[item]
+
+
+def test_slice_empty_cube():
+    cube = NDCube(np.zeros((0, 3)), wcs=WCS(naxis=2))
+    assert cube[:].shape == (0, 3)
+    assert cube[:, 0].shape == (0,)
+
+
+@pytest.mark.parametrize("item", [np.s_[::2], np.s_[0, 0, 0, 0]])
+def test_failed_slice_keeps_meta(ndcube_4d_axis_aware_meta, item):
+    cube = ndcube_4d_axis_aware_meta
+    meta = cube.meta
+    with pytest.raises((IndexError, ValueError)):
+        cube[item]
+    assert cube.meta is meta

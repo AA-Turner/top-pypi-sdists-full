@@ -195,6 +195,11 @@ class Workspace(modal.object.Object):
         """
         ...
 
+    @property
+    def member_tokens(self) -> WorkspaceMemberTokenManager:
+        """Namespace for managing Member API Tokens in a Workspace."""
+        ...
+
 class WorkspaceMembersManager:
     """mdmd:namespace"""
     def __init__(self, workspace: Workspace):
@@ -951,6 +956,94 @@ class WorkspaceServiceUserManager:
             ```python notest
             ws = modal.Workspace.from_context()
             ws.service_users.delete("test-service-user")
+            ```
+            """
+            ...
+
+    delete: __delete_spec
+
+class WorkspaceMemberTokenManager:
+    """mdmd:namespace"""
+    def __init__(self, workspace: Workspace): ...
+
+    class __list_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> list[modal.types.MemberTokenInfo]:
+            """List Member Tokens in the specified Workspace.
+
+            If you are a Manager or an Owner of this Workspace, this method will return a list of all the
+            Member Tokens in the Workspace. Otherwise, this method will only return the Tokens you have
+            created.
+
+            Returns:
+                A list of `MemberTokenInfo` dataclasses.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            for member_token in ws.member_tokens.list():
+                print(member_token)
+            ```
+            """
+            ...
+
+        async def aio(self, /) -> list[modal.types.MemberTokenInfo]:
+            """List Member Tokens in the specified Workspace.
+
+            If you are a Manager or an Owner of this Workspace, this method will return a list of all the
+            Member Tokens in the Workspace. Otherwise, this method will only return the Tokens you have
+            created.
+
+            Returns:
+                A list of `MemberTokenInfo` dataclasses.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            for member_token in ws.member_tokens.list():
+                print(member_token)
+            ```
+            """
+            ...
+
+    list: __list_spec
+
+    class __delete_spec(typing_extensions.Protocol):
+        def __call__(self, /, token_id: str, *, allow_missing: bool = False) -> None:
+            """Delete a Member Token in the specified Workspace.
+
+            If you are a Workspace Manager or Owner, you can use this method to delete any Token in the
+            Workspace. Otherwise, you can only delete Member Tokens that you have created.
+
+            Args:
+                token_id: The ID of the Member Token you would like to delete.
+                allow_missing: If `True`, do not throw an exception if the Member Token does not exist.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            ws.member_tokens.delete(token_id="ak-0123456789abcdefghijkl")
+            ```
+            """
+            ...
+
+        async def aio(self, /, token_id: str, *, allow_missing: bool = False) -> None:
+            """Delete a Member Token in the specified Workspace.
+
+            If you are a Workspace Manager or Owner, you can use this method to delete any Token in the
+            Workspace. Otherwise, you can only delete Member Tokens that you have created.
+
+            Args:
+                token_id: The ID of the Member Token you would like to delete.
+                allow_missing: If `True`, do not throw an exception if the Member Token does not exist.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            ws.member_tokens.delete(token_id="ak-0123456789abcdefghijkl")
             ```
             """
             ...

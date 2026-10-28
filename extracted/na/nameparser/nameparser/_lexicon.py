@@ -25,7 +25,10 @@ _VOCAB_FIELDS = (
     "titles", "given_name_titles", "suffix_acronyms", "suffix_words",
     "suffix_acronyms_ambiguous", "particles", "particles_ambiguous",
     "conjunctions", "conjunctions_ambiguous", "bound_given_names",
+    "given_name_abbreviations",
     "maiden_markers", "surnames", "honorific_tails", "after_given_titles",
+    "suffix_words_ambiguous", "agnomens", "titles_ambiguous",
+    "title_modifiers", "title_styles", "title_phrases",
 )
 
 #: (marker, base, why) triples. Each marker QUALIFIES how entries of
@@ -68,6 +71,14 @@ _VOCAB_FIELDS = (
 #: decides nothing, and AGENTS.md's invariants rule guards harm, not
 #: no-ops. after_given_titles -- the same: classify tags a word from it
 #: only where the word is in titles too, so an orphan is never read.
+#: agnomens -- the same: classify reads it only for a word already in
+#: suffix_words_ambiguous, so an orphan decides nothing.
+#: title_modifiers, title_styles and title_phrases -- the same: the
+#: title phrase test (rules/H9) reads them only for words that are
+#: titles, so an orphan decides nothing. titles_ambiguous is no subset
+#: at all: its words are titles only inside a phrase, so a caller lists
+#: one there without listing it in titles, and one in both is a title
+#: everywhere.
 _SUBSET_FIELDS = (
     ("particles_ambiguous", "particles",
      "an orphan emits a spurious particle-or-given ambiguity"),
@@ -75,6 +86,8 @@ _SUBSET_FIELDS = (
      "an orphan silently becomes a period-gated suffix"),
     ("honorific_tails", "suffix_words",
      "an orphan splits the name and leaves the tail inside it"),
+    ("suffix_words_ambiguous", "suffix_words",
+     "an orphan silently becomes a suffix gated by the count"),
 )
 
 
@@ -98,7 +111,7 @@ _SUBSET_FIELDS = (
 #: by a genuine multi-token lookahead instead --
 #: _pipeline._vocab.maiden_marker_run, longest first -- and only the
 #: STORAGE rule is shared with titles.
-_PHRASE_FIELDS = ("given_name_titles", "maiden_markers")
+_PHRASE_FIELDS = ("given_name_titles", "maiden_markers", "title_phrases")
 
 
 #: Every character the parser reads as a full stop at a WORD'S EDGE
@@ -567,12 +580,14 @@ class Lexicon:
     Entries are normalized at construction -- lowercased, NFC-composed,
     edge full stops stripped -- so matching is case-insensitive.
     Vocabulary entries are single words -- a multi-word entry warns at
-    construction and can never match. Two fields are exempt, and they
+    construction and can never match. Three fields are exempt, and they
     differ in HOW they match: ``given_name_titles`` is looked up
     against the run of words the parse has ALREADY read as titles --
-    the whole run space-joined, or that run's last word -- while
+    the whole run space-joined, or that run's last word --
     ``maiden_markers`` is matched by lookahead, longest first, over
-    words that need not be markers on their own (``"z domu"``).
+    words that need not be markers on their own (``"z domu"``), and
+    ``title_phrases`` holds two-word phrases, stored space-joined and
+    matched against two adjacent title words (``"chief justice"``).
     Field docs below show examples, not full
     contents; inspect any field's shipped vocabulary directly, e.g.
     ``Lexicon.default().conjunctions``."""
@@ -581,7 +596,7 @@ class Lexicon:
     #: list: :data:`~nameparser.config.titles.TITLES`.
     titles: frozenset[str] = frozenset()
     #: Titles whose single name word, before or after them, reads as a
-    #: GIVEN name ("sheikh", "sister", ...) rather than a family name. Full
+    #: GIVEN name ("sir", "sister", ...) rather than a family name. Full
     #: default list: :data:`~nameparser.config.titles.GIVEN_NAME_TITLES`.
     given_name_titles: frozenset[str] = frozenset()
     #: Post-nominal acronym suffixes, matched with or without periods
@@ -656,6 +671,17 @@ class Lexicon:
     #: Full default list:
     #: :data:`~nameparser.config.bound_given_names.BOUND_GIVEN_NAMES`.
     bound_given_names: frozenset[str] = frozenset()
+    #: Given names written short ("chas" for Charles, "wm" for William,
+    #: Filipino "ma" for María). Period-marked and opening the part of
+    #: the name that carries the given name, an entry reads as that
+    #: given name, where an unlisted abbreviation there reads as a
+    #: title by its shape (rules/H2): "Chas. Smith" reads given
+    #: "Chas.", "Xyz. Smith" title "Xyz.". An entry also in ``titles``
+    #: is a title there, which is what listing it as one asks; anywhere
+    #: else an entry is read as it would be unlisted. Full default
+    #: list:
+    #: :data:`~nameparser.config.given_names.GIVEN_NAME_ABBREVIATIONS`.
+    given_name_abbreviations: frozenset[str] = frozenset()
     #: Marker words introducing a birth surname, routed to the maiden
     #: field ("née", "geb.", "rozená", ...). An entry may be a PHRASE
     #: ("z domu"): entries are matched by lookahead, longest first, so
@@ -693,12 +719,70 @@ class Lexicon:
     #: Salutations that read as a title where one ENDS the given part
     #: after a family comma, written bare: "Doe, Jane Mrs" reads title
     #: "Mrs" where an office or rank word there stays a middle name
-    #: ("Doe, John King"), rules/H8. A period-marked title word reads as
+    #: ("Doe, John Pope"), rules/H8. A period-marked title word reads as
     #: a title there whether listed here or not (rules/H5). Entries need
     #: not also be in ``titles``; one that is not is never consulted.
     #: Full default list:
     #: :data:`~nameparser.config.titles.AFTER_GIVEN_TITLES`.
     after_given_titles: frozenset[str] = frozenset()
+    #: Subset of suffix_words that are also borne as names ("fils",
+    #: "neto"). Read as a suffix only where the name has words to
+    #: spare, as an ambiguous acronym is: "Pedro Alves Neto" ends in a
+    #: suffix, "Ana Neto" keeps her family name, and either reading is
+    #: reported (rules/S11). Written in Title case in a name of mixed
+    #: case it leans to the name even with words to spare, and in lower
+    #: case it is the suffix after a comma that names the family,
+    #: unless it is also in ``agnomens``. Full default list:
+    #: :data:`~nameparser.config.suffixes.SUFFIX_WORDS_AMBIGUOUS`.
+    suffix_words_ambiguous: frozenset[str] = frozenset()
+    #: Subset of suffix_words_ambiguous whose writing says nothing:
+    #: an agnomen ("filho", "neto") is written in the case of the name
+    #: around it, so only the words to spare decide (rules/S11). An
+    #: entry outside suffix_words_ambiguous is never consulted. Full
+    #: default list: :data:`~nameparser.config.suffixes.AGNOMENS`.
+    agnomens: frozenset[str] = frozenset()
+    #: Titles that may also be a given name ("dean", "justice",
+    #: "major"), each read as a title only inside a title phrase: after a
+    #: modifier, a style, or a title it stands in ``title_phrases``
+    #: behind; or before "of" or a title it stands in ``title_phrases``
+    #: in front of. Elsewhere it is a name word, and where it opens the
+    #: name the parse reports ``title-or-name`` if a phrase of
+    #: ``title_phrases`` the parse can read holds it (rules/H9), so "Grace Smith", which no
+    #: phrase holds, reports nothing, and emptying ``title_phrases``
+    #: silences the report: "Dean Smith"
+    #: and "Mr Major Smith" read given "Dean" and "Major", "Dean of
+    #: Students Smith" and "Major General Smith" a title. An entry also
+    #: in ``titles`` is a title wherever it stands, which is what listing
+    #: it there asks, so the default lists these words here alone. Full
+    #: default list:
+    #: :data:`~nameparser.config.titles.TITLES_AMBIGUOUS`.
+    titles_ambiguous: frozenset[str] = frozenset()
+    #: Titles that only qualify a head title ("vice", "wing", "grand").
+    #: At the head of the name one is a title only with a head title
+    #: behind it in its run of titles, so "Wing Commander Lau" keeps the
+    #: title where "Wing Lau" reads "Wing" as the given name; after a
+    #: comma it is read as any title is (rules/H9), save one also in
+    #: ``titles_ambiguous``, which is read everywhere as at the head. One
+    #: standing before a word of ``titles_ambiguous`` puts that word in
+    #: a title phrase. Entries in neither ``titles`` nor
+    #: ``titles_ambiguous`` are never consulted. Full default
+    #: list: :data:`~nameparser.config.titles.TITLE_MODIFIERS`.
+    title_modifiers: frozenset[str] = frozenset()
+    #: Honorific styles ("hon", "excellency", "highness"): one standing
+    #: before a word of ``titles_ambiguous`` puts that word in a title
+    #: phrase, as in "The Hon. Justice Smith" (rules/H9). Entries in
+    #: neither ``titles`` nor ``titles_ambiguous`` are never consulted.
+    #: Full default list:
+    #: :data:`~nameparser.config.titles.TITLE_STYLES`.
+    title_styles: frozenset[str] = frozenset()
+    #: Two-word title phrases, a title and the title it qualifies
+    #: ("chief justice", "major general"), stored space-joined: a word
+    #: of ``titles_ambiguous`` on either side of one is in a title
+    #: phrase (rules/H9). A phrase is consulted only if it is two
+    #: words, each in ``titles`` or ``titles_ambiguous``. Full default
+    #: list:
+    #: :data:`~nameparser.config.titles.TITLE_PHRASES`.
+    title_phrases: frozenset[str] = frozenset()
     #: Lowercase word -> case mask used by capitalized(): the word's
     #: own letters and digits, each in the case it takes ("phd" ->
     #: "PhD"), laid over the word as written, so the one entry
@@ -773,6 +857,22 @@ class Lexicon:
                 f"period gate suffix_acronyms_ambiguous exists to impose"
             )
 
+        # the mirror of the check above: suffix_as_written ORs the
+        # unambiguous acronym branch too, so a gated suffix word listed
+        # there is claimed as a suffix with no count ('Ana Neto' would
+        # lose her family name, rules/S11)
+        word_gate_bypassed = self.suffix_words_ambiguous & (
+            self.suffix_acronyms - self.suffix_acronyms_ambiguous)
+        if word_gate_bypassed:
+            raise ValueError(
+                f"an ambiguous suffix word must not also be an unambiguous "
+                f"suffix acronym; in both: "
+                f"{', '.join(sorted(word_gate_bypassed))}. The acronym "
+                f"branch matches it outright, which bypasses the count "
+                f"suffix_words_ambiguous exists to impose; drop it from "
+                f"suffix_acronyms or from suffix_words_ambiguous"
+            )
+
     # -- constructors ----------------------------------------------------
 
     @classmethod
@@ -828,7 +928,10 @@ class Lexicon:
         # Lexicon field layout (version skew) -- silently loading it
         # would defer the failure to some distant attribute read.
         # Message kept in sync with _types._guarded_setstate by design
-        # (layering keeps this module import-free of _types).
+        # (layering keeps this module import-free of _types). Unlike
+        # that guard it admits no field added later (`ADDED_IN`, 2.7):
+        # every Lexicon field is still required, so a release adding one
+        # breaks older Lexicon pickles until this learns the marker.
         expected = {f.name for f in dataclasses.fields(Lexicon)} - {"_cap_map"}
         if set(state) != expected:
             missing = ", ".join(sorted(expected - set(state))) or "none"
@@ -945,18 +1048,20 @@ class Lexicon:
 def _default_lexicon() -> Lexicon:
     # v1 data modules are the single source of vocabulary through 2.x.
     from nameparser.config.bound_given_names import BOUND_GIVEN_NAMES
+    from nameparser.config.given_names import GIVEN_NAME_ABBREVIATIONS
     from nameparser.config.capitalization import CAPITALIZATION_EXCEPTIONS
     from nameparser.config.conjunctions import (
         CONJUNCTIONS, CONJUNCTIONS_AMBIGUOUS)
     from nameparser.config.maiden_markers import MAIDEN_MARKERS
     from nameparser.config.particles import NON_GIVEN_NAME_PARTICLES, PARTICLES
     from nameparser.config.suffixes import (
-        GLUED_HONORIFICS, SUFFIX_ACRONYMS, SUFFIX_ACRONYMS_AMBIGUOUS,
-        SUFFIX_WORDS,
+        AGNOMENS, GLUED_HONORIFICS, SUFFIX_ACRONYMS, SUFFIX_ACRONYMS_AMBIGUOUS,
+        SUFFIX_WORDS, SUFFIX_WORDS_AMBIGUOUS,
     )
     from nameparser.config.surnames import KOREAN_SURNAMES
     from nameparser.config.titles import (
-        AFTER_GIVEN_TITLES, GIVEN_NAME_TITLES, TITLES)
+        AFTER_GIVEN_TITLES, GIVEN_NAME_TITLES, TITLE_MODIFIERS, TITLE_PHRASES,
+        TITLE_STYLES, TITLES, TITLES_AMBIGUOUS)
 
     # every vocabulary constant is a frozenset since #293, so each one
     # feeds its strictly-typed frozenset[str] field as it stands -- and
@@ -981,10 +1086,17 @@ def _default_lexicon() -> Lexicon:
         conjunctions=CONJUNCTIONS,
         conjunctions_ambiguous=CONJUNCTIONS_AMBIGUOUS,
         bound_given_names=BOUND_GIVEN_NAMES,
+        given_name_abbreviations=GIVEN_NAME_ABBREVIATIONS,
         maiden_markers=MAIDEN_MARKERS,
         surnames=KOREAN_SURNAMES,
         honorific_tails=GLUED_HONORIFICS,
         after_given_titles=AFTER_GIVEN_TITLES,
+        suffix_words_ambiguous=SUFFIX_WORDS_AMBIGUOUS,
+        agnomens=AGNOMENS,
+        titles_ambiguous=TITLES_AMBIGUOUS,
+        title_modifiers=TITLE_MODIFIERS,
+        title_styles=TITLE_STYLES,
+        title_phrases=TITLE_PHRASES,
         # pass canonical pair-tuples so this strictly-typed call site never
         # feeds a Mapping to the tuple-annotated field; __post_init__
         # still tolerates a Mapping at runtime for interactive use

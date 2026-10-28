@@ -24,6 +24,7 @@ from schemathesis.specs.openapi.converter import to_json_schema
 from schemathesis.specs.openapi.coverage import _schema
 from schemathesis.specs.openapi.coverage._schema import (
     MAX_DRAWN_ARRAY_ITEMS,
+    OVERSIZED_STRING_LENGTH,
     CoverageContext,
     CoverageScenario,
     GeneratedValue,
@@ -36,6 +37,7 @@ from schemathesis.specs.openapi.coverage._schema import (
 from test.coverage.helpers import scenario_values
 from test.utils import to_float32
 
+OVERSIZED = "a" * OVERSIZED_STRING_LENGTH
 UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
 PATTERN = "^\\d+$"
@@ -108,8 +110,8 @@ def assert_covers_negative(ctx: CoverageContext, schema: dict, expected: list):
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        (True, [None, True, False, "", 0, [None, None], {}]),
-        ({}, [None, True, False, "", 0, [None, None], {}]),
+        (True, [None, True, False, "", 0, 2**63, [None, None], {}]),
+        ({}, [None, True, False, "", 0, 2**63, [None, None], {}]),
         (False, []),
         ({"type": "null"}, [None]),
         ({"type": "boolean"}, [True, False]),
@@ -132,7 +134,7 @@ class AnyString:
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        (False, [None, True, False, "", 0, [None, None], {}]),
+        (False, [None, True, False, "", 0, 2**63, [None, None], {}]),
         (True, []),
         ({}, []),
         ({"type": "null"}, [0, 0.5, "true", "AAA"]),
@@ -159,7 +161,7 @@ class AnyString:
         ({"minimum": 5, "exclusiveMinimum": True}, [5]),
         ({"maximum": 10, "exclusiveMaximum": True}, [10]),
         ({"required": ["a"]}, [{}]),
-        ({"not": {}}, [None, True, False, "", 0, [None, None], {}]),
+        ({"not": {}}, [None, True, False, "", 0, 2**63, [None, None], {}]),
         ({"not": {"type": "null"}}, [None]),
     ],
 )
@@ -214,13 +216,10 @@ def test_dicts_always_invalid_as_path_parameters(value):
     ids=["query", "header", "body"],
 )
 def test_negative_type_string_for_integer_is_non_empty(ctx_factory, location):
-    # `_negative_type` draws `st.text()` for the string-type negative on a non-string
-    # parameter; Hypothesis shrinks to "" and `_is_not_numeric_string` passes it through.
-    # `?param=` / empty header / empty body collapse to absent on the wire, so the
-    # negative can't demonstrate a type violation against the declared `integer` type.
+    # A blank value may read as absent, so the string-type negative must carry text of its own.
     ctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], location=location)
     values = cover_schema(ctx, {"type": "integer", "format": "int32"})
-    assert "" not in values, f"{location}: empty string emitted as string-type negative; got {values!r}"
+    assert "AAA" in values, f"{location}: no non-empty string-type negative; got {values!r}"
 
 
 @pytest.mark.parametrize("location", [ParameterLocation.QUERY, ParameterLocation.BODY], ids=["query", "body"])
@@ -398,22 +397,22 @@ def test_negative_maxlength_above_buffer(nctx, max_length):
 @pytest.mark.parametrize(
     ("schema", "values", "with_multiple_of"),
     [
-        ({"type": "integer"}, [0], [0]),
-        ({"type": "integer", "example": 2}, [2], [2]),
-        ({"type": "integer", "example": 2, "default": 2}, [2], [2]),
-        ({"type": "integer", "example": 2, "default": 4}, [2, 4], [2, 4]),
-        ({"type": "integer", "default": 2}, [2], [2]),
+        ({"type": "integer"}, [0, 2**63], [0, 2**63]),
+        ({"type": "integer", "example": 2}, [2, 2**63], [2, 2**63]),
+        ({"type": "integer", "example": 2, "default": 2}, [2, 2**63], [2, 2**63]),
+        ({"type": "integer", "example": 2, "default": 4}, [2, 4, 2**63], [2, 4, 2**63]),
+        ({"type": "integer", "default": 2}, [2, 2**63], [2, 2**63]),
         # `default: 0` / `example: 0` are valid spec hints; falsy must not skip them.
-        ({"type": "integer", "default": 0}, [0], [0]),
-        ({"type": "integer", "example": 0}, [0], [0]),
+        ({"type": "integer", "default": 0}, [0, 2**63], [0, 2**63]),
+        ({"type": "integer", "example": 0}, [0, 2**63], [0, 2**63]),
         # Falsy `default` alongside truthy `examples`: both must be emitted.
-        ({"type": "integer", "default": 0, "examples": [1]}, [1, 0], [0]),
-        ({"type": "integer", "examples": [42, 44]}, [42, 44], [42, 44]),
+        ({"type": "integer", "default": 0, "examples": [1]}, [1, 0, 2**63], [0, 2**63]),
+        ({"type": "integer", "examples": [42, 44]}, [42, 44, 2**63], [42, 44, 2**63]),
         # A `default` equal to `example` stays deduplicated when `examples` are also declared.
-        ({"type": "number", "example": 1, "examples": [2], "default": 1.0}, [1, 2], [2]),
-        ({"type": "number"}, [0], [0]),
-        ({"type": "integer", "minimum": 5}, [5, 6], [6, 8]),
-        ({"type": "number", "minimum": 5.5}, [5.5, 6.5], [6, 8]),
+        ({"type": "number", "example": 1, "examples": [2], "default": 1.0}, [1, 2, 2**63], [2, 2**63]),
+        ({"type": "number"}, [0, 2**63], [0, 2**63]),
+        ({"type": "integer", "minimum": 5}, [5, 6, 2**63], [6, 8, 2**63]),
+        ({"type": "number", "minimum": 5.5}, [5.5, 6.5, 2**63], [6, 8, 2**63]),
         ({"type": "integer", "maximum": 10}, [10, 9], [10, 8]),
         ({"type": "number", "maximum": 11.5}, [11.5, 10.5], [10, 8]),
         ({"type": "integer", "minimum": 5, "maximum": 10}, [5, 6, 10, 9], [6, 8, 10]),
@@ -434,7 +433,7 @@ def test_negative_maxlength_above_buffer(nctx, max_length):
             [nextafter(0.0, inf), nextafter(1.0, -inf)],
             [],
         ),
-        ({"type": "integer", "exclusiveMinimum": 5}, [6, 7], [6, 8]),
+        ({"type": "integer", "exclusiveMinimum": 5}, [6, 7, 2**63], [6, 8, 2**63]),
         ({"type": "integer", "exclusiveMaximum": 10}, [9, 8], [8, 6]),
         ({"type": "integer", "exclusiveMinimum": 5, "exclusiveMaximum": 10}, [6, 7, 9, 8], [6, 8]),
     ],
@@ -472,6 +471,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 {"foo": ANY},
                 {"foo": ANY},
                 {"foo": ANY},
+                {"foo": 2**63},
                 {"foo": ANY},
                 {"foo": ANY},
             ],
@@ -488,6 +488,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 {"foo": ANY},
                 {"foo": ANY},
                 {"foo": ANY},
+                {"foo": 2**63},
                 {"foo": ANY},
                 {"foo": ANY},
             ],
@@ -500,6 +501,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             },
             [
                 {"foo": 42},
+                {"foo": 2**63},
             ],
         ),
         (
@@ -510,6 +512,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             },
             [
                 {"foo": 42},
+                {"foo": 2**63},
             ],
         ),
         # Nested object declared with just `properties` (no `type: object`):
@@ -536,6 +539,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             },
             [
                 {"foo": 42},
+                {"foo": 2**63},
             ],
         ),
         (
@@ -547,6 +551,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             [
                 {"foo": 42},
                 {"foo": 43},
+                {"foo": 2**63},
             ],
         ),
         (
@@ -637,6 +642,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             [
                 {"bar": "", "foo": 0},
                 {"foo": 0},
+                {"foo": 2**63, "bar": ""},
             ],
         ),
         (
@@ -653,6 +659,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             [
                 {"foo-1": {"foo-2": 0}},
                 {"foo-1": {}},
+                {"foo-1": {"foo-2": 2**63}},
             ],
         ),
         (
@@ -677,6 +684,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 {"foo-1": {"foo-2": {"foo-3": 0}}},
                 {"foo-1": {}},
                 {"foo-1": {"foo-2": {}}},
+                {"foo-1": {"foo-2": {"foo-3": 2**63}}},
             ],
         ),
         (
@@ -692,6 +700,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 {"foo-1": 2, "foo-2": "00"},
                 {"foo-1": 2},
                 {"foo-1": 3, "foo-2": "00"},
+                {"foo-1": 2**63, "foo-2": "00"},
                 {"foo-1": 2, "foo-2": "000"},
             ],
         ),
@@ -709,6 +718,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             [
                 {"req1": "", "req2": 0, "opt1": ""},
                 {"req1": "", "req2": 0},
+                {"req1": "", "req2": 2**63, "opt1": ""},
             ],
         ),
         # 6 properties, 2 required
@@ -734,6 +744,8 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 {"req1": "", "req2": 0, "opt1": "", "opt2": 0.0},
                 {"req1": "", "req2": 0, "opt1": "", "opt2": 0.0, "opt3": [None, None]},
                 {"req1": "", "req2": 0},
+                {"req1": "", "req2": 2**63, "opt1": "", "opt2": 0, "opt3": [None, None], "opt4": False},
+                {"req1": "", "req2": 0, "opt1": "", "opt2": 2**63, "opt3": [None, None], "opt4": False},
                 {"opt1": "", "opt2": 0.0, "opt3": [None, None], "opt4": True, "req1": "", "req2": 0},
             ],
         ),
@@ -758,6 +770,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 {"req1": "", "opt1": {"nested_req": 0, "nested_opt": False}},
                 {"req1": ""},
                 {"req1": "", "opt1": {"nested_req": 0}},
+                {"req1": "", "opt1": {"nested_req": 2**63, "nested_opt": False}},
                 {"req1": "", "opt1": {"nested_req": 0, "nested_opt": True}},
             ],
         ),
@@ -778,6 +791,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 {"opt3": False},
                 {"opt1": "", "opt2": 0},
                 {},
+                {"opt1": "", "opt2": 2**63, "opt3": False},
                 {"opt1": "", "opt2": 0, "opt3": True},
             ],
         ),
@@ -788,6 +802,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 [],
                 [0, 0, 0, 0, 0],
                 [0, 0, 0, 0],
+                [2**63],
             ],
         ),
         # Multi-branch items must be exercised individually; boundary-size arrays
@@ -837,6 +852,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             [
                 [1, 2, 3],
                 [0],
+                [2**63],
             ],
         ),
         (
@@ -844,6 +860,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             [
                 [1, 2, 3],
                 [0],
+                [2**63],
             ],
         ),
         (
@@ -852,6 +869,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 [1, 2, 3],
                 [4, 5, 6],
                 [0],
+                [2**63],
             ],
         ),
         (
@@ -859,6 +877,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             [
                 [1, 2, 3],
                 [0],
+                [2**63],
             ],
         ),
         (
@@ -867,6 +886,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 [1, 2, 3],
                 [4, 5, 6],
                 [0],
+                [2**63],
             ],
         ),
         (
@@ -900,6 +920,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                 [{"foo": 5}],
                 [{"foo": 5}, {"foo": 5}],
                 [{"foo": 6}],
+                [{"foo": 2**63}],
             ],
         ),
         (
@@ -912,11 +933,11 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
             ],
         ),
         # Single anyOf subschema
-        ({"anyOf": [{"type": "integer"}]}, [0]),
+        ({"anyOf": [{"type": "integer"}]}, [0, 2**63]),
         ({"anyOf": [{"type": "boolean"}]}, [True, False]),
         # Multiple anyOf subschemas
-        ({"anyOf": [{"type": "integer", "minimum": 2}, {"type": "boolean"}]}, [2, 3, True, False]),
-        ({"anyOf": [{"type": "integer"}, {"type": "string"}]}, [0, ""]),
+        ({"anyOf": [{"type": "integer", "minimum": 2}, {"type": "boolean"}]}, [2, 3, 2**63, True, False]),
+        ({"anyOf": [{"type": "integer"}, {"type": "string"}]}, [0, 2**63, ""]),
         ({"anyOf": [{"type": "boolean"}, {"type": "string"}]}, [True, False, ""]),
         # Nested anyOf
         (
@@ -931,7 +952,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                     },
                 ]
             },
-            [2, 3, True, False, ""],
+            [2, 3, 2**63, True, False, ""],
         ),
         (
             {
@@ -946,7 +967,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                     },
                 ]
             },
-            [2, 3, True, False, "", None],
+            [2, 3, 2**63, True, False, "", None],
         ),
         # anyOf with other keywords
         (
@@ -956,10 +977,10 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                     {"type": "integer", "maximum": 10},
                 ]
             },
-            [5, 6, 10, 9],
+            [5, 6, 2**63, 10, 9],
         ),
         # Single allOf subschema
-        ({"allOf": [{"type": "integer"}]}, [0]),
+        ({"allOf": [{"type": "integer"}]}, [0, 2**63]),
         ({"allOf": [{"type": "boolean"}]}, [True, False]),
         # Multiple allOf subschemas
         (
@@ -969,7 +990,7 @@ def test_positive_number(ctx_factory, schema, multiple_of, values, with_multiple
                     {"minimum": 5},
                 ]
             },
-            [5, 6],
+            [5, 6, 2**63],
         ),
         (
             {
@@ -1537,7 +1558,11 @@ def test_type_violations_break_the_schema_once_stringified(nctx, schema):
         (ParameterLocation.QUERY, {"type": "string", "pattern": "[0-9]"}, ["true", "null", ["null", "null"]]),
         (ParameterLocation.QUERY, {"type": "string", "minLength": 5}, [0, 0.5, "true", "null", ["null", "null"]]),
         (ParameterLocation.QUERY, {"type": "string", "enum": ["alpha"]}, [0, 0.5, "true", "null", ["null", "null"]]),
-        (ParameterLocation.QUERY, {"type": "integer", "minimum": 5}, [0.5, "true", "null", "AAA", ["null", "null"]]),
+        (
+            ParameterLocation.QUERY,
+            {"type": "integer", "minimum": 5},
+            [0.5, "true", "null", "AAA", ["null", "null"], ""],
+        ),
         (ParameterLocation.QUERY, {"type": "boolean"}, [2, 0.5, "null", "AAA", ["null", "null"]]),
         (ParameterLocation.PATH, {"type": "string", "pattern": "[0-9]"}, ["true", "null", "null,null"]),
         (ParameterLocation.HEADER, {"type": "string", "pattern": "[0-9]"}, [True, None, [None, None], {}]),
@@ -1735,7 +1760,7 @@ def test_unsupported_patterns(nctx, pattern):
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        ({"type": "integer", "format": "int32"}, [0]),
+        ({"type": "integer", "format": "int32"}, [0, 2**63]),
         ({"type": "string", "format": "unknown"}, [""]),
     ],
 )
@@ -2169,7 +2194,7 @@ def test_large_arrays_nested(nctx):
                 "properties": {"id": {"$ref": "#/$defs/UserId"}},
                 "required": ["id"],
             },
-            [{"id": 1}, {"id": 2}],
+            [{"id": 1}, {"id": 2}, {"id": 2**63}],
         ),
         # $ref in array items
         (
@@ -2203,7 +2228,7 @@ def test_large_arrays_nested(nctx):
                     {"$ref": "#/$defs/NegativeInt"},
                 ],
             },
-            [1, 2, -1, -2],
+            [1, 2, 2**63, -1, -2],
         ),
         # $ref to boolean schema
         (
@@ -2217,6 +2242,7 @@ def test_large_arrays_nested(nctx):
                 False,
                 "",
                 0,
+                2**63,
                 [
                     None,
                     None,
@@ -2238,7 +2264,7 @@ def test_positive_bundled_schema_refs(pctx, schema, expected):
         # Basic $ref negative case
         (
             {"$defs": {"PositiveInt": {"type": "integer", "minimum": 1}}, "$ref": "#/$defs/PositiveInt"},
-            [0.5, "true", "null", "AAA", ["null", "null"], 0],
+            [0.5, "true", "null", "AAA", ["null", "null"], "", 0],
         ),
         # $ref in object properties - missing required property
         (
@@ -2737,7 +2763,13 @@ def test_inline_sub_with_own_properties_is_folded_with_parent(pctx):
     }
     covered = cover_schema(pctx, schema)
     assert_conform(covered, schema)
-    assert covered == [{"parent_field": "", "id": 0}, {"id": 0}, {"parent_field": ""}, {}]
+    assert covered == [
+        {"parent_field": "", "id": 0},
+        {"id": 0},
+        {"parent_field": ""},
+        {},
+        {"parent_field": "", "id": 2**63},
+    ]
 
 
 def test_with_effective_required_break_when_no_extra_fields(pctx):
@@ -2795,7 +2827,9 @@ def test_no_property_nesting_with_ref_oneof(ctx_factory):
     # Each oneOf branch generates its own type; no config key inside config values
     assert covered == [
         {"config": {"value": 0}},
+        {"config": {"value": 2**63}},
         {"config": {"name": ""}},
+        {"config": {"name": OVERSIZED}},
     ]
 
 
@@ -2830,6 +2864,8 @@ def test_ref_with_sibling_keywords_does_not_inherit_parent_properties(ctx_factor
     assert covered == [
         {"config": {"value": 0}, "extra": ""},
         {"config": {"value": 0}},
+        {"config": {"value": 2**63}, "extra": ""},
+        {"config": {"value": 0}, "extra": OVERSIZED},
     ]
 
 
@@ -2860,7 +2896,11 @@ def test_ref_to_additive_schema_inherits_parent_properties(ctx_factory):
     assert covered == [
         {"name": "", "id": 0},
         {"name": ""},
+        {"name": OVERSIZED, "id": 0},
+        {"name": "", "id": 2**63},
         {"name": "", "id": 0},
+        {"name": OVERSIZED, "id": 0},
+        {"name": "", "id": 2**63},
     ]
 
 
@@ -2903,7 +2943,13 @@ def test_oneof_branch_honors_sibling_items(ctx_factory):
     }
     covered = cover_schema(pctx, schema)
     assert_conform(covered, schema)
-    assert covered == [{"entrypoint": ""}, {"entrypoint": [""]}, {"entrypoint": []}]
+    assert covered == [
+        {"entrypoint": ""},
+        {"entrypoint": [""]},
+        {"entrypoint": []},
+        {"entrypoint": [OVERSIZED]},
+        {"entrypoint": OVERSIZED},
+    ]
 
 
 IF_THEN_ELSE_SCHEMA = {
@@ -3079,6 +3125,40 @@ def test_get_properties_preserves_required_outside_properties(pctx):
     assert all("name" in n for n in nested_objects), f"required key dropped: {nested_objects}"
 
 
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        ({"type": "integer"}, [2**63]),
+        ({"type": "number"}, [2**63]),
+        ({"type": "integer", "minimum": 5}, [2**63]),
+        ({"type": "integer", "exclusiveMinimum": 5}, [2**63]),
+        ({"type": "integer", "multipleOf": 10}, [2**63 + 2]),
+        ({"type": "integer", "minimum": 2**64}, []),
+        ({"type": "integer", "not": {"minimum": 2**62}}, []),
+        ({"type": "integer", "maximum": 10}, []),
+        ({"type": "integer", "exclusiveMaximum": 10}, []),
+        ({"type": "integer", "enum": [1, 2]}, []),
+        ({"type": "integer", "const": 1}, []),
+    ],
+    ids=[
+        "integer",
+        "number",
+        "minimum",
+        "exclusive-minimum",
+        "multiple-of",
+        "minimum-above-value",
+        "not",
+        "maximum",
+        "exclusive-maximum",
+        "enum",
+        "const",
+    ],
+)
+def test_large_number_for_unbounded_numbers(ctx_factory, schema, expected):
+    ctx = ctx_factory(generation_modes=[GenerationMode.POSITIVE], validator_cls=jsonschema_rs.Draft7Validator)
+    assert scenario_values(ctx, schema, CoverageScenario.LARGE_NUMBER) == expected
+
+
 def test_positive_number_boundary_respects_sibling_not(pctx):
     schema = {"type": "integer", "minimum": 1, "maximum": 65535, "not": {"minimum": 65534, "maximum": 65534}}
     covered = cover_schema(pctx, schema)
@@ -3157,7 +3237,7 @@ def test_negative_numeric_boundary_steps_past_large_float_bounds(nctx, schema):
 def test_positive_integer_past_exclusive_float_bound_steps_in_integer_arithmetic(ctx_factory):
     schema = {"type": "integer", "exclusiveMinimum": 9996036847180748.0}
     ctx = ctx_factory(validator_cls=jsonschema_rs.Draft202012Validator, generation_modes=[GenerationMode.POSITIVE])
-    assert cover_schema(ctx, schema) == [9996036847180749, 9996036847180750]
+    assert cover_schema(ctx, schema) == [9996036847180749, 9996036847180750, 2**63]
 
 
 # Bundled names restart per operation, so the same `$ref` names different targets in different operations.
@@ -3558,7 +3638,7 @@ def test_negative_pattern_with_quantifier_past_the_buffer(nctx, schema):
 # Past 2**53 the next multiple may have no float spelling; as an integer it is exact.
 def test_positive_number_multiples_past_float_precision_are_exact(pctx):
     schema = {"type": "number", "multipleOf": 3, "minimum": 9996036847180748.0}
-    assert cover_schema(pctx, schema) == [9996036847180749, 9996036847180752]
+    assert cover_schema(pctx, schema) == [9996036847180749, 9996036847180752, 2**63 + 1]
 
 
 def test_negative_boundary_past_the_largest_float_is_skipped(nctx):
@@ -3805,6 +3885,27 @@ def test_negative_format_around_a_conditional_the_engine_cannot_follow(ctx_facto
     ctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], validator_cls=jsonschema_rs.Draft202012Validator)
     scenarios = {value.scenario for value in cover_schema_iter(ctx, schema)}
     assert CoverageScenario.INVALID_FORMAT in scenarios, scenarios
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"if": {"type": "string"}, "else": {"type": "integer"}},
+        {"if": {"enum": []}, "else": {"type": "string"}},
+        {"if": {"type": "string"}, "then": {"minLength": 2}, "else": False},
+    ],
+    ids=["else-type", "else-always", "else-false"],
+)
+def test_positive_body_without_type_respects_a_conditional(ctx_factory, schema):
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    values = [generated.value for generated in cover_schema_iter(ctx, schema)]
+    assert values
+    assert [value for value in values if not validator.is_valid(value)] == []
 
 
 @pytest.mark.parametrize("hint", ["example", "default"], ids=["example", "default"])
@@ -4125,10 +4226,13 @@ REF_TARGET_BUNDLE = {"base": {"type": "object", "properties": {"name": {"type": 
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
-        ({**REF_WITH_SIBLINGS, "x-bundled": REF_TARGET_BUNDLE}, [{"name": "", "extra": 0}]),
+        (
+            {**REF_WITH_SIBLINGS, "x-bundled": REF_TARGET_BUNDLE},
+            [{"name": "", "extra": 0}, {"name": OVERSIZED, "extra": 0}, {"name": "", "extra": 2**63}],
+        ),
         (
             {"oneOf": [REF_WITH_SIBLINGS, {"type": "string"}], "x-bundled": REF_TARGET_BUNDLE},
-            [{"name": "", "extra": 0}, ""],
+            [{"name": "", "extra": 0}, {"name": OVERSIZED, "extra": 0}, {"name": "", "extra": 2**63}, "", OVERSIZED],
         ),
     ],
     ids=["bare", "inside-branch"],
@@ -4172,7 +4276,10 @@ def test_negative_multiple_of_stays_numeric_beside_pattern(ctx_factory):
     ("schema", "expected"),
     [
         ({"items": {}, "prefixItems": [False]}, [[]]),
-        ({"type": "array", "items": {"type": "integer"}, "prefixItems": [{"type": "string"}]}, [["", 0], []]),
+        (
+            {"type": "array", "items": {"type": "integer"}, "prefixItems": [{"type": "string"}]},
+            [["", 0], [], ["", 2**63]],
+        ),
     ],
     ids=["forbidden-first", "typed-first"],
 )

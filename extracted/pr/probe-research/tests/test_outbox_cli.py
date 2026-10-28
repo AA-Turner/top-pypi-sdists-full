@@ -1407,7 +1407,7 @@ def test_a_run_anchor_does_take_the_async_default(wired_async, tmp_path, monkeyp
 
 @pytest.mark.parametrize(
     "bad_ref",
-    ["", "   ", "--step", "-r", "./runs/r1", "a b", "a\tb", "a\nb"],
+    ["", "   ", "--step", "-r", "./runs/r1", "a b", "a\tb", "a\nb", "reads_phone_quad=28"],
 )
 def test_check_ref_shape_rejects_what_can_never_resolve(bad_ref):
     """The guard exists because a queued write exits 0: a typo stops being an
@@ -1415,6 +1415,21 @@ def test_check_ref_shape_rejects_what_can_never_resolve(bad_ref):
     obvious half for free -- no network, just shapes a run ref cannot have."""
     with pytest.raises(typer.BadParameter):
         _cli_main()._check_ref_shape(bad_ref)
+
+
+@pytest.mark.parametrize("verb", [["log"], ["span", "add"]])
+def test_a_missing_run_ref_fails_at_once_and_queues_nothing(
+    verb, wired_async, outbox_dir, capsys
+):
+    """Bucket, 2026-10-27: `probe log $RUN reads_phone_quad=28 ...` with $RUN
+    empty. The shell dropped it, the metric became the run ref, the write was
+    queued with exit 0 and dead-lettered as a 404 at replay. It must fail here,
+    before anything is on disk, and say the run argument is missing."""
+    extra = ["--type", "tool"] if verb == ["span", "add"] else ["master_reads_phone_quad=4"]
+    rc = cli.main(["--async", *verb, "reads_phone_quad=28", *extra])
+    assert rc != 0
+    assert "the run argument is missing" in capsys.readouterr().err
+    assert Journal(outbox_dir).pending() == []
 
 
 @pytest.mark.parametrize(

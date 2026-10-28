@@ -305,16 +305,6 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     ("GET", "/oauth/consent"): "browser consent page, never called by the SDK",
     ("GET", "/healthz"): "infra liveness probe; not a client call",
     ("GET", "/livez"): "infra liveness probe; not a client call",
-    # The device-retirement review. Deliberately dashboard-only: retiring is a
-    # judgment about machines the SERVER cannot make -- a legacy capture row has
-    # no stable identity, and two laptops can share a hostname -- so it needs a
-    # human looking at the evidence and ticking boxes. A CLI verb would either
-    # re-create that UI in a terminal or invite the "retire everything that looks
-    # old" heuristic the whole flow exists to refuse.
-    (
-        "POST",
-        "/v1/client-installations/retire",
-    ): "dashboard-only; the remove control on a credential-less client row",
     # MCP OAuth: for third-party MCP clients doing browser-based auth against the
     # hosted MCP server. `probe` is the non-agent surface and authenticates with a PAT.
     (

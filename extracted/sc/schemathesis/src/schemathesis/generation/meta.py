@@ -46,11 +46,13 @@ class CoverageScenario(StrEnum):
     MINIMUM_LENGTH_STRING = "minimum_length_string"
     MAXIMUM_LENGTH_STRING = "maximum_length_string"
     NEAR_BOUNDARY_LENGTH_STRING = "near_boundary_length_string"
+    OVERSIZED_STRING = "oversized_string"
 
     # Positive scenarios - Boundary values for numbers
     MINIMUM_VALUE = "minimum_value"
     MAXIMUM_VALUE = "maximum_value"
     NEAR_BOUNDARY_NUMBER = "near_boundary_number"
+    LARGE_NUMBER = "large_number"
 
     # Positive scenarios - Boundary values for arrays
     MAXIMUM_ITEMS_ARRAY = "maximum_items_array"

@@ -22,6 +22,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+from matrx_utils.knob_fallback import knob_or_declared_default, knob_or_declared_default_sync
+
 FEATURE = "knowledge.scraper"
 
 @dataclass(frozen=True)
@@ -82,7 +84,13 @@ def parser_knob(key: str, mirror: Any) -> Any:
             )
         return mirror
     try:
-        return _reader(key)
+        return knob_or_declared_default_sync(
+            lambda: _reader(key),
+            feature=FEATURE,
+            key=key,
+            declared_default=mirror,
+            consequence=f"The scraper uses its built-in value {mirror!r} for {key}, and an admin cannot change it.",
+        )
     except Exception as exc:  # noqa: BLE001 — announced, never a crashed parse
         # The host is bound but cannot answer (typically a process that never
         # primed its knob snapshot). Say so once per key, with the remedy, and
@@ -124,7 +132,14 @@ async def scoped_parser_knobs(
             )
         return platform
     try:
-        resolved = await _scoped_reader(list(mirrors), scope)
+        resolved = await knob_or_declared_default(
+            lambda: _scoped_reader(list(mirrors), scope),
+            feature=FEATURE,
+            declared_default=None,
+            consequence="This crawl uses platform values; the organization's and person's own scraper settings are not applied.",
+        )
+        if resolved is None:
+            return platform
     except Exception as exc:  # noqa: BLE001 — announced, never a failed crawl
         print(
             f"[matrx_scraper] scoped knob read for {FEATURE!r} failed for organization "

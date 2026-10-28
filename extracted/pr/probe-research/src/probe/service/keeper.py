@@ -442,6 +442,8 @@ def install(login: Mapping | None = None) -> str:
     until a setup allows it again (`allow`)."""
     if not wanted():
         return "not wanted"
+    if _uninstalling():
+        return "not wanted (uninstalling)"
     try:
         with _locked():
             if _off_path().exists():
@@ -472,6 +474,8 @@ def install_lifeboat(login: Mapping | None = None) -> str:
     Never raises."""
     if not wanted():
         return "not wanted"
+    if _uninstalling():
+        return "not wanted (uninstalling)"
     try:
         with _locked():
             if _off_path().exists():
@@ -500,16 +504,19 @@ def _install() -> str:
         return f"failed: {exc!r}"[:300]
 
 
-def remove() -> None:
+def remove(*, mark_off: bool = True) -> None:
     """Uninstall: the system no longer runs the keeper (nor the lifeboat, whose
     folder goes), and no service installs either again until a setup allows it. Only for this account's own
-    home (never a test's: its user manager is the real account's). Never raises."""
+    home (never a test's: its user manager is the real account's). Never raises.
+    `mark_off=False` (`probe uninstall`, whose barrier keeps them from coming
+    back while it runs): no `keeper-off` left behind for a reinstall to trip on."""
     if not _own_home():
         return
     with contextlib.suppress(Exception):
         with _locked():
-            paths.private_dir(paths.root_dir())
-            _off_path().touch()
+            if mark_off:
+                paths.private_dir(paths.root_dir())
+                _off_path().touch()
             if sys.platform == "darwin":
                 _remove_launchd()
             elif sys.platform.startswith("linux"):
@@ -695,7 +702,16 @@ def _report(down: str, seconds: float, started: str | None) -> None:
     _log(f"report service_down ({down}): {said}")
 
 
+def _uninstalling() -> bool:
+    """`probe uninstall` runs (its barrier is LIVE): the keeper does nothing."""
+    from . import client
+
+    return client.uninstall_barrier() is not None
+
+
 def main() -> int:
+    if _uninstalling():
+        return 0  # nothing to keep: Probe is being uninstalled
     if not needed():
         _settle(None)
         return 0

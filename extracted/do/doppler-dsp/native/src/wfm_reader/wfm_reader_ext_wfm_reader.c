@@ -220,7 +220,13 @@ ReaderObj_read (ReaderObject *self, PyObject *args, PyObject *kwds)
         {
           return NULL;
         }
-      size_t _cap     = (size_t)PyArray_SIZE (out_arr);
+      size_t _cap = (size_t)PyArray_SIZE (out_arr);
+      if (!self->handle)
+        {
+          Py_DECREF (out_arr);
+          PyErr_SetString (PyExc_RuntimeError, "destroyed");
+          return NULL;
+        }
       size_t _omax    = dp_wfm_reader_read_max_out (self->handle, (size_t)n);
       size_t _min_cap = _omax;
       if (_cap < _min_cap)
@@ -228,6 +234,12 @@ ReaderObj_read (ReaderObject *self, PyObject *args, PyObject *kwds)
           PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
                         _cap, _min_cap);
           Py_DECREF (out_arr);
+          return NULL;
+        }
+      if (!self->handle)
+        {
+          Py_DECREF (out_arr);
+          PyErr_SetString (PyExc_RuntimeError, "destroyed");
           return NULL;
         }
       size_t n_out = dp_wfm_reader_read (
@@ -258,6 +270,11 @@ ReaderObj_read (ReaderObject *self, PyObject *args, PyObject *kwds)
         }
       return _oview;
     }
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   size_t _need = (size_t)n;
   size_t _cap  = dp_wfm_reader_read_max_out (self->handle, (size_t)n);
   (void)_need;
@@ -276,6 +293,12 @@ ReaderObj_read (ReaderObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
   float _Complex *_d0 = (float _Complex *)PyArray_DATA ((PyArrayObject *)arr0);
+  if (!self->handle)
+    {
+      Py_DECREF (arr0);
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   size_t n_out = dp_wfm_reader_read (self->handle, (size_t)n, _d0, _cap);
   if ((size_t)(n_out) > (size_t)(_cap))
     {
@@ -351,6 +374,12 @@ ReaderObj_read_follow (ReaderObject *self, PyObject *args, PyObject *kwds)
           return NULL;
         }
       size_t _cap = (size_t)PyArray_SIZE (out_arr);
+      if (!self->handle)
+        {
+          Py_DECREF (out_arr);
+          PyErr_SetString (PyExc_RuntimeError, "destroyed");
+          return NULL;
+        }
       size_t _omax
           = dp_wfm_reader_read_follow_max_out (self->handle, (size_t)n);
       size_t _min_cap = _omax;
@@ -359,6 +388,12 @@ ReaderObj_read_follow (ReaderObject *self, PyObject *args, PyObject *kwds)
           PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
                         _cap, _min_cap);
           Py_DECREF (out_arr);
+          return NULL;
+        }
+      if (!self->handle)
+        {
+          Py_DECREF (out_arr);
+          PyErr_SetString (PyExc_RuntimeError, "destroyed");
           return NULL;
         }
       /* nogil: GIL released across the pure-C kernel. Two calls on
@@ -398,6 +433,11 @@ ReaderObj_read_follow (ReaderObject *self, PyObject *args, PyObject *kwds)
         }
       return _oview;
     }
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   size_t _need = (size_t)n;
   size_t _cap  = dp_wfm_reader_read_follow_max_out (self->handle, (size_t)n);
   (void)_need;
@@ -416,6 +456,12 @@ ReaderObj_read_follow (ReaderObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
   float _Complex *_d0 = (float _Complex *)PyArray_DATA ((PyArrayObject *)arr0);
+  if (!self->handle)
+    {
+      Py_DECREF (arr0);
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   /* nogil: GIL released across the pure-C kernel. Two calls on
    * one object may run at once only if its kernel allows it; a
    * teardown waits for a running call (gh-2272). */
@@ -464,7 +510,12 @@ ReaderObj_seek (ReaderObject *self, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "L", _kwlist, &index_raw))
     return NULL;
   int64_t index = (int64_t)index_raw;
-  int     _rc   = dp_wfm_reader_seek (self->handle, index);
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  int _rc = dp_wfm_reader_seek (self->handle, index);
   if (_rc != 0)
     {
       PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
@@ -488,6 +539,11 @@ ReaderObj_seek_time (ReaderObject *self, PyObject *args, PyObject *kwds)
   double       seconds   = 0.0;
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "d", _kwlist, &seconds))
     return NULL;
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   int _rc = dp_wfm_reader_seek_time (self->handle, seconds);
   if (_rc != 0)
     {
@@ -1196,19 +1252,22 @@ static PyGetSetDef Reader_getset[] = {
     "marker after a stop has been requested, in milliseconds; **0 (the "
     "default) waits forever**. The writer needs a moment to flush and patch "
     "its header, and expiring this budget before it does costs you the tail "
-    "-- so the default trades an unlikely hang against a certain loss. A "
-    "bounded grace that expires leaves `ending` at `\"interrupted\"`.\n",
+    "-- so the default trades an unlikely hang against a certain loss. The "
+    "hang has an escape: a second stop request (a second Ctrl+C) ends the "
+    "wait at once. A bounded grace that expires, or a second stop, leaves "
+    "`ending` at `\"interrupted\"`.\n",
     NULL },
   { "ending", (getter)Reader_getprop_ending, NULL,
     "Why the last `read_follow()` came back empty -- `\"none\"` while the "
     "capture is still live, `\"eof\"` once the writer closed and said so, "
     "`\"timeout\"` if a bounded `timeout_ms` expired, `\"interrupted\"` if a "
     "stop was requested and a bounded `grace_ms` expired before the writer's "
-    "marker arrived. With the default unbounded budgets only `\"none\"` and "
-    "`\"eof\"` are reachable, which is why an empty result needs no check in "
-    "the common case. The values are doppler's own return codes (`DP_OK`, "
-    "`DP_ERR_EOF`, `DP_ERR_TIMEOUT`, `DP_ERR_INTERRUPTED`), so a C caller "
-    "reads the same vocabulary every other transport uses.\n",
+    "marker arrived, or a second stop ended the wait. With the default "
+    "unbounded budgets and a single stop, only `\"none\"` and `\"eof\"` are "
+    "reachable, which is why an empty result needs no check in the common "
+    "case. The values are doppler's own return codes (`DP_OK`, `DP_ERR_EOF`, "
+    "`DP_ERR_TIMEOUT`, `DP_ERR_INTERRUPTED`), so a C caller reads the same "
+    "vocabulary every other transport uses.\n",
     NULL },
   { "file_type", (getter)Reader_getprop_file_type, NULL,
     "Which file type the capture turned out to be -- `\"raw\"`, `\"csv\"`, "
@@ -1485,6 +1544,7 @@ static PyMethodDef ReaderObj_methods[] = {
     "ENDED; read `ending` for which way. `timeout_ms` bounds the wait for "
     "data; `grace_ms` bounds how long to keep waiting for the writer's marker "
     "after a stop has been requested, and expiring it may cost you the tail. "
+    "A second stop (a second Ctrl+C) ends that wait at once, bounded or not. "
     "Never consumes a partial sample, so a writer flushing mid-sample cannot "
     "desynchronise the stream.\n"
     "\n"
@@ -1771,28 +1831,26 @@ static PyTypeObject ReaderObjType = {
     "    sidecar the same way.\n"
     "sample_type : Literal[\"auto\", \"cf32\", \"cf64\", \"ci32\", \"ci16\", "
     "\"ci8\", \"f32\", \"f64\", \"i32\", \"i16\", \"i8\"], default \"auto\"\n"
-    "    the wire sample type, used only as a HINT for the headerless file "
+    "    The wire sample type, used only as a HINT for the headerless file "
     "types\n"
-    "    (raw, CSV) -- BLUE and SigMF carry their own and ignore it. The "
-    "five\n"
-    "    complex names `\"cf32\"`, `\"cf64\"`, `\"ci32\"`, `\"ci16\"`, "
-    "`\"ci8\"` or the\n"
-    "    five real ones `\"f32\"`, `\"f64\"`, `\"i32\"`, `\"i16\"`, `\"i8\"` "
-    "from Python;\n"
-    "    the matching 0..9 from C. A real hint is the only way to say that a\n"
-    "    headerless file carries one component per sample rather than\n"
-    "    interleaved I/Q. `\"auto\"` (::WFM_READER_STYPE_AUTO from C) is the\n"
-    "    DEFAULT and says the caller has no opinion: a headerless capture "
-    "takes\n"
-    "    its type, byte order and rate from the `<path>.sigmf-meta` sidecar "
-    "this\n"
-    "    library's own writer leaves beside it, falling back to cf32/le when\n"
-    "    there is none. A NAMED type still wins over the sidecar, so a stale "
-    "one\n"
-    "    can be overridden. A wrong hint does not fail, and\n"
-    "    ::dp_wfm_reader_get_trailing_bytes is NOT the way to notice -- see "
-    "what\n"
-    "    it says about itself.\n"
+    "    (raw, CSV); BLUE and SigMF carry their own and ignore it. A real "
+    "type\n"
+    "    is the only way to say that a headerless file carries one component "
+    "per\n"
+    "    sample rather than interleaved I/Q. `auto`, the default, names no "
+    "type:\n"
+    "    a headerless capture takes its type, byte order and rate from the\n"
+    "    `<path>.sigmf-meta` sidecar the writer of this library leaves "
+    "beside\n"
+    "    it, falling back to cf32/le when there is none. A named type still "
+    "wins\n"
+    "    over the sidecar, so a stale one can be overridden. A wrong hint "
+    "does\n"
+    "    not fail, and `trailing_bytes` is NOT the way to notice it.\n"
+    "    One of ``\"auto\"``, ``\"cf32\"``, ``\"cf64\"``, ``\"ci32\"``, "
+    "``\"ci16\"``,\n"
+    "    ``\"ci8\"``, ``\"f32\"``, ``\"f64\"``, ``\"i32\"``, ``\"i16\"``, "
+    "``\"i8\"``.\n"
     "\n"
     "    - ``\"auto\"`` — the caller said nothing.\n"
     "    - ``\"cf32\"`` — interleaved float32 I/Q.\n"
@@ -1806,9 +1864,8 @@ static PyTypeObject ReaderObjType = {
     "    - ``\"i16\"`` — real int16.\n"
     "    - ``\"i8\"`` — real int8.\n"
     "endian : Literal[\"le\", \"be\"], default \"le\"\n"
-    "    byte order, likewise a hint that only headerless raw uses; `\"le\"` "
-    "or\n"
-    "    `\"be\"` from Python, 0 or 1 from C.\n"
+    "    Byte order, likewise a hint that only headerless raw uses.\n"
+    "    One of ``\"le\"``, ``\"be\"``.\n"
     "\n"
     "Raises\n"
     "------\n"

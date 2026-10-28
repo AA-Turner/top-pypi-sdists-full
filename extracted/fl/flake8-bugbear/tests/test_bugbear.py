@@ -62,7 +62,9 @@ def test_eval(
         if test.startswith("B012"):
             warnings.filterwarnings("ignore", category=SyntaxWarning)
         errors = [
-            e for e in bbc.run() if (test == "B950" or not e[2].startswith("B950"))
+            e
+            for e in bbc.run()
+            if (test.startswith("B950") or not e[2].startswith("B950"))
         ]
     errors.sort()
     assert errors == tuple_expected
@@ -82,7 +84,7 @@ def _parse_eval_file(test: str, content: str) -> tuple[list[error], Namespace | 
             options = eval(f"Namespace({line[10:]})")
 
         # skip commented out lines
-        if not line or (line[0] == "#" and test != "B950"):
+        if not line or (line[0] == "#" and not test.startswith("B950")):
             continue
 
         # skip lines that *don't* have a comment
@@ -100,6 +102,93 @@ def _parse_eval_file(test: str, content: str) -> tuple[list[error], Namespace | 
             error_class = error_codes[err_code]
             expected.append(error_class(lineno, col, vars=vars))
     return expected, options
+
+
+@pytest.mark.parametrize(
+    "source, expected",
+    [
+        ("for i in xs:\n    for i in ys:\n        print(i)\n    print(i)", ["i"]),
+        (
+            "for i in xs:\n    for j in ys:\n        for i in zs:\n            print(i)",
+            ["i"],
+        ),
+        ("for i, j in xs:\n    for j, i in ys:\n        print(i, j)", ["j", "i"]),
+        ("for i in xs:\n    for first, (*i,) in ys:\n        print(i)", ["i"]),
+        (
+            "for i in xs:\n    if flag:\n        for i in ys:\n            print(i)",
+            ["i"],
+        ),
+        (
+            "async def f():\n    async for i in xs:\n"
+            "        for i in ys:\n            print(i)",
+            ["i"],
+        ),
+        (
+            "async def f():\n    for i in xs:\n"
+            "        async for i in ys:\n            print(i)",
+            ["i"],
+        ),
+        (
+            "for i in xs:\n    for i in ys:\n        for i in zs:\n            print(i)",
+            ["i", "i"],
+        ),
+        ("for i in xs:\n    for j in ys:\n        print(i, j)", []),
+        ("for i in xs:\n    print(i)\nfor i in ys:\n    print(i)", []),
+        ("for _ in xs:\n    for _ in ys:\n        pass", []),
+        ("for _unused in xs:\n    for _unused in ys:\n        pass", []),
+        ("for obj in xs:\n    for obj.attr in ys:\n        pass", []),
+        ("for i in xs:\n    for values[i] in ys:\n        pass", []),
+        ("for i in xs:\n    for values[[i for i in zs][0]] in ys:\n        pass", []),
+        ("for values[[i for i in zs][0]] in xs:\n    for i in ys:\n        pass", []),
+        ("for obj.attr in xs:\n    for obj in ys:\n        pass", []),
+        ("for i in xs:\n    values = [i for i in ys]", []),
+        ("for i in xs:\n    def f():\n        for i in ys:\n            print(i)", []),
+        (
+            "for i in xs:\n    async def f():\n"
+            "        async for i in ys:\n            print(i)",
+            [],
+        ),
+        ("for i in xs:\n    class C:\n        for i in ys:\n            print(i)", []),
+        ("for i in xs:\n    print(i)\nelse:\n    for i in ys:\n        print(i)", []),
+        (
+            "for i in xs:\n    for j in ys:\n        pass\n"
+            "    else:\n        for i in zs:\n            print(i)",
+            ["i"],
+        ),
+    ],
+)
+def test_nested_loop_bindings(source, expected):
+    visitor = BugBearVisitor(filename="example.py", lines=source.splitlines())
+    visitor.visit(ast.parse(source))
+    errors = [error for error in visitor.errors if error.message.startswith("B045")]
+    assert [error.vars[0] for error in errors] == expected
+
+
+@pytest.mark.parametrize(
+    "star",
+    [
+        "",
+        pytest.param(
+            "*",
+            marks=pytest.mark.skipif(
+                sys.version_info < (3, 11), reason="except* requires 3.11"
+            ),
+        ),
+    ],
+)
+def test_b025_message(star):
+    source = (
+        f"try:\n    pass\nexcept{star} ValueError:\n    pass\n"
+        f"except{star} ValueError:\n    pass\n"
+    )
+    bbc = BugBearChecker(
+        tree=ast.parse(source), filename="example.py", lines=source.splitlines(True)
+    )
+    assert [e[2] for e in bbc.run()] == [
+        "B025 Exception `ValueError` has been caught multiple times. Only the first"
+        f" except{star} ValueError will be considered and all other except{star}"
+        " ValueError catches can be safely removed."
+    ]
 
 
 class BugbearTestCase(unittest.TestCase):
@@ -200,6 +289,31 @@ class BugbearTestCase(unittest.TestCase):
                 B950(36, 132, vars=(132, 79)),
                 B950(37, 140, vars=(140, 79)),
             ),
+        )
+
+    def test_b950_max_doc_length_unset(self):
+        # without `max-doc-length`, docstrings and comments use `max-line-length`
+        filename = EVAL_FILES_DIR / "b950_max_doc_length.py"
+
+        for mock_options in (
+            Namespace(select=["B950"]),
+            Namespace(select=["B950"], max_doc_length=None),
+        ):
+            bbc = BugBearChecker(filename=str(filename), options=mock_options)
+            self.assertEqual(
+                [e[0] for e in bbc.run() if e[2].startswith("B950")],
+                [11, 13, 16, 18, 24, 28, 31, 36, 43, 48, 51, 53],
+            )
+
+    def test_b950_max_doc_length_larger_than_max_line_length(self):
+        filename = EVAL_FILES_DIR / "b950_max_doc_length.py"
+
+        mock_options = Namespace(select=["B950"], max_doc_length=100)
+        bbc = BugBearChecker(filename=str(filename), options=mock_options)
+        # code lines over `max-line-length` + 10% (11, 18, 43) and the only doc lines
+        # over `max-doc-length` + 10% (16, 53)
+        self.assertEqual(
+            [e[0] for e in bbc.run() if e[2].startswith("B950")], [11, 16, 18, 43, 53]
         )
 
     def test_b912_suppressed_on_pre_3_14(self):

@@ -18,10 +18,10 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
 
-    # pre-commit pins its hook environments to 3.10 (default_language_version),
+    # pre-commit pins its hook environments to 3.13 (default_language_version),
     # and the linters only ever need one interpreter.
     env:
-      MISE_PYTHON_VERSION: "3.10"
+      MISE_PYTHON_VERSION: "3.13"
       # tmux only exists for the optional `mise run dev` session, which CI never starts. Disabling
       # beats limiting install_args, because `mise run` would auto-install it again.
       MISE_DISABLE_TOOLS: tmux
@@ -32,7 +32,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
         with:
           install: true
           cache: true
@@ -61,11 +61,11 @@ jobs:
       # which is why the original pre-commit job was dropped back in 2022.
       # --locked, unlike `mise run bootstrap`: a uv.lock that has drifted from
       # pyproject.toml should fail the job, not be silently re-resolved into
-      # something uv-secure then audits instead of the committed lock.
+      # something uv-audit then audits instead of the committed lock.
       - name: Install dependencies
         run: uv sync --all-extras --locked
 
-      # uv-secure audits uv.lock against the published advisories, so a new one
+      # uv-audit checks uv.lock against the published advisories, so a new one
       # can turn an unrelated pull request red. That is deliberate: it is how we
       # hear about it. Fix the lock rather than skipping the hook.
       - name: Run pre-commit
@@ -79,7 +79,7 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 
     # Job-scoped so every step resolves the same interpreter, not just the
-    # install step. Prereleases are aliased in mise.toml, so "3.15" resolves.
+    # install step.
     env:
       MISE_PYTHON_VERSION: ${{ matrix.python-version }}
       # pre-commit too, unlike the lint job: this one never runs it.
@@ -91,7 +91,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
         with:
           install: true
           cache: true
@@ -126,7 +126,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
         with:
           install: true
           cache: true
@@ -162,7 +162,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
         with:
           install: true
           cache: true
@@ -190,4 +190,4 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+      - uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1

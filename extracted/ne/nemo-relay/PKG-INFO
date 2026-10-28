@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nemo-relay
-Version: 0.10.4
+Version: 0.11.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -8,11 +8,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Rust
-Requires-Dist: nemo-relay-cli-bin==0.10.4 ; extra == 'cli'
+Requires-Dist: nemo-relay-cli-bin==0.11.0 ; extra == 'cli'
 Requires-Dist: nemo-relay[langgraph] ; extra == 'deepagents'
 Requires-Dist: cryptography>=50.0.0 ; extra == 'deepagents'
 Requires-Dist: deepagents>=0.7.4,<0.8.0 ; extra == 'deepagents'
 Requires-Dist: pyasn1>=0.6.4 ; extra == 'deepagents'
+Requires-Dist: google-adk>=2.12.0,<3.0.0 ; extra == 'google-adk'
+Requires-Dist: typing-extensions>=4.10.0 ; extra == 'google-adk'
 Requires-Dist: langchain>=1.3.15,<2.0.0 ; extra == 'langchain'
 Requires-Dist: langchain-anthropic>=1.4.8,<2.0.0 ; extra == 'langchain'
 Requires-Dist: langchain-core ; extra == 'langchain'
@@ -20,6 +22,7 @@ Requires-Dist: langgraph>=1.2.9,<2.0.0 ; extra == 'langchain'
 Requires-Dist: langgraph-checkpoint>=4.1.1 ; extra == 'langchain'
 Requires-Dist: langgraph-sdk>=0.4.4 ; extra == 'langchain'
 Requires-Dist: langsmith>=0.9.4 ; extra == 'langchain'
+Requires-Dist: pydantic>=2.11,<3 ; extra == 'langchain'
 Requires-Dist: nemo-relay[langchain] ; extra == 'langchain-nvidia'
 Requires-Dist: langchain-nvidia-ai-endpoints>=1.4.2,<2.0.0 ; extra == 'langchain-nvidia'
 Requires-Dist: aiohttp>=3.14.4 ; extra == 'langchain-nvidia'
@@ -29,6 +32,7 @@ Requires-Dist: nemo-relay[langchain] ; extra == 'langgraph'
 Requires-Dist: langgraph>=1.2.9,<2.0.0 ; extra == 'langgraph'
 Provides-Extra: cli
 Provides-Extra: deepagents
+Provides-Extra: google-adk
 Provides-Extra: langchain
 Provides-Extra: langchain-nvidia
 Provides-Extra: langgraph
@@ -161,6 +165,22 @@ uv add "nemo-relay[deepagents]"
 # With pip
 pip install "nemo-relay[deepagents]"
 ```
+
+#### Google ADK Integration
+
+[Google Agent Development Kit](https://google.github.io/adk-docs/) integration is available with the `google-adk` extra:
+
+```bash
+# With uv
+uv add "nemo-relay[google-adk]"
+
+# With pip
+pip install "nemo-relay[google-adk]"
+```
+
+Add `NemoRelayPlugin` to your ADK app to record agent runs, model calls, and
+tool calls. For setup steps and examples, follow the
+[Google ADK Integration Guide](https://docs.nvidia.com/nemo/relay/supported-integrations/google-adk).
 
 #### LangChain NVIDIA Integration
 

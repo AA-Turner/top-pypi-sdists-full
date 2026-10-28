@@ -7,6 +7,12 @@ import ormar.queryset  # noqa I100
 from ormar.exceptions import ModelPersistenceError, NoMatch
 from ormar.models import NewBaseModel  # noqa I100
 from ormar.models.model_row import ModelRow
+from ormar.queryset.templates import (
+    delete_template,
+    insert_template,
+    pk_select_template,
+    update_template,
+)
 from ormar.queryset.utils import subtract_dict, translate_list_to_dict
 
 T = TypeVar("T", bound="Model")
@@ -29,12 +35,34 @@ class Model(ModelRow):
         }
         return f"{self.__class__.__name__}({str(_repr)})"
 
-    async def _execute_query(self, expr: Executable, is_select: bool = False) -> Any:
+    async def _execute_query(
+        self,
+        expr: Executable,
+        is_select: bool = False,
+        params: Optional[dict] = None,
+    ) -> Any:
+        """
+        Run a statement of this model: fetch one row of a select, otherwise
+        execute the write and return its result (inserted primary key or
+        number of changed rows).
+
+        Single-row writes and ``load()`` pass a cached statement template
+        (see ``ormar.queryset.templates``) and its values as ``params``.
+
+        :param expr: statement to run
+        :type expr: Executable
+        :param is_select: fetch one row instead of executing a write
+        :type is_select: bool
+        :param params: values for named bind parameters of the statement
+        :type params: Optional[dict]
+        :return: fetched row, inserted primary key or row count
+        :rtype: Any
+        """
         async with self.ormar_config.database.get_query_executor() as executor:
             row = (
-                await executor.fetch_one(expr)
+                await executor.fetch_one(query=expr, params=params)
                 if is_select
-                else await executor.execute(expr)
+                else await executor.execute(query=expr, params=params)
             )
         return row
 
@@ -70,6 +98,10 @@ class Model(ModelRow):
         If the pk field is filled it's an update, otherwise the save is performed.
         For save kwargs are ignored, used only in update if provided.
 
+        When ``__force_save__`` is passed and the pk is filled, the database is
+        checked for an existing row first, so a model with a preset pk
+        (i.e. uuid default) is inserted instead of updated.
+
         :param kwargs: list of fields to update
         :type kwargs: Any
         :return: saved Model
@@ -77,15 +109,16 @@ class Model(ModelRow):
         """
 
         force_save = kwargs.pop("__force_save__", False)
-        if force_save:
-            expr = self.ormar_config.table.select().where(self.pk_column == self.pk)
-            row = await self._execute_query(expr, is_select=True)
-            if not row:
-                return await self.save()
-            return await self.update(**kwargs)
-
         if not self.pk:
             return await self.save()
+
+        if force_save:
+            template = pk_select_template(model_cls=type(self), pk=self.pk)
+            row = await self._execute_query(
+                expr=template.statement, is_select=True, params=template.params
+            )
+            if not row:
+                return await self.save()
         return await self.update(**kwargs)
 
     async def save(self: T) -> T:
@@ -120,21 +153,25 @@ class Model(ModelRow):
         ):
             self_fields.pop(self.ormar_config.pkname, None)
         self_fields = self.populate_default_values(self_fields)
+        # Values taken from ``__dict__`` are already set, re-assigning them only
+        # costs a validation and two hash recomputations per field.
+        current_values = self.__dict__
+        related_names = self.extract_related_names()
         self.update_from_dict(
             {
                 k: v
                 for k, v in self_fields.items()
-                if k not in self.extract_related_names()
+                if k not in related_names
+                and (k not in current_values or current_values[k] is not v)
             }
         )
 
         self_fields = self.translate_columns_to_aliases(self_fields)
-        expr = self.ormar_config.table.insert()
-        expr = expr.values(**self_fields)
+        template = insert_template(model_cls=type(self), values=self_fields)
 
         pkname = self.ormar_config.pkname
         pk_returned_from_insert = False
-        pk = await self._execute_query(expr)
+        pk = await self._execute_query(expr=template.statement, params=template.params)
         if pk and isinstance(pk, self.pk_type()):
             setattr(self, pkname, pk)
             pk_returned_from_insert = True
@@ -311,9 +348,12 @@ class Model(ModelRow):
             }
         if self_fields:
             self_fields = self.translate_columns_to_aliases(self_fields)
-            expr = self.ormar_config.table.update().values(**self_fields)
-            expr = expr.where(self.pk_column == getattr(self, self.ormar_config.pkname))
-            await self._execute_query(expr)
+            template = update_template(
+                model_cls=type(self),
+                values=self_fields,
+                pk=getattr(self, self.ormar_config.pkname),
+            )
+            await self._execute_query(expr=template.statement, params=template.params)
         self.set_save_status(True)
         self.__setattr_fields__.clear()
         await self._emit_signal("post_update", instance=self)
@@ -335,9 +375,12 @@ class Model(ModelRow):
         :rtype: int
         """
         await self._emit_signal("pre_delete", instance=self)
-        expr = self.ormar_config.table.delete()
-        expr = expr.where(self.pk_column == (getattr(self, self.ormar_config.pkname)))
-        result = await self._execute_query(expr)
+        template = delete_template(
+            model_cls=type(self), pk=getattr(self, self.ormar_config.pkname)
+        )
+        result = await self._execute_query(
+            expr=template.statement, params=template.params
+        )
         self.set_save_status(False)
         await self._emit_signal("post_delete", instance=self)
         return result
@@ -353,8 +396,10 @@ class Model(ModelRow):
         :return: reloaded Model
         :rtype: Model
         """
-        expr = self.ormar_config.table.select().where(self.pk_column == self.pk)
-        row = await self._execute_query(expr, is_select=True)
+        template = pk_select_template(model_cls=type(self), pk=self.pk)
+        row = await self._execute_query(
+            expr=template.statement, is_select=True, params=template.params
+        )
         if not row:  # pragma nocover
             raise NoMatch("Instance was deleted from database and cannot be refreshed")
         kwargs = dict(row)

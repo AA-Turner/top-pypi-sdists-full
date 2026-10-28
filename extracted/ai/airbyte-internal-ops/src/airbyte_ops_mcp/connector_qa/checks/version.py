@@ -9,6 +9,11 @@ import requests  # type: ignore
 import semver
 import yaml  # type: ignore
 
+from airbyte_ops_mcp.airbyte_repo.bump_version import (
+    BumpType,
+    InvalidVersionError,
+    calculate_new_version,
+)
 from airbyte_ops_mcp.airbyte_repo.list_connectors import (
     get_changed_files,
     get_file_at_merge_base,
@@ -73,6 +78,36 @@ UNRELEASED_METADATA_FIELDS = (
 RELEASED_TAG_PREFIXES = ("language:", "cdk:")
 
 
+def _next_versions(master_version: semver.Version) -> list[semver.Version] | None:
+    """Return the direct successor versions for `master_version`, if defined.
+
+    Stable versions can advance by patch, minor or major, or to the first RC of
+    one of those bumps. RC versions can advance to the next RC or be promoted.
+    Other prereleases have no successor rule.
+    """
+    if master_version.prerelease is None:
+        bump_types = (
+            BumpType.PATCH,
+            BumpType.MINOR,
+            BumpType.MAJOR,
+            BumpType.PATCH_RC,
+            BumpType.MINOR_RC,
+            BumpType.MAJOR_RC,
+        )
+    elif master_version.prerelease.startswith("rc."):
+        bump_types = (BumpType.RC, BumpType.PROMOTE)
+    else:
+        return None
+
+    try:
+        return [
+            semver.Version.parse(calculate_new_version(str(master_version), bump_type))
+            for bump_type in bump_types
+        ]
+    except InvalidVersionError:
+        return None
+
+
 def _is_production_path(relative_path: str) -> bool:
     """Whether a path, relative to the connector directory, is production code."""
     return not any(
@@ -120,6 +155,8 @@ class CheckVersionIncrement(Check):
     name = "Connector Version Increment Check"
     description = (
         "Validates that the connector version was incremented if files were modified. "
+        "The version must also be the next patch, minor or major version (or its "
+        "first RC, or the next RC/promotion of an RC) without skipping versions. "
         "Changes that touch no production code, such as tests and documentation "
         "inside the connector directory, or metadata.yaml fields that are not part "
         "of the released connector (external documentation URLs, test suite "
@@ -421,6 +458,21 @@ class CheckVersionIncrement(Check):
                         f"The next stable version must be {expected_stable}, not {current_version}. "
                         f"Promote the RC to stable before bumping to a new major, minor, or patch version.",
                     )
+
+            next_versions = _next_versions(master_version)
+            if (
+                master_metadata
+                and next_versions is not None
+                and current_version not in next_versions
+            ):
+                return self.fail(
+                    connector,
+                    f"The dockerImageTag in {consts.METADATA_FILE_NAME} skips a version. "
+                    f"Master version is {master_version}, current version is {current_version}. "
+                    f"The next version must be one of: {', '.join(str(version) for version in next_versions)}. "
+                    f"Maintainers can use the `/bump-version` PR slash command. "
+                    f"AI agents can use the `bump_version_in_repo` tool from the `airbyte-ops-mcp` MCP server.",
+                )
 
             return self.pass_(
                 connector,

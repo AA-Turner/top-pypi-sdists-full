@@ -71,6 +71,8 @@ def test_no_mandated_call_in_matrx_ai_pins_a_model():
     offenders = [
         f"{path.relative_to(ROOT)}:{line}"
         for path in sorted(ROOT.rglob("*.py"))
+        # A test that proves an override is carried passes one on purpose; only shipped code is held.
+        if "tests" not in path.relative_to(ROOT).parts
         for line in pinned_models(path.read_text(encoding="utf-8"))
     ]
     assert not offenders, (

@@ -450,6 +450,8 @@ def sync_mcp_bearer() -> list[str]:
     (or back to OAuth when this device holds none), under the plugin-list lock.
     A running Kimi Code reads its manifest at start, so the change lands on its
     next start."""
+    if not _probe_research_roots():
+        return []  # nothing of Probe's in Kimi Code (or no Kimi Code): never `_locked`'s mkdir
     token = _held_mcp_token()
     recorded = _record_root("probe-research")
     changed_recorded = False

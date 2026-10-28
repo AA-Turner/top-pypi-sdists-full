@@ -63,6 +63,10 @@ def test_construct_with_dict():
         [("cube0", cube0[:, -3:-1]), ("cube1", cube1[:, :, -3:-1]), ("cube2", cube2[:, -3:-1])],
         aligned_axes=aligned_axes, meta=cube_coll_meta.slice[1:3])),
 
+    (slice(-2, None), cube_collection, NDCollection(
+        [("cube0", cube0[:, -2:]), ("cube1", cube1[:, :, -2:]), ("cube2", cube2[:, -2:])],
+        aligned_axes=aligned_axes, meta=cube_coll_meta.slice[2:4])),
+
     ((slice(None), slice(1, 2)), cube_collection, NDCollection(
         [("cube0", cube0[:, :, 1:2]), ("cube1", cube1[1:2]), ("cube2", cube2[:, :, 1:2])],
         aligned_axes=aligned_axes, meta=cube_coll_meta.slice[:, 1:2])),
@@ -167,7 +171,5 @@ def test_aligned_dimensions(collection, expected_aligned_dimensions):
                       ('custom:pos.helioprojective.lat', 'custom:pos.helioprojective.lon'),
                       ('em.wl',)])])
 def test_aligned_axis_physical_types(collection, expected):
-    output = collection.aligned_axis_physical_types
-    assert len(output) == len(expected)
-    for output_axis_types, expect_axis_types in zip(output, expected):
-        assert set(output_axis_types) == set(expect_axis_types)
+    # The types keep the order of the first member, so they do not change from run to run.
+    assert collection.aligned_axis_physical_types == expected

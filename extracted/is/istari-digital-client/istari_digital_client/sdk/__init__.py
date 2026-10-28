@@ -16,6 +16,8 @@ This package contains the high-level, user-friendly SDK interfaces:
 - Error types: IstariError, NotFoundError, etc.
 """
 
+from istari_digital_client._transfer import MultipartUploadRestartRequiredError
+
 # Clients
 from istari_digital_client.sdk._client import Istari, IstariIntegrations, IstariAdmin
 
@@ -37,6 +39,20 @@ from istari_digital_client.sdk._common.system_types import (
     Branch,
     Subsystem,
     ChangeRequest,
+)
+
+# Domain types - Libraries and packages
+from istari_digital_client.sdk._common.library_types import (
+    Library,
+    Package,
+    PackageVersion,
+    PackageFile,
+)
+from istari_digital_client.sdk._common.dependency_types import (
+    Requirements,
+    Publications,
+    Preview,
+    PublishPreview,
 )
 
 # Domain types - Jobs
@@ -73,6 +89,7 @@ from istari_digital_client.sdk._admin.admin_types import (
 # Error types
 from istari_digital_client.sdk._exceptions import (
     IstariError,
+    TransferRetriesExhaustedError,
     DetachedInstanceError,
     APIConnectionError,
     APIStatusError,
@@ -105,6 +122,15 @@ __all__ = [
     "Branch",
     "Subsystem",
     "ChangeRequest",
+    # Domain types - Libraries and packages
+    "Library",
+    "Package",
+    "PackageVersion",
+    "PackageFile",
+    "Requirements",
+    "Publications",
+    "Preview",
+    "PublishPreview",
     # Domain types - Jobs
     "Job",
     # Domain types - Credentials (Linked Accounts)
@@ -126,7 +152,9 @@ __all__ = [
     "User",
     "PersonalAccessToken",
     # Error types
+    "MultipartUploadRestartRequiredError",
     "IstariError",
+    "TransferRetriesExhaustedError",
     "DetachedInstanceError",
     "APIConnectionError",
     "APIStatusError",

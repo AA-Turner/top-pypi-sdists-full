@@ -34,10 +34,12 @@ TDA = ["numpy"]
 graphics = ["matplotlib"]
 DF = ["pandas>=0.17"]
 Unimod = ["lxml", "sqlalchemy >= 1.4"]
-numpress = ["pynumpress"]
+numpress = ["pynumpress < 0.1.2; python_version < '3.11'", "pynumpress; python_version >= '3.11'"]
 mzMLb = ["h5py", "hdf5plugin"]
-proforma = ["psims > 0.1.42"]
-all = ["lxml", "numpy", "psims>0.1.42", "matplotlib", "pandas>=0.17", "sqlalchemy>=1.4", "pynumpress", "h5py", "hdf5plugin", "spectrum_utils>=0.4"]
+proforma = ["psims >= 1.4.0"]
+all = ["lxml", "numpy", "psims >= 1.4.0", "matplotlib", "pandas>=0.17", "sqlalchemy>=1.4",
+       "pynumpress < 0.1.2; python_version < '3.11'", "pynumpress; python_version >= '3.11'",
+       "h5py", "hdf5plugin", "spectrum_utils>=0.4"]
 
 [project.urls]
 Documentation = "http://pyteomics.readthedocs.io"

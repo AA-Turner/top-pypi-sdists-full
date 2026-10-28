@@ -31,6 +31,9 @@ from confiture.core.schema_change import (
     ColumnOrderChanged,
     ColumnRenamed,
     ColumnTypeChanged,
+    Dependent,
+    DependentsDropped,
+    DependentsRecreated,
     EnumTypeAdded,
     EnumTypeDropped,
     EnumValuesChanged,
@@ -55,6 +58,7 @@ from confiture.core.schema_change import (
     UniqueConstraintDropped,
 )
 from confiture.core.schema_model import SchemaModel, Table, ref_for
+from confiture.core.view_dependents import DEPENDENT_KINDS, with_what_they_read
 
 #: Where a definition kind is created, by what it needs to exist first: a routine
 #: may name a table's row type, a view a routine, a trigger its function. A kind
@@ -95,17 +99,28 @@ _ALTERED = 4
 #: may add the column it names, and pg_tviews refuses a rebuild over an invalid
 #: index, so its drop stays at ``_ALTERED``.
 _TVIEW_INDEX_ADDED = _CREATED_LAST + 1
+#: The views a column change is refused under (#765) are dropped after the views a
+#: migration drops for good — one of those may read them — and before the routines
+#: they may call; they are created again after the routines and before the views a
+#: migration adds, which may read them.
+_DEPENDENTS_DROPPED = (_DROPPED["view"] + _DROPPED["function"]) / 2
+_DEPENDENTS_RECREATED = (_CREATED["function"] + _CREATED["view"]) / 2
+_FIXED_RANK: dict[type[SchemaChange], float] = {
+    TableDropped: _TABLES_DROPPED,
+    DependentsDropped: _DEPENDENTS_DROPPED,
+    DependentsRecreated: _DEPENDENTS_RECREATED,
+}
 
 
-def _rank(change: SchemaChange) -> int:
+def _rank(change: SchemaChange) -> float:
     """Where *change* runs: drops (negative, dependents first), then creations and edits."""
     match change:
         case ObjectDropped(ref):
             return _DROPPED.get(ref.kind, _DROPPED_FIRST)
         case ObjectAdded(ref) | ObjectReplaced(ref):
             return _CREATED.get(ref.kind, _CREATED_LAST)
-        case TableDropped():
-            return _TABLES_DROPPED
+        case TableDropped() | DependentsDropped() | DependentsRecreated():
+            return _FIXED_RANK[type(change)]
         case EnumTypeDropped() | SequenceDropped():
             return _DROPPED["type"]
         case EnumTypeAdded() | EnumValuesChanged() | SequenceAdded():
@@ -193,7 +208,7 @@ def _detached_then_attached(edits: list[SchemaChange]) -> list[SchemaChange]:
     slots are refilled with that rank's edits: an index added to a TVIEW keeps its
     place after the TVIEW is replaced.
     """
-    by_table: dict[tuple[int, tuple[str, str]], list[SchemaChange]] = defaultdict(list)
+    by_table: dict[tuple[float, tuple[str, str]], list[SchemaChange]] = defaultdict(list)
     for change in edits:
         if isinstance(change, _EDITS):
             by_table[(_rank(change), change.table.identity)].append(change)
@@ -231,9 +246,75 @@ def _in_foreign_key_order(
         return [by_ref[ref] for ref in order], held
 
 
+def _written_by_a_rebuild(changes: Sequence[SchemaChange]) -> list[SchemaChange]:
+    """*changes* without what a :class:`DependentsRecreated` writes already (#765).
+
+    A view created again from the new tree is created with its new definition and
+    its new indexes, so its redefinition and its index changes are not written
+    twice.
+    """
+    rebuilt = {d.ref for c in changes if isinstance(c, DependentsRecreated) for d in c.dependents}
+    if not rebuilt:
+        return list(changes)
+    return [
+        c
+        for c in changes
+        if not (isinstance(c, ObjectReplaced) and c.ref in rebuilt)
+        and not (
+            isinstance(c, IndexAdded | IndexDropped)
+            and c.relation_kind != "table"
+            and c.table.ref(c.relation_kind) in rebuilt
+        )
+    ]
+
+
+def _with_the_views_they_read(changes: list[SchemaChange]) -> list[SchemaChange]:
+    """*changes*, each added view a recreated one reads moved into the recreate (#787).
+
+    The recreate runs before the views a migration adds, which may read it. One it
+    reads itself is created in its place instead, in the new tree's dependency
+    order, and the recreate is split around it. Nothing moves when the read graph
+    cannot place every recreated view.
+    """
+    for rebuild in [c for c in changes if isinstance(c, DependentsRecreated)]:
+        added = {
+            c.ref: c
+            for c in changes
+            if isinstance(c, ObjectAdded) and c.ref.kind in DEPENDENT_KINDS
+        }
+        recreated = {d.ref: d for d in rebuild.dependents}
+        objects = {ref: [d.obj] for ref, d in recreated.items()}
+        objects |= {ref: [c.obj] for ref, c in added.items()}
+        sequence = with_what_they_read(objects, recreated, added)
+        moved = {ref for ref in sequence if ref in added}
+        if not moved or not recreated.keys() <= set(sequence):
+            continue
+        block: list[SchemaChange] = []
+        run: list[Dependent] = []
+        for ref in sequence:
+            if ref in recreated:
+                run.append(recreated[ref])
+                continue
+            if run:
+                block.append(DependentsRecreated(tuple(run)))
+                run = []
+            block.append(added[ref])
+        if run:
+            block.append(DependentsRecreated(tuple(run)))
+        kept = [c for c in changes if not (isinstance(c, ObjectAdded) and c.ref in moved)]
+        at = kept.index(rebuild)
+        changes = [*kept[:at], *block, *kept[at + 1 :]]
+    return changes
+
+
 def apply_order(changes: Sequence[SchemaChange]) -> list[SchemaChange]:
-    """*changes* in an order PostgreSQL accepts, the differ's wherever it already does."""
-    ranked = sorted(changes, key=_rank)
+    """*changes* in an order PostgreSQL accepts, the differ's wherever it already does.
+
+    What a recreated view writes already is left out (:func:`_written_by_a_rebuild`),
+    and a view it reads that the migration adds is created with it
+    (:func:`_with_the_views_they_read`).
+    """
+    ranked = sorted(_written_by_a_rebuild(changes), key=_rank)
     added = [c.table for c in ranked if isinstance(c, TableAdded)]
     dropped = [c.table for c in ranked if isinstance(c, TableDropped)]
     tables, held = _in_foreign_key_order(added)
@@ -256,4 +337,4 @@ def apply_order(changes: Sequence[SchemaChange]) -> list[SchemaChange]:
             ordered.append(TableDropped(dropping.pop(0)))
         else:
             ordered.append(change)
-    return ordered
+    return _with_the_views_they_read(ordered)

@@ -36,7 +36,11 @@ void UsbHelper::set_rx_callback(std::function<void(const kvn::bytearray&)> callb
     _impl->set_rx_callback(callback);
 }
 
-std::vector<std::string> UsbHelper::get_dongl_devices() {
+void UsbHelper::set_lost_callback(std::function<void()> callback) {
+    _impl->set_lost_callback(std::move(callback));
+}
+
+std::vector<DonglDevice> UsbHelper::get_dongl_devices() {
 #if SIMPLEBLE_BACKEND_LINUX
     return UsbHelperLinux::get_dongl_devices();
 #elif SIMPLEBLE_BACKEND_WINDOWS

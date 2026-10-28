@@ -478,7 +478,7 @@ def _uniffi_check_contract_api_version(lib):
         raise InternalError("UniFFI contract version mismatch: try cleaning and rebuilding your project")
 
 def _uniffi_check_api_checksums(lib):
-    if lib.uniffi_plugins_krisp_uniffi_checksum_constructor_krispvivafilter_new() != 19863:
+    if lib.uniffi_plugins_krisp_uniffi_checksum_constructor_krispvivafilter_new() != 48684:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_plugins_krisp_uniffi_checksum_method_krispvivafilter_close_session() != 13032:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
@@ -1266,8 +1266,9 @@ class KrispVivaFilter(KrispVivaFilterProtocol):
     _handle: ctypes.c_uint64
     def __init__(self, settings: KrispVivaFilterSettings):
         """
-        Create a new filter. Authorizes the LiveKit-side DRM session and
-        initializes the Krisp SDK on first construction in this process.
+        Create a new filter. Returns without blocking: the LiveKit-side DRM
+        authorize request and the Krisp SDK init + model load run on background
+        threads. [`Self::process`] passes audio through unfiltered until ready.
 """
         
         _UniffiFfiConverterTypeKrispVivaFilterSettings.check_lower(settings)

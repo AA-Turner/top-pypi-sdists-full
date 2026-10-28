@@ -91,6 +91,7 @@ __all__ = (
     "GatewayElbSchemeType",
     "GatewayRouteStatusType",
     "GatewayStatusType",
+    "GpuSharingModeType",
     "HealthStatusType",
     "InstanceGenerationType",
     "InstanceHealthCheckStateType",
@@ -301,6 +302,7 @@ GatewayRouteStatusType = Literal[
 GatewayStatusType = Literal[
     "ACTIVE", "DELETED", "UPDATE_COMPLETE", "UPDATE_FAILED", "UPDATE_IN_PROGRESS"
 ]
+GpuSharingModeType = Literal["DEDICATED", "IDLE", "NVIDIA_MPS"]
 HealthStatusType = Literal["HEALTHY", "UNHEALTHY", "UNKNOWN"]
 InstanceGenerationType = Literal["current", "previous"]
 InstanceHealthCheckStateType = Literal["IMPAIRED", "INITIALIZING", "INSUFFICIENT_DATA", "OK"]
@@ -556,6 +558,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -607,8 +610,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -862,7 +863,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

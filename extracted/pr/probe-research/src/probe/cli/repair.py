@@ -260,7 +260,8 @@ def run(*, json_output: bool = False) -> int:
 
     code = 0
     with events.session(json_output):
-        refused = install_pipeline.refusal()
+        # An install entry: an uninstall that stopped halfway is finished first.
+        refused = install_pipeline.refusal(finish=True)
         if refused:
             events.error(events.ErrorCode.FAILED, refused)
             _say(f"probe repair: refused: {refused}")

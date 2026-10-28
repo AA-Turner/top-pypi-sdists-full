@@ -82,6 +82,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
+from matrx_utils.knob_fallback import knob_or_declared_default_sync
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -490,7 +492,16 @@ def assistant_text_announce_bytes() -> int:
             )
     else:
         try:
-            raw = _knob_reader(ASSISTANT_TEXT_ANNOUNCE_BYTES_KEY)
+            raw = knob_or_declared_default_sync(
+                lambda: _knob_reader(ASSISTANT_TEXT_ANNOUNCE_BYTES_KEY),
+                feature=KNOB_FEATURE,
+                key=ASSISTANT_TEXT_ANNOUNCE_BYTES_KEY,
+                declared_default=ASSISTANT_TEXT_ANNOUNCE_BYTES_MIRROR,
+                consequence=(
+                    f"Saved snapshots announce assistant text larger than {ASSISTANT_TEXT_ANNOUNCE_BYTES_MIRROR} "
+                    "bytes, and an admin cannot change that size."
+                ),
+            )
         except Exception as exc:  # noqa: BLE001 — announced, never a crashed snapshot
             if not _knob_announced:
                 _knob_announced = True

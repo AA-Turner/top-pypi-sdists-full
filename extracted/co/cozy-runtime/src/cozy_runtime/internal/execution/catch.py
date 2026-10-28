@@ -47,9 +47,11 @@ class Cut(msgspec.Struct, frozen=True, kw_only=True):
 
 class Cuts(msgspec.Struct, kw_only=True):
     """A request's cut sites (`measurements.execution.cuts`): each site's first dispatch and
-    every one that descended, and the refusals at the floor."""
+    every one that descended, each site's eager calls at levels 0, 1, ..., and the refusals at
+    the floor."""
 
     sites: list[Cut] = msgspec.field(default_factory=list)
+    levels: dict[str, list[int]] = msgspec.field(default_factory=dict)
     oom_floor: int = 0
 
 
@@ -164,7 +166,7 @@ def cut[T](site: str, finest: int, need: sizing.Need, run: Callable[[int], T]) -
         return run(0)
     scope = Scope(site)
     _local.scopes.append(scope)
-    available = request.room()
+    available: sizing.Room
     retries = 0
 
     def room() -> sizing.Room:
@@ -210,6 +212,7 @@ def cut[T](site: str, finest: int, need: sizing.Need, run: Callable[[int], T]) -
 
     try:
         if _capturing():
+            available = request.room()
             return whole(sizing.choose(finest, need, available)[0])
         try:
             result, level, steps, tier = sizing.descend(finest, need, room, whole, _refused)
@@ -223,6 +226,9 @@ def cut[T](site: str, finest: int, need: sizing.Need, run: Callable[[int], T]) -
         )
         with _ROWS_LOCK:
             rows = _ROWS.setdefault(id(request), Cuts())
+            calls = rows.levels.setdefault(site, [])
+            calls.extend([0] * (level + 1 - len(calls)))
+            calls[level] += 1
             if steps or retries or all(r.site != site for r in rows.sites):
                 rows.sites.append(row)
         return result

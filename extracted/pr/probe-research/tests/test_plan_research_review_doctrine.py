@@ -1,7 +1,7 @@
 """`plan-research-review` (Anthrogen, 2026-10-07): the agent ignored the papers'
 partial repos and wrote its own code, then built a half-described next step
 instead of asking. These are the sentences that carry those two incidents, and
-the gstack loading rule that makes the wizard's off switch real. Checked as
+the loading rule that routes automatic invocation through Probe's instructions. Checked as
 meaning (key words together), not as pinned wording.
 """
 
@@ -30,10 +30,8 @@ def _description() -> str:
 
 def test_the_description_is_one_sentence_with_no_trigger():
     """gstack's catalog trim: WHEN it runs lives in the body and in the Probe
-    block's routing line, which the "Research plan review" setting swaps for an
-    ask-only line. A
-    trigger in the always-loaded description would auto-run the skill with the
-    setting off."""
+    block's routing line. Keeping the catalog concise leaves the procedure
+    in the skill body."""
     description = _description()
     assert description.count(". ") == 0, "one sentence"
     for trigger in ("use when", "proactively", "before implementing", "before code", "suggest"):
@@ -46,9 +44,7 @@ def test_the_description_is_one_sentence_with_no_trigger():
 def test_it_announces_an_auto_run_and_honours_skip():
     flat = _flat(_text())
     assert "## when this runs" in _text().lower()
-    # it auto-runs only where the Probe block says so: the Settings row's off
-    # line ("only when the researcher asks") must win even after the skill has
-    # loaded once in a session
+    # Automatic invocation follows the Probe routing rule; explicit skip stays available.
     assert "on its own only when your probe instructions say to" in flat
     assert "one line" in flat and "say skip" in flat
 

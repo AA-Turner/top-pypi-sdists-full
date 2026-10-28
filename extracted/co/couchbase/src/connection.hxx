@@ -103,7 +103,12 @@ private:
     set_disconnected
   };
 
-  asio::io_context io_;
+  // shared_ptr rather than a plain member, and the destructor is why.  When the last
+  // reference to a Connection is dropped inside a callback running on an io thread, the
+  // destructor runs on that thread and cannot join it, so it detaches instead.  A plain
+  // member would then be destroyed while the detached thread is still inside run().  Each
+  // io thread holds its own reference, so the context outlives whichever thread leaves last.
+  std::shared_ptr<asio::io_context> io_;
   couchbase::core::cluster cluster_;
   std::list<std::thread> io_threads_;
 
@@ -549,15 +554,24 @@ Connection::execute_multi_op(PyObject* arg)
     if (PyObject_TypeCheck(res, &pycbc_exception_type)) {
       all_okay = false;
     }
-    int rc = PyDict_SetItemString(multi_result->raw_result, s.key_str.c_str(), res);
+    // Not PyDict_SetItemString: it interns the key, and interned keys are immortal on 3.12+.
+    PyObject* pyObj_key =
+      PyUnicode_FromStringAndSize(s.key_str.data(), static_cast<Py_ssize_t>(s.key_str.size()));
+    if (pyObj_key == nullptr) {
+      Py_DECREF(res);
+      Py_DECREF(pyObj_multi_result);
+      return nullptr;
+    }
+    int rc = PyDict_SetItem(multi_result->raw_result, pyObj_key, res);
+    Py_DECREF(pyObj_key);
     Py_DECREF(res);
     if (rc < 0) {
       Py_DECREF(pyObj_multi_result);
       return nullptr;
     }
   }
-  if (PyDict_SetItemString(multi_result->raw_result, "all_okay", all_okay ? Py_True : Py_False) <
-      0) {
+  if (PyDict_SetItem(
+        multi_result->raw_result, pycbc::keys::all_okay, all_okay ? Py_True : Py_False) < 0) {
     Py_DECREF(pyObj_multi_result);
     return nullptr;
   }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.1383
+Version: 1.4.1413
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -471,6 +471,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.select_pinterest_board()` | Select Pinterest board |
 | `connect.select_snapchat_profile()` | Select Snapchat profile |
 | `connect.set_reddit_post_flair()` | Set Reddit post flair |
+| `connect.start_microsoft_admin_consent()` | Admin-consent link for a Microsoft tenant |
 | `connect.vote_reddit_thing()` | Vote on a Reddit post or comment |
 
 ### Reddit
@@ -536,6 +537,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_accounts.create_value_rule_set()` | Create a value rule set |
 | `ad_accounts.get_ad_account_billing()` | Get ad account billing |
 | `ad_accounts.get_ad_account_finance()` | Ad account finances |
+| `ad_accounts.get_ad_account_health()` | Check an ad account before creating ads |
 | `ad_accounts.get_ad_account_hierarchy()` | Get manager account hierarchy |
 | `ad_accounts.get_ad_account_live_entities()` | Read an ad account's campaigns and ad sets live |
 | `ad_accounts.get_ad_comments()` | List comments on an ad |
@@ -598,6 +600,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.list_ad_keywords()` | List Search keywords |
 | `ad_campaigns.list_ad_sets()` | List ad sets |
 | `ad_campaigns.list_ads()` | List ads |
+| `ad_campaigns.list_ads_alerts()` | List ads that need attention |
 | `ad_campaigns.list_bid_strategies()` | List portfolio bid strategies |
 | `ad_campaigns.list_campaign_assets()` | List campaign assets |
 | `ad_campaigns.list_campaign_negative_keyword_lists()` | List campaign negative lists |
@@ -617,6 +620,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.get_ad_campaign_details()` | Get live campaign details |
 | `ad_campaigns.get_ad_review()` | Read the platform's review verdict for an ad |
 | `ad_campaigns.get_ad_set_details()` | Get live ad-set details |
+| `ad_campaigns.get_ad_set_targeting()` | Read a Reddit ad group's targeting and schedule |
 | `ad_campaigns.get_ad_tree()` | Get campaign tree |
 | `ad_campaigns.get_ads_timeline()` | Get daily account metrics |
 | `ad_campaigns.get_campaign_ad_schedule()` | Read a campaign's ad schedule (dayparting) |
@@ -647,6 +651,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.attach_ad_group_assets()` | Attach ad-group assets |
 | `ad_campaigns.attach_campaign_assets()` | Attach campaign assets |
 | `ad_campaigns.boost_post()` | Boost post as ad |
+| `ad_campaigns.dismiss_ads_alert()` | Dismiss an ads alert |
 | `ad_campaigns.dismiss_google_recommendations()` | Dismiss Google Ads recommendations |
 | `ad_campaigns.duplicate_ad()` | Duplicate an ad |
 | `ad_campaigns.duplicate_ad_campaign()` | Duplicate a campaign |
@@ -705,6 +710,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Ad Rules
 | Method | Description |
 |--------|-------------|
+| `ad_rules.list_ad_rule_activity()` | List every change ad rules made |
 | `ad_rules.list_ad_rule_runs()` | List an ad rule's runs |
 | `ad_rules.list_ad_rules()` | List ad rules |
 | `ad_rules.create_ad_rule()` | Create an ad rule |
@@ -830,6 +836,19 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `business_agent.set_business_agent_connector_credentials()` | Set connector credentials |
 | `business_agent.start_business_agent_eval_run()` | Start an evaluation run |
 | `business_agent.upload_business_agent_file()` | Upload a knowledge file |
+
+### Calendar
+| Method | Description |
+|--------|-------------|
+| `calendar.list_calendar_events()` | List events in a window |
+| `calendar.list_calendars()` | List calendars |
+| `calendar.create_calendar_event()` | Create an event |
+| `calendar.get_calendar_event()` | Get an event |
+| `calendar.update_calendar_event()` | Update an event |
+| `calendar.delete_calendar_event()` | Delete an event |
+| `calendar.calendar_availability()` | Find meeting slots across accounts |
+| `calendar.calendar_free_busy()` | Busy blocks for one or more accounts |
+| `calendar.rsvp_calendar_event()` | Respond to an invitation |
 
 ### Calls
 | Method | Description |
@@ -978,6 +997,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `conversions.list_conversion_destinations()` | List conversion destinations |
 | `conversions.list_custom_conversion_goals()` | List custom conversion goals |
 | `conversions.list_event_destinations()` | List event destinations |
+| `conversions.list_events()` | List stored events |
 | `conversions.create_conversion_action()` | Create website conversion action |
 | `conversions.create_conversion_destination()` | Create a conversion destination |
 | `conversions.create_custom_conversion_goal()` | Create a custom conversion goal |
@@ -1036,10 +1056,38 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `discord.send_discord_direct_message()` | Send a Discord Direct Message |
 | `discord.unpin_discord_message()` | Unpin a Discord message |
 
+### Email
+| Method | Description |
+|--------|-------------|
+| `email.list_email_folders()` | List mailbox folders |
+| `email.list_email_messages()` | List email messages |
+| `email.list_email_threads()` | List email threads |
+| `email.get_email_message()` | Get an email message |
+| `email.get_email_thread()` | Get an email thread with its messages |
+| `email.update_email_message()` | Mark read or starred, or move a message |
+| `email.update_email_thread()` | Update every message in a thread |
+| `email.download_email_attachment()` | Download an attachment |
+| `email.reply_email_message()` | Reply to a message |
+| `email.send_email_message()` | Send an email |
+| `email.trash_email_message()` | Move a message to trash |
+
 ### Feedback
 | Method | Description |
 |--------|-------------|
 | `feedback.submit_feedback()` | Submit feedback |
+
+### Files
+| Method | Description |
+|--------|-------------|
+| `files.list_files()` | List files in a folder or search the drive |
+| `files.create_file_picker_session()` | Create a hosted Google Picker session |
+| `files.create_folder()` | Create a folder |
+| `files.get_file()` | Get a file or folder |
+| `files.get_file_share_link()` | Get an anyone-with-the-link share link |
+| `files.update_file()` | Rename or move a file |
+| `files.download_file()` | Download a file |
+| `files.trash_file()` | Move a file to the trash |
+| `files.upload_file()` | Upload a file |
 
 ### GMB Attributes
 | Method | Description |
@@ -1151,6 +1199,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `lead_gen.update_lead()` | Update a lead's status |
 | `lead_gen.delete_test_lead()` | Delete a test lead |
 | `lead_gen.archive_lead_form()` | Archive a lead form |
+| `lead_gen.count_leads()` | Count leads by status |
 
 ### Mentions
 | Method | Description |

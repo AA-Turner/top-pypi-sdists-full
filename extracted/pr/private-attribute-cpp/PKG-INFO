@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: private_attribute_cpp
-Version: 2.2.5
+Version: 2.2.6
 Summary: A Python package that provides a way to define private attributes in C++ implementation.
 Author-Email: HuangHaoHua <13140752715@example.com>
 License-Expression: MIT

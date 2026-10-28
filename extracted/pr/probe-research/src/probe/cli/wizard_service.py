@@ -7,7 +7,7 @@ the new code once it lands. `probe wizard --action <a> --yes` does the same
 where it can:
 
     routed       configure (with `--agent`), recorder (with `--who-records`),
-                 logout, uninstall and update, with `--yes`: as `action.run`'s
+                 logout and update, with `--yes`: as `action.run`'s
                  action and params (`probe.core.requests`), which the service's
                  child runs as exactly these flags (`probe.core.actions`)
     streamed     the run's own text as it is written (its log: what it would
@@ -129,7 +129,10 @@ def plan(
         if who_records not in ("agent", "daemon"):
             return "recorder without --who-records reads the current setting"
         return Routed("recorder", {"who_records": who_records})
-    if action in ("logout", "uninstall"):
+    if action == "uninstall":
+        # `probe uninstall` stops the service itself: never one of its actions.
+        return "uninstall: it stops the Probe service, so it never runs there"
+    if action == "logout":
         return Routed(action)
     if action == "update":
         from probe.service.protocol import REPORT_TRIGGERS

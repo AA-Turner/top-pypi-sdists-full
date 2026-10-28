@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: pymongoarrow
-Version: 1.15.0
+Version: 1.16.0
 Summary: Tools for using NumPy, Pandas, Polars, and PyArrow with MongoDB
 Keywords: mongo,mongodb,pymongo,arrow,bson,numpy,pandas,polars
 Author: Prashant Mital
@@ -14,32 +14,30 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Database
 Project-URL: Homepage, https://www.mongodb.org
 Project-URL: Documentation, https://mongo-arrow.readthedocs.io
 Project-URL: Source, https://github.com/mongodb-labs/mongo-arrow/tree/main/bindings/python
 Project-URL: Tracker, https://jira.mongodb.org/projects/INTPYTHON/issues
-Requires-Python: >=3.10
-Requires-Dist: pyarrow<25.1,>=25.0
+Requires-Python: >=3.11
+Requires-Dist: pyarrow<26.1,>=26.0.0
 Requires-Dist: pymongo<5,>=4.4
-Requires-Dist: numpy>=1.26; python_version < "3.11"
-Requires-Dist: numpy>=2.1.0; python_version >= "3.11"
+Requires-Dist: numpy>=2.1.0
+Requires-Dist: numpy>=2.5.2; python_version >= "3.15"
 Requires-Dist: packaging>=23.2
 Provides-Extra: test
 Requires-Dist: pytz>=2025.2; extra == "test"
 Requires-Dist: pytest>=8.0; extra == "test"
 Provides-Extra: test-polars
-Requires-Dist: polars>=1.10; extra == "test-polars"
+Requires-Dist: polars>=2.0; extra == "test-polars"
 Provides-Extra: test-pandas
-Requires-Dist: pandas>=2.0.3; python_version < "3.11" and extra == "test-pandas"
-Requires-Dist: numpy<2; python_version < "3.11" and extra == "test-pandas"
-Requires-Dist: pandas>=3.0; python_version >= "3.11" and extra == "test-pandas"
+Requires-Dist: pandas>=3.1; extra == "test-pandas"
 Description-Content-Type: text/markdown
 
 # PyMongoArrow

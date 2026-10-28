@@ -368,6 +368,7 @@ from .literals import (
     ServiceManagedType,
     ServiceStateType,
     ServiceTypeType,
+    SeverityLabelType,
     ShutdownBehaviorType,
     SnapshotAttributeNameType,
     SnapshotBlockPublicAccessStateType,
@@ -2153,6 +2154,9 @@ __all__ = (
     "GetImageAncestryResultTypeDef",
     "GetImageBlockPublicAccessStateRequestTypeDef",
     "GetImageBlockPublicAccessStateResultTypeDef",
+    "GetImageFindingsRequestPaginateTypeDef",
+    "GetImageFindingsRequestTypeDef",
+    "GetImageFindingsResultTypeDef",
     "GetInstanceMetadataDefaultsRequestTypeDef",
     "GetInstanceMetadataDefaultsResultTypeDef",
     "GetInstanceTpmEkPubRequestTypeDef",
@@ -2322,6 +2326,7 @@ __all__ = (
     "ImageCriterionRequestTypeDef",
     "ImageCriterionTypeDef",
     "ImageDiskContainerTypeDef",
+    "ImageFindingTypeDef",
     "ImageMetadataTypeDef",
     "ImageRecycleBinInfoTypeDef",
     "ImageReferenceTypeDef",
@@ -3076,6 +3081,9 @@ __all__ = (
     "S3ObjectTagTypeDef",
     "S3StorageOutputTypeDef",
     "S3StorageTypeDef",
+    "ScanResultConditionRequestTypeDef",
+    "ScanResultConditionTypeDef",
+    "ScanResultsTypeDef",
     "ScheduledInstanceAvailabilityTypeDef",
     "ScheduledInstanceRecurrenceRequestTypeDef",
     "ScheduledInstanceRecurrenceTypeDef",
@@ -6624,6 +6632,22 @@ class ImageAncestryEntryTypeDef(TypedDict):
 class GetImageBlockPublicAccessStateRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
+class GetImageFindingsRequestTypeDef(TypedDict):
+    ImageId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+class ImageFindingTypeDef(TypedDict):
+    FixAvailable: NotRequired[bool]
+    Score: NotRequired[float]
+    FirstObservedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+    Title: NotRequired[str]
+    Paths: NotRequired[list[str]]
+    SeverityLabel: NotRequired[SeverityLabelType]
+    SnapshotId: NotRequired[str]
+
 class GetInstanceMetadataDefaultsRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
@@ -6952,11 +6976,29 @@ class ImageWatermarkFilterRequestTypeDef(TypedDict):
     MaximumDaysSinceSourceImageCreated: NotRequired[int]
     MaximumDaysSinceWatermarkCreated: NotRequired[int]
 
+class ScanResultConditionRequestTypeDef(TypedDict):
+    MaxDaysSinceLastFindingScan: NotRequired[int]
+    MaximumSeverityLabel: NotRequired[SeverityLabelType]
+    MaxDaysSinceInformationalFixAvailable: NotRequired[int]
+    MaxDaysSinceLowFixAvailable: NotRequired[int]
+    MaxDaysSinceMediumFixAvailable: NotRequired[int]
+    MaxDaysSinceHighFixAvailable: NotRequired[int]
+    MaxDaysSinceCriticalFixAvailable: NotRequired[int]
+
 class ImageWatermarkFilterResponseTypeDef(TypedDict):
     WatermarkKey: NotRequired[str]
     SourceImageRegion: NotRequired[str]
     MaximumDaysSinceSourceImageCreated: NotRequired[int]
     MaximumDaysSinceWatermarkCreated: NotRequired[int]
+
+class ScanResultConditionTypeDef(TypedDict):
+    MaxDaysSinceLastFindingScan: NotRequired[int]
+    MaximumSeverityLabel: NotRequired[SeverityLabelType]
+    MaxDaysSinceInformationalFixAvailable: NotRequired[int]
+    MaxDaysSinceLowFixAvailable: NotRequired[int]
+    MaxDaysSinceMediumFixAvailable: NotRequired[int]
+    MaxDaysSinceHighFixAvailable: NotRequired[int]
+    MaxDaysSinceCriticalFixAvailable: NotRequired[int]
 
 class UserBucketTypeDef(TypedDict):
     S3Bucket: NotRequired[str]
@@ -6975,6 +7017,15 @@ class ImageRecycleBinInfoTypeDef(TypedDict):
     Description: NotRequired[str]
     RecycleBinEnterTime: NotRequired[datetime]
     RecycleBinExitTime: NotRequired[datetime]
+
+class ScanResultsTypeDef(TypedDict):
+    HighestFindingSeverityLabel: NotRequired[SeverityLabelType]
+    FindingScanDate: NotRequired[datetime]
+    InformationalFixAvailableSince: NotRequired[datetime]
+    LowFixAvailableSince: NotRequired[datetime]
+    MediumFixAvailableSince: NotRequired[datetime]
+    HighFixAvailableSince: NotRequired[datetime]
+    CriticalFixAvailableSince: NotRequired[datetime]
 
 class StateReasonTypeDef(TypedDict):
     Code: NotRequired[str]
@@ -11728,6 +11779,11 @@ class GetGroupsForCapacityReservationRequestPaginateTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class GetImageFindingsRequestPaginateTypeDef(TypedDict):
+    ImageId: str
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class GetIpamAddressHistoryRequestPaginateTypeDef(TypedDict):
     Cidr: str
     IpamScopeId: str
@@ -14945,6 +15001,11 @@ class GetImageAncestryResultTypeDef(TypedDict):
     ImageAncestryEntries: list[ImageAncestryEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetImageFindingsResultTypeDef(TypedDict):
+    ImageFindings: list[ImageFindingTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class GetInstanceMetadataDefaultsResultTypeDef(TypedDict):
     AccountLevel: InstanceMetadataDefaultsResponseTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -15114,6 +15175,7 @@ class ImageCriterionRequestTypeDef(TypedDict):
     DeprecationTimeCondition: NotRequired[DeprecationTimeConditionRequestTypeDef]
     CreationDateCondition: NotRequired[CreationDateConditionRequestTypeDef]
     ImageWatermarks: NotRequired[Sequence[ImageWatermarkFilterRequestTypeDef]]
+    ScanResultCondition: NotRequired[ScanResultConditionRequestTypeDef]
 
 class ImageCriterionTypeDef(TypedDict):
     ImageProviders: NotRequired[list[str]]
@@ -15122,6 +15184,7 @@ class ImageCriterionTypeDef(TypedDict):
     DeprecationTimeCondition: NotRequired[DeprecationTimeConditionTypeDef]
     CreationDateCondition: NotRequired[CreationDateConditionTypeDef]
     ImageWatermarks: NotRequired[list[ImageWatermarkFilterResponseTypeDef]]
+    ScanResultCondition: NotRequired[ScanResultConditionTypeDef]
 
 class ImageDiskContainerTypeDef(TypedDict):
     Description: NotRequired[str]
@@ -18241,6 +18304,7 @@ class ImageTypeDef(TypedDict):
     FreeTierEligible: NotRequired[bool]
     PublicSsmParameterName: NotRequired[str]
     ImageWatermarks: NotRequired[list[ImageWatermarkTypeDef]]
+    ScanResults: NotRequired[ScanResultsTypeDef]
     InstanceTypeSpecification: NotRequired[InstanceTypeSpecificationTypeDef]
     ImageId: NotRequired[str]
     ImageLocation: NotRequired[str]

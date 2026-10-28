@@ -243,9 +243,19 @@ def test_pkg_dep_remove_recreate(tox_project: ToxProjectCreator, demo_pkg_inline
     assert run_ids == ["_optional_hooks", "get_requires_for_build_wheel", "build_wheel", "install_package", "_exit"]
 
 
-def test_force_dep_applies_to_package_deps(tox_project: ToxProjectCreator, demo_pkg_inline: Path) -> None:
+@pytest.mark.parametrize(
+    ("requires", "forced"),
+    [
+        pytest.param("wheel", "wheel==0.41.0", id="same-spelling"),
+        pytest.param("wheel", "Wheel==0.41.0", id="forced-case"),
+        pytest.param("Demo_Dep>=2", "demo-dep==1", id="metadata-unnormalized"),
+    ],
+)
+def test_force_dep_applies_to_package_deps(
+    tox_project: ToxProjectCreator, demo_pkg_inline: Path, requires: str, forced: str
+) -> None:
     build = (demo_pkg_inline / "build.py").read_text()
-    build_with_dep = build.replace("Summary: UNKNOWN\n", "Summary: UNKNOWN\n        Requires-Dist: wheel\n")
+    build_with_dep = build.replace("Summary: UNKNOWN\n", f"Summary: UNKNOWN\n        Requires-Dist: {requires}\n")
     proj = tox_project(
         {
             "tox.ini": "[testenv]\npackage=wheel",
@@ -254,13 +264,10 @@ def test_force_dep_applies_to_package_deps(tox_project: ToxProjectCreator, demo_
         },
     )
     execute_calls = proj.patch_execute(lambda r: 0 if "install" in r.run_id else None)
-    result = proj.run("le", "-e", "py", "--force-dep", "wheel==0.41.0")
-    result.assert_success()
+    proj.run("le", "-e", "py", "--force-dep", forced).assert_success()
 
-    pkg_deps_calls = [i for i in execute_calls.call_args_list if i[0][3].run_id == "install_package_deps"]
-    assert len(pkg_deps_calls) == 1
-    cmd = pkg_deps_calls[0][0][3].cmd
-    assert "wheel==0.41.0" in cmd
+    calls = [i[0][3].cmd[5:] for i in execute_calls.call_args_list if i[0][3].run_id == "install_package_deps"]
+    assert calls == [[forced]]
 
 
 def test_pkg_env_dep_remove_recreate(tox_project: ToxProjectCreator, demo_pkg_inline: Path) -> None:
@@ -404,16 +411,11 @@ def use_frozen_constraints(request: SubRequest) -> bool:
 def constrained_mock_project(
     request: SubRequest,
     tox_project: ToxProjectCreator,
-    demo_pkg_inline: Path,
+    demo_pkg_with_deps: dict[str, str],
     constrain_package_deps: bool,
     use_frozen_constraints: bool,
 ) -> tuple[ToxProject, list[str]]:
-    toml = (demo_pkg_inline / "pyproject.toml").read_text()
-    files = {
-        "pyproject.toml": toml.replace("requires = []", 'requires = ["setuptools"]')
-        + '\n[project]\nname = "demo"\nversion = "0.1"\ndependencies = ["foo > 2"]',
-        "build.py": (demo_pkg_inline / "build.py").read_text(),
-    }
+    files: dict[str, str] = {}
     exp_constraints: list[str] = []
     requirement = "coo==1.2.3"
     constraint = "coo<2"
@@ -451,7 +453,16 @@ def constrained_mock_project(
         f"use_frozen_constraints = {use_frozen_constraints}\n"
         f"deps = {deps}"
     )
-    return tox_project(files), exp_constraints if constrain_package_deps else []
+    return tox_project({**demo_pkg_with_deps, **files}), exp_constraints if constrain_package_deps else []
+
+
+@pytest.fixture
+def demo_pkg_with_deps(demo_pkg_inline: Path) -> dict[str, str]:
+    toml = (demo_pkg_inline / "pyproject.toml").read_text().replace("requires = []", 'requires = ["setuptools"]')
+    return {
+        "pyproject.toml": f'{toml}\n[project]\nname = "demo"\nversion = "0.1"\ndependencies = ["foo > 2"]',
+        "build.py": (demo_pkg_inline / "build.py").read_text(),
+    }
 
 
 def test_constrain_package_deps(
@@ -504,14 +515,11 @@ def test_constrain_package_deps(
 @pytest.mark.parametrize("use_frozen_constraints", [True, False])
 def test_constraints_option_disables_constrain_package_deps(
     tox_project: ToxProjectCreator,
-    demo_pkg_inline: Path,
+    demo_pkg_with_deps: dict[str, str],
     use_frozen_constraints: bool,
 ) -> None:
-    toml = (demo_pkg_inline / "pyproject.toml").read_text()
     proj = tox_project({
-        "pyproject.toml": toml.replace("requires = []", 'requires = ["setuptools"]')
-        + '\n[project]\nname = "demo"\nversion = "0.1"\ndependencies = ["foo > 2"]',
-        "build.py": (demo_pkg_inline / "build.py").read_text(),
+        **demo_pkg_with_deps,
         "constraints.txt": "coo==1.2.3",
         "tox.ini": (
             "[testenv]\npackage=wheel\n"
@@ -550,13 +558,10 @@ def test_constraints_option_disables_constrain_package_deps(
 
 
 def test_comment_only_constraints_keep_constrain_package_deps(
-    tox_project: ToxProjectCreator, demo_pkg_inline: Path
+    tox_project: ToxProjectCreator, demo_pkg_with_deps: dict[str, str]
 ) -> None:
-    toml = (demo_pkg_inline / "pyproject.toml").read_text()
     proj = tox_project({
-        "pyproject.toml": toml.replace("requires = []", 'requires = ["setuptools"]')
-        + '\n[project]\nname = "demo"\nversion = "0.1"\ndependencies = ["foo > 2"]',
-        "build.py": (demo_pkg_inline / "build.py").read_text(),
+        **demo_pkg_with_deps,
         "tox.toml": """
         [env_run_base]
         package = "wheel"
@@ -570,6 +575,88 @@ def test_comment_only_constraints_keep_constrain_package_deps(
     result.assert_success()
     package_deps = next(c[0][3].cmd for c in execute_calls.call_args_list if c[0][3].run_id == "install_package_deps")
     assert f"-c{proj.path / '.tox' / 'py' / 'constraints.txt'}" in package_deps
+
+
+@pytest.mark.parametrize(
+    ("deps", "extra_files", "expected"),
+    [
+        pytest.param("coo[socks]==1.2.3", {}, ["coo==1.2.3"], id="extras"),
+        pytest.param(
+            "-rrequirements.txt",
+            {"requirements.txt": "coo[socks]==1.2.3"},
+            ["coo==1.2.3"],
+            id="extras-in-requirements-file",
+        ),
+        pytest.param("\n\t-e ./sibling\n\tcoo==1.2.3", {}, ["coo==1.2.3"], id="editable"),
+        pytest.param("\n\t./sibling\n\tcoo==1.2.3", {}, ["coo==1.2.3"], id="directory"),
+        pytest.param("\n\t./coo-1.2.3.tar.gz\n\tbar>1", {}, ["bar>1"], id="source-archive"),
+        pytest.param(
+            "./coo-1.2.3-py3-none-any.whl[socks]",
+            {},
+            [f".{os.sep}coo-1.2.3-py3-none-any.whl"],
+            id="wheel-extras",
+        ),
+        pytest.param(
+            "./coo-1.2.3-py3-none-any.whl",
+            {},
+            [f".{os.sep}coo-1.2.3-py3-none-any.whl"],
+            id="wheel-kept",
+        ),
+        pytest.param(
+            "git+https://example.com/coo.git\\#egg=coo",
+            {},
+            ["git+https://example.com/coo.git#egg=coo"],
+            id="vcs-egg-kept",
+        ),
+        pytest.param(
+            "git+https://example.com/coo.git\\#subdirectory=src&egg=coo",
+            {},
+            ["git+https://example.com/coo.git#subdirectory=src&egg=coo"],
+            id="vcs-egg-after-subdirectory-kept",
+        ),
+        pytest.param("https://example.com/coo-1.2.3.tar.gz", {}, [], id="source-archive-url"),
+        pytest.param(
+            "./build\\#1/coo-1.2.3-py3-none-any.whl",
+            {},
+            [f"build#1{os.sep}coo-1.2.3-py3-none-any.whl"],
+            id="wheel-path-with-hash-sign-kept",
+        ),
+        pytest.param(
+            'coo @ https://example.com/coo.zip ; python_version > "3"',
+            {},
+            ['coo @ https://example.com/coo.zip ; python_version > "3"'],
+            id="named-url-kept",
+        ),
+        pytest.param(
+            "-rrequirements.txt",
+            {"requirements.txt": f"coo==1.2.3 --hash sha256:{'a' * 64}"},
+            [f"coo==1.2.3 --hash sha256:{'a' * 64}"],
+            id="hash-kept",
+        ),
+        pytest.param(
+            "\n\t-cconstraints.txt\n\tbar>1",
+            {"constraints.txt": "coo<2"},
+            ["bar>1", "coo<2"],
+            id="constraints-file-not-duplicated",
+        ),
+    ],
+)
+def test_constrain_package_deps_constraint_lines(
+    tox_project: ToxProjectCreator,
+    demo_pkg_with_deps: dict[str, str],
+    deps: str,
+    extra_files: dict[str, str],
+    expected: list[str],
+) -> None:
+    proj = tox_project({
+        **demo_pkg_with_deps,
+        "tox.ini": f"[testenv]\npackage=wheel\nconstrain_package_deps = true\ndeps = {deps}",
+        **extra_files,
+    })
+    proj.patch_execute(lambda r: 0 if "install" in r.run_id else None)
+    result = proj.run("r")
+    result.assert_success()
+    assert (proj.path / ".tox" / "py" / "constraints.txt").read_text().splitlines() == expected
 
 
 def test_pip_resolution_env_var_change_reinstalls(tox_project: ToxProjectCreator) -> None:

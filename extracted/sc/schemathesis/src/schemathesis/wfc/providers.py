@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from http.cookies import SimpleCookie
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlsplit
 
 import requests
 
-from schemathesis.core.transport import decode_lossy, load_json_lossy
+from schemathesis.core.transport import decode_lossy, load_json_lossy, parse_set_cookie
 from schemathesis.python import asgi, wsgi
 from schemathesis.transport import is_asgi_app
 
@@ -98,7 +97,12 @@ class LoginEndpointAuthProvider:
             return None
         path = self._path()
         # Relative targets resolve against the login path, so both sides end up comparable.
-        return location if urlsplit(urljoin(path, location)).path == path else None
+        try:
+            target = urlsplit(urljoin(path, location)).path
+        except ValueError:
+            # A target that does not parse cannot lead back to the login endpoint.
+            return None
+        return location if target == path else None
 
     def _body_and_headers(self) -> tuple[str | bytes | None, dict[str, str]]:
         try:
@@ -130,6 +134,9 @@ class LoginEndpointAuthProvider:
             )
         except requests.exceptions.RequestException as exc:
             raise WFCLoginError(f"Login endpoint call failed: {exc}") from exc
+        # Header values outside latin-1 and unparsable URLs fail before anything is sent.
+        except ValueError as exc:
+            raise WFCLoginError(f"Login endpoint call failed for {url}: {exc}") from exc
         return _LoginResponse(
             status_code=response.status_code,
             text=decode_lossy(response.content, response.encoding),
@@ -150,7 +157,7 @@ class LoginEndpointAuthProvider:
             text=response.get_data(as_text=True),
             get_json=lambda: response.get_json(force=True, silent=False),
             headers=response.headers,
-            cookies=_parse_set_cookie(response.headers.get_all("Set-Cookie")),
+            cookies=parse_set_cookie(response.headers.get_all("Set-Cookie")),
         )
 
     def _fetch_asgi(self, app: Any, context: AuthContext) -> _LoginResponse:
@@ -211,13 +218,3 @@ class LoginEndpointAuthProvider:
         else:
             raw = extract_token_from_header(response.headers, token_config.extract_selector)
         return format_token(raw, token_config.send_template)
-
-
-def _parse_set_cookie(headers: list[str]) -> dict[str, str]:
-    jar: dict[str, str] = {}
-    for header in headers:
-        cookie: SimpleCookie = SimpleCookie()
-        cookie.load(header)
-        for key, morsel in cookie.items():
-            jar[key] = morsel.value
-    return jar

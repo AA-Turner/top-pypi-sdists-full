@@ -1,7 +1,9 @@
 """Unit tests for DifferSQLGenerator."""
 
+import pglast
 import pytest
 
+from confiture.core.backfill_gate import placeholder
 from confiture.core.differ import SchemaDiffer
 from confiture.core.differ_sql import DifferSQLGenerator
 from confiture.core.schema_change import (
@@ -34,6 +36,15 @@ def test_add_table_generates_create_if_not_exists():
     assert "CREATE TABLE IF NOT EXISTS" in sql
     assert "bookings" in sql
     assert "id uuid NOT NULL DEFAULT gen_random_uuid()" in sql
+
+
+def test_add_table_generates_a_plain_create_table_when_asked():
+    change = TableAdded(table("bookings", spelled("id", "uuid", nullable=False)))
+    sql = DifferSQLGenerator().generate_up(change, plain_creates=True)
+    [stmt] = [raw.stmt for raw in pglast.parse_sql(sql)]
+    assert type(stmt).__name__ == "CreateStmt"
+    assert stmt.relation.relname == "bookings"
+    assert not stmt.if_not_exists
 
 
 def test_schema_change_details_accepts_nested_column_list():
@@ -70,7 +81,8 @@ def test_a_type_change_with_no_assignment_cast_casts_with_using():
         RelationName(None, "users"), spelled("age", "text"), spelled("age", "integer")
     )
     assert DifferSQLGenerator().generate_up(change) == (
-        "-- review: text to integer has no assignment cast; each value is cast explicitly,"
+        placeholder("users.age", "the rows of users whose age does not fit integer")
+        + "-- review: text to integer has no assignment cast; each value is cast explicitly,"
         " and one that does not cast fails the migration\n"
         "ALTER TABLE users ALTER COLUMN age TYPE integer USING age::integer;\n"
     )
@@ -89,13 +101,16 @@ def test_its_down_is_an_assignment_and_writes_no_using():
     ("old", "new"), [("integer", "bigint"), ("bigint", "integer"), ("varchar(100)", "varchar(50)")]
 )
 def test_a_change_within_a_family_writes_no_using(old, new):
-    """A narrowing too: ``::varchar(50)`` would truncate what the assignment cast refuses."""
+    """A narrowing too: ``::varchar(50)`` would truncate what the assignment cast refuses.
+
+    A narrowing writes the backfill placeholder above it (#766); a widening does not.
+    """
     change = ColumnTypeChanged(
         RelationName(None, "users"), spelled("age", old), spelled("age", new)
     )
-    assert DifferSQLGenerator().generate_up(change) == (
-        f"ALTER TABLE users ALTER COLUMN age TYPE {new};\n"
-    )
+    sql = DifferSQLGenerator().generate_up(change) or ""
+    assert sql.endswith(f"ALTER TABLE users ALTER COLUMN age TYPE {new};\n")
+    assert ("confiture:backfill" in sql) is (old != "integer")
 
 
 def test_add_index_concurrently():

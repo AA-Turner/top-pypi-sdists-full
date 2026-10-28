@@ -1,6 +1,7 @@
 Metadata-Version: 2.5
 Name: platformdirs
-Version: 4.13.5
+Version: 4.13.6
+Import-Name: platformdirs
 Summary: A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`.
 Project-URL: Changelog, https://platformdirs.readthedocs.io/en/latest/changelog.html
 Project-URL: Documentation, https://platformdirs.readthedocs.io
@@ -13,7 +14,6 @@ License-File: LICENSE
 Keywords: appdirs,application,cache,directory,log,user
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only

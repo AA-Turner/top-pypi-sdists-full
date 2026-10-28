@@ -26,6 +26,9 @@ from koyeb.api_async.models.deployment_provisioning_info import (
 from koyeb.api_async.models.regional_deployment_definition import (
     RegionalDeploymentDefinition,
 )
+from koyeb.api_async.models.regional_deployment_metadata import (
+    RegionalDeploymentMetadata,
+)
 from koyeb.api_async.models.regional_deployment_role import RegionalDeploymentRole
 from koyeb.api_async.models.regional_deployment_status import RegionalDeploymentStatus
 from typing import Optional, Set
@@ -56,7 +59,7 @@ class RegionalDeployment(BaseModel):
     messages: Optional[List[StrictStr]] = None
     definition: Optional[RegionalDeploymentDefinition] = None
     datacenters: Optional[List[StrictStr]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[RegionalDeploymentMetadata] = None
     provisioning_info: Optional[DeploymentProvisioningInfo] = None
     role: Optional[RegionalDeploymentRole] = RegionalDeploymentRole.INVALID
     instance_snapshot_id: Optional[StrictStr] = None
@@ -131,6 +134,9 @@ class RegionalDeployment(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of definition
         if self.definition:
             _dict["definition"] = self.definition.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of metadata
+        if self.metadata:
+            _dict["metadata"] = self.metadata.to_dict()
         # override the default output from pydantic by calling `to_dict()` of provisioning_info
         if self.provisioning_info:
             _dict["provisioning_info"] = self.provisioning_info.to_dict()
@@ -169,7 +175,9 @@ class RegionalDeployment(BaseModel):
                 if obj.get("definition") is not None
                 else None,
                 "datacenters": obj.get("datacenters"),
-                "metadata": obj.get("metadata"),
+                "metadata": RegionalDeploymentMetadata.from_dict(obj["metadata"])
+                if obj.get("metadata") is not None
+                else None,
                 "provisioning_info": DeploymentProvisioningInfo.from_dict(
                     obj["provisioning_info"]
                 )

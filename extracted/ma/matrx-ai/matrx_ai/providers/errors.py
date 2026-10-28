@@ -1159,8 +1159,42 @@ def _classify_unbranched_status(provider: str, status_code: int, message: str) -
     return result
 
 
+#: A provider that constrains decoding to our JSON schema and then reports the model's
+#: output broke it (Groq: ``json_validate_failed`` - "Generated JSON does not match the
+#: expected schema ... See 'failed_generation'"). Streamed, it arrives as a bare SDK
+#: ``APIError`` with NO status, so it used to fall to ``unknown_error`` and the person
+#: read "An unexpected Groq error occurred" while the real cause (which schema path the
+#: model violated) sat only in the raw snapshot (live 2026-10-27, Brand Curator on
+#: openai/gpt-oss-20b, 2 of 5 batches). Matched on the provider's own text, so any
+#: provider's wording for this goes HERE. Guard: tests/test_provider_schema_violation_keeps_cause.py.
+_SCHEMA_VIOLATION_MARKERS = (
+    "does not match the expected schema",
+    "json_validate_failed",
+    "failed_generation",
+)
+
+
+def _handle_schema_violation(provider: str, error_str: str) -> RetryableError:
+    detail = " ".join(error_str.split())
+    if len(detail) > 600:
+        detail = detail[:600] + "..."
+    return RetryableError(
+        error_type="structured_output_invalid",
+        message=error_str,
+        status_code=400,
+        retry_after=1.0,
+        # Model sampling is nondeterministic: the next attempt can satisfy the schema.
+        is_retryable=True,
+        user_message=f"{provider} could not produce output matching the required schema: {detail}",
+        details={"message": error_str, "provider_code": "json_validate_failed"},
+    )
+
+
 def _fallback_classify(error_str: str, provider: str) -> RetryableError:
     s = error_str.lower()
+
+    if any(marker in s for marker in _SCHEMA_VIOLATION_MARKERS):
+        return _handle_schema_violation(provider, error_str)
 
     if any(marker in s for marker in ("model_archived", "model archived", "is archived", "retired model")):
         return _handle_not_found(provider, error_str)
@@ -1368,6 +1402,11 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
     from matrx_ai.catalog.errors import CatalogRoutingError
 
     if isinstance(exception, CatalogRoutingError):
+        # A typed refusal that carries its own classification (a device model asked for with
+        # no computer: DeviceNotChosenError) keeps it — its own type and person's sentence.
+        attached = getattr(exception, "error_info", None)
+        if isinstance(attached, RetryableError):
+            return attached
         detail = str(exception).strip() or type(exception).__name__
         return RetryableError(
             error_type="matrx_catalog_error",

@@ -214,7 +214,7 @@ def _side_env(tmp_path: Path, side: str, fakes: tuple[str, ...] = (), **extra: s
     """The suite's isolated environment, with this side's own home, config and
     state: two runs in one test never share a file."""
     root = tmp_path / side
-    for name in ("home", "config", "state", "empty-path"):
+    for name in ("home", "config", "state", "empty-path", "tmp"):
         (root / name).mkdir(parents=True, exist_ok=True)
     # As `test_wizard_json_events.device`: a token exported where the suite runs
     # would sign both sides in, and a daemon recorder run would then install.
@@ -228,6 +228,8 @@ def _side_env(tmp_path: Path, side: str, fakes: tuple[str, ...] = (), **extra: s
         "HOME": str(root / "home"),
         "XDG_CONFIG_HOME": str(root / "config"),
         "XDG_STATE_HOME": str(root / "state"),
+        # Its own TMPDIR too: an uninstall removes Probe's $TMPDIR outboxes.
+        "TMPDIR": str(root / "tmp"),
         "PROBE_CONFIG_PATH": str(root / "config.json"),
         "PROBE_BASE_URL": "http://127.0.0.1:9",
         "FAKES": ",".join(fakes),
@@ -765,7 +767,7 @@ def test_status_in_process_is_probe_status_json():
 # -- the request is the app's command, flag for flag ------------------------------
 
 
-@pytest.mark.parametrize("name", sorted(APP_RUNS))
+@pytest.mark.parametrize("name", sorted(n for n in APP_RUNS if n != "uninstall"))
 def test_a_core_action_reaches_the_wizard_with_the_apps_flags(device, monkeypatch, name):
     """What `probe wizard` hands its session for the app's command line, and for
     the `probe.core` request: the same, every argument."""
@@ -775,6 +777,19 @@ def test_a_core_action_reaches_the_wizard_with_the_apps_flags(device, monkeypatc
     cli = CliRunner().invoke(main.app, argv)
     assert _core_call(name, request, lambda _event: None) == 0
     assert (cli.exit_code, len(seen), seen[0]) == (0, 2, seen[1]), cli.output
+
+
+def test_the_core_uninstall_is_the_apps_probe_uninstall(device, monkeypatch):
+    """Uninstall is never the wizard's session: `probe uninstall` (one
+    implementation) from the app's command and from `probe.core` alike."""
+    request, argv = APP_RUNS["uninstall"]
+    seen: list[dict] = []
+    monkeypatch.setattr(main, "_run_uninstall", lambda **kw: seen.append(kw) or 0)
+    monkeypatch.setattr(main, "_wizard_session", lambda **kw: pytest.fail("uninstall reached the wizard session"))
+    cli = CliRunner().invoke(main.app, argv)
+    assert _core_call("uninstall", request, lambda _event: None) == 0
+    assert (cli.exit_code, len(seen), seen[0]) == (0, 2, seen[1]), cli.output
+    assert seen[0] == {"yes": True, "json_output": True}
 
 
 def test_the_facade_names_every_wizard_parameter():

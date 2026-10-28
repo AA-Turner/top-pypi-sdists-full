@@ -391,7 +391,10 @@ def _daemon_rows(caps: Capabilities | None = None) -> list[str]:
 
     rows = ["Probe daemon"]
     default = session_marker.default_session_state()
-    rows.append(_row("New sessions start", session_marker.state_label(default)))
+    set_by = session_marker.set_by_note()
+    rows.append(
+        _row("New sessions start", session_marker.state_label(default) + (f" ({set_by})" if set_by else ""))
+    )
     rows.append(
         _row(
             "Daemon key",

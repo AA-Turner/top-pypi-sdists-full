@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from boxmot.detectors.protocols import Detector
 from boxmot.pipelines.perception import (
@@ -14,7 +14,7 @@ from boxmot.pipelines.perception import (
 from boxmot.reid.protocols import AppearanceEncoder
 from boxmot.segmentors.protocols import Segmentor
 from boxmot.structures import Detections, Frame, Tracks
-from boxmot.trackers.protocols import Tracker, TrackerRequirements
+from boxmot.trackers.common.protocols import Tracker, TrackerRequirements
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +29,11 @@ def _validated_requirements(tracker: Tracker) -> TrackerRequirements:
     requirements = getattr(tracker, "requirements", None)
     if not isinstance(requirements, TrackerRequirements):
         raise TypeError("tracker.requirements must be a TrackerRequirements object.")
+    if requirements.detections_3d or requirements.camera:
+        raise ValueError(
+            "TrackingPipeline cannot supply 3D detections or a CameraModel; "
+            "use the tracker Python update() API with those inputs."
+        )
     if not callable(getattr(tracker, "update", None)):
         raise TypeError("tracker must implement update().")
     if not callable(getattr(tracker, "reset", None)):
@@ -117,6 +122,9 @@ class TrackingPipeline:
         self._validate_frame_order(frame)
         embeddings_missing = self._requirements.embeddings and detections.embeddings is None
         needs_live_embedding_pixels = embeddings_missing and len(detections) > 0
+        live_encoder_masks = needs_live_embedding_pixels and getattr(self.tracker, "reid_requires_masks", False)
+        if live_encoder_masks and detections.masks is None:
+            detections = self._perception.enrich((frame,), (detections,), TrackerRequirements(masks=True))[0]
         if embeddings_missing and not self._generates_embeddings:
             raise ValueError("Tracker-required embeddings are missing after perception enrichment.")
         if self._requirements.masks and detections.masks is None:
@@ -130,7 +138,21 @@ class TrackingPipeline:
         needs_frame = (
             self._requirements.frame or needs_live_embedding_pixels or getattr(self.tracker, "variable_dt", False)
         )
-        tracks = self.tracker.update(detections=detections, frame=frame if needs_frame else None)
+        # Perception enrichments requested for output/scoring stay in the result;
+        # the tracker receives only channels its configured algorithm consumes.
+        tracker_masks = getattr(
+            getattr(self.tracker, "capabilities", None), "accepts_masks", self._requirements.masks
+        ) or live_encoder_masks
+        tracker_detections = detections
+        if (detections.masks is not None and not tracker_masks) or (
+            detections.embeddings is not None and not self._requirements.embeddings
+        ):
+            tracker_detections = replace(
+                detections,
+                masks=detections.masks if tracker_masks else None,
+                embeddings=detections.embeddings if self._requirements.embeddings else None,
+            )
+        tracks = self.tracker.update(detections=tracker_detections, frame=frame if needs_frame else None)
         if not isinstance(tracks, Tracks):
             raise TypeError("Tracker.update() must return a Tracks object.")
         tracks.validate()
@@ -149,7 +171,7 @@ class TrackingPipeline:
         return PipelineResult(detections=detections, tracks=tracks)
 
     def step_detections(self, frame: Frame, detections: Detections) -> PipelineResult:
-        """Advance tracking from caller-supplied detections after required enrichment."""
+        """Bind caller detections to the frame and advance tracking after enrichment."""
         if not isinstance(frame, Frame):
             raise TypeError(f"frame must be a Frame, not {type(frame).__name__}.")
         if not isinstance(detections, Detections):
@@ -157,7 +179,22 @@ class TrackingPipeline:
         self._validate_frame_order(frame)
         if getattr(self.tracker, "variable_dt", False):
             self.tracker.validate_timing(frame)
-        enriched = self._perception.enrich((frame,), (detections,), self._perception_requirements)[0]
+        needs_masks, needs_embeddings = self._perception._required_payloads(self._perception_requirements)
+        if (needs_masks and detections.masks is None) or (needs_embeddings and detections.embeddings is None):
+            enriched = self._perception.enrich((frame,), (detections,), self._perception_requirements)[0]
+        else:
+            # Complete cached payloads need no perception pass. Validate the
+            # mutable tensors once here, including for third-party trackers;
+            # the public tracker update still owns its own input boundary.
+            if detections.sample_id is None:
+                detections = replace(detections, sample_id=frame.sample_id)
+            else:
+                detections.validate()
+            if detections.sample_id != frame.sample_id:
+                raise ValueError(
+                    f"Detections have sample_id {detections.sample_id!r}; expected {frame.sample_id!r}."
+                )
+            enriched = detections
         return self._track(frame, enriched)
 
     def step(self, frame: Frame) -> PipelineResult:

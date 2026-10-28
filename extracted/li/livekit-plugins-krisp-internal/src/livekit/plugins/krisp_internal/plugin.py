@@ -23,9 +23,10 @@ __all__ = ["VivaMode", "KrispVivaFilterFrameProcessor"]
 class KrispVivaFilterFrameProcessor(rtc.FrameProcessor[rtc.AudioFrame]):
     """Krisp Viva noise filter as a LiveKit FrameProcessor.
 
-    Construction is cheap; the underlying SDK is initialized on the first
-    frame after credentials arrive (so the blocking authorize HTTP call runs
-    on the audio thread, not on the room task that delivers credentials).
+    The native filter is created on the first frame after credentials arrive.
+    Creation does not block the event loop: the SDK init and model load run on
+    a native background thread, and frames pass through unfiltered until it
+    is ready.
     """
 
     def __init__(

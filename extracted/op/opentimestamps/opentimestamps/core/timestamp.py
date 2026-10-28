@@ -164,6 +164,9 @@ class Timestamp:
             else:
                 op = Op.deserialize_from_tag(ctx, tag)
 
+                if op in self.ops:
+                    raise opentimestamps.core.serialize.DeserializationError("Invalid timestamp; op %r repeated" % (op,))
+
                 try:
                     result = op(initial_msg)
                 except MsgValueError as exp:
@@ -316,7 +319,7 @@ class DetachedTimestampFile:
     def serialize(self, ctx):
         ctx.write_bytes(self.HEADER_MAGIC)
 
-        ctx.write_varuint(self.MAJOR_VERSION)
+        ctx.write_uint8(self.MAJOR_VERSION)
 
         self.file_hash_op.serialize(ctx)
         assert self.file_hash_op.DIGEST_LENGTH == len(self.timestamp.msg)
@@ -328,7 +331,7 @@ class DetachedTimestampFile:
     def deserialize(cls, ctx):
         ctx.assert_magic(cls.HEADER_MAGIC)
 
-        major = ctx.read_varuint() # FIXME: max-int limit
+        major = ctx.read_uint8()
         if major != cls.MAJOR_VERSION:
             raise opentimestamps.core.serialize.UnsupportedMajorVersion("Version %d detached timestamp files are not supported" % major)
 

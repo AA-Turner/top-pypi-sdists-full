@@ -17,25 +17,17 @@
 # under the License.
 #
 
+from __future__ import annotations
+
 import heapq
 import json
 import logging
 import re
 import os
 import queue
-from typing import Any, Dict, Iterator, Optional, List, Union, Callable, TYPE_CHECKING, Tuple, Type
-
-try:
-    from typing import Literal
-except ImportError:
-    # https://www.python.org/dev/peps/pep-0560/#class-getitem
-    class GenericMeta(type):
-        def __getitem__(self, item):
-            pass
-
-    class Literal(metaclass=GenericMeta):
-        pass
-
+from collections.abc import Iterator
+from types import TracebackType
+from typing import Any, Callable, Literal, Optional, Union, TYPE_CHECKING
 import time
 import traceback
 import uuid
@@ -44,7 +36,7 @@ from functools import total_ordering
 from cproton import PN_ACCEPTED, PN_EVENT_NONE
 
 from ._data import Described, symbol, ulong
-from ._delivery import Delivery
+from ._delivery import Delivery, Disposition, TransactionalDisposition
 from ._endpoints import Connection, Endpoint, Link, Session, Terminus
 from ._events import Collector, EventType, EventBase, Event
 from ._exceptions import SSLUnavailable
@@ -61,14 +53,12 @@ if TYPE_CHECKING:
     from ._data import PythonAMQPData
     from ._handlers import TransactionHandler
     from socket import socket
-    from types import TracebackType
-    from uuid import UUID
 
 
 _logger = logging.getLogger("proton")
 
 
-def _generate_uuid() -> 'UUID':
+def _generate_uuid() -> uuid.UUID:
     return uuid.uuid4()
 
 
@@ -77,15 +67,15 @@ def _now() -> float:
 
 
 @total_ordering
-class Task(object):
+class Task:
 
-    def __init__(self, reactor: 'Container', deadline: float, handler: Handler) -> None:
+    def __init__(self, reactor: Container, deadline: float, handler: Handler) -> None:
         self._deadline = deadline
         self._handler = handler
         self._reactor = reactor
         self._cancelled = False
 
-    def __lt__(self, rhs: 'Task') -> bool:
+    def __lt__(self, rhs: Task) -> bool:
         return self._deadline < rhs._deadline
 
     def cancel(self) -> None:
@@ -96,14 +86,14 @@ class Task(object):
         return self._handler
 
     @property
-    def container(self) -> 'Container':
+    def container(self) -> Container:
         return self._reactor
 
 
 class TimerSelectable(Selectable):
 
-    def __init__(self, reactor: 'Container') -> None:
-        super(TimerSelectable, self).__init__(None, reactor)
+    def __init__(self, reactor: Container) -> None:
+        super().__init__(None, reactor)
 
     def readable(self) -> None:
         pass
@@ -117,7 +107,7 @@ class TimerSelectable(Selectable):
         self.update()
 
 
-class Reactor(object):
+class Reactor:
 
     def __init__(self, *handlers, **kwargs) -> None:
         self._previous = PN_EVENT_NONE
@@ -132,11 +122,11 @@ class Reactor(object):
         self._handler = Handler()
         self._timerheap = []
         self._timers = 0
-        self.errors: List[Tuple[Type[BaseException], BaseException, 'TracebackType']] = []
+        self.errors: list[tuple[type[BaseException], BaseException, TracebackType]] = []
         for h in handlers:
             self.handler.add(h, on_error=self.on_error)
 
-    def on_error(self, info: Tuple[Type[BaseException], BaseException, 'TracebackType']) -> None:
+    def on_error(self, info: tuple[type[BaseException], BaseException, TracebackType]) -> None:
         self.errors.append(info)
         self.yield_()
 
@@ -333,7 +323,7 @@ class Reactor(object):
             host: str,
             port: Union[str, Url.Port],
             handler: Optional[Handler] = None,
-    ) -> 'Acceptor':
+    ) -> Acceptor:
         impl = self._make_handler(handler)
         a = Acceptor(self, host, int(port), impl)
         if a:
@@ -407,7 +397,7 @@ class Reactor(object):
         self._collector.put(obj, etype)
 
 
-class EventInjector(object):
+class EventInjector:
     """
     Can be added to a :class:`Container` to allow events to be triggered by an
     external thread but handled on the event thread associated with
@@ -423,7 +413,7 @@ class EventInjector(object):
         self._transport = None
         self._closed = False
 
-    def trigger(self, event: 'ApplicationEvent') -> None:
+    def trigger(self, event: ApplicationEvent) -> None:
         """
         Request that the given event be dispatched on the event thread
         of the container to which this EventInjector was added.
@@ -496,7 +486,7 @@ class ApplicationEvent(EventBase):
             except KeyError:
                 eventtype = EventType(typename)
                 self.TYPES[typename] = eventtype
-        super(ApplicationEvent, self).__init__(eventtype)
+        super().__init__(eventtype)
         self.connection = connection
         self.session = session
         self.link = link
@@ -510,7 +500,7 @@ class ApplicationEvent(EventBase):
         self.subject = subject
 
     @property
-    def context(self) -> 'ApplicationEvent':
+    def context(self) -> ApplicationEvent:
         """
         A reference to this event.
         """
@@ -521,7 +511,7 @@ class ApplicationEvent(EventBase):
         return "%s(%s)" % (self.type, ", ".join([str(o) for o in objects if o is not None]))
 
 
-class Transaction(object):
+class Transaction:
     """
     Tracks the state of an AMQP 1.0 local transaction. In typical usage, this
     object is not created directly, but is obtained through the event returned
@@ -540,8 +530,8 @@ class Transaction(object):
 
     def __init__(
             self,
-            txn_ctrl: 'Sender',
-            handler: 'TransactionHandler',
+            txn_ctrl: Sender,
+            handler: TransactionHandler,
             settle_before_discharge: bool = False,
     ) -> None:
         self.txn_ctrl = txn_ctrl
@@ -569,20 +559,20 @@ class Transaction(object):
         self.discharge(True)
 
     def declare(self) -> None:
-        self._declare = self._send_ctrl(symbol(u'amqp:declare:list'), [None])
+        self._declare = self._send_ctrl(symbol('amqp:declare:list'), [None])
 
     def discharge(self, failed: bool) -> None:
         self.failed = failed
-        self._discharge = self._send_ctrl(symbol(u'amqp:discharge:list'), [self.id, failed])
+        self._discharge = self._send_ctrl(symbol('amqp:discharge:list'), [self.id, failed])
 
-    def _send_ctrl(self, descriptor: 'PythonAMQPData', value: 'PythonAMQPData') -> Delivery:
+    def _send_ctrl(self, descriptor: PythonAMQPData, value: PythonAMQPData) -> Delivery:
         delivery = self.txn_ctrl.send(Message(body=Described(descriptor, value)))
         delivery.transaction = self
         return delivery
 
     def send(
             self,
-            sender: 'Sender',
+            sender: Sender,
             msg: Message,
             tag: Optional[str] = None,
     ) -> Delivery:
@@ -595,8 +585,8 @@ class Transaction(object):
         :return: Delivery object for this message.
         """
         dlv = sender.send(msg, tag=tag)
-        dlv.local.data = [self.id]
-        dlv.update(0x34)
+        dlv.local = TransactionalDisposition(self.id)
+        dlv.update()
         return dlv
 
     def accept(self, delivery: Delivery) -> None:
@@ -613,8 +603,8 @@ class Transaction(object):
 
     def update(self, delivery: Delivery, state: Optional[ulong] = None) -> None:
         if state:
-            delivery.local.data = [self.id, Described(ulong(state), [])]
-            delivery.update(0x34)
+            delivery.local = TransactionalDisposition(self.id, state)
+            delivery.update()
 
     def _release_pending(self):
         for d in self._pending:
@@ -627,8 +617,8 @@ class Transaction(object):
 
     def handle_outcome(self, event):
         if event.delivery == self._declare:
-            if event.delivery.remote.data:
-                self.id = event.delivery.remote.data[0]
+            if event.delivery.remote_state == Disposition.DECLARED:
+                self.id = event.delivery.remote.id
                 self.handler.on_transaction_declared(event)
             elif event.delivery.remote_state == Delivery.REJECTED:
                 self.handler.on_transaction_declare_failed(event)
@@ -649,7 +639,7 @@ class Transaction(object):
             self._clear_pending()
 
 
-class LinkOption(object):
+class LinkOption:
     """
     Abstract interface for link configuration options
     """
@@ -710,7 +700,7 @@ class SenderOption(LinkOption):
     Abstract class for sender options.
     """
 
-    def apply(self, sender: 'Sender') -> None:
+    def apply(self, sender: Sender) -> None:
         """
         Set the option on the sender.
 
@@ -727,7 +717,7 @@ class ReceiverOption(LinkOption):
     Abstract class for receiver options
     """
 
-    def apply(self, receiver: 'Receiver') -> None:
+    def apply(self, receiver: Receiver) -> None:
         """
         Set the option on the receiver.
 
@@ -776,10 +766,10 @@ class Filter(ReceiverOption):
         containing the filter name, and the value a filter string.
     """
 
-    def __init__(self, filter_set: Dict[symbol, Described] = {}) -> None:
+    def __init__(self, filter_set: dict[symbol, Described] = {}) -> None:
         self.filter_set = filter_set
 
-    def apply(self, receiver: 'Receiver') -> None:
+    def apply(self, receiver: Receiver) -> None:
         """
         Set the filter on the specified receiver.
 
@@ -797,7 +787,7 @@ class Selector(Filter):
     """
 
     def __init__(self, value: str, name: str = 'selector') -> None:
-        super(Selector, self).__init__({symbol(name): Described(
+        super().__init__({symbol(name): Described(
             symbol('apache.org:selector-filter:string'), value)})
 
 
@@ -809,7 +799,7 @@ class DurableSubscription(ReceiverOption):
     :const:`proton.Terminus.EXPIRE_NEVER`.
     """
 
-    def apply(self, receiver: 'Receiver'):
+    def apply(self, receiver: Receiver):
         """
         Set durability on the specified receiver.
 
@@ -827,7 +817,7 @@ class Move(ReceiverOption):
     mode to :const:`proton.Terminus.DIST_MODE_MOVE`.
     """
 
-    def apply(self, receiver: 'Receiver'):
+    def apply(self, receiver: Receiver):
         """
         Set message move semantics on the specified receiver.
 
@@ -844,7 +834,7 @@ class Copy(ReceiverOption):
     :const:`proton.Terminus.DIST_MODE_COPY`.
     """
 
-    def apply(self, receiver: 'Receiver'):
+    def apply(self, receiver: Receiver):
         """
         Set message copy semantics on the specified receiver.
 
@@ -854,8 +844,8 @@ class Copy(ReceiverOption):
 
 
 def _apply_link_options(
-        options: Optional[Union[LinkOption, List[LinkOption]]],
-        link: Union['Sender', 'Receiver']
+        options: Optional[Union[LinkOption, list[LinkOption]]],
+        link: Union['Sender', Receiver]
 ) -> None:
     if options:
         if isinstance(options, list):
@@ -880,7 +870,7 @@ def _get_attr(target: Any, name: str) -> Optional[Any]:
         return None
 
 
-class SessionPerConnection(object):
+class SessionPerConnection:
     def __init__(self) -> None:
         self._default_session = None
 
@@ -910,7 +900,7 @@ class GlobalOverrides(Handler):
 
 class Acceptor(Handler):
 
-    def __init__(self, reactor: 'Container', host: str, port: int, handler: Optional[Handler] = None) -> None:
+    def __init__(self, reactor: Container, host: str, port: int, handler: Optional[Handler] = None) -> None:
         self._ssl_domain = None
         self._reactor = reactor
         self._handler = handler
@@ -972,7 +962,7 @@ def delay_iter(
         delay = min(max_delay, factor * delay)
 
 
-class Backoff(object):
+class Backoff:
     """
     A reconnect strategy involving an increasing delay between
     retries, up to a maximum or 10 seconds. Repeated calls
@@ -989,15 +979,15 @@ class Backoff(object):
 
 
 def make_backoff_wrapper(
-        backoff: Optional[Union[List[Union[float, int]], bool, Backoff]]
-) -> Optional[Union[List[Union[float, int]], bool, Backoff]]:
+        backoff: Optional[Union[list[Union[float, int]], bool, Backoff]]
+) -> Optional[Union[list[Union[float, int]], bool, Backoff]]:
     """
     Make a wrapper for a backoff object:
     If the object conforms to the old protocol (has reset and next methods) then
     wrap it in an iterable that returns an iterator suitable for the new backoff approach
     otherwise assume it is fine as it is!
     """
-    class WrappedBackoff(object):
+    class WrappedBackoff:
         def __init__(self, backoff):
             self.backoff = backoff
 
@@ -1013,8 +1003,8 @@ def make_backoff_wrapper(
         return backoff
 
 
-class Urls(object):
-    def __init__(self, values: List[Union[Url, str]]) -> None:
+class Urls:
+    def __init__(self, values: list[Union[Url, str]]) -> None:
         self.values = [Url(v) for v in values]
 
     def __iter__(self) -> Iterator[Url]:
@@ -1129,7 +1119,7 @@ class _Connector(Handler):
             self._next_url = None
 
 
-class SSLConfig(object):
+class SSLConfig:
     def __init__(self) -> None:
         self.client = SSLDomain(SSLDomain.MODE_CLIENT)
         self.server = SSLDomain(SSLDomain.MODE_SERVER)
@@ -1153,7 +1143,7 @@ def _find_config_file() -> Optional[str]:
     return None
 
 
-def _get_default_config() -> Dict[str, Any]:
+def _get_default_config() -> dict[str, Any]:
     conf = os.environ.get('MESSAGING_CONNECT_FILE') or _find_config_file()
     if conf and os.path.isfile(conf):
         with open(conf, 'r') as f:
@@ -1194,7 +1184,7 @@ class Container(Reactor):
     """
 
     def __init__(self, *handlers, **kwargs) -> None:
-        super(Container, self).__init__(*handlers, **kwargs)
+        super().__init__(*handlers, **kwargs)
         if "impl" not in kwargs:
             try:
                 self.ssl = SSLConfig()
@@ -1212,7 +1202,7 @@ class Container(Reactor):
     def connect(
             self,
             url: Optional[Union[str, Url]] = None,
-            urls: Optional[List[str]] = None,
+            urls: Optional[list[str]] = None,
             address: Optional[str] = None,
             handler: Optional[Handler] = None,
             reconnect: Union[None, Literal[False], Backoff] = None,
@@ -1354,9 +1344,9 @@ class Container(Reactor):
     def _connect(
             self,
             url: Optional[Union[str, Url]] = None,
-            urls: Optional[List[str]] = None,
+            urls: Optional[list[str]] = None,
             handler: Optional['Handler'] = None,
-            reconnect: Optional[Union[List[Union[float, int]], bool, Backoff]] = None,
+            reconnect: Optional[Union[list[Union[float, int]], bool, Backoff]] = None,
             heartbeat: None = None,
             ssl_domain: Optional[SSLDomain] = None,
             **kwargs
@@ -1430,8 +1420,8 @@ class Container(Reactor):
             name: Optional[str] = None,
             handler: Optional[Handler] = None,
             tags: Optional[Callable[[], bytes]] = None,
-            options: Optional[Union['SenderOption', List['SenderOption'], 'LinkOption', List['LinkOption']]] = None
-    ) -> 'Sender':
+            options: Optional[Union['SenderOption', list['SenderOption'], 'LinkOption', list['LinkOption']]] = None
+    ) -> Sender:
         """
         Initiates the establishment of a link over which messages can
         be sent.
@@ -1492,8 +1482,8 @@ class Container(Reactor):
             name: Optional[str] = None,
             dynamic: bool = False,
             handler: Optional[Handler] = None,
-            options: Optional[Union[ReceiverOption, List[ReceiverOption], LinkOption, List[LinkOption]]] = None
-    ) -> 'Receiver':
+            options: Optional[Union[ReceiverOption, list[ReceiverOption], LinkOption, list[LinkOption]]] = None
+    ) -> Receiver:
         """
         Initiates the establishment of a link over which messages can
         be received (aka a subscription).
@@ -1562,7 +1552,7 @@ class Container(Reactor):
         if not _get_attr(context, '_txn_ctrl'):
             class InternalTransactionHandler(OutgoingMessageHandler):
                 def __init__(self):
-                    super(InternalTransactionHandler, self).__init__(auto_settle=True)
+                    super().__init__(auto_settle=True)
 
                 def on_settled(self, event):
                     if hasattr(event.delivery, "transaction"):

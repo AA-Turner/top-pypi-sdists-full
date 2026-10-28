@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyodps
-Version: 0.13.2
+Version: 0.13.3
 Summary: ODPS Python SDK and data analysis framework
 Author-email: Wu Wei <weiwu@cacheme.net>
 Maintainer-email: Wenjun Si <wenjun.swj@alibaba-inc.com>
@@ -23,7 +23,17 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
+Requires-Dist: requests>=2.8.0
+Requires-Dist: pyarrow>=2.0.0
 Provides-Extra: full
+Requires-Dist: jupyterlab>=3.0; extra == "full"
+Requires-Dist: ipywidgets>=7.0; extra == "full"
+Requires-Dist: numpy>=1.6.0; extra == "full"
+Requires-Dist: pandas>=0.17.0; extra == "full"
+Requires-Dist: matplotlib>=1.4; extra == "full"
+Requires-Dist: graphviz>=0.4; extra == "full"
+Requires-Dist: greenlet>=0.4.10; extra == "full"
+Requires-Dist: cython>=0.20; sys_platform != "win32" and extra == "full"
 
 ODPS Python SDK
 ===============

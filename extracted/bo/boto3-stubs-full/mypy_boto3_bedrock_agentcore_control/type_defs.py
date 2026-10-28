@@ -856,6 +856,7 @@ __all__ = (
     "Oauth2DiscoveryUnionTypeDef",
     "Oauth2ProviderConfigInputTypeDef",
     "Oauth2ProviderConfigOutputTypeDef",
+    "OnBehalfOfAuthenticationConfigTypeDef",
     "OnBehalfOfTokenExchangeConfigTypeOutputTypeDef",
     "OnBehalfOfTokenExchangeConfigTypeTypeDef",
     "OnBehalfOfTokenExchangeConfigTypeUnionTypeDef",
@@ -918,6 +919,8 @@ __all__ = (
     "RequestHeaderConfigurationOutputTypeDef",
     "RequestHeaderConfigurationTypeDef",
     "RequestHeaderConfigurationUnionTypeDef",
+    "ResetTokenVaultKeyMaterialRequestTypeDef",
+    "ResetTokenVaultKeyMaterialResponseTypeDef",
     "ResourceLocationTypeDef",
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
@@ -2916,6 +2919,10 @@ class Oauth2AuthorizationServerMetadataTypeDef(TypedDict):
     tokenEndpointAuthMethods: NotRequired[Sequence[str]]
 
 
+class OnBehalfOfAuthenticationConfigTypeDef(TypedDict):
+    clientAuthenticationMethod: Literal["NO_CLIENT"]
+
+
 class TokenExchangeGrantTypeConfigTypeOutputTypeDef(TypedDict):
     actorTokenContent: ActorTokenContentTypeType
     actorTokenScopes: NotRequired[list[str]]
@@ -2977,6 +2984,10 @@ class RegistryRecordOAuthCredentialProviderTypeDef(TypedDict):
 
 class RequestHeaderConfigurationTypeDef(TypedDict):
     requestHeaderAllowlist: NotRequired[Sequence[str]]
+
+
+class ResetTokenVaultKeyMaterialRequestTypeDef(TypedDict):
+    tokenVaultId: str
 
 
 class SamplingConfigTypeDef(TypedDict):
@@ -4444,6 +4455,13 @@ class GetTokenVaultResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ResetTokenVaultKeyMaterialResponseTypeDef(TypedDict):
+    tokenVaultId: str
+    kmsConfiguration: KmsConfigurationTypeDef
+    lastModifiedDate: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class SetTokenVaultCMKRequestTypeDef(TypedDict):
     kmsConfiguration: KmsConfigurationTypeDef
     tokenVaultId: NotRequired[str]
@@ -4949,6 +4967,7 @@ Oauth2AuthorizationServerMetadataUnionTypeDef = Union[
 class OnBehalfOfTokenExchangeConfigTypeOutputTypeDef(TypedDict):
     grantType: OnBehalfOfTokenExchangeGrantTypeTypeType
     tokenExchangeGrantTypeConfig: NotRequired[TokenExchangeGrantTypeConfigTypeOutputTypeDef]
+    onBehalfOfAuthenticationConfig: NotRequired[OnBehalfOfAuthenticationConfigTypeDef]
 
 
 class OpenResponsesEvaluatorModelConfigTypeDef(TypedDict):
@@ -5899,6 +5918,7 @@ class SelfManagedConfigurationTypeDef(TypedDict):
 class OnBehalfOfTokenExchangeConfigTypeTypeDef(TypedDict):
     grantType: OnBehalfOfTokenExchangeGrantTypeTypeType
     tokenExchangeGrantTypeConfig: NotRequired[TokenExchangeGrantTypeConfigTypeUnionTypeDef]
+    onBehalfOfAuthenticationConfig: NotRequired[OnBehalfOfAuthenticationConfigTypeDef]
 
 
 class UpdatedAgentSkillsDescriptorTypeDef(TypedDict):

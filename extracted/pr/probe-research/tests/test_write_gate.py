@@ -456,6 +456,8 @@ NOT_RESEARCH = frozenset(
         "version",
         "whoami",
         "wizard",
+        # `probe uninstall`: Probe off this computer (the wizard's own action).
+        "uninstall",
         "workspace",
     }
 )

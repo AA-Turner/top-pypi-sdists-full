@@ -1,5 +1,6 @@
 import asyncio
 import json as json_lib
+import time
 from pathlib import Path
 
 import httpx
@@ -9,8 +10,17 @@ from pydantic import SecretStr
 
 from arraylake.api_utils import UserAuth
 from arraylake.config import config
-from arraylake.token import AuthException, TokenHandler, resolve_token_path
-from arraylake.types import AuthProviderConfig, OauthTokens
+from arraylake.token import (
+    AuthException,
+    TokenHandler,
+    describe_token,
+    get_fresh_id_token,
+    jwt_expiry,
+    resolve_token_path,
+)
+from arraylake.types import AuthProviderConfig, OauthTokens, OauthTokensResponse
+
+from . import fake_jwt
 
 
 def test_token_handler_init(test_token_file, helpers) -> None:
@@ -415,3 +425,81 @@ def test_token_handler_create_async_client_proxy(monkeypatch, tmp_path, env_prox
             else:
                 proxy_arg = call_kwargs["proxy"]
                 assert (str(proxy_arg.url) if hasattr(proxy_arg, "url") else proxy_arg) == expected_proxy
+
+
+def _set_cached_id_token(token_file: Path, id_token: str) -> None:
+    data = json_lib.loads(token_file.read_text())
+    data["id_token"] = id_token
+    token_file.write_text(json_lib.dumps(data))
+
+
+def test_oauth_tokens_response_defaults_token_type() -> None:
+    tokens = OauthTokensResponse.model_validate({"access_token": "a", "id_token": "b", "expires_in": 300})
+    assert tokens.token_type == "Bearer"
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_without_token_type(test_token_file, respx_mock, mock_auth_provider_config) -> None:
+    handler = TokenHandler("https://foo.com")
+    respx_mock.post(f"https://{mock_auth_provider_config.domain}/oauth/token").respond(
+        200, json={"access_token": "new-access", "id_token": "new-id", "expires_in": 86400}
+    )
+    respx_mock.get("https://foo.com/user").respond(200, json={"id": "2eb77e18-884a-4b01-b85c-46ad169ad39f", "email": "a@example.com"})
+    await handler.refresh_token()
+    saved = json_lib.loads(test_token_file.read_text())
+    assert saved["id_token"] == "new-id"
+    assert saved["refresh_token"] == "refresh-789"  # kept
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("refresh", ["refresh_token", "refresh_quietly"])
+async def test_refresh_with_malformed_response_raises_auth_exception(
+    test_token_file, respx_mock, mock_auth_provider_config, refresh
+) -> None:
+    handler = TokenHandler("https://foo.com")
+    respx_mock.post(f"https://{mock_auth_provider_config.domain}/oauth/token").respond(
+        200, json={"access_token": "secret-access-value", "expires_in": 86400}
+    )
+    before = test_token_file.read_text()
+    with pytest.raises(AuthException, match="al auth login") as excinfo:
+        await getattr(handler, refresh)()
+    assert "id_token" in str(excinfo.value)
+    assert "secret-access-value" not in str(excinfo.value)
+    assert excinfo.value.__cause__ is None and excinfo.value.__suppress_context__  # no token-bearing traceback
+    assert test_token_file.read_text() == before
+
+
+def test_jwt_expiry_and_describe_token() -> None:
+    assert jwt_expiry(fake_jwt(1234.5)) == 1234.5
+    assert jwt_expiry("ema_abc") is None
+    assert jwt_expiry("not.a-jwt") is None
+    assert describe_token("ema_abc") == "API token"
+    assert describe_token(fake_jwt(0)) == "JWT, expired 1970-01-01 00:00 UTC"
+    assert describe_token(fake_jwt(time.time() + 3600)).startswith("JWT, expires ")
+
+
+@pytest.mark.parametrize("expires_in, expect_refresh", [(-10, True), (30, True), (3600, False)])
+def test_get_fresh_id_token(test_token_file, monkeypatch, expires_in, expect_refresh) -> None:
+    old_token = fake_jwt(time.time() + expires_in)
+    new_token = fake_jwt(time.time() + 7200)
+    _set_cached_id_token(test_token_file, old_token)
+    refreshes = []
+
+    async def refresh_quietly(self) -> None:
+        refreshes.append(1)
+        self.update({"id_token": new_token})
+
+    monkeypatch.setattr(TokenHandler, "refresh_quietly", refresh_quietly)
+    assert get_fresh_id_token("https://foo.com") == (new_token if expect_refresh else old_token)
+    assert len(refreshes) == int(expect_refresh)
+
+
+def test_get_fresh_id_token_requires_login(test_token_file) -> None:
+    test_token_file.unlink()
+    with pytest.raises(AuthException, match="al auth login"):
+        get_fresh_id_token("https://foo.com")
+    test_token_file.write_text(
+        json_lib.dumps({"access_token": "a", "id_token": "garbage", "refresh_token": "r", "expires_in": 1, "token_type": "Bearer"})
+    )
+    with pytest.raises(AuthException, match="Invalid cached login token"):
+        get_fresh_id_token("https://foo.com")

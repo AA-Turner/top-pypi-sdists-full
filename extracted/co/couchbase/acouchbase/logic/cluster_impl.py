@@ -30,7 +30,7 @@ from acouchbase.n1ql import AsyncN1QLRequest
 from acouchbase.search import AsyncFullTextSearchRequest
 from acouchbase.transactions import Transactions
 from couchbase.exceptions import ServiceUnavailableException, UnAmbiguousTimeoutException
-from couchbase.logic.cluster_impl import ClusterSettings
+from couchbase.logic.cluster_impl import ClusterSettings, normalize_connection_info
 from couchbase.logic.cluster_req_builder import ClusterRequestBuilder
 from couchbase.logic.cluster_types import CreateConnectionRequest, GetConnectionInfoRequest
 from couchbase.logic.observability import ObservabilityInstruments
@@ -160,6 +160,8 @@ class AsyncClusterImpl:
         # Transactions.__init__ goes straight into the synchronous create_transactions (no executor
         # anywhere in the async path), which releases the GIL for a full cluster round-trip.
         # Use threading.Lock, not asyncio.Lock, for the same reason.
+        self._client_adapter._ensure_not_closed()
+        self._client_adapter._ensure_connected()
         if self._transactions is None:
             with self._transactions_lock:
                 if self._transactions is None:
@@ -206,11 +208,16 @@ class AsyncClusterImpl:
                 log.warning('Error closing transactions while closing the cluster.', exc_info=True)
 
         try:
-            from couchbase.logic.observability import ThresholdLoggingTracer
-            tracer = self._cluster_settings.tracer.tracer
+            from couchbase.logic.observability import LoggingMeter, ThresholdLoggingTracer
+            instruments = self._cluster_settings.observability_instruments
+            tracer = instruments.tracer.tracer
             if isinstance(tracer, ThresholdLoggingTracer):
                 # shutdown the tracer's reporter
                 tracer.close()
+            meter = instruments.meter
+            if isinstance(meter, LoggingMeter):
+                # shutdown the meter's reporter
+                meter.close()
         except Exception:  # nosec
             # Don't raise exceptions during shutdown
             pass
@@ -238,7 +245,8 @@ class AsyncClusterImpl:
 
     def get_connection_info(self) -> Dict[str, Any]:
         """**INTERNAL**"""
-        return self._client_adapter.execute_cluster_request_sync(GetConnectionInfoRequest())
+        return normalize_connection_info(
+            self._client_adapter.execute_cluster_request_sync(GetConnectionInfoRequest()))
 
     async def ping(self, req: PingRequest) -> PingResult:
         """**INTERNAL**"""

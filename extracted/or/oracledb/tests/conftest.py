@@ -239,9 +239,9 @@ class TestEnv:
                 return oracledb.IntervalYM(
                     years=years * sign, months=months * sign
                 )
-            return datetime.timedelta(
-                days=df_val.days, microseconds=df_val.microseconds
-            )
+            ns = getattr(df_val, "nanoseconds", 0)
+            us = getattr(df_val, "microseconds", 0) + (ns // 1000)
+            return datetime.timedelta(days=df_val.days, microseconds=us)
         elif pandas.isna(df_val):
             return None
         elif isinstance(df_val, dict):
@@ -920,6 +920,16 @@ def skip_unless_binary_vectors_supported(test_env):
     """
     if not test_env.has_client_and_server_version(23, 5):
         pytest.skip("no binary vector support")
+
+
+@pytest.fixture(scope="session")
+def skip_unless_database_opentelemetry_supported(test_env):
+    """
+    Skips the test if database OpenTelemetry tracing is not supported.
+    """
+    with test_env.get_connection() as conn:
+        if not conn.supports_opentelemetry_tracing:
+            pytest.skip("no database OpenTelemetry tracing support")
 
 
 @pytest.fixture(scope="session")

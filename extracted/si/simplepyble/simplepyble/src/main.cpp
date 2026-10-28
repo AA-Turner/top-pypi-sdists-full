@@ -4,6 +4,8 @@
 
 #include "simpleble/SimpleBLE.h"
 
+#include "python_callback.hpp"
+
 /**
  * Useful links for documentation while I figure this one out.
  * https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html
@@ -13,11 +15,13 @@
 
 namespace py = pybind11;
 
+void wrap_errors(py::module& m);
 void wrap_types(py::module& m);
 void wrap_descriptor(py::module& m);
 void wrap_characteristic(py::module& m);
 void wrap_service(py::module& m);
 void wrap_peripheral(py::module& m);
+void wrap_local(py::module& m);
 void wrap_adapter(py::module& m);
 void wrap_backend(py::module& m);
 void wrap_advanced(py::module& m);
@@ -26,6 +30,8 @@ void wrap_logging(py::module& m);
 
 PYBIND11_MODULE(_simplepyble, m) {
     m.attr("__version__") = SIMPLEPYBLE_VERSION;
+
+    simplepyble::PythonCallback::register_exit_hook();
 
     // m.doc() = R"pbdoc(
     //     ====================
@@ -48,11 +54,13 @@ PYBIND11_MODULE(_simplepyble, m) {
         Returns the version of SimpleBLE.
     )pbdoc");
 
+    wrap_errors(m);
     wrap_types(m);
     wrap_descriptor(m);
     wrap_characteristic(m);
     wrap_service(m);
     wrap_peripheral(m);
+    wrap_local(m);
     wrap_adapter(m);
     wrap_backend(m);
     wrap_advanced(m);

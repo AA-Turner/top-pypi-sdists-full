@@ -1,7 +1,8 @@
 __package__ = "archivebox.core"
 
 import json
-from math import ceil
+from copy import copy
+from html import escape
 from typing import Any
 
 from django.contrib import admin, messages
@@ -26,6 +27,7 @@ from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList
 from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.core.routes_util import (
+    build_snapshot_detail_path,
     build_snapshot_detail_url,
     build_snapshot_files_url,
     build_snapshot_role_output_url,
@@ -36,7 +38,7 @@ from archivebox.core.routes_util import (
 from archivebox.core.tag_util import get_or_create_tag
 from archivebox.core.templatetags.core_tags import snapshot_thumbnail, snapshot_url_text
 from archivebox.plugins.hooks import discover_hooks
-from archivebox.plugins.discovery import get_plugin_icon, get_snapshot_role_names
+from archivebox.plugins.discovery import get_plugin_icon, get_plugin_icon_sprite, get_plugin_list_icon, get_snapshot_role_names
 from archivebox.plugins.output_groups import (
     OUTPUT_GROUPS,
     display_plugin_name,
@@ -49,6 +51,7 @@ from archivebox.plugins.output_groups import (
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult
+from archivebox.core.list_results_util import load_snapshot_list_results
 from archivebox.crawls.models import Crawl
 from archivebox.core.admin_archiveresults import render_archiveresults_list
 from archivebox.progressmonitor.views import progress_endpoint
@@ -64,14 +67,6 @@ from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 GLOBAL_CONTEXT = {}
 
 SNAPSHOT_PERMISSION_META = PERMISSIONS_META
-
-
-def _format_size_column(num_bytes: int) -> str:
-    size = num_bytes
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if size < 1024 or unit == "TB":
-            return f"{size:.1f} {unit}" if unit == "GB" else f"{ceil(size)} {unit}"
-        size /= 1024
 
 
 class SnapshotActionForm(ActionForm):
@@ -238,11 +233,19 @@ class SnapshotResultHealthListFilter(admin.SimpleListFilter):
                     # "succeeded" is overwhelmingly common in large collections.
                     # Scan Snapshots in admin order and do indexed per-snapshot
                     # probes so page 1 can stop after list_per_page matches.
-                    queryset = queryset.alias(
-                        total_results=ArchiveResult.snapshot_count_expr(),
-                        matching_results=ArchiveResult.snapshot_count_expr(status=status),
-                    ).filter(matching_results__gt=F("total_results") / 2)
-                    return queryset
+                    # Count both values in one covering-index scan. Separate
+                    # scalar subqueries scan every snapshot's results twice
+                    # when the paginator computes the exact filtered count.
+                    matching = (
+                        results.order_by()
+                        .values("snapshot_id")
+                        .annotate(
+                            total_results=Count("snapshot_id"),
+                            matching_results=Count("snapshot_id", filter=Q(status=status)),
+                        )
+                        .filter(matching_results__gt=F("total_results") / 2)
+                    )
+                    return queryset.filter(Exists(matching))
 
                 # Rare statuses are faster status-first: use the
                 # (status, snapshot_id) index to find candidate snapshots.
@@ -260,60 +263,22 @@ class SnapshotChangeList(SearchResultsChangeList):
         )
 
     def _attach_archiveresult_summaries(self):
-        snapshot_ids = [obj.pk for obj in self.result_list]
-        if not snapshot_ids:
+        if not self.result_list:
             return
 
-        status_counts_by_snapshot = {
-            row["snapshot_id"]: row
-            for row in ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids)
-            .values("snapshot_id")
-            .annotate(
-                total=Count("pk"),
-                succeeded=Count("pk", filter=Q(status=ArchiveResult.StatusChoices.SUCCEEDED)),
-                failed=Count("pk", filter=Q(status=ArchiveResult.StatusChoices.FAILED)),
-                running=Count("pk", filter=Q(status=ArchiveResult.StatusChoices.STARTED)),
-                skipped=Count("pk", filter=Q(status=ArchiveResult.StatusChoices.SKIPPED)),
-                noresults=Count("pk", filter=Q(status=ArchiveResult.StatusChoices.NORESULTS)),
-            )
-        }
-
-        output_results_by_snapshot = {snapshot_id: [] for snapshot_id in snapshot_ids}
-        seen_plugins = {snapshot_id: set() for snapshot_id in snapshot_ids}
-        rows = (
-            ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids, status=ArchiveResult.StatusChoices.SUCCEEDED, output_size__gt=0)
-            .order_by("snapshot_id", "plugin")
-            .only("snapshot_id", "plugin", "status", "output_str", "output_size", "output_files")
-        )
-        for result in rows.iterator(chunk_size=1000):
-            if result.plugin in seen_plugins[result.snapshot_id]:
-                continue
-            seen_plugins[result.snapshot_id].add(result.plugin)
-            output_results_by_snapshot[result.snapshot_id].append(result)
-
-        card_results_by_snapshot = {snapshot_id: [] for snapshot_id in snapshot_ids}
-        for result in (
-            ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids)
-            .exclude(plugin="")
-            .only(
-                "snapshot_id",
-                "plugin",
-                "status",
-                "output_str",
-                "output_size",
-                "output_files",
-            )
-        ):
-            card_results_by_snapshot[result.snapshot_id].append(result)
-
+        # Progress counts, file icons, favicons and thumbnails come from plain
+        # rows plus the few manifest entries their links need: responses/wget
+        # manifests hold thousands of entries (see list_results_util).
+        list_results = load_snapshot_list_results(self.result_list)
         for obj in self.result_list:
-            counts = status_counts_by_snapshot.get(obj.pk, {})
-            total = int(counts.get("total") or 0)
-            succeeded = int(counts.get("succeeded") or 0)
-            failed = int(counts.get("failed") or 0)
-            running = int(counts.get("running") or 0)
-            skipped = int(counts.get("skipped") or 0)
-            noresults = int(counts.get("noresults") or 0)
+            summary = list_results[obj.pk]
+            counts = summary.status_counts + summary.unnamed_status_counts
+            total = sum(counts.values())
+            succeeded = counts[ArchiveResult.StatusChoices.SUCCEEDED]
+            failed = counts[ArchiveResult.StatusChoices.FAILED]
+            running = counts[ArchiveResult.StatusChoices.STARTED]
+            skipped = counts[ArchiveResult.StatusChoices.SKIPPED]
+            noresults = counts[ArchiveResult.StatusChoices.NORESULTS]
             completed = succeeded + failed + skipped + noresults
             obj.__dict__["_admin_progress_stats"] = {
                 "total": total,
@@ -327,8 +292,11 @@ class SnapshotChangeList(SearchResultsChangeList):
                 "output_size": obj.output_size or 0,
                 "is_sealed": obj.status not in (obj.StatusChoices.QUEUED, obj.StatusChoices.STARTED, obj.StatusChoices.PAUSED),
             }
-            obj.__dict__["_admin_output_results"] = output_results_by_snapshot[obj.pk]
-            obj.__dict__["_snapshot_card_results"] = card_results_by_snapshot[obj.pk]
+            # files() selects successful links itself, but needs every sibling
+            # hook to count shared plugin files once and order the icons.
+            obj.__dict__["_admin_output_results"] = summary.results
+            obj.__dict__["_snapshot_card_results"] = summary.results
+            obj.__dict__["_snapshot_thumbnail_result"] = summary.thumbnail_result
 
     def get_results(self, request):
         super().get_results(request)
@@ -549,6 +517,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return []
         return super().get_ordering(request)
 
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        self = copy(self)
+        self.request = request
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         self.request = request
         context["CONFIG"] = request.archivebox_config
@@ -563,6 +536,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
     def changelist_view(self, request, extra_context=None):
+        # Django shares ModelAdmin instances; deferred rendering must keep its own request.
+        self = copy(self)
         self.request = request
         saved_list_per_page = self.list_per_page
         embedded_changelist = request.GET.get("_embedded") == "crawl"
@@ -733,9 +708,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                     queryset=ArchiveResult.objects.only(
                         "id",
                         "snapshot_id",
+                        "modified_at",
                         "plugin",
                         "status",
                         "output_size",
+                        "output_str",
                         "output_files",
                     ),
                 ),
@@ -760,6 +737,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             qs = qs.only(
                 "id",
                 "created_at",
+                "modified_at",
                 "url",
                 "timestamp",
                 "bookmarked_at",
@@ -1135,7 +1113,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def files(self, obj):
         results = self._get_prefetched_results(obj)
         if results is None:
-            results = obj.archiveresult_set.only("plugin", "status", "output_size", "output_files")
+            results = obj.archiveresult_set.only("plugin", "status", "output_size", "output_str", "output_files")
 
         plugins_with_output: dict[str, ArchiveResult] = {}
         for result in results:
@@ -1148,15 +1126,19 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         if not plugins_with_output:
             return ""
 
-        sorted_results = [plugins_with_output[plugin] for plugin in order_output_plugins(plugins_with_output, plugin_output_sizes(results))]
+        output_sizes = plugin_output_sizes(result for result in results if result.plugin in plugins_with_output)
+        sorted_results = [plugins_with_output[plugin] for plugin in order_output_plugins(plugins_with_output, output_sizes)]
         icons_by_group: dict[str, list[dict[str, Any]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
         request = self.request
         config = request.archivebox_config
+        # Every icon links into this one detail page and differs only in its
+        # #fragment. Resolving the request's web origin takes several urlparse
+        # calls, so do it once per row instead of once per icon.
+        detail_url = build_snapshot_detail_url(obj.archive_path_from_db, request=request, config=config)
         for result in sorted_results:
             if plugin_icon_is_hidden(result.plugin):
                 continue
-            icon = mark_safe(get_plugin_icon(result.plugin))
-            if not icon.strip():
+            if not str(get_plugin_icon(result.plugin)).strip():
                 continue
             embed_path = result.embed_path()
             if not embed_path:
@@ -1165,85 +1147,60 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             anchor_path = get_snapshot_output_anchor(result.plugin, embed_path)
             icons_by_group[group_id].append(
                 {
-                    "plugin": result.plugin,
-                    "icon": icon,
-                    "href": build_snapshot_detail_url(
-                        obj.archive_path_from_db,
-                        output_path=anchor_path,
-                        request=request,
-                        config=config,
-                    ),
+                    "plugin": escape(result.plugin),
+                    # The page draws each icon's SVG once (see get_plugin_list_icon).
+                    "icon": str(get_plugin_list_icon(result.plugin)),
+                    "href": escape(detail_url + build_snapshot_detail_path("", output_path=anchor_path, prefix="")),
                 },
             )
 
+        # ~40 icons per row: plain strings instead of format_html, and only the
+        # CSS variables admin.css/files-icon-piles.js read, left out where they
+        # equal their var()/JS fallback. Every icon, link, label and position stays.
         output = []
         for group_id, label, _ in OUTPUT_GROUPS:
             icons = icons_by_group[group_id]
-            if icons:
-                top = icons[0]
-                front_index = 0
-                pile_column = len(output)
-                top_html = format_html(
-                    '<a href="{}" class="exists-True files-icon-pile-top files-icon-pile-cover files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-front-index:{};--files-icon-front-offset:{}px">{}</a>',
-                    top["href"],
-                    top["plugin"],
-                    label,
-                    label,
-                    front_index,
-                    front_index * 2,
-                    top["icon"],
+            if not icons:
+                continue
+            column = len(output)
+            rows = (len(icons) + 4) // 5
+            label = escape(label)
+            pile_vars = ([f"--files-icon-popup-left:{column * -22}px"] if column else []) + (
+                [f"--files-icon-rows:{rows}"] if rows > 1 else []
+            )
+            pile_style = f' style="{";".join(pile_vars)}"' if pile_vars else ""
+            top = icons[0]
+            members = []
+            for icon_index, item in enumerate(icons):
+                row = icon_index // 5
+                row_offset = (5 - min(5, len(icons) - row * 5)) * 11 + 3
+                member_vars = [f"--files-icon-member-left:{3 + row_offset + (icon_index % 5) * 22}px"]
+                if row:
+                    member_vars.append(f"--files-icon-member-top:{8 + row * 18}px")
+                members.append(
+                    f'<a href="{item["href"]}" class="files-icon-plugin--{item["plugin"]}" aria-label="{escape(display_plugin_name(item["plugin"]))}" '
+                    f'data-tooltip="{item["plugin"]}" style="{";".join(member_vars)}">{item["icon"]}</a>',
                 )
-                members = []
-                for icon_index, item in enumerate(icons):
-                    row = icon_index // 5
-                    row_count = min(5, len(icons) - row * 5)
-                    member_top = 8 + row * 18
-                    row_offset = (5 - row_count) * 11 + 3
-                    member_left = 3 + row_offset + (icon_index % 5) * 22
-                    members.append(
-                        format_html(
-                            '<a href="{}" class="exists-True files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-index:{};--files-icon-row:{};--files-icon-column:{};--files-icon-row-offset:{}px;--files-icon-member-left:{}px;--files-icon-member-top:{}px">{}</a>',
-                            item["href"],
-                            item["plugin"],
-                            display_plugin_name(item["plugin"]),
-                            item["plugin"],
-                            icon_index,
-                            row,
-                            icon_index % 5,
-                            row_offset,
-                            member_left,
-                            member_top,
-                            item["icon"],
-                        ),
-                    )
-                popup = format_html(
-                    '<span class="files-icon-pile-popup" popover="manual">{}<span class="files-icon-pile-label">{}</span></span>',
-                    mark_safe("".join(str(icon) for icon in members)),
-                    label,
-                )
-                pile_contents = format_html("{}{}", top_html, popup)
-                output.append(
-                    format_html(
-                        '<span class="files-icon-pile files-icon-pile--{}" role="group" aria-label="{} saved outputs" style="--files-icon-popup-left:{}px;--files-icon-rows:{};--files-icon-card-width:{}px">{}</span>',
-                        group_id,
-                        label,
-                        pile_column * -22 - front_index * 2,
-                        (len(icons) + 4) // 5,
-                        116,
-                        pile_contents,
-                    ),
-                )
+            output.append(
+                f'<span class="files-icon-pile files-icon-pile--{escape(group_id)}" role="group" aria-label="{label} saved outputs"{pile_style}>'
+                f'<a href="{top["href"]}" class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{top["plugin"]}" aria-label="{label}" data-tooltip="{label}">{top["icon"]}</a>'
+                f'<span class="files-icon-pile-popup" popover="manual">{"".join(members)}<span class="files-icon-pile-label">{label}</span></span>'
+                "</span>",
+            )
 
-        return format_html(
-            '<span class="files-icons files-icons--compact" style="font-size: 1em;">{}</span>',
-            mark_safe("".join(output)),
-        )
+        # One copy of the icon drawings per page, outside .files-icons whose
+        # svg sizing rules would otherwise give it a box.
+        sprite = ""
+        if not request.__dict__.get("_archivebox_icon_sprite_sent"):
+            request._archivebox_icon_sprite_sent = True
+            sprite = get_plugin_icon_sprite()
+        return mark_safe(f'{sprite}<span class="files-icons files-icons--compact" style="font-size: 1em;">{"".join(output)}</span>')
 
     @admin.display(empty_value="")
     def size(self, obj):
         archive_size = self._get_progress_stats(obj)["output_size"] or 0
         if archive_size:
-            size_txt = _format_size_column(archive_size)
+            size_txt = printable_filesize(archive_size)
             if archive_size > 52428800:
                 size_txt = mark_safe(f"<b>{size_txt}</b>")
         else:
@@ -1329,7 +1286,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         size_bytes = output_size or 0
 
         if size_bytes:
-            size_txt = _format_size_column(size_bytes)
+            size_txt = printable_filesize(size_bytes)
             if size_bytes > 52428800:  # 50MB
                 size_txt = mark_safe(f"<b>{size_txt}</b>")
         else:

@@ -46,7 +46,7 @@ from matrx_ai.catalog.models import (
     CatalogSetting,
     CatalogVoice,
 )
-from matrx_ai.catalog.routes import SPECIAL_WIRE_FORMATS
+from matrx_ai.catalog.routes import DEVICE_WIRE_FORMAT, SPECIAL_WIRE_FORMATS
 from matrx_ai.db._registry import DBNotConfiguredError, get_model
 from matrx_ai.providers.unified_client import UnifiedAIClient
 
@@ -779,8 +779,7 @@ class AiCatalogManager:
         }
 
     # ── reads ────────────────────────────────────────────────────────────────
-    def offerings_for(self, model_id: str) -> list[CatalogOffering]:
-        """Available offerings for a model, priority-ordered, quarantined rows excluded."""
+    def _routable(self, model_id: str) -> list[CatalogOffering]:
         candidates = self._offerings_by_model.get(str(model_id), [])
         return [
             o
@@ -790,6 +789,50 @@ class AiCatalogManager:
             and ep.is_active
             and o.api_id in self._apis
         ]
+
+    def is_device_offering(self, offering: CatalogOffering) -> bool:
+        """THE ONE RULE: an offering on the device wire (``ai.api.translator_key ==
+        DEVICE_WIRE_FORMAT``) runs only on a person's own computer, reached through
+        ``served_via`` — never a cloud route. The SQL twin is ai.model_offering's filter."""
+        api = self._apis.get(str(offering.api_id))
+        return api is not None and api.translator_key == DEVICE_WIRE_FORMAT
+
+    def offerings_for(self, model_id: str) -> list[CatalogOffering]:
+        """Available CLOUD offerings for a model, priority-ordered, quarantined rows excluded.
+
+        A device offering is never a candidate here (preferred route, pin, class, overload
+        ladder, client-host export): a call without ``served_via`` must never reach DeviceChat.
+        The device route reads its offering with :meth:`device_offering_for`."""
+        return [o for o in self._routable(model_id) if not self.is_device_offering(o)]
+
+    def device_offering_for(self, model_id: str) -> CatalogOffering | None:
+        """The model's available device offering (its controls for a ``served_via`` call), or None."""
+        return next((o for o in self._routable(model_id) if self.is_device_offering(o)), None)
+
+    def device_controls_for(self, model_id: str) -> CompiledControlsMap | None:
+        """The compiled controls of the model's device offering (its setting profile: the values
+        its chat template accepts), or None when it has none."""
+        offering = self.device_offering_for(model_id)
+        return self.compiled_controls(offering.api_id, offering.id) if offering is not None else None
+
+    def device_thinking_controls(self, thinking_switch: str | None) -> CompiledControlsMap | None:
+        """The device controls for a person's own file whose template's thinking switch the device
+        reported (``metadata.gguf.thinking_switch``, pinned by the desktop-protocol fixture
+        device-model-contract.json): ``on_by_default`` → the device profile whose reasoning default
+        is ``auto`` and offers ``none``; ``off_by_default`` → the one whose default is ``none``.
+        Matched on the compiled rule (data), never a profile name. None: unknown / no switch."""
+        want = {"on_by_default": "auto", "off_by_default": "none"}.get(str(thinking_switch or ""))
+        if want is None:
+            return None
+        for offering in self._offerings.values():
+            if not offering.is_available or not self.is_device_offering(offering):
+                continue
+            compiled = self.compiled_controls(offering.api_id, offering.id)
+            rule = compiled.rules.get("reasoning_effort")
+            values = list(rule.ui_values or []) if rule is not None else []
+            if rule is not None and rule.default == want and "none" in values:
+                return compiled
+        return None
 
     def parked_offerings_for(self, model_id: str) -> list[CatalogOffering]:
         """Well-formed offerings an operator deliberately marked ``is_available=false``.
@@ -947,6 +990,20 @@ class AiCatalogManager:
         if provider_id is None:
             return None
         return self._providers.get(str(provider_id))
+
+    def model_maker(self, model_ref: str | None) -> str | None:
+        """THE LAB THAT MADE a model id, name or alias — ``ai.provider.name`` through
+        ``ai.model_definition.provider_id`` (what ``ai.model_public.maker`` reads).
+
+        ``None`` when the catalog is not loaded, the ref does not resolve, or the row
+        names no provider — never guessed from the model's name."""
+        if not model_ref:
+            return None
+        state = self._model_state.get(self.resolve_model_ref(str(model_ref).strip()))
+        if not state:
+            return None
+        name = (self.provider_name(state.get("provider_id")) or "").strip()
+        return name or None
 
     def resolve_model_ref(self, ref: str) -> str:
         """Resolve a model reference to the canonical model id — id, then name,

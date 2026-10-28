@@ -38,6 +38,7 @@ class Experiment(TypedDict):
     traceFunctionKey: str | None
     createdAt: str
     completedAt: str | None
+    codeChangeType: NotRequired[str | None]
     codeChangeDescription: str | None
     codeChangeTotals: ExperimentCodeChangeTotals | None
     experimentGroupId: str | None

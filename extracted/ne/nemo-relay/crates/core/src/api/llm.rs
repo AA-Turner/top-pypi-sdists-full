@@ -30,7 +30,7 @@ use crate::api::runtime::subscriber_dispatcher::{
     dispatch_sanitized_event, dispatch_transformed_event, register_pending_publication,
 };
 use crate::api::runtime::{
-    EventSubscriberFn, LlmCollectorFn, LlmExecutionContext, LlmExecutionNextFn, LlmFinalizerFn,
+    EventSubscriberFn, LlmCollector, LlmExecutionContext, LlmExecutionNextFn, LlmFinalizer,
     LlmJsonStream, LlmSanitizeRequestContext, LlmSanitizeResponseContext, LlmStreamExecutionNextFn,
     MiddlewareContinuationContext,
 };
@@ -281,10 +281,16 @@ pub struct LlmStreamCallExecuteParams {
     pub request: LlmRequest,
     /// Streaming provider callback or execution continuation.
     pub func: LlmStreamExecutionNextFn,
-    /// Per-chunk collector callback used to accumulate stream state.
-    pub collector: LlmCollectorFn,
-    /// Finalizer callback used to construct the completed response.
-    pub finalizer: LlmFinalizerFn,
+    /// Per-chunk collector used to accumulate stream state.
+    #[builder(setter(into))]
+    pub collector: LlmCollector,
+    /// Optional callback that reads each chunk by reference.
+    /// If set, the runtime calls this callback instead of `collector`.
+    #[builder(default)]
+    pub borrowed_collector: Option<crate::api::runtime::LlmBorrowedCollectorFn>,
+    /// Finalizer used to construct the completed response.
+    #[builder(setter(into))]
+    pub finalizer: LlmFinalizer,
     /// Optional explicit parent scope for the emitted LLM span.
     #[builder(default)]
     pub parent: Option<ScopeHandle>,
@@ -1115,6 +1121,9 @@ async fn build_llm_end_payload(
 /// omits the payload and response annotation and does not run remaining sanitizers.
 /// When model pricing is configured, Relay estimates missing cost on a supplied
 /// or decoded response annotation that contains matching model and usage data.
+/// To report a failed call, pass `otel.status_code: "ERROR"` in `metadata`, with
+/// an optional `otel.status_description` and `error.type`. Otherwise, the end
+/// event defaults to `OK`.
 pub fn llm_call_end(params: LlmCallEndParams<'_>) -> Result<()> {
     ensure_runtime_owner()?;
     let scope_stack = params.handle.captured_scope_stack().clone();
@@ -1197,7 +1206,16 @@ pub fn llm_call_end(params: LlmCallEndParams<'_>) -> Result<()> {
                 let Ok(state) = context.read() else {
                     return event;
                 };
-                let end_metadata = metadata_with_otel_status(metadata, "OK", None);
+                let end_metadata = if metadata
+                    .as_ref()
+                    .and_then(|value| value.get("otel.status_code"))
+                    .and_then(Json::as_str)
+                    == Some("ERROR")
+                {
+                    metadata
+                } else {
+                    metadata_with_otel_status(metadata, "OK", None)
+                };
                 state.build_llm_end_event(
                     EndLlmHandleParams::builder()
                         .handle(&handle)
@@ -1874,11 +1892,37 @@ pub async fn llm_call_execute(params: LlmCallExecuteParams) -> Result<Json> {
 /// The returned stream emits chunk-level results while the runtime defers the
 /// LLM-end event until the collector and finalizer complete.
 pub async fn llm_stream_call_execute(params: LlmStreamCallExecuteParams) -> Result<LlmJsonStream> {
+    llm_stream_call_execute_inner(params, None).await
+}
+
+/// Internal gateway support. This module has no compatibility guarantee.
+#[doc(hidden)]
+#[cfg(feature = "__internal-gateway")]
+pub mod gateway {
+    use super::*;
+
+    /// Internal callback for saving gateway response state before sanitization.
+    pub type ResponseCompletionFn = crate::api::runtime::callbacks::LlmStreamResponseCompletionFn;
+
+    /// Run a gateway stream and save response state before sanitization.
+    pub async fn execute(
+        params: LlmStreamCallExecuteParams,
+        completion: ResponseCompletionFn,
+    ) -> Result<LlmJsonStream> {
+        super::llm_stream_call_execute_inner(params, Some(completion)).await
+    }
+}
+
+async fn llm_stream_call_execute_inner(
+    params: LlmStreamCallExecuteParams,
+    response_completion: Option<crate::api::runtime::callbacks::LlmStreamResponseCompletionFn>,
+) -> Result<LlmJsonStream> {
     let LlmStreamCallExecuteParams {
         name,
         request,
         func,
         collector,
+        borrowed_collector,
         finalizer,
         parent,
         attributes,
@@ -2041,11 +2085,15 @@ pub async fn llm_stream_call_execute(params: LlmStreamCallExecuteParams) -> Resu
             let wrapper = LlmStreamWrapper::new_managed(
                 raw_stream,
                 handle,
-                collector,
+                match borrowed_collector {
+                    Some(collector) => crate::stream::LlmChunkCollector::Borrowed(collector),
+                    None => crate::stream::LlmChunkCollector::Owned(collector),
+                },
                 finalizer,
                 metadata,
                 response_codec,
-                ManagedLlmStreamTelemetry::new(lifecycle_subscribers, stream_started_at),
+                ManagedLlmStreamTelemetry::new(lifecycle_subscribers, stream_started_at)
+                    .with_response_completion(response_completion),
             );
             completion.disarm();
             Ok(LlmJsonStream::from_closeable(wrapper))

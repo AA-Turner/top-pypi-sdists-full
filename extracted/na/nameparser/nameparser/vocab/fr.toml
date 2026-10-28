@@ -22,7 +22,9 @@ salutation = { gender = "m", after_given = true }
 
 [[word]]
 text = "cheikh"
-style = { addresses = "given", gender = "m", same_as = "sheikh", expands = "the French transliteration, 'Cheikh Anta Diop'" }
+style = { addresses = "given", gender = "m", same_as = "sheikh", expands = "the French transliteration, 'Cheikh Anta Diop'", issue = 752, decided = 2026-10-27, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Cheikh Anta Diop' reads the given name" }
+given = { us_ssa = 512, wikidata = 51, as_of = 2026-10-27, note = "Wikidata is a lower bound (Senegal 34, France 9); a common Senegalese given name; UK PSC filers put it first in the forename box 14 times and never in the title box (2026-10-27)" }
+family = { us_census_2010 = 112, wikidata = 14, as_of = 2026-10-27 }
 
 [[word]]
 text = "me"
@@ -47,7 +49,7 @@ religious = { gender = "f" }
 [[word]]
 text = "st"
 religious = { expands = "Saint, abbreviated" }
-saint = { may_be_given = true, expands = "Saint, abbreviated" }
+saint = { expands = "Saint, abbreviated" }
 
 [[word]]
 text = "baron"
@@ -82,6 +84,10 @@ text = "chargé"
 office = { expands = "chargé d'affaires, the head of a mission below an ambassador" }
 
 [[word]]
+text = "d'affaires"
+office = { expands = "the second word of chargé d'affaires", issue = 752, note = "office rather than modifier since 2026-10-25: it stands behind its head, where decision 10's modifier rule asks for a head title after a modifier (rules/H9)" }
+
+[[word]]
 text = "compositeur"
 occupation = {}
 
@@ -90,15 +96,9 @@ text = "historien"
 occupation = {}
 
 [[word]]
-text = "d'affaires"
-modifier = { expands = "the second word of chargé d'affaires" }
-
-[[word]]
 text = "fils"
+generation = { issue = [679, 752], expands = "son, the Younger: Alexandre Dumas fils", note = "gated by the family reading (rules/S11): Title case leans to the name, so Marie Fils keeps her family name, and lower case is the generation wherever the name keeps a family word" }
 family = { us_census_2010 = 767, wikidata = 5, as_of = 2026-10-16 }
-[word.excluded.generation]
-reason = "pack-shaped: Marie Fils, 767 US Census bearers of Fils"
-issue = [679, 684]
 
 [[word]]
 text = "père"
@@ -130,8 +130,8 @@ note = "\"De\" IS a borne Bengali and Odia surname -- trailing, so it never reac
 
 [[word]]
 text = "du"
+given = { us_ssa = 27, wikidata = 12, as_of = 2026-10-25, note = "male births only; Wikidata is a lower bound; nam_dict band 5 in Vietnam, 4 in Korea, 1 in China" }
 [word.preposition]
-may_be_given = true
 expands = "of the, de le contracted"
 note = "Du is a Chinese surname (Du Fu), leading under a family-first reading"
 
@@ -149,12 +149,12 @@ same_as = "l'"
 
 [[word]]
 text = "la"
-article = { may_be_given = true, expands = "the, fem. sg." }
+article = { expands = "the, fem. sg." }
 
 [[word]]
 text = "le"
+given = { us_ssa = 1653, wikidata = 72, as_of = 2026-10-25, note = "US SSA births summed over both sexes; Wikidata is a lower bound; nam_dict band 9 in Vietnam, 4 in China" }
 [word.article]
-may_be_given = true
 expands = "the, masc. sg."
 note = "Lê is among the most common Vietnamese surnames and leads under a family-first reading"
 

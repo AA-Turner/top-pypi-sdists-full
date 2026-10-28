@@ -18,6 +18,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -145,6 +146,12 @@ def uv_machine(reinstall_wheels, tmp_path, monkeypatch) -> Machine:
     for name in ("UV_TOOL_DIR", "UV_TOOL_BIN_DIR", "UV_FIND_LINKS", "UV_NO_INDEX", "UV_PYTHON", "UV_CACHE_DIR"):
         monkeypatch.setenv(name, box.env[name])
     monkeypatch.delenv("UV_OFFLINE", raising=False)
+    # $TMPDIR too: an install entry may finish an uninstall that stopped halfway
+    # (`install_pipeline.refusal`), which removes this user's `$TMPDIR` fallback
+    # outboxes -- never the machine's own `/tmp/probe-outbox-<uid>`.
+    (tmp_path / "tmp").mkdir(exist_ok=True)
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "tmp"))
+    monkeypatch.setattr(tempfile, "tempdir", None)
     # The stand-in has no daemon libraries: `_dist` must not ask for what the
     # test process happens to have.
     monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)

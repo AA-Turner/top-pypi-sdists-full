@@ -4,8 +4,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "langchain-qwq"
-version = "0.3.5"
-description = "An integration package connecting Qwen 3, QwQ and LangChain"
+version = "0.4.0"
+description = "LangChain integrations for Qwen models, thinking modes, and legacy QwQ APIs"
 authors = [
   "Yiğit Bekir Kaya, PhD <yigit353@gmail.com>",
   "tiebingice <tiebingice123@outlook.com>",
@@ -33,10 +33,11 @@ disallow_untyped_defs = true
 
 [tool.poetry.urls]
 "Source Code" = "https://github.com/yigit353/langchain-qwq/tree/main/langchain_qwq"
-"Release Notes" = "https://github.com/langchain-ai/langchain/releases?q=tag%3A%22qwq%3D%3D0%22&expanded=true"
+"Release Notes" = "https://github.com/yigit353/langchain-qwq/releases"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
+anyio = ">=4.14.2"
 langchain = "^1.0.5"
 langchain-core = ">=1.4.0"
 langchain-openai = "^1.1.14"
@@ -46,8 +47,9 @@ orjson = ">=3.11.6"
 pygments = ">=2.20.0"
 requests = ">=2.33.0"
 langsmith = ">=0.8.0"
-langgraph = ">=1.0.10"
+langgraph = ">=1.1.5"
 langgraph-checkpoint = ">=4.0.0"
+typing-extensions = ">=4.0.0"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "T201"]

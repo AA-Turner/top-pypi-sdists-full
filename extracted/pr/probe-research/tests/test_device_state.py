@@ -682,37 +682,6 @@ def test_an_older_server_gets_the_old_calls_through_the_wizard(home, server, mon
     assert "old-way@example.test" in result.output
 
 
-def test_uninstall_reads_the_next_agent_fresh(home, server, monkeypatch) -> None:
-    """Uninstall revokes each agent's key as it goes (two agents can share
-    one), so the second agent is read with a fresh call -- and only then."""
-    _pair("claude_code", CLAUDE_TOKEN)
-    _pair("codex", CODEX_TOKEN)
-    _sign_in(server.url)
-    seen: list[tuple[str, bool | None]] = []
-
-    def uninstall(action, *, caps, **_kwargs):
-        seen.append((caps.agent_source, caps.capture_credential_valid))
-        return ["Removed."]
-
-    from probe.cli import setup
-
-    monkeypatch.setattr(cli_main, "_run_wizard_action", uninstall)
-    monkeypatch.setattr(setup, "finish_removal", lambda: [])
-    monkeypatch.setattr(cli_main, "_register_local_capabilities", lambda *a, **k: [])
-    server.answer["capture"] = {"claude_code": "ok", "codex": "ok"}
-    server.then = [dict(server.answer, capture={"claude_code": "rejected", "codex": "rejected"})]
-
-    result = _run_wizard(server, monkeypatch, "--action", "uninstall", "--yes")
-
-    assert result.exit_code == 0, result.output
-    assert [p for p in server.paths() if p.endswith("/v1/device-state")] == [
-        "POST /v1/device-state",
-        "POST /v1/device-state",
-    ]
-    assert "GET /v1/me" not in server.paths()
-    assert seen == [("claude_code", True), ("codex", False)]
-
-
 def test_signing_in_asks_again_and_clears_the_refusal(home, server, monkeypatch) -> None:
     """Before sign-in the server refuses the old credential; the wizard signs
     in, asks once more, and the new answer -- not the stale refusal -- decides."""

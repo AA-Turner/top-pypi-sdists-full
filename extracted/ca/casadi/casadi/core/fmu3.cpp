@@ -40,10 +40,10 @@ int Fmu3::init_mem(FmuMemory* mem) const {
   if (FmuInternal::init_mem(mem)) return 1;
   auto *m = static_cast<Fmu3Memory*>(mem);
   /// Allocate numerical values for initial auxilliary variables
-  m->aux_value.v_real.resize(vn_aux_real_.size());
-  m->aux_value.v_integer.resize(vn_aux_integer_.size());
-  m->aux_value.v_boolean.resize(vn_aux_boolean_.size());
-  m->aux_value.v_string.resize(vn_aux_string_.size());
+  m->aux_value.v_real.resize(off_aux_real_.back());
+  m->aux_value.v_integer.resize(off_aux_integer_.back());
+  m->aux_value.v_boolean.resize(off_aux_boolean_.back());
+  m->aux_value.v_string.resize(off_aux_string_.back());
   return 0;
 }
 
@@ -77,7 +77,8 @@ void Fmu3::init(const DaeBuilderInternal* dae) {
   init_string_.clear();
   for (size_t i = 0; i < dae->n_variables(); ++i) {
     const Variable& v = dae->variable(i);
-    casadi_assert(v.numel == 1, "Vector variable support not implemented");
+    // Consitency check
+    casadi_assert(v.numel == v.value.size(), "Size mismatch for " + v.name);
     // Skip if the wrong type
     if (v.causality != Causality::PARAMETER && v.causality != Causality::INPUT) continue;
     // Variable has not been set - keep default value
@@ -87,19 +88,20 @@ void Fmu3::init(const DaeBuilderInternal* dae) {
     // Get value
     switch (to_fmi2(v.type)) {
       case TypeFmi2::REAL:
-        init_real_.push_back(static_cast<fmi3Float64>(v.value.front()));
+        init_real_.insert(init_real_.end(), v.value.begin(), v.value.end());
         vr_real_.push_back(vr);
         break;
       case TypeFmi2::INTEGER:
       case TypeFmi2::ENUM:
-        init_integer_.push_back(static_cast<fmi3Int32>(v.value.front()));
+        init_integer_.insert(init_integer_.end(), v.value.begin(), v.value.end());
         vr_integer_.push_back(vr);
         break;
       case TypeFmi2::BOOLEAN:
-        init_boolean_.push_back(static_cast<fmi3Boolean>(v.value.front()));
+        init_boolean_.insert(init_boolean_.end(), v.value.begin(), v.value.end());
         vr_boolean_.push_back(vr);
         break;
       case TypeFmi2::STRING:
+        casadi_assert(v.numel == 1, "Vector variable support for strings not implemented");
         init_string_.push_back(v.stringvalue);
         vr_string_.push_back(vr);
         break;
@@ -117,6 +119,10 @@ void Fmu3::init(const DaeBuilderInternal* dae) {
   vr_aux_integer_.clear();
   vr_aux_boolean_.clear();
   vr_aux_string_.clear();
+  off_aux_real_ = {0};
+  off_aux_integer_ = {0};
+  off_aux_boolean_ = {0};
+  off_aux_string_ = {0};
   for (auto&& s : aux_) {
     const Variable& v = dae->variable(s);
     // Convert to expected type
@@ -127,22 +133,26 @@ void Fmu3::init(const DaeBuilderInternal* dae) {
         // Real
         vn_aux_real_.push_back(v.name);
         vr_aux_real_.push_back(vr);
+        off_aux_real_.push_back(off_aux_real_.back() + v.numel);
         break;
       case TypeFmi2::INTEGER:
       case TypeFmi2::ENUM:
         // Integer or enum
         vn_aux_integer_.push_back(v.name);
         vr_aux_integer_.push_back(vr);
+        off_aux_integer_.push_back(off_aux_integer_.back() + v.numel);
         break;
       case TypeFmi2::BOOLEAN:
         // Boolean
         vn_aux_boolean_.push_back(v.name);
         vr_aux_boolean_.push_back(vr);
+        off_aux_boolean_.push_back(off_aux_boolean_.back() + v.numel);
         break;
       case TypeFmi2::STRING:
         // String
         vn_aux_string_.push_back(v.name);
         vr_aux_string_.push_back(vr);
+        off_aux_string_.push_back(off_aux_string_.back() + v.numel);
         break;
       default:
         casadi_warning("Ignoring " + v.name + ", type: " + to_string(v.type));
@@ -152,10 +162,10 @@ void Fmu3::init(const DaeBuilderInternal* dae) {
 
 void Fmu3::finalize() {
   /// Allocate numerical values for initial auxilliary variables
-  aux_value_.v_real.resize(vn_aux_real_.size());
-  aux_value_.v_integer.resize(vn_aux_integer_.size());
-  aux_value_.v_boolean.resize(vn_aux_boolean_.size());
-  aux_value_.v_string.resize(vn_aux_string_.size());
+  aux_value_.v_real.resize(off_aux_real_.back());
+  aux_value_.v_integer.resize(off_aux_integer_.back());
+  aux_value_.v_boolean.resize(off_aux_boolean_.back());
+  aux_value_.v_string.resize(off_aux_string_.back());
 
   // Recursive call
   FmuInternal::finalize();
@@ -334,11 +344,11 @@ int Fmu3::get_adjoint_derivative(void* instance, const unsigned int* vr_out, siz
 int Fmu3::set_values(void* instance) const {
   auto *c = static_cast<fmi3Instance>(instance);
   // Pass real values before initialization
-  casadi_assert(vr_real_.size() == init_real_.size(), "Vector valued variables not supported");
-  for (size_t k = 0; k < vr_real_.size(); ++k) {
-    fmi3Status status = set_float64_(c, &vr_real_[k], 1, &init_real_[k], 1);
+  if (!vr_real_.empty()) {
+    fmi3Status status = set_float64_(c, get_ptr(vr_real_), vr_real_.size(),
+      get_ptr(init_real_), init_real_.size());
     if (status != fmi3OK) {
-      casadi_warning("fmi3SetFloat64 failed for value reference " + str(vr_real_[k]));
+      casadi_warning("fmi3SetFloat64 failed");
       return 1;
     }
   }
@@ -385,7 +395,7 @@ int Fmu3::get_aux_impl(void* instance, Value& aux_value) const {
   // Get real auxilliary variables
   if (!vr_aux_real_.empty()) {
     fmi3Status status = get_float64_(c, get_ptr(vr_aux_real_), vr_aux_real_.size(),
-      get_ptr(aux_value.v_real), aux_value.v_real.size());
+      get_ptr(aux_value.v_real), off_aux_real_.back());
     if (status != fmi3OK) {
       casadi_warning("fmi3GetFloat64 failed");
       return 1;
@@ -395,7 +405,7 @@ int Fmu3::get_aux_impl(void* instance, Value& aux_value) const {
   // Get integer/enum auxilliary variables
   if (!vr_aux_integer_.empty()) {
     fmi3Status status = get_int32_(c, get_ptr(vr_aux_integer_), vr_aux_integer_.size(),
-      get_ptr(aux_value.v_integer), aux_value.v_integer.size());
+      get_ptr(aux_value.v_integer), off_aux_integer_.back());
     if (status != fmi3OK) {
       casadi_warning("fmi3GetInt32 failed");
       return 1;
@@ -436,11 +446,23 @@ void Fmu3::get_stats(FmuMemory* m, Dict* stats,
   Dict aux;
   // Real
   for (size_t k = 0; k < vn_aux_real_.size(); ++k) {
-    aux[vn_aux_real_[k]] = static_cast<double>(v.v_real[k]);
+    auto& n = vn_aux_real_[k];
+    casadi_int begin = off_aux_real_[k], end = off_aux_real_[k + 1];
+    if (end == begin + 1) {
+      aux[n] = static_cast<double>(v.v_real[begin]);
+    } else {
+      aux[n] = std::vector<double>(v.v_real.begin() + begin, v.v_real.begin() + end);
+    }
   }
   // Integer
   for (size_t k = 0; k < vn_aux_integer_.size(); ++k) {
-    aux[vn_aux_integer_[k]] = static_cast<casadi_int>(v.v_integer[k]);
+    auto& n = vn_aux_integer_[k];
+    casadi_int begin = off_aux_integer_[k], end = off_aux_integer_[k + 1];
+    if (end == begin + 1) {
+      aux[n] = static_cast<casadi_int>(v.v_integer[begin]);
+    } else {
+      aux[n] = std::vector<casadi_int>(v.v_integer.begin() + begin, v.v_integer.begin() + end);
+    }
   }
   // Boolean
   for (size_t k = 0; k < vn_aux_boolean_.size(); ++k) {
@@ -510,7 +532,7 @@ Fmu3::Fmu3(DeserializingStream& s) : FmuInternal(s) {
   get_adjoint_derivative_ = nullptr;
   update_discrete_states_ = nullptr;
 
-  s.version("Fmu3", 1);
+  int version = s.version("Fmu3", 1, 2);
   s.unpack("Fmu3::vr_real", vr_real_);
   s.unpack("Fmu3::vr_integer", vr_integer_);
   s.unpack("Fmu3::vr_boolean", vr_boolean_);
@@ -528,13 +550,25 @@ Fmu3::Fmu3(DeserializingStream& s) : FmuInternal(s) {
   s.unpack("Fmu3::vr_aux_integer", vr_aux_integer_);
   s.unpack("Fmu3::vr_aux_boolean", vr_aux_boolean_);
   s.unpack("Fmu3::vr_aux_string", vr_aux_string_);
+  if (version >= 2) {
+    s.unpack("Fmu3::off_aux_real", off_aux_real_);
+    s.unpack("Fmu3::off_aux_integer", off_aux_integer_);
+    s.unpack("Fmu3::off_aux_boolean", off_aux_boolean_);
+    s.unpack("Fmu3::off_aux_string", off_aux_string_);
+  } else {
+    // Version 1 only had scalar auxilliary variables
+    off_aux_real_ = range(vr_aux_real_.size() + 1);
+    off_aux_integer_ = range(vr_aux_integer_.size() + 1);
+    off_aux_boolean_ = range(vr_aux_boolean_.size() + 1);
+    off_aux_string_ = range(vr_aux_string_.size() + 1);
+  }
 }
 
 
 void Fmu3::serialize_body(SerializingStream &s) const {
   FmuInternal::serialize_body(s);
 
-  s.version("Fmu3", 1);
+  s.version("Fmu3", 2);
   s.pack("Fmu3::vr_real", vr_real_);
   s.pack("Fmu3::vr_integer", vr_integer_);
   s.pack("Fmu3::vr_boolean", vr_boolean_);
@@ -552,6 +586,10 @@ void Fmu3::serialize_body(SerializingStream &s) const {
   s.pack("Fmu3::vr_aux_integer", vr_aux_integer_);
   s.pack("Fmu3::vr_aux_boolean", vr_aux_boolean_);
   s.pack("Fmu3::vr_aux_string", vr_aux_string_);
+  s.pack("Fmu3::off_aux_real", off_aux_real_);
+  s.pack("Fmu3::off_aux_integer", off_aux_integer_);
+  s.pack("Fmu3::off_aux_boolean", off_aux_boolean_);
+  s.pack("Fmu3::off_aux_string", off_aux_string_);
 }
 
 } // namespace casadi

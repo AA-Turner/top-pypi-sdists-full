@@ -18,7 +18,7 @@ except ImportError:
         import tomli as tomllib
 
 from ._spdx_data import exceptions, licenses
-from .common import normalise_core_metadata_name
+from .common import normalise_core_metadata_name, path_is_within_directory
 from .versionno import normalise_version
 
 log = logging.getLogger(__name__)
@@ -249,6 +249,10 @@ def description_from_file(rel_path: str, proj_dir: Path, guess_mimetype=True):
         raise ConfigError("Readme path must be relative")
 
     desc_path = proj_dir / rel_path
+    if not path_is_within_directory(desc_path, proj_dir):
+        raise ConfigError(
+            f"Readme path ({rel_path}) points outside the project directory"
+        )
     try:
         with desc_path.open('r', encoding='utf-8') as f:
             raw_desc = f.read()
@@ -304,11 +308,21 @@ def _license_files_from_globs(project_dir: Path, globs, warn_no_files = True):
                 "https://packaging.python.org/en/latest/specifications/pyproject-toml/#license-files"
             )
         try:
-            files = [
-                file.relative_to(project_dir).as_posix()
-                for file in project_dir.glob(pattern)
-                if file.is_file()
-            ]
+            files = []
+            for file in project_dir.glob(pattern):
+                if not file.is_file():
+                    continue
+                # is_file() follows symlinks, so a link named e.g. LICENSE (a
+                # default glob) could point at an arbitrary host file and have
+                # its contents copied into the distribution. Refuse matches that
+                # resolve outside the project directory (CWE-22, CWE-59).
+                if not path_is_within_directory(file, project_dir):
+                    raise ConfigError(
+                        f"License file {file.relative_to(project_dir).as_posix()!r} "
+                        f"(matched by [project.license-files] pattern {pattern!r}) "
+                        f"points outside the project directory"
+                    )
+                files.append(file.relative_to(project_dir).as_posix())
         except ValueError as ex:
             raise ConfigError(
                 f"Invalid glob pattern for [project.license-files]: {pattern!r}. {ex.args[0]}"
@@ -440,6 +454,7 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
         md_dict['description_content_type'] = mimetype
 
     if 'requires-python' in proj:
+        _check_type(proj, 'requires-python', str)
         md_dict['requires_python'] = proj['requires-python']
 
     license_files = set()
@@ -475,6 +490,11 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
                 license_p = path.parent / license_f
                 if not license_p.is_file():
                     raise ConfigError(f"License file {license_tbl['file']} does not exist")
+                if not path_is_within_directory(license_p, path.parent):
+                    raise ConfigError(
+                        f"License file ({license_tbl['file']}) points outside "
+                        f"the project directory"
+                    )
                 license_f = license_p.relative_to(path.parent).as_posix()
                 license_files.add(license_f)
             elif 'text' in license_tbl:
@@ -671,10 +691,18 @@ def pep621_people(people, group_name='author') -> dict:
             raise ConfigError(
                 f"Unrecognised keys in {group_name} info: {unrec_keys}"
             )
+        for key in ('name', 'email'):
+            if key in person and not isinstance(person[key], str):
+                raise ConfigError(f"{group_name} {key} must be a string")
         if 'email' in person:
             email = person['email']
             if 'name' in person:
-                email = str(Address(person['name'], addr_spec=email))
+                try:
+                    email = str(Address(person['name'], addr_spec=email))
+                except ValueError as e:
+                    raise ConfigError(
+                        f"Invalid {group_name} email address {email!r}: {e}"
+                    ) from None
             emails.append(email)
         elif 'name' in person:
             names.append(person['name'])

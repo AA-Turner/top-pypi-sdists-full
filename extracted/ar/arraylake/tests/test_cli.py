@@ -1,18 +1,21 @@
 import json
+import os
 import re
+import time
 from functools import partial
 from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID, uuid4
 
+import httpx
 import icechunk
 import pytest
 import yaml
 
-from . import has_typer
+from . import fake_jwt, has_typer, requires_typer
 
 from arraylake import config
-from arraylake.token import Auth0UrlCode, AuthProviderConfig, TokenHandler
+from arraylake.token import Auth0UrlCode, AuthException, AuthProviderConfig, TokenHandler
 from arraylake.types import OauthTokens, UserInfo
 
 
@@ -191,6 +194,45 @@ def test_repo_import(invoke, sync_isolated_org_with_bucket) -> None:
     assert any(r["name"] == "imported-repo" for r in data)
 
 
+def test_repo_subscribe(invoke, sync_isolated_org_with_bucket, test_token) -> None:
+    org_name, _ = sync_isolated_org_with_bucket()
+
+    result = invoke(["repo", "create", f"{org_name}/provider-repo"])
+    assert result.exit_code == 0, result.output
+    result = invoke(["repo", "list", org_name, "--output", "json"])
+    assert result.exit_code == 0, result.output
+    provider_id = next(r["id"] for r in json.loads(result.stdout) if r["name"] == "provider-repo")
+
+    resp = httpx.post(
+        f"http://localhost:8000/orgs/{org_name}/exchange-listings",
+        headers={"Authorization": f"Bearer {test_token}"},
+        json={
+            "repo_id": provider_id,
+            "status": "published",
+            "repo_readme": "# CLI listing",
+            "listing_name": f"CLI listing {provider_id}",
+            "pricing_model": "free",
+        },
+    )
+    assert resp.is_success, resp.text
+    listing_id = resp.json()["id"]
+
+    result = invoke(["repo", "subscribe", f"{org_name}/subscriber-repo", listing_id])
+    assert result.exit_code == 0, result.output
+    assert re.search(f"Subscribing.+{org_name}/subscriber-repo.+succeeded", result.output)
+
+    result = invoke(["repo", "list", org_name, "--output", "json"])
+    assert result.exit_code == 0, result.output
+    subscriber = next(r for r in json.loads(result.stdout) if r["name"] == "subscriber-repo")
+    assert subscriber["subscription"]["subscription_type"] == "direct"
+
+
+def test_repo_claim_rejects_unknown_code(invoke, sync_isolated_org_with_bucket) -> None:
+    org_name, _ = sync_isolated_org_with_bucket()
+    result = invoke(["repo", "claim", f"{org_name}/claimed-repo", "not-a-real-claim-code"])
+    assert result.exit_code != 0, result.output
+
+
 def test_list_repo_bad_org(invoke):
     result = invoke(["repo", "list", "foo123"])
     assert result.exit_code >= 1
@@ -336,7 +378,7 @@ def test_auth(invoke, test_token_file, helpers) -> None:
 
     test_tokens = helpers.oauth_tokens_from_file(test_token_file)
     test_token_file.unlink()
-    refreshed_tokens = test_tokens.model_copy(update={"id_token": "123456789abcdefg"})
+    refreshed_tokens = test_tokens.model_copy(update={"id_token": fake_jwt(time.time() + 3600)})
 
     class MockTokenHandler(TokenHandler):
         async def get_authorize_info(self) -> Auth0UrlCode:
@@ -470,11 +512,130 @@ def test_auth_commands_that_require_login(invoke, cmd, test_token_file) -> None:
     # all of these commands should raise an error if not logged in
     result = invoke(["auth", cmd])
     assert result.exit_code != 0
-    assert "Not logged in" in result.stdout
+    assert "Not logged in" in result.output
+    assert "al auth login" in result.output
+
+
+def _set_cached_id_token(token_file: Path, id_token: str) -> None:
+    data = json.loads(token_file.read_text())
+    data["id_token"] = id_token
+    token_file.write_text(json.dumps(data))
+
+
+def _runner_with_separate_stderr():
+    from typer.testing import CliRunner
+
+    from arraylake.cli.main import app
+
+    try:
+        runner = CliRunner(mix_stderr=False)  # click < 8.2
+    except TypeError:
+        runner = CliRunner()  # click >= 8.2 always captures stderr separately
+    return partial(runner.invoke, app)
+
+
+@pytest.fixture
+def quiet_refresh(monkeypatch):
+    """Stub TokenHandler.refresh_quietly; records calls and installs ``new_id_token``."""
+    calls: list[str] = []
+    new_id_token = fake_jwt(time.time() + 3600)
+
+    async def refresh_quietly(self) -> None:
+        calls.append(self.api_endpoint)
+        self.update({"id_token": new_id_token})
+
+    monkeypatch.setattr(TokenHandler, "refresh_quietly", refresh_quietly)
+    return calls, new_id_token
+
+
+@requires_typer
+@pytest.mark.parametrize("expires_in, expect_refresh", [(-10, True), (60, True), (3600, False)])
+def test_auth_token_refreshes_expiring_login(test_token_file, quiet_refresh, expires_in, expect_refresh) -> None:
+    calls, new_id_token = quiet_refresh
+    old_id_token = fake_jwt(time.time() + expires_in)
+    _set_cached_id_token(test_token_file, old_id_token)
+
+    result = _runner_with_separate_stderr()(["auth", "token", "--service-uri", "https://dev.api.earthmover.io"])
+
+    assert result.exit_code == 0, result.output
+    # only the token goes to stdout, so `$(al auth token)` stays usable
+    assert result.stdout == f"{new_id_token if expect_refresh else old_id_token}\n"
+    assert "https://dev.api.earthmover.io" in result.stderr
+    assert calls == (["https://dev.api.earthmover.io"] if expect_refresh else [])
+    if expect_refresh:
+        assert json.loads(test_token_file.read_text())["id_token"] == new_id_token
+
+
+@requires_typer
+def test_auth_token_refresh_failure(test_token_file, monkeypatch) -> None:
+    _set_cached_id_token(test_token_file, fake_jwt(time.time() - 10))
+
+    async def refresh_quietly(self) -> None:
+        raise AuthException("Could not refresh Arraylake login (403); run `al auth login`.")
+
+    monkeypatch.setattr(TokenHandler, "refresh_quietly", refresh_quietly)
+    result = _runner_with_separate_stderr()(["auth", "token"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert "al auth login" in result.stderr
+
+
+def test_auth_refresh_failure_exits_nonzero(invoke, test_token_file, monkeypatch) -> None:
+    async def refresh_token(self) -> None:
+        raise AuthException("Could not refresh Arraylake login: unexpected token response")
+
+    monkeypatch.setattr(TokenHandler, "refresh_token", refresh_token)
+    result = invoke(["auth", "refresh"])
+    assert result.exit_code == 1
+    assert "unexpected token response" in result.output
+
+
+class TestAuthStatusWithConfiguredToken:
+    """`al auth status` reports ARRAYLAKE_TOKEN, since clients use it instead of the cached login."""
+
+    ENDPOINT = "https://dev.api.earthmover.io"
+
+    @pytest.fixture
+    def user_route(self, respx_mock, test_token_file):
+        """GET /user accepts only ``valid`` tokens, so both the env token and the cached login can be checked."""
+        valid: set[str] = set()
+
+        def respond(request):
+            if request.headers["Authorization"].removeprefix("Bearer ") in valid:
+                return httpx.Response(200, json={"id": str(uuid4()), "email": "svc@example.com", "first_name": "A", "family_name": "B"})
+            return httpx.Response(401, json={"detail": "Invalid token"})
+
+        respx_mock.get(f"{self.ENDPOINT}/user").mock(side_effect=respond)
+        return valid
+
+    def status(self, invoke, env_token):
+        with patch.dict(os.environ, {"ARRAYLAKE_TOKEN": env_token}), config.set({"token": env_token}):
+            result = invoke(["auth", "status", "--service-uri", self.ENDPOINT])
+        return result, " ".join(result.output.split())  # undo rich's wrapping
+
+    def test_rejected_env_token(self, invoke, user_route, test_token_file) -> None:
+        user_route.add("id-456")  # the cached login is fine...
+        env_token = fake_jwt(time.time() - 3600)
+        result, output = self.status(invoke, env_token)
+        assert result.exit_code == 1
+        assert "ARRAYLAKE_TOKEN is set (JWT, expired" in output
+        assert "takes precedence over your cached login" in output
+        assert "unset ARRAYLAKE_TOKEN" in output
+        assert env_token not in output
+        assert "Logged in as svc@example.com" in output  # ...and still reported
+
+    def test_valid_env_token_without_cached_login(self, invoke, user_route, test_token_file) -> None:
+        test_token_file.unlink()
+        user_route.add("ema_valid-token")
+        result, output = self.status(invoke, "ema_valid-token")
+        assert result.exit_code == 0, output
+        assert "ARRAYLAKE_TOKEN is set (API token)" in output
+        assert "ARRAYLAKE_TOKEN is valid (svc@example.com)" in output
+        assert "No valid cached login" in output
 
 
 class TestAuthServiceUri:
-    """Every `arraylake auth` subcommand can target a single deployment via --service-uri."""
+    """Every `al auth` subcommand can target a single deployment via --service-uri."""
 
     ALL_COMMANDS = ["login", "refresh", "logout", "status", "token"]
     ENDPOINT = "https://api.dev.earthmover.io"
@@ -483,6 +644,7 @@ class TestAuthServiceUri:
     def endpoints(self, test_token_file):
         """Record the api_endpoint each auth subcommand resolves, stubbing out all network calls."""
         recorded: list[str] = []
+        _set_cached_id_token(test_token_file, fake_jwt(time.time() + 3600))  # unexpired, so `token` doesn't refresh
 
         class RecordingHandler(TokenHandler):
             async def login(self, browser: bool = True) -> None:
@@ -533,7 +695,7 @@ class TestAuthServiceUri:
         """A --service-uri login writes to that endpoint's token file, leaving other endpoints alone."""
         tokens = OauthTokens(
             access_token="access-123",
-            id_token="id-456",
+            id_token=fake_jwt(time.time() + 3600),
             refresh_token="refresh-789",
             expires_in=86400,
             token_type="Bearer",
@@ -575,4 +737,4 @@ class TestAuthServiceUri:
 
             result = invoke(["auth", "token"])
             assert result.exit_code != 0
-            assert "Not logged in" in result.stdout
+            assert "Not logged in" in result.output

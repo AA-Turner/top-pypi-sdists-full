@@ -135,7 +135,7 @@ OWNERS: dict[str, str] = {
     # A message to one of the researcher's own running sessions (G7): an
     # orchestrator's, never the daemon's (it would speak into another session).
     "session send": RESEARCHER,
-    "setup": SETUP, "wizard": SETUP, "update": SETUP,
+    "setup": SETUP, "wizard": SETUP, "update": SETUP, "uninstall": SETUP,
     # `probe repair`: the install pipeline in repair mode -- the machine's plumbing.
     "repair": SETUP,
     "shared add": RESEARCHER, "shared delete": RESEARCHER, "shared download": RESEARCHER, "shared list": READ,

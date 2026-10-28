@@ -16,6 +16,7 @@ from .._response import to_streamed_response_wrapper, async_to_streamed_response
 from ..pagination import SyncPage, AsyncPage
 from .._base_client import AsyncPaginator, make_request_options
 from ..types.virtual_account import VirtualAccount
+from ..types.shared_params.address_request import AddressRequest
 from ..types.shared_params.ledger_account_create_request import LedgerAccountCreateRequest
 
 __all__ = ["VirtualAccounts", "AsyncVirtualAccounts"]
@@ -51,9 +52,11 @@ class VirtualAccounts(SyncAPIResource):
         credit_ledger_account_id: str | Omit = omit,
         debit_ledger_account_id: str | Omit = omit,
         description: str | Omit = omit,
+        external_id: Optional[str] | Omit = omit,
         ledger_account: LedgerAccountCreateRequest | Omit = omit,
         ledger_account_id: str | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
+        party_address: AddressRequest | Omit = omit,
         routing_details: Iterable[virtual_account_create_params.RoutingDetail] | Omit = omit,
         virtual_account_setting_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -86,6 +89,8 @@ class VirtualAccounts(SyncAPIResource):
 
           description: An optional description for internal use.
 
+          external_id: A user-defined identifier for the virtual account.
+
           ledger_account: Specifies a ledger account object that will be created with the virtual account.
               The resulting ledger account is linked to the virtual account for auto-ledgering
               IPDs.
@@ -94,6 +99,9 @@ class VirtualAccounts(SyncAPIResource):
 
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
+
+          party_address: The address of the owner of the virtual account. When absent, the internal
+              account's party address is used.
 
           routing_details: An array of routing detail objects.
 
@@ -120,9 +128,11 @@ class VirtualAccounts(SyncAPIResource):
                     "credit_ledger_account_id": credit_ledger_account_id,
                     "debit_ledger_account_id": debit_ledger_account_id,
                     "description": description,
+                    "external_id": external_id,
                     "ledger_account": ledger_account,
                     "ledger_account_id": ledger_account_id,
                     "metadata": metadata,
+                    "party_address": party_address,
                     "routing_details": routing_details,
                     "virtual_account_setting_id": virtual_account_setting_id,
                 },
@@ -179,6 +189,7 @@ class VirtualAccounts(SyncAPIResource):
         ledger_account_id: str | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         name: Optional[str] | Omit = omit,
+        party_address: AddressRequest | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -192,6 +203,10 @@ class VirtualAccounts(SyncAPIResource):
 
         Args:
           ledger_account_id: The ledger account that you'd like to link to the virtual account.
+
+          party_address: The address of the owner of the virtual account. Omit to leave it unchanged;
+              pass all fields blank to clear it, after which the internal account's party
+              address is used.
 
           extra_headers: Send extra headers
 
@@ -213,6 +228,7 @@ class VirtualAccounts(SyncAPIResource):
                     "ledger_account_id": ledger_account_id,
                     "metadata": metadata,
                     "name": name,
+                    "party_address": party_address,
                 },
                 virtual_account_update_params.VirtualAccountUpdateParams,
             ),
@@ -231,6 +247,7 @@ class VirtualAccounts(SyncAPIResource):
         *,
         after_cursor: Optional[str] | Omit = omit,
         counterparty_id: str | Omit = omit,
+        external_id: str | Omit = omit,
         internal_account_id: str | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         per_page: int | Omit = omit,
@@ -245,6 +262,8 @@ class VirtualAccounts(SyncAPIResource):
         Get a list of virtual accounts.
 
         Args:
+          external_id: Only return virtual accounts with this external ID.
+
           metadata: For example, if you want to query for records with metadata key `Type` and value
               `Loan`, the query would be `metadata%5BType%5D=Loan`. This encodes the query
               parameters.
@@ -269,6 +288,7 @@ class VirtualAccounts(SyncAPIResource):
                     {
                         "after_cursor": after_cursor,
                         "counterparty_id": counterparty_id,
+                        "external_id": external_id,
                         "internal_account_id": internal_account_id,
                         "metadata": metadata,
                         "per_page": per_page,
@@ -350,9 +370,11 @@ class AsyncVirtualAccounts(AsyncAPIResource):
         credit_ledger_account_id: str | Omit = omit,
         debit_ledger_account_id: str | Omit = omit,
         description: str | Omit = omit,
+        external_id: Optional[str] | Omit = omit,
         ledger_account: LedgerAccountCreateRequest | Omit = omit,
         ledger_account_id: str | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
+        party_address: AddressRequest | Omit = omit,
         routing_details: Iterable[virtual_account_create_params.RoutingDetail] | Omit = omit,
         virtual_account_setting_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -385,6 +407,8 @@ class AsyncVirtualAccounts(AsyncAPIResource):
 
           description: An optional description for internal use.
 
+          external_id: A user-defined identifier for the virtual account.
+
           ledger_account: Specifies a ledger account object that will be created with the virtual account.
               The resulting ledger account is linked to the virtual account for auto-ledgering
               IPDs.
@@ -393,6 +417,9 @@ class AsyncVirtualAccounts(AsyncAPIResource):
 
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
+
+          party_address: The address of the owner of the virtual account. When absent, the internal
+              account's party address is used.
 
           routing_details: An array of routing detail objects.
 
@@ -419,9 +446,11 @@ class AsyncVirtualAccounts(AsyncAPIResource):
                     "credit_ledger_account_id": credit_ledger_account_id,
                     "debit_ledger_account_id": debit_ledger_account_id,
                     "description": description,
+                    "external_id": external_id,
                     "ledger_account": ledger_account,
                     "ledger_account_id": ledger_account_id,
                     "metadata": metadata,
+                    "party_address": party_address,
                     "routing_details": routing_details,
                     "virtual_account_setting_id": virtual_account_setting_id,
                 },
@@ -478,6 +507,7 @@ class AsyncVirtualAccounts(AsyncAPIResource):
         ledger_account_id: str | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         name: Optional[str] | Omit = omit,
+        party_address: AddressRequest | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -491,6 +521,10 @@ class AsyncVirtualAccounts(AsyncAPIResource):
 
         Args:
           ledger_account_id: The ledger account that you'd like to link to the virtual account.
+
+          party_address: The address of the owner of the virtual account. Omit to leave it unchanged;
+              pass all fields blank to clear it, after which the internal account's party
+              address is used.
 
           extra_headers: Send extra headers
 
@@ -512,6 +546,7 @@ class AsyncVirtualAccounts(AsyncAPIResource):
                     "ledger_account_id": ledger_account_id,
                     "metadata": metadata,
                     "name": name,
+                    "party_address": party_address,
                 },
                 virtual_account_update_params.VirtualAccountUpdateParams,
             ),
@@ -530,6 +565,7 @@ class AsyncVirtualAccounts(AsyncAPIResource):
         *,
         after_cursor: Optional[str] | Omit = omit,
         counterparty_id: str | Omit = omit,
+        external_id: str | Omit = omit,
         internal_account_id: str | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         per_page: int | Omit = omit,
@@ -544,6 +580,8 @@ class AsyncVirtualAccounts(AsyncAPIResource):
         Get a list of virtual accounts.
 
         Args:
+          external_id: Only return virtual accounts with this external ID.
+
           metadata: For example, if you want to query for records with metadata key `Type` and value
               `Loan`, the query would be `metadata%5BType%5D=Loan`. This encodes the query
               parameters.
@@ -568,6 +606,7 @@ class AsyncVirtualAccounts(AsyncAPIResource):
                     {
                         "after_cursor": after_cursor,
                         "counterparty_id": counterparty_id,
+                        "external_id": external_id,
                         "internal_account_id": internal_account_id,
                         "metadata": metadata,
                         "per_page": per_page,

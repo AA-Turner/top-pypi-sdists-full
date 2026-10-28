@@ -2,10 +2,9 @@ from __future__ import annotations
 import pprint
 import re  # noqa: F401
 import json
-import uuid
 import logging
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING, ClassVar
@@ -15,7 +14,6 @@ from istari_digital_client.legacy.v2.models.properties import Properties
 from istari_digital_client.legacy.v2.models.file_revision_archive_status import (
     FileRevisionArchiveStatus,
 )
-from istari_digital_client.legacy.v2.models.archive_status_name import ArchiveStatusName
 from istari_digital_client.legacy.v2.models.product import Product
 from istari_digital_client.legacy.v2.models.source import Source
 from istari_digital_client.legacy.v2.models.token import Token
@@ -23,8 +21,6 @@ from istari_digital_client.legacy.v2.models.readable import Readable
 from istari_digital_client.legacy.v2.models.archivable import Archivable
 from istari_digital_client.legacy.mixin import ClientHaving
 from istari_digital_client.legacy.log_utils import log_method
-
-import istari_digital_core
 
 if TYPE_CHECKING:
     from istari_digital_client.legacy.v2.models.file import File
@@ -349,52 +345,3 @@ class FileRevision(BaseModel, ClientHaving, Readable, Archivable):
         _obj.suffix = Path(_obj.name).suffix if _obj.name else None
 
         return _obj
-
-    @classmethod
-    def from_storage_revision(
-        cls,
-        storage_revision: istari_digital_core.Revision,
-        sources: Optional[List[Source]],
-    ) -> Self:
-        """
-        Create a ``FileRevision`` from a core storage-layer revision.
-
-        :param storage_revision: A storage-layer revision object from ``istari_digital_core``.
-        :type storage_revision: istari_digital_core.Revision
-        :param sources: Optional list of sources associated with this revision.
-        :type sources: list[Source] or None
-        """
-
-        file_revision_id = str(uuid.uuid4())
-
-        file_revision_archive_status = FileRevisionArchiveStatus(
-            id=str(uuid.uuid4()),
-            created=datetime.now(timezone.utc),
-            name=ArchiveStatusName.ACTIVE,
-            reason="Initial",
-            created_by_id=None,
-            file_revision_id=file_revision_id,
-        )
-
-        return cls(
-            id=file_revision_id,
-            created=datetime.now(timezone.utc),
-            file_id=None,
-            content_token=Token.from_storage_token(storage_revision.content_token),
-            properties_token=Token.from_storage_token(
-                storage_revision.properties_token
-            ),
-            archive_status_history=[file_revision_archive_status],
-            name=storage_revision.properties.file_name,
-            extension=storage_revision.properties.extension,
-            size=storage_revision.properties.size,
-            description=storage_revision.properties.description,
-            mime=storage_revision.properties.mime,
-            version_name=storage_revision.properties.version_name,
-            external_identifier=storage_revision.properties.external_identifier,
-            display_name=storage_revision.properties.display_name,
-            sources=sources,
-            products=None,
-            created_by_id=None,
-            updated=None,
-        )

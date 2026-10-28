@@ -14,7 +14,6 @@ run it before creating any row.
 
 from __future__ import annotations
 
-import ast
 import re
 from typing import Any
 
@@ -33,68 +32,19 @@ from matrx_ai.plans.types import (
     parse_ref,
 )
 
-# Mirror of the matrx-graph sandbox surface (nodes/_sandbox.py) used for
-# COMPILE-TIME parse validation of `when` predicates. Deliberately a copy,
-# not an import of the private tuple: if the engine sandbox ever tightens,
-# the worst case here is a loud runtime EdgeRoutingError instead of a
-# compile error — never the reverse (accepting something we then execute).
-_SANDBOX_ALLOWED: tuple[type[ast.AST], ...] = (
-    ast.Expression,
-    ast.BoolOp,
-    ast.BinOp,
-    ast.UnaryOp,
-    ast.Compare,
-    ast.Constant,
-    ast.Name,
-    ast.Load,
-    ast.Subscript,
-    ast.Tuple,
-    ast.List,
-    ast.Dict,
-    ast.Set,
-    ast.And,
-    ast.Or,
-    ast.Not,
-    ast.Eq,
-    ast.NotEq,
-    ast.Lt,
-    ast.LtE,
-    ast.Gt,
-    ast.GtE,
-    ast.In,
-    ast.NotIn,
-    ast.Is,
-    ast.IsNot,
-    ast.Add,
-    ast.Sub,
-    ast.Mult,
-    ast.Div,
-    ast.Mod,
-    ast.FloorDiv,
-    ast.USub,
-    ast.UAdd,
-    ast.Invert,
-)
-
-
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def sandbox_expression_error(expr: str) -> str | None:
-    """Parse-only mirror of matrx_graph's safe_eval checks. None = OK."""
+    """The engine's own sandbox check (``matrx_graph.nodes._sandbox.validate_expression``) — one rule
+    set, never a copy that drifts (the copy lacked calls, slices and list loops). None = OK."""
+    from matrx_graph.errors import ExecutionError
+    from matrx_graph.nodes._sandbox import validate_expression
+
     try:
-        parsed = ast.parse(expr, mode="eval")
-    except SyntaxError as e:
-        return f"invalid expression syntax: {e.msg}"
-    for node in ast.walk(parsed):
-        if not isinstance(node, _SANDBOX_ALLOWED):
-            return (
-                f"disallowed expression element {type(node).__name__!r} — "
-                f"only comparisons, boolean/arithmetic operators, literals "
-                f"and $steps references are permitted"
-            )
-        if isinstance(node, ast.Name) and node.id != "inputs":
-            return f"unknown name {node.id!r} in condition"
+        validate_expression(expr)
+    except ExecutionError as exc:
+        return str(exc)
     return None
 
 

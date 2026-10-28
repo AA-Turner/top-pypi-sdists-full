@@ -100,6 +100,18 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
             "snapshot__crawl__created_by",
             "process",
             "process__machine",
+            # cmd_version reads process.binary: one query per row without this.
+            "process__binary",
+        )
+        # The table never shows hook output, machine telemetry, or a crawl's
+        # seed list; those columns made this query most of the page's time.
+        .defer(
+            "process__stdout",
+            "process__stderr",
+            "process__machine__stats",
+            "process__machine__config",
+            "snapshot__crawl__urls",
+            "snapshot__crawl__notes",
         )
         .all()[:limit],
     )
@@ -791,12 +803,14 @@ class ArchiveResultAdmin(BaseModelAdmin):
     @admin.display(description="Plugin", ordering="plugin")
     def plugin_with_icon(self, result):
         icon = get_plugin_icon(result.plugin)
+        # Resolves every plugin dir on disk; look it up once per row.
+        plugin_admin_url = get_plugin_admin_url(result.plugin)
         return format_html(
             '<a href="{}" title="{}">{}</a> <a href="{}"><code>{}</code></a>',
-            get_plugin_admin_url(result.plugin),
+            plugin_admin_url,
             result.plugin,
             icon,
-            get_plugin_admin_url(result.plugin),
+            plugin_admin_url,
             result.plugin,
         )
 
@@ -829,12 +843,13 @@ class ArchiveResultAdmin(BaseModelAdmin):
         request = self.request
         display_cmd = build_abx_dl_display_command(result)
         replay_cmd = build_abx_dl_replay_command(result, config=request.archivebox_config)
+        # The replay command carries the hook's whole environment (several KB),
+        # so it is written once, in the tooltip, and the Copy button reads it from there.
         return format_html(
             """
             <div style="position: relative; width: 100%; max-width: 100%; overflow: hidden; box-sizing: border-box;">
                 <button type="button"
-                        data-command="{}"
-                        onclick="(function(btn){{var text=btn.dataset.command||''; if(navigator.clipboard&&navigator.clipboard.writeText){{navigator.clipboard.writeText(text);}} else {{var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);}}}})(this); return false;"
+                        onclick="(function(btn){{var text=btn.parentNode.querySelector('code').title||''; if(navigator.clipboard&&navigator.clipboard.writeText){{navigator.clipboard.writeText(text);}} else {{var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);}}}})(this); return false;"
                         style="position: absolute; top: 6px; right: 6px; z-index: 1; padding: 2px 8px; border: 0; border-radius: 4px; background: #e2e8f0; color: #334155; font-size: 11px; cursor: pointer;">
                     Copy
                 </button>
@@ -843,7 +858,6 @@ class ArchiveResultAdmin(BaseModelAdmin):
                 </code>
             </div>
             """,
-            replay_cmd,
             replay_cmd,
             display_cmd,
         )

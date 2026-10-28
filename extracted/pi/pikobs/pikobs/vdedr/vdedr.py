@@ -807,9 +807,181 @@ def create_pairs_vdedr(
         return counts
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# The same two tables, read by the unified reader (pikobs.reader)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _use_reader() -> bool:
+    """The unified reader, unless PIKOBS_VDEDR_OLD_SQL=1 asks for vdedr's own
+    SQL (kept for one release, to compare)."""
+    return os.environ.get("PIKOBS_VDEDR_OLD_SQL", "") != "1"
+
+
+def _file_columns(path):
+    """(header columns, data columns) of one file, lower case; empty sets
+    when it cannot be read."""
+    from pikobs.obsdb import table_columns
+    try:
+        with work_db(attach={"db": path}) as (conn, _):
+            return ({str(c).lower() for c in table_columns(conn, "header", "db")},
+                    {str(c).lower() for c in table_columns(conn, "data", "db")})
+    except Exception:
+        return set(), set()
+
+
+def _val(x):
+    """A value of the reader's rows as vdedr stores it: NULL for NaN."""
+    return None if x is None or (isinstance(x, float) and x != x) else x
+
+
+def _cnt(x) -> int:
+    x = _val(x)
+    return int(x) if x is not None else 0
+
+
+def _vdedr_ask(family, regions, flags, land_oceans, varnos, special_on, match,
+               with_codtyp, key=()):
+    """What vdedr asks of a cycle: per station, codtyp, varno and channel,
+    the observations (their count is vdedr's Ntot), O-P, O-A and the bias
+    correction, in every (region, surface, flag)."""
+    from pikobs.reader.reader import Ask, cells
+    VCOORD = pikobs.family(family)[1]
+    extra = {"key": tuple(key)} if key else {}
+    return Ask(family=family,
+               cells=cells(regions, flags, land_oceans or ("all",)),
+               group=(("id_stn", "id_stn"), ("codtyp", "codtyp" if with_codtyp else "NULL"),
+                      ("varno", "varno"), ("vcoord", VCOORD)),
+               varnos=tuple(int(v) for v in varnos or ()),
+               values=("obsvalue", "omp", "oma", "bias_corr"),
+               match=match, special_column=bool(special_on), **extra)
+
+
+def _cycle_of(path: str) -> int:
+    m = re.search(r"(\d{10})", os.path.basename(path))
+    if not m:
+        raise ValueError(f"No 10-digit date in: {path}")
+    return int(m.group(1))
+
+
+def create_serie_vdedr_reader(
+    family: str,
+    new_db_filename: str,
+    existing_db_filename: str,
+    regions: Sequence[str],
+    flags: Sequence[str],
+    varnos: Sequence[str] = (),
+    land_oceans: Sequence[str] = ("all",),
+    pathwork: str = ".",
+    special_on: bool = False,
+) -> Optional[int]:
+    """create_serie_vdedr, read by pikobs.reader: the same rows of serie_vdedr."""
+    from pikobs.reader.reader import read_cycle
+    if not os.path.isfile(existing_db_filename):
+        print(f"[vdedr] missing file, skipped: {existing_db_filename}", file=sys.stderr, flush=True)
+        return None
+    date_int = _cycle_of(existing_db_filename)
+    head, data = _file_columns(existing_db_filename)
+    if not data:
+        print(f"[vdedr] no DATA table in {existing_db_filename}", file=sys.stderr, flush=True)
+        return None
+    has_bc = "bias_corr" in data
+    ask = _vdedr_ask(family, regions, flags, land_oceans, varnos, special_on, "off",
+                     "codtyp" in head)
+    got = read_cycle(existing_db_filename, None, ask, date_int, pathwork=pathwork, module="vdedr")
+    if got is None:
+        return None
+    out_rows = []
+    for r in got.rows.to_dict("records"):
+        n = _cnt(r["nc_obsvalue"])                 # every observation: vdedr's Ntot
+        if not n:
+            continue
+        no, na, nb = _cnt(r["nc_omp"]), _cnt(r["nc_oma"]), _cnt(r["nc_bias_corr"])
+        out_rows.append((
+            r["region"], r["flag"], r["land_ocean"],
+            r["special"] if special_on else "all",
+            r["id_stn"], _val(r["codtyp"]), _val(r["varno"]), _val(r["vcoord"]), date_int, n,
+            _val(r["sc_omp"]) if no else None, _val(r["sc2_omp"]) if no else None,
+            _val(r["sc_oma"]) if na else None, _val(r["sc2_oma"]) if na else None,
+            nb if has_bc else None, (_val(r["sc_bias_corr"]) if nb else None) if has_bc else None,
+        ))
+    with work_db(attach={"db": existing_db_filename}) as (conn, mem_uri):
+        create_table_if_not_exists(conn)
+        conn.executemany(
+            f"INSERT INTO serie_vdedr ({_SERIE_COLS}) " f"VALUES ({', '.join('?' * 16)});",
+            out_rows,
+        )
+        _combine_rows(
+            new_db_filename, mem_uri, "serie_vdedr", _SERIE_COLS, ddl=_DDL_SERIE, module="vdedr"
+        )
+    return len(out_rows)
+
+
+def create_pairs_vdedr_reader(
+    family: str,
+    pair_db: str,
+    ctl_file: str,
+    exp_file: str,
+    regions: Sequence[str],
+    flags: Sequence[str],
+    varnos: Sequence[str] = (),
+    match_fields: Sequence[str] = (),
+    names=None,
+    land_oceans: Sequence[str] = ("all",),
+    pathwork: str = ".",
+    special_on: bool = False,
+) -> Optional[Dict[str, int]]:
+    """create_pairs_vdedr, read by pikobs.reader: the same rows of pairs_vdedr
+    and the same counts for the pairing report."""
+    from pikobs.reader.reader import read_cycle
+    for f in (ctl_file, exp_file):
+        if not os.path.isfile(f):
+            print(f"[vdedr] missing file, skipped: {f}", file=sys.stderr, flush=True)
+            return None
+    date_int = _cycle_of(ctl_file)
+    head_c, data_c = _file_columns(ctl_file)
+    head_e, data_e = _file_columns(exp_file)
+    if not data_c or not data_e:
+        return None
+    ask = _vdedr_ask(family, regions, flags, land_oceans, varnos, special_on, "on",
+                     "codtyp" in head_c and "codtyp" in head_e, key=match_fields)
+    got = read_cycle(ctl_file, exp_file, ask, date_int, pathwork=pathwork, module="vdedr")
+    if got is None:
+        return None
+    out_rows = []
+    for r in got.rows.to_dict("records"):
+        block = []
+        for v in ("omp", "oma"):
+            n = _cnt(r[f"nc_{v}"])
+            # n, sx, sy, sxx, syy, sxy: x the control, y the experience
+            block += [n] + [(_val(r[f"{s}_{v}"]) if n else None)
+                            for s in ("sc", "se", "sc2", "se2", "sce")]
+        nb = _cnt(r["nc_bias_corr"])
+        block += [nb, _val(r["sc_bias_corr"]) if nb else None,
+                  nb, _val(r["se_bias_corr"]) if nb else None]
+        if not (block[0] or block[6]):
+            continue
+        out_rows.append((
+            r["region"], r["flag"], r["land_ocean"],
+            r["special"] if special_on else "all",
+            r["id_stn"], _val(r["codtyp"]), _val(r["varno"]), _val(r["vcoord"]), date_int,
+        ) + tuple(block))
+    if out_rows:
+        with work_db(attach={"db": ctl_file}) as (conn, mem_uri):
+            conn.execute(_DDL_PAIRS)
+            conn.executemany(
+                f"INSERT INTO pairs_vdedr ({_PAIR_COLS}) "
+                f"VALUES ({', '.join('?' * (9 + _PAIR_SUMS_PER_COMBO))});",
+                out_rows,
+            )
+            _combine_rows(
+                pair_db, mem_uri, "pairs_vdedr", _PAIR_COLS, ddl=_DDL_PAIRS, module="vdedr"
+            )
+    return dict(got.info)
+
+
 def _pairs_task(task: Dict[str, Any]) -> Optional[Dict[str, int]]:
     try:
-        return create_pairs_vdedr(
+        return (create_pairs_vdedr_reader if _use_reader() else create_pairs_vdedr)(
             task["family"],
             task["pair_db"],
             task["ctl_file"],
@@ -834,7 +1006,7 @@ def _pairs_task(task: Dict[str, Any]) -> Optional[Dict[str, int]]:
 
 def _extract_task(task: Dict[str, Any]) -> Optional[int]:
     try:
-        return create_serie_vdedr(
+        return (create_serie_vdedr_reader if _use_reader() else create_serie_vdedr)(
             task["family"],
             task["db_new"],
             task["filein"],

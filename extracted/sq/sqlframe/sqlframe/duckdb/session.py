@@ -41,7 +41,7 @@ class _DuckDBRuntimeConfig:
     def get(self, key: str) -> str:
         if key != _SPARK_TIMEZONE_KEY:
             raise NotImplementedError(f"Unsupported Spark session config: {key}")
-        return self._session._conn.execute("SELECT current_setting('TimeZone')").fetchone()[0]
+        return self._session._conn.execute("SELECT current_setting('TimeZone')").fetchall()[0][0]
 
     def set(self, key: str, value: str) -> None:
         if key != _SPARK_TIMEZONE_KEY:
@@ -125,14 +125,14 @@ class DuckDBSession(
         import duckdb
 
         duckdb_v2 = tuple(map(int, duckdb.__version__.split(".")[:2])) >= (2, 0)
-        if duckdb_v2:
-            kwargs.setdefault("dialect", _DuckDBV2())
+        dialect = (_DuckDBV2 if duckdb_v2 else DuckDB)(version=duckdb.__version__)
+        kwargs.setdefault("dialect", dialect)
         generated_sql = super()._to_sql(sql, **kwargs)
         if duckdb_v2 and " -> " in generated_sql:
             # Older SQLGlot generators insert some lambdas after lambda_sql has run.
             parsed = parse_one(generated_sql, dialect="duckdb")
             if parsed.find(exp.Lambda):
-                return parsed.sql(dialect=_DuckDBV2())
+                return parsed.sql(dialect=dialect)
         return generated_sql
 
     @property

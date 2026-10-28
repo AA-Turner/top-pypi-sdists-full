@@ -7,8 +7,10 @@ import inspect
 import json
 import logging
 import os
+import pathlib
 import sys
 import tempfile
+import traceback
 import types
 import unittest
 from unittest import mock
@@ -1411,7 +1413,7 @@ class TestMisc(TestCase):
         cfg_f.seek(0)
         expected_config_file_contents = "config-file-settable-list = [a, b, c, d]\n"
         expected_config_file_contents += "arg1 = 10\n"
-        expected_config_file_contents += "config-file-settable-flag = True\n"
+        expected_config_file_contents += "config-file-settable-flag = true\n"
         expected_config_file_contents += "arg3 = bla3\n"
         expected_config_file_contents += "arg4 = bla4\n"
         expected_config_file_contents += "arg2 = 3\n"
@@ -3566,6 +3568,23 @@ class TestIniConfigParserSerialize(unittest.TestCase):
         result = parser.serialize(items)
         self.assertIn("key1", result)
 
+    def test_serialized_percent_values_read_back_unchanged(self):
+        for split_ml_text_to_list in (False, True):
+            parser = configargparse.IniConfigParser(["section"], split_ml_text_to_list)
+            for value in (
+                "%Y-%m-%d",
+                "50%",
+                "100%%",
+                "%(asctime)s %(message)s",
+                ["50%", "%(x)s"],
+            ):
+                with self.subTest(split=split_ml_text_to_list, value=value):
+                    contents = parser.serialize({"key": value})
+                    self.assertEqual(
+                        parser.parse(StringIO(contents)),
+                        OrderedDict([("key", value)]),
+                    )
+
 
 class TestCompositeConfigParser(unittest.TestCase):
     def setUp(self):
@@ -4181,6 +4200,463 @@ class TestCallableDefaultConfigFiles(TestCase):
         help_text = self.format_help()
         self.assertIsInstance(help_text, str)
         self.assertGreater(len(help_text), 0)
+
+
+class TestStoreFalseConfigOutput(unittest.TestCase):
+    def make_parser(self, default=True):
+        parser = configargparse.ArgumentParser()
+        parser.add_argument(
+            "-n",
+            "--no-feature",
+            "--disable-feature",
+            action="store_false",
+            dest="feature",
+            default=default,
+            env_var="CONFIGARGPARSE_TEST_NO_FEATURE",
+        )
+        parser.add_argument("--label", env_var="CONFIGARGPARSE_TEST_LABEL")
+        return parser
+
+    def assert_round_trip(self, parser, namespace, reader):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "settings.conf")
+            with captured_output():
+                parser.write_config_file(namespace, [path])
+            with open(path) as config_file:
+                contents = config_file.read()
+        restored = reader.parse_args([], config_file_contents=contents, env_vars={})
+        self.assertEqual(vars(restored), vars(namespace))
+        # assertEqual alone would accept 0 coming back as False
+        for name, value in vars(namespace).items():
+            self.assertIs(type(getattr(restored, name)), type(value), name)
+        return contents
+
+    def test_store_false_command_line_round_trip(self):
+        for default in (True, False):
+            for option in ("-n", "--no-feature", "--disable-feature"):
+                with self.subTest(default=default, option=option):
+                    parser = self.make_parser(default)
+                    namespace = parser.parse_args([option], env_vars={})
+                    self.assertFalse(namespace.feature)
+                    self.assert_round_trip(parser, namespace, self.make_parser(default))
+
+    def test_store_false_environment_round_trip(self):
+        for default in (True, False):
+            for value in ("true", "false"):
+                with self.subTest(default=default, value=value):
+                    parser = self.make_parser(default)
+                    with mock.patch.dict(
+                        os.environ,
+                        {
+                            "CONFIGARGPARSE_TEST_NO_FEATURE": value,
+                            "CONFIGARGPARSE_TEST_LABEL": "example",
+                        },
+                    ):
+                        namespace = parser.parse_args([])
+                    self.assertEqual(namespace.feature, default and value == "false")
+                    self.assertEqual(namespace.label, "example")
+                    self.assert_round_trip(parser, namespace, self.make_parser(default))
+
+    def test_store_false_config_round_trip(self):
+        for default in (True, False):
+            for value in ("true", "false"):
+                with self.subTest(default=default, value=value):
+                    parser = self.make_parser(default)
+                    namespace = parser.parse_args(
+                        [], config_file_contents="no-feature = " + value, env_vars={}
+                    )
+                    self.assert_round_trip(parser, namespace, self.make_parser(default))
+
+    def test_non_boolean_store_false_default_round_trip(self):
+        # 1 and "yes" are truthy, so writing them as-is would invoke the flag
+        for default in (0, 1, "yes"):
+            with self.subTest(default=default):
+                parser = self.make_parser(default)
+                namespace = parser.parse_args(
+                    [],
+                    env_vars={
+                        "CONFIGARGPARSE_TEST_NO_FEATURE": "false",
+                        "CONFIGARGPARSE_TEST_LABEL": "example",
+                    },
+                )
+                self.assertIs(namespace.feature, default)
+                self.assert_round_trip(parser, namespace, self.make_parser(default))
+
+    def test_store_false_defaults_are_not_added(self):
+        for default in (True, False):
+            with self.subTest(default=default):
+                parser = self.make_parser(default)
+                namespace = parser.parse_args([], env_vars={})
+                contents = self.assert_round_trip(
+                    parser, namespace, self.make_parser(default)
+                )
+                self.assertEqual(contents, "")
+
+    def test_other_boolean_actions_round_trip(self):
+        actions = [("store_true", False, ["--feature"])]
+        if hasattr(argparse, "BooleanOptionalAction"):
+            actions += [
+                (argparse.BooleanOptionalAction, True, ["--no-feature"]),
+                (argparse.BooleanOptionalAction, False, ["--feature"]),
+            ]
+        for action, default, args in actions:
+            with self.subTest(action=action, default=default):
+                parser = configargparse.ArgumentParser()
+                parser.add_argument("--feature", action=action, default=default)
+                namespace = parser.parse_args(args, env_vars={})
+                reader = configargparse.ArgumentParser()
+                reader.add_argument("--feature", action=action, default=default)
+                self.assert_round_trip(parser, namespace, reader)
+
+    def test_store_const_round_trip(self):
+        def make_parser():
+            parser = configargparse.ArgumentParser()
+            parser.add_argument(
+                "--fast",
+                action="store_const",
+                const="fast",
+                dest="mode",
+                default="slow",
+                env_var="CONFIGARGPARSE_TEST_FAST",
+            )
+            parser.add_argument("--label", env_var="CONFIGARGPARSE_TEST_LABEL")
+            return parser
+
+        cases = [
+            (["--fast"], {}, "fast", "fast = true\n"),
+            (
+                [],
+                {"CONFIGARGPARSE_TEST_FAST": "true", "CONFIGARGPARSE_TEST_LABEL": "x"},
+                "fast",
+                "fast = true\nlabel = x\n",
+            ),
+            (
+                [],
+                {"CONFIGARGPARSE_TEST_FAST": "false", "CONFIGARGPARSE_TEST_LABEL": "x"},
+                "slow",
+                "fast = false\nlabel = x\n",
+            ),
+        ]
+        for args, env_vars, expected_mode, expected_contents in cases:
+            with self.subTest(args=args, env_vars=env_vars):
+                parser = make_parser()
+                namespace = parser.parse_args(args, env_vars=env_vars)
+                self.assertEqual(namespace.mode, expected_mode)
+                contents = self.assert_round_trip(parser, namespace, make_parser())
+                self.assertEqual(contents, expected_contents)
+
+
+class TestConfigparserDefaultSection(TestCase):
+    def test_default_only_values(self):
+        parser = configargparse.ConfigparserConfigFileParser()
+        contents = (
+            "[DEFAULT]\nName = alice\nlabel = %(name)s\nempty =\n"
+            "items = ['a', 'b']\nmessage = first\n    second\n"
+        )
+        self.assertEqual(
+            parser.parse(StringIO(contents)),
+            OrderedDict(
+                [
+                    ("name", "alice"),
+                    ("label", "alice"),
+                    ("empty", ""),
+                    ("items", ["a", "b"]),
+                    ("message", "first second"),
+                ]
+            ),
+        )
+
+    def test_saved_config_round_trip(self):
+        parser = self.initParser(
+            config_file_parser_class=configargparse.ConfigparserConfigFileParser
+        )
+        parser.add_argument("--name")
+        parser.add_argument("--count", type=int)
+        parser.add_argument("--matrix", nargs="+", type=json.loads)
+        expected = parser.parse_args(
+            ["--name", "alice", "--count", "3", "--matrix", "[1, 2]", "[3, 4]"]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "saved.ini")
+            parser.write_config_file(expected, [path])
+            with open(path) as stream:
+                contents = stream.read()
+        actual = parser.parse_args([], config_file_contents=contents)
+        self.assertEqual(actual, expected)
+
+    def test_blank_line_in_value_does_not_start_a_new_key(self):
+        # how an earlier version of serialize() wrote a value with a blank line
+        contents = "[DEFAULT]\nnotes = line1\n\t\n\tupload-url = https://x\n"
+        self.assertEqual(
+            configargparse.ConfigparserConfigFileParser().parse(StringIO(contents)),
+            OrderedDict([("notes", "line1  upload-url = https://x")]),
+        )
+
+    def test_named_sections_keep_default_overrides(self):
+        parser = configargparse.ConfigparserConfigFileParser()
+        contents = (
+            "[DEFAULT]\nname = default\nshared = value\n"
+            "[first]\nname = alice\n[first_extra]\nname = bob\n"
+        )
+        self.assertEqual(
+            parser.parse(StringIO(contents)),
+            OrderedDict([("name", "bob"), ("shared", "value")]),
+        )
+
+    def test_serialized_values_read_back_unchanged(self):
+        parser = configargparse.ConfigparserConfigFileParser()
+        for value, expected in (
+            ("file[0-9].txt", "file[0-9].txt"),
+            ("[value6.1, value6.2]", "[value6.1, value6.2]"),
+            (["a", "50%"], ["a", "50%"]),
+            ("50%", "50%"),
+            ("100%%", "100%%"),
+            ("%(asctime)s %(message)s", "%(asctime)s %(message)s"),
+            ("a;b", "a;b"),
+            ("#ff0000", "#ff0000"),
+            (";", ";"),
+            # in a list or a quoted string, "#" and ";" are written as escapes
+            (["issue #12", "b ; c"], ["issue #12", "b ; c"]),
+            ("Results [v2] ; final", "Results [v2] ; final"),
+            ([pathlib.Path("a.txt"), float("inf")], ["a.txt", "inf"]),
+            ([["a", 1, pathlib.Path("b.txt")], ["c"]], [["a", 1, "b.txt"], ["c"]]),
+            # a tuple reads back as the string the option's type was given
+            ((224, 224), "(224, 224)"),
+            ([(1, 2), (3, 4)], [(1, 2), (3, 4)]),
+            ("line1\nline2", "line1 line2"),
+            # a blank line or a lone \r must not start a new key
+            ("x\n\nother = injected", "x  other = injected"),
+            ("x\rother = injected", "x other = injected"),
+        ):
+            with self.subTest(value=value), warnings.catch_warnings():
+                # a value that reads back unchanged must not be warned about
+                warnings.simplefilter("error")
+                # newline=None reads a lone \r as a line break, the way open()
+                # does when parse_args reads a config file
+                stream = StringIO(parser.serialize({"key": value}), newline=None)
+                self.assertEqual(parser.parse(stream), OrderedDict([("key", expected)]))
+
+    def test_serialize_warns_about_values_read_back_cut_short(self):
+        parser = configargparse.ConfigparserConfigFileParser()
+        for value in ("run #1", "a ; b", "a\t#b"):
+            with self.subTest(value=value):
+                with self.assertWarnsRegex(
+                    UserWarning, "value of key .*cut short"
+                ) as caught:
+                    contents = parser.serialize({"key": value})
+                self.assertIn("\nkey=", contents)
+                # the value may be a secret, so the warning must not show it
+                self.assertNotIn(str(value), str(caught.warning))
+
+    def test_bad_interpolation_raises_config_file_parser_exception(self):
+        parser = configargparse.ConfigparserConfigFileParser()
+        for contents, problem in (
+            ("[DEFAULT]\npct = 50%secret\n", "isn't '%%'.*Write %%"),
+            ("[section]\npct = 50%secret\n", "isn't '%%'.*Write %%"),
+            (
+                "[section]\nlabel = %(missing)ssecret\n",
+                "isn't in the same section or in \\[DEFAULT\\].*Write %%",
+            ),
+            (
+                "[DEFAULT]\npath = /base\n[job]\npath = %(path)ssecret\n",
+                "refer back to it",
+            ),
+        ):
+            with self.subTest(contents=contents):
+                with self.assertRaisesRegex(
+                    configargparse.ConfigFileParserException,
+                    "Couldn't parse config file value for (pct|label|path): .*"
+                    + problem,
+                ) as caught:
+                    parser.parse(StringIO(contents))
+                # the value may be a secret, so neither the message nor a
+                # traceback (which would show a chained exception) may show it
+                exception = caught.exception
+                self.assertNotIn(
+                    "secret",
+                    "".join(
+                        traceback.format_exception(
+                            type(exception), exception, exception.__traceback__
+                        )
+                    ),
+                )
+
+
+class TestFalseFlagPrecedence(unittest.TestCase):
+    false_values = ("false", "no", "off", "0", "FALSE")
+    actions = (("store_true", False), ("store_false", True))
+
+    def test_environment_overrides_config(self):
+        for action_name, expected in self.actions:
+            for value in self.false_values:
+                for config_key in ("feature", "alias"):
+                    with self.subTest(action=action_name, value=value, key=config_key):
+                        parser = configargparse.ArgumentParser()
+                        action = parser.add_argument(
+                            "--feature",
+                            "--alias",
+                            action=action_name,
+                            env_var="FEATURE",
+                        )
+                        result = parser.parse_args(
+                            [],
+                            env_vars={"FEATURE": value},
+                            config_file_contents=config_key + "=true",
+                        )
+                        self.assertIs(result.feature, expected)
+                        self.assertEqual(
+                            parser.get_source_to_settings_dict(),
+                            {"environment_variables": {"FEATURE": (action, value)}},
+                        )
+                        self.assertIn("Environment Variables:", parser.format_values())
+                        self.assertIn(value, parser.format_values())
+                        self.assertNotIn("Config File", parser.format_values())
+
+    def test_later_config_overrides_earlier_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lower = pathlib.Path(directory) / "default.ini"
+            higher = pathlib.Path(directory) / "user.ini"
+            lower.write_text("feature=true\n")
+            for action_name, expected in self.actions:
+                for value in self.false_values:
+                    with self.subTest(action=action_name, value=value):
+                        higher.write_text("alias=" + value + "\n")
+                        parser = configargparse.ArgumentParser(
+                            default_config_files=[lower, higher]
+                        )
+                        action = parser.add_argument(
+                            "--feature", "--alias", action=action_name
+                        )
+                        self.assertIs(
+                            parser.parse_args([], env_vars={}).feature, expected
+                        )
+                        self.assertEqual(
+                            parser.get_source_to_settings_dict(),
+                            {"config_file|" + str(higher): {"alias": (action, value)}},
+                        )
+                        self.assertNotIn(str(lower), parser.format_values())
+
+    def test_command_line_overrides_false_environment_and_config(self):
+        for action_name, expected in self.actions:
+            for value in self.false_values:
+                for option in ("-f", "--feature", "--alias"):
+                    with self.subTest(action=action_name, value=value, option=option):
+                        parser = configargparse.ArgumentParser()
+                        parser.add_argument(
+                            "-f",
+                            "--feature",
+                            "--alias",
+                            action=action_name,
+                            env_var="FEATURE",
+                        )
+                        result = parser.parse_args(
+                            [option],
+                            env_vars={"FEATURE": value},
+                            config_file_contents="feature=false",
+                        )
+                        self.assertIs(result.feature, not expected)
+                        self.assertEqual(
+                            parser.get_source_to_settings_dict(),
+                            {"command_line": {"": (None, [option])}},
+                        )
+
+    def test_false_does_not_replace_custom_default(self):
+        for action_name, _ in self.actions:
+            with self.subTest(action=action_name):
+                parser = configargparse.ArgumentParser()
+                parser.add_argument(
+                    "--feature", action=action_name, default="unset", env_var="FEATURE"
+                )
+                result = parser.parse_args(
+                    [],
+                    env_vars={"FEATURE": "false"},
+                    config_file_contents="feature=true",
+                )
+                self.assertEqual(result.feature, "unset")
+
+    def test_false_does_not_select_mutually_exclusive_member(self):
+        parser = configargparse.ArgumentParser()
+        group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument("--feature", action="store_true", env_var="FEATURE")
+        group.add_argument("--other", action="store_true")
+        result = parser.parse_args(
+            [],
+            env_vars={"FEATURE": "false"},
+            config_file_contents="feature=true\nother=true",
+        )
+        self.assertFalse(result.feature)
+        self.assertTrue(result.other)
+        # Two active members within a single source must still conflict.
+        with self.assertRaises(SystemExit), captured_output():
+            parser.parse_args(
+                [], env_vars={}, config_file_contents="feature=true\nother=true"
+            )
+        # A false value alone must not satisfy a required group.
+        with self.assertRaises(SystemExit), captured_output():
+            parser.parse_args([], env_vars={"FEATURE": "false"})
+
+    def test_shared_environment_variable_overrides_both_actions(self):
+        parser = configargparse.ArgumentParser()
+        parser.add_argument("--first", action="store_true", env_var="FEATURE")
+        parser.add_argument("--second", action="store_true", env_var="FEATURE")
+        result = parser.parse_args(
+            [],
+            env_vars={"FEATURE": "false"},
+            config_file_contents="first=true\nsecond=true",
+        )
+        self.assertFalse(result.first)
+        self.assertFalse(result.second)
+
+    def test_flag_actions_reset_between_parses(self):
+        parser = configargparse.ArgumentParser()
+        parser.add_argument("--feature", action="store_true", env_var="FEATURE")
+        self.assertFalse(
+            parser.parse_args(
+                [], env_vars={"FEATURE": "false"}, config_file_contents="feature=true"
+            ).feature
+        )
+        self.assertTrue(
+            parser.parse_args(
+                [], env_vars={}, config_file_contents="feature=true"
+            ).feature
+        )
+
+    def test_empty_environment_value_still_falls_back_to_config(self):
+        parser = configargparse.ArgumentParser()
+        parser.add_argument("--items", nargs="+", env_var="ITEMS")
+        result = parser.parse_args(
+            [], env_vars={"ITEMS": ""}, config_file_contents="items=[one,two]"
+        )
+        self.assertEqual(result.items, ["one", "two"])
+        self.assertNotIn("environment_variables", parser.get_source_to_settings_dict())
+
+    def test_empty_list_does_not_override_lower_priority_list(self):
+        # only flags are tracked, so an empty list still falls back to lower
+        # priority sources, as it did before false flags were tracked
+        parser = configargparse.ArgumentParser()
+        parser.add_argument("--item", action="append", env_var="ITEM")
+        result = parser.parse_args(
+            [], env_vars={"ITEM": "[]"}, config_file_contents="item = [a]"
+        )
+        self.assertEqual(result.item, ["a"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            lower = pathlib.Path(directory) / "default.ini"
+            higher = pathlib.Path(directory) / "user.ini"
+            lower.write_text("item = [a]\n")
+            higher.write_text("item = []\n")
+            parser = configargparse.ArgumentParser(default_config_files=[lower, higher])
+            parser.add_argument("--item", action="append")
+            self.assertEqual(parser.parse_args([], env_vars={}).item, ["a"])
+
+    def test_zero_count_overrides_lower_priority_count(self):
+        # a count arg is a flag too, and "0" is one of its false values
+        parser = configargparse.ArgumentParser()
+        parser.add_argument("-v", "--verbose", action="count", env_var="VERBOSE")
+        result = parser.parse_args(
+            [], env_vars={"VERBOSE": "0"}, config_file_contents="verbose = 3"
+        )
+        self.assertIsNone(result.verbose)
 
 
 ################################################################################

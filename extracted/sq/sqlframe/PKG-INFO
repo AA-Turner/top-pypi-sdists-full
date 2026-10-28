@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlframe
-Version: 4.8.0
+Version: 4.9.0
 Summary: Turning PySpark Into a Universal DataFrame API
 Author-email: Ryan Eakman <eakmanrq@gmail.com>
 License: MIT
@@ -16,15 +16,18 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: prettytable<4
-Requires-Dist: sqlglot<30.25,>=30.0.0
+Requires-Dist: sqlglot<30.26,>=30.0.0
 Requires-Dist: typing_extensions
 Requires-Dist: more-itertools
 Provides-Extra: bigquery
 Requires-Dist: google-cloud-bigquery[pandas]<4,>=3; extra == "bigquery"
 Requires-Dist: google-cloud-bigquery-storage<3,>=2; extra == "bigquery"
+Provides-Extra: clickhouse
+Requires-Dist: clickhouse-connect<2,>=0.13; extra == "clickhouse"
 Provides-Extra: databricks
 Requires-Dist: databricks-sql-connector[pyarrow]<5,>=3.6; extra == "databricks"
 Provides-Extra: dev
+Requires-Dist: chdb<5,>=4.4; sys_platform != "win32" and extra == "dev"
 Requires-Dist: duckdb<2.1,>=1.2; extra == "dev"
 Requires-Dist: findspark<3,>=2; extra == "dev"
 Requires-Dist: mirakuru<3.0.5; extra == "dev"
@@ -66,6 +69,8 @@ Provides-Extra: spark
 Requires-Dist: pyspark<4.3,>=4; extra == "spark"
 Provides-Extra: standalone
 Requires-Dist: pyarrow<27,>=10; extra == "standalone"
+Provides-Extra: trino
+Requires-Dist: trino<1,>=0.330; extra == "trino"
 Dynamic: license-file
 
 <div align="center">
@@ -128,11 +133,15 @@ To inspect a transformation's SQL, call `df.sql(optimize=True)`. Follow the [qui
 | [BigQuery](https://sqlframe.readthedocs.io/en/latest/bigquery/) | `pip install "sqlframe[bigquery]"` |
 | [Snowflake](https://sqlframe.readthedocs.io/en/latest/snowflake/) | `pip install "sqlframe[snowflake]"` |
 | [Postgres](https://sqlframe.readthedocs.io/en/latest/postgres/) | `pip install "sqlframe[postgres]"` |
+| [ClickHouse (preview)](https://sqlframe.readthedocs.io/en/latest/clickhouse/) | `pip install "sqlframe[clickhouse]"` |
 | [Databricks](https://sqlframe.readthedocs.io/en/latest/databricks/) | `pip install "sqlframe[databricks]"` |
 | [Spark](https://sqlframe.readthedocs.io/en/latest/spark/) | `pip install "sqlframe[spark]"` |
 | [Standalone](https://sqlframe.readthedocs.io/en/latest/standalone/) | `pip install sqlframe` |
+| [Trino (preview)](https://sqlframe.readthedocs.io/en/latest/trino/) | `pip install "sqlframe[trino]"` |
 
 Standalone sessions generate SQL without a database connection. For local Parquet support, install `sqlframe[standalone]`.
+
+ClickHouse and Trino are preview integrations; see their guides for supported workflows and limits.
 
 Community integrations: [GizmoSQL](https://github.com/gizmodata/sqlframe-gizmosql) · [Redshift](https://sqlframe.readthedocs.io/en/latest/redshift/) (`pip install "sqlframe[redshift]"`).
 

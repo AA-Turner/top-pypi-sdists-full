@@ -112,23 +112,17 @@ class InternalAccount(BaseModel):
     """An array of account detail objects."""
 
     account_type: Optional[
-        Literal[
-            "base_wallet",
-            "cash",
-            "checking",
-            "crypto_wallet",
-            "ethereum_wallet",
-            "general_ledger",
-            "loan",
-            "non_resident",
-            "other",
-            "overdraft",
-            "polygon_wallet",
-            "savings",
-            "solana_wallet",
-        ]
+        Literal["cash", "checking", "general_ledger", "loan", "non_resident", "other", "overdraft", "savings"]
     ] = None
     """Can be checking, savings or other."""
+
+    allowed_ach_debit_company_ids: Optional[List[str]] = None
+    """The ACH Company IDs allowed to debit this account.
+
+    `null` allows every company. An empty array allows none. Debits from any other
+    company are returned with code R10. Only applicable to debitable accounts under
+    a Modern Treasury PSP connection.
+    """
 
     connection: Connection
     """Specifies which financial institution the accounts belong to."""
@@ -195,13 +189,23 @@ class InternalAccount(BaseModel):
     """The legal name of the entity which owns the account."""
 
     party_type: Optional[Literal["business", "individual"]] = None
-    """Either individual or business."""
+    """Either individual or business.
+
+    Inherits from associated LegalEntity legal_entity_type, if one exists.
+    """
 
     routing_details: List[RoutingDetail]
     """An array of routing detail objects."""
 
     status: Optional[Literal["active", "closed", "pending_activation", "pending_closure", "suspended"]] = None
     """The internal account status."""
+
+    title: str
+    """The account title at the financial institution.
+
+    Defaults to the party name unless a custom title was set on creation. Custom
+    titles are only applicable to accounts created under supported connections.
+    """
 
     updated_at: datetime
 

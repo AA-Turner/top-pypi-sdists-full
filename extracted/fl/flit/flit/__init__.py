@@ -12,7 +12,7 @@ from flit_core import common
 from .config import ConfigError
 from .log import enable_colourful_output
 
-__version__ = '4.1.0'
+__version__ = '4.2.0'
 
 log = logging.getLogger(__name__)
 
@@ -174,15 +174,18 @@ def main(argv=None):
         try:
             main(args.ini_file, formats=set(args.format or []),
                  use_vcs=args.use_vcs)
-        except(common.NoDocstringError, common.VCSError, common.NoVersionError) as e:
+        except (common.ProblemInModule, common.VCSError) as e:
             sys.exit(e.args[0])
     elif args.subcmd == 'publish':
         if args.deprecated_repository:
             log.warning("Passing --repository before the 'upload' subcommand is deprecated: pass it after")
         repository = args.repository or args.deprecated_repository
-        from .upload import main
-        main(args.ini_file, repository, args.pypirc, formats=set(args.format or []),
-             use_vcs=args.use_vcs)
+        from .upload import UploadRejectedError, main
+        try:
+            main(args.ini_file, repository, args.pypirc, formats=set(args.format or []),
+                 use_vcs=args.use_vcs)
+        except (UploadRejectedError, common.ProblemInModule) as e:
+            sys.exit(e.args[0])
 
     elif args.subcmd == 'install':
         from .install import Installer
@@ -201,7 +204,7 @@ def main(argv=None):
                 installer.install_requirements()
             else:
                 installer.install()
-        except (ConfigError, PythonNotFoundError, common.NoDocstringError, common.NoVersionError) as e:
+        except (ConfigError, PythonNotFoundError, common.ProblemInModule) as e:
             sys.exit(e.args[0])
 
     elif args.subcmd == 'init':

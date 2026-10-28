@@ -685,6 +685,15 @@ class AdCampaignsResource:
         max_cpc: float | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
+        budget_amount: float | None = None,
+        budget_type: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        targeting: Any | None = None,
+        promoted_object: dict[str, Any] | None = None,
+        optimization_goal: str | None = None,
+        bid_strategy: str | None = None,
+        bid_amount: float | None = None,
     ) -> dict[str, Any]:
         """Create a standalone ad group"""
         payload = self._build_payload(
@@ -696,6 +705,15 @@ class AdCampaignsResource:
             max_cpc=max_cpc,
             ad_account_id=ad_account_id,
             customer_id=customer_id,
+            budget_amount=budget_amount,
+            budget_type=budget_type,
+            start_date=start_date,
+            end_date=end_date,
+            targeting=targeting,
+            promoted_object=promoted_object,
+            optimization_goal=optimization_goal,
+            bid_strategy=bid_strategy,
+            bid_amount=bid_amount,
         )
         headers: dict[str, str] = {}
         if idempotency_key is not None:
@@ -787,8 +805,14 @@ class AdCampaignsResource:
         status: str | None = None,
         name: str | None = None,
         bid_strategy: Any | None = None,
+        dsa_beneficiary: str | None = None,
+        dsa_payor: str | None = None,
+        regional_regulated_categories: list[str] | None = None,
+        regional_regulation_identities: dict[str, Any] | None = None,
         smart_targeting: dict[str, Any] | None = None,
         placements: Any | None = None,
+        start_date: str | None = None,
+        end_date: Any | None = None,
         targeting: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
@@ -803,8 +827,14 @@ class AdCampaignsResource:
             status=status,
             name=name,
             bid_strategy=bid_strategy,
+            dsa_beneficiary=dsa_beneficiary,
+            dsa_payor=dsa_payor,
+            regional_regulated_categories=regional_regulated_categories,
+            regional_regulation_identities=regional_regulation_identities,
             smart_targeting=smart_targeting,
             placements=placements,
+            start_date=start_date,
+            end_date=end_date,
             targeting=targeting,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
@@ -817,6 +847,17 @@ class AdCampaignsResource:
     def delete_ad_set(self, ad_set_id: str) -> dict[str, Any]:
         """Delete an ad set"""
         return self._client._delete(f"/v1/ads/ad-sets/{ad_set_id}")
+
+    def get_ad_set_targeting(
+        self, ad_set_id: str, *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """Read a Reddit ad group's targeting and schedule"""
+        params = self._build_params(
+            platform=platform,
+        )
+        return self._client._get(
+            f"/v1/ads/ad-sets/{ad_set_id}/targeting", params=params
+        )
 
     def update_ad_set_status(
         self, ad_set_id: str, status: str, platform: str
@@ -850,6 +891,7 @@ class AdCampaignsResource:
         sort: str | None = "newest",
         time_increment: int | None = None,
         daily_level: str | None = "campaign",
+        compare: str | None = None,
     ) -> dict[str, Any]:
         """Get campaign tree"""
         params = self._build_params(
@@ -872,6 +914,7 @@ class AdCampaignsResource:
             sort=sort,
             time_increment=time_increment,
             daily_level=daily_level,
+            compare=compare,
         )
         return self._client._get("/v1/ads/tree", params=params)
 
@@ -883,6 +926,7 @@ class AdCampaignsResource:
         from_date: str | None = None,
         to_date: str | None = None,
         platform: str | None = None,
+        compare: str | None = None,
     ) -> dict[str, Any]:
         """Get daily account metrics"""
         params = self._build_params(
@@ -891,13 +935,17 @@ class AdCampaignsResource:
             from_date=from_date,
             to_date=to_date,
             platform=platform,
+            compare=compare,
         )
         return self._client._get("/v1/ads/timeline", params=params)
 
-    def get_ad(self, ad_id: str, *, live: bool | None = False) -> dict[str, Any]:
+    def get_ad(
+        self, ad_id: str, *, live: bool | None = False, account_id: str | None = None
+    ) -> dict[str, Any]:
         """Get ad details"""
         params = self._build_params(
             live=live,
+            account_id=account_id,
         )
         return self._client._get(f"/v1/ads/{ad_id}", params=params)
 
@@ -1108,13 +1156,32 @@ class AdCampaignsResource:
             f"/v1/ads/ad-sets/{ad_set_id}/assets", params=params
         )
 
-    def get_ad_review(self, ad_id: str) -> dict[str, Any]:
+    def get_ad_review(
+        self, ad_id: str, *, account_id: str | None = None
+    ) -> dict[str, Any]:
         """Read the platform's review verdict for an ad"""
-        return self._client._get(f"/v1/ads/{ad_id}/review")
+        params = self._build_params(
+            account_id=account_id,
+        )
+        return self._client._get(f"/v1/ads/{ad_id}/review", params=params)
 
     def get_tik_tok_smart_plus_ad_review(self, ad_id: str) -> dict[str, Any]:
         """Review status of each creative in a TikTok Smart+ ad"""
         return self._client._get(f"/v1/ads/{ad_id}/tiktok-smart-plus-review")
+
+    def list_ads_alerts(
+        self, *, account_id: str | None = None, include_dismissed: bool | None = False
+    ) -> dict[str, Any]:
+        """List ads that need attention"""
+        params = self._build_params(
+            account_id=account_id,
+            include_dismissed=include_dismissed,
+        )
+        return self._client._get("/v1/ads/alerts", params=params)
+
+    def dismiss_ads_alert(self, alert_id: str) -> dict[str, Any]:
+        """Dismiss an ads alert"""
+        return self._client._post(f"/v1/ads/alerts/{alert_id}/dismiss")
 
     def list_tik_tok_smart_plus_reviews(
         self,
@@ -1222,6 +1289,7 @@ class AdCampaignsResource:
         smart_targeting: dict[str, Any] | None = None,
         optimization_goal: str | None = None,
         meta_objective: str | None = None,
+        validate_only: bool | None = False,
     ) -> dict[str, Any]:
         """Boost post as ad"""
         payload = self._build_payload(
@@ -1283,6 +1351,7 @@ class AdCampaignsResource:
             smart_targeting=smart_targeting,
             optimization_goal=optimization_goal,
             meta_objective=meta_objective,
+            validate_only=validate_only,
         )
         headers: dict[str, str] = {}
         if idempotency_key is not None:
@@ -1417,9 +1486,9 @@ class AdCampaignsResource:
         self,
         account_id: str,
         ad_account_id: str,
-        name: str,
         *,
         idempotency_key: str | None = None,
+        name: str | None = None,
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
         ad_name: str | None = None,
@@ -2308,6 +2377,15 @@ class AdCampaignsResource:
         max_cpc: float | None = None,
         ad_account_id: str | None = None,
         customer_id: str | None = None,
+        budget_amount: float | None = None,
+        budget_type: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        targeting: Any | None = None,
+        promoted_object: dict[str, Any] | None = None,
+        optimization_goal: str | None = None,
+        bid_strategy: str | None = None,
+        bid_amount: float | None = None,
     ) -> dict[str, Any]:
         """Create a standalone ad group (async)"""
         payload = self._build_payload(
@@ -2319,6 +2397,15 @@ class AdCampaignsResource:
             max_cpc=max_cpc,
             ad_account_id=ad_account_id,
             customer_id=customer_id,
+            budget_amount=budget_amount,
+            budget_type=budget_type,
+            start_date=start_date,
+            end_date=end_date,
+            targeting=targeting,
+            promoted_object=promoted_object,
+            optimization_goal=optimization_goal,
+            bid_strategy=bid_strategy,
+            bid_amount=bid_amount,
         )
         headers: dict[str, str] = {}
         if idempotency_key is not None:
@@ -2412,8 +2499,14 @@ class AdCampaignsResource:
         status: str | None = None,
         name: str | None = None,
         bid_strategy: Any | None = None,
+        dsa_beneficiary: str | None = None,
+        dsa_payor: str | None = None,
+        regional_regulated_categories: list[str] | None = None,
+        regional_regulation_identities: dict[str, Any] | None = None,
         smart_targeting: dict[str, Any] | None = None,
         placements: Any | None = None,
+        start_date: str | None = None,
+        end_date: Any | None = None,
         targeting: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
@@ -2428,8 +2521,14 @@ class AdCampaignsResource:
             status=status,
             name=name,
             bid_strategy=bid_strategy,
+            dsa_beneficiary=dsa_beneficiary,
+            dsa_payor=dsa_payor,
+            regional_regulated_categories=regional_regulated_categories,
+            regional_regulation_identities=regional_regulation_identities,
             smart_targeting=smart_targeting,
             placements=placements,
+            start_date=start_date,
+            end_date=end_date,
             targeting=targeting,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
@@ -2442,6 +2541,17 @@ class AdCampaignsResource:
     async def adelete_ad_set(self, ad_set_id: str) -> dict[str, Any]:
         """Delete an ad set (async)"""
         return await self._client._adelete(f"/v1/ads/ad-sets/{ad_set_id}")
+
+    async def aget_ad_set_targeting(
+        self, ad_set_id: str, *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """Read a Reddit ad group's targeting and schedule (async)"""
+        params = self._build_params(
+            platform=platform,
+        )
+        return await self._client._aget(
+            f"/v1/ads/ad-sets/{ad_set_id}/targeting", params=params
+        )
 
     async def aupdate_ad_set_status(
         self, ad_set_id: str, status: str, platform: str
@@ -2477,6 +2587,7 @@ class AdCampaignsResource:
         sort: str | None = "newest",
         time_increment: int | None = None,
         daily_level: str | None = "campaign",
+        compare: str | None = None,
     ) -> dict[str, Any]:
         """Get campaign tree (async)"""
         params = self._build_params(
@@ -2499,6 +2610,7 @@ class AdCampaignsResource:
             sort=sort,
             time_increment=time_increment,
             daily_level=daily_level,
+            compare=compare,
         )
         return await self._client._aget("/v1/ads/tree", params=params)
 
@@ -2510,6 +2622,7 @@ class AdCampaignsResource:
         from_date: str | None = None,
         to_date: str | None = None,
         platform: str | None = None,
+        compare: str | None = None,
     ) -> dict[str, Any]:
         """Get daily account metrics (async)"""
         params = self._build_params(
@@ -2518,13 +2631,17 @@ class AdCampaignsResource:
             from_date=from_date,
             to_date=to_date,
             platform=platform,
+            compare=compare,
         )
         return await self._client._aget("/v1/ads/timeline", params=params)
 
-    async def aget_ad(self, ad_id: str, *, live: bool | None = False) -> dict[str, Any]:
+    async def aget_ad(
+        self, ad_id: str, *, live: bool | None = False, account_id: str | None = None
+    ) -> dict[str, Any]:
         """Get ad details (async)"""
         params = self._build_params(
             live=live,
+            account_id=account_id,
         )
         return await self._client._aget(f"/v1/ads/{ad_id}", params=params)
 
@@ -2741,13 +2858,32 @@ class AdCampaignsResource:
             f"/v1/ads/ad-sets/{ad_set_id}/assets", params=params
         )
 
-    async def aget_ad_review(self, ad_id: str) -> dict[str, Any]:
+    async def aget_ad_review(
+        self, ad_id: str, *, account_id: str | None = None
+    ) -> dict[str, Any]:
         """Read the platform's review verdict for an ad (async)"""
-        return await self._client._aget(f"/v1/ads/{ad_id}/review")
+        params = self._build_params(
+            account_id=account_id,
+        )
+        return await self._client._aget(f"/v1/ads/{ad_id}/review", params=params)
 
     async def aget_tik_tok_smart_plus_ad_review(self, ad_id: str) -> dict[str, Any]:
         """Review status of each creative in a TikTok Smart+ ad (async)"""
         return await self._client._aget(f"/v1/ads/{ad_id}/tiktok-smart-plus-review")
+
+    async def alist_ads_alerts(
+        self, *, account_id: str | None = None, include_dismissed: bool | None = False
+    ) -> dict[str, Any]:
+        """List ads that need attention (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            include_dismissed=include_dismissed,
+        )
+        return await self._client._aget("/v1/ads/alerts", params=params)
+
+    async def adismiss_ads_alert(self, alert_id: str) -> dict[str, Any]:
+        """Dismiss an ads alert (async)"""
+        return await self._client._apost(f"/v1/ads/alerts/{alert_id}/dismiss")
 
     async def alist_tik_tok_smart_plus_reviews(
         self,
@@ -2857,6 +2993,7 @@ class AdCampaignsResource:
         smart_targeting: dict[str, Any] | None = None,
         optimization_goal: str | None = None,
         meta_objective: str | None = None,
+        validate_only: bool | None = False,
     ) -> dict[str, Any]:
         """Boost post as ad (async)"""
         payload = self._build_payload(
@@ -2918,6 +3055,7 @@ class AdCampaignsResource:
             smart_targeting=smart_targeting,
             optimization_goal=optimization_goal,
             meta_objective=meta_objective,
+            validate_only=validate_only,
         )
         headers: dict[str, str] = {}
         if idempotency_key is not None:
@@ -3052,9 +3190,9 @@ class AdCampaignsResource:
         self,
         account_id: str,
         ad_account_id: str,
-        name: str,
         *,
         idempotency_key: str | None = None,
+        name: str | None = None,
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
         ad_name: str | None = None,

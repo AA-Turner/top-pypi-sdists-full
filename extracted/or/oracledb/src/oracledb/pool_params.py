@@ -125,6 +125,7 @@ class PoolParams(ConnectParams):
         operation_callback: Callable | None = None,
         round_trip_callback: Callable | None = None,
         transaction_priority: oracledb.TransactionPriority | None = None,
+        use_eztls: bool | None = None,
         handle: int | None = None,
     ):
         """
@@ -449,8 +450,8 @@ class PoolParams(ConnectParams):
           <Defaults.driver_name>`)
 
         - ``use_sni``: a boolean indicating whether to use the TLS SNI
-          extension to bypass the second TLS neogiation that would otherwise be
-          required
+          extension to bypass the second TLS negotiation that would otherwise
+          be required
           (default: False)
 
         - ``thick_mode_dsn_passthrough``: a boolean indicating whether to pass
@@ -495,6 +496,13 @@ class PoolParams(ConnectParams):
           oracledb.TransactionPriority enumeration that specifies the priority
           of any transaction that is created by the connection
           (default: None)
+
+        - ``use_eztls``: boolean indicating whether to use ezTLS. For a
+          connection using TCP this enables TLS encryption over TCP, which is
+          similar to what was previously done with Native Network Encryption
+          (NNE). For a connection using TCPS this allows the server to use a
+          simpler method for authenticating itself
+          (default: False)
 
         - ``handle``: an integer representing a pointer to a valid service
           context handle. This value is only used in python-oracledb Thick
@@ -576,7 +584,8 @@ class PoolParams(ConnectParams):
             f"on_connect_callback={self.on_connect_callback!r}, "
             f"operation_callback={self.operation_callback!r}, "
             f"round_trip_callback={self.round_trip_callback!r}, "
-            f"transaction_priority={self.transaction_priority!r}"
+            f"transaction_priority={self.transaction_priority!r}, "
+            f"use_eztls={self.use_eztls!r}"
             ")"
         )
 
@@ -784,6 +793,7 @@ class PoolParams(ConnectParams):
         operation_callback: Callable | None = None,
         round_trip_callback: Callable | None = None,
         transaction_priority: oracledb.TransactionPriority | None = None,
+        use_eztls: bool | None = None,
         handle: int | None = None,
     ):
         """
@@ -1039,8 +1049,8 @@ class PoolParams(ConnectParams):
           the driver which originated the connection
 
         - ``use_sni``: a boolean indicating whether to use the TLS SNI
-          extension to bypass the second TLS neogiation that would otherwise be
-          required
+          extension to bypass the second TLS negotiation that would otherwise
+          be required
 
         - ``thick_mode_dsn_passthrough``: a boolean indicating whether to pass
           the connect string to the Oracle Client libraries unchanged without
@@ -1076,6 +1086,12 @@ class PoolParams(ConnectParams):
         - ``transaction_priority``: a member of the
           oracledb.TransactionPriority enumeration that specifies the priority
           of any transaction that is created by the connection
+
+        - ``use_eztls``: boolean indicating whether to use ezTLS. For a
+          connection using TCP this enables TLS encryption over TCP, which is
+          similar to what was previously done with Native Network Encryption
+          (NNE). For a connection using TCPS this allows the server to use a
+          simpler method for authenticating itself
 
         - ``handle``: an integer representing a pointer to a valid service
           context handle. This value is only used in python-oracledb Thick

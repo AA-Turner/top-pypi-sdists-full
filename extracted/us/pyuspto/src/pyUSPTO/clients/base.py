@@ -10,29 +10,26 @@ from typing import (
     Any,
     Generic,
     Protocol,
+    Self,
     TypeVar,
     runtime_checkable,
 )
 
-from pyUSPTO.models.enriched_citations import EnrichedCitationResponse
-from pyUSPTO.models.oa_actions import OAActionsResponse
-from pyUSPTO.models.oa_citations import OACitationsResponse
-from pyUSPTO.models.oa_rejections import OARejectionsResponse
-
-try:
-    from typing import Self
-except ImportError:
-    from typing_extensions import Self
 import requests
 
 from pyUSPTO.config import USPTOConfig
 from pyUSPTO.exceptions import (
     APIErrorArgs,
+    USPTOApiNotFoundError,
     USPTOApiResponseParseError,
     USPTOConnectionError,
     USPTOTimeout,
     get_api_exception,
 )
+from pyUSPTO.models.enriched_citations import EnrichedCitationResponse
+from pyUSPTO.models.oa_actions import OAActionsResponse
+from pyUSPTO.models.oa_citations import OACitationsResponse
+from pyUSPTO.models.oa_rejections import OARejectionsResponse
 
 
 @runtime_checkable
@@ -423,7 +420,8 @@ class BaseUSPTOClient(Generic[T]):
         *,
         offset_key: str,
         limit_key: str,
-        supports_nested_pagination: bool = True,
+        nested_pagination: bool,
+        count_is_total: bool,
         **kwargs: Any,
     ) -> Generator[Any, None, None]:
         """Core pagination loop parameterized on key names.
@@ -434,37 +432,39 @@ class BaseUSPTOClient(Generic[T]):
             post_body: Optional POST body for POST-based pagination
             offset_key: Key name for the position parameter (e.g. "offset" or "start")
             limit_key: Key name for the page-size parameter (e.g. "limit" or "rows")
-            supports_nested_pagination: Whether to check for a nested
-                ``post_body["pagination"]`` dict. Set to False for Solr-style APIs.
+            nested_pagination: Whether POST pagination keys go in a nested
+                ``post_body["pagination"]`` dict (offset/limit APIs, which reject
+                top-level keys with 400) or at the top level (Solr-style APIs).
+            count_is_total: Whether ``response.count`` is the total number of
+                results (most APIs) or the size of the current page (bulk data).
+                With a per-page count, pagination stops on a short page, or on
+                the 404 the API returns for a page past the end.
             **kwargs: Keyword arguments to pass to the method (for GET pagination)
 
         Yields:
             Items from the response container
         """
-        # Determine if POST body uses nested pagination structure
-        uses_nested_pagination = False
-        if supports_nested_pagination and post_body is not None:
-            uses_nested_pagination = "pagination" in post_body and isinstance(
-                post_body["pagination"], dict
-            )
-
         # Validate that the position key is not provided by the user
         if post_body is not None:
-            if uses_nested_pagination:
-                # Check nested pagination object
-                if offset_key in post_body["pagination"]:
+            if offset_key in post_body:
+                raise ValueError(
+                    f"Cannot specify '{offset_key}' in post_body. "
+                    f"Pagination manages {offset_key} automatically."
+                )
+            if nested_pagination:
+                if limit_key in post_body:
+                    raise ValueError(
+                        f"Set '{limit_key}' in post_body['pagination']; "
+                        "the API rejects top-level pagination keys."
+                    )
+                pagination = post_body.get("pagination") or {}
+                if offset_key in pagination:
                     raise ValueError(
                         f"Cannot specify '{offset_key}' in post_body['pagination']. "
                         f"Pagination manages {offset_key} automatically."
                     )
-                limit = post_body["pagination"].get(limit_key, 25)
+                limit = pagination.get(limit_key, 25)
             else:
-                # Check top-level
-                if offset_key in post_body:
-                    raise ValueError(
-                        f"Cannot specify '{offset_key}' in post_body. "
-                        f"Pagination manages {offset_key} automatically."
-                    )
                 limit = post_body.get(limit_key, 25)
         else:
             if offset_key in kwargs:
@@ -482,25 +482,36 @@ class BaseUSPTOClient(Generic[T]):
                 # POST request: update body with pagination params
                 current_body = post_body.copy()
 
-                if uses_nested_pagination:
-                    # Update nested pagination object
-                    current_body["pagination"] = current_body["pagination"].copy()
-                    current_body["pagination"][offset_key] = offset
-                    current_body["pagination"][limit_key] = limit
+                if nested_pagination:
+                    # Build a new nested pagination object, creating it if absent
+                    current_body["pagination"] = {
+                        **(current_body.get("pagination") or {}),
+                        offset_key: offset,
+                        limit_key: limit,
+                    }
                 else:
                     # Update top-level pagination params
                     current_body[offset_key] = offset
                     current_body[limit_key] = limit
 
-                method = getattr(self, method_name)
-                response = method(post_body=current_body, **kwargs)
+                call_kwargs = {"post_body": current_body, **kwargs}
             else:
                 # GET request: update kwargs with pagination params
                 kwargs[offset_key] = offset
                 kwargs[limit_key] = limit
 
-                method = getattr(self, method_name)
-                response = method(**kwargs)
+                call_kwargs = kwargs
+
+            method = getattr(self, method_name)
+            try:
+                response = method(**call_kwargs)
+            except USPTOApiNotFoundError:
+                # The search endpoints answer a query with no matches with 404.
+                # Without a total, a full last page is only detectable by
+                # requesting the next one, which the API also answers with 404.
+                if offset == 0 or not count_is_total:
+                    break
+                raise
 
             # Validate response has required pagination attributes
             if not hasattr(response, "count"):
@@ -533,7 +544,10 @@ class BaseUSPTOClient(Generic[T]):
 
             yield from container
 
-            if response.count < limit + offset:
+            if count_is_total:
+                if response.count <= limit + offset:
+                    break
+            elif len(container) < limit:
                 break
 
             offset += limit
@@ -543,6 +557,8 @@ class BaseUSPTOClient(Generic[T]):
         method_name: str,
         response_container_attr: str,
         post_body: dict[str, Any] | None = None,
+        *,
+        count_is_total: bool = True,
         **kwargs: Any,
     ) -> Generator[Any, None, None]:
         """Paginate through all results using offset/limit style.
@@ -553,16 +569,22 @@ class BaseUSPTOClient(Generic[T]):
         Args:
             method_name: Name of the method to call
             response_container_attr: Attribute name of the container in the response
-            post_body: Optional POST body for POST-based pagination. If provided,
-                pagination parameters (offset, limit) will be injected into this body.
+            post_body: Optional POST body for POST-based pagination. Pagination
+                parameters (offset, limit) are sent in ``post_body["pagination"]``,
+                which is created if absent. Set the page size there, as
+                ``{"pagination": {"limit": 50}}``; the API rejects top-level keys.
+            count_is_total: Whether the response's ``count`` is the total number of
+                results (the default) or the size of the current page.
             **kwargs: Keyword arguments to pass to the method (for GET pagination)
 
         Yields:
-            Items from the response container
+            Items from the response container. A search with no matches, which
+            the API answers with 404, yields nothing.
 
         Raises:
             ValueError: If offset is provided in kwargs or post_body (offset is managed
-                automatically by pagination)
+                automatically by pagination), or limit is set at the top level of
+                post_body
 
         Examples:
             # GET pagination
@@ -577,7 +599,7 @@ class BaseUSPTOClient(Generic[T]):
             for app in client.paginate_results(
                 "search_applications",
                 "patent_file_wrapper_data_bag",
-                post_body={"q": "test", "limit": 50}
+                post_body={"q": "test", "pagination": {"limit": 50}}
             ):
                 print(app)
         """
@@ -587,7 +609,8 @@ class BaseUSPTOClient(Generic[T]):
             post_body=post_body,
             offset_key="offset",
             limit_key="limit",
-            supports_nested_pagination=True,
+            nested_pagination=True,
+            count_is_total=count_is_total,
             **kwargs,
         )
 
@@ -633,7 +656,8 @@ class BaseUSPTOClient(Generic[T]):
             post_body=post_body,
             offset_key="start",
             limit_key="rows",
-            supports_nested_pagination=False,
+            nested_pagination=False,
+            count_is_total=True,
             **kwargs,
         )
 
@@ -819,7 +843,9 @@ class BaseUSPTOClient(Generic[T]):
         """Extract TAR or ZIP archive with security protections.
 
         Protects against path traversal attacks. Optional protection against
-        zip bombs via max_size parameter.
+        zip bombs via max_size parameter. Only regular files are extracted:
+        links and special files such as named pipes are skipped, and the
+        archive's permission bits and ownership are not applied.
 
         Args:
             archive_path: Path to archive file
@@ -836,6 +862,7 @@ class BaseUSPTOClient(Generic[T]):
                 contains paths that would extract outside the target directory,
                 or if max_size is set and extraction would exceed it
         """
+        import shutil
         import tarfile
         import zipfile
 
@@ -844,17 +871,16 @@ class BaseUSPTOClient(Generic[T]):
 
         extract_to.mkdir(parents=True, exist_ok=True)
 
-        extracted_items = []
+        extracted_items: list[Path] = []
         total_size = 0
 
         if tarfile.is_tarfile(archive_path):
             with tarfile.open(archive_path, "r:*") as tar:
                 # Extract members one by one with validation
                 for member in tar.getmembers():
-                    # Skip directories and symlinks
-                    if member.isdir():
-                        continue
-                    if member.issym() or member.islnk():
+                    # Skip everything but regular files: directories, links,
+                    # and special files such as named pipes and devices
+                    if not member.isfile():
                         continue
 
                     # Path traversal check
@@ -873,9 +899,14 @@ class BaseUSPTOClient(Generic[T]):
                                 f"exceeds maximum allowed ({max_size} bytes)"
                             )
 
-                    # Extract individual member
-                    tar.extract(member, path=extract_to)
-                    extracted_items.append(member.name)
+                    # Copy the bytes rather than tar.extract(), which applies the
+                    # archive's permission bits (e.g. setuid) and ownership
+                    source = tar.extractfile(member)
+                    assert source is not None  # regular files always have data
+                    member_path.parent.mkdir(parents=True, exist_ok=True)
+                    with source, open(member_path, "wb") as f:
+                        shutil.copyfileobj(source, f)
+                    extracted_items.append(member_path)
 
         elif zipfile.is_zipfile(archive_path):
             with zipfile.ZipFile(archive_path, "r") as zip_ref:
@@ -903,9 +934,10 @@ class BaseUSPTOClient(Generic[T]):
                                 f"exceeds maximum allowed ({max_size} bytes)"
                             )
 
-                    # Extract individual member
-                    zip_ref.extract(zip_info, path=extract_to)
-                    extracted_items.append(zip_info.filename)
+                    # Extract individual member. Record the path zipfile wrote,
+                    # which drops "." and ".." parts of the stored name.
+                    written = zip_ref.extract(zip_info, path=extract_to)
+                    extracted_items.append(Path(written))
 
         else:
             raise ValueError(f"Not a valid TAR/ZIP archive: {archive_path}")
@@ -914,7 +946,7 @@ class BaseUSPTOClient(Generic[T]):
             archive_path.unlink()
 
         if len(extracted_items) == 1:
-            return str(extract_to / extracted_items[0])
+            return str(extracted_items[0])
         else:
             return str(extract_to)
 

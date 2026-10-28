@@ -138,5 +138,6 @@ class _Engine:
     def close(self) -> None:
         """Release the shared HTTP connection pools. Idempotent."""
         self._api_client.close()
+        self.storage_api.close()
         if "identity_api_client" in self.__dict__:
             self.identity_api_client.close()

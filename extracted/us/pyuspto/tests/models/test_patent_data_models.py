@@ -7,7 +7,7 @@ This module contains consolidated tests for classes in pyUSPTO.models.patent_dat
 import csv
 import io
 import warnings
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
@@ -413,7 +413,7 @@ def sample_document_data(
         "documentIdentifier": "OFFICE_ACTION_NON_FINAL",
         "documentCode": "CTNF",
         "documentCodeDescriptionText": "Non-Final Rejection",
-        "documentDirectionCategory": "OUTGOING",
+        "directionCategory": "OUTGOING",
         "downloadOptionBag": [
             sample_document_download_format_data_for_doc_fixture,
             {
@@ -511,6 +511,7 @@ class TestDirectionCategory:
     def test_direction_category_enum(self) -> None:
         assert DirectionCategory("INCOMING") == DirectionCategory.INCOMING
         assert DirectionCategory("OUTGOING") == DirectionCategory.OUTGOING
+        assert DirectionCategory("INTERNAL") == DirectionCategory.INTERNAL
         with pytest.raises(ValueError):
             DirectionCategory("INVALID")
 
@@ -601,7 +602,7 @@ class TestDocument:
             "documentIdentifier": "doc123",
             "documentCode": "CODE_X",
             "officialDate": "2024-12-10T00:00:00.000-0500",
-            "documentDirectionCategory": "INCOMING",
+            "directionCategory": "INTERNAL",
             "downloadOptionBag": [
                 {
                     "mimeTypeIdentifier": "application/pdf",
@@ -614,8 +615,8 @@ class TestDocument:
 
         assert doc.document_identifier == "doc123"
         assert doc.document_code == "CODE_X"
-        assert doc.official_date == datetime(2024, 12, 10, 5, 0, 0, tzinfo=timezone.utc)
-        assert doc.direction_category == DirectionCategory.INCOMING
+        assert doc.official_date == datetime(2024, 12, 10, 5, 0, 0, tzinfo=UTC)
+        assert doc.direction_category == DirectionCategory.INTERNAL
         assert len(doc.document_formats) == 1
         assert doc.document_formats[0].mime_type_identifier == "application/pdf"
 
@@ -623,7 +624,7 @@ class TestDocument:
         doc = Document(
             document_identifier="doc123",
             document_code="CODE_X",
-            official_date=datetime(2024, 12, 10, 5, 0, 0, tzinfo=timezone.utc),
+            official_date=datetime(2024, 12, 10, 5, 0, 0, tzinfo=UTC),
             direction_category=DirectionCategory.OUTGOING,
             document_formats=[
                 DocumentFormat(mime_type_identifier="image/tiff", page_total_quantity=5)
@@ -632,14 +633,14 @@ class TestDocument:
         data = doc.to_dict()
         assert data["documentIdentifier"] == "doc123"
         assert data["officialDate"] == "2024-12-10T00:00:00.000-0500"
-        assert data["documentDirectionCategory"] == "OUTGOING"
+        assert data["directionCategory"] == "OUTGOING"
         assert len(data["downloadOptionBag"]) == 1
         assert data["downloadOptionBag"][0]["mimeTypeIdentifier"] == "image/tiff"
         assert data["downloadOptionBag"][0]["pageTotalQuantity"] == 5
 
     def test_document_from_dict_unknown_enum(self) -> None:
         """Test Document.from_dict with an unknown direction category."""
-        data = {"documentDirectionCategory": "UNKNOWN_DIRECTION"}
+        data = {"directionCategory": "UNKNOWN_DIRECTION"}
 
         with pytest.warns(USPTOEnumParseWarning, match="Unknown document direction"):
             doc = Document.from_dict(data)
@@ -664,7 +665,7 @@ class TestDocument:
         doc = Document(
             document_identifier="doc123",
             document_code="CODE_X",
-            official_date=datetime(2023, 3, 15, 10, 30, 0, tzinfo=timezone.utc),
+            official_date=datetime(2023, 3, 15, 10, 30, 0, tzinfo=UTC),
             direction_category=DirectionCategory.OUTGOING,
             document_formats=[],
         )
@@ -1647,7 +1648,7 @@ class TestDocumentMetaData:
         doc_meta = PrintedMetaData.from_dict(sample_document_meta_data_data)
         assert doc_meta.zip_file_name == sample_document_meta_data_data["zipFileName"]
         assert doc_meta.file_create_date_time == datetime(
-            2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc
+            2023, 1, 1, 12, 0, 0, tzinfo=UTC
         )
 
     def test_document_meta_data_to_dict(
@@ -1657,7 +1658,7 @@ class TestDocumentMetaData:
             zip_file_name=sample_document_meta_data_data["zipFileName"],
             product_identifier=sample_document_meta_data_data["productIdentifier"],
             file_location_uri=sample_document_meta_data_data["fileLocationURI"],
-            file_create_date_time=datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            file_create_date_time=datetime(2023, 1, 1, 12, 0, 0, tzinfo=UTC),
             xml_file_name=sample_document_meta_data_data["xmlFileName"],
         )
         data = doc_meta.to_dict()
@@ -1811,7 +1812,7 @@ class TestPatentFileWrapper:
             == sample_document_meta_data_data["zipFileName"]
         )
         assert wrapper.last_ingestion_date_time == datetime(
-            2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc
+            2023, 1, 1, 10, 0, 0, tzinfo=UTC
         )
 
     def test_patent_file_wrapper_to_dict(
@@ -1824,9 +1825,7 @@ class TestPatentFileWrapper:
             application_number_text="98765",
             application_meta_data=app_meta_obj,
             pgpub_document_meta_data=pgpub_obj,
-            last_ingestion_date_time=datetime(
-                2023, 2, 2, 11, 0, 0, tzinfo=timezone.utc
-            ),
+            last_ingestion_date_time=datetime(2023, 2, 2, 11, 0, 0, tzinfo=UTC),
         )
         data = wrapper.to_dict()
         assert data["applicationNumberText"] == "98765"

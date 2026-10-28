@@ -30,7 +30,7 @@ from arraylake.exceptions import (
     ArraylakeValidationError,
 )
 from arraylake.log_util import get_logger
-from arraylake.types import ApiTokenInfo, OauthTokensResponse, UserInfo
+from arraylake.types import ApiTokenInfo, UserInfo
 
 logger = get_logger(__name__)
 
@@ -484,6 +484,9 @@ def _exception_log_debug(request: httpx.Request, response: httpx.Response):
     )
 
 
+# Request extension set by our auth flows on a 401, describing the credential that was rejected.
+_CREDENTIAL_EXTENSION = "arraylake_credential"
+
 _emitted_deprecation_warnings: set[str] = set()
 _emitted_user_warnings: set[str] = set()
 
@@ -526,6 +529,8 @@ def handle_response(response: httpx.Response):
         else:
             # Handle other HTTP status errors
             error_msg = f"Error response {exc.response.status_code} while requesting {exc.request.url!r}. {response}: {response.text}"
+            if credential := exc.request.extensions.get(_CREDENTIAL_EXTENSION):
+                error_msg = f"{error_msg} (Authenticated {credential}.)"
             if 400 <= exc.response.status_code < 500:
                 raise ArraylakeClientError(error_msg, request_id=request_id, status_code=exc.response.status_code) from exc
             else:
@@ -550,7 +555,12 @@ class TokenAuth(httpx.Auth):
     def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         # Send the request, with a bearer token header
         request.headers["Authorization"] = f"Bearer {self.token}"
-        yield request
+        response = yield request
+        if response.status_code == httpx.codes.UNAUTHORIZED:
+            # Import locally to avoid circular imports
+            from arraylake.token import describe_token_source
+
+            request.extensions[_CREDENTIAL_EXTENSION] = describe_token_source(self.token)
 
 
 class UserAuth(httpx.Auth):
@@ -579,11 +589,14 @@ class UserAuth(httpx.Auth):
             # Import locally to avoid circular imports
             from arraylake.token import AuthException
 
-            raise AuthException("Not logged in, please log in with `arraylake auth login`")
+            raise AuthException("Not logged in, please log in with `al auth login`")
         token = self._token_handler.tokens.id_token.get_secret_value()
         return f"Bearer {token}"
 
     async def async_auth_flow(self, request: httpx.Request) -> AsyncGenerator[httpx.Request, httpx.Response]:
+        # Import locally to avoid circular imports
+        from arraylake.token import describe_cached_login, parse_refreshed_tokens
+
         token_at_send = self._bearer_token
         request.headers["Authorization"] = token_at_send
         response = yield request
@@ -597,11 +610,12 @@ class UserAuth(httpx.Auth):
                     refresh_response = yield await self._token_handler.build_refresh_request()
                     await refresh_response.aread()
                     handle_response(refresh_response)
-                    new_tokens = OauthTokensResponse.model_validate_json(refresh_response.content)
-                    self._token_handler.update(new_tokens)
+                    self._token_handler.update(parse_refreshed_tokens(refresh_response.content))
 
             request.headers["Authorization"] = self._bearer_token
-            yield request
+            response = yield request
+            if response.status_code == httpx.codes.UNAUTHORIZED:
+                request.extensions[_CREDENTIAL_EXTENSION] = describe_cached_login(self.api_endpoint)
 
     def sync_auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         # we can implement this method if we end up needing the sync httpx.Client

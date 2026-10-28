@@ -1367,6 +1367,17 @@ def queue_request_create(
     conversation_id: str,
     **fields: Any,
 ) -> str:
+    # The paid row is noted on the running workflow step's spend tally (a no-op outside one), so
+    # the step's node_cost equals this ledger whether the step returns, raises or is cancelled
+    # (matrx_graph.spend_gate § the tally; live run 1aa73a14, 2026-10-27: $0.46 reported of $2.25).
+    from matrx_graph.spend_gate import note_request_spend
+
+    note_request_spend(
+        id,
+        cost=fields.get("cost"),
+        input_tokens=fields.get("input_tokens"),
+        output_tokens=fields.get("output_tokens"),
+    )
     return _queue_or_drop(
         "chat.request",
         {
@@ -1432,6 +1443,10 @@ def merge_into_queued_tool_call_metadata(row_id: str, key: str, value: Any) -> b
     queued op for the row that carries a metadata object gets the key, so a coalesced update
     cannot drop it. False = no queued INSERT here (the row is already on disk, or there is no
     request coordinator) — the caller then patches the stored row."""
+    from matrx_ai.persistence.sealed import blanks_content
+
+    if blanks_content(_resolve_app_context()):
+        return False  # a confidential row's metadata carries structure keys only
     coord = get_coordinator()
     session = getattr(coord, "_session", None) if coord is not None else None
     if session is None:

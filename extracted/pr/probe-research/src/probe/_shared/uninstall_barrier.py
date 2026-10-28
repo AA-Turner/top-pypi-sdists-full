@@ -8,7 +8,13 @@ the end:
 
     {"v": 1, "pid", "start" (`probe.service.procid` start time), "at",
      "plan": "S/uninstall/plan.json",
-     "phase": "planned|stopping|draining|server|integrations|state|finishing"}
+     "phase": "planned|stopping|draining|server|integrations|state|finishing",
+     "host" (`socket.gethostname()`), "machine_key" (`probe.service.paths`)}
+
+    An owner on ANOTHER machine (a shared home: its `machine_key` differs from
+    this one's; `host` only for a record without a key) counts as running: its
+    pid means nothing here, so it is never cleared, resumed or finished from
+    this machine.
 
     LIVE   its owner (pid + start) still runs, OR its phase is anything but
            "planned", "stopping" or "draining" (an unknown or missing phase
@@ -19,10 +25,15 @@ the end:
            "draining": an install, `probe repair` or `probe uninstall` may
            clear it (logged)
 
-While it is LIVE every installer refuses with one clear line (`refusal`):
-`npx probe-research`, the wizard's install, `probe daemon install`, `probe
-repair`, the side-by-side install and switch (`probe._shared.installs`, which
-the update, the hand-off's adopt and the guard's switch back all go through).
+While it is LIVE, nothing installs over it. The install entries a person runs
+(`npx probe-research`, the wizard's install and update, `probe repair`, `probe
+daemon install`) FINISH an uninstall whose owner is gone first, the way `probe
+uninstall` resumes it (`probe.cli.install_pipeline.gate`), then install afresh;
+one whose owner runs, or that they cannot finish, they refuse with one clear
+line (`refusal`). Everything else refuses while it is LIVE: every other wizard
+action, `npx probe-research backfill`, `probe service start`, the updater, and
+the side-by-side install and switch (`probe._shared.installs`, which the
+update, the hand-off's adopt and the guard's switch back all go through).
 
 This module only READS the barrier and clears a stale one. Its writer is the
 uninstall's (lane U); the two meet only in the file's shape above, so this
@@ -105,9 +116,38 @@ def read(at: Path | None = None) -> dict | None:
     return data if isinstance(data, dict) else _unreadable(target)
 
 
+def _other_machine(data: dict) -> bool:
+    """Was it written on another machine sharing this home? Its `machine_key`
+    against this machine's (a hostname changes with the network on macOS: never
+    the test while there is a key); its `host` only for a record with no key.
+    Where this machine's key cannot be read (the tap's copy, without
+    `probe.service`), no machine rule applies: the pid check decides."""
+    try:
+        from probe.service import paths
+
+        mine = paths.machine_key()
+    except Exception:  # noqa: BLE001
+        return False
+    key = data.get("machine_key")
+    if isinstance(key, str) and key:
+        return key != mine
+    host = data.get("host")
+    if isinstance(host, str) and host:
+        import socket
+
+        try:
+            return host != socket.gethostname()
+        except OSError:
+            return False
+    return False
+
+
 def _owner_runs(data: dict) -> bool:
-    """Does the process that wrote it still run (pid AND start time)?
-    Unknown reads as yes: never cleared on a guess."""
+    """Does the process that wrote it still run (pid AND start time)? An
+    owner on another machine (`_other_machine`) does, as far as this one can
+    tell. Unknown reads as yes: never cleared on a guess."""
+    if _other_machine(data):
+        return True
     pid, start = data.get("pid"), data.get("start")
     if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 1:
         return False

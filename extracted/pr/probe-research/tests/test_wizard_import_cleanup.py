@@ -1,4 +1,4 @@
-"""Wizard exits preserve imports; signing out or uninstalling clears them."""
+"""Wizard exits preserve imports; signing out clears them, removing one agent does not."""
 
 import os
 import signal
@@ -141,17 +141,20 @@ def test_sign_out_clears_imports_before_capture_or_credentials(saved_import, mon
     assert "Imports stopped and local import history cleared." in lines
 
 
-def test_uninstall_clears_imports_before_removing_plugins(saved_import, monkeypatch):
-    def stop_capture(mode):
-        assert not saved_import.exists()
-        return SimpleNamespace(summary=lambda: "Stopped.", warnings=[], plugin_removed=False)
-
-    monkeypatch.setattr(setup, "turn_off", stop_capture)
+def test_removing_one_agent_keeps_the_devices_imports(saved_import, monkeypatch):
+    """`probe wizard --action uninstall --agent A` takes Probe out of that
+    agent only. Import jobs are the device's (one job imports several agents'
+    sessions; a folder import is no agent's) and there is no per-agent clear,
+    so none goes: the whole-device `probe uninstall` clears them."""
+    before = (saved_import / "job.json").read_text()
+    monkeypatch.setattr(
+        setup, "turn_off",
+        lambda mode: SimpleNamespace(summary=lambda: "Stopped.", warnings=[], plugin_removed=False))
     monkeypatch.setattr(setup, "uninstall_plugin", lambda name: SimpleNamespace(ok=True))
     monkeypatch.setattr(setup, "apply_agent_rules", lambda enabled: [])
-    monkeypatch.setattr(setup.autoupdate, "forget", lambda: None)
     setup.remove_everything(Capabilities(agent_source="claude_code"))
-    assert not saved_import.exists()
+    assert (saved_import / "job.json").read_text() == before
+    assert len(import_jobs.list_jobs()) == 1
 
 
 def test_declining_uninstall_keeps_saved_imports(saved_import, monkeypatch):

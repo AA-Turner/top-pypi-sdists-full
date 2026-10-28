@@ -6,6 +6,7 @@ from typing import Dict, List, Union, Iterable, Optional
 from datetime import datetime
 from typing_extensions import Literal, Required, Annotated, TypedDict
 
+from .._types import SequenceNotStr
 from .._utils import PropertyInfo
 from .shared.transaction_direction import TransactionDirection
 
@@ -25,24 +26,18 @@ class InternalAccountCreateParams(TypedDict, total=False):
     internal account and any relevant information for them.
     """
 
-    account_type: Literal[
-        "base_wallet",
-        "cash",
-        "checking",
-        "crypto_wallet",
-        "ethereum_wallet",
-        "general_ledger",
-        "loan",
-        "non_resident",
-        "other",
-        "overdraft",
-        "polygon_wallet",
-        "savings",
-        "solana_wallet",
-    ]
+    account_type: Literal["cash", "checking", "general_ledger", "loan", "non_resident", "other", "overdraft", "savings"]
     """
     The account type, used to provision the appropriate account at the financial
     institution.
+    """
+
+    allowed_ach_debit_company_ids: Optional[SequenceNotStr[str]]
+    """The ACH Company IDs allowed to debit this account.
+
+    `null` allows every company. An empty array allows none. Debits from any other
+    company are returned with code R10. Only applicable to debitable accounts under
+    a Modern Treasury PSP connection.
     """
 
     connection_id: str
@@ -85,10 +80,31 @@ class InternalAccountCreateParams(TypedDict, total=False):
     party_name: Optional[str]
     """The legal name of the entity which owns the account."""
 
+    party_type: Optional[Literal["individual", "business"]]
+    """Either individual or business.
+
+    Inherits from associated LegalEntity legal_entity_type, if one exists.
+    """
+
     requested_account_number_types: List[
-        Literal["base_address", "ethereum_address", "polygon_address", "solana_address"]
+        Literal[
+            "arbitrum_address",
+            "avalanche_address",
+            "base_address",
+            "ethereum_address",
+            "polygon_address",
+            "solana_address",
+        ]
     ]
     """An array of account number types requested for provisioning."""
+
+    title: Optional[str]
+    """The account title at the financial institution, used in place of the party name.
+
+    Defaults to the party name if not set. Only applicable to accounts created under
+    supported connections. Please reach out to your customer success manager to
+    enable this capability for your program.
+    """
 
     vendor_attributes: Dict[str, str]
     """

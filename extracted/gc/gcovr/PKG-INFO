@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gcovr
-Version: 8.7
+Version: 8.8
 Summary: Generate C/C++ code coverage reports with gcov
 Project-URL: Documentation, https://gcovr.com
 Project-URL: Github, https://github.com/gcovr/gcovr
@@ -62,6 +62,7 @@ Requires-Dist: twine; extra == 'dev'
 Requires-Dist: wheel; extra == 'dev'
 Requires-Dist: yamllint; extra == 'dev'
 Requires-Dist: yaxmldiff; extra == 'dev'
+Requires-Dist: zizmor~=1.31.1; extra == 'dev'
 Description-Content-Type: text/x-rst
 
 gcovr
@@ -209,11 +210,11 @@ text summaries and XML reports.
 
 Example HTML summary:
 
-.. image:: https://raw.githubusercontent.com/gcovr/gcovr/8.7/doc/images/screenshot-html.jpeg
+.. image:: https://raw.githubusercontent.com/gcovr/gcovr/8.8/doc/images/screenshot-html.jpeg
 
 Example HTML details:
 
-.. image:: https://raw.githubusercontent.com/gcovr/gcovr/8.7/doc/images/screenshot-html-details.example.cpp.jpeg
+.. image:: https://raw.githubusercontent.com/gcovr/gcovr/8.8/doc/images/screenshot-html-details.example.cpp.jpeg
 
 .. begin links
 

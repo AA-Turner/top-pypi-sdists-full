@@ -86,9 +86,7 @@ def _fs(client):
 def _async_fs(client):
     """AsyncSandboxFilesystem with its async client patched for the block."""
     fs = AsyncSandboxFilesystem(sandbox=None)
-    with patch.object(
-        AsyncSandboxFilesystem, "_get_async_client", return_value=client
-    ):
+    with patch.object(AsyncSandboxFilesystem, "_get_async_client", return_value=client):
         yield fs
 
 
@@ -202,16 +200,17 @@ class TestShellFallbacks(unittest.TestCase):
             yield fs, calls
 
     def test_rename_escapes_and_reports_not_found(self):
-        with self._fs([self._result(), self._result(1, "mv: no such file")]) as (fs, calls):
+        with self._fs([self._result(), self._result(1, "mv: no such file")]) as (
+            fs,
+            calls,
+        ):
             fs.rename_file("/a b", "/c d")
             self.assertEqual(calls[0], "mv '/a b' '/c d'")
             with self.assertRaises(SandboxFileNotFoundError):
                 fs.rename_file("/gone", "/c")
 
     def test_exists_is_file_is_dir_use_test_builtins(self):
-        with self._fs(
-            [self._result(), self._result(1), self._result()]
-        ) as (fs, calls):
+        with self._fs([self._result(), self._result(1), self._result()]) as (fs, calls):
             self.assertTrue(fs.exists("/x"))
             self.assertFalse(fs.is_file("/x"))
             self.assertTrue(fs.is_dir("/x"))

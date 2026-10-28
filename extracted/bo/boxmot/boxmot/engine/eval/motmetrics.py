@@ -12,21 +12,37 @@ import argparse
 import math
 import os
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from multiprocessing.context import BaseContext
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import cv2
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+from boxmot.datasets.annotation_cache import load_cached_annotation
 from boxmot.utils import logger as LOGGER
+from boxmot.utils.processes import guard_parent_lifetime
 
 HOTA_ALPHA_VALUES: tuple[float, ...] = tuple(float(value) for value in np.arange(0.05, 0.99, 0.05))
 _FLOAT_EPS = np.finfo(float).eps
 AABB_MOT_COLUMNS = 9
 OBB_MOT_COLUMNS = 13
+_METRIC_EXECUTOR: ContextVar[Callable[..., list[Any]] | None] = ContextVar("boxmot_metric_executor", default=None)
+
+
+@contextmanager
+def use_metric_executor(executor: Callable[..., list[Any]]) -> Iterator[None]:
+    """Scope a caller-owned spawn executor to one metrics evaluation."""
+    token = _METRIC_EXECUTOR.set(executor)
+    try:
+        yield
+    finally:
+        _METRIC_EXECUTOR.reset(token)
+
 
 DEFAULT_OBB_CLASS_NAME_TO_ID = {
     "car": 0,
@@ -105,6 +121,7 @@ class AABBSequenceEvaluationTask:
     class_pairs: tuple[tuple[str, int], ...]
     num_timesteps: int | None
     distractor_ids: frozenset[int]
+    cache_root: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -118,6 +135,7 @@ class OBBSequenceEvaluationTask:
     class_pairs: tuple[tuple[str, int], ...]
     num_timesteps: int | None
     flat_annotations: bool
+    cache_root: Path | None = None
 
 
 SequenceEvaluationTask = AABBSequenceEvaluationTask | OBBSequenceEvaluationTask
@@ -377,17 +395,16 @@ def _resolve_obb_gt_path(
 def _build_sequence_data(
     *,
     seq_name: str,
-    num_timesteps: int,
-    frame_loader: Callable[[int], tuple[np.ndarray, np.ndarray, np.ndarray]],
+    frames: Iterable[tuple[np.ndarray, np.ndarray, np.ndarray]],
 ) -> SequenceData:
+    """Collect prepared frames and compact identities without losing empty timesteps."""
     gt_ids_by_frame: list[np.ndarray] = []
     tracker_ids_by_frame: list[np.ndarray] = []
     similarity_scores: list[np.ndarray] = []
     num_gt_dets = 0
     num_tracker_dets = 0
 
-    for frame_id in range(1, num_timesteps + 1):
-        gt_ids, tracker_ids, similarity = frame_loader(frame_id)
+    for gt_ids, tracker_ids, similarity in frames:
         gt_ids = np.asarray(gt_ids, dtype=int)
         tracker_ids = np.asarray(tracker_ids, dtype=int)
         gt_ids_by_frame.append(gt_ids)
@@ -403,7 +420,7 @@ def _build_sequence_data(
         gt_ids=gt_ids_by_frame,
         tracker_ids=tracker_ids_by_frame,
         similarity_scores=similarity_scores,
-        num_timesteps=num_timesteps,
+        num_timesteps=len(gt_ids_by_frame),
         num_gt_dets=num_gt_dets,
         num_tracker_dets=num_tracker_dets,
         num_gt_ids=num_gt_ids,
@@ -436,6 +453,8 @@ def _build_aabb_sequence_data(
             tracker=tracker,
         )
 
+    distractor_classes = np.asarray(tuple(distractor_ids), dtype=int)
+
     def _load_frame(frame_id: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         gt_frame = indexed_rows.gt[frame_id - 1]
         tracker_frame = indexed_rows.tracker[frame_id - 1]
@@ -458,35 +477,39 @@ def _build_aabb_sequence_data(
         tracker_keep = np.ones(len(tracker_ids), dtype=bool) if class_id is None else tracker_classes == class_id
         kept_tracker_ids = tracker_ids[tracker_keep]
         kept_tracker_boxes = tracker_boxes[tracker_keep] if tracker_boxes.size else tracker_boxes
-        similarity = _aabb_iou_matrix(gt_boxes, kept_tracker_boxes)
-
-        if distractor_ids and len(gt_ids) and len(kept_tracker_ids) and similarity.size:
-            matching_scores = similarity.copy()
-            matching_scores[matching_scores < 0.5 - _FLOAT_EPS] = 0
-            match_rows, match_cols = linear_sum_assignment(-matching_scores)
-            actually_matched = matching_scores[match_rows, match_cols] > _FLOAT_EPS
-            match_rows = match_rows[actually_matched]
-            match_cols = match_cols[actually_matched]
-            remove_cols = match_cols[np.isin(gt_classes[match_rows], list(distractor_ids))]
-            if remove_cols.size:
-                kept_tracker_ids = np.delete(kept_tracker_ids, remove_cols, axis=0)
-                kept_tracker_boxes = np.delete(kept_tracker_boxes, remove_cols, axis=0)
-                similarity = np.delete(similarity, remove_cols, axis=1)
 
         class_keep = np.ones(len(gt_ids), dtype=bool) if class_id is None else gt_classes == class_id
         if gt_min_confidence is None:
             gt_keep = (gt_zero != 0) & class_keep
         else:
             gt_keep = (gt_zero >= gt_min_confidence) & class_keep
-
         kept_gt_ids = gt_ids[gt_keep]
+
+        # Ignore matching must include every GT row when distractors compete
+        # with evaluated objects. Otherwise no tracker columns can be removed.
+        distractors = np.isin(gt_classes, distractor_classes) if len(distractor_classes) else None
+        if distractors is None or not distractors.any():
+            return kept_gt_ids, kept_tracker_ids, _aabb_iou_matrix(gt_boxes[gt_keep], kept_tracker_boxes)
+
+        similarity = _aabb_iou_matrix(gt_boxes, kept_tracker_boxes)
+        if len(kept_tracker_ids):
+            matching_scores = similarity.copy()
+            matching_scores[matching_scores < 0.5 - _FLOAT_EPS] = 0
+            match_rows, match_cols = linear_sum_assignment(-matching_scores)
+            actually_matched = matching_scores[match_rows, match_cols] > _FLOAT_EPS
+            match_rows = match_rows[actually_matched]
+            match_cols = match_cols[actually_matched]
+            remove_cols = match_cols[distractors[match_rows]]
+            if remove_cols.size:
+                kept_tracker_ids = np.delete(kept_tracker_ids, remove_cols, axis=0)
+                similarity = np.delete(similarity, remove_cols, axis=1)
+
         similarity = similarity[gt_keep, :] if similarity.size else np.empty((len(kept_gt_ids), len(kept_tracker_ids)))
         return kept_gt_ids, kept_tracker_ids, similarity
 
     return _build_sequence_data(
         seq_name=seq_name,
-        num_timesteps=indexed_rows.num_timesteps,
-        frame_loader=_load_frame,
+        frames=(_load_frame(frame_id) for frame_id in range(1, indexed_rows.num_timesteps + 1)),
     )
 
 
@@ -533,8 +556,7 @@ def _build_obb_sequence_data(
 
     return _build_sequence_data(
         seq_name=seq_name,
-        num_timesteps=indexed_rows.num_timesteps,
-        frame_loader=_load_frame,
+        frames=(_load_frame(frame_id) for frame_id in range(1, indexed_rows.num_timesteps + 1)),
     )
 
 
@@ -1204,7 +1226,13 @@ def _evaluate_aabb_sequence_task(task: AABBSequenceEvaluationTask) -> tuple[str,
     indexed_rows = _index_sequence_rows(
         seq_name=task.seq_name,
         seq_info=seq_info,
-        gt=_read_csv_matrix(task.gt_path),
+        gt=(
+            _read_csv_matrix(task.gt_path)
+            if task.cache_root is None
+            else load_cached_annotation(
+                task.gt_path, reader=_read_csv_matrix, format="mot-aabb/v1", cache_root=task.cache_root
+            )
+        ),
         tracker=tracker,
     )
     class_results = {
@@ -1231,7 +1259,13 @@ def _evaluate_obb_sequence_task(task: OBBSequenceEvaluationTask) -> tuple[str, d
 
     def _load_gt(path: Path) -> np.ndarray:
         if path not in gt_matrices:
-            gt_matrices[path] = _load_obb_gt_matrix(path)
+            gt_matrices[path] = (
+                _load_obb_gt_matrix(path)
+                if task.cache_root is None
+                else load_cached_annotation(
+                    path, reader=_load_obb_gt_matrix, format="mot-obb/v1", cache_root=task.cache_root
+                )
+            )
         return gt_matrices[path]
 
     gt_path = _resolve_obb_gt_path(
@@ -1295,6 +1329,9 @@ def _evaluate_sequence_tasks(
     tasks: Sequence[SequenceEvaluationTask],
 ) -> list[tuple[str, dict[str, MetricBundle]]]:
     """Evaluate sequence tasks serially or with an ordered process pool."""
+    executor = _METRIC_EXECUTOR.get()
+    if executor is not None:
+        return executor(_evaluate_sequence_task, tasks)
     workers = _metric_worker_count(len(tasks))
     LOGGER.debug(f"Evaluating {len(tasks)} MOT sequence(s) with {max(1, workers)} metric worker process(es)")
     if workers <= 1:
@@ -1307,7 +1344,7 @@ def _evaluate_sequence_tasks(
         return [_evaluate_sequence_task(task) for task in tasks]
 
     context = _fast_process_context()
-    with context.Pool(processes=workers) as pool:
+    with context.Pool(processes=workers, initializer=guard_parent_lifetime) as pool:
         return pool.map(_evaluate_sequence_task, tasks, chunksize=1)
 
 
@@ -1381,6 +1418,11 @@ def run_motmetrics(
     seq_info = _sequence_names_from_paths(seq_paths, seq_info)
     cfg = _load_eval_cfg(args)
     eval_box_type = _resolve_eval_box_type(args, cfg)
+    cache_root = (
+        Path(args.source) / ".boxmot" / "replay_cache" / "annotations"
+        if bool(getattr(args, "cache_inputs", False))
+        else None
+    )
     if eval_box_type == "obb":
         bench_cfg = _benchmark_config(cfg)
         class_pairs = _resolve_obb_eval_class_pairs(args, bench_cfg)
@@ -1396,40 +1438,35 @@ def run_motmetrics(
                 class_pairs=tuple(class_pairs),
                 num_timesteps=seq_info[seq_name],
                 flat_annotations=flat_annotations,
+                cache_root=cache_root,
             )
             for seq_name in sorted(seq_info)
         ]
 
-        class_combined, per_class_sequence = _evaluate_class_sequences(
-            class_pairs=class_pairs,
-            tasks=tasks,
-        )
-        results = _format_results(class_combined, per_class_sequence)
-        _append_aggregate_results(results, class_combined, include_obb_super_categories=True)
-        return results
-
-    settings = build_dataset_eval_settings(args, gt_folder, dict(seq_info))
-    class_pairs = list(zip(settings["classes_to_eval"], settings["class_ids"]))
-    distractor_ids = set(settings.get("distractor_ids") or [])
-    gt_loc_format = settings["gt_loc_format"]
-    tasks = [
-        AABBSequenceEvaluationTask(
-            seq_name=seq_name,
-            gt_path=_aabb_gt_path(gt_folder, gt_loc_format, seq_name),
-            tracker_path=Path(args.exp_dir) / f"{seq_name}.txt",
-            class_pairs=tuple(class_pairs),
-            num_timesteps=seq_info[seq_name],
-            distractor_ids=frozenset(distractor_ids),
-        )
-        for seq_name in sorted(seq_info)
-    ]
+    else:
+        settings = build_dataset_eval_settings(args, gt_folder, dict(seq_info))
+        class_pairs = list(zip(settings["classes_to_eval"], settings["class_ids"]))
+        distractor_ids = frozenset(settings.get("distractor_ids") or [])
+        gt_loc_format = settings["gt_loc_format"]
+        tasks = [
+            AABBSequenceEvaluationTask(
+                seq_name=seq_name,
+                gt_path=_aabb_gt_path(gt_folder, gt_loc_format, seq_name),
+                tracker_path=Path(args.exp_dir) / f"{seq_name}.txt",
+                class_pairs=tuple(class_pairs),
+                num_timesteps=seq_info[seq_name],
+                distractor_ids=distractor_ids,
+                cache_root=cache_root,
+            )
+            for seq_name in sorted(seq_info)
+        ]
 
     class_combined, per_class_sequence = _evaluate_class_sequences(
         class_pairs=class_pairs,
         tasks=tasks,
     )
     results = _format_results(class_combined, per_class_sequence)
-    _append_aggregate_results(results, class_combined, include_obb_super_categories=False)
+    _append_aggregate_results(results, class_combined, include_obb_super_categories=eval_box_type == "obb")
     return results
 
 
@@ -1485,30 +1522,11 @@ def evaluate_motchallenge_hota(
     return combined
 
 
-def _known_motmetrics_class_names(args: argparse.Namespace, cfg: dict) -> list[str]:
-    known: list[str] = []
-    if getattr(args, "remapped_class_names", None):
-        known.extend([str(name) for name in args.remapped_class_names])
-    bench_cfg = _benchmark_config(cfg)
-    known.extend(_ordered_benchmark_eval_class_names(bench_cfg))
-    known.extend(["cls_comb_cls_av", "cls_comb_det_av", "HUMAN", "VEHICLE", "BIKE", "all"])
-
-    deduped: list[str] = []
-    seen: set[str] = set()
-    for name in known:
-        if name in seen:
-            continue
-        seen.add(name)
-        deduped.append(name)
-    return deduped
-
-
 __all__ = [
     "DEFAULT_OBB_CLASS_NAME_TO_ID",
     "DEFAULT_OBB_SUPER_CATEGORIES",
     "HOTA_ALPHA_VALUES",
     "_combine_alpha_rows",
-    "_known_motmetrics_class_names",
     "_load_obb_gt_matrix",
     "build_dataset_eval_settings",
     "evaluate_motchallenge_hota",

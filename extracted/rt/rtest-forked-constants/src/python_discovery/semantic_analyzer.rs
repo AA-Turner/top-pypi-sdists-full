@@ -111,7 +111,9 @@ impl SemanticTestDiscovery {
             &module_path,
             module_resolver.clone(),
             path,
-        );
+        )
+        .with_literal_values_functions(&self.config.literal_values_functions)
+        .with_passthrough_functions(&self.config.passthrough_functions);
 
         // First pass: collect imports
         let imports = self.collect_imports(&ast_module);
@@ -130,7 +132,7 @@ impl SemanticTestDiscovery {
                         &func.decorator_list,
                         &resolver,
                         None,
-                        self.config.duplicate_ids,
+                        &self.config,
                     );
                     all_tests.push(TestInfo {
                         name: func.name.to_string(),
@@ -249,7 +251,7 @@ impl SemanticTestDiscovery {
                 &class_def.decorator_list,
                 resolver,
                 Some(class_def.name.as_str()),
-                self.config.duplicate_ids,
+                &self.config,
             ),
             base_classes: class_def
                 .bases()

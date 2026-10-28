@@ -21,6 +21,7 @@ from apify_client._utils.time import to_seconds
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
     from datetime import timedelta
+    from decimal import Decimal
 
     from apify_client._models import TaskListItem
     from apify_client._typeddicts import TaskInputDict
@@ -76,6 +77,7 @@ class TaskCollectionClient(ResourceClient):
         limit: int | None = None,
         offset: int | None = None,
         desc: bool | None = None,
+        chunk_size: int | None = None,
         timeout: Timeout = 'medium',
     ) -> Iterator[TaskListItem]:
         """Iterate over the available tasks.
@@ -89,6 +91,7 @@ class TaskCollectionClient(ResourceClient):
             limit: How many tasks to list.
             offset: What task to include as first when retrieving the list.
             desc: Whether to sort the tasks in descending order based on their creation date.
+            chunk_size: Maximum number of tasks requested per API call when iterating across pages.
             timeout: Timeout for the API HTTP request.
 
         Yields:
@@ -98,7 +101,7 @@ class TaskCollectionClient(ResourceClient):
         def _callback(*, limit: int | None = None, offset: int | None = None) -> ListOfTasks:
             return self.list(limit=limit, offset=offset, desc=desc, timeout=timeout)
 
-        return get_items_iterator(_callback, limit=limit, offset=offset)
+        return get_items_iterator(_callback, limit=limit, offset=offset, chunk_size=chunk_size)
 
     def create(
         self,
@@ -109,9 +112,11 @@ class TaskCollectionClient(ResourceClient):
         run_timeout: timedelta | None = None,
         memory_mbytes: int | None = None,
         max_items: int | None = None,
+        max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         task_input: TaskInputDict | TaskInput | None = None,
         title: str | None = None,
+        description: str | None = None,
         actor_standby_desired_requests_per_actor_run: int | None = None,
         actor_standby_max_requests_per_actor_run: int | None = None,
         actor_standby_idle_timeout: timedelta | None = None,
@@ -140,12 +145,14 @@ class TaskCollectionClient(ResourceClient):
                 in the task settings.
             max_items: Maximum number of results that will be returned by runs of this task. If the Actor of this task
                 is charged per result, you will not be charged for more results than the given limit.
+            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
             run_timeout: Optional timeout for the run. By default, the run uses timeout specified
                 in the task settings.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             task_input: Task input object.
             title: A human-friendly equivalent of the name.
+            description: Description of the task.
             actor_standby_desired_requests_per_actor_run: The desired number of concurrent HTTP requests for
                 a single Actor Standby run.
             actor_standby_max_requests_per_actor_run: The maximum number of concurrent HTTP requests for
@@ -173,6 +180,7 @@ class TaskCollectionClient(ResourceClient):
             act_id=actor_id,
             name=name,
             title=title,
+            description=description,
             input=task_input,
             public_config=TaskPublicConfig(
                 seo_title=public_config_seo_title,
@@ -184,6 +192,7 @@ class TaskCollectionClient(ResourceClient):
             options=TaskOptions(
                 build=build,
                 max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
                 memory_mbytes=memory_mbytes,
                 timeout_secs=to_seconds(run_timeout, as_int=True),
                 restart_on_error=restart_on_error,
@@ -249,6 +258,7 @@ class TaskCollectionClientAsync(ResourceClientAsync):
         limit: int | None = None,
         offset: int | None = None,
         desc: bool | None = None,
+        chunk_size: int | None = None,
         timeout: Timeout = 'medium',
     ) -> AsyncIterator[TaskListItem]:
         """Iterate over the available tasks.
@@ -262,6 +272,7 @@ class TaskCollectionClientAsync(ResourceClientAsync):
             limit: How many tasks to list.
             offset: What task to include as first when retrieving the list.
             desc: Whether to sort the tasks in descending order based on their creation date.
+            chunk_size: Maximum number of tasks requested per API call when iterating across pages.
             timeout: Timeout for the API HTTP request.
 
         Yields:
@@ -271,7 +282,7 @@ class TaskCollectionClientAsync(ResourceClientAsync):
         async def _callback(*, limit: int | None = None, offset: int | None = None) -> ListOfTasks:
             return await self.list(limit=limit, offset=offset, desc=desc, timeout=timeout)
 
-        return get_items_iterator_async(_callback, limit=limit, offset=offset)
+        return get_items_iterator_async(_callback, limit=limit, offset=offset, chunk_size=chunk_size)
 
     async def create(
         self,
@@ -282,9 +293,11 @@ class TaskCollectionClientAsync(ResourceClientAsync):
         run_timeout: timedelta | None = None,
         memory_mbytes: int | None = None,
         max_items: int | None = None,
+        max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         task_input: TaskInputDict | TaskInput | None = None,
         title: str | None = None,
+        description: str | None = None,
         actor_standby_desired_requests_per_actor_run: int | None = None,
         actor_standby_max_requests_per_actor_run: int | None = None,
         actor_standby_idle_timeout: timedelta | None = None,
@@ -313,12 +326,14 @@ class TaskCollectionClientAsync(ResourceClientAsync):
                 in the task settings.
             max_items: Maximum number of results that will be returned by runs of this task. If the Actor of this task
                 is charged per result, you will not be charged for more results than the given limit.
+            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
             run_timeout: Optional timeout for the run. By default, the run uses timeout specified
                 in the task settings.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             task_input: Task input object.
             title: A human-friendly equivalent of the name.
+            description: Description of the task.
             actor_standby_desired_requests_per_actor_run: The desired number of concurrent HTTP requests for
                 a single Actor Standby run.
             actor_standby_max_requests_per_actor_run: The maximum number of concurrent HTTP requests for
@@ -346,6 +361,7 @@ class TaskCollectionClientAsync(ResourceClientAsync):
             act_id=actor_id,
             name=name,
             title=title,
+            description=description,
             input=task_input,
             public_config=TaskPublicConfig(
                 seo_title=public_config_seo_title,
@@ -357,6 +373,7 @@ class TaskCollectionClientAsync(ResourceClientAsync):
             options=TaskOptions(
                 build=build,
                 max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
                 memory_mbytes=memory_mbytes,
                 timeout_secs=to_seconds(run_timeout, as_int=True),
                 restart_on_error=restart_on_error,

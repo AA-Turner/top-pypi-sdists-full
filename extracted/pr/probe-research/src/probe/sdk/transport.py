@@ -40,7 +40,7 @@ from ..client_headers import (
 import functools
 from urllib.parse import urlsplit
 
-from .._shared import capture_repair, update_request
+from .._shared import device_mark
 from . import client_status
 from . import diagnostics as _diagnostics
 from . import durable
@@ -1094,12 +1094,10 @@ class Transport:
                 # Only for our OWN identity: under an override (the hosted MCP)
                 # the status grades someone else's client, not this process.
                 client_status.notice(resp.headers, client_identity, self.surface)
-                # Probe staff asked this machine to update (the CLI's next command
-                # hands it to the updater): one lookup when the header is absent.
-                update_request.note(resp.headers)
-                # Probe staff asked to repair this machine's session capture (the
-                # CLI's next command fetches the credentials): the same one lookup.
-                capture_repair.note(resp.headers)
+                # Probe staff asked this machine to update now, to repair its
+                # session capture, or to change a setting (a later CLI command
+                # acts): one lookup per kind when no header is there.
+                device_mark.note_all(resp.headers)
             if resp.status_code >= 400:
                 if attempt > 1 and method.upper() == "DELETE" and _is_trash_notice(resp):
                     # A RETRIED delete that finds the thing in the trash: the

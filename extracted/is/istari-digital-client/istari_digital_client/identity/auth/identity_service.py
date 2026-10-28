@@ -839,9 +839,11 @@ def validate_credentials_file(file_path: Path) -> None:
                         an invalid PEM key.
     :raises TypeError: If the PEM key is not an ECDSA P-384 key.
     """
-    if not file_path.is_file():
+    # Not Path.is_file: before Python 3.14 it raises an OSError that includes the value.
+    if not os.path.isfile(file_path):
         raise ValueError(
-            f"Identity-service credentials file not found or not a regular file: {file_path}",
+            "Identity-service credentials file not found or not a regular file "
+            "(expected a path to the credentials JSON)",
         )
     try:
         json_bytes = file_path.read_bytes()

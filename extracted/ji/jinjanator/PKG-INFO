@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jinjanator
-Version: 26.2.0
+Version: 26.3.0
 Summary: Command-line interface to Jinja2 for templating in shell scripts.
 Project-URL: Bug Tracker, https://github.com/kpfleming/jinjanator/issues
 Project-URL: Homepage, https://github.com/kpfleming/jinjanator
@@ -565,16 +565,11 @@ def extra_tests():
 ```
 
 ## Release Information
-### Additions
-
-- Added support for Python 3.15.
-  
-
-
 ### Changes
 
-- Update to version 26.2.0 of jinjanator-plugins.
-  
+- Version and plugin information is now printed only when `--version` is requested,
+  instead of before each template render. The `--quiet` flag remains accepted.
+  [[#64](https://github.com/kpfleming/jinjanator/issues/64)](https://github.com/kpfleming/jinjanator/issues/64)
 
 ---
 

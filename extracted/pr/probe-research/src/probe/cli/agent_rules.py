@@ -29,8 +29,7 @@ never needs a path. So this block named NO tool, NO skill and NO command until
 an agent handed only "a skill" improvising CLI calls instead of loading one.
 The cost is that a rename of either skill is now a POINTER_VERSION bump. It
 still names no namespaced id and no command that can rot. v40 (2026-10-11)
-names a third, `plan-research-review`, in the routing paragraph the wizard's
-"Research plan review" row switches (`PLAN_REVIEW_PARAGRAPHS`). Renaming it
+names a third, `plan-research-review`, in the automatic routing paragraph (`PLAN_REVIEW_PARAGRAPHS`). Renaming it
 moves: a POINTER_VERSION bump, both paragraph tables here, the pi extension's
 `DAEMON_ADDED_SKILLS` and `pi_config.DAEMON_EXTENSION_SKILLS`.
 
@@ -121,7 +120,7 @@ NOTE_BLOCK_VERSION = 2
 
 #: Bumped when POINTER_BODY changes, so an older installed block is recognised
 #: as stale and rewritten instead of being left in place or duplicated.
-POINTER_VERSION = 49
+POINTER_VERSION = 50
 
 POINTER_BODY = """## Probe Research
 
@@ -287,9 +286,8 @@ def memory_path(source: str | None = None) -> Path:
 
 #: The research plan review's routing paragraph in each body -- the gstack
 #: "Skill routing" line: what makes the agent run `plan-research-review` unasked.
-#: The wizard's Settings row "Research plan review" (`defaults.plan_review`)
-#: swaps it for `PLAN_REVIEW_OFF_PARAGRAPHS`. Each is the body's own bytes,
-#: exactly once -- tests/test_agent_rules.py holds them to it.
+#: It is part of every profile, independent of any legacy machine setting.
+#: Each is the body's own bytes, exactly once.
 PLAN_REVIEW_PARAGRAPHS: dict[Profile, str] = {
     Profile.AGENT: (
         "Before writing code for ML research - reproducing a paper, building on a\n"
@@ -305,7 +303,8 @@ PLAN_REVIEW_PARAGRAPHS: dict[Profile, str] = {
     ),
 }
 
-#: What the setting OFF puts in the paragraph's place: gstack's
+#: The retired opt-out paragraph, retained for migration and the offline
+#: triggering evaluation. It previously implemented gstack's
 #: `proactive: false` ("do not auto-invoke ... only run skills the user
 #: explicitly invokes"). Removing the paragraph alone was not enough: the
 #: skill's description still started it unasked on 23-26 of 40 research
@@ -320,27 +319,16 @@ PLAN_REVIEW_OFF_PARAGRAPHS: dict[Profile, str] = {
 
 
 def body_for(profile: Profile, *, plan_review: bool) -> str:
-    """The profile's body, with the plan-review paragraph on or off."""
+    """Offline trigger evaluation arms; installed instructions always route the skill."""
     body = DAEMON_POINTER_BODY if profile == Profile.DAEMON else POINTER_BODY
     if plan_review:
         return body
     return body.replace(PLAN_REVIEW_PARAGRAPHS[profile], PLAN_REVIEW_OFF_PARAGRAPHS[profile], 1)
 
 
-def render_block(
-    *, version: int = POINTER_VERSION, profile: Profile = Profile.AGENT, plan_review: bool | None = None
-) -> str:
-    """The managed block, markers included. The daemon profile's stamp names it
-    (`<!-- v36 daemon -->`); the agent profile's stamp is unchanged.
-
-    `plan_review` None reads this machine's setting (`session_marker.plan_review_on`),
-    so every writer -- the wizard, Who records, the refresh `notes sync` runs --
-    keeps the researcher's choice without carrying it."""
-    if plan_review is None:
-        from probe.sdk.session_marker import plan_review_on
-
-        plan_review = plan_review_on()
-    body = body_for(profile, plan_review=plan_review)
+def render_block(*, version: int = POINTER_VERSION, profile: Profile = Profile.AGENT) -> str:
+    """The managed block, including automatic research-plan routing in every profile."""
+    body = DAEMON_POINTER_BODY if profile == Profile.DAEMON else POINTER_BODY
     if profile == Profile.DAEMON:
         return f"{BEGIN_MARKER}\n<!-- v{version} {Profile.DAEMON} -->\n{body}{END_MARKER}\n"
     return f"{BEGIN_MARKER}\n<!-- v{version} -->\n{body}{END_MARKER}\n"
@@ -656,7 +644,7 @@ POINTER_REFRESHED = "refreshed"
 
 def refresh_pointer(path: Path) -> str:
     """Rewrite an ALREADY-INSTALLED pointer block that predates this CLI, or a
-    current one whose plan-review paragraph disagrees with the setting.
+    current one that still has the retired ask-only plan-review paragraph.
 
     REFRESH, NEVER INSTALL. An absent block means this machine never opted in
     -- or opted out through the wizard, which is the same bytes -- and a
@@ -690,20 +678,7 @@ def refresh_pointer(path: Path) -> str:
 
 
 def _plan_review_drifted(path: Path, profile: Profile) -> bool:
-    """A CURRENT block whose plan-review paragraph disagrees with the setting.
-
-    The Settings row saves the config, then rewrites each block; a write that
-    failed, a process killed between the two, a config edited by hand, or a
-    refresh that ran while the config was unreadable (it reads as on) leaves the
-    block saying the other thing, and the version stamp alone would keep it
-    that way until the next bump. The refreshes repair it: the next session
-    start (`probe agent-rules refresh`, the current agent's file) and any Stop
-    whose `notes sync` reaches the server (every agent's file). Only the
-    paragraph is compared: anything else typed inside the markers waits for a
-    version bump, as before.
-    """
-    from probe.sdk.session_marker import plan_review_on
-
+    """Repair the retired ask-only paragraph, including a current-version block."""
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -712,9 +687,8 @@ def _plan_review_drifted(path: Path, profile: Profile) -> bool:
     if span is None:
         return False
     block = text[span[0] : span[1]]
-    on = plan_review_on()
-    want = (PLAN_REVIEW_PARAGRAPHS if on else PLAN_REVIEW_OFF_PARAGRAPHS)[profile]
-    wrong = (PLAN_REVIEW_OFF_PARAGRAPHS if on else PLAN_REVIEW_PARAGRAPHS)[profile]
+    want = PLAN_REVIEW_PARAGRAPHS[profile]
+    wrong = PLAN_REVIEW_OFF_PARAGRAPHS[profile]
     return wrong in block and want not in block
 
 

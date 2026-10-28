@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: music_assistant_models
-Version: 1.1.229
+Version: 1.1.230
 Summary: Music Assistant Base Models
 Author-email: The Music Assistant Authors <music_assistant@users.noreply.github.com>
 License: Apache-2.0
@@ -23,7 +23,7 @@ Requires-Dist: pre-commit-hooks==6.0.0; extra == "test"
 Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: tomli==2.5.0; extra == "test"
-Requires-Dist: ruff==0.17.1; extra == "test"
+Requires-Dist: ruff==0.17.2; extra == "test"
 Dynamic: license-file
 
 # Music Assistant Base Models

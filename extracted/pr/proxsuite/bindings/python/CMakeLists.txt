@@ -24,7 +24,11 @@ function(create_python_target target_name)
   set(multiValueArgs COMPILE_OPTIONS LINK_LIBRARIES)
   cmake_parse_arguments(arg "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-  nanobind_add_module(${target_name} NB_STATIC LTO NB_SUPPRESS_WARNINGS ${proxsuite_pywrap_SOURCES} ${proxsuite_pywrap_HEADERS})
+  if(DEFINED nanobind_VERSION AND nanobind_VERSION VERSION_GREATER_EQUAL "2.5.0")
+    nanobind_add_module(${target_name} NB_STATIC LTO NB_SUPPRESS_WARNINGS ${proxsuite_pywrap_SOURCES} ${proxsuite_pywrap_HEADERS})
+  else()
+    nanobind_add_module(${target_name} NB_STATIC LTO ${proxsuite_pywrap_SOURCES} ${proxsuite_pywrap_HEADERS})
+  endif()
   jrl_check_python_module_name(${target_name})
 
   target_link_libraries(
@@ -81,7 +85,12 @@ if(BUILD_WITH_VECTORIZATION_SUPPORT)
       if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" AND Eigen3_VERSION VERSION_GREATER_EQUAL 5.0)
         # BUG: Eigen5 introduced a new AVX512 GEMM kernel that causes extremely long compilation times on MSVC.
         # Disabling it for now. ref: libeigen/eigen#3066
-        target_compile_definitions(proxsuite_pywrap_avx512 PRIVATE EIGEN_USE_AVX512_GEMM_KERNELS=0)
+        # BUG: Eigen5 introduced a new AVX512 TRSM kernel that causes crash on MSVC.
+        # Disabling it for now.
+        target_compile_definitions(
+          proxsuite_pywrap_avx512
+          PRIVATE EIGEN_USE_AVX512_GEMM_KERNELS=0 EIGEN_USE_AVX512_TRSM_KERNELS=0
+        )
       endif()
     endif()
   else()
@@ -94,7 +103,11 @@ endif()
 
 # Add simd feature detectors for current intel CPU
 if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
-  nanobind_add_module(instructionset NB_STATIC LTO NB_SUPPRESS_WARNINGS helpers/instruction-set.cpp)
+  if(DEFINED nanobind_VERSION AND nanobind_VERSION VERSION_GREATER_EQUAL "2.5.0")
+    nanobind_add_module(instructionset NB_STATIC LTO NB_SUPPRESS_WARNINGS helpers/instruction-set.cpp)
+  else()
+    nanobind_add_module(instructionset NB_STATIC LTO helpers/instruction-set.cpp)
+  endif()
   target_link_libraries(instructionset PRIVATE proxsuite)
   proxsuite_set_default_target_options(instructionset)
   jrl_target_set_output_directory(

@@ -1,3 +1,4 @@
+import dataclasses
 import unicodedata
 
 import pytest
@@ -9,12 +10,15 @@ from nameparser._lexicon import (
 )
 from nameparser._pipeline._vocab import (
     ambiguous_class_candidate, ambiguous_class_member, ambiguous_lean,
-    caps_shape_candidate, comma_follows_marker, delimiter_cores, glued_stem,
+    caps_shape_candidate, comma_follows_marker, delimiter_cores, glued_cores,
+    glued_stem,
     effective_script, is_initial, is_initial_shaped, is_one_case,
-    is_single_letter_numeral,
+    SPLIT_CHUNK, SPLIT_PAIR_OPENS, is_cased_paired_initials, is_paired_initials,
+    is_single_letter_numeral, split_pair,
     is_suffix_lenient, is_suffix_strict, is_title_shaped, is_wholly_suffix,
+    lexicon_cue,
     maiden_marker_run, name_word_count, period_joined_vocab, written_as_a_name,
-    resolve_script_set, single_script,
+    resolve_script_set, single_script, suffix_as_written,
 )
 from nameparser._policy import (Policy, Script, _NO_INITIALS,
                                 _SCRIPT_RANGES)
@@ -207,11 +211,14 @@ _SUFFIX_LEX = Lexicon(
 )
 
 
-def test_the_semicolon_is_a_core_every_policy_has() -> None:
-    # a declared delimiter adds to the semicolon, and none removes it
-    # (decisions/C10)
-    assert delimiter_cores(frozenset()) == {";"}
-    assert delimiter_cores(frozenset({" - ", "/"})) == {";", "-", "/"}
+def test_the_built_in_cores_are_cores_every_policy_has() -> None:
+    # a declared delimiter adds to the semicolon, hyphen and slash, and
+    # none removes them; only the semicolon and a declared core are
+    # read glued to a word (decisions/C10, #889)
+    assert delimiter_cores(frozenset()) == {";", "-", "/"}
+    assert delimiter_cores(frozenset({" | "})) == {";", "-", "/", "|"}
+    assert glued_cores(frozenset()) == {";"}
+    assert glued_cores(frozenset({" - ", "/"})) == {";", "-", "/"}
 
 
 def test_a_core_glued_to_an_end_is_found_beside_one_inside() -> None:
@@ -253,6 +260,8 @@ def test_is_wholly_suffix() -> None:
     # too, but only because _SUFFIX_LEX is synthetic -- under
     # Lexicon.default(), 'ph' IS in suffix_acronyms.)
     assert is_wholly_suffix(["Ph.", "D."], lex, pol)
+    # either period may be left off ('Ph D', 'PH D'), v1's fix_phd
+    assert is_wholly_suffix(["Ph", "D"], lex, pol)
     assert not is_wholly_suffix(["Ph."], lex, pol)
     assert is_wholly_suffix(["Ph.", "D.", "Jr."], lex, pol)
     # and the pair is found wherever it sits, not only at the head of
@@ -267,9 +276,10 @@ def test_is_wholly_suffix() -> None:
     # diagnosed a long way from its cause.
     assert is_wholly_suffix(["Lt.Jr."], lex, pol)        # period-joined
     assert not is_wholly_suffix(["Lt.Smith"], lex, pol)  # no suffix chunk
-    delim = Policy(extra_suffix_delimiters=frozenset({"/"}))
-    assert is_wholly_suffix(["PhD/MD"], lex, delim)      # delimiter split
-    assert not is_wholly_suffix(["PhD/MD"], lex, pol)
+    delim = Policy(extra_suffix_delimiters=frozenset({"+"}))
+    assert is_wholly_suffix(["PhD+MD"], lex, delim)      # delimiter split
+    assert not is_wholly_suffix(["PhD+MD"], lex, pol)
+    assert is_wholly_suffix(["PhD/MD"], lex, pol)        # joined (S3)
 
 
 def test_is_wholly_suffix_empty_run_is_false() -> None:
@@ -392,6 +402,82 @@ def test_period_joined_vocab_retires_the_single_character_chunk() -> None:
     assert period_joined_vocab("たな.か.", lex) is None
 
 
+@pytest.mark.parametrize("text, expected", [
+    ("MD/PhD", True),
+    ("MD-PhD", True),
+    ("MD/PhD/MPH", True),
+    ("md-phd", True),
+    ("M.D./Ph.D.", True),   # a chunk counts as written, periods and all
+    ("M.A./Ph.D.", True),   # an ambiguous acronym written with its periods
+    ("MA/PhD", False),      # a bare member of the ambiguous class
+    ("PhD/Ed", False),
+    ("Smith-Jones", False),  # a hyphen also joins names
+    ("MD-Jones", False),    # every chunk, not any
+    ("MD/", False),         # an empty chunk is no chunk
+    ("/MD", False),
+    ("MD//PhD", False),
+    ("MD+PhD", False),      # '+' is no joiner
+    ("I-V", False),         # every chunk a single ASCII character
+    ("I.-V.", False),       # its periods are not the chunk's
+    ("I-V.", False),
+    ("MS-V", True),         # one chunk is not
+    ("Ae-Ra", False),       # every chunk Title case: a hyphenated name
+    ("Md-Rn", False),
+    ("Ae-ra", False),       # the standard romanization's lower-case tail
+    ("ae-Ra", True),        # a name opens in Title case
+    ("Md-phd", False),
+    ("PhD-Md", True),       # one chunk is not Title case
+    ("Ph.D.-Md", True),
+    ("AE-RA", True),        # capitals: the cue cannot read a name in them
+    ("ae-ra", True),
+    ("Ae/Ra", True),        # a slash joins no name, so it takes no cue
+    ("Ae-Ra/Md", True),     # nor does a word holding a slash anywhere
+    ("Md-v", False),        # a one-letter tail in lower case is a name's
+    ("Phd-Md", False),      # a credential typed in Title case: S3 Accepted
+])
+def test_suffix_as_written_reads_a_joined_credential(
+        text: str, expected: bool) -> None:
+    # a word joined by a hyphen or a slash is a suffix only
+    # where EVERY chunk counts as a suffix as written (#752)
+    lex = Lexicon.default()
+    assert suffix_as_written(_normalize(text), text, lex) is expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("PU-PH", True),
+    ("PU/PH", True),
+    ("MS-OMPT", True),
+    ("MD/PU-PH", True),     # either joiner, more than two chunks
+    ("A-BC", True),         # one chunk of two letters is enough
+    ("A-B", False),         # single letters alone are how initials join
+    ("Pu-Ph", False),       # capitals, not Title case
+    ("PU-PH2", False),      # a digit is no letter chunk
+    ("PU-", False),         # an empty chunk is no chunk
+    ("PU--PH", False),
+    ("P.U.-PH", False),     # a period is the dotted shape's, not this
+    ("XYZ", True),          # the unjoined word, as before
+])
+def test_caps_shape_candidate_reads_joined_capitals(
+        text: str, expected: bool) -> None:
+    # the caps shape's joined spelling (#752): an unlisted word of
+    # capitals in letter chunks joined by a hyphen or a slash
+    lex = Lexicon.default()
+    pol = Policy()
+    assert caps_shape_candidate(text, lex, pol, one_case=False) is expected
+    # gated as the unjoined word is: a name in one case says nothing
+    assert caps_shape_candidate(text, lex, pol, one_case=True) is False
+
+
+def test_caps_shape_candidate_refuses_a_listed_joined_word() -> None:
+    # unlisted means the whole word in no wordlist, as for the unjoined
+    # word
+    lex = Lexicon.default().add(surnames={"dupont-moretti"})
+    assert not caps_shape_candidate("DUPONT-MORETTI", lex, Policy(),
+                                    one_case=False)
+    assert caps_shape_candidate("DUPONT-MORETTI", Lexicon.default(),
+                                Policy(), one_case=False)
+
+
 def test_ambiguous_class_candidate_admits_a_by_shape_member() -> None:
     # #516: the comma form's own candidate test reaches a by-shape
     # member too, once Policy admits it -- case-free either way, the
@@ -460,14 +546,25 @@ def test_the_caps_exclusion_covers_every_vocabulary_field() -> None:
     on = Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE)
     base = Lexicon.default()
     assert caps_shape_candidate("ZZQX", base, on, False)
+    # H9: two fields are left out on purpose -- a title that may
+    # be a given name reads, outside a phrase, as the unlisted word it
+    # is there, and a phrase is two words -- and #789's third: a given
+    # name written short is read only by H2's shape
+    for field in ("titles_ambiguous", "title_phrases",
+                  "given_name_abbreviations"):
+        assert caps_shape_candidate(
+            "ZZQX", base.add(**{field: {"zzqx"}}), on, False), field
     for field in _VOCAB_FIELDS:
+        if field in ("titles_ambiguous", "title_phrases",
+                     "given_name_abbreviations"):
+            continue
         extra: dict[str, set[str]] = {field: {"zzqx"}}
-        if field == "honorific_tails":
+        if field in ("honorific_tails", "suffix_words_ambiguous"):
             # honorific_tails ⊆ suffix_words is a Lexicon invariant,
             # so this entry cannot be added alone -- which is also why
             # the field was already excluded transitively, and why it
             # joins the roster for completeness rather than for a
-            # behavior change
+            # behavior change (suffix_words_ambiguous the same)
             extra["suffix_words"] = {"zzqx"}
         elif field == "given_name_titles":
             extra["titles"] = {"zzqx"}       # ⊆ titles in practice
@@ -484,16 +581,24 @@ def test_is_title_shaped_is_h2_s_shape_alone() -> None:
     # (#289/#516, quality-review finding): both must answer alike for
     # name_word_count's comma-form count not to disagree with the
     # leading peel about what a title is.
-    assert is_title_shaped("Xyz.")       # unlisted, H2-shaped
+    lex = Lexicon.default()
+    assert is_title_shaped("Xyz.", lex)       # unlisted, H2-shaped
     # LISTED or not is a vocabulary question this predicate never
     # asks -- 'Dr.' wears the same shape 'Xyz.' does, and answers the
     # same way; the caller's own listed lookup is what tells them
     # apart (is_title_piece/lexicon.titles, at each call site)
-    assert is_title_shaped("Dr.")
-    assert not is_title_shaped("Xyz")    # no trailing period
-    assert not is_title_shaped("X.")     # one letter: an initial,
-                                        # not an abbreviation
-    assert not is_title_shaped("田中.")   # initialless script (#323)
+    assert is_title_shaped("Dr.", lex)
+    assert not is_title_shaped("Xyz", lex)    # no trailing period
+    assert not is_title_shaped("X.", lex)     # one letter: an initial,
+                                             # not an abbreviation
+    assert not is_title_shaped("田中.", lex)   # initialless script (#323)
+    # rules/H2's precedence: a given name written short outranks the
+    # shape (#789) -- the one vocabulary the predicate reads, and only
+    # that: the same word unlisted wears the shape again
+    assert not is_title_shaped("Chas.", lex)
+    assert not is_title_shaped("MA.", lex)
+    assert is_title_shaped("Chas.", lex.remove(
+        given_name_abbreviations={"chas"}))
 
 
 def test_name_word_count_counts_names_not_tokens() -> None:
@@ -873,6 +978,79 @@ def test_a_listed_member_written_in_period_closed_chunks_is_dotted(
         assert not is_suffix_strict(text, lex), text
 
 
+def test_split_pair_answers_with_the_piece_tag_the_pair_merges_with() -> None:
+    lex = Lexicon.default()
+    # the Ph./D. pair, its periods optional and its case free
+    assert all(split_pair(a, b, lex) == "suffix"
+               for a in ("Ph.", "Ph", "PH", "ph.") for b in ("D.", "D", "d"))
+    # any other pair whose fold is unambiguous suffix vocabulary, its
+    # halves not both listed: a member of the ambiguous class (#752)
+    for a, b in (("Pharm.", "D."), ("Pharm", "D"), ("MB", "ChB"),
+                 ("SAM", "E.")):
+        assert split_pair(a, b, lex) == "split", (a, b)
+    # an opening single letter ('A. MS.' folds to 'ams'), both halves
+    # listed, an ambiguous or unlisted fold, a chunk of six letters, and
+    # the Ph./D. halves in the other order
+    for a, b in (("M.", "Sc."), ("A.", "MS."), ("M", "D"), ("MD", "PhD"),
+                 ("Smith", "Jones"), ("Pharma", "D"), ("D.", "Ph."),
+                 ("Ph.", "D..")):
+        assert split_pair(a, b, lex) is None, (a, b)
+
+
+def test_two_dotted_letters_merge_only_outside_a_cased_script() -> None:
+    # S12: two dotted single letters are paired initials where the
+    # script has capitals (#872's predicate), so they merge only in a
+    # caseless one, and only where the fold is listed, as no default
+    # entry is
+    lex = Lexicon.default().add(suffix_acronyms={"jr", "พบ"})
+    assert split_pair("J.", "R.", lex) is None
+    assert split_pair("พ.", "บ.", lex) == "split"
+    assert split_pair("พ.", "บ.", Lexicon.default()) is None
+    assert split_pair("พ", "บ", lex) is None
+
+
+def test_the_c_level_pre_tests_are_necessary_conditions_of_split_pair(
+        ) -> None:
+    # classify asks SPLIT_CHUNK of both words, the opening letter's
+    # length and the fold's membership C-level before the call, and is_wholly_suffix SPLIT_PAIR_OPENS
+    # before asking for the Ph./D. answer, so a split_pair widened past
+    # either would never be reached for the new spelling (#752)
+    lex = Lexicon.default()
+    words = ["Ph.", "Ph", "PH.", "ph", "pH", "D.", "D", "d", "Pharm.",
+             unicodedata.normalize("NFD", "Éd"), "É.", unicodedata.normalize(
+                 "NFD", "É."), "Ж.", "Ш.",
+             "Pharm", "M.", "MD", "Phd", "Ph..", "", "Smith", "MB", "ChB",
+             "SAM", "E.", "Pharma", "Ed", "J.", "R."]
+    for first in words:
+        for second in words:
+            kind = split_pair(first, second, lex)
+            if kind is None:
+                continue
+            fold = unicodedata.normalize(
+                "NFC", (first + second).replace(".", "").lower())
+            assert SPLIT_CHUNK.fullmatch(first) and SPLIT_CHUNK.fullmatch(
+                second), (first, second)
+            assert (len(first.rstrip(".")) >= 2
+                    or first.endswith(".") and second.endswith(".")
+                    and (len(second) == 2 or not second.isascii()))
+            if kind == "suffix":
+                # merged whatever the vocabulary, as v1's fix_phd did
+                assert SPLIT_PAIR_OPENS.fullmatch(first), (first, second)
+            else:
+                assert (fold in lex.suffix_acronyms
+                        or fold in lex.suffix_words), (first, second)
+
+
+def test_cased_paired_initials_is_the_bare_shape_in_a_cased_script() -> None:
+    for text in ("M.J.", "m.j.", "M.J", "Ж.Ш."):
+        assert is_cased_paired_initials(text), text
+    # Thai writes an abbreviation as dotted letters and has no case
+    # (rules/S3); the bare predicate, which C5 asks, still takes it
+    assert is_paired_initials("พ.บ.")
+    assert not is_cased_paired_initials("พ.บ.")
+    assert not is_cased_paired_initials("X.Y.Z.")
+
+
 def test_is_single_letter_numeral() -> None:
     """#544: the one-letter shape C4's run and the anchor both leave
     out -- one letter, periods allowed, that is a roman numeral."""
@@ -921,3 +1099,117 @@ def test_comma_follows_marker_reads_past_what_tokenize_drops(
         word: str, expected: bool) -> None:
     assert comma_follows_marker(word) is expected
 
+
+
+def test_the_ph_d_pair_merges_when_both_its_words_are_listed() -> None:
+    # #752's second review: classify's two-suffix-words refusal stood in
+    # front of the Ph./D. answer, which merges whatever the vocabulary
+    # lists
+    parser = Parser(lexicon=Lexicon.default().add(suffix_words={"ph", "d"}))
+    assert parser.parse("John Ph. D. Smith").suffix == "Ph. D."
+    assert parser.parse("John Smith Ph. D. Jones").suffix == "Ph. D. Jones"
+
+
+def test_the_lean_reads_the_cue_of_what_the_member_is() -> None:
+    # an acronym's capitals are the credential, a generation
+    # word's lower case is the suffix and its capitals say nothing, and
+    # an agnomen's writing never leans; Title case leans to the name
+    # for both that lean at all
+    lex = Lexicon.default()
+    assert [lexicon_cue(w, lex) for w in ("ma", "fils", "neto")] == [
+        "acronym", "word", "none"]
+    assert [ambiguous_lean(t, False, "word") for t in ("fils", "FILS", "Fils")] == [
+        "credential", None, "name"]
+    assert [ambiguous_lean(t, False, "none") for t in ("neto", "NETO", "Neto")] == [
+        None, None, None]
+
+
+def test_a_comma_part_reads_a_gated_word_by_its_cue() -> None:
+    # is_wholly_suffix has no tags to read, so it asks lexicon_cue: a
+    # lower-case fils in a mixed-case name counts as a suffix, a
+    # Title-case one and an agnomen in any case do not
+    lex, pol = Lexicon.default(), Policy()
+    assert is_wholly_suffix(["fils"], lex, pol, one_case=False)
+    assert not is_wholly_suffix(["Fils"], lex, pol, one_case=False)
+    assert not is_wholly_suffix(["Neto"], lex, pol, one_case=False)
+
+
+# H9: "the word is a title only inside a title phrase" -- each
+# partner, and each non-partner, alone
+@pytest.mark.parametrize("words, head, expected", [
+    (["dean", "smith"], True, [False, False]),
+    (["mr", "dean", "smith"], True, [True, False, False]),
+    (["associate", "dean", "smith"], True, [True, True, False]),
+    (["hon", "justice", "smith"], True, [True, True, False]),
+    (["chief", "justice", "smith"], True, [True, True, False]),
+    (["major", "general", "smith"], True, [True, True, False]),
+    (["dean", "of", "students"], True, [True, False, False]),
+    (["dean", "and", "mary"], True, [False, False, False]),
+    # a title after the word it does not attach to is no partner
+    (["dean", "mr"], False, [False, True]),
+    (["dean", "general", "smith"], True, [False, True, False]),
+    # decision 10: a modifier with a head title after it, or in a
+    # connective's object; at the head only
+    (["wing", "lau"], True, [False, False]),
+    (["vice", "lau"], False, [True, False]),
+    # a modifier that may be a given name needs its head after a comma
+    # too (#752 phase 2j, `wing`), and takes any title as one
+    (["wing", "lau"], False, [False, False]),
+    (["wing", "commander", "lau"], False, [True, True, False]),
+    (["wing", "mr"], False, [True, True]),
+    (["wing", "commander", "lau"], True, [True, True, False]),
+    (["mr", "wing", "lau"], True, [True, False, False]),
+    (["vice", "dean", "smith"], True, [True, True, False]),
+    (["president", "of", "the", "united", "states", "barack"], True,
+     [True, False, False, True, True, False]),
+    (["wing", "insp.", "lau"], True, [True, False, False]),
+])
+def test_title_readings(words: list[str], head: bool,
+                        expected: list[bool]) -> None:
+    from nameparser._pipeline._vocab import title_readings
+    folded = [_normalize(w) for w in words]
+    assert title_readings(words, folded, Lexicon.default(),
+                          head=head) == expected
+
+
+def test_a_word_a_caller_lists_as_a_title_is_one_everywhere() -> None:
+    # the 1.4-era recipe for a title the default leaves out: listing it
+    # makes it a title wherever it stands, phrase or none
+    lex = Lexicon.default().add(titles={"dean"})
+    name = Parser(lexicon=lex).parse("Dean Smith")
+    assert (name.title, name.family, name.ambiguities) == ("Dean", "Smith", ())
+
+
+def test_a_contested_title_in_a_phrase_addresses_as_its_vocabulary_says() -> None:
+    # a title that may be a given name and addresses by the given name
+    # (no shipped word is both yet) takes the given-name title tag once a
+    # partner makes it a title, so H1 reads the one name word after it as
+    # the given name, as 'Sir John' reads
+    lex = Lexicon.default().add(titles_ambiguous={"zed"},
+                                given_name_titles={"zed"})
+    phrase = Parser(lexicon=lex).parse("Hon Zed John")
+    assert (phrase.title, phrase.given, phrase.family) == ("Hon Zed", "John", "")
+    # the tag classify documents for a given-name title, which a word
+    # read into the title by its phrase carries as one listed there does
+    assert "vocab:given-title" in phrase.tokens[1].tags
+    alone = Parser(lexicon=lex).parse("Zed John")
+    assert (alone.title, alone.given, alone.family) == ("", "Zed", "John")
+
+
+@pytest.mark.parametrize("phrases, reports", [
+    (frozenset(), False),
+    # a title before the word: classify reads the pair, so the word may
+    # head a title of itself and opening a name it reports
+    (frozenset({"chief grace"}), True),
+    # 'your' is no title, so classify never reads the pair, and a phrase
+    # it never reads makes no word report
+    (frozenset({"your grace"}), False),
+    # classify reads two-word phrases only
+    (frozenset({"chief of grace"}), False),
+])
+def test_only_a_phrase_classify_can_read_makes_a_contested_word_report(
+        phrases: frozenset[str], reports: bool) -> None:
+    lex = dataclasses.replace(Lexicon.default(), title_phrases=phrases)
+    kinds = [a.kind.value for a in Parser(lexicon=lex).parse(
+        "Grace Smith").ambiguities]
+    assert kinds == (["title-or-name"] if reports else [])

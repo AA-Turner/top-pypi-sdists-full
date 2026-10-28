@@ -1,50 +1,268 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-fsm
-Version: 3.0.1
-Summary: Django friendly finite state machine support.
-Home-page: http://github.com/kmmbvnr/django-fsm
+Version: 5.0.1
+Summary: State machines for Python objects and Django models.
+Home-page: https://github.com/viewflow/django-fsm
 Author: Mikhail Podgurskiy
 Author-email: kmmbvnr@gmail.com
-License: MIT License
-Keywords: django
-Platform: any
-Classifier: Development Status :: 7 - Inactive
-Classifier: Environment :: Web Environment
+License: AGPL-3.0-or-later WITH viewflow-library-exception
+Keywords: django,fsm,state-machine,workflow
+Platform: Any
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 1.6
-Classifier: Framework :: Django :: 1.8
-Classifier: Framework :: Django :: 1.9
-Classifier: Framework :: Django :: 1.10
-Classifier: Framework :: Django :: 1.11
-Classifier: Framework :: Django :: 2.0
-Classifier: Framework :: Django :: 2.1
-Classifier: Framework :: Django :: 2.2
-Classifier: Framework :: Django :: 3.0
-Classifier: Framework :: Django :: 3.1
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2.6
-Classifier: Programming Language :: Python :: 2.7
+Classifier: Framework :: Django :: 6.0
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Framework :: Django
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+License-File: LICENSE_EXCEPTION
+License-File: LICENSE_LEGACY
+Provides-Extra: django
+Requires-Dist: Django>=5.2; extra == "django"
+Provides-Extra: graphviz
+Requires-Dist: graphviz>=0.20; extra == "graphviz"
+Provides-Extra: rest
+Requires-Dist: Django>=5.2; extra == "rest"
+Requires-Dist: djangorestframework>=3.11; extra == "rest"
+Requires-Dist: drf-spectacular>=0.26.2; extra == "rest"
+Provides-Extra: test
+Requires-Dist: Django>=5.2; extra == "test"
+Requires-Dist: django-guardian>=2.4; extra == "test"
+Requires-Dist: graphviz>=0.20; extra == "test"
+Provides-Extra: typing
+Requires-Dist: Django>=5.2; extra == "typing"
+Requires-Dist: mypy>=1.11; extra == "typing"
+Requires-Dist: pyright>=1.1.390; extra == "typing"
+Requires-Dist: django-stubs>=5.2; extra == "typing"
+Provides-Extra: all
+Requires-Dist: Django>=5.2; extra == "all"
+Requires-Dist: django-guardian>=2.4; extra == "all"
+Requires-Dist: graphviz>=0.20; extra == "all"
+Requires-Dist: djangorestframework>=3.11; extra == "all"
+Requires-Dist: drf-spectacular>=0.26.2; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
+
+django-fsm
+==========
+
+Django-friendly finite state machine support.
+
+``django-fsm`` adds simple, declarative state management for Django models
+and plain Python objects.
+
+Define states and transitions explicitly instead of spreading state
+assignments across views and models. Transitions check source states and
+business conditions before running a method. Permissions are checked
+explicitly with ``has_transition_perm()`` or by UI/REST integrations.
+
+
+Installation
+------------
+
+.. code-block:: console
+
+    python -m pip install django-fsm
+
+For plain Python classes, no other dependencies are required. To use with Django models, make sure Django is installed or specify the extra:
+
+.. code-block:: console
+
+    python -m pip install 'django-fsm[django]'
+
+
+
+Quick start
+-----------
+
+Add an ``FSMField`` to your Django model and mark transition methods with
+the ``@transition`` decorator:
+
+.. code-block:: python
+
+    from django.db import models
+    from django_fsm import FSMField, transition, can_proceed
+
+    class BlogPost(models.Model):
+        state = FSMField(default='draft', protected=True)
+
+        @transition(field=state, source='draft', target='published')
+        def publish(self):
+            """Side-effects when publishing a post (e.g. notify users, update cache)."""
+
+The ``protected=True`` option prevents direct state modification:
+
+.. code-block:: python
+
+    post = BlogPost()
+    post.state = 'published'  # Raises AttributeError
+
+To invoke a transition and persist the change:
+
+.. code-block:: python
+
+    post = BlogPost.objects.get(pk=post_id)
+
+    if can_proceed(post.publish):
+        post.publish()
+        post.save()
+
+
+Conditions and Permissions
+--------------------------
+
+Conditions
+~~~~~~~~~~
+
+Use the ``conditions`` argument to enforce rules before a transition is
+allowed. Conditions are callables that take the model instance and return
+a boolean:
+
+.. code-block:: python
+
+    def can_publish(instance):
+        return bool(instance.title and instance.body)
+
+    class BlogPost(models.Model):
+        state = FSMField(default='draft')
+
+        @transition(field=state, source='draft', target='published', conditions=[can_publish])
+        def publish(self):
+            pass
+
+Permissions
+~~~~~~~~~~~
+
+You can guard transitions with permissions and verify them using
+``has_transition_perm``:
+
+.. code-block:: python
+
+    from django_fsm import transition, has_transition_perm
+
+    class BlogPost(models.Model):
+        state = FSMField(default='draft')
+
+        @transition(field=state, source='draft', target='published', permission='blog.can_publish')
+        def publish(self):
+            pass
+
+A direct call such as ``post.publish()`` does not check user permissions.
+Use ``has_transition_perm()`` before calling it, as below, or use an
+integration that performs the check.
+
+In your view:
+
+.. code-block:: python
+
+    if not has_transition_perm(post.publish, request.user):
+        raise PermissionDenied
+
+    post.publish()
+    post.save()
+
+
+Dynamic Targets
+---------------
+
+When the target state depends on runtime logic or method results:
+
+- ``RETURN_VALUE(*allowed_states)`` selects the target from the method's return value:
+
+.. code-block:: python
+
+    from django_fsm import FSMField, RETURN_VALUE, transition
+
+    class Task(models.Model):
+        status = FSMField(default='pending')
+
+        @transition(field=status, source='pending', target=RETURN_VALUE('approved', 'rejected'))
+        def review(self, score):
+            return 'approved' if score >= 80 else 'rejected'
+
+- ``GET_STATE(func, states=[...])`` calculates the target state before the
+  transition runs, based on the instance and method arguments.
+
+
+Plain Python State Machines
+---------------------------
+
+``State`` also works with plain Python classes without Django database models
+or settings:
+
+.. code-block:: python
+
+    from django_fsm import State
+
+    class Review:
+        state = State(states=None, default='draft')
+
+        @state.transition(source='draft', target='published')
+        def publish(self):
+            pass
+
+    review = Review()
+    review.publish()
+    assert review.state == 'published'
+
+
+Upgrading from django-fsm 3.x
+-----------------------------
+
+Version 5.0 uses the Viewflow transition engine. Ordinary targets are now
+applied **before the method body runs**; django-fsm 3.x applied them after
+the method returned. Code that reads ``self.state`` inside a transition
+therefore observes the target state in 5.0.
+
+``GET_STATE`` also computes and applies its target before the method runs.
+``RETURN_VALUE`` applies the target after the method returns.
+
+If the method raises, the adapter restores the source state in memory, or
+applies ``on_error`` when specified. This does not undo database writes or
+external side effects performed by the method. Use ``transaction.atomic()``
+around the transition and ``save()`` when those database writes must roll
+back together.
+
+
+Viewflow Pro Integrations
+-------------------------
+
+``django-fsm`` integrates out of the box with Viewflow Pro and Django REST Framework:
+
+- ``django_fsm.admin.FlowAdminMixin``: Viewflow Admin integration for state workflows.
+- ``django_fsm.viewset.FlowViewsMixin``: Viewflow Viewset workflows.
+- ``django_fsm.rest.FlowRESTMixin``: Optional Django REST Framework viewset integration (requires ``django-fsm[rest]``).
+
+
+Documentation & Contributing
+----------------------------
+
+- Full documentation: https://docs.viewflow.io/fsm/index.html
+- Contributing & development instructions: see `CONTRIBUTING.rst <https://github.com/viewflow/django-fsm/blob/master/CONTRIBUTING.rst>`_
+
+
+License
+-------
+
+Django FSM is licensed under AGPL-3.0-or-later with the viewflow-library-exception.
+See ``LICENSE`` and ``LICENSE_EXCEPTION`` for details.

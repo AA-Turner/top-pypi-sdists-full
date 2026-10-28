@@ -45,14 +45,6 @@ class _NetworkFileSystem(modal._object._Object):
         ```
         modal nfs --help
         ```
-
-        A `NetworkFileSystem` can also be useful for some local scripting scenarios, e.g.:
-
-        ```python notest
-        nfs = modal.NetworkFileSystem.from_name("my-network-file-system")
-        for chunk in nfs.read_file("my_db_dump.csv"):
-            ...
-        ```
     """
     @staticmethod
     def from_name(
@@ -63,6 +55,8 @@ class _NetworkFileSystem(modal._object._Object):
         client: typing.Optional[modal.client._Client] = None,
     ) -> _NetworkFileSystem:
         """Reference a NetworkFileSystem by name, optionally creating it on the server first.
+
+        **Note: `NetworkFileSystem` has been deprecated and will be removed.**
 
         Hydration is lazy: metadata is fetched from Modal the first time the handle is used.
 
@@ -94,6 +88,8 @@ class _NetworkFileSystem(modal._object._Object):
         _heartbeat_sleep: float = 300,
     ) -> typing.AsyncContextManager[_NetworkFileSystem]:
         """Create an anonymous NetworkFileSystem that exists for the duration of the context manager.
+
+        **Note: `NetworkFileSystem` has been deprecated and will be removed.**
 
         Args:
             client: Modal client to use; defaults to `Client.from_env()` when omitted.
@@ -209,14 +205,6 @@ class NetworkFileSystem(modal.object.Object):
         ```
         modal nfs --help
         ```
-
-        A `NetworkFileSystem` can also be useful for some local scripting scenarios, e.g.:
-
-        ```python notest
-        nfs = modal.NetworkFileSystem.from_name("my-network-file-system")
-        for chunk in nfs.read_file("my_db_dump.csv"):
-            ...
-        ```
     """
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -231,6 +219,8 @@ class NetworkFileSystem(modal.object.Object):
         client: typing.Optional[modal.client.Client] = None,
     ) -> NetworkFileSystem:
         """Reference a NetworkFileSystem by name, optionally creating it on the server first.
+
+        **Note: `NetworkFileSystem` has been deprecated and will be removed.**
 
         Hydration is lazy: metadata is fetched from Modal the first time the handle is used.
 
@@ -264,6 +254,8 @@ class NetworkFileSystem(modal.object.Object):
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[NetworkFileSystem]:
             """Create an anonymous NetworkFileSystem that exists for the duration of the context manager.
 
+            **Note: `NetworkFileSystem` has been deprecated and will be removed.**
+
             Args:
                 client: Modal client to use; defaults to `Client.from_env()` when omitted.
                 environment_name: Environment for the ephemeral object; defaults to the active environment.
@@ -289,6 +281,8 @@ class NetworkFileSystem(modal.object.Object):
             _heartbeat_sleep: float = 300,
         ) -> typing.AsyncContextManager[NetworkFileSystem]:
             """Create an anonymous NetworkFileSystem that exists for the duration of the context manager.
+
+            **Note: `NetworkFileSystem` has been deprecated and will be removed.**
 
             Args:
                 client: Modal client to use; defaults to `Client.from_env()` when omitted.

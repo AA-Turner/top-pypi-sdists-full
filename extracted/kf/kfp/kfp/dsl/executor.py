@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import contextlib
 import inspect
 import json
 import os
@@ -18,6 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import warnings
 
 from kfp import dsl
+from kfp.dsl import _artifact_preview
 from kfp.dsl import task_final_status
 from kfp.dsl.task_config import TaskConfig
 from kfp.dsl.types import artifact_types
@@ -33,6 +35,9 @@ class Executor:
         executor_input: Dict,
         function_to_execute: Union[Callable,
                                    'python_component.PythonComponent'],
+        *,
+        artifact_previews: bool = True,
+        artifact_preview_rows: bool = True,
     ):
 
         if hasattr(function_to_execute, 'python_func'):
@@ -54,6 +59,10 @@ class Executor:
 
         self.return_annotation = inspect.signature(self.func).return_annotation
         self.excutor_output = {}
+        self._artifact_previews = (
+            _artifact_preview.ArtifactPreviewSession(self.output_artifacts,
+                                                     artifact_preview_rows)
+            if artifact_previews else None)
 
     def assign_input_and_output_artifacts(self) -> None:
         for name, artifacts in self.executor_input.get('inputs',
@@ -207,8 +216,14 @@ class Executor:
         return input_artifact.path
 
     def write_output_parameter_value(
-            self, name: str, value: Union[str, int, float, bool, dict, list,
-                                          Dict, List]) -> None:
+        self, name: str, value: Union[str, int, float, bool, dict, list, Dict,
+                                      List, None]) -> None:
+        if value is None:
+            # An Optional-typed output (e.g. Optional[Person]) may
+            # legitimately produce no value; matching write_executor_output's
+            # own `if func_output is not None` behavior for a bare return,
+            # write nothing for this parameter rather than a null entry.
+            return
         if isinstance(value, (float, int)):
             output = str(value)
         elif isinstance(value, str):
@@ -234,18 +249,35 @@ class Executor:
     def handle_single_return_value(self, output_name: str, annotation_type: Any,
                                    return_value: Any) -> None:
         if is_parameter(annotation_type):
-            origin_type = getattr(annotation_type, '__origin__',
-                                  None) or annotation_type
+            stripped_annotation_type = type_annotations.maybe_strip_optional_from_annotation(
+                annotation_type)
+            is_optional = stripped_annotation_type is not annotation_type
+            origin_type = getattr(stripped_annotation_type, '__origin__',
+                                  None) or stripped_annotation_type
             # relax float-typed return to allow both int and float.
             if origin_type == float:
                 accepted_types = (int, float)
             # TODO: relax str-typed return to allow all primitive types?
             else:
                 accepted_types = origin_type
-            if not isinstance(return_value, accepted_types):
+            # A None return is only valid for an Optional-typed annotation (e.g.
+            # Optional[Person]); for a non-Optional annotation, None still fails
+            # the type check below same as before.
+            return_value_is_permitted_none = is_optional and return_value is None
+            if not return_value_is_permitted_none and not isinstance(
+                    return_value, accepted_types):
                 raise ValueError(
                     f'Function `{self.func.__name__}` returned value of type {type(return_value)}; want type {origin_type}'
                 )
+            if not return_value_is_permitted_none and type_utils.is_pydantic_basemodel_subclass(
+                    origin_type):
+                type_utils.validate_pydantic_basemodel_version(origin_type)
+                # by_alias=True so the wire format matches what
+                # model_validate() expects back for fields with a
+                # validation alias, keeping serialize/deserialize a
+                # round trip.
+                return_value = return_value.model_dump(
+                    mode='json', by_alias=True)
             self.write_output_parameter_value(output_name, return_value)
 
         elif is_artifact(annotation_type):
@@ -342,6 +374,8 @@ class Executor:
             write_file = cluster_spec['task']['type'] in CHIEF_NODE_LABELS
 
         if write_file:
+            if self._artifact_previews is not None:
+                self._artifact_previews.generate()
             makedirs_recursively(self.executor_output_path)
             with open(self.executor_output_path, 'w') as f:
                 f.write(json.dumps(self.excutor_output))
@@ -402,6 +436,7 @@ class Executor:
                     volumes=value.get('volumes'),
                     volume_mounts=value.get('volumeMounts'),
                     resources=value.get('resources'),
+                    resource_claims=value.get('resourceClaims'),
                 )
 
             elif type_annotations.is_list_of_artifacts(v):
@@ -410,6 +445,12 @@ class Executor:
             elif is_parameter(v):
                 value = self.get_input_parameter_value(k)
                 if value is not None:
+                    stripped_v = type_annotations.maybe_strip_optional_from_annotation(
+                        v)
+                    if type_utils.is_pydantic_basemodel_subclass(stripped_v):
+                        type_utils.validate_pydantic_basemodel_version(
+                            stripped_v)
+                        value = stripped_v.model_validate(value)
                     func_kwargs[k] = value
 
             elif type_annotations.is_Input_Output_artifact_annotation(v):
@@ -450,8 +491,9 @@ class Executor:
             elif isinstance(v, type_annotations.InputPath):
                 func_kwargs[k] = self.get_input_artifact_path(k)
 
-        result = self.func(**func_kwargs)
-        return self.write_executor_output(result)
+        with self._artifact_previews or contextlib.nullcontext():
+            result = self.func(**func_kwargs)
+            return self.write_executor_output(result)
 
 
 def create_artifact_instance(
@@ -479,11 +521,23 @@ def is_parameter(annotation: Any) -> bool:
     if isinstance(annotation, type):
         if annotation in [str, int, float, bool, dict, list]:
             return True
+        if type_utils.is_pydantic_basemodel_subclass(annotation):
+            return True
         annotation_name = getattr(annotation, '__name__', '')
         if type_utils.is_task_final_status_type(annotation_name):
             return True
         if type_utils.is_task_config_type(annotation_name):
             return True
+
+    # Optional[BaseModel] (e.g. Optional[Person]) is not itself a `type`
+    # instance (it's a typing.Union), so it falls through the isinstance
+    # check above even though the wrapped type is a pydantic model.
+    stripped_annotation = type_annotations.maybe_strip_optional_from_annotation(
+        annotation)
+    if stripped_annotation is not annotation and isinstance(
+            stripped_annotation, type
+    ) and type_utils.is_pydantic_basemodel_subclass(stripped_annotation):
+        return True
 
     return type_utils.is_parameter_type(str(annotation))
 

@@ -2,7 +2,7 @@
 requires = [
     "setuptools >= 77.0.0",
     "wheel",
-    "cython ~= 3.2",
+    "cython ~= 3.3",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -54,6 +54,7 @@ Issues = "https://github.com/oracle/python-oracledb/issues"
 Source = "https://github.com/oracle/python-oracledb"
 
 [project.optional-dependencies]
+opentelemetry = ["opentelemetry-api ~= 1.12"]
 test = [
     "anyio",
     "numpy",
@@ -75,8 +76,9 @@ azure_config = [
 azure_auth = ["msal"]
 aws_config = ["boto3"]
 gcp_config = [
-    "google-cloud-storage",
+    "google-cloud-pubsub>=2.4.1",
     "google-cloud-secret-manager",
+    "google-cloud-storage",
     "google-crc32c",
 ]
 
@@ -86,6 +88,7 @@ zip-safe = false
 packages = [
     "oracledb",
     "oracledb.plugins",
+    "oracledb.plugins.opentelemetry",
 ]
 package-dir = {"" = "src"}
 include-package-data = false

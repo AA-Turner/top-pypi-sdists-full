@@ -1,6 +1,7 @@
 Metadata-Version: 2.5
 Name: virtualenv
-Version: 21.14.13
+Version: 21.15.1
+Import-Name: virtualenv
 Summary: Virtual Python Environment builder
 Project-URL: thanks.dev, https://thanks.dev/u/gh/gaborbernat
 Project-URL: Changelog, https://virtualenv.pypa.io/en/latest/changelog.html
@@ -17,7 +18,6 @@ License-File: THIRD-PARTY-NOTICES.md
 Keywords: environments,isolated,virtual
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX

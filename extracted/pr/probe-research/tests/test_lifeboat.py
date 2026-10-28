@@ -145,10 +145,10 @@ class Boat:
     def env_json(self, **fields) -> None:
         (self.root / "env.json").write_text(json.dumps({"v": 1, **fields}, indent=1) + "\n")
 
-    def run(self, trigger: str = "session") -> subprocess.CompletedProcess:
+    def run(self, trigger: str = "session", **extra: str) -> subprocess.CompletedProcess:
         env = {
             "HOME": str(self.home), "PATH": f"{self.bin}:/usr/bin:/bin",
-            "LIFEBOAT_TEST_LOG": str(self.log), "LIFEBOAT_TEST_PYLOG": str(self.pylog),
+            "LIFEBOAT_TEST_LOG": str(self.log), "LIFEBOAT_TEST_PYLOG": str(self.pylog), **extra,
         }
         return subprocess.run(["/bin/sh", str(self.root / "lifeboat.sh"), trigger], env=env,
                               capture_output=True, text=True, timeout=120, cwd="/")
@@ -829,6 +829,28 @@ def test_the_wrapper_runs_the_real_handoff(boat):
     assert lifeboat.rescued_at(boat.root / "current" / "handoff.py") is None
 
 
+def test_the_real_handoff_under_the_wrapper_does_nothing_during_an_uninstall(boat, tmp_path):
+    """An uninstall past its point of no return (`S/uninstall/barrier.json`,
+    phase `server`): the keeper's run of the real hand-off reads nothing,
+    writes none of its clocks and exits 0, so known-good never runs either."""
+    from probe._shared import handoff
+
+    (boat.root / "current").mkdir()
+    shutil.copyfile(SHARED / "handoff.py", boat.root / "current" / "handoff.py")
+    (boat.root / "known-good").mkdir()
+    _stub(boat.root / "known-good" / "handoff.py")
+    closed = "http://127.0.0.1:9"  # were it to look: refused at once, never the real API
+    boat.env_json(base_python=sys.executable, managed=True, auto_update=True, base_url=closed,
+                  tools=str(tmp_path / "tools"), socket=str(tmp_path / "none.sock"))
+    barrier = handoff.barrier_path()
+    assert barrier == paths.state_dir() / "uninstall" / "barrier.json"
+    barrier.parent.mkdir(parents=True)
+    barrier.write_text(json.dumps({"v": 1, "pid": 999999999, "start": "0", "at": 1.0, "phase": "server"}))
+    done = boat.run("keeper", PROBE_HANDOFF_PYPI_URL=closed + "/pypi")
+    assert done.returncode == 0, done.stderr
+    assert boat.calls() == [] and not (boat.root / "state.json").exists()
+
+
 def test_this_releases_real_handoff_is_what_a_first_install_places(home, tmp_path, monkeypatch):
     from probe._shared import handoff
 
@@ -840,27 +862,65 @@ def test_this_releases_real_handoff_is_what_a_first_install_places(home, tmp_pat
     assert lifeboat.handoff_version(_slot("current")) == handoff.HANDOFF_VERSION
 
 
-def test_a_real_v2_release_replaces_a_v1_current_and_keeps_the_v1_known_good(home, tmp_path, monkeypatch):
-    """HANDOFF_VERSION 2 (the lifeboat asks an idle service before it rescues)
-    reaching a machine whose lifeboat is v1 in both slots: the packaged v2
-    becomes `current/`, and `known-good/` stays v1 until v2 proves itself
-    (`promote`) -- with the real files, not stand-ins."""
+#: Byte copies of the hand-off as released: HANDOFF_VERSION 1 (CLI 0.328.0)
+#: and 2 (CLI 0.329.1), what a machine's slots hold today.
+DEPLOYED = Path(__file__).resolve().parent / "fixtures" / "handoff_deployed"
+DEPLOYED_DIGESTS = {
+    1: "46dea4b6613ba332d09bd0508d2c23d964cb00c5431c2213f7b59a01a0da81af",
+    2: "4ca1fabf2b99ea060ae414387ad621e1b336aafec0dd00bb8ac753e739523438",
+}
+
+
+def _deployed(version: int) -> bytes:
+    data = (DEPLOYED / f"v{version}" / "handoff.py").read_bytes()
+    assert hashlib.sha256(data).hexdigest() == DEPLOYED_DIGESTS[version], "not the released copy"
+    return data
+
+
+@pytest.mark.parametrize("current, known_good", [(2, 1), (2, 2), (1, 1)])
+def test_the_real_v3_replaces_a_deployed_current_and_keeps_known_good(home, tmp_path, monkeypatch, current,
+                                                                        known_good):
+    """HANDOFF_VERSION 3 (a broken env is rebuilt at any version; nothing
+    runs during an uninstall) reaching a machine whose slots hold the
+    released v1/v2 copies: the packaged v3 becomes `current/`, and
+    `known-good/` stays as it is until v3 proves itself (`promote`: a rescue
+    of its own, then a cycle at the latest) -- with the real files."""
     from probe._shared import handoff
 
-    assert handoff.HANDOFF_VERSION == 2
-    v2 = (SHARED / "handoff.py").read_bytes()
-    v1 = v2.replace(b"\nHANDOFF_VERSION = 2\n", b"\nHANDOFF_VERSION = 1\n", 1)
-    assert v1 != v2
-    for slot in ("current", "known-good"):
+    assert handoff.HANDOFF_VERSION == 3
+    v3 = (SHARED / "handoff.py").read_bytes()
+    for slot, version in (("current", current), ("known-good", known_good)):
         _slot(slot).parent.mkdir(parents=True, exist_ok=True)
-        _slot(slot).write_bytes(v1)
+        _slot(slot).write_bytes(_deployed(version))
     monkeypatch.setattr(lifeboat, "env_record", lambda login=None: {"v": 1, "base_python": sys.executable})
     monkeypatch.setattr(lifeboat, "SYSTEM_PYTHON", str(tmp_path / "no-system-python"))
     monkeypatch.setenv("PATH", "/usr/bin:/bin")
     assert lifeboat.install() == "installed (lifeboat.sh, current)"
-    assert _slot("current").read_bytes() == v2 and lifeboat.handoff_version(_slot("current")) == 2
-    assert _slot("known-good").read_bytes() == v1 and lifeboat.handoff_version(_slot("known-good")) == 1
+    assert _slot("current").read_bytes() == v3 and lifeboat.handoff_version(_slot("current")) == 3
+    assert _slot("known-good").read_bytes() == _deployed(known_good)
     assert lifeboat.install() == "current", "a second install changes nothing"
+    monkeypatch.setattr(keeper, "wanted", lambda: True)
+    assert not lifeboat.promote(ok=True, active="0.330.0", latest="0.330.0"), "v3 has rescued nothing yet"
+    assert _slot("known-good").read_bytes() == _deployed(known_good)
+
+
+def test_a_deployed_v2_release_never_replaces_a_v3_current(home, tmp_path, monkeypatch):
+    """A machine switched back to a v2 release (its service starts and
+    installs the lifeboat): the v3 `current/` stays (2 is not higher)."""
+    shared = tmp_path / "v2-release" / "_shared"
+    shared.mkdir(parents=True)
+    shutil.copyfile(SHARED / "lifeboat.sh", shared / "lifeboat.sh")
+    (shared / "handoff.py").write_bytes(_deployed(2))
+    v3 = (SHARED / "handoff.py").read_bytes()
+    for slot in ("current", "known-good"):
+        _slot(slot).parent.mkdir(parents=True, exist_ok=True)
+        _slot(slot).write_bytes(v3)
+    monkeypatch.setattr(lifeboat, "_SHARED", shared)
+    monkeypatch.setattr(lifeboat, "env_record", lambda login=None: {"v": 1, "base_python": sys.executable})
+    monkeypatch.setattr(lifeboat, "SYSTEM_PYTHON", str(tmp_path / "no-system-python"))
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    lifeboat.install()
+    assert _slot("current").read_bytes() == v3 == _slot("known-good").read_bytes()
 
 
 def test_env_json_carries_every_key_the_handoff_reads(home, monkeypatch):

@@ -24,7 +24,10 @@ HANCOM_LAID_OUT = ["line_cache_tabs.hwpx", "line_cache_line_breaks.hwpx", "line_
                    "pages_empty_numbered_paragraphs.hwpx", "line_cache_condensed_space_runs.hwpx",
                    "line_cache_condensed_space_runs_at_line_ends.hwpx",
                    "formfit_condense_space_runs_past_margin.hwpx",
-                   "line_cache_taller_control_runs.hwpx", "line_cache_pictures_alone.hwpx"]
+                   "line_cache_taller_control_runs.hwpx", "line_cache_pictures_alone.hwpx",
+                   "line_cache_pictures_kinds.hwpx", "line_cache_pictures_columns.hwpx",
+                   "line_cache_pictures_beside.hwpx", "line_cache_picture_bullets.hwpx",
+                   "line_cache_section_tab_stops.hwpx"]
 
 
 def _body(document: HwpxDocument) -> list:
@@ -131,13 +134,36 @@ def test_nothing_is_written_once_a_section_is_not_followed() -> None:
     # nothing then anyway.
     document = HwpxDocument.new()
     document.add_paragraph("가나다")
-    document.add_section()
-    document.page.set_grid(line_grid=1000, section_index=0)
-    document.page.set_grid(line_grid=1000, section_index=1)
+    section = document.add_section()
+    document.add_paragraph("라마바", section=section)
+    document.page.set_grid(char_grid=1000, section_index=0)  # a character grid in paragraphs without a cache
+    document.page.set_grid(char_grid=1000, section_index=1)
 
     assert len(estimate_pages(document).unsupported) == 2
     report = write_line_caches(document)
     assert report.written == 0 and len(report.unsupported) == 1
+
+
+def test_a_section_whose_later_paragraph_holds_section_settings_is_left_to_hancom() -> None:
+    # Hancom starts a section of its own at a later paragraph holding section settings, here of a narrower page: the
+    # estimate follows it, but no cache is written in that section (its lines would break at the first settings'
+    # width).
+    import copy
+
+    document = HwpxDocument.new()
+    for number in range(3):
+        document.add_paragraph("가나다 " * 30)
+    first = document.oxml.sections[0].element.findall(f"{HP}p")
+    settings = copy.deepcopy(first[0].find(f"{HP}run/{HP}secPr"))
+    settings.find(f"{HP}pagePr").set("width", "40000")
+    first[2].find(f"{HP}run").insert(0, settings)
+    document.oxml.sections[0].mark_dirty()
+
+    assert estimate_pages(document).unsupported == ()
+    report = write_line_caches(document)
+
+    assert not report.unsupported and report.written == 0
+    assert not any(_segments(paragraph) for paragraph in first[1:])
 
 
 def test_a_new_paragraph_gets_hancoms_line_metrics() -> None:
@@ -221,7 +247,11 @@ def test_a_larger_paragraph_end_makes_the_last_lines_text_as_tall() -> None:
 
 
 @pytest.mark.parametrize("style", [{"font": "HY신명조"}, {"font": "KoPub바탕체 Light"}, {"letter_spacing": -40},
-                                   {"ratio": 210}, {"font": "HCI Hollyhock", "bold": True}])
+                                   {"ratio": 210}, {"font": "HCI Hollyhock", "bold": True}, {"font": "HCI Poppy", "bold": True},
+                                   {"font": "한양중고딕", "italic": True}, {"font": "한양신명조", "italic": True},
+                                   {"font": "한양견고딕", "italic": True}, {"font": "HCI Poppy", "italic": True},
+                                   {"font": "한양신명조", "bold": True, "italic": True}, {"font": "Times New Roman"},
+                                   {"font": "Arial", "italic": True}])
 def test_a_paragraph_in_a_face_or_look_not_seen_on_the_desktop_is_left_for_hancom(style: dict) -> None:
     # A face Hancom may draw in another one, or 장평 and 자간 past those seen on the desktop, are left for Hancom.
     document = HwpxDocument.new()
@@ -236,11 +266,29 @@ def test_a_paragraph_in_a_face_or_look_not_seen_on_the_desktop_is_left_for_hanco
 @pytest.mark.parametrize("style", [{"letter_spacing": -5}, {"ratio": 90}, {"ratio": 110, "letter_spacing": 5},
                                    {"font": "한양신명조"}, {"font": "맑은 고딕", "bold": True},
                                    {"font": "휴먼명조", "bold": True}, {"font": "한양신명조", "bold": True},
-                                   {"font": "한양견고딕", "bold": True}])
+                                   {"font": "한양견고딕", "bold": True}, {"font": "함초롬바탕", "italic": True},
+                                   {"font": "맑은 고딕", "bold": True, "italic": True},
+                                   {"font": "휴먼명조", "italic": True}, {"font": "HCI Hollyhock", "italic": True}])
 def test_a_paragraph_at_a_look_seen_on_the_desktop_gets_a_cache(style: dict) -> None:
     document = HwpxDocument.new()
     paragraph = document.add_paragraph("", include_run=False)
     paragraph.add_run("가나다 " * 5, char_pr_id_ref=document.styles.ensure_run(**style))
+
+    report = write_line_caches(document)
+
+    assert report.written == 1
+
+
+@pytest.mark.parametrize("face", ["Times New Roman", "Arial", "Calibri", "Courier New"])
+@pytest.mark.parametrize("look", [{}, {"bold": True}, {"italic": True}, {"bold": True, "italic": True}])
+def test_a_paragraph_in_a_windows_latin_face_with_a_sure_hangul_face_gets_a_cache(face: str, look: dict) -> None:
+    # Hancom Office 2024 was seen to lay the Windows Latin faces out at the advances FormFit gives them, italic in their
+    # italic faces and bold at their regular advances: as the face of the Latin and symbol scripts beside a Hangul
+    # face the cache is sure of, their lines are sure too (a Hangul syllable in them is left, above).
+    document = HwpxDocument.new()
+    paragraph = document.add_paragraph("", include_run=False)
+    paragraph.add_run("The “data” of 2026 (policy) 가나다, " * 2, char_pr_id_ref=document.styles.ensure_run(
+        font=face, font_by_lang={"HANGUL": "함초롬바탕"}, **look))
 
     report = write_line_caches(document)
 
@@ -325,6 +373,44 @@ def test_a_tab_gets_the_width_hancom_lays_it_out_at() -> None:
     assert report.written == 1
     [tab] = _body(document)[-1].iter(f"{HP}tab")
     assert dict(tab.attrib) == {"width": "2056", "leader": "0", "type": "1"}
+
+
+def test_a_paragraph_under_a_picture_bullet_gets_hancoms_cache() -> None:
+    # Hancom 2024 laid out paragraphs of 10 and 12 pt text under picture bullets (gaps of 40 % and 500 HWPUNIT,
+    # 자동 내어 쓰기 on and off, a width adjustment of 500, broken by words and by syllables): the picture took an em
+    # and the gap off the first line, and off every line with 자동 내어 쓰기. They get its caches (see
+    # HANCOM_LAID_OUT); the last paragraph's bullet is sized by its picture (useInstWidth) and is left to Hancom.
+    document = HwpxDocument.open(FIXTURES / "line_cache_picture_bullets.hwpx")
+    paragraphs = _body(document)
+    for paragraph in paragraphs:
+        for cache in paragraph.findall(f"{HP}linesegarray"):
+            paragraph.remove(cache)
+
+    write_line_caches(document)
+
+    cached = [bool(_segments(paragraph)) for paragraph in paragraphs[1:]]
+    assert len(cached) == 34
+    assert sum(cached[:32]) >= 18 and cached[32] and not cached[33]  # the 33rd under a character bullet
+
+
+def test_a_tab_reaches_the_default_stops_of_its_own_section() -> None:
+    # Hancom spaces a section's default tab stops as its hp:secPr@tabStopVal says (3,600 here, laid out and saved
+    # by Hancom 2024 in line_cache_section_tab_stops.hwpx); stops given in another unit were not measured.
+    document = HwpxDocument.new()
+    for value, unit in (("3600", "HWPUNIT"), ("2000", "CHAR")):
+        section = document.add_section()
+        settings = next(section.element.iter(f"{HP}secPr"))
+        settings.set("tabStopVal", value)
+        settings.set("tabStopUnit", unit)
+    for index in range(3):
+        document.add_paragraph("항목\t내용", section_index=index)
+
+    report = write_line_caches(document)
+
+    assert report.skipped == 2  # the last section's two paragraphs
+    widths = [[tab.get("width") for tab in paragraph.iter(f"{HP}tab")] for paragraph in _body(document)
+              if next(paragraph.iter(f"{HP}tab"), None) is not None]
+    assert widths == [["2056"], ["1656"], [None]]  # "항목" takes 1,944: to the stop at 4,000, then at 3,600
 
 
 @pytest.mark.parametrize(("head", "written"), [("가" * 16, 1), ("가" * 16 + "!", 0)])
@@ -634,25 +720,151 @@ def test_a_paragraph_holding_a_picture_gets_one_line_carried_into_an_hwp_save() 
     assert _segments(_body(reopened)[-1]) == picture_line
 
 
-@pytest.mark.parametrize("change", ["caption", "shadow", "fixed"])
-def test_a_picture_with_a_caption_a_shadow_or_a_fixed_spacing_is_left_to_hancom(change: str) -> None:
+def _spaced(document: HwpxDocument, paragraph, kind: str, value: int) -> None:
+    hh = "{http://www.hancom.co.kr/hwpml/2011/head}"
+    document.styles.apply_paragraph_format(paragraphs=[paragraph], line_spacing_percent=161)
+    shape_id = paragraph.element.get("paraPrIDRef")
+    for shape in document.oxml.headers[0].element.iter(f"{hh}paraPr"):
+        if shape.get("id") == shape_id:
+            for spacing in shape.iter(f"{hh}lineSpacing"):
+                spacing.attrib.update({"type": kind, "value": str(value)})
+
+
+@pytest.mark.parametrize("change", ["empty caption", "shadow", "glow", "outer shadow", "reflection"])
+def test_a_picture_whose_room_is_less_sure_is_left_to_hancom(change: str) -> None:
+    # Hancom does not count a shadow written as a drawing's on a picture's line (the estimate does), and lays a glow,
+    # an outer shadow and a reflection out a unit from the estimate at some sizes: those pictures are left for it.
+    from hwpx.oxml import PictureGlow, PictureReflection, PictureShadow
+
+    effects = {"glow": {"glow": PictureGlow(radius=2000)}, "outer shadow": {"shadow": PictureShadow(distance=0)},
+               "reflection": {"reflection": PictureReflection()}}
     document = HwpxDocument.new()
-    picture = document.add_picture(_png(), "png", width_mm=40, height_mm=20)
-    element = _body(document)[-1].find(f".//{HP}pic")
-    if change == "caption":
+    picture = document.add_picture(_png(), "png", width_mm=40, height_mm=20, **effects.get(change, {}))
+    element = picture.element
+    if change == "empty caption":  # a caption without a paragraph
         element.append(element.makeelement(f"{HP}caption", {"side": "BOTTOM", "gap": "850"}))
     elif change == "shadow":
         element.append(element.makeelement(f"{HP}shadow", {"type": "PARALLEL_RIGHTBOTTOM", "offsetY": "283"}))
-    else:
-        document.styles.apply_paragraph_format(paragraphs=[document.paragraphs[-1]], line_spacing_percent=160)
-        hh = "{http://www.hancom.co.kr/hwpml/2011/head}"
-        shape_id = _body(document)[-1].get("paraPrIDRef")
-        for shape in document.oxml.headers[0].element.iter(f"{hh}paraPr"):
-            if shape.get("id") == shape_id:
-                for spacing in shape.iter(f"{hh}lineSpacing"):
-                    spacing.set("type", "FIXED")
-    assert picture is not None
 
     write_line_caches(document)
 
     assert not _segments(_body(document)[-1])
+
+
+@pytest.mark.parametrize(("side", "tall"), [("TOP", 5669 + 850 + 1000), ("BOTTOM", 5669 + 850 + 1000),
+                                            ("LEFT", 5669), ("RIGHT", 5669)])
+def test_a_picture_with_a_caption_holds_it_in_its_line(side: str, tall: int) -> None:
+    # Hancom makes a picture's line as tall as the picture, the gap and the caption's line for a caption above or
+    # below it, and as the picture alone for one beside it, however tall the caption runs.
+    document = HwpxDocument.new()
+    document.add_picture(_png(), "png", width_mm=40, height_mm=20).set_caption("그림 1", side=side)
+
+    write_line_caches(document)
+
+    assert [(s["vertsize"], s["textheight"], s["spacing"]) for s in _segments(_body(document)[-1])] == [
+        (str(tall), str(tall), "600")]
+
+
+@pytest.mark.parametrize(("kind", "value", "spacing"), [("FIXED", 2500, 2500 - 5669), ("AT_LEAST", 6000, 6000 - 5669),
+                                                        ("AT_LEAST", 3000, 0), ("BETWEEN_LINES", 300, 300)])
+def test_a_picture_in_a_paragraph_not_spaced_by_a_percentage_is_spaced_from_its_line(
+        kind: str, value: int, spacing: int) -> None:
+    # Hancom spaces such a line from its own height, the picture's: a fixed spacing keeps the next line that far
+    # down even below the picture, at least one no less than the picture.
+    document = HwpxDocument.new()
+    document.add_picture(_png(), "png", width_mm=40, height_mm=20)
+    _spaced(document, document.paragraphs[-1], kind, value)
+
+    write_line_caches(document)
+
+    assert [(s["vertsize"], s["spacing"]) for s in _segments(_body(document)[-1])] == [("5669", str(spacing))]
+
+
+def test_pictures_side_by_side_go_on_lines_as_wide_as_the_column() -> None:
+    # Hancom puts as many pictures on a line as fit it, each line as tall as its tallest picture, each picture
+    # eight characters along the line's text: three pictures 20,000 wide (two to a line of 42,520) take two lines.
+    document = HwpxDocument.new()
+    paragraph = document.add_paragraph("", include_run=False)
+    image = document.media.add_image(_png(), "png")
+    for height in (3000, 5000, 1000):
+        paragraph.add_picture(image, width=20000, height=height)
+
+    write_line_caches(document)
+
+    assert [(s["textpos"], s["vertsize"], s["spacing"]) for s in _segments(_body(document)[-1])] == [
+        ("0", "5000", "600"), ("16", "1000", "600")]
+
+
+def test_pictures_side_by_side_affecting_the_line_spacing_are_left_to_hancom() -> None:
+    document = HwpxDocument.new()
+    paragraph = document.add_paragraph("", include_run=False)
+    image = document.media.add_image(_png(), "png")
+    for _ in range(2):
+        paragraph.add_picture(image, width=8000, height=3000).element.find(f"{HP}pos").set("affectLSpacing", "1")
+
+    write_line_caches(document)
+
+    assert not _segments(_body(document)[-1])
+
+
+def test_paragraphs_in_newspaper_columns_are_laid_out_as_wide_as_their_column() -> None:
+    # Two columns 20,660 wide: text breaks into lines as wide as a column, and from a paragraph starting two columns
+    # inside the section (its column definition left for Hancom) the paragraphs after it are laid out in those.
+    document = HwpxDocument.new()
+    document.add_paragraph("한 단 " + "가나다라마바사 " * 8)
+    document.page.set_columns(2, same_gap=1200, paragraph=document.add_paragraph("두 단 시작"))
+    document.add_paragraph("두 단 " + "가나다라마바사 " * 8)
+    document.add_picture(_png(), "png", width_mm=40, height_mm=20)
+
+    write_line_caches(document)
+
+    one, start, two, picture = (_segments(p) for p in _body(document)[1:])
+    assert not start
+    assert [s["horzsize"] for s in one] == ["42520"] * 2
+    assert [s["horzsize"] for s in two] == ["20660"] * 4
+    assert [(s["vertsize"], s["horzsize"]) for s in picture] == [("5669", "20660")]
+
+
+@pytest.mark.parametrize("kind", ["BALANCED_NEWSPAPER", "PARALLEL"])
+def test_paragraphs_in_balanced_or_parallel_columns_are_left_to_hancom(kind: str) -> None:
+    document = HwpxDocument.new()
+    document.page.set_columns(2, col_type=kind)
+    document.add_paragraph("두 단 글")
+
+    write_line_caches(document)
+
+    assert not _segments(_body(document)[-1])
+
+
+def test_the_page_of_an_object_text_runs_beside_and_the_next_are_left_to_hancom() -> None:
+    # Text beside a square-wrapped picture breaks into shorter lines: the page holding the picture's paragraph and
+    # the one after it are left for Hancom, the pages after those laid out as any other.
+    document = HwpxDocument.new()
+    image = document.media.add_image(_png(), "png")
+    document.add_paragraph("감싸기 그림 문단").add_picture(
+        image, width=12000, height=12000, treat_as_char=False, text_wrap="SQUARE",
+        pos_overrides={"vertRelTo": "PARA", "horzRelTo": "COLUMN"})
+    for _ in range(100):
+        document.add_paragraph("가나다라마바사 아자차카타파하 " * 4)
+    document.add_picture(_png(), "png", width_mm=40, height_mm=20)
+
+    write_line_caches(document)
+
+    pages = [lines[0].page for lines in estimate_pages(document.to_bytes()).lines]
+    assert pages[-1] >= 3
+    for paragraph, page in zip(_body(document)[1:], pages[1:]):  # the template's first paragraph has its own
+        assert bool(_segments(paragraph)) == (page > 1), page
+
+
+def test_pictures_hancom_lays_out_otherwise_than_the_estimate_keep_no_cache() -> None:
+    # The fixture ends with a picture under a caption too long for its lines, one with a glow, one with an outer
+    # shadow and two pictures affecting the line spacing: those get none, every picture before them does.
+    document = HwpxDocument.open(FIXTURES / "line_cache_pictures_kinds.hwpx")
+    for paragraph in _body(document):
+        for cache in paragraph.findall(f"{HP}linesegarray"):
+            paragraph.remove(cache)
+
+    write_line_caches(document)
+
+    pictures = [p for p in _body(document) if p.find(f".//{HP}pic") is not None]
+    assert [bool(_segments(p)) for p in pictures] == [True] * (len(pictures) - 4) + [False] * 4

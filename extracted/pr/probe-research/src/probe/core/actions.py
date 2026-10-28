@@ -110,7 +110,10 @@ def logout(sink: events.EventSink | None = None) -> int:
 
 
 def uninstall(sink: events.EventSink | None = None) -> int:
-    """`probe wizard --action uninstall --yes --json`."""
+    """`probe wizard --action uninstall --yes --json`, which IS `probe uninstall
+    --yes --json` (`probe.cli.uninstall`). The Probe service runs it only for a
+    desktop app from before the app ran it itself: it stops that service too,
+    from its own session (an action's child outlives the service)."""
     return _wizard(sink, wizard_flags(ActionName.UNINSTALL))
 
 

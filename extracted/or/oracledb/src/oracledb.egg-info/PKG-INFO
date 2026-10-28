@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oracledb
-Version: 26.0.1
+Version: 26.1.0
 Summary: Python interface to Oracle Database
 Author-email: Anthony Tuininga <anthony.tuininga@oracle.com>
 License-Expression: UPL-1.0 OR Apache-2.0
@@ -33,6 +33,8 @@ License-File: THIRD_PARTY_LICENSES.txt
 License-File: NOTICE.txt
 Requires-Dist: cryptography>=3.2.1
 Requires-Dist: typing_extensions>=4.14.0
+Provides-Extra: opentelemetry
+Requires-Dist: opentelemetry-api~=1.12; extra == "opentelemetry"
 Provides-Extra: test
 Requires-Dist: anyio; extra == "test"
 Requires-Dist: numpy; extra == "test"
@@ -54,8 +56,9 @@ Requires-Dist: msal; extra == "azure-auth"
 Provides-Extra: aws-config
 Requires-Dist: boto3; extra == "aws-config"
 Provides-Extra: gcp-config
-Requires-Dist: google-cloud-storage; extra == "gcp-config"
+Requires-Dist: google-cloud-pubsub>=2.4.1; extra == "gcp-config"
 Requires-Dist: google-cloud-secret-manager; extra == "gcp-config"
+Requires-Dist: google-cloud-storage; extra == "gcp-config"
 Requires-Dist: google-crc32c; extra == "gcp-config"
 Dynamic: license-file
 
@@ -92,6 +95,22 @@ python -m pip install oracledb --upgrade
 ```
 
 See [Installing python-oracledb][installation] for details.
+
+To enable the optional embedded OpenTelemetry plugin, install:
+
+```
+python -m pip install "oracledb[opentelemetry]"
+```
+
+Then explicitly enable it with `from oracledb.plugins import opentelemetry`
+followed by `opentelemetry.instrument()`. Installing this dependency alone
+does not change application behavior. Install `opentelemetry-sdk` and an
+exporter to record and export spans and metrics. The plugin emits the
+`db.client.operation.duration` metric when the application configures an
+OpenTelemetry MeterProvider. Do not enable this plugin with another Oracle
+Database or DBAPI OpenTelemetry instrumentation, including
+`opentelemetry-instrumentation-oracledb` or
+`opentelemetry-instrumentation-dbapi`, in the same process.
 
 ## Samples
 

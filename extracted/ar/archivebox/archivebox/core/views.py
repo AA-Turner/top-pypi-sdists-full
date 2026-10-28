@@ -1,8 +1,11 @@
 __package__ = "archivebox.core"
 
 import json
+import operator
 import os
 import posixpath
+import time
+from functools import reduce
 from pathlib import Path
 from typing import ClassVar, cast
 from urllib.parse import quote, urlparse
@@ -16,7 +19,9 @@ from django.contrib import messages
 from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY, get_user_model
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.sessions.models import Session
+from django.contrib.sessions.backends.db import SessionStore
 from django.core import signing
+from django.core.exceptions import ValidationError
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import redirect, render
@@ -24,6 +29,7 @@ from django.utils.decorators import method_decorator
 from django.utils.html import format_html, format_html_join
 from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.safestring import mark_safe
+from django.utils import timezone
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.generic import FormView
@@ -46,11 +52,13 @@ from archivebox.config.common import (
 from archivebox.config.configset import BaseConfigSet
 from archivebox.core.forms import AddLinkForm
 from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag
+from archivebox.memento.views import add_memento_headers, timegate_response, timemap_response
 from archivebox.core.permissions import (
     PERMISSIONS_PUBLIC,
     PERMISSIONS_UNLISTED,
     can_view_snapshot,
     direct_snapshots_queryset,
+    discoverable_snapshots_queryset,
     filter_personas_by_permissions,
     is_admin_user,
     public_snapshots_queryset,
@@ -69,16 +77,18 @@ from archivebox.core.routes_util import (
 )
 from archivebox.crawls.models import Crawl
 from archivebox.misc.paginators import AcceleratedPaginator
-from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL, serve_static_with_byterange_support
+from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL, _resolve_archive_path, serve_static_with_byterange_support
 from archivebox.misc.util import (
     base_url,
+    equivalent_urls,
     filter_queryset_by_uuid_substring,
     sanitize_html_text,
-    urldecode,
+    uri_to_iri,
     validate_url,
     without_fragment,
 )
 from archivebox.plugins.discovery import (
+    discover_plugin_configs,
     get_plugin_catalog,
     get_plugin_icon,
     get_plugin_name,
@@ -87,7 +97,7 @@ from archivebox.plugins.discovery import (
     plugin_has_custom_full_response,
     serve_plugin_replay_asset,
 )
-from archivebox.plugins.forms import get_plugin_config_binary_urls
+from archivebox.plugins.forms import build_required_binary_url_lookup, get_plugin_config_binary_urls
 from archivebox.plugins.views import get_config_definition_link
 from archivebox.progressmonitor.views import live_progress_view
 from archivebox.progressmonitor.collection import collection_summary
@@ -112,7 +122,16 @@ def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
     return target
 
 
-def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
+# WHY: every snap-<suffix>.* request (hundreds per WACZ replay) resolves its
+# 12-hex host suffix, and `id LIKE '%suffix'` scans the whole primary-key index.
+# Snapshot ids never change, so a resolved unique suffix stays valid; only the
+# pk is cached and the row (permissions included) is still read per request.
+# Misses and ambiguous suffixes are never cached, and a deleted row evicts.
+_SNAPSHOT_SUFFIX_PKS: dict[str, object] = {}
+_SNAPSHOT_SUFFIX_PKS_MAX = 4096
+
+
+def _find_snapshot_by_ref(snapshot_ref: str, *, request: HttpRequest | None = None) -> Snapshot | None:
     lookup = get_snapshot_lookup_key(snapshot_ref)
     if not lookup:
         return None
@@ -120,20 +139,29 @@ def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
     snapshots = Snapshot.objects.select_related("crawl", "crawl__created_by")
 
     if len(lookup) == 12 and "-" not in lookup:
+        cached_pk = _SNAPSHOT_SUFFIX_PKS.get(lookup)
+        if cached_pk is not None:
+            snapshot = snapshots.filter(pk=cached_pk).first()
+            if snapshot is not None:
+                return snapshot
+            _SNAPSHOT_SUFFIX_PKS.pop(lookup, None)
         # Resolve suffixes using the covering primary-key index before fetching
         # wide snapshot rows and joining their crawl/user data.
-        matches = Snapshot.objects.filter(id__endswith=lookup).order_by().values_list("id", flat=True)
+        matches = list(Snapshot.objects.filter(id__endswith=lookup).order_by().values_list("id", flat=True))
+        if len(matches) == 1:
+            if len(_SNAPSHOT_SUFFIX_PKS) >= _SNAPSHOT_SUFFIX_PKS_MAX:
+                _SNAPSHOT_SUFFIX_PKS.clear()
+            _SNAPSHOT_SUFFIX_PKS[lookup] = matches[0]
         return snapshots.filter(pk__in=matches).order_by("-created_at", "-downloaded_at").first()
 
     try:
         return snapshots.get(pk=lookup)
-    except Snapshot.DoesNotExist:
-        try:
-            return snapshots.get(id__startswith=lookup)
-        except Snapshot.DoesNotExist:
-            return None
-        except Snapshot.MultipleObjectsReturned:
-            return snapshots.filter(id__startswith=lookup).first()
+    except (Snapshot.DoesNotExist, ValidationError):
+        # Short references are valid route inputs but not complete UUIDs.
+        snapshot = discoverable_snapshots_queryset(request, snapshots.filter(id__startswith=lookup)).first()
+        if snapshot is not None:
+            snapshot.matched_by_prefix = True  # UUIDv7 prefixes are guessable timestamps: not an unlisted link
+        return snapshot
 
 
 def _admin_login_redirect_or_forbidden(request: HttpRequest):
@@ -142,7 +170,11 @@ def _admin_login_redirect_or_forbidden(request: HttpRequest):
     return HttpResponseForbidden("ArchiveBox is running with the control plane disabled in this security mode.")
 
 
-REPLAY_AUTH_SALT = "archivebox.private-snapshot-replay"
+REPLAY_AUTH_SALT = "archivebox.private-snapshot-replay.v2"
+# WHY: grants travel in URLs (history, proxy logs) and must expire after
+# REPLAY_GRANT_MAX_AGE. A distinct salt stops a captured grant from being
+# presented directly as the long-lived replay cookie.
+REPLAY_GRANT_SALT = "archivebox.private-snapshot-replay-grant.v1"
 REPLAY_COOKIE_PREFIX = f"archivebox_replay_{CONSTANTS.COLLECTION_ID}_"
 REPLAY_GRANT_MAX_AGE = 60
 
@@ -164,15 +196,22 @@ def _replay_payload_is_valid(payload: dict, snapshot: Snapshot) -> bool:
     """A replay cookie is not its own auth source; it must point at a live admin session.
 
     Replayed pages can execute hostile JS, so admin cookies stay host-only on admin.*.
-    The snap host gets only this host-only HttpOnly cookie, and every request checks
-    that the original Django session still exists and still belongs to an active staff user.
+    The snap host gets only an opaque reference to a server-side replay session.
+    That row contains no Django login fields, so its key cannot authenticate to
+    admin. The original admin session key and auth hash never leave the server.
+    Every request checks that both sessions are unexpired and the original admin
+    session still belongs to an active staff user.
     Logout, session expiry, user deletion/deactivation, or password auth-hash rotation all
     make the replay cookie inert without needing admin.* to delete a cookie on snap-*.
     """
     if payload.get("snapshot_id") != str(snapshot.id):
         return False
     try:
-        session = Session.objects.get(session_key=str(payload.get("session_key") or ""))
+        replay_session = Session.objects.get(session_key=str(payload.get("replay_session") or ""), expire_date__gt=timezone.now())
+        replay = replay_session.get_decoded().get("replay")
+        if not isinstance(replay, dict) or replay.get("snapshot_id") != str(snapshot.id):
+            return False
+        session = Session.objects.get(session_key=str(replay.get("session_key") or ""), expire_date__gt=timezone.now())
         session_data = session.get_decoded()
         user_id = str(session_data.get(SESSION_KEY) or "")
         auth_hash = str(session_data.get(HASH_SESSION_KEY) or "")
@@ -180,8 +219,8 @@ def _replay_payload_is_valid(payload: dict, snapshot: Snapshot) -> bool:
     except (Session.DoesNotExist, get_user_model().DoesNotExist, KeyError, TypeError, ValueError):
         return False
     return (
-        str(payload.get("user_id")) == user_id
-        and str(payload.get("auth_hash") or "") == auth_hash
+        str(replay.get("user_id")) == user_id
+        and str(replay.get("auth_hash") or "") == auth_hash
         and user.is_active
         and user.is_staff
         and auth_hash == user.get_session_auth_hash()
@@ -212,7 +251,7 @@ def _private_snapshot_auth_redirect(request: HttpRequest, snapshot: Snapshot, pa
 
 def _replay_auth_response(request: HttpRequest, snapshot: Snapshot):
     try:
-        payload = signing.loads(str(request.GET.get("grant") or ""), salt=REPLAY_AUTH_SALT, max_age=REPLAY_GRANT_MAX_AGE)
+        payload = signing.loads(str(request.GET.get("grant") or ""), salt=REPLAY_GRANT_SALT, max_age=REPLAY_GRANT_MAX_AGE)
     except signing.BadSignature:
         return _private_snapshot_auth_redirect(request, snapshot, "index.html", preserve_query=False)
 
@@ -245,17 +284,24 @@ class SnapshotReplayAuthView(View):
         if not is_admin_user(request):
             return redirect(f"{build_admin_url('/admin/login/', request=request)}?next={quote(request.get_full_path(), safe='')}")
 
-        snapshot = _find_snapshot_by_ref(str(request.GET.get("snapshot") or ""))
+        snapshot = _find_snapshot_by_ref(str(request.GET.get("snapshot") or ""), request=request)
         if not snapshot:
             raise Http404
 
-        payload = {
+        # Signed JSON is readable, not encrypted. Store the privileged session
+        # reference only server-side; replay credentials carry an opaque key to
+        # this separate row, which deliberately has no Django auth session keys.
+        replay_session = SessionStore()
+        replay_session["replay"] = {
             "snapshot_id": str(snapshot.id),
             "user_id": str(request.user.pk),
             "session_key": request.session.session_key,
             "auth_hash": request.user.get_session_auth_hash(),
         }
-        grant = signing.dumps(payload, salt=REPLAY_AUTH_SALT)
+        replay_session.set_expiry(request.session.get_expiry_date())
+        replay_session.create()
+        payload = {"snapshot_id": str(snapshot.id), "replay_session": replay_session.session_key}
+        grant = signing.dumps(payload, salt=REPLAY_GRANT_SALT)
         next_path = _clean_replay_next(request.GET.get("next"))
         target = build_snapshot_url(str(snapshot.id), "_auth", request=request, config=get_request_config(request))
         return redirect(f"{target}?grant={quote(grant, safe='')}&next={quote(next_path, safe='')}")
@@ -302,17 +348,23 @@ class SnapshotView(View):
             # correct under any collation and uses the url pattern-ops index.
             return Q(url=canonical) | Q(url__startswith=f"{canonical}#")
 
+        def _equivalent_url_query(url: str) -> Q:
+            # Django hands us the decoded path (/über) while the snapshot may
+            # be stored encoded (/%C3%BCber) or with an IDNA host; match all.
+            variants = [_fragmentless_url_query(variant) for variant in equivalent_urls(url)]
+            return reduce(operator.or_, variants)
+
         normalized = without_fragment(path)
         if path.startswith(("http://", "https://")):
             # exact url match (indexed) — fastest path
-            qs = Snapshot.objects.filter(_fragmentless_url_query(path))
+            qs = Snapshot.objects.filter(_equivalent_url_query(path))
             if not allow_fallback or qs.exists():
                 return qs
             normalized = normalized.split("://", 1)[1]
 
         # try exact match on full url (without scheme)
         qs = Snapshot.objects.filter(
-            _fragmentless_url_query("http://" + normalized) | _fragmentless_url_query("https://" + normalized),
+            _equivalent_url_query("http://" + normalized) | _equivalent_url_query("https://" + normalized),
         )
         if qs.exists():
             return qs
@@ -329,17 +381,27 @@ class SnapshotView(View):
         return Snapshot.objects.filter(Q(url__startswith="http://" + base) | Q(url__startswith="https://" + base))
 
     @staticmethod
-    def find_snapshots_for_id(slug: str):
+    def find_snapshots_for_id(slug: str, *, request: HttpRequest | None = None):
         """Return a queryset of snapshots matching a (possibly truncated) UUID via prefix or suffix.
 
         Strips non-hex characters from ``slug`` (so input with or without hyphens both work).
         Requires at least 8 hex chars — shorter inputs return an empty queryset to avoid
         scanning the entire snapshots table on too-broad matches.
         """
-        return filter_queryset_by_uuid_substring(Snapshot.objects.all(), slug)
+        snapshots = filter_queryset_by_uuid_substring(Snapshot.objects.all(), slug)
+        if request is None:
+            return snapshots
+        try:
+            UUID(slug)
+        except ValueError:
+            # Incomplete IDs discover captures; they are not unlisted links.
+            return discoverable_snapshots_queryset(request, snapshots)
+        return direct_snapshots_queryset(request, snapshots)
 
     @staticmethod
     def render_live_index(request, snapshot):
+        if request.GET.get("format") == "link":
+            return timemap_response(request, snapshot)
         if request.GET.get("discover_outputs") == "1":
             # Reuse the existing output discovery and card/badge classification.
             request.archivebox_cache_policy = "private"
@@ -354,13 +416,16 @@ class SnapshotView(View):
             patch_cache_control(response, private=True, no_store=True)
             return response
         request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
-        return render(
+        response = render(
             template_name="core/snapshot.html",
             request=request,
             context=snapshot.get_html_details_context(request=request),
         )
+        return add_memento_headers(request, snapshot, response)
 
     def get(self, request, path):
+        if path.startswith(("http://", "https://")):
+            return timegate_response(request, path)
         snapshot = None
 
         try:
@@ -372,7 +437,11 @@ class SnapshotView(View):
         if slug.replace(".", "").isdigit():
             try:
                 try:
-                    snapshot = Snapshot.objects.get(Q(timestamp=slug) | Q(id__startswith=slug))
+                    try:
+                        snapshot = Snapshot.objects.get(timestamp=slug)
+                    except Snapshot.DoesNotExist:
+                        snapshots = self.find_snapshots_for_id(slug, request=request)
+                        snapshot = snapshots.get()
                     request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
                     if not can_view_snapshot(request, snapshot):
                         return _private_snapshot_auth_redirect(request, snapshot, archivefile or "index.html")
@@ -407,10 +476,11 @@ class SnapshotView(View):
                         if query:
                             target = f"{target}?{query}"
                         return redirect(target)
-                    response["Link"] = f'<{snapshot.url}>; rel="canonical"'
+                    response["Link"] = ", ".join(filter(None, [response.get("Link"), f'<{snapshot.url}>; rel="canonical"']))
                     return response
                 except Snapshot.DoesNotExist:
-                    if Snapshot.objects.filter(timestamp__startswith=slug).exists():
+                    snapshots = discoverable_snapshots_queryset(request, Snapshot.objects.filter(timestamp__startswith=slug))
+                    if snapshots.exists():
                         raise Snapshot.MultipleObjectsReturned
                     else:
                         raise
@@ -440,9 +510,7 @@ class SnapshotView(View):
                         snap.url,
                         snap.title_stripped[:64] or "",
                     )
-                    for snap in direct_snapshots_queryset(request, Snapshot.objects.filter(timestamp__startswith=slug))
-                    .select_related("crawl__created_by")
-                    .order_by("-bookmarked_at")
+                    for snap in snapshots.select_related("crawl__created_by").order_by("-bookmarked_at")
                 )
                 return HttpResponse(
                     format_html(
@@ -506,14 +574,14 @@ class SnapshotView(View):
         def _resolve_snapshots_for_slug(slug: str):
             # full URLs go straight to the url-only path (fast, indexed)
             if "://" in slug:
-                return SnapshotView.find_snapshots_for_url(slug, allow_fallback=False)
+                return discoverable_snapshots_queryset(request, SnapshotView.find_snapshots_for_url(slug, allow_fallback=False))
             # short uuid-shaped slugs (>=8 hex chars after stripping non-hex) try id matching first
-            id_qs = SnapshotView.find_snapshots_for_id(slug)
+            id_qs = SnapshotView.find_snapshots_for_id(slug, request=request)
             if id_qs.exists():
                 return id_qs
-            return SnapshotView.find_snapshots_for_url(slug)
+            return discoverable_snapshots_queryset(request, SnapshotView.find_snapshots_for_url(slug))
 
-        snapshots = direct_snapshots_queryset(request, _resolve_snapshots_for_slug(path)).select_related("crawl__created_by")
+        snapshots = _resolve_snapshots_for_slug(path).select_related("crawl__created_by")
         try:
             if "://" in path:
                 snapshot = snapshots.order_by("-bookmarked_at").first()
@@ -521,7 +589,9 @@ class SnapshotView(View):
                     # Fetch the exact match once before trying legacy URL
                     # fallbacks; an exists() probe followed by the same lookup
                     # needlessly doubled reads on every normal redirect.
-                    snapshots = direct_snapshots_queryset(request, self.find_snapshots_for_url(path)).select_related("crawl__created_by")
+                    snapshots = discoverable_snapshots_queryset(request, self.find_snapshots_for_url(path)).select_related(
+                        "crawl__created_by",
+                    )
                     snapshot = snapshots.order_by("-bookmarked_at").first()
                 if snapshot is None:
                     raise Snapshot.DoesNotExist
@@ -599,16 +669,16 @@ class SnapshotPathView(View):
             requested_url = domain
 
         snapshot = None
-        snapshots_qs = direct_snapshots_queryset(request, Snapshot.objects.select_related("crawl", "crawl__created_by"))
+        snapshots_qs = discoverable_snapshots_queryset(request, Snapshot.objects.select_related("crawl", "crawl__created_by"))
         if snapshot_id:
-            snapshot = _find_snapshot_by_ref(snapshot_id)
+            snapshot = _find_snapshot_by_ref(snapshot_id, request=request)
             if snapshot and not can_view_snapshot(request, snapshot):
                 return _private_snapshot_auth_redirect(request, snapshot, path or "index.html")
         else:
             # fuzzy lookup by date + domain/url (most recent)
             username_lookup = "system" if username == "web" else username
             if requested_url:
-                qs = direct_snapshots_queryset(
+                qs = discoverable_snapshots_queryset(
                     request,
                     SnapshotView.find_snapshots_for_url(requested_url)
                     .select_related("crawl", "crawl__created_by")
@@ -749,6 +819,8 @@ def _resolve_archiveresult_relpath(
     historical_fallbacks: list[str] = []
     for result in results:
         output_files = result.output_file_map()
+        # Replay path selection and primary-output headers share this read-only row.
+        result._render_output_file_map = output_files
         for candidate in (plugin_relpath, rel_path):
             output_path = result.output_file_path(candidate, output_file_map=output_files)
             if output_path and output_path not in {path for path, _result in declared_paths}:
@@ -798,6 +870,11 @@ def _plugin_full_preview_response(
         # same plugin continue through their normal MIME-specific renderer.
         return None
 
+    # Preview templates can read saved artifacts before the static-file view.
+    # Apply the same boundary here so a rendered preview cannot bypass the
+    # containment check that protects raw and ranged file responses.
+    _resolve_archive_path(snapshot.output_dir, rel_path)
+
     raw_query = request.GET.copy()
     raw_query.pop("preview", None)
     raw_query.pop("titlebar", None)
@@ -807,7 +884,11 @@ def _plugin_full_preview_response(
 
     catalog = get_plugin_catalog()
     rendered = (
-        template.Engine(debug=False, dirs=[catalog[plugin].path] if plugin in catalog else [])
+        template.Engine(
+            debug=False,
+            dirs=[catalog[plugin].path] if plugin in catalog else [],
+            libraries=template.Engine.get_default().libraries,
+        )
         .from_string(template_str)
         .render(
             template.Context(
@@ -927,8 +1008,11 @@ def _visible_response_snapshots_for_domain(request: HttpRequest, domain: str) ->
             else:
                 domain_query |= Q(url__gte=prefix, url__lt=f"{prefix}\U0010ffff")
 
+    # Resolve domain IDs before joining crawl/owner data. Otherwise SQLite can
+    # choose a crawl-driven scan of the whole collection for every replay asset.
+    domain_ids = Snapshot.objects.filter(domain_query).values("pk")
     candidates = (
-        Snapshot.objects.filter(domain_query)
+        Snapshot.objects.filter(pk__in=domain_ids)
         .select_related("crawl", "crawl__created_by")
         .order_by("-bookmarked_at", "-created_at", "-timestamp")
     )
@@ -976,6 +1060,11 @@ def _original_request_url(domain: str, path: str = "", query_string: str = "") -
 
 
 def _serve_responses_path(request, responses_root: Path, rel_path: str, show_indexes: bool):
+    # URL aliases under responses/<host> point into responses/all. The security
+    # boundary is the authorized snapshot, not that host directory: otherwise
+    # dynamic resource requests reject valid captured files as escaping links.
+    snapshot_root = responses_root.parent.parent
+    response_prefix = responses_root.relative_to(snapshot_root)
     candidates: list[str] = []
     rel_path = rel_path or ""
     if rel_path.endswith("/"):
@@ -988,8 +1077,8 @@ def _serve_responses_path(request, responses_root: Path, rel_path: str, show_ind
         try:
             return serve_static_with_byterange_support(
                 request,
-                candidate,
-                document_root=str(responses_root),
+                str(response_prefix / candidate),
+                document_root=str(snapshot_root),
                 show_indexes=show_indexes,
                 is_archive_replay=True,
             )
@@ -1001,8 +1090,8 @@ def _serve_responses_path(request, responses_root: Path, rel_path: str, show_ind
         try:
             return serve_static_with_byterange_support(
                 request,
-                rel_dir,
-                document_root=str(responses_root),
+                str(response_prefix / rel_dir),
+                document_root=str(snapshot_root),
                 show_indexes=True,
                 is_archive_replay=True,
             )
@@ -1032,6 +1121,8 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
         # /progress.json on through to the same view used everywhere else. The caller
         # passes snapshot_id explicitly in the query string — we don't read it from the
         # subdomain (this keeps the endpoint identical across all security modes).
+        # Same <100 ms DB/cache-only contract as the admin progress route.
+        # Dispatch before any replay file resolution, stat, or storage access.
         return live_progress_view(request, authorized_snapshot=snapshot)
 
     if rel_path.startswith("_card/"):
@@ -1066,17 +1157,31 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     rel_path, archive_result, fallback_relpaths = _resolve_archiveresult_relpath(snapshot, rel_path)
 
     plugin_preview = _plugin_full_preview_response(request, snapshot, rel_path, archive_result)
+    # Only the primary representation describes the page; logs and helper assets do not.
     if plugin_preview is not None:
-        return plugin_preview
+        return (
+            add_memento_headers(request, snapshot, plugin_preview)
+            if archive_result and rel_path == archive_result.embed_path()
+            else plugin_preview
+        )
 
     for candidate_path in (rel_path, *fallback_relpaths):
         try:
-            return serve_static_with_byterange_support(
+            file_started = time.perf_counter()
+            response = serve_static_with_byterange_support(
                 request,
                 candidate_path,
                 document_root=snapshot.output_dir,
                 show_indexes=show_indexes,
                 is_archive_replay=True,
+            )
+            response["Server-Timing"] = f"replay_file;dur={(time.perf_counter() - file_started) * 1000:.1f}"
+            return add_memento_headers(
+                request,
+                snapshot,
+                response,
+                path=candidate_path,
+                primary=bool(archive_result and candidate_path == archive_result.embed_path()),
             )
         except Http404:
             continue
@@ -1092,7 +1197,12 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
 
 
 def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
+    started, cpu_started = time.perf_counter(), time.thread_time()
     response = _build_snapshot_replay_response(request, snapshot, path)
+    # Response construction only, not body streaming or time queued before the
+    # view. Thread CPU excludes other capture workers; wall time includes waits.
+    timings = f"replay;dur={(time.perf_counter() - started) * 1000:.1f}, replay_cpu;dur={(time.thread_time() - cpu_started) * 1000:.1f}"
+    response["Server-Timing"] = ", ".join(filter(None, (response.get("Server-Timing"), timings)))
     if response.status_code in (200, 206, 304) and response.get("Cache-Control") == FAVICON_CACHE_CONTROL:
         return response
     if path != "progress.json" and response.status_code in (200, 206, 304):
@@ -1169,7 +1279,7 @@ class SnapshotHostView(View):
 
     def get(self, request, snapshot_id: str, path: str = ""):
         request_config = get_request_config(request)
-        snapshot = _find_snapshot_by_ref(snapshot_id)
+        snapshot = _find_snapshot_by_ref(snapshot_id, request=request)
 
         if not snapshot:
             raise Http404
@@ -1192,7 +1302,7 @@ class SnapshotReplayView(View):
     """Serve snapshot directory contents on a one-domain replay path."""
 
     def get(self, request, snapshot_id: str, path: str = ""):
-        snapshot = _find_snapshot_by_ref(snapshot_id)
+        snapshot = _find_snapshot_by_ref(snapshot_id, request=request)
         if not snapshot:
             raise Http404
         if path == "_auth":
@@ -1261,25 +1371,22 @@ class PublicIndexView(ListView):
         )
 
     def _ordered_public_page_from_order_index(self, *, page_number: int, page_size: int) -> list[Snapshot]:
-        # Walk the existing chronological index in bounded keyset pages,
-        # reading only identity/visibility until reaching the requested page.
-        # Repeated OFFSET batches used to revisit every earlier row AND join
-        # owners each time, making deep pages quadratic. Filtering visibility
-        # in SQL instead made SQLite sort the entire permissions index first.
-        # Each helper page closes its cursor before yielding; only the final
-        # displayed IDs load wide rows/owners. No new index or SQLite hint.
+        # Let the database walk snapshot_public_order_idx, test visibility, and
+        # skip earlier rows in one statement. Doing that walk in Python hydrated
+        # and discarded every earlier and private row in keyset batches, which
+        # dominated server CPU once crawlers requested deep pages.
+        # Filter on the JSON source of the generated permissions column: an
+        # equality on the indexed column makes SQLite pick the permissions
+        # index and sort every public snapshot before LIMIT. A composite
+        # permissions/order index measured faster only on very deep pages.
+        # OFFSET must stay ID-only: wide columns and owner joins would also be
+        # computed for every skipped row.
         start = (page_number - 1) * page_size
-        visible_count = 0
-        page_ids = []
-        candidates = Snapshot.objects.only("id", "permissions").order_by(*self.ordering, "id")
-        for snapshot in candidates.paged_iterator(chunk_size=max(100, page_size + 1)):
-            if snapshot.permissions != PERMISSIONS_PUBLIC:
-                continue
-            if visible_count >= start:
-                page_ids.append(snapshot.pk)
-                if len(page_ids) > page_size:
-                    break
-            visible_count += 1
+        page_ids = list(
+            Snapshot.objects.filter(config__PERMISSIONS=PERMISSIONS_PUBLIC)
+            .order_by(*self.ordering, "id")
+            .values_list("id", flat=True)[start : start + page_size + 1],
+        )
         return list(
             Snapshot.objects.filter(pk__in=page_ids, permissions=PERMISSIONS_PUBLIC)
             .select_related("crawl__created_by")
@@ -1358,84 +1465,41 @@ class PublicIndexView(ListView):
             max(1, (count + context["paginator"].per_page - 1) // context["paginator"].per_page) if count is not None else None
         )
         snapshots = list(context.get("object_list") or ())
-        from archivebox.plugins.output_groups import plugin_output_sizes
+        from archivebox.core.list_results_util import load_snapshot_list_results
 
-        all_results_by_snapshot = {str(snapshot.id): [] for snapshot in snapshots}
-        snapshots_by_id = {str(snapshot.id): snapshot for snapshot in snapshots}
-        icons_by_snapshot: dict[str, dict[str, ArchiveResult]] = {str(snapshot.id): {} for snapshot in snapshots}
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
-        list_icon_paths_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
-        list_icon_plugins = set(get_snapshot_role_names("list_icon"))
-        progress_by_snapshot: dict[str, dict[str, int]] = {
-            str(snapshot.id): {
-                "total": 0,
-                "succeeded": 0,
-                "failed": 0,
-                "running": 0,
-                "skipped": 0,
-                "noresults": 0,
-            }
-            for snapshot in snapshots
-        }
-        if icons_by_snapshot:
+        if snapshots:
             for snapshot_id, tag_name in (
-                SnapshotTag.objects.filter(snapshot_id__in=icons_by_snapshot.keys())
+                SnapshotTag.objects.filter(snapshot_id__in=tag_names_by_snapshot.keys())
                 .order_by("tag__name")
                 .values_list("snapshot_id", "tag__name")
                 .iterator(chunk_size=1000)
             ):
                 tag_names_by_snapshot[str(snapshot_id)].append(tag_name)
 
-            results = (
-                ArchiveResult.objects.filter(snapshot_id__in=icons_by_snapshot.keys())
-                .exclude(plugin="")
-                .only(
-                    "snapshot_id",
-                    "plugin",
-                    "status",
-                    "output_str",
-                    "output_files",
-                    "output_size",
-                )
-            )
-            # This is already bounded by the displayed snapshot page. Finish
-            # the SELECT before parsing output manifests: a streaming cursor
-            # otherwise keeps SQLite's read lock throughout rendering.
-            for result in list(results):
-                snapshot_key = str(result.snapshot_id)
-                # Thumbnail URLs traverse result.snapshot too; share the page's
-                # already-loaded parent rather than fetching it once per result.
-                result.snapshot = snapshots_by_id[snapshot_key]
-                # These read-only page objects are shared by icons, sizes, and
-                # thumbnails. Normalize each manifest once for this render.
-                result._render_output_file_map = result.output_file_map()
-                all_results_by_snapshot[snapshot_key].append(result)
-                progress = progress_by_snapshot[snapshot_key]
-                progress["total"] += 1
-                if result.status == ArchiveResult.StatusChoices.SUCCEEDED:
-                    icons_by_snapshot[snapshot_key].setdefault(result.plugin, result)
-                    progress["succeeded"] += 1
-                elif result.status == ArchiveResult.StatusChoices.FAILED:
-                    progress["failed"] += 1
-                elif result.status == ArchiveResult.StatusChoices.STARTED:
-                    progress["running"] += 1
-                elif result.status == ArchiveResult.StatusChoices.SKIPPED:
-                    progress["skipped"] += 1
-                elif result.status == ArchiveResult.StatusChoices.NORESULTS:
-                    progress["noresults"] += 1
-                if result.plugin in list_icon_plugins and result.status == ArchiveResult.StatusChoices.SUCCEEDED:
-                    if output_path := result.embed_path():
-                        list_icon_paths_by_snapshot[snapshot_key].append(output_path)
-
+        # Icons, sizes, favicons, thumbnails and progress come from plain rows
+        # plus the few manifest entries their links need (list_results_util).
+        list_results = load_snapshot_list_results(snapshots)
+        list_icon_plugins = set(get_snapshot_role_names("list_icon"))
         for snapshot in snapshots:
+            summary = list_results[snapshot.id]
+            status_counts = summary.status_counts
             snapshot._icons_compact = True
-            snapshot._icons_output_sizes = plugin_output_sizes(all_results_by_snapshot[str(snapshot.id)])
-            snapshot._icons_archive_results = icons_by_snapshot.get(str(snapshot.id), set())
-            snapshot._icons_progress_stats = progress_by_snapshot.get(str(snapshot.id), {})
-            snapshot.num_outputs_cached = snapshot._icons_progress_stats.get("succeeded", 0)
-            snapshot._tags_str_cached = ",".join(tag_names_by_snapshot.get(str(snapshot.id), []))
-            snapshot._snapshot_card_results = all_results_by_snapshot[str(snapshot.id)]
-            snapshot._public_list_icon_paths = list_icon_paths_by_snapshot.get(str(snapshot.id), [])
+            snapshot._icons_output_sizes = summary.output_sizes
+            snapshot._icons_archive_results = summary.first_succeeded_by_plugin()
+            snapshot._icons_progress_stats = {
+                "total": len(summary.results),
+                "succeeded": status_counts[ArchiveResult.StatusChoices.SUCCEEDED],
+                "failed": status_counts[ArchiveResult.StatusChoices.FAILED],
+                "running": status_counts[ArchiveResult.StatusChoices.STARTED],
+                "skipped": status_counts[ArchiveResult.StatusChoices.SKIPPED],
+                "noresults": status_counts[ArchiveResult.StatusChoices.NORESULTS],
+            }
+            snapshot.num_outputs_cached = snapshot._icons_progress_stats["succeeded"]
+            snapshot._tags_str_cached = ",".join(tag_names_by_snapshot[str(snapshot.id)])
+            snapshot._snapshot_card_results = summary.results
+            snapshot._snapshot_thumbnail_result = summary.thumbnail_result
+            snapshot._public_list_icon_paths = summary.succeeded_paths(list_icon_plugins)
             snapshot._is_archived_cached = bool(snapshot.downloaded_at or snapshot.status == Snapshot.StatusChoices.SEALED)
         context["object_list"] = snapshots
         return context
@@ -1534,14 +1598,21 @@ class AddView(UserPassesTestMixin, FormView):
         persona_queryset = context["form"].fields["persona"].queryset
         if not can_override_crawl_config:
             persona_queryset = filter_personas_by_permissions(persona_queryset, {PERMISSIONS_PUBLIC})
+        persona_configs = [(persona, get_config(persona=persona)) for persona in persona_queryset.order_by("name")]
+        # Personas share the installed binaries; only their configured names and
+        # paths differ. Resolve their union once, retaining per-persona choices.
+        binary_url_lookup = (
+            build_required_binary_url_lookup(discover_plugin_configs(), (config for _, config in persona_configs))
+            if can_override_crawl_config
+            else {}
+        )
         persona_config_map = {}
-        for persona in persona_queryset.order_by("name"):
-            effective_config = get_config(persona=persona)
+        for persona, effective_config in persona_configs:
             effective_config_redacted = redact_sensitive_config(effective_config.model_dump(mode="json"))
             if can_override_crawl_config:
                 raw_config = redact_sensitive_config(persona.config or {})
                 effective_config_json = effective_config_redacted
-                binary_urls = get_plugin_config_binary_urls(effective_config)
+                binary_urls = get_plugin_config_binary_urls(effective_config, binary_url_lookup)
             else:
                 raw_config = {}
                 effective_config_json = {key: effective_config_redacted.get(key) for key in public_persona_config_keys}
@@ -1664,11 +1735,26 @@ class AddView(UserPassesTestMixin, FormView):
         if schedule:
             from archivebox.crawls.models import CrawlSchedule
 
+            # Persist submitted policy, not crawl.config's frozen persona defaults.
+            schedule_config = {
+                key: value
+                for key, value in {
+                    "PLUGINS": plugins,
+                    "CRAWL_MAX_URLS": max_urls,
+                    "CRAWL_MAX_SIZE": crawl_max_size,
+                    "CRAWL_TIMEOUT": crawl_timeout,
+                    "SNAPSHOT_MAX_SIZE": snapshot_max_size,
+                    "CRAWL_MAX_CONCURRENT_SNAPSHOTS": crawl_max_concurrent_snapshots,
+                    "URL_ALLOWLIST": url_filters.get("allowlist"),
+                    "URL_DENYLIST": url_filters.get("denylist"),
+                }.items()
+                if value
+            }
             crawl_schedule = CrawlSchedule.objects.create(
                 template=crawl,
                 schedule=schedule,
                 is_enabled=True,
-                config=config,
+                config={**schedule_config, **config},
                 label=crawl.label,
                 notes=f"Auto-created from add page. {notes}".strip(),
                 created_by_id=created_by_id,
@@ -1719,8 +1805,21 @@ class WebAddView(AddView):
             return requested_url
         return f"https://{requested_url}"
 
+    def _requested_url(self, request, kwargs, args) -> str:
+        """The target URL of /web/<url>, including its own query string.
+
+        Django has already percent-decoded the path once (/%C3%BCber -> /über);
+        decoding again would turn a literal %20 in the target into a space. The
+        query string arrives raw, so only its non-ASCII escapes are decoded,
+        matching how the path is shown; %26 and friends must stay encoded.
+        """
+        url = str(kwargs.get("url") or (args[0] if args else ""))
+        if url and (query := request.META.get("QUERY_STRING")):
+            url = f"{url}?{uri_to_iri(query)}"
+        return url
+
     def dispatch(self, request, *args, **kwargs):
-        requested_url = urldecode(kwargs.get("url", "") or "")
+        requested_url = self._requested_url(request, kwargs, args)
         if requested_url:
             snapshot = self._latest_snapshot_for_url(requested_url)
             if snapshot:
@@ -1758,7 +1857,7 @@ class WebAddView(AddView):
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request: HttpRequest, *args: object, **kwargs: object):
-        requested_url = urldecode(str(kwargs.get("url") or (args[0] if args else "")))
+        requested_url = self._requested_url(request, kwargs, args)
         if not requested_url:
             raise Http404
 
@@ -1812,6 +1911,7 @@ class HealthCheckView(View):
         response["Access-Control-Allow-Origin"] = "*"
         response["Access-Control-Expose-Headers"] = "X-ArchiveBox-Health"
         response["X-ArchiveBox-Health"] = "OK"
+        response["Cache-Control"] = "no-store"
         return response
 
 

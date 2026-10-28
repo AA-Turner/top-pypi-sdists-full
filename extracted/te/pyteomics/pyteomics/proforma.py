@@ -25,7 +25,8 @@ from numbers import Integral
 from .mass import Composition, std_aa_mass, Unimod, nist_mass, calculate_mass, std_ion_comp, mass_charge_ratio, std_aa_comp
 from .auxiliary import PyteomicsError, BasicComposition
 from .auxiliary.utils import add_metaclass, memoize
-from .auxiliary.psims_util import load_psimod, load_xlmod, load_gno, obo_cache, _has_psims
+from .auxiliary.psims_util import (load_psimod, load_xlmod, load_gno, load_resid, obo_cache,
+                                   _has_psims)
 
 try:
     import numpy as np
@@ -152,6 +153,7 @@ class TagTypeEnum(Enum):
     comkp = 13
     limit = 14
     custom = 15
+    resid = 16
 
     group_placeholder = 999
 
@@ -274,6 +276,7 @@ class TagBase(object):
             TagTypeEnum.massmod,
             TagTypeEnum.psimod,
             TagTypeEnum.custom,
+            TagTypeEnum.resid,
         )
 
     def find_modification(self) -> Optional["TagBase"]:
@@ -872,6 +875,58 @@ class GNOResolver(ModificationResolver):
         return rec
 
 
+class ResidResolver(ModificationResolver):
+    """Resolve RESID accessions and names.
+
+    RESID identifiers are not numeric (``AA0038``), so unlike the other
+    prefixed vocabularies they always arrive as a name rather than an id.
+    """
+
+    def __init__(self, **kwargs):
+        super(ResidResolver, self).__init__('resid', **kwargs)
+        self._database = kwargs.get("database")
+
+    def load_database(self):
+        return load_resid()
+
+    def parse_identifier(self, identifier: str):
+        """Strip the CV prefix, tolerating the space the spec writes after it.
+
+        The ProForma specification gives ``EM[R: L-methionine sulfone]...`` as
+        an example, so the remainder needs stripping before lookup.
+        """
+        name, id = super(ResidResolver, self).parse_identifier(identifier)
+        if name is not None:
+            name = name.strip()
+        return name, id
+
+    def _resolve_impl(self, name=None, id=None, **kwargs):
+        if name is not None:
+            defn = self.database[name]
+        elif id is not None:
+            defn = self.database['AA{:04d}'.format(id)]
+        else:
+            raise ValueError("Must provide one of `name` or `id`")
+        mass = defn.monoisotopic_mass
+        if mass is None:
+            # RESID lists no single mass change for this entry, either because
+            # it has none or because the change depends on which residue was
+            # modified. Rather than pick one, point at where the alternatives
+            # are: each carries the parent residue it applies to.
+            raise ModificationMassNotFoundError(
+                "RESID gives no single mass for %r; it lists %d corrections, each for a "
+                "different parent residue. See `.resolver.database[%r].corrections`." % (
+                    (name or id), len(defn.corrections), defn.id))
+        return {
+            'mass': mass,
+            'composition': defn.composition,
+            'name': defn.name,
+            'id': defn.id,
+            'provider': self.name,
+            "source": self
+        }
+
+
 class GenericResolver(ModificationResolver):
 
     def __init__(self, resolvers, **kwargs):
@@ -1422,6 +1477,15 @@ class XLMODModification(ModificationBase):
     _tag_type = TagTypeEnum.xlmod
 
 
+class ResidModification(ModificationBase):
+    __slots__ = ()
+
+    resolver = ResidResolver()
+    prefix_name = "RESID"
+    short_prefix = 'R'
+    _tag_type = TagTypeEnum.resid
+
+
 class CustomModification(ModificationBase):
     __slots__ = ()
 
@@ -1445,6 +1509,10 @@ class GenericModification(ModificationBase):
         PSIModModification.resolver,
         XLMODModification.resolver,
         GNOmeModification.resolver,
+        # After the vocabularies that share names with RESID, so anything they
+        # already answer keeps its existing answer, and before the non-strict
+        # pass so a RESID name is preferred over a fuzzy Unimod match.
+        ResidModification.resolver,
         # Some really common names aren't actually found in the XML exactly, so default
         # to non-strict matching now to avoid masking other sources here.
         partial(UnimodModification.resolver, strict=False)
@@ -2879,7 +2947,8 @@ class Parser:
                 elif self.state == TAG_BEFORE:
                     self.state = POST_TAG_BEFORE
                 elif self.state == TAG_AFTER:
-                    self.c_term = self.current_tag()
+                    tags = self.current_tag()
+                    self.c_term.extend(tags)
                     self.state = POST_TAG_AFTER
                 elif self.state == GLOBAL:
                     self.state = POST_GLOBAL
@@ -2967,6 +3036,17 @@ class Parser:
             self.unlocalized_modifications.extend(self.current_tag())
             self.state = BEFORE
         elif c == "-":
+            if self.n_term:
+                raise ProFormaError(
+                    (
+                        f"Error In State {self.state}, found a second N-terminal modification group "
+                        f"at index {self.index}; ProForma allows only one N-terminal group. "
+                        "Put multiple N-terminal modifications in that group, e.g. "
+                        "'[UNIMOD:5][UNIMOD:385]-PEPTIDE'"
+                    ),
+                    self.index,
+                    self.state,
+                )
             self.n_term = self.current_tag()
             self.state = BEFORE
         elif c == "^":
@@ -3057,6 +3137,15 @@ class Parser:
             self.charge_buffer = NumberParser()
         elif c == "+":
             self._handle_chimeric_separator()
+        elif c == "[":
+            self.state = TAG_AFTER
+            self.depth = 1
+        else:
+            raise ProFormaError(
+                f"Error In State {self.state}, unexpected {c} found at index {self.index}",
+                self.index,
+                self.state,
+            )
 
     def handle_charge_start(self, c: str):
         if c in "+-":
@@ -3116,6 +3205,12 @@ class Parser:
     def handle_adduct_end(self, c: str):
         if c == "+":
             self._handle_chimeric_separator()
+        else:
+            raise ProFormaError(
+                f"Error In State {self.state}, unexpected {c} found at index {self.index}",
+                self.index,
+                self.state,
+            )
 
     def handle_name_level(self, c: str):
         if c == '>' and self.name_level < 3:
@@ -3215,6 +3310,23 @@ class Parser:
         return self.index < self.length
 
     def _finish_component(self) -> ProFormaParseResult:
+        if not self.positions and self.current_aa is None:
+            if self.chimeric:
+                raise ProFormaError("Empty peptidoform in chimeric ProForma string", self.index, self.state)
+            raise ProFormaError(
+                "A ProForma peptidoform must contain at least one amino acid",
+                self.index,
+                self.state,
+            )
+
+        complete_states = (SEQ, POST_INTERVAL_TAG, POST_TAG_AFTER, CHARGE_NUMBER, ADDUCT_END)
+        if self.state not in complete_states:
+            raise ProFormaError(
+                f"Error In State {self.state}, incomplete ProForma string reached end of input",
+                self.index,
+                self.state,
+            )
+
         if self.charge_buffer:
             charge_number = self.charge_buffer()
             if self.adduct_buffer:
@@ -3229,9 +3341,6 @@ class Parser:
             charge_state = None
         if self.current_aa:
             self.pack_sequence_position()
-
-        if not self.positions and self.chimeric:
-            raise ProFormaError("Empty peptidoform in chimeric ProForma string", self.index, self.state)
 
         z, k = self._local_charges()
         if k:
@@ -4919,9 +5028,9 @@ class ProteoformCombinator:
     def _apply_fixed_modifications(self):
         for c in self.template.fixed_modifications:
             if isinstance(c, ModificationRule):
-                rule = GeneratorModificationRuleDirective(c)
+                rule = GeneratorModificationRuleDirective(c, strip=self.strip)
             else:
-                rule = GeneratorModificationRuleDirective.from_unlocalized_rule(c)
+                rule = GeneratorModificationRuleDirective.from_unlocalized_rule(c, strip=self.strip)
             positions = rule.find_positions(self.template)
             for i in positions:
                 (aa, tags) = self.template[i]
@@ -4938,7 +5047,7 @@ class ProteoformCombinator:
         rules = []
         remains = []
         for iv in self.template.intervals:
-            block = GeneratorModificationRuleDirective.from_region_rule(iv)
+            block = GeneratorModificationRuleDirective.from_region_rule(iv, strip=self.strip)
             if block:
                 rules.extend(block)
                 iv = iv.copy()

@@ -25,7 +25,9 @@ from schemathesis.specs.openapi.stateful.dependencies.naming import (
     from_path,
     key_kind,
     normalize_for_matching,
+    parameter_names_source,
     strip_version_prefix,
+    trailing_path_parameter,
 )
 from schemathesis.specs.openapi.stateful.links import SCHEMATHESIS_LINK_EXTENSION
 
@@ -188,11 +190,47 @@ class DependencyGraph:
                                 and key_kind(field) != KeyKind.IDENTIFIER
                             ):
                                 continue
+                            # A single created value fills a name only as the key of the created item: `/tags/{tagName}`.
+                            if (
+                                output_slot.cardinality == Cardinality.ONE
+                                and isinstance(input_slot.parameter_name, str)
+                                and key_kind(input_slot.parameter_name) == KeyKind.NAME
+                                and (
+                                    f"/{{{input_slot.parameter_name}}}" not in consumer.path
+                                    or trailing_path_parameter(producer.path) is not None
+                                )
+                            ):
+                                continue
                             pointer = output_slot.pointer
                             if output_slot.cardinality == Cardinality.MANY:
                                 pointer = pointer.rstrip("/") + "/*"
                             value_expr = f"$response.body#{pointer}"
                         elif input_slot.resource_field is not None:
+                            # A name filter's prefix says whose name it takes (`owner_name`); other names are wrong.
+                            if (
+                                input_slot.parameter_location == ParameterLocation.QUERY
+                                and isinstance(input_slot.parameter_name, str)
+                                and key_kind(input_slot.parameter_name) == KeyKind.NAME
+                                and (
+                                    not parameter_names_source(
+                                        parameter=input_slot.parameter_name,
+                                        field=input_slot.resource_field,
+                                        resource=output_slot.resource.name,
+                                        pointer=output_slot.pointer,
+                                    )
+                                    # `Rule.TemplateName` beside `Rule.Name` names a template, not the rule.
+                                    or (
+                                        any(normalize_for_matching(f) == "name" for f in output_slot.resource.fields)
+                                        and all(
+                                            output.resource is not output_slot.resource for output in consumer.outputs
+                                        )
+                                        and not normalize_for_matching(output_slot.resource.name).startswith(
+                                            normalize_for_matching(input_slot.resource_field).removesuffix("name")
+                                        )
+                                    )
+                                )
+                            ):
+                                continue
                             # A pointer to an undeclared response field always resolves to nothing.
                             declared: Collection[str] = (
                                 output_slot.resource.fields

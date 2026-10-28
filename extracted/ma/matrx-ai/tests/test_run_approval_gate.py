@@ -18,6 +18,7 @@ Breaks named:
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 from types import SimpleNamespace
 from typing import Any
 
@@ -31,7 +32,7 @@ from matrx_ai.providers.unified_client import UnifiedAIClient
 USER = "0f0e0d0c-0b0a-4908-8706-050403020100"
 HELD_AGENT = "1b941f40-e846-4828-a9cb-4f3da7f19df7"
 FREE_AGENT = "6b6b4e45-4699-4860-8dea-d8a60e07d69a"
-URL = "https://manage.aimatrx.com/administration/billing/approvals?id=ap-1"
+URL = "https://manage.aimatrx.com/admin/billing/approvals?id=ap-1"
 PROFILE = SimpleNamespace(
     vendor="openai", model_name="gpt-test", endpoint_id="openai-test", base_url=None, offering_metadata={}
 )
@@ -174,3 +175,32 @@ def test_the_refusal_is_found_through_wrapping_layers() -> None:
     except RuntimeError as outer:
         assert gate.run_approval_refusal_in(outer) is inner
     assert "declined" in str(inner) and "was rejected" in inner.technical_message
+
+
+def test_a_held_subject_entering_an_admitted_tree_is_judged(memory: _Memory) -> None:
+    """2026-10-27: the code-built News monitor run (workflow run 1e391c11) admitted its whole tree at
+    its first paid call — a news-search external API call with no held subject — and every later
+    call of the tree rode that admission, so news.coarse_relevance and news.story_origin (both
+    REJECTED by Arman) ran 41 paid calls for $0.80. The memo is per tree AND the subjects the host
+    names: a subject new to an admitted tree is refused by a hold already on it."""
+    memory.held.add(HELD_AGENT)
+
+    def subjects(ctx: Any) -> list[tuple[str, str]]:
+        return [("agent", str(ctx.agent_id))]
+
+    def among(ctx: Any, new: list[tuple[str, str]]) -> gate.RunApprovalRequiredError | None:
+        return memory(ctx) if ("agent", str(ctx.agent_id)) in new else None
+
+    gate.set_run_approval_resolver(memory, subjects=subjects, refusal_among=among)
+    spent: list[str] = []
+    root = _rid(9)
+    collect = dataclasses.replace(_ctx(_rid(10), agent_id=FREE_AGENT, origin_class="workflow"), root_request_id=root)
+    assert asyncio.run(_paid_call(collect, spent)) is None  # the tree is admitted for its unheld step
+    held_step = dataclasses.replace(_ctx(_rid(11), agent_id=HELD_AGENT, origin_class="workflow"), root_request_id=root)
+    exc = asyncio.run(_paid_call(held_step, spent))
+    assert isinstance(exc, gate.RunApprovalRequiredError)
+    assert spent == [_rid(10)]
+    # The unheld subject's later calls in the same tree still ride its admission (never cut in half).
+    again = dataclasses.replace(_ctx(_rid(12), agent_id=FREE_AGENT, origin_class="workflow"), root_request_id=root)
+    assert asyncio.run(_paid_call(again, spent)) is None
+    assert memory.asked == [_rid(10), _rid(11)]

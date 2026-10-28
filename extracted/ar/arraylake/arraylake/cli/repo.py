@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from enum import Enum, StrEnum
 from uuid import UUID
 
@@ -12,7 +13,7 @@ from rich.text import Text
 from arraylake import AsyncClient
 from arraylake.cli.utils import coro, rich_console, simple_progress
 from arraylake.log_util import get_logger
-from arraylake.types import RepoOperationMode
+from arraylake.types import DatasetFilter, NodeFilter, RepoOperationMode, SubscriptionType
 
 app = typer.Typer(help="Manage Arraylake repositories", no_args_is_help=True)
 logger = get_logger(__name__)
@@ -85,6 +86,8 @@ def _make_json_safe(obj):
         return "[REDACTED]"
     elif isinstance(obj, UUID):
         return str(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
     else:
         return obj
 
@@ -181,6 +184,86 @@ async def import_repo(
             repo_name,
             bucket_config_nickname,
             prefix,
+            description=description,
+            metadata=metadata_dict,
+        )
+
+
+@app.command()
+@coro  # type: ignore
+async def subscribe(
+    repo_name: str = typer.Argument(..., help="Name of the subscriber repository {ORG}/{REPO_NAME}"),
+    listing_id: str = typer.Argument(..., help="ID of the exchange listing"),
+    subscription_type: SubscriptionType = typer.Option(SubscriptionType.DIRECT, help="Subscription type"),
+    include_path: list[str] | None = typer.Option(None, help="Group or array to copy (filtered/private). Repeat for more paths."),
+    exclude_path: list[str] | None = typer.Option(None, help="Group or array to leave out (filtered/private). Repeat for more paths."),
+    bucket_config_nickname: str | None = typer.Option(None, help="Bucket for the copied data (filtered/private)"),
+    prefix: str | None = typer.Option(None, help="Optional prefix in the bucket. If not provided, one is generated."),
+    description: str | None = typer.Option(None, help="Description of the repo"),
+    metadata: str | None = typer.Option(None, help="Optional metadata for the repo"),
+):
+    """**Subscribe** to an exchange listing
+
+    **Examples**
+
+    - Subscribe to a free listing
+
+        ```
+        $ arraylake repo subscribe my-org/era5 6720f1c2a9e3b4d5e6f70812
+        ```
+
+    - Copy two arrays from a paid listing into your bucket
+
+        ```
+        $ arraylake repo subscribe my-org/era5-subset 6720f1c2a9e3b4d5e6f70812 --subscription-type filtered --include-path /t2m --include-path /u10 --bucket-config-nickname my-bucket
+        ```
+    """
+    target_filter = (
+        DatasetFilter(nodes=NodeFilter(include_paths=include_path or [], exclude_paths=exclude_path or []))
+        if include_path or exclude_path
+        else None
+    )
+    metadata_dict = json.loads(metadata) if metadata else None
+    with simple_progress(f"Subscribing [bold]{repo_name}[/bold]..."):
+        await AsyncClient().subscribe_to_listing(
+            repo_name,
+            listing_id,
+            subscription_type=subscription_type,
+            target_filter=target_filter,
+            bucket_config_nickname=bucket_config_nickname,
+            prefix=prefix,
+            description=description,
+            metadata=metadata_dict,
+        )
+
+
+@app.command()
+@coro  # type: ignore
+async def claim(
+    repo_name: str = typer.Argument(..., help="Name of the subscriber repository {ORG}/{REPO_NAME}"),
+    claim_code: str = typer.Argument(..., help="Claim code from the provider"),
+    bucket_config_nickname: str | None = typer.Option(None, help="Bucket for the copied data (filtered/private)"),
+    prefix: str | None = typer.Option(None, help="Optional prefix in the bucket. If not provided, one is generated."),
+    description: str | None = typer.Option(None, help="Description of the repo"),
+    metadata: str | None = typer.Option(None, help="Optional metadata for the repo"),
+):
+    """**Claim** a subscription with a claim code
+
+    **Examples**
+
+    - Claim a subscription
+
+        ```
+        $ arraylake repo claim my-org/era5 ABCD-1234
+        ```
+    """
+    metadata_dict = json.loads(metadata) if metadata else None
+    with simple_progress(f"Claiming [bold]{repo_name}[/bold]..."):
+        await AsyncClient().claim_subscription(
+            repo_name,
+            claim_code,
+            bucket_config_nickname=bucket_config_nickname,
+            prefix=prefix,
             description=description,
             metadata=metadata_dict,
         )

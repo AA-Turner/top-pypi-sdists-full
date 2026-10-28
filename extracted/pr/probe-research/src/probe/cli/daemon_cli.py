@@ -186,11 +186,13 @@ def daemon_status(as_json: bool = typer.Option(False, "--json")) -> None:
 @daemon_app.command("install")
 def daemon_install() -> None:
     """Install the daemon's AI libraries into this CLI's environment (the `daemon` extra)."""
-    from probe._shared import uninstall_barrier
+    from probe.cli import install_pipeline
 
-    refused = uninstall_barrier.refusal()
-    if refused:
-        typer.echo(f"not installed: {refused}", err=True)
+    # An install entry: an uninstall that stopped halfway is finished first;
+    # one running refuses.
+    gate = install_pipeline.gate(finish=True)
+    if gate.refused:
+        typer.echo(f"not installed: {gate.refused}", err=True)
         raise typer.Exit(2)
     # Identity first (plan clean-uninstall-reinstall R-T4), on every path, the
     # "already installed" one too: an earlier sign-in's daemon key of another
@@ -198,7 +200,7 @@ def daemon_install() -> None:
     # the daemon's libraries are provisioned or the key reused. The daemon
     # wrote to the old team.
     problems = _hold_identity()
-    _provision()
+    _provision(fresh=gate.finished)
     if problems:
         typer.echo("daemon mode is INCOMPLETE on this machine: " + "; ".join(problems), err=True)
         raise typer.Exit(1)
@@ -217,14 +219,25 @@ def _hold_identity() -> list[str]:
     return list(report.problems)
 
 
-def _provision() -> None:
-    """The daemon's libraries, by this install's method (`daemon_install`)."""
+def _provision(*, fresh: bool = False) -> None:
+    """The daemon's libraries, by this install's method (`daemon_install`).
+    `fresh`: an uninstall was just finished here, which took the CLI's link
+    and `probe` command with it: the CLI is installed again side by side (the
+    daemon extra included) and the service started, never "already installed"."""
     import dataclasses
     import subprocess
 
     from probe import __version__
     from probe.cli import updater
 
+    if fresh:
+        managed = _install_side_by_side(__version__)
+        if managed is not None:
+            if managed != 2:
+                _start_service()
+            if managed:
+                raise typer.Exit(managed)
+            return
     installed = _installed_copy()
     if installed is not None:
         # This copy is thrown away on exit and the daemon never runs from it:

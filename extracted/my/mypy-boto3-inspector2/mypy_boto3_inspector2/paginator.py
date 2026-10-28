@@ -28,6 +28,7 @@ Usage::
         ListFindingAggregationsPaginator,
         ListFindingsPaginator,
         ListMembersPaginator,
+        ListOnDemandScansPaginator,
         ListUsageTotalsPaginator,
         SearchVulnerabilitiesPaginator,
     )
@@ -51,6 +52,7 @@ Usage::
     list_finding_aggregations_paginator: ListFindingAggregationsPaginator = client.get_paginator("list_finding_aggregations")
     list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
     list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
+    list_on_demand_scans_paginator: ListOnDemandScansPaginator = client.get_paginator("list_on_demand_scans")
     list_usage_totals_paginator: ListUsageTotalsPaginator = client.get_paginator("list_usage_totals")
     search_vulnerabilities_paginator: SearchVulnerabilitiesPaginator = client.get_paginator("search_vulnerabilities")
     ```
@@ -96,6 +98,8 @@ from .type_defs import (
     ListFindingsResponseTypeDef,
     ListMembersRequestPaginateTypeDef,
     ListMembersResponseTypeDef,
+    ListOnDemandScansRequestPaginateTypeDef,
+    ListOnDemandScansResponseTypeDef,
     ListUsageTotalsRequestPaginateTypeDef,
     ListUsageTotalsResponseTypeDef,
     SearchVulnerabilitiesRequestPaginateTypeDef,
@@ -125,6 +129,7 @@ __all__ = (
     "ListFindingAggregationsPaginator",
     "ListFindingsPaginator",
     "ListMembersPaginator",
+    "ListOnDemandScansPaginator",
     "ListUsageTotalsPaginator",
     "SearchVulnerabilitiesPaginator",
 )
@@ -473,6 +478,27 @@ class ListMembersPaginator(_ListMembersPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/paginator/ListMembers.html#Inspector2.Paginator.ListMembers.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/paginators/#listmemberspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListOnDemandScansPaginatorBase = Paginator[ListOnDemandScansResponseTypeDef]
+else:
+    _ListOnDemandScansPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListOnDemandScansPaginator(_ListOnDemandScansPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/paginator/ListOnDemandScans.html#Inspector2.Paginator.ListOnDemandScans)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/paginators/#listondemandscanspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListOnDemandScansRequestPaginateTypeDef]
+    ) -> PageIterator[ListOnDemandScansResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/inspector2/paginator/ListOnDemandScans.html#Inspector2.Paginator.ListOnDemandScans.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/paginators/#listondemandscanspaginator)
         """
 
 

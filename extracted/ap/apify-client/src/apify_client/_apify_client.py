@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 from apify_client._client_registry import ClientRegistry, ClientRegistryAsync
 from apify_client._consts import (
-    API_VERSION,
     DEFAULT_API_URL,
     DEFAULT_MAX_RETRIES,
     DEFAULT_MIN_DELAY_BETWEEN_RETRIES,
@@ -72,7 +71,7 @@ from apify_client._resource_clients import (
     WebhookDispatchCollectionClientAsync,
 )
 from apify_client._statistics import ClientStatistics
-from apify_client._utils.http import check_custom_headers
+from apify_client._utils.http import check_custom_headers, to_api_base_url
 from apify_client.http_clients import HttpClient, HttpClientAsync, ImpitHttpClient, ImpitHttpClientAsync
 from apify_client.http_compressors._resolve import resolve_compressor
 
@@ -126,6 +125,7 @@ class ApifyClient:
         timeout_long: timedelta = DEFAULT_TIMEOUT_LONG,
         timeout_max: timedelta = DEFAULT_TIMEOUT_MAX,
         headers: dict[str, str] | None = None,
+        user_agent_suffix: str | list[str] | None = None,
         compression: HttpCompressionAlgorithm | HttpCompressor = 'gzip',
     ) -> None:
         """Initialize the Apify API client.
@@ -137,10 +137,11 @@ class ApifyClient:
                 [Integrations](https://console.apify.com/account/integrations) page in the Apify Console.
             api_url: The URL of the Apify API server to connect to. Defaults to https://api.apify.com. It can
                 be an internal URL that is not globally accessible, in which case `api_public_url` should be set
-                as well.
+                as well. The `/v2` API version segment is appended unless the URL path already ends with it.
             api_public_url: The globally accessible URL of the Apify API server. Should be set only if `api_url`
-                is an internal URL that is not globally accessible. Defaults to https://api.apify.com.
-            max_retries: How many times to retry a failed request at most.
+                is an internal URL that is not globally accessible. Defaults to https://api.apify.com. The `/v2`
+                API version segment is appended unless the URL path already ends with it.
+            max_retries: How many times to retry a failed request at most. Set to 0 to disable retries.
             min_delay_between_retries: How long will the client wait between retrying requests
                 (increases exponentially from this value).
             timeout_short: Default timeout for short-duration API operations (simple CRUD operations, ...).
@@ -148,9 +149,18 @@ class ApifyClient:
             timeout_long: Default timeout for long-duration API operations (long-polling, streaming, ...).
             timeout_max: Maximum timeout cap for any single request attempt, including tier and per-call timeouts.
             headers: Additional HTTP headers to include in all API requests.
+            user_agent_suffix: Extra part or parts appended to the default `User-Agent` header, separated by `; `, for
+                example to identify the tool built on top of the client. With `with_custom_http_client`, pass it to
+                the HTTP client's constructor.
             compression: Compression algorithm for request bodies. Pass a string literal to select an algorithm,
                 or an `HttpCompressor` instance for finer-grained control.
+
+        Raises:
+            ValueError: If `max_retries` is negative.
         """
+        if max_retries < 0:
+            raise ValueError(f'max_retries must be a non-negative integer, got {max_retries}')
+
         # We need to do this because of mocking in tests and default mutable arguments.
         api_url = DEFAULT_API_URL if api_url is None else api_url
         api_public_url = DEFAULT_API_URL if api_public_url is None else api_public_url
@@ -161,10 +171,10 @@ class ApifyClient:
         self._token = token
         """Apify API token for authentication."""
 
-        self._base_url = f'{api_url.rstrip("/")}/{API_VERSION}'
+        self._base_url = to_api_base_url(api_url)
         """Base URL of the Apify API."""
 
-        self._public_base_url = f'{api_public_url.rstrip("/")}/{API_VERSION}'
+        self._public_base_url = to_api_base_url(api_public_url)
         """Public base URL for CDN access."""
 
         self._statistics = ClientStatistics()
@@ -212,6 +222,7 @@ class ApifyClient:
         self._timeout_long = timeout_long
         self._timeout_max = timeout_max
         self._headers = headers
+        self._user_agent_suffix = user_agent_suffix
         self._http_compressor = resolve_compressor(compression)
 
     @classmethod
@@ -250,8 +261,10 @@ class ApifyClient:
         Args:
             token: The Apify API token. It is set as the `Authorization` header on the custom client,
                 unless the client already has one configured.
-            api_url: The URL of the Apify API server to connect to. Defaults to https://api.apify.com.
+            api_url: The URL of the Apify API server to connect to. Defaults to https://api.apify.com. The `/v2`
+                API version segment is appended unless the URL path already ends with it.
             api_public_url: The globally accessible URL of the Apify API server. Defaults to https://api.apify.com.
+                The `/v2` API version segment is appended unless the URL path already ends with it.
             http_client: A custom HTTP client instance extending `HttpClient`.
         """
         instance = cls(token=token, api_url=api_url, api_public_url=api_public_url)
@@ -283,6 +296,7 @@ class ApifyClient:
                 min_delay_between_retries=self._min_delay_between_retries,
                 statistics=self._statistics,
                 headers=self._headers,
+                user_agent_suffix=self._user_agent_suffix,
                 http_compressor=self._http_compressor,
             )
 
@@ -490,6 +504,7 @@ class ApifyClientAsync:
         timeout_long: timedelta = DEFAULT_TIMEOUT_LONG,
         timeout_max: timedelta = DEFAULT_TIMEOUT_MAX,
         headers: dict[str, str] | None = None,
+        user_agent_suffix: str | list[str] | None = None,
         compression: HttpCompressionAlgorithm | HttpCompressor = 'gzip',
     ) -> None:
         """Initialize the Apify API client.
@@ -501,10 +516,11 @@ class ApifyClientAsync:
                 [Integrations](https://console.apify.com/account/integrations) page in the Apify Console.
             api_url: The URL of the Apify API server to connect to. Defaults to https://api.apify.com. It can
                 be an internal URL that is not globally accessible, in which case `api_public_url` should be set
-                as well.
+                as well. The `/v2` API version segment is appended unless the URL path already ends with it.
             api_public_url: The globally accessible URL of the Apify API server. Should be set only if `api_url`
-                is an internal URL that is not globally accessible. Defaults to https://api.apify.com.
-            max_retries: How many times to retry a failed request at most.
+                is an internal URL that is not globally accessible. Defaults to https://api.apify.com. The `/v2`
+                API version segment is appended unless the URL path already ends with it.
+            max_retries: How many times to retry a failed request at most. Set to 0 to disable retries.
             min_delay_between_retries: How long will the client wait between retrying requests
                 (increases exponentially from this value).
             timeout_short: Default timeout for short-duration API operations (simple CRUD operations, ...).
@@ -512,9 +528,18 @@ class ApifyClientAsync:
             timeout_long: Default timeout for long-duration API operations (long-polling, streaming, ...).
             timeout_max: Maximum timeout cap for any single request attempt, including tier and per-call timeouts.
             headers: Additional HTTP headers to include in all API requests.
+            user_agent_suffix: Extra part or parts appended to the default `User-Agent` header, separated by `; `, for
+                example to identify the tool built on top of the client. With `with_custom_http_client`, pass it to
+                the HTTP client's constructor.
             compression: Compression algorithm for request bodies. Pass a string literal to select an algorithm,
                 or an `HttpCompressor` instance for finer-grained control.
+
+        Raises:
+            ValueError: If `max_retries` is negative.
         """
+        if max_retries < 0:
+            raise ValueError(f'max_retries must be a non-negative integer, got {max_retries}')
+
         # We need to do this because of mocking in tests and default mutable arguments.
         api_url = DEFAULT_API_URL if api_url is None else api_url
         api_public_url = DEFAULT_API_URL if api_public_url is None else api_public_url
@@ -525,10 +550,10 @@ class ApifyClientAsync:
         self._token = token
         """Apify API token for authentication."""
 
-        self._base_url = f'{api_url.rstrip("/")}/{API_VERSION}'
+        self._base_url = to_api_base_url(api_url)
         """Base URL of the Apify API."""
 
-        self._public_base_url = f'{api_public_url.rstrip("/")}/{API_VERSION}'
+        self._public_base_url = to_api_base_url(api_public_url)
         """Public base URL for CDN access."""
 
         self._statistics = ClientStatistics()
@@ -576,6 +601,7 @@ class ApifyClientAsync:
         self._timeout_long = timeout_long
         self._timeout_max = timeout_max
         self._headers = headers
+        self._user_agent_suffix = user_agent_suffix
         self._http_compressor = resolve_compressor(compression)
 
     @classmethod
@@ -614,8 +640,10 @@ class ApifyClientAsync:
         Args:
             token: The Apify API token. It is set as the `Authorization` header on the custom client,
                 unless the client already has one configured.
-            api_url: The URL of the Apify API server to connect to. Defaults to https://api.apify.com.
+            api_url: The URL of the Apify API server to connect to. Defaults to https://api.apify.com. The `/v2`
+                API version segment is appended unless the URL path already ends with it.
             api_public_url: The globally accessible URL of the Apify API server. Defaults to https://api.apify.com.
+                The `/v2` API version segment is appended unless the URL path already ends with it.
             http_client: A custom HTTP client instance extending `HttpClientAsync`.
         """
         instance = cls(token=token, api_url=api_url, api_public_url=api_public_url)
@@ -647,6 +675,7 @@ class ApifyClientAsync:
                 min_delay_between_retries=self._min_delay_between_retries,
                 statistics=self._statistics,
                 headers=self._headers,
+                user_agent_suffix=self._user_agent_suffix,
                 http_compressor=self._http_compressor,
             )
         return self._http_client

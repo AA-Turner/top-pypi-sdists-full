@@ -22,6 +22,7 @@ two dataframes.
 """
 
 import logging
+import unicodedata
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Sequence
@@ -528,24 +529,25 @@ def _resolve_template_path(template_name: str) -> tuple[str, str]:
 
     # Handle relative paths in templates directory
     template_dir = str(Path(__file__).parent / "templates")
-    template_file = str(template_path)
+    # Jinja template names use forward slashes, including on Windows.
+    template_file = template_path.as_posix()
     full_path = Path(template_dir) / template_file
 
     # Try different file variations in order:
     # 1. As given
     # 2. With .j2 extension
     # 3. Without .j2 extension (if input had it)
-    if full_path.exists():
+    if full_path.is_file():
         return template_dir, template_file
 
     j2_path = full_path.with_suffix(".j2")
-    if j2_path.exists():
-        return template_dir, j2_path.name
+    if j2_path.is_file():
+        return template_dir, template_path.with_suffix(".j2").as_posix()
 
     if template_file.endswith(".j2"):
         base_path = full_path.with_suffix("")
-        if base_path.exists():
-            return template_dir, base_path.name
+        if base_path.is_file():
+            return template_dir, template_path.with_suffix("").as_posix()
 
     # If we get here, no variation exists
     raise FileNotFoundError(
@@ -558,6 +560,48 @@ def _resolve_template_path(template_name: str) -> tuple[str, str]:
 
 #: Spaces between adjacent columns of a report table.
 TABLE_GUTTER = "  "
+
+#: Unicode general categories that print no width of their own: nonspacing and
+#: enclosing marks, which are drawn onto the character before them, and
+#: invisible format characters such as a zero width joiner or a byte order mark.
+_ZERO_WIDTH_CATEGORIES = frozenset({"Mn", "Me", "Cf"})
+
+#: Hangul vowel and final consonant jamo. In decomposed Korean text they join
+#: the consonant before them into one syllable, so they print no width either.
+_HANGUL_JOINING_JAMO = (("\u1160", "\u11ff"), ("\ud7b0", "\ud7ff"))
+
+
+def _display_width(text: str) -> int:
+    """Return how many columns *text* takes up when printed in a monospaced font.
+
+    This differs from ``len()``, which counts code points. East Asian wide and
+    fullwidth characters, such as Chinese or Japanese ideographs, print two
+    columns wide. Combining marks and invisible format characters print none,
+    so an ``e`` followed by a separately stored acute accent is two code points
+    that print as a single ``é``. The same goes for the vowel and final
+    consonant of a decomposed Korean syllable.
+
+    Ambiguous-width characters count as one column. Terminal-specific rendering
+    and multi-character emoji sequences may occupy a different width.
+
+    Parameters
+    ----------
+    text : str
+        The text to measure.
+
+    Returns
+    -------
+    int
+        The number of columns *text* occupies.
+    """
+    width = 0
+    for char in text:
+        if unicodedata.category(char) in _ZERO_WIDTH_CATEGORIES or any(
+            first <= char <= last for first, last in _HANGUL_JOINING_JAMO
+        ):
+            continue
+        width += 2 if unicodedata.east_asian_width(char) in ("W", "F") else 1
+    return width
 
 
 def fixed_width_table(
@@ -572,6 +616,10 @@ def fixed_width_table(
     presented and this function stays in charge only of how wide the column is.
     That split is what keeps the header rule, the separator, and the body
     aligned no matter how long a dataset name or dtype turns out to be.
+
+    Widths are measured in printed columns rather than characters, so names
+    written in Chinese or Japanese, or with separately stored accents, line up
+    with everything else.
 
     Parameters
     ----------
@@ -611,17 +659,19 @@ def fixed_width_table(
             )
 
     widths = [
-        max(len(header), *(len(row[column]) for row in body)) if body else len(header)
+        max(_display_width(header), *(_display_width(row[column]) for row in body))
+        if body
+        else _display_width(header)
         for column, header in enumerate(headers)
     ]
 
     def lay_out(cells: Sequence[str]) -> str:
-        padded = [
-            cell.rjust(width)
-            if align[column : column + 1] == "r"
-            else cell.ljust(width)
-            for column, (cell, width) in enumerate(zip(cells, widths, strict=True))
-        ]
+        padded: list[str] = []
+        for column, (cell, width) in enumerate(zip(cells, widths, strict=True)):
+            # str.ljust and str.rjust pad to a character count, not a printed width.
+            padding = " " * (width - _display_width(cell))
+            right = align[column : column + 1] == "r"
+            padded.append(padding + cell if right else cell + padding)
         return TABLE_GUTTER.join(padded).rstrip()
 
     lines = [lay_out(headers), TABLE_GUTTER.join("-" * width for width in widths)]
@@ -694,6 +744,28 @@ def temp_column_name(*dataframes) -> str:
         i += 1
 
 
+def report_to_html(report: str) -> str:
+    """Wrap a text report in a minimal HTML page.
+
+    The page declares UTF-8, the encoding datacompy writes HTML reports in, so a
+    browser shows non-ASCII text as it is instead of guessing a legacy encoding.
+
+    Parameters
+    ----------
+    report : str
+        The text report to convert to HTML
+
+    Returns
+    -------
+    str
+        HTML with the text report inside a ``<pre>`` block.
+    """
+    return (
+        "<html><head><title>DataComPy Report</title><meta charset='UTF-8'/></head>"
+        f"<body><pre>{report}</pre></body></html>"
+    )
+
+
 def save_html_report(report: str, html_file: str | Path) -> None:
     """Save a text report as an HTML file.
 
@@ -706,11 +778,7 @@ def save_html_report(report: str, html_file: str | Path) -> None:
     """
     html_file = Path(html_file)
     html_file.parent.mkdir(parents=True, exist_ok=True)
-
-    # Create a simple HTML template with the report in a pre tag
-    html_content = f"""<html><head><title>DataComPy Report</title></head><body><pre>{report}</pre></body></html>"""
-    # Save the HTML file
-    html_file.write_text(html_content, encoding="utf-8")
+    html_file.write_text(report_to_html(report), encoding="utf-8")
 
 
 def df_to_str(df: Any, sample_count: int | None = None, on_index: bool = False) -> str:

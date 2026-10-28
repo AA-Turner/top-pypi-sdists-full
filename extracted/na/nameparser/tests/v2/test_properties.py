@@ -266,6 +266,132 @@ def test_the_comma_agreement_exceptions_are_all_still_exceptions(
         assert not parser.parse(comma_form).suffix, comma_form
 
 
+# rules/C15's grid: the given parts behind the empty head, as title
+# runs before, bodies, and trailing words, crossed. Each list holds a
+# shape a comma rule has met: a title-particle and a dual second in a
+# run (nameparser/AGENTS.md's head lists), a given-name title, one
+# only inside a phrase, a particle run and a particle tail, a bound
+# given name, a nickname alone and inside, a maiden clause, a word of
+# the ambiguous credential class in each case, a generation word and
+# an agnomen that are names too, a given name written short, and the
+# trailing title, salutation and numerals the trailing peel reads.
+_EMPTY_HEAD_TITLES = ("", "Dr.", "Mr", "Sir", "Freiherr", "St.",
+                      "Rev. Sr.", "Dean", "Queen", "dr.")
+_EMPTY_HEAD_BODIES = (
+    "", "John", "John Smith", "Ma", "MA", "abdul Rahman", "de Mesnil",
+    "Jane van", "Jones vd", "Jones mc", "John (Bob) Smith", "(Bob)",
+    "Jane née Jones", "John Q.", "J.", "JOHN SMITH", "john smith",
+    "JOHN", "Jane Mrs", "John Smith Jr.", "John V", "Jane fils", "fils",
+    "Neto", "PhD", "Jr.", "Jane PhD", "Ana García López", "Ed",
+    "von Berg", "Chas.", "Van")
+_EMPTY_HEAD_TAILS = ("", "Jr.", "PhD", "Dr.", "Mrs", "III", "V", "MA",
+                     "Ma", "fils", "X.Y.Z.")
+#: Rows rules/C15's one exception takes, H1 reading the title's lone
+#: name word as the family (', Dr. John'), under each of the three
+#: orders. A count per order, so the exception cannot grow unseen in
+#: one of them (measured 2026-10-27; 1,075 each before #892's
+#: empty-head P6 site went).
+_EMPTY_HEAD_H1_ROWS = 963
+
+
+def _empty_head_view(name: ParsedName, drop_first: bool = False
+                     ) -> tuple[dict[str, str], list[str]]:
+    words: dict[str, list[str]] = {role.value: [] for role in Role}
+    for tok in name.tokens:
+        words[tok.role.value].append(tok.text)
+    if drop_first:
+        # the twin's surname, from whichever field it reached: a
+        # given-name title addresses it as the given name ('Smith, Sir
+        # PhD', rules/H1)
+        first = name.tokens[0]
+        words[first.role.value].remove(first.text)
+    return ({role: " ".join(w) for role, w in words.items()},
+            sorted(a.kind.name for a in name.ambiguities))
+
+
+def _surname_in_the_case_of(given_part: str) -> str:
+    """The twin's surname, written in the case the given part's own
+    words are written in: a surname in another case would bring the
+    case contrast the empty head lacks ('Smith, MA' reads suffix 'MA'
+    by its capitals, rules/S6, where ', MA' and 'SMITH, MA' read given
+    'MA'). Delimited words are not the name's own (rules/S6)."""
+    letters = [c for c in re.sub(r"\(.*?\)", "", given_part)
+               if c.isalpha()]
+    if letters and all(c.isupper() for c in letters):
+        return "SMITH"
+    if letters and all(c.islower() for c in letters):
+        return "smith"
+    return "Smith"
+
+
+def test_an_empty_head_reads_as_its_family_comma_twin() -> None:
+    """rules/C15's invariant: ', X' reads as 'Smith, X' reads, less the
+    surname, its fields and ambiguity kinds alike, under every order.
+    Less the surname only: a particle the twin attaches to it
+    (rules/P6) is the family alone here (', Jane van' -> family 'van').
+    Kinds, not details: a report's wording is not compared.
+
+    The one exception is H1's, asserted rather than skipped: where the
+    twin reads a title and name words in the given field alone, the
+    empty head reads them as the family (', Dr. John' -> family
+    'John'), the comma naming no surname to decide by. Only where the
+    twin, less its surname, reads no family: a particle P6 attaches
+    gives H1 a family, so it stands down (', Dr. Jones vd' -> given
+    'Jones', family 'vd').
+
+    This replaces the empty head as a shape every comma sweep must hold
+    (nameparser/AGENTS.md): a change that breaks it gets a generic fix
+    or an entry in decisions/C15, never code of its own. 10,557 rows
+    (3,519 per order), about 2 s serially (measured 2026-10-27).
+
+    RECORDED NEGATIVE CONTROL, measured 2026-10-27: restoring the
+    defect #613's review found, the comma decision returning early on
+    an empty head (`if not seg1 or not seg0` in `_comma.decide`), fails
+    1,098 rows, ', PhD' reading given 'PhD' among them.
+    """
+    failures: list[str] = []
+    h1_rows: dict[str, int] = {}
+    rows = 0
+    for label, order in (("given-first", GIVEN_FIRST),
+                         ("family-first", FAMILY_FIRST),
+                         ("family-first-given-last",
+                          FAMILY_FIRST_GIVEN_LAST)):
+        parser = Parser(policy=Policy(name_order=order))
+        h1_rows[label] = 0
+        for parts in itertools.product(_EMPTY_HEAD_TITLES,
+                                       _EMPTY_HEAD_BODIES,
+                                       _EMPTY_HEAD_TAILS):
+            given_part = " ".join(p for p in parts if p)
+            if not given_part:
+                continue
+            rows += 1
+            empty = _empty_head_view(parser.parse(", " + given_part))
+            twin_text = _surname_in_the_case_of(given_part) + ", " \
+                + given_part
+            twin = _empty_head_view(parser.parse(twin_text),
+                                    drop_first=True)
+            if empty == twin:
+                continue
+            fields, kinds = twin
+            if (fields["title"] and fields["given"]
+                    and not fields["middle"] and not fields["family"]):
+                moved = dict(fields, given="", family=fields["given"])
+                if empty == (moved, kinds):
+                    h1_rows[label] += 1
+                    continue
+            failures.append(
+                f"{label}: {', ' + given_part!r} reads {empty} but "
+                f"{twin_text!r} less its surname reads {twin}")
+    assert rows == 3 * 3519, rows
+    assert not failures, (
+        f"{len(failures)} given part(s) disagree:\n"
+        + "\n".join(failures[:15]))
+    assert set(h1_rows.values()) == {_EMPTY_HEAD_H1_ROWS}, (
+        f"H1's exception took {h1_rows} rows, recorded "
+        f"{_EMPTY_HEAD_H1_ROWS}: read the rows it gained or lost "
+        f"before re-recording")
+
+
 #: The one-case-head exception class, and the recorded size of it.
 #: Structural rather than a name list: a name whose OWN words are
 #: written in one case, where the member's own writing is the only
@@ -313,6 +439,16 @@ _MAIDEN_ANCHORED_HEAD_EXCEPTIONS = 0
 _MAIDEN_ANCHORED_HEAD_DIGEST = (
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 _MAIDEN_AGREEMENT_EXCEPTIONS = 1026
+#: #785: pairs whose 'MA' body is no name word, its capitals settling
+#: it as the credential in a name of mixed case (rules/S6). Where the
+#: marker is an ordinary word -- after a family comma (rules/M2) --
+#: such a body is a credential written before the member, and starts
+#: the credential's run (rules/S8), so removing the "clause" removes a
+#: credential and changes the question, which the docstring's
+#: name-words-only premise rules out. Recorded 2026-10-25: 288 pairs,
+#: every one on a family-comma head ('Doe, Jane', 'Smith, Jane',
+#: 'Doe, J.', 'Doe, Dr. Jane').
+_MAIDEN_SETTLED_BODY_PAIRS = 288
 _MAIDEN_AGREEMENT_DIGEST = (
     "4b70727a2633fea1a9c219173d48b223cc0866a5d340b69a9eb4f14fc386ae6a")
 
@@ -622,6 +758,7 @@ def test_a_maiden_clause_does_not_change_how_a_trailing_word_reads(
                         for bad in _credential_without_suffix_role(name))
 
     failures = []
+    settled_body = 0
     for label, policy in policies:
         parser = Parser(policy=policy)
         for head in heads:
@@ -653,6 +790,11 @@ def test_a_maiden_clause_does_not_change_how_a_trailing_word_reads(
                                 anchored_head.append(
                                     f"{label}|{marker}|{clause}")
                                 continue
+                            if body == "MA" and next(
+                                    t for t in clause_name.tokens
+                                    if t.text == body).role is Role.SUFFIX:
+                                settled_body += 1
+                                continue
                             failures.append(
                                 f"[{label}] {clause!r} reads "
                                 f"{clause_side} but {plain!r} reads "
@@ -671,6 +813,9 @@ def test_a_maiden_clause_does_not_change_how_a_trailing_word_reads(
     assert not failures, (
         f"{len(failures)} of {pairs} pair(s) disagree outside the "
         f"one-case-head class:\n" + "\n".join(failures[:15]))
+    assert settled_body == _MAIDEN_SETTLED_BODY_PAIRS, (
+        f"{settled_body} pairs disagree on a body its capitals settled, "
+        f"recorded as {_MAIDEN_SETTLED_BODY_PAIRS} on 2026-10-25")
     anchored_digest = hashlib.sha256(
         "\n".join(sorted(anchored_head)).encode()).hexdigest()
     assert (len(anchored_head), anchored_digest) == (
@@ -703,7 +848,10 @@ _CLASS_TAGS = frozenset({"vocab:suffix-ambiguous", "shape:acronym"})
 #: report and an assign-peel report on the same parse, each naming a
 #: different token. Written out rather than generated, because what
 #: makes them work is the CONTRAST between the two members' writing.
-_TAILS = ("Ma JD", "MA JD", "MA Ma")
+#: The lower-case pair joined them in #785: capitals in a name of mixed
+#: case settle a member and report nothing (rules/S6), and 'Ma jd'
+#: keeps the shape with two members no writing settles.
+_TAILS = ("Ma JD", "MA JD", "MA Ma", "Ma jd")
 
 
 def _maiden_clause_grid() -> list[tuple[str, Parser, str]]:
@@ -892,7 +1040,7 @@ def test_a_title_the_clause_gives_up_lands_in_title() -> None:
     heads = ("Jane Doe", "J.", "Jane van der Berg", "abdul Berg")
     bodies = ("Smith Prof.", "Smith MA Prof.", "Smith Prof. MA",
               "Smith V Prof.", "Smith Ma Prof.", "Smith Prof. Dr.",
-              "Prof.", "Prof. Dr.", "Smith King.", "Smith MA do Prof.",
+              "Prof.", "Prof. Dr.", "Smith Pope.", "Smith MA do Prof.",
               "Smith i DO Prof.", "Smith i MA Prof.", "Smith St.",
               "Smith MA St.", "Smith V St.")
     failures = []
@@ -915,7 +1063,7 @@ def test_a_title_the_clause_gives_up_lands_in_title() -> None:
 def test_a_title_first_word_counts_as_a_word() -> None:
     """rules/M2's first-word floor, over two INPUTS: the floor is
     the title chain's own (`trailing_titles` takes it), so whether the
-    first word after the marker IS title vocabulary ('King.') or not
+    first word after the marker IS title vocabulary ('Pope.') or not
     ('Smith') must not change what a trailing credential behind it
     reads as -- the floor holds either word out of the chain's count,
     so the credential is read the same way in both. Both sides must
@@ -935,7 +1083,7 @@ def test_a_title_first_word_counts_as_a_word() -> None:
     """
     forms = ("Jane Doe nee {} {}", "Jane Doe nee {} {}, MD")
     runs = ("ba", "MA", "V", "PhD", "MA JD")
-    heads = ("King.", "Smith")
+    heads = ("Pope.", "Smith")
     failures = []
     for form in forms:
         for tail in runs:
@@ -986,7 +1134,10 @@ def test_no_two_ambiguities_name_the_same_token_span() -> None:
     either kept by the clause or peeled by assign and no grid row had
     TWO. The `_TAILS` below are that shape: 'Ma JD' keeps 'Ma' and
     peels 'JD', 'MA JD' releases 'MA' and peels 'JD' behind it, and
-    'MA Ma' keeps the Title-case one with the caps one in front. The
+    'MA Ma' keeps the Title-case one with the caps one in front. Since
+    #785 a capitals member in a name of mixed case is settled and
+    reports nothing (rules/S6), so 'Ma jd' carries the two-report
+    shape where the capitals tails no longer do. The
     count is re-pinned on the widened grid, and the pairing is
     asserted directly beside it so a later edit that drops the tails
     fails here rather than silently turning this back into a test of
@@ -1064,10 +1215,14 @@ def test_no_two_ambiguities_name_the_same_token_span() -> None:
     # P6's -- and 1,965 arrived, 1,134 on 'Jane Doe Jr.', whose
     # credential now starts a run that takes the clause in and reports
     # what it absorbs, the rest on heads whose marker is an ordinary
-    # word now; the tails loop below adds 6.
-    assert multi == 4239, (
+    # word now; the tails loop below adds 6. 4,239 -> 3,744 on
+    # 2026-10-25 (#785): a listed member its capitals settle in a name
+    # of mixed case reports nothing (rules/S6), so the grid's capitals
+    # spellings carry one report fewer (2,988 on the old grid), and the
+    # 'Ma jd' tail added beside them restores the two-report shape.
+    assert multi == 3744, (
         f"{multi} of these parses carry more than one report, recorded "
-        f"as 4239 on 2026-10-04. A parse with one report cannot fail "
+        f"as 3744 on 2026-10-25. A parse with one report cannot fail "
         f"the check above, so this is what keeps the grid honest: move "
         f"the number deliberately, and never to 0")
     # 2,052 since 2026-10-04 (#601/#602), from 1,944: 216 parses left,
@@ -1078,10 +1233,14 @@ def test_no_two_ambiguities_name_the_same_token_span() -> None:
     # clause-free view -- and on 'Jane Doe Jr.', whose credential run
     # reports what it absorbs. The run's reports moved from assign's
     # peel to the take that consumes the run (#601), so the pair is
-    # the maiden take's member report against the run's.
-    assert both == 2052, (
+    # the maiden take's member report against the run's. 2,052 ->
+    # 1,728 on 2026-10-25 (#785): the capitals 'JD' and 'MA' of the
+    # first three tails are settled and report nothing (rules/S6), and
+    # the 'Ma jd' tail, whose members no writing settles, brings the
+    # pair back.
+    assert both == 1728, (
         f"{both} parse(s) carry TWO suffix-or-name reports, recorded "
-        f"as 2052 on 2026-10-04. This is the pair the test is named "
+        f"as 1728 on 2026-10-25. This is the pair the test is named "
         f"for -- the clause's kept member against the trailing run's "
         f"reading -- and it was 0 for the whole grid until the "
         f"two-member tails were added. Never re-record it as 0")
@@ -1160,7 +1319,7 @@ def _fix_invariants(**fields: frozenset[str]) -> dict[str, frozenset[str]]:
     Drawing dependent subsets directly (particles_ambiguous from
     whatever particles happened to be drawn) makes the strategy tree
     deep and mostly rejects; intersecting after the fact keeps every
-    draw usable and still reaches every shape. The five rules are
+    draw usable and still reaches every shape. The seven rules are
     Lexicon's own, restated here on purpose -- if one changes, this
     fails loudly rather than silently fuzzing a narrower space.
     """
@@ -1171,6 +1330,9 @@ def _fix_invariants(**fields: frozenset[str]) -> dict[str, frozenset[str]]:
     # or that later subtraction could re-orphan a tail this repair just
     # fixed
     fields["honorific_tails"] &= fields["suffix_words"]
+    fields["suffix_words_ambiguous"] &= fields["suffix_words"]
+    fields["suffix_words_ambiguous"] -= (
+        fields["suffix_acronyms"] - fields["suffix_acronyms_ambiguous"])
     fields["bound_given_names"] -= (
         fields["particles"] - fields["particles_ambiguous"])
     return fields
@@ -3228,17 +3390,21 @@ def test_a_delimiter_core_in_a_tail_reads_as_its_comma_twin() -> None:
     maiden walk stepped over a core instead (#538), 102 of these 129
     texts disagreed -- 'Puig - i Soler' read suffix 'Puig - i Soler'
     against 'Puig, i Soler', and 'PhD née Puig - i Soler' maiden
-    'Puig i Soler' against 'Puig'.
+    'Puig i Soler' against 'Puig'. The core is ' | ' since #889 made a
+    hyphen standing alone built in, so that ' - ' no longer shows the
+    declared path; re-taken with ' | ' at 061f02da on 2026-10-27, 102
+    of 129 again.
     """
-    dash = Parser(policy=Policy(extra_suffix_delimiters=frozenset({" - "})))
-    failures, total = _comma_twin_findings(dash)
+    pipe = Parser(policy=Policy(extra_suffix_delimiters=frozenset({" | "})))
+    failures, total = _comma_twin_findings(pipe, " | ")
     assert total == 129
     assert not failures, "\n".join(failures)
 
 
 def test_a_semicolon_standing_alone_in_a_tail_reads_as_its_comma_twin() -> None:
-    """rules/C10's "The semicolon is a delimiter by default" -- the
-    same walk with no policy at all, the semicolon standing alone.
+    """rules/C10's "The semicolon, the hyphen and the slash are delimiters
+    by default" -- the same walk with no policy at all, the semicolon
+    standing alone.
 
     RECORDED NEGATIVE CONTROL: at 638685b4, before the semicolon was a
     delimiter, all 129 texts disagreed, the semicolon a word of the
@@ -3248,11 +3414,26 @@ def test_a_semicolon_standing_alone_in_a_tail_reads_as_its_comma_twin() -> None:
     assert not failures, "\n".join(failures)
 
 
+@pytest.mark.parametrize("core", [" - ", " / "])
+def test_a_hyphen_or_slash_standing_alone_in_a_tail_reads_as_its_comma_twin(
+        core: str) -> None:
+    """rules/C10's "The semicolon, the hyphen and the slash are delimiters
+    by default" -- #549's walk again with no policy, the hyphen or the
+    slash standing alone (#889).
+
+    RECORDED NEGATIVE CONTROL: at 8a65ee18, before either was a
+    delimiter, all 129 texts disagreed for each core, the core a word
+    of the suffix run where the comma parts it."""
+    failures, total = _comma_twin_findings(Parser(), core)
+    assert total == 129
+    assert not failures, "\n".join(failures)
+
+
 # rules/C10's "A delimiter glued to a suffix word parts it from the next
 # as a comma glued there would" -- so a semicolon glued to a word after
 # the first comma reads as the same text with a space in its place, the
 # glued word kept in its field with its semicolon. Two inputs (docs/
-# design/AGENTS.md axis 11), over every comma shape AGENTS.md's sweep
+# design/AGENTS.md axis 11), over every comma shape nameparser/AGENTS.md's sweep
 # names (a whole name, one word, an empty head, a nickname head, a
 # suffix before the comma, a particle, a connective and a title-particle
 # head), a second comma part or none, and all three orders, with a word
@@ -3516,9 +3697,9 @@ def test_the_one_case_grid_sees_the_letter_in_front(
         monkeypatch: pytest.MonkeyPatch) -> None:
     from nameparser._pipeline import _vocab
     monkeypatch.setattr(
-        "nameparser._pipeline._pieces.is_trailing_numeral_suffix",
-        lambda text, preceding, one_case=None:
-            _vocab.is_trailing_numeral_suffix(text, preceding, None))
+        "nameparser._pipeline._pieces.reads_as_generation",
+        lambda text, tags, preceding, one_case=None:
+            _vocab.reads_as_generation(text, tags, preceding, None))
     assert (len(_one_case_disagreements())
             == _ONE_CASE_LETTER_IN_FRONT_UNGUARDED)
 
@@ -3569,3 +3750,94 @@ def test_a_bare_salutation_reads_as_its_period_marked_twin() -> None:
                 failures.append(f"{order!r}: {text!r}")
     assert not failures, (f"{len(failures)} bare salutation(s) read unlike "
                           f"the period-marked twin:\n" + "\n".join(failures[:10]))
+
+
+#: rules/H2's precedence grid (#789): each slot an abbreviation's shape
+#: reads (the head of the given part, behind a title, after a family
+#: comma with and without a word before it, before a nickname, a
+#: particle, a title-particle, a connective, a maiden marker or a
+#: trailing credential), and before a comma ahead of a word of the
+#: ambiguous credential class, where the comma's own count asks the
+#: shape, a modifier's title phrase among it (`Smith, Ed`), each paired
+#: with the same text holding a plain given name in the abbreviation's
+#: place; and the bare spellings, which must read as with the set
+#: emptied, in two slots of their own (`{} SMITH, XYZ`, `John Smith, {}`,
+#: where a wordlist roster once made a bare one a name, #789's review).
+#: The 13 shipped abbreviations in six spellings, 21 slots, three
+#: orders: 4,914 parses with their control, about 1.5s on py3.11
+#: (measured 2026-10-26). Mutation-checked the same day, on the 19
+#: slots before the review added two: with the peel's half of the
+#: precedence off (`_pieces.is_leading_title`) 2,103 of the dotted pairs
+#: fail, with the comma count's (`_vocab.is_title_shaped`) 234, and with
+#: `_vocab.title_readings`' two calls alone 117; with the field back in
+#: `_vocab._LISTED_FIELDS`, 66 of the 21-slot grid.
+_ABBREVIATION_SLOTS = (
+    "{} Smith", "{} H. Smith", "Smith, {}", "Smith, {} John", ", {} Smith",
+    "Mr. {} Smith", "Mrs {} Liza Cruz", "Dr. {} Smith, PhD",
+    "(Bob) {} Smith", "{} Smith Jr.", "{} de la Vega",
+    "{} Freiherr von Berg", "Rev. Sr. {} Smith", "{} y Gasset",
+    "{} nee Smith", "Smith Jr., {} John", "{} Smith, Ed", "{} Vice Smith, Ed", "Vice {} Smith, Ed",
+    "{} SMITH, XYZ", "John Smith, {}")
+
+
+def test_a_given_name_written_short_reads_as_a_given_name() -> None:
+    """rules/H2's precedence bullet (#789): "an abbreviation the
+    vocabulary reads as a given name written short is that given name".
+    Two-sided, against the same lexicon with the set emptied: where the
+    shape reads the abbreviation as a title there, or the comma's count
+    reads it as one, it reads, field for
+    field, as the plain given name `Jack` reads in its place; and where
+    the shape reads no title (`Smith, MA.`, the credential its capitals
+    settle), the reading is the one the emptied set gives. Ambiguity
+    kinds are not compared: `ma` keeps its credential reading, and the
+    report that reading draws after a comma. The bare spellings, which
+    the shape never reads, must read exactly as with the set emptied in
+    every slot, the capitals behind a comma included ('John Smith, JAS'
+    keeps suffix 'JAS', #789's review). Every slot must see the
+    shape fire somewhere, so a pass is not a grid the shape never
+    reaches."""
+    lexicon = Lexicon.default()
+    off = lexicon.remove(
+        given_name_abbreviations=set(lexicon.given_name_abbreviations))
+
+    def fields(name: ParsedName, plain: str = "", head: str = "") -> dict[str, str]:
+        return {k: v.replace(plain, head) if plain else v
+                for k, v in name.as_dict().items() if v}
+
+    failures, fired = [], set()
+    for order in (GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST):
+        policy = Policy(name_order=order)
+        parser, control = Parser(policy=policy), Parser(lexicon=off, policy=policy)
+        # the stand-in in capitals behind a mixed-case name would be an
+        # unlisted capitals credential itself ('John Smith, JACK'), which
+        # no given name written short is: read it with that shape off.
+        # OFF reaches every word of the text, so a slot compared through
+        # the stand-in must hold no other capitals word ('{} SMITH, XYZ'
+        # is compared only with the set emptied)
+        stand_in = Parser(policy=dataclasses.replace(
+            policy, unlisted_caps_suffixes=CapsSuffixes.OFF))
+        for word in sorted(lexicon.given_name_abbreviations):
+            # the bare spellings too, which the set must never move
+            for head, plain in ((word.title() + ".", "Jack"),
+                                (word.upper() + ".", "JACK"),
+                                (word + ".", "jack"),
+                                (word.title(), ""), (word.upper(), ""),
+                                (word, "")):
+                for slot in _ABBREVIATION_SLOTS:
+                    text = slot.format(head)
+                    got = fields(parser.parse(text))
+                    unlisted = control.parse(text)
+                    if plain and (head in unlisted.title.split()
+                                  or slot.endswith(", Ed")):
+                        fired.add(slot)
+                        want = fields(stand_in.parse(slot.format(plain)), plain, head)
+                    else:
+                        want = fields(unlisted)
+                    if got != want:
+                        failures.append(f"{order!r}: {text!r} {got} != {want}")
+    assert not failures, (f"{len(failures)} abbreviation(s) misread:\n"
+                          + "\n".join(failures[:10]))
+    # '{} SMITH, XYZ' is there for the bare spellings: before a family
+    # comma the shape never fires (rules/H6)
+    assert fired == set(_ABBREVIATION_SLOTS) - {"{} SMITH, XYZ"}, (
+        set(_ABBREVIATION_SLOTS) - fired)

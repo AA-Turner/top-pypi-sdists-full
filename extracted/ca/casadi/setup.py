@@ -56,6 +56,12 @@ class CMakeBuild(build_ext):
         if os.name=='nt':
             lib_name = "python%d%d.lib" % (sys.version_info.major,sys.version_info.minor)
             lib_path = os.path.join(sys.exec_prefix, "libs", lib_name)
+            if not os.path.exists(lib_path):
+                # MinGW Python (e.g. MSYS2) ships libpythonX.Y.dll.a in LIBDIR instead
+                libdir = sysconfig.get_config_var('LIBDIR')
+                ldlibrary = sysconfig.get_config_var('LDLIBRARY')
+                if libdir and ldlibrary:
+                    lib_path = os.path.join(libdir, ldlibrary)
             if os.path.exists(lib_path):
                 cmake_args.append('-DPYTHON_LIBRARY=' + lib_path)
         if sys.version_info[0] == 3:
@@ -94,7 +100,7 @@ with open('./requirements.txt') as f:
 
 setup(
     name='casadi',
-    version='3.8.1',
+    version='3.8.2',
     author='Joel Andersson, Joris Gillis, Greg Horn',
     author_email='developer_first_name@casadi.org',
     maintainer='Joris Gillis',

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from matrx_orm.exceptions import DoesNotExist
 from matrx_utils import vcprint
 
 from matrx_ai.db._registry import get_base, get_model
@@ -52,7 +53,12 @@ class AgxDefinitionManager(AgxDefinitionBase):
     async def to_config(self, agent_id: str) -> AgentConfig:
         from matrx_ai.agents.follow_source import resolve_followed_row
 
-        agent: AgxDefinition = await self.load_by_id(agent_id)
+        # A MISSING OR DELETED AGENT IS A 404, NEVER A 500. ``load_by_id`` wraps the ORM's
+        # DoesNotExist in an AppError that no route maps, so a run on a deleted agent answered
+        # HTTP 500. The ORM's own DoesNotExist is mapped once, globally, to a 404 with a door.
+        agent: AgxDefinition | None = await self.load_by_id_or_none(agent_id)
+        if agent is None or getattr(agent, "deleted_at", None) is not None:
+            raise DoesNotExist(model="agent", filters={"id": agent_id})
         # A template copy with follows_source runs its source's current content.
         return _row_to_config(await resolve_followed_row(agent, self._load_source_or_none))
 
@@ -75,7 +81,9 @@ class AgxDefinitionVersionManager(AgxDefinitionVersionBase):
         pass
 
     async def to_config(self, version_id: str) -> AgentConfig:
-        version: AgxDefinitionVersion = await self.load_by_id(version_id)
+        version: AgxDefinitionVersion | None = await self.load_by_id_or_none(version_id)
+        if version is None:
+            raise DoesNotExist(model="agent", filters={"id": version_id})
         return _row_to_config(version)
 
 

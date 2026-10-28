@@ -35,9 +35,9 @@ async def _body_for_bucket_patch(metastore, sent, request):
 @pytest.mark.asyncio
 async def test_bucket_patch_omits_untouched_fields(metastore_capturing_body):
     metastore, sent = metastore_capturing_body
-    body = await _body_for_bucket_patch(metastore, sent, BucketModifyRequest(nickname="renamed"))
+    body = await _body_for_bucket_patch(metastore, sent, BucketModifyRequest(name="renamed"))
 
-    assert body == {"nickname": "renamed"}
+    assert body == {"name": "renamed"}
     assert sent["method"] == "PATCH"
 
 
@@ -45,7 +45,7 @@ async def test_bucket_patch_omits_untouched_fields(metastore_capturing_body):
 @pytest.mark.parametrize("field", ["platform", "name", "prefix", "extra_config", "auth_config", "em_managed"])
 async def test_bucket_patch_never_sends_a_null_for_an_untouched_field(metastore_capturing_body, field):
     metastore, sent = metastore_capturing_body
-    body = await _body_for_bucket_patch(metastore, sent, BucketModifyRequest(nickname="renamed"))
+    body = await _body_for_bucket_patch(metastore, sent, BucketModifyRequest())
 
     assert field not in body
 
@@ -71,9 +71,9 @@ async def test_bucket_patch_keeps_an_omitted_shared_secret_off_the_wire(metastor
 @pytest.mark.asyncio
 async def test_bucket_patch_still_sends_an_explicitly_set_value(metastore_capturing_body):
     metastore, sent = metastore_capturing_body
-    body = await _body_for_bucket_patch(metastore, sent, BucketModifyRequest(prefix="", nickname="renamed"))
+    body = await _body_for_bucket_patch(metastore, sent, BucketModifyRequest(prefix="", name="renamed"))
 
-    assert body == {"nickname": "renamed", "prefix": ""}
+    assert body == {"name": "renamed", "prefix": ""}
 
 
 @pytest.mark.asyncio

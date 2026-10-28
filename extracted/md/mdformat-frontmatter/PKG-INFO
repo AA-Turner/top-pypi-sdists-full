@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mdformat_frontmatter
-Version: 2.1.2
+Version: 2.2.0
 Summary: An mdformat plugin for parsing / ignoring frontmatter.
 Project-URL: Source, https://github.com/butler54/mdformat-frontmatter
 Project-URL: Changelog, https://github.com/butler54/mdformat-frontmatter/blob/main/CHANGELOG.md
@@ -15,18 +15,20 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: mdformat>=0.7.16
-Requires-Dist: mdit-py-plugins>=0.4.0
-Requires-Dist: ruamel-yaml>=0.15
+Requires-Dist: mdformat>=1.0.0
+Requires-Dist: mdit-py-plugins>=0.6.1
+Requires-Dist: ruamel-yaml>=0.19.1
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: python-semantic-release>=10.4.0; extra == 'dev'
+Requires-Dist: python-semantic-release>=10.7.0; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: coverage; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest>=7.3; extra == 'test'
+Requires-Dist: pytest>=9.1.1; extra == 'test'
 Description-Content-Type: text/markdown
 
 # mdformat-frontmatter

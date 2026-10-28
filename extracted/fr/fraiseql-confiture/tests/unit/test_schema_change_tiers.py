@@ -8,9 +8,10 @@ statement's ``-- confiture:tier`` directive) gives the statement the renderer wr
 for it — over every kind, and over each kind compared by definition that a
 migration is derived for.
 
-Four disagreements are declared — a type change's source, an addition written
-``CREATE OR REPLACE``, an addition guarded in a ``DO`` block, and a relation
-created with its indexes, which are written plain — and each entry is asserted to **still disagree**: the day the renderer or the classifier closes one, its entry
+Five disagreements are declared — a type change's source, an addition written
+``CREATE OR REPLACE``, an addition guarded in a ``DO`` block, a relation
+created with its indexes, which are written plain, and a view dropped to be created
+again by the change after it — and each entry is asserted to **still disagree**: the day the renderer or the classifier closes one, its entry
 fails and goes. A change the renderer writes no statement for has nothing to
 agree with and is not compared.
 """
@@ -23,6 +24,7 @@ from confiture.core.change_set import classify_statements
 from confiture.core.change_set.diff_tiers import tier_of
 from confiture.core.differ import SchemaDiffer
 from confiture.core.differ_sql import DERIVED_KINDS, DifferSQLGenerator
+from confiture.core.migration_analyzer import runs_in_one_transaction
 from confiture.core.risk_tier import RiskTier, worst_tier
 from confiture.core.schema_change import (
     ObjectAdded,
@@ -52,13 +54,15 @@ DISAGREEMENTS: dict[str, str] = {
     ),
     "ObjectAdded[type]": "as a domain: a composite or range type's CREATE is guarded in DO",
     "ObjectAdded[policy]": "as a domain: a policy's CREATE is guarded in DO",
-    "TableAdded[indexed]": (
-        "declared additive; the written plain CREATE INDEX reads lock_risky, so "
-        "window_safe is false; which of the two a relation created with its indexes "
-        "should declare is still open"
+    "ObjectAdded[tview, indexed]": (
+        "written pg_tviews_create_or_replace(), which may replace a TVIEW that exists, so "
+        "the TVIEW is not proven new and its plain CREATE INDEX reads lock_risky"
     ),
-    "ObjectAdded[matview, indexed]": "as a table created with its indexes",
-    "ObjectAdded[tview, indexed]": "as a table created with its indexes",
+    "DependentsDropped": (
+        "its drops are classified alone here; a migration writes DependentsRecreated after "
+        "them, and the change set reads each drop the file creates again as the "
+        "replacement the pair is (change_set.rebuilt, #765)"
+    ),
     "ObjectAdded[tview]": (
         "a pg_tviews TVIEW is written tviews.pg_tviews_create_or_replace() so the "
         "migration re-applies; the call reads as a replacement, the change is an addition"
@@ -148,9 +152,17 @@ def _changes() -> list[SchemaChange]:
 CHANGES = _changes()
 
 
+def _written(change: SchemaChange) -> str | None:
+    """The up the generator writes for *change* alone: plain where it runs in one transaction."""
+    sql = DifferSQLGenerator().generate_up(change)
+    if sql is None or not runs_in_one_transaction(sql):
+        return sql
+    return DifferSQLGenerator().generate_up(change, plain_creates=True)
+
+
 def _statement_tier(change: SchemaChange) -> tuple[bool, RiskTier | None]:
     """Whether the renderer writes a statement for *change*, and the change set's tier for it."""
-    sql = DifferSQLGenerator().generate_up(change)
+    sql = _written(change)
     entries = classify_statements(sql) if sql else []
     return bool(entries), worst_tier(entry.tier for entry in entries)
 

@@ -4,6 +4,7 @@ import base64
 import binascii
 import collections
 import collections.abc
+import dataclasses
 import datetime as dt
 import email
 import email.errors
@@ -20,12 +21,12 @@ import os.path
 import pathlib
 import re
 import socket
-import string
 import typing
 import urllib.parse
 import uuid
 from html import unescape
 
+import idna
 import publicsuffixlist
 import regex
 
@@ -86,6 +87,26 @@ __copyright__ = 'Copyright 2013-2014 Georges Toth, Copyright 2013-present GOVCER
 __license__ = 'AGPL v3+'
 
 
+@dataclasses.dataclass(frozen=True)
+class PartData:
+    """Data of one e-mail part, handed to the `part_hook` callback of `EmlParser`.
+
+    The bytes in `data` are exactly the bytes the parser hashed for this part, so
+    `sha256` equals `hashlib.sha256(data).hexdigest()` and matches the hash stored in
+    the parse result (`body[].hash` or `attachment[].hash['sha256']`). A consumer
+    can therefore correlate a scan hit with the part in the
+    result without the plaintext ever appearing in it.
+    """
+
+    kind: str  # 'body' for a text part, 'attachment' for a part parsed as attachment
+    data: bytes  # the part content, exactly the bytes that were hashed
+    sha256: str  # SHA-256 of `data`, hex encoded
+    content_type: str | None  # content type of the part, e.g. 'text/html'
+    filename: str | None  # attachment file name, if any
+    content_headers: dict[str, list[str]]  # part headers, lower-cased names
+    boundary: str | None  # boundary of the enclosing multipart, if any
+
+
 @functools.cache
 def get_public_suffix_list(accept_unknown: bool) -> publicsuffixlist.PublicSuffixList:
     """Return the public suffix list; it is parsed once per setting and shared, as parsing it takes about 40 ms and it is read-only afterwards.
@@ -97,10 +118,6 @@ def get_public_suffix_list(accept_unknown: bool) -> publicsuffixlist.PublicSuffi
         The parsed public suffix list.
     """
     return publicsuffixlist.PublicSuffixList(accept_unknown=accept_unknown)
-
-
-# Characters allowed in a header field name (RFC 5322 ftext): printable ASCII except space and colon.
-FIELD_NAME_BYTES = (string.ascii_letters + string.digits + string.punctuation.replace(':', '')).encode()
 
 
 def find_header_start(data: bytes) -> int:
@@ -121,7 +138,7 @@ def find_header_start(data: bytes) -> int:
         line_start = max(pos, data.rfind(b'\n', pos, colon) + 1)
         field_name = data[line_start:colon].rstrip(b' \t')
 
-        if field_name and not field_name.translate(None, FIELD_NAME_BYTES):
+        if field_name and not field_name.translate(None, eml_parser.constants.FIELD_NAME_BYTES):
             return line_start
 
         line_end = data.find(b'\n', colon)
@@ -247,6 +264,8 @@ class EmlParser:
         parse_attachments: bool = True,
         include_www: bool = True,
         include_href: bool = True,
+        *,
+        part_hook: typing.Callable[[PartData], None] | None = None,
     ) -> None:
         """Initialisation.
 
@@ -274,6 +293,17 @@ class EmlParser:
                                                 in-lined, will always be parsed.
             include_www (bool, optional): Include potential URLs starting with www
             include_href (bool, optional): Include potential URLs in HREFs matching non-simple regular expressions
+            part_hook (Callable[[PartData], None], optional): Callback invoked for every part of
+                                                               the e-mail (text parts and attachments) with the
+                                                               part's data, at the point where its hash is computed.
+                                                               The data is passed exactly as hashed (see `PartData`), so
+                                                               it can be scanned without the plaintext
+                                                               ending up in the returned structure. The callback is
+                                                               invoked independently of `include_raw_body` and
+                                                               `include_attachment_data`, and text attachments are
+                                                               delivered once per representation (as `body` and as
+                                                               `attachment`), like in the result itself. Exceptions
+                                                               raised by the callback are not caught. Default is None.
 
         """
         self.include_raw_body = include_raw_body
@@ -287,6 +317,7 @@ class EmlParser:
         self.parse_attachments = parse_attachments
         self.include_www = include_www
         self.include_href = include_href
+        self.part_hook = part_hook
         self._psl = get_public_suffix_list(not self.domain_force_tld)
         # A file extension which is a TLD (or becomes one) is a domain and not a file name, so the public suffix list decides.
         self._file_extensions = frozenset(
@@ -603,15 +634,8 @@ class EmlParser:
                     else:
                         logger.debug('Invalid IP in received line - "%s"', ip)
 
-                # search for domain
-                for m in eml_parser.regexes.recv_dom_regex.findall(received_line_flat):
-                    try:
-                        _ = ipaddress.ip_address(m)  # type of findall is list[str], so this is correct
-                    except ValueError:
-                        # we find IPs using the previous IP crawler, hence we ignore them
-                        # here.
-                        # iff the regex fails, we add the entry
-                        headers_struc['received_domain'].append(m)
+                # search for domain (the last label contains a letter, so IPs are never matched; they are found above)
+                headers_struc['received_domain'] += eml_parser.regexes.recv_dom_regex.findall(received_line_flat)
 
                 # search for e-mail addresses
                 for mail_candidate in self.email_regex.findall(received_line_flat):
@@ -722,8 +746,18 @@ class EmlParser:
             # For this reason, we have to extract the domains again from each parsed URL.
             # Run once over the deduplicated URLs after slicing to keep the cost linear in the body size.
             # The URLs are percent-decoded, as the target of a redirector is usually encoded (`?url=https%3A%2F%2Fevil.example%2F`).
+            # The host is also added in the ASCII form a browser resolves, which covers non-ASCII host names (`пример.рф`, `аpple.com`).
             for url in dict.fromkeys([*list_observed_urls, *list_observed_urls_noscheme]):
-                for match in eml_parser.regexes.dom_regex.findall(urllib.parse.unquote(url)):
+                try:
+                    host = urllib.parse.urlparse(url if ':/' in url else '//' + url).hostname
+                except ValueError:
+                    host = None
+                ascii_host = self.get_ascii_host(host.rstrip('.')) if host else None
+
+                domain_candidates = eml_parser.regexes.dom_regex.findall(urllib.parse.unquote(url))
+                if ascii_host and eml_parser.regexes.dom_regex.fullmatch(ascii_host):
+                    domain_candidates.append(ascii_host)
+                for match in domain_candidates:
                     if self.is_file_name(match):
                         continue
 
@@ -732,11 +766,7 @@ class EmlParser:
                         list_observed_dom[match.lower()] = 1
 
                 # http://3232235777/ is a valid URL for browsers but contains no dotted IP address
-                try:
-                    host = urllib.parse.urlparse(url if ':/' in url else '//' + url).hostname
-                except ValueError:
-                    host = None
-                obfuscated_ip = self.get_obfuscated_ip(host.rstrip('.')) if host else None
+                obfuscated_ip = self.get_obfuscated_ip(ascii_host) if ascii_host else None
                 if obfuscated_ip and obfuscated_ip not in self.pconf['whiteip']:
                     list_observed_ip[obfuscated_ip] = 1
 
@@ -792,7 +822,7 @@ class EmlParser:
             # "a","toto"           a: [toto,titi]
             # "a","titi"   --->    c: [truc]
             # "c","truc"
-            ch: dict[str, list] = {}
+            ch: dict[str, list[str]] = {}
             for header_key, header_value in body_multhead:
                 # make sure we are working with strings only
                 v = str(header_value)
@@ -825,7 +855,21 @@ class EmlParser:
                 bodie['content_type'] = header_val.split(';', 1)[0].strip()
 
             # Hash the body
-            bodie['hash'] = hashlib.sha256(body.encode('utf-8')).hexdigest()
+            body_data = body.encode('utf-8')
+            bodie['hash'] = hashlib.sha256(body_data).hexdigest()
+
+            if self.part_hook is not None:
+                self.part_hook(
+                    PartData(
+                        kind='body',
+                        data=body_data,
+                        sha256=bodie['hash'],
+                        content_type=bodie.get('content_type'),
+                        filename=None,
+                        content_headers=ch,
+                        boundary=boundary,
+                    )
+                )
 
             if boundary is not None:
                 # only include boundary key if there is a value set
@@ -1040,6 +1084,42 @@ class EmlParser:
 
         return self.get_obfuscated_ip(host)
 
+    @staticmethod
+    def get_ascii_host(host: str) -> str | None:
+        """Convert the host name of an URL to the ASCII form a browser resolves (domain to ASCII of the WHATWG URL standard).
+
+        The host is percent-decoded and mapped with UTS #46, non-transitional like browsers: upper case and full width characters
+        are folded, ignored characters such as U+200B or U+00AD are dropped and the ideographic full stop separates labels.
+        Non-ASCII labels are converted to punycode (`аpple.com` with a Cyrillic "а" is `xn--pple-43d.com`, `faß.de` is
+        `xn--fa-hia.de`). Unlike the `idna` codecs, symbols such as emoji are accepted, as browsers do (`💩.la` is `xn--ls8h.la`).
+
+        Args:
+            host (str): The host name of an URL.
+
+        Returns:
+            str: The host name in ASCII, or None if a browser rejects it (a disallowed or forbidden code point, a misplaced joiner,
+            a label violating the bidi rule or starting with a combining mark).
+        """
+        if not host.isascii() or '%' in host:
+            try:
+                labels = idna.uts46_remap(urllib.parse.unquote(host), std3_rules=False, transitional=False).split('.')
+                for position, label in enumerate(labels):
+                    if label.isascii():
+                        continue
+
+                    idna.check_initial_combiner(label)
+                    idna.check_bidi(label)
+                    if not all(idna.valid_contextj(label, index) for index, char in enumerate(label) if char in '\u200c\u200d'):
+                        return None
+
+                    labels[position] = f'xn--{label.encode("punycode").decode("ascii")}'
+            except idna.IDNAError:
+                return None
+
+            host = '.'.join(labels)
+
+        return None if eml_parser.regexes.forbidden_domain_char_regex.search(host) else host
+
     def get_obfuscated_ip(self, host: str) -> str | None:
         """Resolve a host which is an IPv4 address in a notation browsers accept, e.g. `3232235777`, `0xC0A80101`, `0300.0250.0.1` or `127.1`.
 
@@ -1069,9 +1149,14 @@ class EmlParser:
         if '&' in url:
             url = unescape(url)
 
-        if '.' not in url and '[' not in url and not eml_parser.regexes.url_numeric_host_regex.match(url.lstrip(' \t\n\r\f\v\'"«»“”‘’')):
+        if (
+            not any(dot in url for dot in '.\u3002\uff0e\uff61')
+            and '[' not in url
+            and not eml_parser.regexes.url_numeric_host_regex.match(url.lstrip(' \t\n\r\f\v\'"«»“”‘’'))
+        ):
             # if we found a URL like e.g. http://afafasasfasfas; that makes no
             # sense, thus skip it, but include http://[2001:db8::1] and http://3232235777 (a numeric host is an IPv4 address)
+            # Browsers also separate the labels of a host by the ideographic and full width full stops (http://example。com).
             return None
 
         try:
@@ -1435,6 +1520,19 @@ class EmlParser:
                     ch[k] = [v]
 
             attachment[file_id]['content_header'] = ch
+
+            if self.part_hook is not None:
+                self.part_hook(
+                    PartData(
+                        kind='attachment',
+                        data=data,
+                        sha256=attachment[file_id]['hash']['sha256'],
+                        content_type=msg.get_content_type(),
+                        filename=filename,
+                        content_headers=ch,
+                        boundary=None,
+                    )
+                )
 
         return attachment
 

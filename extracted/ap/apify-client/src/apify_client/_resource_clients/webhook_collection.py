@@ -70,6 +70,7 @@ class WebhookCollectionClient(ResourceClient):
         limit: int | None = None,
         offset: int | None = None,
         desc: bool | None = None,
+        chunk_size: int | None = None,
         timeout: Timeout = 'medium',
     ) -> Iterator[WebhookListItem]:
         """Iterate over the available webhooks.
@@ -83,6 +84,7 @@ class WebhookCollectionClient(ResourceClient):
             limit: How many webhooks to retrieve.
             offset: What webhook to include as first when retrieving the list.
             desc: Whether to sort the webhooks in descending order based on their date of creation.
+            chunk_size: Maximum number of webhooks requested per API call when iterating across pages.
             timeout: Timeout for the API HTTP request.
 
         Yields:
@@ -92,7 +94,7 @@ class WebhookCollectionClient(ResourceClient):
         def _callback(*, limit: int | None = None, offset: int | None = None) -> ListOfWebhooks:
             return self.list(limit=limit, offset=offset, desc=desc, timeout=timeout)
 
-        return get_items_iterator(_callback, limit=limit, offset=offset)
+        return get_items_iterator(_callback, limit=limit, offset=offset, chunk_size=chunk_size)
 
     def create(
         self,
@@ -101,11 +103,13 @@ class WebhookCollectionClient(ResourceClient):
         request_url: str,
         payload_template: str | None = None,
         headers_template: str | None = None,
+        should_interpolate_strings: bool | None = None,
         actor_id: str | None = None,
         actor_task_id: str | None = None,
         actor_run_id: str | None = None,
         ignore_ssl_errors: bool | None = None,
         do_not_retry: bool | None = None,
+        description: str | None = None,
         idempotency_key: str | None = None,
         is_ad_hoc: bool | None = None,
         timeout: Timeout = 'short',
@@ -121,11 +125,14 @@ class WebhookCollectionClient(ResourceClient):
             request_url: URL that will be invoked once the webhook is triggered.
             payload_template: Specification of the payload that will be sent to request_url.
             headers_template: Headers that will be sent to the request_url.
+            should_interpolate_strings: Whether to also interpolate `{{...}}` variables inside string values of the
+                payload and headers templates.
             actor_id: Id of the Actor whose runs should trigger the webhook.
             actor_task_id: Id of the Actor task whose runs should trigger the webhook.
             actor_run_id: Id of the Actor run which should trigger the webhook.
             ignore_ssl_errors: Whether the webhook should ignore SSL errors returned by request_url.
             do_not_retry: Whether the webhook should retry sending the payload to request_url upon failure.
+            description: Description of the webhook.
             idempotency_key: A unique identifier of a webhook. You can use it to ensure that you won't create
                 the same webhook multiple times.
             is_ad_hoc: Set to True if you want the webhook to be triggered only the first time the condition
@@ -140,8 +147,10 @@ class WebhookCollectionClient(ResourceClient):
             request_url=request_url,
             payload_template=payload_template,
             headers_template=headers_template,
+            should_interpolate_strings=should_interpolate_strings,
             ignore_ssl_errors=ignore_ssl_errors,
             do_not_retry=do_not_retry,
+            description=description,
             idempotency_key=idempotency_key,
             is_ad_hoc=is_ad_hoc if actor_run_id else None,
             condition=WebhookCondition(
@@ -203,6 +212,7 @@ class WebhookCollectionClientAsync(ResourceClientAsync):
         limit: int | None = None,
         offset: int | None = None,
         desc: bool | None = None,
+        chunk_size: int | None = None,
         timeout: Timeout = 'medium',
     ) -> AsyncIterator[WebhookListItem]:
         """Iterate over the available webhooks.
@@ -216,6 +226,7 @@ class WebhookCollectionClientAsync(ResourceClientAsync):
             limit: How many webhooks to retrieve.
             offset: What webhook to include as first when retrieving the list.
             desc: Whether to sort the webhooks in descending order based on their date of creation.
+            chunk_size: Maximum number of webhooks requested per API call when iterating across pages.
             timeout: Timeout for the API HTTP request.
 
         Yields:
@@ -225,7 +236,7 @@ class WebhookCollectionClientAsync(ResourceClientAsync):
         async def _callback(*, limit: int | None = None, offset: int | None = None) -> ListOfWebhooks:
             return await self.list(limit=limit, offset=offset, desc=desc, timeout=timeout)
 
-        return get_items_iterator_async(_callback, limit=limit, offset=offset)
+        return get_items_iterator_async(_callback, limit=limit, offset=offset, chunk_size=chunk_size)
 
     async def create(
         self,
@@ -234,11 +245,13 @@ class WebhookCollectionClientAsync(ResourceClientAsync):
         request_url: str,
         payload_template: str | None = None,
         headers_template: str | None = None,
+        should_interpolate_strings: bool | None = None,
         actor_id: str | None = None,
         actor_task_id: str | None = None,
         actor_run_id: str | None = None,
         ignore_ssl_errors: bool | None = None,
         do_not_retry: bool | None = None,
+        description: str | None = None,
         idempotency_key: str | None = None,
         is_ad_hoc: bool | None = None,
         timeout: Timeout = 'short',
@@ -254,11 +267,14 @@ class WebhookCollectionClientAsync(ResourceClientAsync):
             request_url: URL that will be invoked once the webhook is triggered.
             payload_template: Specification of the payload that will be sent to request_url.
             headers_template: Headers that will be sent to the request_url.
+            should_interpolate_strings: Whether to also interpolate `{{...}}` variables inside string values of the
+                payload and headers templates.
             actor_id: Id of the Actor whose runs should trigger the webhook.
             actor_task_id: Id of the Actor task whose runs should trigger the webhook.
             actor_run_id: Id of the Actor run which should trigger the webhook.
             ignore_ssl_errors: Whether the webhook should ignore SSL errors returned by request_url.
             do_not_retry: Whether the webhook should retry sending the payload to request_url upon failure.
+            description: Description of the webhook.
             idempotency_key: A unique identifier of a webhook. You can use it to ensure that you won't create
                 the same webhook multiple times.
             is_ad_hoc: Set to True if you want the webhook to be triggered only the first time the condition
@@ -273,8 +289,10 @@ class WebhookCollectionClientAsync(ResourceClientAsync):
             request_url=request_url,
             payload_template=payload_template,
             headers_template=headers_template,
+            should_interpolate_strings=should_interpolate_strings,
             ignore_ssl_errors=ignore_ssl_errors,
             do_not_retry=do_not_retry,
+            description=description,
             idempotency_key=idempotency_key,
             is_ad_hoc=is_ad_hoc if actor_run_id else None,
             condition=WebhookCondition(

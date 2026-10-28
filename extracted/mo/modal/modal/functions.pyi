@@ -619,7 +619,7 @@ class Function(
 
     _call_generator: ___call_generator_spec
 
-    class __remote_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
+    class __remote_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> ReturnType_INNER:
             """Calls the function remotely, executing it with the given arguments and returning the execution's result.
 
@@ -644,7 +644,7 @@ class Function(
             """
             ...
 
-    remote: __remote_spec[modal._functions.P, modal._functions.ReturnType]
+    remote: __remote_spec[modal._functions.ReturnType, modal._functions.P]
 
     class __remote_gen_spec(typing_extensions.Protocol):
         def __call__(self, /, *args, **kwargs) -> typing.Generator[typing.Any, None, None]:
@@ -694,7 +694,7 @@ class Function(
         """
         ...
 
-    class ___experimental_spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
+    class ___experimental_spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """[Experimental] Calls the function with the given arguments, without waiting for the results.
 
@@ -727,7 +727,7 @@ class Function(
             """
             ...
 
-    _experimental_spawn: ___experimental_spawn_spec[modal._functions.P, modal._functions.ReturnType]
+    _experimental_spawn: ___experimental_spawn_spec[modal._functions.ReturnType, modal._functions.P]
 
     class ___spawn_map_inner_spec(typing_extensions.Protocol[P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> None: ...
@@ -735,7 +735,7 @@ class Function(
 
     _spawn_map_inner: ___spawn_map_inner_spec[modal._functions.P]
 
-    class __spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
+    class __spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """Calls the function with the given arguments, without waiting for the results.
 
@@ -768,7 +768,7 @@ class Function(
             """
             ...
 
-    spawn: __spawn_spec[modal._functions.P, modal._functions.ReturnType]
+    spawn: __spawn_spec[modal._functions.ReturnType, modal._functions.P]
 
     @property
     def _raw_f_(self) -> collections.abc.Callable[..., typing.Any]: ...

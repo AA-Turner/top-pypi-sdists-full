@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "A python client for the GitHub API"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 authors = [{name = "Jeremy Howard", email = "info@fast.ai"}]
 keywords = ['github', 'api']
 classifiers = ["Natural Language :: English", "Intended Audience :: Developers", "Development Status :: 5 - Production/Stable", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only"]
@@ -25,7 +25,7 @@ ghapi = "ghapi._modidx:d"
 ghapi = "ghapi.skill"
 
 [project.optional-dependencies]
-dev = ['fastgit', 'matplotlib', 'nbclassic', 'nbdev', 'pyyaml', 'pysym2md>=0.0.6', 'llms-txt>=0.0.6', 'pyskills>=0.0.30']
+dev = ['fastgit', 'matplotlib', 'nbclassic', 'nbdev', 'pyyaml', 'pysym2md>=0.0.6', 'llms-txt>=0.0.6', 'pyskills>=0.0.30', 'pycachy>=0.0.21']
 
 
 [project.scripts]

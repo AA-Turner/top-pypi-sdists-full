@@ -144,7 +144,9 @@ def _resolve_parameter_dependency(
     3. Try discovering from operation's response schemas
     4. Fall back to creating placeholder with a single field
     """
-    resource_name = naming.from_parameter(parameter=parameter_name, path=operation.path)
+    resource_name = naming.from_parameter(
+        parameter=parameter_name, path=operation.path, query=parameter_location == ParameterLocation.QUERY
+    )
 
     if resource_name is None:
         return None
@@ -642,8 +644,8 @@ def _match_field(parameter_name: str, resource_name: str, fields: list[str]) -> 
     matched = naming.find_matching_field(parameter=parameter_name, resource=resource_name, fields=fields)
     if matched is not None:
         return matched
-    if "id" in fields:
-        # Conventional fallback: `<resource>Id` parameters point at the resource's `id` field.
+    # Conventional fallback: `<resource>Id` parameters point at the resource's `id` field. A name is never an `id`.
+    if "id" in fields and naming.key_kind(parameter_name) != naming.KeyKind.NAME:
         return "id"
     # Without an `id` field, use the parameter name so peer captures reach this slot.
     return parameter_name

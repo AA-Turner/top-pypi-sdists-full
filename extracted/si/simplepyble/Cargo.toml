@@ -2,21 +2,24 @@
 edition = "2021"
 
 name = "simplersble"
-version = "1.2.0"
+version = "1.3.0"
 rust-version = "1.82"
 license = "BUSL-1.1"
-description = "The all-in-one Bluetooth library that makes it easy to add wireless connectivity to your projects."
+description = "Rust bindings for the cross-platform SimpleBLE Bluetooth Low Energy library, for Windows, macOS, and Linux. Free for non-commercial use; commercial use requires a license."
 readme = "simplersble/README.md"
 repository = "https://github.com/simpleble/simpleble"
 
 include = [
+    "/LICENSE.md",
     "/VERSION",
     "/cmake",
     "/dependencies",
     "/simpleble",
     "/simplebluez",
     "/simpledbus",
-    "/simplersble",
+    "/simplersble/README.md",
+    "/simplersble/build.rs",
+    "/simplersble/src",
 ]
 
 build = "simplersble/build.rs"
@@ -24,6 +27,11 @@ links = "simpleble"
 
 [lib]
 path = "simplersble/src/lib.rs"
+
+# Runs against the simulated backend: SIMPLERSBLE_PLAIN=1 cargo test
+[[test]]
+name = "plain"
+path = "simplersble/tests/plain.rs"
 
 [dependencies]
 cxx = "1.0"

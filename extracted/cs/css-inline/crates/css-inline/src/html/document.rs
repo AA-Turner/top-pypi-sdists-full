@@ -1,17 +1,26 @@
 use super::{
+    attributes::{hash_class_name, is_selector_whitespace},
     element::Element,
     iter::{select, Select},
-    node::{Node, NodeData, NodeId},
+    node::{ElementData, Node, NodeData, NodeId},
     parser,
-    selectors::ParseError,
+    selectors::{ParseError, Selector},
     serializer::serialize_to,
+    variables::{contains_var, CssVariables},
     InliningMode,
 };
 use crate::{html::DocumentStyleMap, InlineError};
 use html5ever::{local_name, tendril::StrTendril, LocalName};
 use rustc_hash::FxHashMap;
-use selectors::context::SelectorCaches;
-use std::{fmt, fmt::Formatter, io::Write, iter::successors};
+use selectors::{context::SelectorCaches, parser::Component};
+use smallvec::SmallVec;
+use std::{
+    cell::{Cell, OnceCell},
+    fmt,
+    fmt::Formatter,
+    io::Write,
+    iter::successors,
+};
 
 /// Minimum input size (bytes) to build element indexes.
 /// For smaller inputs, linear scan is faster than hash map operations.
@@ -53,12 +62,22 @@ pub(crate) struct Document {
     linked_stylesheets: Vec<NodeId>,
     /// Whether element indexes are enabled for this document.
     use_indexes: bool,
-    /// Index: ID attribute value -> `NodeId` (IDs should be unique per document).
-    by_id: FxHashMap<LocalName, NodeId>,
+    /// Index: ID attribute value -> `NodeId`s with that ID.
+    /// IDs should be unique, but browsers style every duplicate; one is stored inline.
+    /// ID, class, and tag indexes are keyed by `name_key`, so names are not interned.
+    by_id: FxHashMap<u64, SmallVec<[NodeId; 1]>>,
     /// Index: class name -> list of `NodeId`s with that class.
-    by_class: FxHashMap<LocalName, Vec<NodeId>>,
+    by_class: FxHashMap<u64, Vec<NodeId>>,
     /// Index: tag name -> list of `NodeId`s with that tag.
-    by_tag: FxHashMap<LocalName, Vec<NodeId>>,
+    by_tag: FxHashMap<u64, Vec<NodeId>>,
+    /// Index: attribute name -> list of `NodeId`s with that attribute.
+    /// Built on first use, as attribute selectors are rare in emails.
+    by_attribute: OnceCell<FxHashMap<LocalName, Vec<NodeId>>>,
+    /// Names on the ancestor elements of each node, indexed by `NodeId`.
+    /// Built on first use, once enough candidates asked for it to pay for a tree pass.
+    ancestor_names: OnceCell<Vec<NameSet>>,
+    /// Candidates checked before `ancestor_names` was built.
+    ancestor_demand: Cell<usize>,
 }
 
 impl fmt::Debug for Document {
@@ -74,18 +93,19 @@ impl fmt::Debug for Document {
 
 impl Document {
     pub(crate) fn parse_with_options(
-        bytes: &[u8],
+        html: &str,
         preallocate_node_capacity: usize,
         mode: InliningMode,
     ) -> Document {
-        parser::parse_with_options(bytes, preallocate_node_capacity, mode)
+        parser::parse_with_options(html, preallocate_node_capacity, mode)
     }
 
     pub(super) fn with_capacity(capacity: usize, input_size: usize) -> Self {
+        // Usually there are a lot of nodes, hence, reserve space for them and the two below
+        let mut nodes = Vec::with_capacity(capacity.saturating_add(2));
         // Dummy node at index 0 so that other indices fit in NonZero
-        let mut nodes = vec![Node::new(NodeData::Document), Node::new(NodeData::Document)];
-        // Usually there are a lot of nodes, hence, reserve some space for them
-        nodes.reserve(capacity);
+        nodes.push(Node::new(NodeData::Document));
+        nodes.push(Node::new(NodeData::Document));
         // Only build indexes for larger documents where the lookup benefit outweighs overhead
         let use_indexes = input_size >= INDEX_SIZE_THRESHOLD;
         Document {
@@ -97,6 +117,9 @@ impl Document {
             by_id: FxHashMap::default(),
             by_class: FxHashMap::default(),
             by_tag: FxHashMap::default(),
+            by_attribute: OnceCell::new(),
+            ancestor_names: OnceCell::new(),
+            ancestor_demand: Cell::new(0),
         }
     }
 
@@ -157,9 +180,12 @@ impl Document {
 
     /// Index an element by its tag name.
     #[inline]
-    pub(super) fn index_by_tag(&mut self, tag: LocalName, node_id: NodeId) {
+    pub(super) fn index_by_tag(&mut self, node_id: NodeId) {
         if self.use_indexes {
-            self.by_tag.entry(tag).or_default().push(node_id);
+            if let Some(element) = self[node_id].as_element() {
+                let key = name_key(element.name.local.as_bytes());
+                self.by_tag.entry(key).or_default().push(node_id);
+            }
         }
     }
 
@@ -167,70 +193,229 @@ impl Document {
     #[inline]
     pub(super) fn index_by_id(&mut self, id: &StrTendril, node_id: NodeId) {
         if self.use_indexes && !id.is_empty() {
-            let id_atom = LocalName::from(&**id);
-            // IDs should be unique; later declarations override earlier ones
-            self.by_id.insert(id_atom, node_id);
+            self.by_id
+                .entry(name_key(id.as_bytes()))
+                .or_default()
+                .push(node_id);
         }
     }
 
     /// Index an element by its class names (space-separated).
     pub(super) fn index_by_classes(&mut self, classes: &StrTendril, node_id: NodeId) {
         if self.use_indexes {
-            for class in classes.split_whitespace() {
-                let class_atom = LocalName::from(class);
-                self.by_class.entry(class_atom).or_default().push(node_id);
+            // Same splitting as the class matcher: CSS whitespace only
+            for class in classes
+                .split(|c: char| c.is_ascii() && is_selector_whitespace(c as u8))
+                .filter(|class| !class.is_empty())
+            {
+                self.by_class
+                    .entry(name_key(class.as_bytes()))
+                    .or_default()
+                    .push(node_id);
             }
         }
     }
 
-    /// Lookup an element by its ID attribute value.
+    /// Lookup elements by ID attribute value.
     #[inline]
-    pub(crate) fn get_by_id(&self, id: &LocalName) -> Option<NodeId> {
-        self.by_id.get(id).copied()
+    pub(crate) fn get_by_id(&self, id: &str) -> &[NodeId] {
+        self.by_id
+            .get(&name_key(id.as_bytes()))
+            .map_or(&[], SmallVec::as_slice)
     }
 
     /// Lookup elements by class name.
     #[inline]
-    pub(crate) fn get_by_class(&self, class: &LocalName) -> &[NodeId] {
-        self.by_class.get(class).map_or(&[], Vec::as_slice)
+    pub(crate) fn get_by_class(&self, class: &str) -> &[NodeId] {
+        self.by_class
+            .get(&name_key(class.as_bytes()))
+            .map_or(&[], Vec::as_slice)
     }
 
     /// Lookup elements by tag name.
     #[inline]
-    pub(crate) fn get_by_tag(&self, tag: &LocalName) -> &[NodeId] {
-        self.by_tag.get(tag).map_or(&[], Vec::as_slice)
+    pub(crate) fn get_by_tag(&self, tag: &str) -> &[NodeId] {
+        self.by_tag
+            .get(&name_key(tag.as_bytes()))
+            .map_or(&[], Vec::as_slice)
     }
 
-    /// Quick check if a selector's anchor exists in the document.
-    /// Returns `false` if we can determine the selector won't match anything.
-    ///
-    /// This is a fast heuristic, not a full CSS parser. It extracts the leftmost
-    /// identifier from the selector and checks if it exists in our indexes.
-    /// False positives (returning `true` for non-matching selectors) are acceptable;
-    /// the full selector matching will filter those out later.
+    /// Lookup elements by attribute name.
     #[inline]
-    pub(crate) fn anchor_exists(&self, selector: &str) -> bool {
-        // Only use this optimization when indexes are enabled.
-        // For small documents, indexes aren't built so we can't do this check.
+    pub(crate) fn get_by_attribute(&self, name: &LocalName) -> &[NodeId] {
+        self.by_attribute
+            .get_or_init(|| {
+                let mut index: FxHashMap<LocalName, Vec<NodeId>> = FxHashMap::default();
+                let elements = self
+                    .elements
+                    .iter()
+                    .filter_map(|&node_id| Some((node_id, self[node_id].as_element()?)));
+                for (node_id, element) in elements {
+                    for attribute in &element.attributes.attributes {
+                        index
+                            .entry(attribute.name.local.clone())
+                            .or_default()
+                            .push(node_id);
+                    }
+                    // `class` is stored outside of `attributes`
+                    if element.attributes.class.is_some() {
+                        index.entry(local_name!("class")).or_default().push(node_id);
+                    }
+                }
+                index
+            })
+            .get(name)
+            .map_or(&[], Vec::as_slice)
+    }
+
+    /// Names on the ancestor elements of the given element.
+    /// `None` until as many candidates as there are elements asked for them.
+    #[inline]
+    pub(crate) fn ancestor_names(&self, node_id: NodeId) -> Option<NameSet> {
+        let names = if let Some(names) = self.ancestor_names.get() {
+            names
+        } else {
+            let demand = self.ancestor_demand.get().saturating_add(1);
+            self.ancestor_demand.set(demand);
+            // Fewer candidates rarely skip enough full matches to pay for the tree pass
+            if demand < self.elements.len() {
+                return None;
+            }
+            self.ancestor_names
+                .get_or_init(|| self.collect_ancestor_names())
+        };
+        Some(self.names_above(names, node_id))
+    }
+
+    /// Names of the parent and its ancestor elements, from `collect_ancestor_names`.
+    #[inline]
+    fn names_above(&self, names: &[NameSet], node_id: NodeId) -> NameSet {
+        self[node_id]
+            .parent
+            .map_or(NameSet::default(), |parent| names[parent.get()])
+    }
+
+    /// Names of each parent node and its ancestor elements; a non-element node ends the chain.
+    fn collect_ancestor_names(&self) -> Vec<NameSet> {
+        // Nodes outside the tree keep every name, so their children are never skipped
+        let mut names = vec![NameSet::ALL; self.nodes.len()];
+        let root = NodeId::document_id();
+        names[root.get()] = NameSet::default();
+        // Pre-order walk, so a parent is done before its children
+        let mut next = self[root].first_child;
+        while let Some(node_id) = next {
+            let node = &self[node_id];
+            if node.first_child.is_some() {
+                names[node_id.get()] = node.as_element().map_or(NameSet::default(), |element| {
+                    element_names(element, self.names_above(&names, node_id))
+                });
+                next = node.first_child;
+                continue;
+            }
+            let mut current = node_id;
+            next = loop {
+                let node = &self[current];
+                if node.next_sibling.is_some() {
+                    break node.next_sibling;
+                }
+                match node.parent {
+                    Some(parent) if parent != root => current = parent,
+                    _ => break None,
+                }
+            };
+        }
+        names
+    }
+
+    /// Whether every ID, class, and tag the selector names outside of nested selectors
+    /// (`:not()`, `:is()`, ...) exists in the document, and no pseudo-class there needs a
+    /// user action or browser state (`:hover`, `:checked`, ...). Otherwise no element can match.
+    pub(crate) fn has_required_names(&self, selector: &Selector) -> bool {
+        selector
+            .iter_raw_match_order()
+            .all(|component| match component {
+                Component::ID(id) => self.by_id.contains_key(&name_key(id.as_bytes())),
+                Component::Class(class) => self.by_class.contains_key(&name_key(class.as_bytes())),
+                // HTML elements match `lower_name`, foreign ones (e.g. SVG) match `name`
+                Component::LocalName(local_name) => {
+                    self.by_tag
+                        .contains_key(&name_key(local_name.name.as_bytes()))
+                        || (local_name.name != local_name.lower_name
+                            && self
+                                .by_tag
+                                .contains_key(&name_key(local_name.lower_name.as_bytes())))
+                }
+                Component::NonTSPseudoClass(pseudo) => pseudo.can_match(),
+                _ => true,
+            })
+    }
+
+    /// Whether the selector may match: its leftmost tag and every class and ID outside of
+    /// `()` and `[]` exist in the document. Runs before compiling the selector.
+    ///
+    /// `selector` is a single complex selector, as `parser::split_selector_list` yields. A string
+    /// scan, not a CSS parser: it accepts anything it does not understand (escapes, strings,
+    /// comments), so a `true` may still match nothing.
+    #[inline]
+    pub(crate) fn may_match(&self, selector: &str) -> bool {
+        // Indexes are built only for large documents
         if !self.use_indexes {
             return true;
         }
-
         let bytes = selector.trim_ascii_start().as_bytes();
-
-        match bytes.first() {
-            // Class selector: .classname
-            Some(b'.') => extract_identifier(&bytes[1..])
-                .is_none_or(|name| self.by_class.contains_key(&LocalName::from(name))),
-            // ID selector: #id
-            Some(b'#') => extract_identifier(&bytes[1..])
-                .is_none_or(|name| self.by_id.contains_key(&LocalName::from(name))),
-            // Tag selector: starts with ASCII letter
-            Some(b'a'..=b'z' | b'A'..=b'Z') => extract_identifier(bytes)
-                .is_none_or(|name| self.by_tag.contains_key(&LocalName::from(name))),
-            // Universal (*), attribute ([), pseudo-class (:), empty, or unknown
-            _ => true,
+        if bytes.first().is_some_and(u8::is_ascii_alphabetic) {
+            if let Some(name) = extract_identifier(bytes) {
+                if !self.has_tag(name) {
+                    return false;
+                }
+            }
         }
+        let mut depth = 0_u32;
+        let mut rest = bytes;
+        while let Some((&byte, tail)) = rest.split_first() {
+            rest = tail;
+            match byte {
+                b'\\' | b'"' | b'\'' | b'/' => return true,
+                b',' if depth == 0 => return true,
+                b'(' | b'[' => depth = depth.saturating_add(1),
+                b')' | b']' => depth = depth.saturating_sub(1),
+                b'.' | b'#' if depth == 0 => {
+                    if let Some(name) = extract_identifier(rest) {
+                        let key = name_key(name);
+                        let exists = if byte == b'.' {
+                            self.by_class.contains_key(&key)
+                        } else {
+                            self.by_id.contains_key(&key)
+                        };
+                        if !exists {
+                            return false;
+                        }
+                        rest = &rest[name.len()..];
+                    }
+                }
+                _ => {}
+            }
+        }
+        true
+    }
+
+    /// Whether an element with this tag name may exist.
+    /// HTML elements match the lowercase name, foreign ones (e.g. SVG) the exact one.
+    fn has_tag(&self, name: &[u8]) -> bool {
+        if self.by_tag.contains_key(&name_key(name)) {
+            return true;
+        }
+        if !name.iter().any(u8::is_ascii_uppercase) {
+            return false;
+        }
+        let mut buffer = [0u8; 64];
+        // Longer names are rare enough to skip the check
+        let Some(lower) = buffer.get_mut(..name.len()) else {
+            return true;
+        };
+        lower.copy_from_slice(name);
+        lower.make_ascii_lowercase();
+        self.by_tag.contains_key(&name_key(lower))
     }
 
     pub(crate) fn detach_node(&mut self, node: NodeId) {
@@ -388,6 +573,16 @@ impl Document {
         successors(self[node].first_child, |&node| self[node].next_sibling)
     }
 
+    /// Whether a `style` attribute contains `var(`, after character references are decoded.
+    pub(crate) fn has_var_in_style_attributes(&self) -> bool {
+        self.elements.iter().any(|&id| {
+            self[id]
+                .as_element()
+                .and_then(|element| element.attributes.get(local_name!("style")))
+                .is_some_and(|style| contains_var(style.as_bytes()))
+        })
+    }
+
     /// Serialize the document to HTML string.
     #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
     pub(crate) fn serialize<W: Write>(
@@ -401,7 +596,7 @@ impl Document {
         mode: InliningMode,
         apply_width_attributes: bool,
         apply_height_attributes: bool,
-        resolve_css_variables: bool,
+        variables: CssVariables,
     ) -> Result<(), InlineError> {
         serialize_to(
             self,
@@ -414,7 +609,7 @@ impl Document {
             mode,
             apply_width_attributes,
             apply_height_attributes,
-            resolve_css_variables,
+            variables,
         )
     }
 
@@ -444,27 +639,113 @@ impl std::ops::IndexMut<NodeId> for Document {
     }
 }
 
-/// Extract a CSS identifier (class/id/tag name) from a byte slice.
-/// Returns the identifier as a `&str` if valid, `None` otherwise.
+/// A 256-bit set of hashed tag, ID, and class names.
+/// A collision only adds candidates, which full selector matching filters out.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct NameSet([u64; 4]);
+
+impl NameSet {
+    /// Contains every name, so it never excludes an element.
+    const ALL: NameSet = NameSet([u64::MAX; 4]);
+
+    /// Each name kind takes its bit from a different byte of the hash.
+    #[inline]
+    fn insert(&mut self, shift: u32, name: &[u8]) {
+        let bit = (name_key(name) >> shift) & 255;
+        self.0[(bit >> 6) as usize] |= 1 << (bit & 63);
+    }
+
+    #[inline]
+    pub(crate) fn insert_tag(&mut self, name: &[u8]) {
+        self.insert(40, name);
+    }
+
+    #[inline]
+    pub(crate) fn insert_id(&mut self, name: &[u8]) {
+        self.insert(48, name);
+    }
+
+    #[inline]
+    pub(crate) fn insert_class(&mut self, name: &[u8]) {
+        self.insert(56, name);
+    }
+
+    #[inline]
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.iter().all(|&word| word == 0)
+    }
+
+    #[inline]
+    pub(crate) fn contains_all(&self, other: &NameSet) -> bool {
+        self.0
+            .iter()
+            .zip(other.0)
+            .all(|(&own, required)| required & !own == 0)
+    }
+}
+
+/// `names` extended with the tag, ID, and class names of an element.
+fn element_names(element: &ElementData, mut names: NameSet) -> NameSet {
+    let tag = element.name.local.as_bytes();
+    if tag.iter().any(u8::is_ascii_uppercase) {
+        names.insert_tag(&tag.to_ascii_lowercase());
+    } else {
+        names.insert_tag(tag);
+    }
+    // Any namespace, as an extra name only adds candidates
+    for id in element
+        .attributes
+        .attributes
+        .iter()
+        .filter(|attribute| attribute.name.local == local_name!("id"))
+    {
+        names.insert_id(id.value.as_bytes());
+    }
+    if let Some(class) = &element.attributes.class {
+        // Same splitting as the class matcher: CSS whitespace only
+        for name in class
+            .value
+            .as_bytes()
+            .split(|&b| is_selector_whitespace(b))
+            .filter(|name| !name.is_empty())
+        {
+            names.insert_class(name);
+        }
+    }
+    names
+}
+
+/// Index key of an ID, class, or tag name.
+/// A collision only adds candidates, which full selector matching filters out.
 #[inline]
-fn extract_identifier(bytes: &[u8]) -> Option<&str> {
+fn name_key(name: &[u8]) -> u64 {
+    hash_class_name(name)
+}
+
+/// Extract a CSS identifier (class/id/tag name) from a byte slice.
+/// Returns the identifier as a byte slice if valid, `None` otherwise.
+#[inline]
+fn extract_identifier(bytes: &[u8]) -> Option<&[u8]> {
     // Find the end of the identifier (ASCII letters, digits, underscore, hyphen)
     let end = bytes
         .iter()
         .position(|&b| !matches!(b, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' | b'-'))
         .unwrap_or(bytes.len());
 
-    if end == 0 {
+    // An escape or non-ASCII char continues the name, so the prefix is not the full name
+    if end == 0 || bytes.get(end).is_some_and(|&b| b == b'\\' || !b.is_ascii()) {
         return None;
     }
 
-    // SAFETY: All matched bytes are ASCII (0x00-0x7F), which is valid UTF-8
-    Some(unsafe { std::str::from_utf8_unchecked(&bytes[..end]) })
+    Some(&bytes[..end])
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{super::node::ElementData, *};
+    use super::{
+        super::{node::ElementData, selectors::Selectors},
+        *,
+    };
     use html5ever::{local_name, ns, QualName};
     use test_case::test_case;
 
@@ -475,9 +756,9 @@ mod tests {
         }
     }
 
-    fn roundtrip(bytes: &[u8]) -> Vec<u8> {
+    fn roundtrip(input: &str) -> Vec<u8> {
         let mut buffer = Vec::new();
-        let doc = Document::parse_with_options(bytes, 0, InliningMode::Document);
+        let doc = Document::parse_with_options(input, 0, InliningMode::Document);
         doc.serialize(
             &mut buffer,
             vec![None; doc.nodes.len()],
@@ -488,10 +769,122 @@ mod tests {
             InliningMode::Document,
             false,
             false,
-            false,
+            CssVariables::Keep,
         )
         .expect("Failed to serialize");
         buffer
+    }
+
+    #[test_case(".exists", true; "class")]
+    #[test_case("h1.exists#title", true; "compound")]
+    #[test_case("body > h1.exists", true; "child")]
+    #[test_case("h1.missing", false; "missing_class_in_compound")]
+    #[test_case("h1#missing", false; "missing_id_in_compound")]
+    #[test_case("body .missing h1", false; "missing_class_in_ancestor")]
+    #[test_case("article ~ h1", false; "missing_tag_in_sibling")]
+    #[test_case("h1:not(.missing)", true; "missing_class_in_negation")]
+    #[test_case(".exists:not(#missing)", true; "missing_id_in_negation")]
+    #[test_case("BODY H1", true; "uppercase_tags")]
+    #[test_case("svg foreignObject", true; "mixed_case_foreign_tag")]
+    #[test_case("h1:hover", false; "hover")]
+    #[test_case("h1:focus", false; "focus")]
+    #[test_case("h1:active", false; "active")]
+    #[test_case("h1:visited", false; "visited")]
+    #[test_case("h1:enabled", false; "enabled")]
+    #[test_case("h1:disabled", false; "disabled")]
+    #[test_case("h1:checked", false; "checked")]
+    #[test_case("h1:indeterminate", false; "indeterminate")]
+    #[test_case(".exists:hover h1", false; "hover_in_ancestor")]
+    #[test_case(":not(.missing):hover", false; "hover_after_negation")]
+    #[test_case("h1:not(:hover)", true; "hover_in_negation")]
+    #[test_case("h1:link", true; "link")]
+    #[test_case("h1:any-link", true; "any_link")]
+    fn test_has_required_names(selector: &str, expected: bool) {
+        let html = format!(
+            r#"<html><body><h1 class="exists" id="title">Test</h1><svg><foreignObject></foreignObject></svg><!-- {} --></body></html>"#,
+            "x".repeat(1024)
+        );
+        let doc = Document::parse_with_options(&html, 0, InliningMode::Document);
+        let selectors = Selectors::compile(selector).expect("Invalid selector");
+        assert_eq!(doc.has_required_names(&selectors.0[0]), expected);
+    }
+
+    #[test_case(".x", true; "subject only")]
+    #[test_case(".a .x", true; "class")]
+    #[test_case(".b.a .x", true; "classes")]
+    #[test_case(".missing .x", false; "missing class")]
+    #[test_case(".a.missing .x", false; "missing class in compound")]
+    #[test_case("#i .x", true; "id")]
+    #[test_case("#missing > .x", false; "missing id")]
+    #[test_case("div section .x", true; "tags")]
+    #[test_case("article .x", false; "missing tag")]
+    #[test_case("DIV .x", true; "uppercase tag")]
+    #[test_case("ARTICLE .x", false; "missing uppercase tag")]
+    #[test_case("foreignObject .x", true; "mixed case foreign tag")]
+    #[test_case("foreignobject .x", true; "lowercase foreign tag")]
+    #[test_case(".n .x", false; "non css whitespace in class")]
+    #[test_case(".m\\a0 n .x", true; "escaped non css whitespace in class")]
+    #[test_case(".c .x", true; "form feed in class")]
+    #[test_case(":not(.missing) .x", true; "negation")]
+    #[test_case(".missing + svg .x", true; "adjacent sibling")]
+    #[test_case(".missing ~ svg > foreignObject > .x", true; "general sibling")]
+    #[test_case("article .missing + svg .x", false; "ancestor of sibling")]
+    fn test_ancestor_names(selector: &str, may_match: bool) {
+        let html = "<div class=\"a b\" id=\"i\"><section class=\"m\u{A0}n c\x0Cd\"><span></span><svg><foreignObject><p class=\"x\">T</p></foreignObject></svg></section></div>";
+        let doc = Document::parse_with_options(html, 0, InliningMode::Document);
+        let subject = *doc
+            .elements
+            .iter()
+            .find(|&&id| {
+                doc[id].as_element().is_some_and(|e| {
+                    e.attributes
+                        .class
+                        .as_ref()
+                        .is_some_and(|c| &*c.value == "x")
+                })
+            })
+            .expect("Missing subject");
+        let selectors = Selectors::compile(selector).expect("Invalid selector");
+        let required = super::super::selectors::ancestor_names(&selectors.0[0]);
+        assert_eq!(
+            doc.names_above(&doc.collect_ancestor_names(), subject)
+                .contains_all(&required),
+            may_match
+        );
+    }
+
+    #[test_case(".a", true; "class")]
+    #[test_case("p.a#x", true; "compound")]
+    #[test_case("P.a", true; "uppercase_tag")]
+    #[test_case(".a .missing", false; "missing_descendant_class")]
+    #[test_case("#x .missing", false; "missing_class_after_id")]
+    #[test_case(".a #missing", false; "missing_id_after_class")]
+    #[test_case(".missing > p", false; "missing_anchor_class")]
+    #[test_case("p.a.missing", false; "missing_class_in_compound")]
+    #[test_case("p#missing", false; "missing_id_in_compound")]
+    #[test_case("h1 .a", false; "missing_anchor_tag")]
+    #[test_case(".a:not(.missing)", true; "class_in_negation")]
+    #[test_case(".a:is(.missing, .a)", true; "class_in_is")]
+    #[test_case(".a:nth-child(2n of .missing)", true; "class_in_nth_child")]
+    #[test_case(".a [class~=missing]", true; "class_in_attribute")]
+    #[test_case(".a [title='.missing']", true; "class_in_quotes")]
+    #[test_case(".a .mis\\73 sing", true; "escape")]
+    #[test_case(".a, .missing", true; "list")]
+    #[test_case(".a /* .missing */", true; "comment")]
+    #[test_case(".a .missing\u{e9}", true; "non_ascii")]
+    fn test_may_match(selector: &str, expected: bool) {
+        let html = format!(
+            r#"<html><body><p class="a" id="x">A</p><!-- {} --></body></html>"#,
+            "x".repeat(1024)
+        );
+        let doc = Document::parse_with_options(&html, 0, InliningMode::Document);
+        assert_eq!(doc.may_match(selector), expected);
+    }
+
+    #[test]
+    fn test_may_match_without_indexes() {
+        let doc = Document::parse_with_options("<p>A</p>", 0, InliningMode::Document);
+        assert!(doc.may_match(".a .missing"));
     }
 
     #[test]
@@ -502,8 +895,7 @@ mod tests {
   <style>h1 { color:blue; }</style>
   <style>h1 { color:red }</style>
   <style data-css-inline='ignore'>h1 { color:yellow; }</style>
-</head>"
-                .as_bytes(),
+</head>",
             0,
             InliningMode::Document,
         );
@@ -522,8 +914,7 @@ mod tests {
   <link href='styles2.css' rel='stylesheet' type='text/css'>
   <link href='' rel='stylesheet' type='text/css'>
   <link href='styles3.css' rel='stylesheet' type='text/css' data-css-inline='ignore'>
-</head>"
-                .as_bytes(),
+</head>",
             0,
             InliningMode::Document,
         );
@@ -567,40 +958,42 @@ mod tests {
         assert_eq!(doc[node2_id].previous_sibling, Some(node1_id));
     }
 
-    #[test_case(b"<!DOCTYPE html><html><head><title>Title of the document</title></head><body></body></html>")]
-    #[test_case(b"<!DOCTYPE html><html><head><title>Title of the document</title></head><body><hr></body></html>")]
-    fn test_roundtrip(input: &[u8]) {
-        assert_eq!(roundtrip(input), input);
+    #[test_case("<!DOCTYPE html><html><head><title>Title of the document</title></head><body></body></html>")]
+    #[test_case("<!DOCTYPE html><html><head><title>Title of the document</title></head><body><hr></body></html>")]
+    fn test_roundtrip(input: &str) {
+        assert_eq!(roundtrip(input), input.as_bytes());
     }
 
     #[test]
     fn test_ignore_children() {
-        assert_eq!(roundtrip(b"<!DOCTYPE html><html><head><title>Title of the document</title></head><body><hr><hr></hr></hr></body></html>"), b"<!DOCTYPE html><html><head><title>Title of the document</title></head><body><hr><hr></body></html>");
+        assert_eq!(roundtrip("<!DOCTYPE html><html><head><title>Title of the document</title></head><body><hr><hr></hr></hr></body></html>"), b"<!DOCTYPE html><html><head><title>Title of the document</title></head><body><hr><hr></body></html>");
     }
 
     #[test]
     fn test_pseudo_class() {
-        let output = roundtrip(b"<!DOCTYPE html><html><head><title>Title of the document</title><style>h1:hover { color:blue; }</style></head><body><h1>Hello world!</h1></body></html>");
+        let output = roundtrip("<!DOCTYPE html><html><head><title>Title of the document</title><style>h1:hover { color:blue; }</style></head><body><h1>Hello world!</h1></body></html>");
         assert_eq!(output, b"<!DOCTYPE html><html><head><title>Title of the document</title></head><body><h1>Hello world!</h1></body></html>");
     }
 
     #[test]
     fn test_comment() {
-        let output = roundtrip(b"<html><head><title>Title of the document</title></head><body><!--TTT--></body></html>");
+        let output = roundtrip(
+            "<html><head><title>Title of the document</title></head><body><!--TTT--></body></html>",
+        );
         assert_eq!(output, b"<html><head><title>Title of the document</title></head><body><!--TTT--></body></html>");
     }
 
     #[test]
     fn test_debug() {
         let doc =
-            Document::parse_with_options(b"<html><body></body></html>", 0, InliningMode::Document);
+            Document::parse_with_options("<html><body></body></html>", 0, InliningMode::Document);
         assert_eq!(format!("{doc:?}"), "Document { nodes: [Node { parent: None, next_sibling: None, previous_sibling: None, first_child: None, last_child: None, data: Document }, Node { parent: None, next_sibling: None, previous_sibling: None, first_child: Some(NodeId(2)), last_child: Some(NodeId(2)), data: Document }, Node { parent: Some(NodeId(1)), next_sibling: None, previous_sibling: None, first_child: Some(NodeId(3)), last_child: Some(NodeId(4)), data: Element { element: ElementData { name: QualName { prefix: None, ns: Atom('http://www.w3.org/1999/xhtml' type=static), local: Atom('html' type=inline) }, attributes: Attributes { attributes: [], class: None } }, inlining_ignored: false } }, Node { parent: Some(NodeId(2)), next_sibling: Some(NodeId(4)), previous_sibling: None, first_child: None, last_child: None, data: Element { element: ElementData { name: QualName { prefix: None, ns: Atom('http://www.w3.org/1999/xhtml' type=static), local: Atom('head' type=inline) }, attributes: Attributes { attributes: [], class: None } }, inlining_ignored: false } }, Node { parent: Some(NodeId(2)), next_sibling: None, previous_sibling: Some(NodeId(3)), first_child: None, last_child: None, data: Element { element: ElementData { name: QualName { prefix: None, ns: Atom('http://www.w3.org/1999/xhtml' type=static), local: Atom('body' type=inline) }, attributes: Attributes { attributes: [], class: None } }, inlining_ignored: false } }], styles: [], linked_stylesheets: [], .. }");
     }
 
     #[test]
     fn test_edit_document() {
         let mut doc = Document::parse_with_options(
-            b"<html><body><a></a><b></b></body></html>",
+            "<html><body><a></a><b></b></body></html>",
             0,
             InliningMode::Document,
         );

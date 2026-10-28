@@ -44,7 +44,7 @@ from typing import (
 from ._configuration import get_configuration
 from ._encryption import Encryption
 from ._page import PageObject, _VirtualList
-from ._page_labels import index2label as page_index2page_label
+from ._page_labels import index2labels
 from ._utils import (
     _TraversalState,
     deprecate_no_replacement,
@@ -377,10 +377,12 @@ class PdfDocCommon(ABC):
             PdfReadError: If restrictions prevent this action.
 
         """
-        # Flattened pages will not work on an encrypted PDF;
-        # the PDF file's page count is used in this case. Otherwise,
-        # the original method (flattened page count) is used.
-        if self.is_encrypted:
+        # The page tree cannot be walked while the document is still encrypted;
+        # the PDF file's page count is used in this case. Once the document has
+        # been decrypted (or if it is not encrypted at all), the flattened page
+        # tree is used instead, as the /Count value might be wrong.
+        encryption = self._encryption
+        if self.is_encrypted and (encryption is None or not encryption.is_decrypted()):
             return self.root_object["/Pages"]["/Count"]  # type: ignore[no-any-return, index]
         if self.flattened_pages is None:
             self._flatten(self._readonly)
@@ -1295,7 +1297,7 @@ class PdfDocCommon(ABC):
         This property is read-only. The labels are in the order that the pages
         appear in the document.
         """
-        return [page_index2page_label(self, i) for i in range(len(self.pages))]
+        return index2labels(self, len(self.pages))
 
     @property
     def page_layout(self) -> Optional[str]:

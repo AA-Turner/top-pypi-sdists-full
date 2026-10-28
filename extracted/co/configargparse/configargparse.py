@@ -272,6 +272,24 @@ class DefaultConfigFileParser(ConfigFileParser):
         return r.getvalue()
 
 
+def _keep_literal_or_convert_to_str(value):
+    """Return a list element as it should be written into a list repr.
+
+    Args:
+        value: an element of a list value.
+
+    Returns:
+        object: the value unchanged if ``ast.literal_eval`` of its repr gives
+        it back, otherwise ``str(value)`` (e.g. for a Path, or inf).
+    """
+    try:
+        if ast.literal_eval(repr(value)) == value:
+            return value
+    except (ValueError, SyntaxError):
+        pass
+    return str(value)
+
+
 class ConfigparserConfigFileParser(ConfigFileParser):
     """parses INI files using pythons configparser."""
 
@@ -281,14 +299,20 @@ class ConfigparserConfigFileParser(ConfigFileParser):
 
         Allowed syntax is that for a ConfigParser with the following options:
 
+            delimiters = ("=", ":")
             allow_no_value = False,
-            inline_comment_prefixes = ("#",)
+            comment_prefixes = ("#", ";")
+            inline_comment_prefixes = ("#", ";")
             strict = True
-            empty_lines_in_values = False
+            empty_lines_in_values = True
 
         See https://docs.python.org/3/library/configparser.html for details.
 
         Note: INI file sections names are still treated as comments.
+        Settings in a [DEFAULT] section are also read. Keys are lowercased, so
+        an option whose name has uppercase letters can't be set this way, and a
+        saved config file that contains one fails to load unless
+        ignore_unknown_config_file_keys=True.
         """
         return msg
 
@@ -301,7 +325,11 @@ class ConfigparserConfigFileParser(ConfigFileParser):
             comment_prefixes=("#", ";"),
             inline_comment_prefixes=("#", ";"),
             strict=True,
-            empty_lines_in_values=False,
+            # a line indented more than the key above it continues that key's
+            # value even after a blank or comment line, rather than starting a
+            # new key, so a value saved with a blank line in it by an earlier
+            # version of serialize() can't turn into extra keys
+            empty_lines_in_values=True,
         )
         try:
             config.read_string(stream.read())
@@ -310,8 +338,38 @@ class ConfigparserConfigFileParser(ConfigFileParser):
 
         # convert to dict and remove INI section names
         result = OrderedDict()
-        for section in config.sections():
-            for k, v in config[section].items():
+        for section in config.sections() or [configparser.DEFAULTSECT]:
+            # configparser expands %(name)s references while reading values,
+            # so a stray % fails here rather than in read_string() above
+            try:
+                section_items = list(config[section].items())
+            except configparser.InterpolationError as e:
+                # name only the key, since configparser's own message shows the
+                # value, which may be a secret ("from None" keeps that message
+                # out of tracebacks too). e.option is the key being read, and the
+                # problem may be in a value its %(name)s references pull in.
+                if isinstance(e, configparser.InterpolationDepthError):
+                    problem = (
+                        "its %(name)s references refer back to it or are nested "
+                        "too deeply"
+                    )
+                elif isinstance(e, configparser.InterpolationMissingOptionError):
+                    problem = (
+                        "it, or a value it references, has a %(name)s reference "
+                        "to a key that isn't in the same section or in [DEFAULT]. "
+                        "Write %% for a literal %"
+                    )
+                else:
+                    problem = (
+                        "it, or a value it references, has a '%' that isn't '%%' "
+                        "or a valid %(name)s reference. Write %% for a literal %"
+                    )
+                raise ConfigFileParserException(
+                    "Couldn't parse config file value for {}: {}.".format(
+                        e.option, problem
+                    )
+                ) from None
+            for k, v in section_items:
                 multiLine2SingleLine = v.replace("\n", " ").replace("\r", " ")
                 # handle special case for lists
                 if "[" in multiLine2SingleLine and "]" in multiLine2SingleLine:
@@ -340,10 +398,70 @@ class ConfigparserConfigFileParser(ConfigFileParser):
             strict=True,
             empty_lines_in_values=False,
         )
-        items = {"DEFAULT": items}
-        config.read_dict(items)
+        # write each value so that parse() reads back the same value, except
+        # that configparser strips whitespace from the start and end of a value
+        values = OrderedDict()
+        for key, value in items.items():
+            if isinstance(value, list):
+                # parse() can only evaluate the repr of literals, so write an
+                # element that isn't one (e.g. a Path) as its str(). Keep the
+                # other elements as they are, because
+                # convert_item_to_command_line_arg() passes some inner lists on
+                # whole, as str() of the list (e.g. for nargs="+" with
+                # type=json.loads, or for an unknown key). A tuple is written as
+                # its str() below, as DefaultConfigFileParser writes it, so it
+                # reads back as that string, which e.g. type=ast.literal_eval
+                # turns back into the tuple.
+                value = str(
+                    [
+                        (
+                            [_keep_literal_or_convert_to_str(e) for e in elem]
+                            if isinstance(elem, list)
+                            else _keep_literal_or_convert_to_str(elem)
+                        )
+                        for elem in value
+                    ]
+                )
+                is_python_literal = True
+            else:
+                # parse() turns newlines into spaces anyway, and a lone \r in a
+                # value would be read back as the start of a new key, so write
+                # the spaces here
+                value = str(value).replace("\n", " ").replace("\r", " ")
+                # parse() evaluates a value that looks like a list (same test as
+                # in parse() above), so quote such a string to read it back as a
+                # string
+                is_python_literal = (
+                    "[" in value and "]" in value and "{" not in value.split("[")[0]
+                )
+                if is_python_literal:
+                    value = repr(value)
+            # parse() reads a "#" or ";" after a space as the start of a comment.
+            if is_python_literal:
+                # In a list repr, or a string quoted with repr(), they can only
+                # be inside a string literal, so write them as escape codes,
+                # which parse()'s ast.literal_eval decodes back.
+                value = value.replace("#", "\\x23").replace(";", "\\x3b")
+            elif re.search(r"\s[#;]", value):
+                # configparser can't quote a plain string, so warn that the
+                # value will read back cut short. The warning names only the
+                # key, since the value may be a secret. One at the start of a
+                # value is fine, since the value is written right after the "="
+                # (see below).
+                warnings.warn(
+                    "The value of {} contains a '#' or ';' after a space, which "
+                    "this config file format reads back as the start of a "
+                    "comment, so the saved value will be cut short there. Use a "
+                    "config_file_parser_class that can quote values, such as "
+                    "YAMLConfigFileParser, to save it in full.".format(key)
+                )
+            # parse() expands %(name)s references, so escape every %
+            values[key] = value.replace("%", "%%")
+        config.read_dict({"DEFAULT": values})
         stream = StringIO()
-        config.write(stream)
+        # "key=value" rather than "key = value", so that a value starting with
+        # "#" or ";" isn't read back as a comment
+        config.write(stream, space_around_delimiters=False)
         stream.seek(0)
         return stream.read()
 
@@ -789,14 +907,14 @@ class IniConfigParser(ConfigFileParser):
                 # Handle lists
                 if self.split_ml_text_to_list:
                     # Multi-line format
-                    config.set(
-                        section_name, key, "\n" + "\n".join(str(v) for v in value)
-                    )
+                    value = "\n" + "\n".join(str(v) for v in value)
                 else:
                     # Python list syntax
-                    config.set(section_name, key, str(value))
+                    value = str(value)
             else:
-                config.set(section_name, key, str(value))
+                value = str(value)
+            # parse() expands %(name)s references, so escape every %
+            config.set(section_name, key, value.replace("%", "%%"))
 
         stream = StringIO()
         config.write(stream)
@@ -1250,6 +1368,16 @@ class ArgumentParser(argparse.ArgumentParser):
 
         # add env var settings to the commandline that aren't there already
         env_var_args = []
+        env_var_settings = OrderedDict()
+        env_var_flag_actions = set()
+        # A flag set to false (eg. FOO=false for a store_true arg) adds no args
+        # to the command line, so already_on_command_line() can't tell it was
+        # set, yet it should still keep lower-priority sources from setting
+        # that flag (see issue #105). So remember the flags each source sets.
+        # Only flags: an append arg set to an empty list also adds no args, but
+        # it has never overridden lower-priority sources, and making it do so
+        # would leave it None rather than an empty list.
+        flag_actions_set_by_higher_priority_sources = set()
         actions_with_env_var_values = [
             a
             for a in self._actions
@@ -1277,20 +1405,18 @@ class ArgumentParser(argparse.ArgumentParser):
                         # for backward compatibility with legacy format (eg. where config value is [a, b, c] instead of proper json ["a", "b", "c"]
                         value = [elem.strip() for elem in value[1:-1].split(",")]
             env_var_args += self.convert_item_to_command_line_arg(action, key, value)
+            env_var_settings[key] = (action, env_vars[key])
+            if isinstance(action, ACTION_TYPES_THAT_DONT_NEED_A_VALUE):
+                env_var_flag_actions.add(action)
 
         idx = self._find_insertion_index(args)
         if self._reject_write_out_config_file_args(
             env_var_args, "in an environment variable", self._reachable_parsers()
         ):
             args = args[:idx] + env_var_args + args[idx:]
-
-        if env_var_args:
-            self._source_to_settings[_ENV_VAR_SOURCE_KEY] = OrderedDict(
-                [
-                    (a.env_var, (a, env_vars[a.env_var]))
-                    for a in actions_with_env_var_values
-                ]
-            )
+            flag_actions_set_by_higher_priority_sources.update(env_var_flag_actions)
+            if env_var_settings:
+                self._source_to_settings[_ENV_VAR_SOURCE_KEY] = env_var_settings
 
         # before parsing any config files, check if -h was specified.
         supports_help_arg = any(
@@ -1326,13 +1452,17 @@ class ArgumentParser(argparse.ArgumentParser):
 
                 # add each config item to the commandline unless it's there already
                 config_args = []
+                config_file_flag_actions = set()
                 for key, value in config_items.items():
                     if key in known_config_keys:
                         action = known_config_keys[key]
-                        discard_this_key = already_on_command_line(
-                            args,
-                            self._option_strings_that_override(action),
-                            self.prefix_chars,
+                        discard_this_key = (
+                            action in flag_actions_set_by_higher_priority_sources
+                            or already_on_command_line(
+                                args,
+                                self._option_strings_that_override(action),
+                                self.prefix_chars,
+                            )
                         )
                     else:
                         action = None
@@ -1358,6 +1488,8 @@ class ArgumentParser(argparse.ArgumentParser):
                         config_args += self.convert_item_to_command_line_arg(
                             action, key, value
                         )
+                        if isinstance(action, ACTION_TYPES_THAT_DONT_NEED_A_VALUE):
+                            config_file_flag_actions.add(action)
                         source_key = "%s|%s" % (
                             _CONFIG_FILE_SOURCE_KEY,
                             source_label,
@@ -1373,6 +1505,10 @@ class ArgumentParser(argparse.ArgumentParser):
                     self._reachable_parsers(),
                 ):
                     args = args[:idx] + config_args + args[idx:]
+                    # Update between sources, not between entries in one file.
+                    flag_actions_set_by_higher_priority_sources.update(
+                        config_file_flag_actions
+                    )
         finally:
             # Close every stream exactly once, regardless of whether parsing
             # succeeded or aborted partway through (e.g. a custom parser
@@ -1717,9 +1853,11 @@ class ArgumentParser(argparse.ArgumentParser):
                     ):
                         value = getattr(parsed_namespace, action.dest, None)
                         if value is not None:
-                            if isinstance(value, bool):
-                                value = str(value).lower()
-                            config_file_items[config_file_keys[0]] = value
+                            config_file_items[config_file_keys[0]] = (
+                                _convert_parsed_value_to_config_file_value(
+                                    action, value
+                                )
+                            )
 
             elif source == _ENV_VAR_SOURCE_KEY:
                 for key, (action, value) in settings.items():
@@ -1727,7 +1865,11 @@ class ArgumentParser(argparse.ArgumentParser):
                     if config_file_keys:
                         value = getattr(parsed_namespace, action.dest, None)
                         if value is not None:
-                            config_file_items[config_file_keys[0]] = value
+                            config_file_items[config_file_keys[0]] = (
+                                _convert_parsed_value_to_config_file_value(
+                                    action, value
+                                )
+                            )
             elif source.startswith(_CONFIG_FILE_SOURCE_KEY):
                 for key, (action, value) in settings.items():
                     config_file_items[key] = value
@@ -1824,6 +1966,16 @@ class ArgumentParser(argparse.ArgumentParser):
                     )
                     % (key, value)
                 )
+            # argparse ends option parsing at the first bare '--', so one taken
+            # from a list would turn the user's own command line options after
+            # it into positional args, and hide them from the checks that let
+            # them override config file and env var values
+            if "--" in args:
+                self.error(
+                    "%s can't have '--' as a list element, since it would end "
+                    "option parsing" % key
+                )
+                return []
         elif isinstance(value, str):
             args.append("%s=%s" % (command_line_key, value))
         else:
@@ -2235,6 +2387,31 @@ def _dispatches_to_subparsers(action):
     ) and isinstance(getattr(action, "choices", None), dict)
 
 
+def _convert_parsed_value_to_config_file_value(action, value):
+    """Convert a parsed arg value to the value a config file should hold for it.
+
+    For a flag (``store_true``, ``store_false`` or ``store_const``), the config
+    file value says whether to invoke the flag, not what it stores, so it is
+    ``"true"`` exactly when the parsed value is the one the flag stores. Other
+    booleans are written in lowercase too, so values from the command line and
+    from environment variables are written the same way.
+
+    Args:
+        action: the action the value was parsed for.
+        value: the value the parser stored for the action.
+
+    Returns:
+        object: ``"true"`` or ``"false"`` for flags and booleans, otherwise the
+        value unchanged.
+    """
+    if isinstance(action, argparse._StoreConstAction):
+        # "is" rather than "==": a store_false default of 0 equals False
+        value = value is action.const
+    if isinstance(value, bool):
+        value = str(value).lower()
+    return value
+
+
 def already_on_command_line(
     existing_args_list, potential_command_line_args, prefix_chars
 ):
@@ -2246,6 +2423,8 @@ def already_on_command_line(
     """
     arg_names = []
     for arg_string in existing_args_list:
+        if arg_string == "--":
+            break
         if arg_string and arg_string[0] in prefix_chars and "=" in arg_string:
             option_string, explicit_arg = arg_string.split("=", 1)
             arg_names.append(option_string)

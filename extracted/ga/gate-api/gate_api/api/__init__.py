@@ -22,6 +22,7 @@ from gate_api.api.delivery_api import DeliveryApi
 from gate_api.api.earn_api import EarnApi
 from gate_api.api.flash_swap_api import FlashSwapApi
 from gate_api.api.futures_api import FuturesApi
+from gate_api.api.launch_api import LaunchApi
 from gate_api.api.margin_api import MarginApi
 from gate_api.api.multi_collateral_loan_api import MultiCollateralLoanApi
 from gate_api.api.options_api import OptionsApi

@@ -35,8 +35,15 @@ could (measured: 'ANNA z Nowak, MD' flips the one-case verdict when
 the approximation and the real run-completion test disagree on
 whether 'z' opens a run that completes).
 
+suffix_reading, name_reading and the two reading constants are the
+fourth: they answer no question about a word but BUILD the reading a
+report did not take (#752 phase 2m), from a token's text and tags,
+which is why they import _state's PendingReading and the public enums
+it re-exports. They sit here because every stage that reports a fork
+builds one, and the tags they read are this module's vocabulary.
+
 Layering: imports _lexicon, _policy, and _pipeline._state (WorkToken,
-comma_bucket -- read-only, never a whole ParseState).
+comma_bucket, PendingReading -- read-only, never a whole ParseState).
 """
 from __future__ import annotations
 
@@ -51,7 +58,13 @@ from nameparser._lexicon import (
 )
 from nameparser._policy import (CapsSuffixes, Policy, Script, _JA_SCRIPTS, _NO_INITIALS,
                                 _SCRIPT_RANGES, _script_matcher)
-from nameparser._pipeline._state import COMMA_CHARS, WorkToken, comma_bucket
+from nameparser._pipeline._state import (
+    AGNOMEN_TAG, AMBIGUOUS_ACRONYM_TAG, AMBIGUOUS_WORD_TAG, COMMA_CHARS,
+    Deferred,
+    GIVEN_ABBREVIATION_TAG, SHAPE_ACRONYM_TAG, TITLE_AMBIGUOUS_TAG,
+    PendingReading, ReadingKind, ReadingSource, Role, WorkToken,
+    comma_bucket,
+)
 
 # Ported verbatim from v1 (nameparser/config/regexes.py "initial") minus
 # its empty-string alternative -- WorkToken text is never empty. Kept in
@@ -73,12 +86,17 @@ _INITIAL = re.compile(r"^(\w\.|[A-Z])$")
 # sync by hand.
 _PERIOD_NOT_AT_END = re.compile(r".*\..+$", re.I)
 
-# The fix_phd credential pair ('Ph.' + 'D.' as adjacent tokens), shared
-# by is_wholly_suffix below and group's merge (v1 extracted the
-# credential pre-parse; the predicate and the stage must agree on the
-# pattern).
-PH = re.compile(r"^ph\.?$", re.IGNORECASE)
-D = re.compile(r"^d\.?$", re.IGNORECASE)
+# The fix_phd credential pair ('Ph.' + 'D.' as adjacent tokens),
+# `split_pair`'s first answer, below.
+_PH = re.compile(r"^ph\.?$", re.IGNORECASE)
+_D = re.compile(r"^d\.?$", re.IGNORECASE)
+#: `split_pair`'s necessary half on its FIRST word for the Ph./D.
+#: answer alone, asked C-level by `is_wholly_suffix` ahead of the
+#: call, the one caller that asks only that answer and has no tags to
+#: read. The same compiled object the predicate asks, so the two
+#: cannot drift.
+SPLIT_PAIR_OPENS = _PH
+
 
 # The codepoint table lives in _policy beside Script -- one copy
 # importable from the pipeline and the locale packs alike; everything
@@ -197,11 +215,13 @@ _PERIOD_ABBREV = re.compile(r'^(?:' + _LETTER + r'){2,}\.$')
 # carries the given name — the whole name, or the part after a
 # family comma — reads as a title even when unlisted"
 # (history: decisions/H2)
-def is_title_shaped(text: str) -> bool:
-    """Whether TEXT wears H2's shape alone -- vocabulary-free, the
-    LISTED half being a separate lookup at each caller's own site
-    (is_title_piece/lexicon.titles). `name_word_count` below is the
-    only CALLER; `_pieces.is_leading_title` asks the same question
+def is_title_shaped(text: str, lexicon: Lexicon) -> bool:
+    """Whether TEXT reads as a title by H2's shape -- the LISTED half
+    being a separate lookup at each caller's own site
+    (is_title_piece/lexicon.titles), and the one vocabulary read here
+    the given name written short, which outranks the shape (rules/H2,
+    #789: 'Chas.' is no title). `name_word_count` and `title_readings`
+    below are its callers; `_pieces.is_leading_title` asks the same question
     but keeps this body inline, its path being hot (every leading
     piece of every parse) where this one is cold (comma names only)
     -- the measured figure lives at that inline copy and is not
@@ -225,7 +245,8 @@ def is_title_shaped(text: str) -> bool:
     parse, this running four times per piece.
     """
     return (bool(_PERIOD_ABBREV.match(text))
-            and (text.isascii() or not in_initialless_script(text)))
+            and (text.isascii() or not in_initialless_script(text))
+            and _normalize(text) not in lexicon.given_name_abbreviations)
 
 
 def is_initial_shaped(text: str) -> bool:
@@ -252,7 +273,7 @@ def is_initial_shaped(text: str) -> bool:
 # v1 regexes.py "roman_numeral", pinned by tests/v2/test_regex_sync.py.
 _ROMAN = re.compile(r'^(X|IX|IV|V?I{0,3})$', re.I)
 #: The same pattern, shared rather than copied: `_comma` filters on
-#: it before asking `is_trailing_numeral_suffix` (rules/C12).
+#: it before asking `reads_as_generation` (rules/C12).
 ROMAN = _ROMAN
 
 
@@ -263,16 +284,38 @@ ROMAN = _ROMAN
 # is_initial_shaped tests on `preceding`. The words-to-spare count,
 # rules/S10's Except bullet "A numeral of one letter needs words to
 # spare", is the callers'. decisions/S10 (#718, #721)
-def is_trailing_numeral_suffix(text: str, preceding: str,
-                               one_case: bool | None) -> bool:
-    """The trailing walk's roman-numeral fork: a FINAL single-token
-    piece that is a roman numeral
-    reads as the suffix when the piece before it does not look like
-    part of an initial run -- for a one-letter numeral a necessary
-    condition only, the caller's words-to-spare count deciding
-    (rules/S10, #718). `preceding` is that piece's first token;
-    the callers establish that `text` is last and that a name piece
-    precedes it.
+# mechanisms.md#ONE-PREDICATE-PER-QUESTION ("exactly one predicate answers it and every other site calls that one")
+# -- the numeral's predicate, which every numeral rule asks
+# (decisions/vocabulary-model, #752; #784, #774, #819)
+def reads_as_generation(text: str, tags: Set[str], preceding: str | None,
+                        one_case: bool | None) -> bool:
+    """Whether a word reads as the generation: S10's roman-numeral
+    fork, asked by every rule that weighs a numeral (#752). For a
+    one-letter numeral a necessary condition only: the words-to-spare
+    count is the caller's, which alone knows where the name's words
+    are (rules/S10, #718).
+
+    A numeral is I to X by shape, written with its periods or without
+    ('VI.', the German ordinal), save that a single letter written
+    with its period is an initial (rules/T5). The vocabulary's own
+    numerals of two or more letters ('ii' to 'iv', `tags` carrying
+    `vocab:suffix`) are the generation whatever stands around them,
+    the vocabulary settling them; the rest ('vi' to 'x', and the
+    one-letter 'i' and 'v') are weighed:
+
+    - an initial in front makes the numeral a name word: `preceding`
+      is the first token of the piece in front, read for layout, and
+      None where the slot never asks (the given part after a family
+      comma, where 'Chang, Andy C I' reads suffix 'I', v1's reading);
+    - a Title-case numeral in a name of mixed case leans to the name,
+      as a Title-case member of the ambiguous class does
+      (`numeral_leans_to_the_name`).
+
+    In the given part after a family comma (`preceding` None) a
+    one-letter numeral is the generation only where the vocabulary
+    lists it, rules/C9's "one-character suffix word": no count is
+    asked there (S5), and an unlisted letter is the middle initial
+    ('SMITH, JOHN X').
 
     is_initial_shaped, not is_initial: this asks whether the preceding
     piece looks like part of an initial run, which is a question
@@ -285,11 +328,47 @@ def is_trailing_numeral_suffix(text: str, preceding: str,
     is initial-shaped as 'J' is (rules/S10, #721's review: 'john j v'
     reads as 'JOHN J V'), while 'é', 'ж' or an uncased word, whose
     capitals are not, stay as they were. None (the maiden take's
-    superset view passes it) gets the shape test alone, which admits
+    superset view passes it) asks neither case question, which admits
     more and so stays a superset."""
-    return (_ROMAN.match(text) is not None
-            and not is_initial_shaped(preceding)
-            and not (one_case and is_initial_shaped(preceding.upper())))
+    stem = text.rstrip(".")
+    if not stem or _ROMAN.match(stem) is None:
+        return False
+    if len(stem) == 1:
+        # rules/T5: "A one-letter word written with its period is an
+        # initial"
+        if len(text) > 1:
+            return False
+        if preceding is None:
+            return "vocab:suffix" in tags
+    elif "vocab:suffix" in tags:
+        return True
+    elif one_case is False and stem.istitle():
+        return False
+    return (preceding is None
+            or not (is_initial_shaped(preceding)
+                    or one_case and is_initial_shaped(preceding.upper())))
+
+
+# rules/S10: "a Title-case numeral in a name of mixed case leans to the
+# name" -- the fork weighed it and the writing declined it, so it is
+# reported as a declined member of the ambiguous class is (#752)
+def numeral_leans_to_the_name(text: str, tags: Set[str],
+                              preceding: str | None,
+                              one_case: bool | None) -> bool:
+    """Whether `reads_as_generation` declined a numeral for its Title
+    case alone: two or more letters, unlisted, in a name of mixed case,
+    and no initial in front (which makes it a name word unweighed)."""
+    return (one_case is False and text.rstrip(".").istitle()
+            and len(text.rstrip(".")) >= 2 and "vocab:suffix" not in tags
+            and reads_as_generation(text, tags, preceding, None))
+
+
+def is_listed_numeral(text: str, tags: Set[str]) -> bool:
+    """A numeral the vocabulary lists in two or more letters ('III'):
+    not in question, so its reading is never reported (rules/S10)."""
+    stem = text.rstrip(".")
+    return (len(stem) >= 2 and "vocab:suffix" in tags
+            and _ROMAN.match(stem) is not None)
 
 
 # rules/S10: "a numeral written in lower case in a name of mixed case is
@@ -309,11 +388,14 @@ def numeral_settled_by_case(text: str, one_case: bool | None) -> bool:
 # reports on a numeral a post-nominal follows ask (assign's, and the
 # maiden take's for a numeral its clause keeps): the fork would read
 # this numeral, and its writing does not settle it (#721)
-def reads_as_a_reported_numeral(text: str, preceding: str,
+def reads_as_a_reported_numeral(text: str, tags: Set[str],
+                                preceding: str,
                                 one_case: bool | None) -> bool:
     """Whether a numeral the walk left a name word, with `preceding`
-    in front of it, is one the fork would weigh and so reports."""
-    return (is_trailing_numeral_suffix(text, preceding, one_case)
+    in front of it, is one the fork would weigh and so reports: one it
+    reads as the generation, or declines for its Title case."""
+    return ((reads_as_generation(text, tags, preceding, one_case)
+             or numeral_leans_to_the_name(text, tags, preceding, one_case))
             and not numeral_settled_by_case(text, one_case))
 
 
@@ -403,12 +485,18 @@ def is_one_case(texts: Sequence[str]) -> bool:
 #: reason; it has one caller shape and no wrapper to keep in step.
 Lean = Literal["credential", "name"]
 
+#: How a member's writing leans, by what the member is (rules/S11):
+#: an acronym's capitals are the credential, a suffix word's lower
+#: case is the suffix, and an agnomen's writing says nothing.
+Cue = Literal["acronym", "word", "none"]
+
 
 # #289's credential lean, rules/S6: "Written case is evidence beside
 # the count (S4), and it speaks only in a name written in more than
 # one case" -- the WRITING evidence that decides ahead of the
 # words-to-spare count (history: decisions/S6).
-def ambiguous_lean(text: str, one_case: bool) -> Lean | None:
+def ambiguous_lean(text: str, one_case: bool,
+                   cue: Cue = "acronym") -> Lean | None:
     """Which way the WRITING leans for a member of the ambiguous
     credential set: "credential", "name", or None for no lean at all.
 
@@ -432,16 +520,33 @@ def ambiguous_lean(text: str, one_case: bool) -> Lean | None:
     so 'MA.' leans as 'MA' does -- the lean reads CASE, not periods,
     and the dotted spelling is the vocabulary's own question
     (suffix_as_written).
+
+    `cue` is what the member is (rules/S11). A suffix WORD that is
+    also a name ("word", 'fils') leans the other way at one end: its
+    lower case in a mixed-case name is the suffix ("credential", the
+    suffix reading), its capitals say nothing (a surname is often
+    written so), and Title case leans to the name as an acronym's
+    does. An agnomen ("none", 'Neto') is written in the case of the
+    name around it, so its writing never leans.
     """
-    if one_case:
+    if one_case or cue == "none":
         return None
     if text.upper() == text.lower():     # caseless: no contrast to read
         return None
     if text.isupper():
-        return "credential"
+        return "credential" if cue == "acronym" else None
     if text.islower():
-        return None
+        return "credential" if cue == "word" else None
     return "name"
+
+
+def lexicon_cue(n: str, lexicon: Lexicon) -> Cue:
+    """The `ambiguous_lean` cue of the folded member `n`, read off the
+    lexicon by a caller that has no tags to read (`is_wholly_suffix`);
+    `_pieces.listed_lean` reads the same answer off classify's tags."""
+    if n in lexicon.suffix_words_ambiguous:
+        return "none" if n in lexicon.agnomens else "word"
+    return "acronym"
 
 
 _DOTTED = re.compile(r"(?:" + _LETTER + r"\.)+")
@@ -483,6 +588,102 @@ def is_paired_initials(text: str) -> bool:
     return _PAIRED_INITIALS.fullmatch(text) is not None
 
 
+# rules/S3: "Paired initials are the exception, as C5 defines them, in a
+# script that writes capitals" -- the script half of that clause, which
+# classify asked inline until #752 (decisions/S3 (#864),
+# decisions/vocabulary-model (#752)). C5's comma reading asks the bare
+# `is_paired_initials`: after a comma a caseless pair reads as a name
+# too ('John Smith, พ.บ.' given 'พ.บ.'), and moving it here would change
+# that reading.
+def is_cased_paired_initials(text: str) -> bool:
+    """Paired initials (`is_paired_initials`) in a script that writes
+    capitals: a text with a case mapping, so 'M.J.' and 'm.j.' but not
+    Thai 'พ.บ.', which is how that script writes an abbreviation.
+    The same compiled pattern as `is_paired_initials`, asked here
+    rather than through it so a dotted token pays one frame, not
+    two."""
+    return (_PAIRED_INITIALS.fullmatch(text) is not None
+            and text.upper() != text.lower())
+
+
+# rules/S12: "a credential written split across a space reads as one
+# word" -- one chunk of up to five letters, with or without its period
+# ('Pharm.', 'D', 'Sc.'), the shape both words of a split credential
+# take. The C-level half classify asks of every adjacent pair before
+# the fold is looked up.
+SPLIT_CHUNK = re.compile(r"(?:" + _LETTER + r"){1,5}\.?")
+
+
+# mechanisms.md#ONE-PREDICATE-PER-QUESTION ("exactly one predicate answers it and every other site calls that one")
+# -- the split credential's one test, asked by classify, which tags
+# the pair for group's merge and `_comma._pieces`, and by
+# `is_wholly_suffix` for the Ph./D. answer. decisions/phd-merge,
+# decisions/vocabulary-model (#752)
+def split_pair(first: str, second: str, lexicon: Lexicon) -> str | None:
+    """Whether two adjacent words are one credential written split
+    across a space, and so read as one unit -- answered with the PIECE
+    TAG the merged pair carries, or None.
+
+    "suffix": 'Ph.' then 'D.', with or without their periods, in any
+    case -- v1's fix_phd, merged as an unambiguous suffix wherever it
+    stands but the head of the string (decisions/phd-merge).
+
+    "split": any other pair of short chunks (`SPLIT_CHUNK`) whose
+    period-free concatenation is unambiguous suffix vocabulary while
+    the two are not both suffix vocabulary on their own ('Pharm. D.',
+    'Pharm D', 'MB ChB' where 'chb' is unlisted) and neither is a
+    particle or a connective, which join name words. The merged piece is
+    a member of the ambiguous class, which the count decides (rules/S4,
+    rules/C4). Its first chunk has two or more letters: a single
+    letter opening the pair is a middle initial far more often (FEC
+    writes 'SMITH, JOHN G. MR.', and 'G. MR.' folds to the listed
+    'gmr'), so 'M. Sc.' and 'M. D.' stay two words. Two dotted single
+    letters are the one opening letter asked further, and asked of
+    #872's predicate rather than a copy: in a script with capitals
+    they are paired initials (`is_cased_paired_initials`), the reading
+    rules/S3 gives them joined, so only a caseless script's pair can
+    merge, and not one in a script that writes no abbreviations (Han,
+    hangul, kana: '博. 士.' is no dotted '博士'), which leaves no
+    default entry such a fold.
+
+    Where the merge may happen (never at the head of the string,
+    rules/S2; a member pair only in a main segment and in the part
+    after a comma) is the caller's question, not this one's."""
+    if _PH.fullmatch(first) is not None and _D.fullmatch(second) is not None:
+        return "suffix"
+    if (SPLIT_CHUNK.fullmatch(first) is None
+            or SPLIT_CHUNK.fullmatch(second) is None):
+        return None
+    a, b = first.rstrip("."), second.rstrip(".")
+    if composed_len(a) < 2 and (
+            composed_len(b) != 1 or not first.endswith(".")
+            or not second.endswith(".")
+            or is_cased_paired_initials(first + second)
+            # a script that writes no abbreviations is not wearing an
+            # abbreviation's periods, as rules/S3 reads it joined
+            or in_initialless_script(first + second)):
+        return None
+    fold = _normalize(a + b)
+    if (fold in lexicon.suffix_acronyms_ambiguous
+            or not (fold in lexicon.suffix_acronyms
+                    or fold in lexicon.suffix_words)):
+        return None
+    na, nb = _normalize(a), _normalize(b)
+    if ((na in lexicon.suffix_acronyms or na in lexicon.suffix_words)
+            and (nb in lexicon.suffix_acronyms
+                 or nb in lexicon.suffix_words)):
+        return None
+    # a particle or a connective joins name words, which is what it is
+    # doing beside one ('DE A JUNIOR', the A a surname written short);
+    # written with its period a letter is an initial, not the connective
+    # it spells ('SAM E.', rules/T5)
+    for written, n in ((first, na), (second, nb)):
+        if not written.endswith(".") and (n in lexicon.particles
+                                          or n in lexicon.conjunctions):
+            return None
+    return "split"
+
+
 def suffix_as_written(n: str, text: str, lexicon: Lexicon) -> bool:
     """Counts as a suffix as written, with NO initial veto (the veto
     differs by caller): unambiguous suffix vocabulary, or an ambiguous
@@ -502,9 +703,61 @@ def suffix_as_written(n: str, text: str, lexicon: Lexicon) -> bool:
     a = n.replace(".", "")
     if a in lexicon.suffix_acronyms_ambiguous and _dotted(text):
         return True
-    return (a in lexicon.suffix_acronyms
-            and a not in lexicon.suffix_acronyms_ambiguous) \
-        or n in lexicon.suffix_words
+    if ((a in lexicon.suffix_acronyms
+            and a not in lexicon.suffix_acronyms_ambiguous)
+            or (n in lexicon.suffix_words
+                and n not in lexicon.suffix_words_ambiguous)):
+        return True
+    # the joiners asked in C first, so a word holding neither pays no
+    # frame
+    return ("-" in n or "/" in n) and _joined_credential(text, lexicon)
+
+
+#: What joins the chunks of a joined credential ('MD/PhD', 'MD-PhD').
+_JOINERS = re.compile(r"[-/]")
+
+
+# rules/S3: "a word whose chunks are joined by a hyphen or a slash
+# reads as a suffix when every chunk counts as a suffix as written" --
+# the stricter test, every chunk rather than any, because a hyphen also
+# joins names (decisions/S3 (#752))
+def _joined_credential(text: str, lexicon: Lexicon) -> bool:
+    """Whether TEXT is two or more chunks joined by '-' or '/', each
+    non-empty and each counting as a suffix as written: listed, and
+    not a bare member of the ambiguous class, and not every one a
+    single ASCII character, and -- joined by a hyphen -- not
+    written as a hyphenated name is ('MD/PhD', 'M.A.-Ph.D.', 'PhD-Md',
+    'md-phd', but not 'MA/PhD', 'Smith-Jones', 'I-V', 'Ae-Ra', 'Ae-ra'
+    or 'MD/'). A chunk holds no joiner,
+    so the recursion is one level deep. A loop rather than `all()` over
+    a generator, which would cost a frame per chunk: a hyphenated name
+    ('Smith-Jones') stops at its first chunk."""
+    # the caller found a joiner, so there are two chunks at least
+    chunks = _JOINERS.split(text)
+    whole = False  # a chunk that is not a single ASCII character
+    # every chunk so far written as a name's; a slash joins no name, so
+    # a word holding one takes no cue
+    named = "/" not in text
+    for k, c in enumerate(chunks):
+        if not (c and suffix_as_written(_normalize(c), c, lexicon)):
+            return False
+        # its periods are not the chunk's ('I.' is 'i'), as in a word
+        # split at its periods
+        bare = c.replace(".", "")
+        whole = whole or len(bare) > 1 or not bare.isascii()
+        # the first chunk in Title case, a later one in Title case or
+        # lower case ('Ae-Ra', 'Ae-ra')
+        named = named and (
+            len(bare) > 1 and bare[0].isupper() and bare[1:].islower()
+            or k > 0 and bare.islower())
+    # rules/S3: "Every chunk the vocabulary matches is a single ASCII
+    # character" -- the numerals and the digit, which are about
+    # generations, make no joined word a suffix either ('Jack I-V');
+    # rules/S3: "a word joined by a hyphen and written the way a
+    # hyphenated name is, its first chunk in Title case and every other
+    # in Title case or lower case, is a name word" -- where a
+    # credential's chunks are not (decisions/S3 (#752))
+    return whole and not named
 
 
 def _is_suffix_strict_n(n: str, text: str, lexicon: Lexicon,
@@ -541,25 +794,46 @@ def is_suffix_lenient(text: str, lexicon: Lexicon) -> bool:
     bypassing the initial veto -- only safe in unambiguous positions
     (after a comma)."""
     n = _normalize(text)
-    return n in lexicon.suffix_words \
+    return (n in lexicon.suffix_words
+            and n not in lexicon.suffix_words_ambiguous) \
         or _is_suffix_strict_n(n, text, lexicon)
 
 
-#: The suffix delimiter every policy has, beside the comma. rules/C10:
-#: "The semicolon is a delimiter by default" -- "no policy removes the
-#: semicolon, as none removes the comma", so a policy's
-#: extra_suffix_delimiters add to it. decisions/C10 (D15).
-BUILTIN_SUFFIX_DELIMITERS = frozenset({";"})
+#: The suffix delimiters every policy has, beside the comma. rules/C10:
+#: "The semicolon, the hyphen and the slash are delimiters by default"
+#: -- "no policy removes them, as none removes the comma", so a
+#: policy's extra_suffix_delimiters add to them. decisions/C10 (D15,
+#: #889).
+BUILTIN_SUFFIX_DELIMITERS = frozenset({";", "-", "/"})
+
+#: The built-in delimiters read glued to a word or inside one. rules/C10:
+#: "a built-in hyphen or slash parts only standing alone" -- glued, it
+#: is the word's own ('al-', 'MD/PhD'). decisions/C10 (#889).
+BUILTIN_GLUED_DELIMITERS = frozenset({";"})
 
 
 def delimiter_cores(policy_delimiters: frozenset[str]) -> frozenset[str]:
     """The built-in suffix delimiters with the configured ones,
-    surrounding whitespace stripped: ' - ' -> '-'. Whitespace-padded
+    surrounding whitespace stripped: ' - ' -> '-', the cores that part
+    a trailing suffix part STANDING ALONE. Whitespace-padded
     delimiters surface as standalone tokens; the stripped core is what
     tokenize produced."""
     if not policy_delimiters:
         return BUILTIN_SUFFIX_DELIMITERS
     return BUILTIN_SUFFIX_DELIMITERS | frozenset(
+        d.strip() for d in policy_delimiters if d.strip())
+
+
+def glued_cores(policy_delimiters: frozenset[str]) -> frozenset[str]:
+    """The cores read glued to one end of a word or inside one: the
+    semicolon and every configured core, never a built-in hyphen or
+    slash that the caller did not declare (BUILTIN_GLUED_DELIMITERS).
+    A configured core that is itself a word (' and ') is in the set:
+    `glued_stem`'s callers ask `glues` before reading it glued, while
+    `is_wholly_suffix`'s in-word split does not ('MDandPhD')."""
+    if not policy_delimiters:
+        return BUILTIN_GLUED_DELIMITERS
+    return BUILTIN_GLUED_DELIMITERS | frozenset(
         d.strip() for d in policy_delimiters if d.strip())
 
 
@@ -630,7 +904,8 @@ def period_joined_vocab(
     ANY suffix chunk makes it a suffix. Chunk-level suffix membership
     is v1's is_suffix: bare ambiguous acronyms COUNT ('Msc.Ed.'
     derives via 'ed') -- the ambiguous period-gate applies to whole
-    tokens only. Returns "title", "suffix", "shape", or None.
+    tokens only -- while a suffix word that is also a name does not
+    ('M.Filho', rules/S11). Returns "title", "suffix", "shape", or None.
 
     "shape" is the third verdict and it is the absence of a claim
     worth acting on (#516): two or more chunks, EVERY one of them
@@ -685,8 +960,13 @@ def period_joined_vocab(
     chunks = [_normalize(c) for c in text.split(".") if c]
     if any(c in lexicon.titles for c in chunks):
         return "title"
+    # rules/S11: "the word is part of that one word and is weighed only
+    # by the shape the joined word wears" -- no chunk claim for a
+    # suffix word that is also a name ('M.Filho')
     matched = [c for c in chunks
-               if c in lexicon.suffix_acronyms or c in lexicon.suffix_words]
+               if c in lexicon.suffix_acronyms
+               or (c in lexicon.suffix_words
+                   and c not in lexicon.suffix_words_ambiguous)]
     if matched and not all(len(c) == 1 and c.isascii() for c in matched):
         return "suffix"
     if (len(chunks) >= 2 and all(c.isalpha() for c in chunks)
@@ -740,7 +1020,9 @@ def ambiguous_class_member(text: str, lexicon: Lexicon) -> bool:
     """
     if "." in text:
         return False
-    return _normalize(text) in lexicon.suffix_acronyms_ambiguous
+    n = _normalize(text)
+    return (n in lexicon.suffix_acronyms_ambiguous
+            or n in lexicon.suffix_words_ambiguous)
 
 
 # #516's all-caps half, ONE PREDICATE for the shape test and its
@@ -758,9 +1040,11 @@ def ambiguous_class_member(text: str, lexicon: Lexicon) -> bool:
 def caps_shape_candidate(text: str, lexicon: Lexicon, policy: Policy,
                          one_case: bool | None) -> bool:
     """Whether TEXT is an UNLISTED all-caps credential candidate: two
-    or more alphabetic characters, no period (a period fails
-    `isalpha()` outright, which is what excludes the dotted spelling
-    here for free -- no separate '.' test needed), written in a name
+    or more alphabetic characters, or letter chunks joined by '-' or
+    '/' (`_joined_capitals`, #752), no period (a period fails
+    `isalpha()` and the joined pattern outright, which is what excludes
+    the dotted spelling here for free -- no separate '.' test needed),
+    written in a name
     `one_case` says is mixed (`one_case is False`; `None`, "not
     established", declines exactly as if the name were one case).
 
@@ -799,9 +1083,31 @@ def caps_shape_candidate(text: str, lexicon: Lexicon, policy: Policy,
         return False
     if not text.isascii():
         text = unicodedata.normalize("NFC", text)
-    if not (len(text) >= 2 and text.isalpha() and text.isupper()):
+    if not (len(text) >= 2 and text.isalpha() and text.isupper()
+            or _joined_capitals(text)):
         return False
     return not in_any_wordlist(_normalize(text), lexicon)
+
+
+#: A word of letter chunks joined by '-' or '/' ('PU-PH', 'MD/MBA').
+_JOINED_LETTERS = re.compile(
+    r'(?:' + _LETTER + r')+(?:[-/](?:' + _LETTER + r')+)+')
+
+
+# rules/S9: "an unlisted word of capitals whose letter chunks are joined
+# by a hyphen or a slash, one of them of two or more letters, is that
+# shape too" -- the caps shape's joined spelling (decisions/S9 (#752))
+def _joined_capitals(text: str) -> bool:
+    """Whether TEXT is capitals in letter chunks joined by '-' or '/',
+    one chunk of two or more letters ('PU-PH', 'MS-OMPT', not 'A-B',
+    'MD/' or 'PU-PH2'). Its callers test `isupper()` and a joiner in C
+    first, so a word holding neither pays no frame."""
+    if not (text.isupper() and _JOINED_LETTERS.fullmatch(text)):
+        return False
+    for chunk in _JOINERS.split(text):
+        if composed_len(chunk) >= 2:
+            return True
+    return False
 
 
 def is_caps_word(text: str) -> bool:
@@ -825,19 +1131,37 @@ def composed_len(text: str) -> int:
 
 def in_any_wordlist(n: str, lexicon: Lexicon) -> bool:
     """Whether the folded word `n` is in ANY of the lexicon's wordlists
-    (`_lexicon._VOCAB_FIELDS`, the whole roster): the caps shape's
-    "unlisted" (`caps_shape_candidate`), where a word a caller listed
-    even as a SURNAME must never become a credential."""
-    for field in _VOCAB_FIELDS:
+    (`_lexicon._VOCAB_FIELDS`, the whole roster but two): the caps
+    shape's "unlisted" (`caps_shape_candidate`), where a word a caller
+    listed even as a SURNAME must never become a credential.
+
+    The three left out: `title_phrases`, whose entries are two words and
+    so never one; `titles_ambiguous`, a title that may be a given
+    name, which outside a title phrase is read as the unlisted word it
+    is there (rules/H9: "and elsewhere a name word") -- a phrase is two
+    words and a comma part read by this shape is one; and
+    `given_name_abbreviations`, a given name written short (#789),
+    whose one reader is H2's shape, so anywhere else its word reads as
+    the unlisted word it is ('John Smith, JAS' keeps suffix 'JAS')."""
+    for field in _LISTED_FIELDS:
         if n in getattr(lexicon, field):
             return True
     return False
 
 
+_LISTED_FIELDS = tuple(f for f in _VOCAB_FIELDS
+                       if f not in ("title_phrases", "titles_ambiguous",
+                                    "given_name_abbreviations"))
+
+
 #: The wordlists that claim a word as something OTHER than name text.
 #: `surnames` and `bound_given_names` are left out: they say a word IS
-#: a name word ('Kim', 'Abdul'), the opposite claim.
-_NON_NAME_FIELDS = tuple(f for f in _VOCAB_FIELDS
+#: a name word ('Kim', 'Abdul'), the opposite claim; and so is
+#: `titles_ambiguous`, a title that may be a given name (rules/H9), with
+#: `title_phrases`, whose two-word entries never match one word; and so
+#: is `given_name_abbreviations`, a given name written short (#789), left
+#: out of `_LISTED_FIELDS` above.
+_NON_NAME_FIELDS = tuple(f for f in _LISTED_FIELDS
                          if f not in ("surnames", "bound_given_names"))
 
 
@@ -1099,6 +1423,150 @@ def surname_unit_tags(text: str, lexicon: Lexicon,
     return _PARTICLE_ONLY if particle else _NO_TAGS
 
 
+#: The connective after a title that may be a given name which makes
+#: the two a title phrase, 'Dean of Students' (rules/H9). Coordinating
+#: connectives are not: 'Dean and Mary Smith' is two people.
+_PHRASE_LINKS = frozenset({"of"})
+#: The connectives whose object a modifier after them is in, 'of the
+#: United States', 'The Grand Master'; 'and' joins two titles instead.
+_OBJECT_LINKS = frozenset({"of", "the"})
+
+
+# rules/H9: "a word no listed phrase holds is a title only behind a
+# style or a modifier, or before `of`" -- whether the word heads a title
+# of itself, asked of the phrases `attaches` compiled rather than of a
+# property of its own
+def in_a_title_phrase(text: str, lexicon: Lexicon) -> bool:
+    """Whether a phrase of `lexicon.title_phrases` that classify can
+    read holds `text`."""
+    return _normalize(text) in _phrase_words(
+        lexicon.title_phrases, lexicon.titles, lexicon.titles_ambiguous)
+
+
+@functools.lru_cache(maxsize=16)
+def _phrase_words(phrases: frozenset[str], titles: frozenset[str],
+                  contested: frozenset[str]) -> frozenset[str]:
+    """The words of the phrases classify can read: two words, each a
+    title or a title that may be a given name, as its pair test asks.
+    A phrase it never consults makes no word report."""
+    listed = titles | contested
+    pairs = (p.split(" ") for p in phrases)
+    return frozenset(w for ws in pairs
+                     if len(ws) == 2 and all(w in listed for w in ws)
+                     for w in ws)
+
+
+# rules/H9: "the word is a title only inside a title phrase, and
+# elsewhere a name word" -- both halves, the partners of a title that may
+# be a given name and of a modifier at the head of the name, each its
+# bullet's (decisions/H9 #752)
+def title_readings(texts: Sequence[str], folded: Sequence[str],
+                   lexicon: Lexicon, *, head: bool,
+                   titled: Sequence[bool] | None = None) -> list[bool]:
+    """Which of these words, one part of the name in order, read as
+    title words. Where none of them is a title that may be a given name
+    or a modifier, the listed titles answer alone, which every caller
+    asks first, in C, so that a name with neither pays no frame.
+
+    A word of `titles_ambiguous` that is not also in `titles` (where a
+    caller listing it makes it a title everywhere) is a title only
+    beside a partner: a
+    modifier, a style, or a title it stands behind in `title_phrases`,
+    before it; or 'of', or a title it stands in front of in
+    `title_phrases`, after it. A salutation is never one, nor any other
+    title before it ('Mr Dean Smith'), nor a title after it that it
+    does not attach to ('SMITH, DEAN MR.', a given name and the
+    salutation a donor list writes after it). Its neighbours are asked
+    as LISTED, so 'Vice Dean' reads 'Vice' as the partner of 'Dean'
+    whatever the modifier test below makes of 'Vice', save a word before
+    it that is itself a title that may be a given name, which is a
+    partner only where its own phrase made it a title ('Grace Dean
+    Smith' reads 'Grace' as the given name, and 'Dean' with it).
+
+    Where `head` is true -- the part before the first comma -- a word
+    of `title_modifiers` is a title only with a head title behind it in
+    its run of titles: any title that is not a modifier, or a word H2's
+    shape reads as one, before 'of' ('Mother Superior of the Convent'),
+    or in the object of 'of' or 'the' there (decision 10 of
+    decisions/vocabulary-model). Only the leading run is the head: a
+    modifier outside it is read as listed, one ending the name being
+    H5's. A
+    word in both sets takes the modifier test in every part, that run
+    being its phrase ('Lau, Wing Kai' reads 'Wing' as the given name).
+    After a comma any other modifier is read as listed: a part there
+    that is a lone title word is the person's role ('John Smith,
+    Resident'), and reading it as a name would reverse the name
+    (decisions/H9).
+
+    `texts` are the words as written, for the shape test; `folded`
+    their `_normalize`d forms; `titled` which of them a caller already
+    reads as titles, where that is more than `titles` lists (classify's
+    period-joined `Lt.Gov.`), else membership in `titles`. Only a word
+    of the two sets is ever read out of the title."""
+    contested = lexicon.titles_ambiguous
+    modifiers = lexicon.title_modifiers
+    titles = lexicon.titles
+    # a word in titles is a title wherever it stands, whatever else it
+    # is listed as; one of titles_ambiguous alone is listed as a title
+    # to its neighbours and read by its phrase
+    reading = [n in titles or n in contested for n in folded]
+    if titled is not None:
+        reading = [r or t for r, t in zip(reading, titled)]
+    listed = list(reading)
+    phrases = lexicon.title_phrases
+    last = len(folded) - 1
+    for i, n in enumerate(folded):
+        if n in titles or n not in contested or n in modifiers:
+            continue
+        prev = folded[i - 1] if i else None
+        nxt = folded[i + 1] if i < last else None
+        reading[i] = bool(
+            # the word before as it was READ, left to right: a title that
+            # may be a given name and stands in no phrase is no partner
+            # ('Grace Dean Smith')
+            (prev is not None and reading[i - 1]
+             and (prev in modifiers or prev in lexicon.title_styles
+                  or f"{prev} {n}" in phrases))
+            or (nxt is not None
+                and ((nxt in _PHRASE_LINKS and nxt in lexicon.conjunctions)
+                     or (listed[i + 1] and f"{n} {nxt}" in phrases))))
+    # left to right, whether the run so far has passed 'of' or 'the': a
+    # modifier after it is in the object of a phrase ('President of the
+    # United States', 'the Queen's Bench'), which no head need follow. A
+    # coordinating connective opens no object: 'Mr. and Mrs. Wing Lau'
+    # is two salutations and a given name
+    linked = [False] * len(folded)
+    conjunctions = lexicon.conjunctions
+    for i in range(1, len(folded)):
+        if reading[i - 1] or folded[i - 1] in conjunctions:
+            linked[i] = linked[i - 1] or folded[i - 1] in _OBJECT_LINKS
+    # the head of the name is its LEADING run of titles and connectives:
+    # a modifier ending the name is H5's trailing run, read as listed,
+    # save one that may be a given name, which the loop below reads
+    # wherever it stands
+    lead = 0
+    if head:
+        while lead < len(folded) and (reading[lead] or folded[lead] in conjunctions
+                                      or is_title_shaped(texts[lead], lexicon)):
+            lead += 1
+    # right to left, so each modifier knows whether a head title stands
+    # behind it before the run is broken; a connective carries the run
+    behind = False
+    for i in range(last, -1, -1):
+        n = folded[i]
+        if (n in modifiers and reading[i]
+                and ((head and i < lead) or (n in contested and n not in titles))):
+            reading[i] = behind or linked[i] or (
+                i < last and folded[i + 1] in _PHRASE_LINKS
+                and folded[i + 1] in conjunctions)
+            behind = reading[i]
+        elif reading[i] or (head and is_title_shaped(texts[i], lexicon)):
+            behind = True
+        elif n not in conjunctions:
+            behind = False
+    return reading
+
+
 def name_word_count(texts: Sequence[str], lexicon: Lexicon,
                     policy: Policy, letters_one_case: bool | None = None,
                     ) -> int:
@@ -1134,14 +1602,22 @@ def name_word_count(texts: Sequence[str], lexicon: Lexicon,
     # units -- and pay no frame the token loop did not already pay.
     names: list[bool] = []
     has_particle = False
-    for text in texts:
-        n = _normalize(text)
+    # map, not a comprehension, which is a frame of its own on 3.11
+    folded = list(map(_normalize, texts))
+    # rules/H9: "the word is a title only inside a title phrase" -- the
+    # part before the comma is the head of the name, read as classify
+    # reads it
+    titled = (None if lexicon.titles_ambiguous.isdisjoint(folded)
+              and lexicon.title_modifiers.isdisjoint(folded)
+              else title_readings(texts, folded, lexicon, head=True))
+    for i, n in enumerate(folded):
+        text = texts[i]
+        title = n in lexicon.titles if titled is None else titled[i]
         if n in lexicon.particles:
             has_particle = True
         suffix = (is_suffix_lenient(text, lexicon) if lenient
                   else is_suffix_strict(text, lexicon, letters_one_case))
-        names.append(not (suffix or n in lexicon.titles
-                          or is_title_shaped(text)))
+        names.append(not (suffix or title or is_title_shaped(text, lexicon)))
     if not has_particle:
         return sum(names)
     count = 0
@@ -1178,8 +1654,12 @@ def is_wholly_suffix(texts: Sequence[str], lexicon: Lexicon,
     the opposite.
 
     An adjacent Ph./D. pair counts as ONE unit (v1's fix_phd extracted
-    the credential pre-parse, so 'Smith, Ph. D.' read as suffix-comma);
-    keep in sync with group's _PH/_D merge and `_comma._pieces`.
+    the credential pre-parse, so 'Smith, Ph. D.' read as suffix-comma):
+    `split_pair`'s "suffix" answer, which group's merge and
+    `_comma._pieces` read too. Its "split" answer ('Pharm D') does not
+    count here: that pair is a member of the ambiguous class, which no
+    run test takes by itself, as it takes no bare 'Ma' (rules/C4's
+    count reads it instead).
 
     `one_case` is ParseState.one_case, and it admits the LEAN: a bare
     ambiguous acronym written in capitals inside a mixed-case name is
@@ -1227,33 +1707,38 @@ def is_wholly_suffix(texts: Sequence[str], lexicon: Lexicon,
     lenient = policy.lenient_comma_suffixes and not strict
     # v1 expand_suffix_delimiter parity (#206): a configured delimiter
     # is TRANSPARENT in the all-suffix tests -- v1 split the part string
-    # on the delimiter before checking, so the delimiter never counted
+    # on the delimiter before checking, so the delimiter never counted;
+    # the built-in cores are transparent the same way (rules/C10)
     cores = delimiter_cores(policy.extra_suffix_delimiters)
+    inner = glued_cores(policy.extra_suffix_delimiters)
 
     def counts_as_suffix(text: str) -> bool:
         if (one_case is not None
                 and ambiguous_class_member(text, lexicon)
-                and ambiguous_lean(text, one_case) == "credential"):
+                and ambiguous_lean(text, one_case, lexicon_cue(
+                    _normalize(text), lexicon)) == "credential"):
             return True
         if ((is_suffix_lenient(text, lexicon) if lenient
              else is_suffix_strict(text, lexicon, letters_one_case))
                 or period_joined_vocab(text, lexicon) == "suffix"):
             return True
         # the split only where a core stands in the word: the built-in
-        # ';' makes `cores` non-empty for every policy, and a call per
+        # ';' makes `inner` non-empty for every policy, and a call per
         # word would be a frame on every name word a run test asks
-        for core in cores:
+        for core in inner:
             if core in text:
-                stem = glued_stem(text, cores)
+                stem = glued_stem(text, inner)
                 if stem is not None:
                     return counts_as_suffix(stem)
-                return splits_into_suffixes(text, cores, lexicon)
+                return splits_into_suffixes(text, inner, lexicon)
         return False
 
     merged = list(texts)
     k = 0
     while k < len(merged) - 1:
-        if PH.fullmatch(merged[k]) and D.fullmatch(merged[k + 1]):
+        if (SPLIT_PAIR_OPENS.fullmatch(merged[k])
+                and split_pair(merged[k], merged[k + 1], lexicon)
+                == "suffix"):
             merged[k:k + 2] = ["phd"]
         else:
             k += 1
@@ -1656,3 +2141,78 @@ def resolve_script_set(scripts: Iterable[Script]) -> Script | None:
     if found.issubset(_JA_SCRIPTS):
         return Script.HIRAGANA
     return None
+
+
+# -- the reading a decision did not take (Ambiguity.alternative, #752
+# phase 2m). Each report names it from what its own site knows: the
+# word's tags say which reading the vocabulary or a shape gave it, and
+# the emitter says which field (decisions/vocabulary-model, 2026-10-26)
+
+#: Tags that say the vocabulary declares the word a name as well as a
+#: word of another category: the derived markers (decisions/
+#: vocabulary-model, 2026-10-25), and a given name written short. The
+#: ambiguous class's tag is also written by SHAPE (rules/S9), which
+#: `name_reading` reads off the shape tag beside it.
+_DECLARED_NAME_TAGS = frozenset({
+    AMBIGUOUS_ACRONYM_TAG, AMBIGUOUS_WORD_TAG, "vocab:particle-ambiguous",
+    TITLE_AMBIGUOUS_TAG, GIVEN_ABBREVIATION_TAG})
+
+
+def suffix_reading(token: WorkToken) -> PendingReading:
+    """The suffix reading of a word a decision read as a name: a
+    generation or agnomen by its listed word, a numeral by its shape
+    unless listed, another listed post-nominal word as a suffix, and
+    otherwise a credential, listed or shaped."""
+    tags = token.tags
+    if AGNOMEN_TAG in tags:
+        return PendingReading(ReadingKind.AGNOMEN, ReadingSource.VOCABULARY,
+                              Role.SUFFIX)
+    if AMBIGUOUS_WORD_TAG in tags:
+        return PendingReading(ReadingKind.GENERATION,
+                              ReadingSource.VOCABULARY, Role.SUFFIX)
+    if _ROMAN.match(token.text.rstrip(".")) is not None:
+        listed = "vocab:suffix" in tags or "vocab:suffix-word" in tags
+        return PendingReading(
+            ReadingKind.GENERATION,
+            ReadingSource.VOCABULARY if listed else ReadingSource.SHAPE,
+            Role.SUFFIX)
+    if "vocab:suffix-word" in tags:
+        return PendingReading(ReadingKind.POST_NOMINAL, ReadingSource.VOCABULARY,
+                              Role.SUFFIX)
+    return PendingReading(
+        ReadingKind.CREDENTIAL,
+        ReadingSource.SHAPE if SHAPE_ACRONYM_TAG in tags
+        else ReadingSource.VOCABULARY,
+        Role.SUFFIX)
+
+
+def name_reading(token: WorkToken, role: Role | Deferred) -> PendingReading:
+    """The name reading of a word a decision read as something else,
+    landing in `role`: an initial where the word is one letter or
+    initial-shaped, otherwise a name word, declared by the vocabulary
+    where a derived marker says so and standing by position where
+    nothing does."""
+    text = token.text
+    # C-level for an ASCII word, so a report pays no frame for the test
+    if (len(text.rstrip(".")) == 1 or _INITIAL.fullmatch(text)
+            if text.isascii()
+            else composed_len(text.rstrip(".")) == 1
+            or is_initial_shaped(text)):
+        return PendingReading(ReadingKind.INITIAL, ReadingSource.SHAPE, role)
+    # classify writes the ambiguous class's tag on a word admitted by
+    # its shape too, so the shape tag says no list declared it
+    declared = (not token.tags.isdisjoint(_DECLARED_NAME_TAGS)
+                and SHAPE_ACRONYM_TAG not in token.tags)
+    return PendingReading(
+        ReadingKind.NAME,
+        ReadingSource.DECLARED if declared else ReadingSource.POSITION,
+        role)
+
+
+#: The particle reading of a word read as a name: a particle joins the
+#: words after it, the last group reading as the family (rules/P2).
+PARTICLE_READING = PendingReading(ReadingKind.PARTICLE,
+                                  ReadingSource.VOCABULARY, Role.FAMILY)
+#: The title reading of a word read as a name.
+TITLE_READING = PendingReading(ReadingKind.TITLE, ReadingSource.VOCABULARY,
+                               Role.TITLE)

@@ -1,6 +1,6 @@
 import os
 import types
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -8,23 +8,27 @@ import pandas as pd
 from seeq.sdk.api import ItemsApi, TreesApi
 from seeq.sdk.models import SwapInputV1, SwapOptionV1, ItemWithSwapPairsV1, ItemDependencyOutputV1, \
     ItemParameterOfOutputV1, ItemPreviewWithAssetsV1
-from seeq.spy import _common, _login
+from seeq.spy import _common
 from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._status import Status
 
+# These mirror the separators in SwapKey.kt, which is what produces the "Swap Key" property's value
+SWAP_KEY_GUID_SEPARATOR = '|'
+SWAP_KEY_PAIR_SEPARATOR = '^'
+
 
 @Status.top_level_spy_function()
 def swap(
-    items: pd.DataFrame,
-    assets: pd.DataFrame,
-    *,
-    partial_swaps_ok: bool = False,
-    old_asset_format: Optional[bool] = None,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
+        items: pd.DataFrame,
+        assets: pd.DataFrame,
+        *,
+        partial_swaps_ok: bool = False,
+        old_asset_format: Optional[bool] = None,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
 ) -> pd.DataFrame:
     """
     Operates on a DataFrame of items by swapping out the assets that those
@@ -533,3 +537,21 @@ def remove_common_prefix_suffix(fqns):
     ]
 
     return result
+
+
+def parse_swap_key(swap_key: str) -> List[Tuple[str, str]]:
+    # The Swap Key property is in the format of "<swapped out>|<swapped in>^<swapped out>|<swapped in>",
+    # where each entry is the ID of an asset. This key, along with the Swap Source ID uniquely identifies the swap
+    # variant of the item in question.
+    if not isinstance(swap_key, str) or len(swap_key.strip()) == 0:
+        raise SPyValueError(f'"Swap Key" value is empty or not a string: {swap_key}')
+
+    pairs = list()
+    for pair in swap_key.split(SWAP_KEY_PAIR_SEPARATOR):
+        ids = pair.split(SWAP_KEY_GUID_SEPARATOR)
+        if len(ids) != 2 or not all(_common.is_guid(_id) for _id in ids):
+            raise SPyValueError(f'"Swap Key" value is malformed: {swap_key}')
+
+        pairs.append((ids[0].upper(), ids[1].upper()))
+
+    return pairs

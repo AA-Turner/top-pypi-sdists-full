@@ -30,6 +30,10 @@ NON_TURN_CLIENT_ATTRS: dict[str, str] = {
 
 SPECIAL_WIRE_FORMATS: frozenset[str] = frozenset(NON_TURN_CLIENT_ATTRS)
 
+#: The wire of a model on a person's own computer (DeviceChat, reached through ``served_via``).
+#: An offering on this wire is never a cloud route (``AiCatalogManager.is_device_offering``).
+DEVICE_WIRE_FORMAT = "device_chat"
+
 
 def client_attr_for_wire_format(wire_format: str) -> str:
     """Return the execution channel for a catalog wire-format token."""
@@ -37,6 +41,7 @@ def client_attr_for_wire_format(wire_format: str) -> str:
 
 
 __all__ = [
+    "DEVICE_WIRE_FORMAT",
     "NON_TURN_CLIENT_ATTRS",
     "SPECIAL_WIRE_FORMATS",
     "client_attr_for_wire_format",

@@ -141,7 +141,7 @@ class LegalEntityCreateParams(TypedDict, total=False):
     """An individual's prefix."""
 
     primary_social_media_sites: SequenceNotStr[str]
-    """A list of primary social media URLs for the business."""
+    """A list of the entity's primary social media URLs."""
 
     regulators: Optional[Iterable[Regulator]]
     """Array of regulatory bodies overseeing this institution."""
@@ -151,6 +151,13 @@ class LegalEntityCreateParams(TypedDict, total=False):
 
     service_provider_legal_entity_id: Optional[str]
     """The UUID of the parent legal entity in the service provider tree."""
+
+    status: Literal["draft"]
+    """Set to draft to create the legal entity as a draft.
+
+    Omit to create it as pending. Inline child legal entities take the parent's
+    status.
+    """
 
     suffix: Optional[str]
     """An individual's suffix."""

@@ -521,7 +521,7 @@ class _IImageNameProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f81ae2679d7471479e5816734a1164966670a97a769e663d3dba0018a25318b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "creds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "creds", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IImageName).__jsii_proxy_class__ = lambda : _IImageNameProxy
@@ -576,7 +576,7 @@ class S3ArchiveName(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__688773b22e812b1f885bcb3c6db14df681ea8a4de7c61c9c548cc3b5251b4a09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "creds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "creds", value)
 
 
 @jsii.implements(IImageName)
@@ -625,7 +625,7 @@ class DockerImageName(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72af2920d9000bc2347ecd474276dc87af6bbfa4c1a44723c544387087315a29)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "creds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "creds", value)
 
 
 __all__ = [

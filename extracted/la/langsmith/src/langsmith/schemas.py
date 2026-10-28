@@ -644,7 +644,7 @@ class RunLikeDict(TypedDict, total=False):
     session_id: Optional[UUID]
     session_name: Optional[str]
     address: Optional[AgentAddress]
-    """(beta) The `AgentAddress` to send the run to, instead of a project."""
+    """The `AgentAddress` to send the run to, instead of a project."""
     reference_example_id: Optional[UUID]
     input_attachments: Optional[dict]
     output_attachments: Optional[dict]
@@ -777,7 +777,7 @@ class FeedbackCreate(FeedbackBase):
     # `Any`, not `AgentAddress`: pydantic needs the type at class creation, and importing
     # `address` here is circular. The validator below checks it.
     address: Optional[Any] = Field(default=None, exclude=True)
-    """(beta) The `AgentAddress` to send the feedback to, instead of a project."""
+    """The `AgentAddress` to send the feedback to, instead of a project."""
 
     @field_validator("address")
     @classmethod

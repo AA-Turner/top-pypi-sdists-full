@@ -17,6 +17,8 @@
 # under the License.
 #
 
+from __future__ import annotations
+
 from cproton import PN_DEFAULT_PRIORITY, PN_UUID, PN_OVERFLOW, pn_error_text, pn_message, \
     pn_message_annotations, pn_message_body, pn_message_clear, pn_message_decode, \
     pn_message_encode, pn_message_error, pn_message_free, pn_message_get_address, pn_message_get_content_encoding, \
@@ -35,8 +37,9 @@ from ._common import millis2secs, secs2millis
 from ._data import char, Data, symbol, ulong, AnnotationDict
 from ._endpoints import Link
 from ._exceptions import EXCEPTIONS, MessageException
+from math import inf
 from uuid import UUID
-from typing import Dict, Optional, Union, TYPE_CHECKING, overload
+from typing import Optional, Union, TYPE_CHECKING, overload
 
 if TYPE_CHECKING:
     from proton._delivery import Delivery
@@ -44,7 +47,7 @@ if TYPE_CHECKING:
     from proton._data import Described, PythonAMQPData
 
 
-class Message(object):
+class Message:
     """The :py:class:`Message` class is a mutable holder of message content.
 
     :ivar instructions: delivery instructions for the message ("Delivery Annotations" in the AMQP 1.0 spec)
@@ -133,8 +136,9 @@ class Message(object):
             self._check_property_keys()
             props.put_object(self.properties)
         body.clear()
-        if self.body is not None:
-            body.put_object(self.body)
+        # Message body must be present for a valid AMQP message
+        # If it is None, encode as an explicit null
+        body.put_object(self.body)
 
     def _post_decode(self) -> None:
         inst = Data(pn_message_instructions(self._msg))
@@ -221,15 +225,18 @@ class Message(object):
     @property
     def ttl(self) -> float:
         """The time to live of the message measured in seconds. Expired messages
-        may be dropped.
+        may be dropped. A value of ``inf`` indicates that the message has no ttl and never expires.
 
         :raise: :exc:`MessageException` if there is any Proton error when using the setter.
         """
-        return millis2secs(pn_message_get_ttl(self._msg))
+        ttl = pn_message_get_ttl(self._msg)
+        if ttl == 0:
+            return inf
+        return millis2secs(ttl)
 
     @ttl.setter
-    def ttl(self, value: Union[float, int]) -> None:
-        self._check(pn_message_set_ttl(self._msg, secs2millis(value)))
+    def ttl(self, value: Union[float, int, None]) -> None:
+        self._check(pn_message_set_ttl(self._msg, secs2millis(0 if value is None or value == inf else value)))
 
     @property
     def first_acquirer(self) -> bool:
@@ -447,7 +454,7 @@ class Message(object):
         return self.instruction_dict
 
     @instructions.setter
-    def instructions(self, instructions: Optional[Dict[Union[str, int], 'PythonAMQPData']]) -> None:
+    def instructions(self, instructions: Optional[dict[Union[str, int], 'PythonAMQPData']]) -> None:
         if isinstance(instructions, dict):
             self.instruction_dict = AnnotationDict(instructions, raise_on_error=False)
         else:
@@ -468,7 +475,7 @@ class Message(object):
         return self.annotation_dict
 
     @annotations.setter
-    def annotations(self, annotations: Optional[Dict[Union[str, int], 'PythonAMQPData']]) -> None:
+    def annotations(self, annotations: Optional[dict[Union[str, int], 'PythonAMQPData']]) -> None:
         if isinstance(annotations, dict):
             self.annotation_dict = AnnotationDict(annotations, raise_on_error=False)
         else:
@@ -490,7 +497,7 @@ class Message(object):
         self._check(pn_message_decode(self._msg, data))
         self._post_decode()
 
-    def send(self, sender: 'Sender', tag: Optional[str] = None) -> 'Delivery':
+    def send(self, sender: Sender, tag: Optional[str] = None) -> Delivery:
         """
         Encodes and sends the message content using the specified sender,
         and, if present, using the specified tag. Upon success, will
@@ -509,10 +516,10 @@ class Message(object):
         return dlv
 
     @overload
-    def recv(self, link: 'Sender') -> None:
+    def recv(self, link: Sender) -> None:
         ...
 
-    def recv(self, link: 'Receiver') -> Optional['Delivery']:
+    def recv(self, link: Receiver) -> Optional[Delivery]:
         """
         Receives and decodes the message content for the current :class:`Delivery`
         from the link. Upon success it will return the current delivery

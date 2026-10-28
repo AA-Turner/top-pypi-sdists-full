@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.5.5"
+__version__ = "1.5.6"
 
 # Define package exports
 __all__ = [
@@ -198,6 +198,7 @@ __all__ = [
     "DiscourseAuthReply",
     "DiscourseAuthRequest",
     "DockerBuilder",
+    "DockerDeploymentMetadata",
     "DockerHubRegistryConfiguration",
     "DockerSource",
     "Domain",
@@ -218,6 +219,7 @@ __all__ = [
     "ExecCommandRequestIdType",
     "ExecCommandRequestTerminalSize",
     "GCPContainerRegistryConfiguration",
+    "GRPCHealthCheck",
     "GetAppReply",
     "GetBudgetReply",
     "GetCatalogInstanceReply",
@@ -409,6 +411,7 @@ __all__ = [
     "RegionalDeploymentEvent",
     "RegionalDeploymentListItem",
     "RegionalDeploymentMesh",
+    "RegionalDeploymentMetadata",
     "RegionalDeploymentRole",
     "RegionalDeploymentStatus",
     "RegionalDeploymentVolume",
@@ -839,6 +842,9 @@ from koyeb.api.models.discourse_auth_request import (
     DiscourseAuthRequest as DiscourseAuthRequest,
 )
 from koyeb.api.models.docker_builder import DockerBuilder as DockerBuilder
+from koyeb.api.models.docker_deployment_metadata import (
+    DockerDeploymentMetadata as DockerDeploymentMetadata,
+)
 from koyeb.api.models.docker_hub_registry_configuration import (
     DockerHubRegistryConfiguration as DockerHubRegistryConfiguration,
 )
@@ -873,6 +879,7 @@ from koyeb.api.models.exec_command_request_terminal_size import (
 from koyeb.api.models.gcp_container_registry_configuration import (
     GCPContainerRegistryConfiguration as GCPContainerRegistryConfiguration,
 )
+from koyeb.api.models.grpc_health_check import GRPCHealthCheck as GRPCHealthCheck
 from koyeb.api.models.get_app_reply import GetAppReply as GetAppReply
 from koyeb.api.models.get_budget_reply import GetBudgetReply as GetBudgetReply
 from koyeb.api.models.get_catalog_instance_reply import (
@@ -1297,6 +1304,9 @@ from koyeb.api.models.regional_deployment_list_item import (
 )
 from koyeb.api.models.regional_deployment_mesh import (
     RegionalDeploymentMesh as RegionalDeploymentMesh,
+)
+from koyeb.api.models.regional_deployment_metadata import (
+    RegionalDeploymentMetadata as RegionalDeploymentMetadata,
 )
 from koyeb.api.models.regional_deployment_role import (
     RegionalDeploymentRole as RegionalDeploymentRole,

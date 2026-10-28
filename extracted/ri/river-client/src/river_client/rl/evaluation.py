@@ -209,9 +209,18 @@ class Evaluator:
             completion=GroupCompletion(mode="wait", min_members=1),
         ):
             trajectories.extend(group)
+        rewards = [t.reward for t in trajectories if not t.dropped]
         metrics = {
-            "reward_mean": float(np.mean([t.reward for t in trajectories])),
-            "reward_std": float(np.std([t.reward for t in trajectories])),
+            **(
+                {
+                    "reward_mean": float(np.mean(rewards)),
+                    "reward_std": float(np.std(rewards)),
+                }
+                if rewards
+                else {}
+            ),
+            "reward_count": float(len(rewards)),
+            "dropped_frac": sum(t.dropped for t in trajectories) / len(trajectories),
             "generated_tokens_mean": float(
                 np.mean([t.generated_tokens for t in trajectories])
             ),

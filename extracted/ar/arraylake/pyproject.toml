@@ -49,10 +49,12 @@ dependencies = [
 
 [project.optional-dependencies]
 xarray = [
-  "xarray >= 2024.10.0",
+  # xarray<2025.6 can't open zarr>=3.1 arrays that have a _FillValue attribute
+  # (AttributeError: 'Float32' object has no attribute 'value').
+  "xarray >= 2025.6.0",
 ]
 maximal = [
-  "xarray[accel,etc,io,parallel] >= 2024.10.0",
+  "xarray[accel,etc,io,parallel] >= 2025.6.0",
 ]
 obstore = [
   "obstore >= 0.9.2",
@@ -65,9 +67,11 @@ iceberg = [
   "pyiceberg[pyarrow] >= 0.11, < 0.13",
 ]
 openeo = [
-  # openeo >=0.40 pins xarray<2025.01.2, which forces xarray below the
-  # version that can read zarr 3.2 dtypes (AttributeError: 'Float64'.value)
-  "openeo>=0.35.0,<0.53",
+  # openeo 0.40-0.52 pin xarray<2025.01.2, too old for zarr>=3.1 (see the xarray
+  # extra). The xarray floor makes the resolver skip those openeo releases (0.53
+  # dropped the pin) whatever the upper bound becomes.
+  "openeo>=0.35.0,<0.54",
+  "xarray >= 2025.6.0",
 ]
 
 [dependency-groups]
@@ -159,4 +163,4 @@ exclude = ['**/__init__.py', '**/tests/*']
 
 [tool.uv]
 exclude-newer = "2 weeks"
-exclude-newer-package = { icechunk = false }
+exclude-newer-package = { icechunk = false, openeo = false, certifi = false, pillow = false, virtualenv = false, filelock = false, uv = false }

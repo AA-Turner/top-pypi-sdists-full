@@ -9,12 +9,27 @@ sets TESTMUAI_SOURCE=hyperexecute in all cloud YAML paths; locally we
 default to "local".
 """
 import base64
+import logging
 import os
 
 import aiohttp
 
 from testmu import _configure
 from testmu._step import get_instruction_id
+
+_log = logging.getLogger("testmu")
+
+
+async def _log_api_call_id(session, ctx, params):
+    """One run-log line per AI call that names its api_call_id, the key to
+    look the call up server-side, and the controller request_id(s) that name
+    its captured data."""
+    call_id = params.response.headers.get("x-api-call-id")
+    if call_id:
+        request_ids = params.response.headers.get("x-controller-request-id")
+        _log.info("%s %s -> %s api_call_id=%s%s",
+                  params.method, params.url.path, params.response.status, call_id,
+                  f" request_id={request_ids}" if request_ids else "")
 
 
 def create_session(**kwargs) -> aiohttp.ClientSession:
@@ -53,5 +68,17 @@ def create_session(**kwargs) -> aiohttp.ClientSession:
     instruction_id = get_instruction_id()
     if instruction_id:
         headers["x-instruction-id"] = instruction_id
+
+    run_id = os.getenv("TESTMUAI_RUN_ID", "") or os.getenv("TEST_RUN_ID", "")
+    if run_id:
+        headers["x-run-id"] = run_id
+
+    commit_id = os.getenv("TESTMUAI_COMMIT_ID", "") or os.getenv("COMMIT_ID", "")
+    if commit_id:
+        headers["x-commit-id"] = commit_id
+
+    trace = aiohttp.TraceConfig()
+    trace.on_request_end.append(_log_api_call_id)
+    kwargs["trace_configs"] = [*kwargs.get("trace_configs", []), trace]
 
     return aiohttp.ClientSession(headers=headers, **kwargs)

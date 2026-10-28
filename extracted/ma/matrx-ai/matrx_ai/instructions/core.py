@@ -4,7 +4,6 @@ import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-
 # ---------------------------------------------------------------------------
 # The "Current date" decoration — pinned once, uniquely marked, never doubled
 # ---------------------------------------------------------------------------
@@ -124,6 +123,10 @@ class SystemInstruction:
     include_code_guidelines: bool = False
     include_safety_guidelines: bool = False
     include_actions_guidance: bool = False
+    # Who made this agent (config/agent_identity.py): staged in the per-turn context
+    # channel by the send boundary, never rendered into this text. Off for non-chat
+    # models (strip_chat_decorations).
+    include_identity: bool = True
 
     # The date decoration is pinned ONCE and reused verbatim forever (see the
     # module header). ``date_anchor`` is the immutable, host-supplied value
@@ -192,6 +195,7 @@ class SystemInstruction:
         routes.
         """
         self.include_date = False
+        self.include_identity = False
         self.tools_list = []
         self.action_types = []
         self.include_actions_guidance = False
@@ -355,6 +359,7 @@ class SystemInstruction:
                 include_safety_guidelines=value.get("include_safety_guidelines", False),
                 include_actions_guidance=value.get("include_actions_guidance", False),
                 include_context_block=value.get("include_context_block", True),
+                include_identity=value.get("include_identity", True),
                 opening_turn=value.get("opening_turn", ""),
                 version=value.get("version"),
                 category=value.get("category"),

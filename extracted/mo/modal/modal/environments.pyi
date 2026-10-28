@@ -573,6 +573,7 @@ class __update_environment_spec(typing_extensions.Protocol):
         *,
         new_name: typing.Optional[str] = None,
         new_web_suffix: typing.Optional[str] = None,
+        new_image_builder_version: typing.Optional[str] = None,
         client: typing.Optional[modal.client.Client] = None,
     ): ...
     async def aio(
@@ -582,6 +583,7 @@ class __update_environment_spec(typing_extensions.Protocol):
         *,
         new_name: typing.Optional[str] = None,
         new_web_suffix: typing.Optional[str] = None,
+        new_image_builder_version: typing.Optional[str] = None,
         client: typing.Optional[modal.client.Client] = None,
     ): ...
 

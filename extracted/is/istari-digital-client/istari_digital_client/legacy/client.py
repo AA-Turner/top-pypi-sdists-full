@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 import logging
 import shutil
+import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Iterable, Union
+from typing import Callable, Optional, Iterable, Union
 from uuid import UUID
 
 from pydantic import StrictStr
@@ -48,16 +49,17 @@ from istari_digital_client.legacy.v2.models.user import User
 from istari_digital_client.legacy.v2.models.user_control_tagging import UserControlTagging
 from istari_digital_client.legacy.v2.models.token import Token
 from istari_digital_client.legacy.log_utils import log_method
+from istari_digital_client._transfer.events import TransferEvent
+
 
 from istari_digital_client.legacy.v2.models.new_system import NewSystem
-
 from istari_digital_client.legacy.v2.models.system import System
 from istari_digital_client.legacy.v2.models.revision_bulk_create_item import RevisionBulkCreateItem
 
 PathLike = Union[str, os.PathLike, Path]
+ProgressCallback = Callable[[TransferEvent], None]
 
 logger = logging.getLogger("istari-digital-client.client")
-
 
 class Client(KeyManagementMixin, V2Api):
     """Create a new instance of the Istari client
@@ -178,6 +180,10 @@ class Client(KeyManagementMixin, V2Api):
         external_identifier: str | None = None,
         display_name: str | None = None,
         source_job_id: str | None = None,
+        output_name: str | None = None,
+        salt: str | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> Artifact:
         """
         Add a new artifact to a model.
@@ -201,6 +207,16 @@ class Client(KeyManagementMixin, V2Api):
         :type external_identifier: str | None
         :param display_name: Optional human-readable name for the artifact.
         :type display_name: str | None
+        :param source_job_id: Internal use only (istari-agent). ID of the job uploading this artifact as its output.
+        :type source_job_id: str | None
+        :param output_name: Internal use only (istari-agent). Name of the job's declared output this artifact
+                            fulfils. With `source_job_id`, applies the control tags chosen for that output at
+                            job creation.
+        :type output_name: str | None
+        :param salt: Optional content-token salt; keep it stable across your own retries so an
+                     interrupted multipart upload resumes instead of restarting.
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
         """
         file_revision = self.create_revision(
             file_path=path,
@@ -209,12 +225,16 @@ class Client(KeyManagementMixin, V2Api):
             description=description,
             version_name=version_name,
             external_identifier=external_identifier,
+            salt=salt,
+            progress=progress,
+            cancel=cancel,
         )
 
         return self._create_artifact(
             model_id=model_id,
             file_revision=file_revision,
             source_job_id=source_job_id,
+            output_name=output_name,
         )
 
     @log_method
@@ -275,6 +295,9 @@ class Client(KeyManagementMixin, V2Api):
         external_identifier: str | None = None,
         display_name: str | None = None,
         source_job_id: str | None = None,
+        output_name: str | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> Artifact:
         """
         Update an existing artifact with a new file and optional metadata.
@@ -297,6 +320,15 @@ class Client(KeyManagementMixin, V2Api):
         :type external_identifier: str | None
         :param display_name: Optional human-readable name for the updated artifact.
         :type display_name: str | None
+        :param source_job_id: Internal use only (istari-agent). ID of the job uploading this artifact revision as
+                              its output.
+        :type source_job_id: str | None
+        :param output_name: Internal use only (istari-agent). Name of the job's declared output this artifact
+                            revision fulfils. With `source_job_id`, applies the control tags chosen for that
+                            output at job creation.
+        :type output_name: str | None
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
         """
 
         salt = self.get_artifact(artifact_id=artifact_id).revision.content_token.salt
@@ -309,12 +341,15 @@ class Client(KeyManagementMixin, V2Api):
             description=description,
             version_name=version_name,
             external_identifier=external_identifier,
+            progress=progress,
+            cancel=cancel,
         )
 
         return self._update_artifact(
             artifact_id=artifact_id,
             file_revision=file_revision,
             source_job_id=source_job_id,
+            output_name=output_name,
         )
 
     @log_method
@@ -323,6 +358,10 @@ class Client(KeyManagementMixin, V2Api):
         resource_id: str,
         path: PathLike,
         description: str | None = None,
+        *,
+        salt: str | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> Comment:
         """
         Add a new comment to a resource.
@@ -336,6 +375,10 @@ class Client(KeyManagementMixin, V2Api):
         :type path: PathLike
         :param description: Optional text describing the comment or its relevance.
         :type description: str | None
+        :param salt: Optional content-token salt; keep it stable across your own retries so an
+                     interrupted multipart upload resumes instead of restarting.
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
         """
 
         file_revision = self.create_revision(
@@ -345,6 +388,9 @@ class Client(KeyManagementMixin, V2Api):
             description=description,
             version_name=None,
             external_identifier=None,
+            salt=salt,
+            progress=progress,
+            cancel=cancel,
         )
 
         return self._create_comment(
@@ -358,6 +404,9 @@ class Client(KeyManagementMixin, V2Api):
         comment_id: str,
         path: PathLike,
         description: str | None = None,
+        *,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> Comment:
         """
         Update an existing comment with a new file and optional description.
@@ -371,6 +420,8 @@ class Client(KeyManagementMixin, V2Api):
         :type path: PathLike
         :param description: Optional updated description of the comment.
         :type description: str | None
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
         """
 
         salt = self.get_comment(comment_id=comment_id).revision.content_token.salt
@@ -383,6 +434,8 @@ class Client(KeyManagementMixin, V2Api):
             description=description,
             version_name=None,
             external_identifier=None,
+            progress=progress,
+            cancel=cancel,
         )
 
         return self._update_comment(
@@ -400,6 +453,9 @@ class Client(KeyManagementMixin, V2Api):
         version_name: str | None = None,
         external_identifier: str | None = None,
         display_name: str | None = None,
+        salt: str | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> File:
         """
         Add a new file to the system.
@@ -420,6 +476,10 @@ class Client(KeyManagementMixin, V2Api):
         :type external_identifier: str | None
         :param display_name: Optional human-readable name for the file.
         :type display_name: str | None
+        :param salt: Optional content-token salt; keep it stable across your own retries so an
+                     interrupted multipart upload resumes instead of restarting.
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
         """
 
         file_revision = self.create_revision(
@@ -429,6 +489,9 @@ class Client(KeyManagementMixin, V2Api):
             description=description,
             version_name=version_name,
             external_identifier=external_identifier,
+            salt=salt,
+            progress=progress,
+            cancel=cancel,
         )
 
         return self._create_file(
@@ -446,6 +509,8 @@ class Client(KeyManagementMixin, V2Api):
         version_name: str | None = None,
         external_identifier: str | None = None,
         display_name: str | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> File:
         """
         Update an existing file with a new version and optional metadata.
@@ -468,6 +533,8 @@ class Client(KeyManagementMixin, V2Api):
         :type external_identifier: str | None
         :param display_name: Optional human-readable name for the file.
         :type display_name: str | None
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
         """
 
         salt = self.get_file(file_id=file_id).revision.content_token.salt
@@ -480,6 +547,8 @@ class Client(KeyManagementMixin, V2Api):
             description=description,
             version_name=version_name,
             external_identifier=external_identifier,
+            progress=progress,
+            cancel=cancel,
         )
 
         return self._update_file(
@@ -538,6 +607,8 @@ class Client(KeyManagementMixin, V2Api):
         version_name: str | None = None,
         external_identifier: str | None = None,
         display_name: str | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> Job:
         """
         Update an existing job with a new file and optional metadata.
@@ -560,6 +631,8 @@ class Client(KeyManagementMixin, V2Api):
         :type external_identifier: str | None
         :param display_name: Optional human-readable name for the job.
         :type display_name: str | None
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
         """
 
         salt = self.get_job(job_id=job_id).revision.content_token.salt
@@ -572,6 +645,8 @@ class Client(KeyManagementMixin, V2Api):
             description=description,
             version_name=version_name,
             external_identifier=external_identifier,
+            progress=progress,
+            cancel=cancel,
         )
 
         return self._update_job(
@@ -590,6 +665,10 @@ class Client(KeyManagementMixin, V2Api):
         external_identifier: str | None = None,
         display_name: str | None = None,
         source_job_id: str | None = None,
+        output_name: str | None = None,
+        salt: str | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> Model:
         """
         Add a new model to the system.
@@ -610,6 +689,15 @@ class Client(KeyManagementMixin, V2Api):
         :type external_identifier: str | None
         :param display_name: Optional human-readable name for the model.
         :type display_name: str | None
+        :param source_job_id: Internal use only (istari-agent). ID of the job uploading this model as its output.
+        :type source_job_id: str | None
+        :param output_name: Internal use only (istari-agent). Name of the job's declared output this model fulfils.
+                            With `source_job_id`, applies the control tags chosen for that output at job creation.
+        :type output_name: str | None
+        :param salt: Optional content-token salt; keep it stable across your own retries so an
+                     interrupted multipart upload resumes instead of restarting.
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
         """
 
         file_revision = self.create_revision(
@@ -619,10 +707,14 @@ class Client(KeyManagementMixin, V2Api):
             description=description,
             version_name=version_name,
             external_identifier=external_identifier,
+            salt=salt,
+            progress=progress,
+            cancel=cancel,
         )
         return self._create_model(
             file_revision=file_revision,
             source_job_id=source_job_id,
+            output_name=output_name,
         )
 
     @log_method
@@ -637,6 +729,9 @@ class Client(KeyManagementMixin, V2Api):
         external_identifier: str | None = None,
         display_name: str | None = None,
         source_job_id: str | None = None,
+        output_name: str | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> Model:
         """
         Update an existing model with a new file and optional metadata.
@@ -659,6 +754,15 @@ class Client(KeyManagementMixin, V2Api):
         :type external_identifier: str | None
         :param display_name: Optional human-readable name for the model.
         :type display_name: str | None
+        :param source_job_id: Internal use only (istari-agent). ID of the job uploading this model revision as its
+                              output.
+        :type source_job_id: str | None
+        :param output_name: Internal use only (istari-agent). Name of the job's declared output this model revision
+                            fulfils. With `source_job_id`, applies the control tags chosen for that output at job
+                            creation.
+        :type output_name: str | None
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
         """
 
         salt = self.get_model(model_id=model_id).revision.content_token.salt
@@ -671,12 +775,15 @@ class Client(KeyManagementMixin, V2Api):
             description=description,
             version_name=version_name,
             external_identifier=external_identifier,
+            progress=progress,
+            cancel=cancel,
         )
 
         return self._update_model(
             model_id=model_id,
             file_revision=file_revision,
             source_job_id=source_job_id,
+            output_name=output_name,
         )
 
     @log_method
@@ -686,6 +793,9 @@ class Client(KeyManagementMixin, V2Api):
         path: PathLike,
         auth_integration_id: Optional[str] = None,
         expiration: Optional[datetime] = None,
+        *,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> FunctionAuthSecret:
         """
         Create a new function authentication secret from a file.
@@ -702,6 +812,8 @@ class Client(KeyManagementMixin, V2Api):
         :type auth_integration_id: Optional[str]
         :param expiration: Optional expiration date/time of the secret.
         :type expiration: Optional[datetime]
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
         """
 
         path = Path(path)
@@ -710,6 +822,8 @@ class Client(KeyManagementMixin, V2Api):
 
         file_revision = self.create_secret_revision(
             file_path=path,
+            progress=progress,
+            cancel=cancel,
         )
 
         # Generate content token for the secret

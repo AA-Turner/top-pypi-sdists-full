@@ -21,9 +21,8 @@ Ctrl-C before `Install ›` configures nothing and `--no-capture` still exists
 for scripts. Afterwards Probe comes off WHOLE, through Uninstall: the Settings
 screen used to turn tracking, capture and the instruction rules off one at a
 time, which is how a device ended up running the half a product this paragraph
-opens with. It keeps automatic updates, the one row that is not a part of Probe,
-and the research plan review, which switches one routing line inside Probe's
-block rather than a part of Probe (`apply_plan_review`).
+opens with. It keeps automatic updates and image-upload preferences. Research plan review
+is a skill shipped with every agent profile and always routed by the Probe block.
 
 The flag path is the CONTRACT and the screens are a front end over it (see
 `resolve_selection` for the truth table). CI, piped stdin and dumb terminals all
@@ -3323,61 +3322,6 @@ def _apply_root_skills(source: str, plugin: str) -> list[str]:
         return [f"! could not install Probe's skills: {exc}"]
 
 
-def apply_plan_review(on: bool) -> list[str]:
-    """The "Research plan review" row: save the setting, then re-render every
-    Probe block already on this device so the routing paragraph comes or goes
-    now, not at the next refresh.
-
-    An absent block stays absent (absent is that agent's opt-out, see
-    `apply_recorder_rules`), and a block a NEWER CLI wrote is left alone, the
-    same rule `refresh_pointer` keeps: rewriting it here would downgrade it.
-    Both say so, so the screen never reports a change it did not make.
-
-    Each block renders the PERSISTED setting, read under that file's lock, not
-    this call's `on`: two toggles racing would otherwise leave the last
-    renderer's value in a file while the config holds the other one. A write
-    that fails anyway is repaired by `refresh_pointer` at the next session
-    start or synced Stop.
-    """
-    from probe.harness import get_registry
-    from probe.sdk import session_marker
-    from probe.sdk.config import ConfigUnreadable
-
-    try:
-        session_marker.write_plan_review(on)
-    except (OSError, ValueError, ConfigUnreadable) as exc:
-        return [f"! could not set Research plan review: {exc}"]
-    lines = [f"Research plan review → {'on' if on else 'off'}"]
-    seen: set[Path] = set()
-    blocks = 0
-    for harness in get_registry().all():
-        try:
-            path = agent_rules.memory_path(harness.id)
-        except ValueError:
-            continue  # no instruction file Probe manages for this agent
-        if path in seen:
-            continue
-        seen.add(path)
-        try:
-            with _instruction_file_lock(path):
-                installed = agent_rules.installed_version(path)
-                if installed is None:
-                    continue
-                blocks += 1
-                if installed > agent_rules.POINTER_VERSION:
-                    lines.append(f"! left {short_path(path)} alone: a newer Probe CLI wrote it; set this there")
-                    continue
-                profile = agent_rules.installed_profile(path) or agent_rules.Profile.AGENT
-                agent_rules.install(path, block=agent_rules.render_block(profile=profile))
-        except agent_rules.DamagedBlock as exc:
-            lines.append(f"! left {short_path(path)} alone: {exc}")
-        except (OSError, UnicodeDecodeError) as exc:
-            lines.append(f"! could not update {short_path(path)}: {exc}")
-    if not blocks:
-        lines.append("! no agent on this device has Probe's instructions, so this changes nothing yet")
-    return lines
-
-
 @dataclass
 class _Ready:
     ok: bool
@@ -4493,21 +4437,34 @@ def _bind_menu_keys(
     return control
 
 
-def confirm_removal(agent_sources: tuple[str, ...] | list[str] | str = ("claude_code",)):
-    """The uninstall gate. Returns None, tui.BACK, or a bool.
+def confirm_removal(agent_sources: tuple[str, ...] | list[str] | str = ("claude_code",), *, offline: bool = False):
+    """The uninstall gate (`probe uninstall`). Returns None, tui.BACK, or a bool.
 
     A bare `typer.confirm` here was the one prompt in the wizard that printed
     at column 0 -- and it guarded the single destructive action, which is the
     worst place to look like a different program.
+
+    The copy says what the uninstall does and nothing more: it used to claim
+    every token was revoked while the daemon key was only wiped off the disk.
+    A key another computer also holds is disconnected from this one, not
+    revoked; offline, nothing is revoked and the dashboard is where it is done.
     """
     from probe.cli import tui
 
+    agents = f"the {agent_label(agent_sources)} plugins, skills and rules" if agent_sources else "its plugins"
+    keys = (
+        "Nothing can be revoked offline: revoke this computer's keys in the dashboard afterwards."
+        if offline else
+        "This computer is retired from your account and its keys are revoked (the API and MCP tokens, the "
+        "Probe daemon's key, every capture key); a key another computer also uses is only disconnected "
+        "from this one."
+    )
     return tui.review(
-        "Remove Probe Research from this device",
+        "Remove Probe Research from this computer",
         tui.wrap(
-            f"Removes the {agent_label(agent_sources)} plugins, stops capture and "
-            "imports, clears import history, and signs out (this device's tokens "
-            "are revoked). Data already sent to your team stays."
+            f"Stops every Probe process and removes the Probe CLI, {agents}, the status line, and "
+            f"Probe's files for you on this computer. {keys} Your projects, .probe.config files and "
+            "data already sent to your team stay."
         ),
         [("Keep Probe Research", False), ("Remove Probe Research", True)],
     )
@@ -4531,6 +4488,22 @@ def confirm_pending_capture(sources: tuple[str, ...] | list[str] | str):
             "your team."
         ),
         [("Turn on session capture", True), ("Not now", False)],
+    )
+
+
+def confirm_agent_removal(agent_sources: tuple[str, ...] | list[str] | str):
+    """`probe wizard --action uninstall --agent A`: Probe out of the named
+    agents only. Keep first, like `confirm_removal`. None, tui.BACK or a bool."""
+    from probe.cli import tui
+
+    return tui.review(
+        f"Remove Probe Research from {agent_label(agent_sources)}",
+        tui.wrap(
+            f"Removes Probe's plugins, hooks, skills and rules from {agent_label(agent_sources)} and stops its "
+            "capture. The Probe CLI, this computer's sign-in and every other coding agent stay; "
+            "`probe uninstall` removes all of Probe."
+        ),
+        [("Keep Probe Research", False), (f"Remove it from {agent_label(agent_sources)}", True)],
     )
 
 
@@ -5367,7 +5340,6 @@ class Setting(StrEnum):
     RECORDER_PI = "recorder_pi"
     RECORDER_KIMI_CODE = "recorder_kimi_code"
     REASONING_SUMMARIES = "reasoning_summaries"
-    PLAN_REVIEW = "plan_review"
     PASTED_IMAGES = "pasted_images"
 
 
@@ -5401,7 +5373,6 @@ SETTING_CAPABILITY: dict[Setting, Capability] = {
 #: lengthening one flat column.
 SETTINGS_GROUPS: tuple[tuple[str, tuple[Setting, ...]], ...] = (
     ("Updates", (Setting.AUTO_UPDATE,)),
-    ("Planning", (Setting.PLAN_REVIEW,)),
     ("Images", (Setting.PASTED_IMAGES,)),
 )
 
@@ -5427,13 +5398,6 @@ SETTINGS_COPY: dict[Setting, tuple[str, tuple[str, ...]]] = {
     Setting.AUTO_UPDATE: (
         "Automatic updates",
         ("Updates the CLI and plugins at session start.",),
-    ),
-    # On by default and offered only here, never during install (Richard
-    # 2026-10-11): the routing line in each Probe block that runs the
-    # `plan-research-review` skill unasked (`apply_plan_review`).
-    Setting.PLAN_REVIEW: (
-        "Research plan review",
-        ("Your agent plans with you before writing research code.",),
     ),
     # On by default for every device, offered only here (Richard 2026-10-12:
     # "default on even for currently installed people ... dont add a step in
@@ -5693,7 +5657,6 @@ def read_settings(caps_by_source: dict | None = None) -> dict[Setting, bool]:
         # the row is drawn, so the registry check always has a value.
         **{setting: session_marker.recorder(source) for setting, source in RECORDER_SETTINGS.items()},
         Setting.REASONING_SUMMARIES: reasoning_summaries.row_on(reasoning_sources(caps_by_source)),
-        Setting.PLAN_REVIEW: session_marker.plan_review_on(),
         Setting.PASTED_IMAGES: session_marker.pasted_images_on(),
     }
     if caps_by_source is not None:
@@ -5757,8 +5720,6 @@ def apply_settings(
             lines.append(f"Probe in new sessions → {session_marker.state_label(state)}")
         elif setting is Setting.REASONING_SUMMARIES:
             lines.extend(reasoning_summaries.set_explicit(bool(value), reasoning_sources(caps_by_source)))
-        elif setting is Setting.PLAN_REVIEW:
-            lines.extend(apply_plan_review(bool(value)))
         elif setting is Setting.PASTED_IMAGES:
             try:
                 session_marker.write_pasted_images(bool(value))
@@ -5893,7 +5854,7 @@ def run_settings_menu(
     """The settings screen: the install panels' shape, pointed at what is left.
 
     Checkbox rows, ticked = on, grouped under headings like every other panel:
-    Automatic updates and Research plan review; a page handed `groups` draws its
+    Automatic updates and pasted-image uploads; a page handed `groups` draws its
     own rows, and a cycling row CYCLES rather than ticks (one state per press). Nothing
     is written while you press -- `→` on the `Set settings ›` band is the
     commit, and so is LEAVING: `←`/Escape after a change applies it too. They
@@ -5932,7 +5893,7 @@ def run_settings_menu(
         "Settings on this device:",
         [
             f"  {SETTINGS_COPY[setting][0]:<28} {'on' if current[setting] else 'off'}"
-            for setting in (Setting.AUTO_UPDATE, Setting.PLAN_REVIEW, Setting.PASTED_IMAGES)
+            for setting in (Setting.AUTO_UPDATE, Setting.PASTED_IMAGES)
         ],
         "How should this device behave?",
     )
@@ -6069,6 +6030,9 @@ def tracking_default_row(state: "str | None" = None) -> tuple[str, tuple[str, ..
     detail = tuple(line for line in SETTINGS_STATE_COPY[Setting.TRACKING_DEFAULT][state] if line)
     if held:
         detail = (*detail, DEFAULT_ENV_LOCKED_NOTE)
+    set_by = session_marker.set_by_note() if state == here else None
+    if set_by:
+        detail = (*detail, f"{set_by[0].upper()}{set_by[1:]}.")
     return title, detail
 
 
@@ -7106,10 +7070,13 @@ def remove_everything(caps: Capabilities) -> list[str]:
     Per agent, so a device with both Claude Code and Codex runs this twice. The
     ACCOUNT is not part of it -- there is one config file, not one per agent --
     and `finish_removal` releases that once, after the last pass through here.
-    """
-    from . import import_jobs
 
-    import_jobs.clear_all()
+    NOTHING DEVICE-WIDE either (`probe wizard --action uninstall --agent A`,
+    the only caller): the import jobs (one job imports several agents' sessions,
+    and a folder import is no agent's; there is no per-agent clear) and the
+    automatic-updates choice (one device-wide file, `autoupdate`) stay. The
+    whole-device `probe uninstall` removes both with the rest of Probe's state.
+    """
     messages: list[str] = []
     result = turn_off(OffMode.UNINSTALL)
     messages.append(result.summary())
@@ -7158,10 +7125,6 @@ def remove_everything(caps: Capabilities) -> list[str]:
     # fully removed device can never look fresh again.
     messages.extend(apply_agent_rules(False))
 
-    # The two leftovers that kept a removed device reading as CONFIGURED, which
-    # is the flag deciding whether the next install offers the fresh defaults or
-    # "whatever is currently on" -- and after a removal that is nothing at all.
-    #
     # `.disabled` is written by the teardown above to stop a session that starts
     # mid-uninstall from respawning the uploader. Once the plugin is gone and
     # `verified` says no credential resolves ANYWHERE (an exported ingest token
@@ -7171,7 +7134,6 @@ def remove_everything(caps: Capabilities) -> list[str]:
     # capture back on, which is the one thing this file may never do quietly.
     if result.plugin_removed and result.verified:
         clear_killswitch()
-    autoupdate.forget()
 
     # NOT the account: that is `finish_removal`, once for the device, after the
     # last coding agent has run through here. Releasing it from inside this

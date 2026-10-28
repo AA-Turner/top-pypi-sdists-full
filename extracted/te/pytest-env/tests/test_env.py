@@ -119,13 +119,14 @@ if TYPE_CHECKING:
 )
 def test_env_via_pytest(
     pytester: pytest.Pytester,
+    env_test_template: str,
     env: dict[str, str],
     ini: str,
     expected_env: dict[str, str],
     request: pytest.FixtureRequest,
 ) -> None:
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
-    (pytester.path / f"test_{test_name}.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "pytest.ini").write_text(ini, encoding="utf-8")
 
     new_env = {
@@ -281,8 +282,9 @@ def test_env_via_pytest(
         ),
     ],
 )
-def test_env_via_toml(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+def test_env_via_toml(
     pytester: pytest.Pytester,
+    env_test_template: str,
     env: dict[str, str],
     pyproject_toml: str,
     pytest_toml: str,
@@ -306,7 +308,7 @@ def test_env_via_toml(  # ruff:ignore[too-many-arguments, too-many-positional-ar
         if ini:
             (pytester.path / "pytest.ini").write_text(ini, encoding="utf-8")
 
-    (test_dir / f"test_{test_name}.py").symlink_to(Path(__file__).parent / "template.py")
+    (test_dir / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
 
     new_env = {
         **env,
@@ -478,8 +480,9 @@ def test_env_via_toml(  # ruff:ignore[too-many-arguments, too-many-positional-ar
         ),
     ],
 )
-def test_env_via_env_file(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+def test_env_via_env_file(
     pytester: pytest.Pytester,
+    env_test_template: str,
     env: dict[str, str],
     env_file_content: str,
     config: str,
@@ -488,7 +491,7 @@ def test_env_via_env_file(  # ruff:ignore[too-many-arguments, too-many-positiona
     request: pytest.FixtureRequest,
 ) -> None:
     test_name = re.sub(r"\W|^(?=\d)", "_", request.node.callspec.id).lower()
-    (pytester.path / f"test_{test_name}.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / f"test_{test_name}.py").write_text(env_test_template, encoding="utf-8")
     if env_file_content:
         (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
     config_file_names = {"pyproject": "pyproject.toml", "pytest.toml": "pytest.toml", "ini": "pytest.ini"}
@@ -623,15 +626,16 @@ def test_env_via_pyproject_toml_bad(pytester: pytest.Pytester, toml_name: str) -
         ),
     ],
 )
-def test_envfile_cli(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+def test_envfile_cli(
     pytester: pytest.Pytester,
+    env_test_template: str,
     env_file_content: str | None,
     cli_file_content: str,
     config: str | None,
     cli_arg: str,
     expected_env: dict[str, str],
 ) -> None:
-    (pytester.path / "test_cli.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / "test_cli.py").write_text(env_test_template, encoding="utf-8")
 
     if env_file_content:
         (pytester.path / ".env").write_text(env_file_content, encoding="utf-8")
@@ -651,8 +655,8 @@ def test_envfile_cli(  # ruff:ignore[too-many-arguments, too-many-positional-arg
     result.assert_outcomes(passed=1)
 
 
-def test_envfile_cli_skip_if_set(pytester: pytest.Pytester) -> None:
-    (pytester.path / "test_cli_skip.py").symlink_to(Path(__file__).parent / "template.py")
+def test_envfile_cli_skip_if_set(pytester: pytest.Pytester, env_test_template: str) -> None:
+    (pytester.path / "test_cli_skip.py").write_text(env_test_template, encoding="utf-8")
     (pytester.path / "cli.env").write_text("MAGIC=from_cli", encoding="utf-8")
     (pytester.path / "pyproject.toml").write_text(
         dedent("""\
@@ -779,36 +783,108 @@ def child(pytester: pytest.Pytester, mocker: MockerFixture) -> Path:
     [pytest.param(False, id="omitted"), pytest.param(True, id="empty")],
 )
 @pytest.mark.parametrize(
-    "extend",
-    [pytest.param(False, id="config-only"), pytest.param(True, id="cli-extend")],
+    "scenario",
+    [
+        pytest.param((False, False), id="config-only-unset"),
+        pytest.param((False, True), id="config-only-set"),
+        pytest.param((True, False), id="cli-extend-unset"),
+        pytest.param((True, True), id="cli-extend-set"),
+    ],
 )
 def test_native_env_files_override_ini(
-    pytester: pytest.Pytester, config_name: str, empty_env_files: bool, extend: bool
+    pytester: pytest.Pytester,
+    mocker: MockerFixture,
+    config_name: str,
+    empty_env_files: bool,
+    scenario: tuple[bool, bool],
 ) -> None:
     (pytester.path / "fallback.env").write_text("INHERITED=from_ini\n", encoding="utf-8")
     (pytester.path / "cli.env").write_text("FROM_CLI=from_cli\n", encoding="utf-8")
-    section = "tool.pytest_env" if config_name == "pyproject.toml" else "pytest_env"
-    native = f"[{section}]\n" + ("env_files = []\n" if empty_env_files else "")
+    native = f"[{'tool.pytest_env' if config_name == 'pyproject.toml' else 'pytest_env'}]\n"
+    if empty_env_files:
+        native += "env_files = []\n"
     if config_name == "pyproject.toml":
         pytester.makeini("[pytest]\nenv_files = fallback.env\n")
     else:
         native += '\n[pytest]\nenv_files = ["fallback.env"]\n'
     (pytester.path / config_name).write_text(native, encoding="utf-8")
-    expected_inherited = None if empty_env_files else "from_ini"
-    expected_cli = "from_cli" if extend else None
+    pass_python_env: Final[bool] = scenario[1]
+    pythonpath_marker: Final[str] = str(pytester.path / "pythonpath_marker")
+    inherited_env: Final[dict[str, str]] = {
+        key: os.environ[key] for key in ("PYTHONPATH", "PYTHONDONTWRITEBYTECODE") if key in os.environ
+    }
+    python_env: Final[dict[str, str]] = (
+        {
+            "PYTHONPATH": os.pathsep.join(filter(None, (inherited_env.get("PYTHONPATH"), pythonpath_marker))),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+        if pass_python_env
+        else inherited_env
+    )
+    extend: Final[bool] = scenario[0]
+    expected_env: Final[tuple[str | None, str | None, bool, str | None]] = (
+        None if empty_env_files else "from_ini",
+        "from_cli" if extend else None,
+        pass_python_env,
+        python_env.get("PYTHONDONTWRITEBYTECODE"),
+    )
     pytester.makepyfile(
         test_env=dedent(f"""\
             import os
 
             def test_env() -> None:
-                assert (os.environ.get("INHERITED"), os.environ.get("FROM_CLI")) == (
-                    {expected_inherited!r}, {expected_cli!r}
-                )
+                assert (
+                    os.environ.get("INHERITED"),
+                    os.environ.get("FROM_CLI"),
+                    {pythonpath_marker!r} in os.environ["PYTHONPATH"].split(os.pathsep),
+                    os.environ.get("PYTHONDONTWRITEBYTECODE"),
+                ) == {expected_env!r}
         """),
     )
-    new_env = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTEST_PLUGINS": "pytest_env.plugin"}
-    args = ["--envfile", "+cli.env"] if extend else []
-    with mock.patch.dict(os.environ, new_env, clear=True):
-        result = pytester.runpytest_subprocess(*args)
+    system_env: Final[dict[str, str]] = {key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR") if key in os.environ}
+    mocker.patch.dict(
+        os.environ,
+        {
+            **system_env,
+            **python_env,
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+            "PYTEST_PLUGINS": "pytest_env.plugin",
+        },
+        clear=True,
+    )
+    pytester.runpytest_subprocess(*(["--envfile", "+cli.env"] if extend else [])).assert_outcomes(passed=1)
+
+
+@pytest.mark.parametrize(
+    "file_key",
+    [
+        pytest.param("PYTEST_ENV_CASE", id="same-case"),
+        pytest.param("pytest_env_case", id="different-case"),
+    ],
+)
+def test_env_files_skip_if_set_respects_platform_case(pytester: pytest.Pytester, file_key: str) -> None:
+    expected: Final[str] = "from_file" if os.name != "nt" and file_key == "pytest_env_case" else "original"
+    (pytester.path / ".env").write_text(f"{file_key}=from_file\n", encoding="utf-8")
+    (pytester.path / "pytest.ini").write_text(
+        "[pytest]\nenv_files = .env\nenv_files_skip_if_set = true\n", encoding="utf-8"
+    )
+    pytester.makepyfile(
+        test_case=(
+            f'import os\ndef test_case() -> None:\n    assert os.environ["{file_key}"] == {expected!r}\n'
+            '    assert os.environ["PYTEST_ENV_CASE"] == "original"\n'
+        )
+    )
+    with mock.patch.dict(
+        os.environ,
+        {
+            "PYTEST_ENV_CASE": "original",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+            "PYTEST_PLUGINS": "pytest_env.plugin",
+        },
+        clear=True,
+    ):
+        result: Final[pytest.RunResult] = pytester.runpytest("--pytest-env-verbose")
+
     result.assert_outcomes(passed=1)
-    assert result.ret == pytest.ExitCode.OK
+    action: Final[str] = "SET" if expected == "from_file" else "SKIP"
+    result.stdout.fnmatch_lines([f"*{action}*{file_key}={expected}*(from*.env*"])

@@ -795,6 +795,7 @@ namespace casadi {
       << "    sp = " << f.name() << "_sparsity_out(ii);\n\n"
       << "    /* Check if output is dense (sp[2]=1) or sparse (sp[2]=0) */\n"
       << "    if (sp[2]==0) {\n"
+      << "      for (jj=0; jj<sp[0]*sp[1]; ++jj) y[ii][jj] = 0;\n"
       << "      jj_total = 0;\n"
       << "      ind_start_row_index = 2 + sp[1] + 1;\n\n"
       << "      /* Distribute nonzero elements column by column */\n"
@@ -812,7 +813,7 @@ namespace casadi {
       << "      }\n"
       << "    }\n"
       << "    else {\n"
-      << "      y[ii] = res[ii];\n"
+      << "      for (jj=0; jj<sp[0]*sp[1]; ++jj) y[ii][jj] = res[ii][jj];\n"
       << "    }\n"
       << "  }\n"
       << "}\n\n\n";
@@ -995,6 +996,28 @@ namespace casadi {
 
     // Codegen auxiliary functions
     s << this->auxiliaries.str();
+
+    // The configuration this file is compiled with, for whoever loads it
+    s << "/* Configuration this file was compiled with */\n"
+      << declare("void " + this->prefix + "_casadi_version(int* major, int* minor, int* patch)")
+      << " {\n"
+      << "  *major = " << CASADI_MAJOR_VERSION << ";\n"
+      << "  *minor = " << CASADI_MINOR_VERSION << ";\n"
+      << "  *patch = " << CASADI_PATCH_VERSION << ";\n"
+      << "}\n"
+      << declare("int " + this->prefix + "_casadi_int_size(void)")
+      << " { return (int) sizeof(casadi_int); }\n"
+      << declare("int " + this->prefix + "_casadi_real_size(void)")
+      << " { return (int) sizeof(casadi_real); }\n";
+    if (needs_mem_) {
+      s << declare("int " + this->prefix + "_max_num_threads(void)")
+        << " { return CASADI_MAX_NUM_THREADS; }\n";
+    }
+    if (added_auxiliaries_.count(AUX_THREADS)) {
+      s << declare("int " + this->prefix + "_thread_type(void)")
+        << " { return CASADI_THREAD_TYPE; }\n";
+    }
+    s << "\n";
 
     // Print integer constants
     if (!integer_constants_.empty()) {
@@ -1797,6 +1820,41 @@ namespace casadi {
       add_include("math.h");
 
       this->auxiliaries << sanitize_source(casadi_qrqp_str, inst);
+      break;
+    case AUX_IVP:
+      add_auxiliary(AUX_COPY);
+      add_auxiliary(AUX_AXPY);
+      add_auxiliary(AUX_CLEAR);
+      add_auxiliary(AUX_MV);
+      add_auxiliary(AUX_MV_DENSE);
+      add_include("math.h");
+      this->auxiliaries << sanitize_source(casadi_ivp_str, inst);
+      break;
+    case AUX_IVP_ADAPT:
+      add_auxiliary(AUX_IVP);
+      add_auxiliary(AUX_FMIN);
+      add_auxiliary(AUX_FMAX);
+      add_auxiliary(AUX_FABS);
+      this->auxiliaries << sanitize_source(casadi_ivp_adapt_str, inst);
+      break;
+    case AUX_IVP_EVENT:
+      add_auxiliary(AUX_IVP);
+      add_auxiliary(AUX_FABS);
+      this->auxiliaries << sanitize_source(casadi_ivp_event_str, inst);
+      break;
+    case AUX_ROSENBROCK:
+      add_auxiliary(AUX_IVP);
+      add_auxiliary(AUX_SCAL);
+      add_auxiliary(AUX_RANK1);
+      add_auxiliary(AUX_QR);
+      add_auxiliary(AUX_FABS);
+      add_include("math.h");
+      this->auxiliaries << sanitize_source(casadi_rosenbrock_str, inst);
+      break;
+    case AUX_ERK:
+      add_auxiliary(AUX_IVP);
+      add_auxiliary(AUX_SCAL);
+      this->auxiliaries << sanitize_source(casadi_erk_str, inst);
       break;
     case AUX_NLP:
       add_auxiliary(AUX_ORACLE);
@@ -2671,6 +2729,13 @@ namespace casadi {
     casadi_assert(i < line.size(), "Unterminated quoted token in: " + line);
     pos = i + 1;
     return r;
+  }
+
+  void CodeGenerator::add_runtime(const std::string& key, const std::string& src,
+      const std::vector<std::string>& inst) {
+    std::string k = key;
+    for (const std::string& s : inst) k += "_" + s;
+    if (added_runtimes_.insert(k).second) auxiliaries << sanitize_source(src, inst);
   }
 
   std::string CodeGenerator::

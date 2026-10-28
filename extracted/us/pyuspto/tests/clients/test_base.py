@@ -101,39 +101,6 @@ class TestResponseClass:
         return instance
 
 
-class TestImportFallback:
-    """Tests for typing import fallback logic."""
-
-    def test_import_fallback_logic(self) -> None:
-        """Tests that the module falls back to typing_extensions.Self if typing.Self fails."""
-        import builtins
-        import importlib
-        import sys
-
-        import typing_extensions
-
-        module_name = "pyUSPTO.clients.base"
-
-        if module_name in sys.modules:
-            del sys.modules[module_name]
-
-        original_import = builtins.__import__
-
-        def mock_import(name, globals=None, locals=None, fromlist=(), level=0):
-            if name == "typing" and "Self" in fromlist:
-                raise ImportError("Simulated missing Self in typing")
-            return original_import(name, globals, locals, fromlist, level)
-
-        with patch("builtins.__import__", side_effect=mock_import):
-            base_module = importlib.import_module(module_name)
-
-        assert base_module.Self is typing_extensions.Self
-
-        if module_name in sys.modules:
-            del sys.modules[module_name]
-        importlib.import_module(module_name)
-
-
 class TestBaseUSPTOClient:
     """Tests for the BaseUSPTOClient class."""
 
@@ -601,12 +568,13 @@ class TestBaseUSPTOClient:
         client.config._session = mock_session
 
         # Create mock responses
+        # response.count is the TOTAL count across all pages
         first_response = MagicMock()
-        first_response.count = 2
+        first_response.count = 3
         first_response.items = ["item1", "item2"]
 
         second_response = MagicMock()
-        second_response.count = 1
+        second_response.count = 3
         second_response.items = ["item3"]
 
         third_response = MagicMock()
@@ -700,6 +668,151 @@ class TestBaseUSPTOClient:
             # Verify empty results works
             assert results == []
 
+    def test_paginate_results_stops_when_total_is_multiple_of_limit(
+        self, mock_session: MagicMock
+    ) -> None:
+        """Test pagination makes no extra request when total is a multiple of limit."""
+        # response.count is the TOTAL count: 4 results fill exactly 2 pages of 2
+        first_response = MagicMock()
+        first_response.count = 4
+        first_response.items = ["item1", "item2"]
+
+        second_response = MagicMock()
+        second_response.count = 4
+        second_response.items = ["item3", "item4"]
+
+        class TestClient(BaseUSPTOClient[Any]):
+            def test_method(self, **kwargs: Any) -> Any:
+                offset = kwargs["offset"]
+                if offset == 0:
+                    return first_response
+                if offset == 2:
+                    return second_response
+                # The API answers a page past the end with HTTP 404
+                raise USPTOApiNotFoundError("Page past the end", status_code=404)
+
+        test_client = TestClient(base_url="https://api.test.com")
+        test_client.config._session = mock_session
+
+        with patch.object(
+            test_client, "test_method", wraps=test_client.test_method
+        ) as spy_method:
+            results = list(
+                test_client.paginate_results(
+                    method_name="test_method",
+                    response_container_attr="items",
+                    limit=2,
+                )
+            )
+
+            assert results == ["item1", "item2", "item3", "item4"]
+            assert spy_method.call_count == 2
+            spy_method.assert_any_call(offset=0, limit=2)
+            spy_method.assert_any_call(offset=2, limit=2)
+
+    def test_paginate_results_per_page_count_stops_on_short_page(
+        self, mock_session: MagicMock
+    ) -> None:
+        """Test per-page count mode reads past full pages and stops on a short one."""
+        # response.count is the size of each page (as in the bulk data API)
+        pages = {0: ["item1", "item2"], 2: ["item3", "item4"], 4: ["item5"]}
+
+        class TestClient(BaseUSPTOClient[Any]):
+            def test_method(self, **kwargs: Any) -> Any:
+                items = pages[kwargs["offset"]]
+                return MagicMock(count=len(items), items=items)
+
+        test_client = TestClient(base_url="https://api.test.com")
+        test_client.config._session = mock_session
+
+        results = list(
+            test_client.paginate_results(
+                method_name="test_method",
+                response_container_attr="items",
+                count_is_total=False,
+                limit=2,
+            )
+        )
+
+        assert results == ["item1", "item2", "item3", "item4", "item5"]
+
+    def test_paginate_results_per_page_count_stops_on_404_after_full_page(
+        self, mock_session: MagicMock
+    ) -> None:
+        """Test per-page count mode treats a 404 past a full last page as the end."""
+        pages = {0: ["item1", "item2"], 2: ["item3", "item4"]}
+
+        class TestClient(BaseUSPTOClient[Any]):
+            def test_method(self, **kwargs: Any) -> Any:
+                offset = kwargs["offset"]
+                if offset not in pages:
+                    # The bulk data API answers a page past the end with HTTP 404
+                    raise USPTOApiNotFoundError("Page past the end", status_code=404)
+                return MagicMock(count=len(pages[offset]), items=pages[offset])
+
+        test_client = TestClient(base_url="https://api.test.com")
+        test_client.config._session = mock_session
+
+        results = list(
+            test_client.paginate_results(
+                method_name="test_method",
+                response_container_attr="items",
+                count_is_total=False,
+                limit=2,
+            )
+        )
+
+        assert results == ["item1", "item2", "item3", "item4"]
+
+    @pytest.mark.parametrize(
+        "count_is_total", [True, False], ids=["total_count", "per_page_count"]
+    )
+    def test_paginate_results_yields_nothing_when_first_page_is_404(
+        self, mock_session: MagicMock, count_is_total: bool
+    ) -> None:
+        """Test a search with no matches (the API answers 404) yields nothing."""
+
+        class TestClient(BaseUSPTOClient[Any]):
+            def test_method(self, **kwargs: Any) -> Any:
+                raise USPTOApiNotFoundError("No matching records", status_code=404)
+
+        test_client = TestClient(base_url="https://api.test.com")
+        test_client.config._session = mock_session
+
+        results = list(
+            test_client.paginate_results(
+                method_name="test_method",
+                response_container_attr="items",
+                count_is_total=count_is_total,
+                limit=2,
+            )
+        )
+
+        assert results == []
+
+    def test_paginate_results_total_count_raises_404_after_first_page(
+        self, mock_session: MagicMock
+    ) -> None:
+        """Test total count mode does not treat a 404 on a later page as the end."""
+
+        class TestClient(BaseUSPTOClient[Any]):
+            def test_method(self, **kwargs: Any) -> Any:
+                if kwargs["offset"] == 0:
+                    return MagicMock(count=5, items=["item1", "item2"])
+                raise USPTOApiNotFoundError("Unexpected 404", status_code=404)
+
+        test_client = TestClient(base_url="https://api.test.com")
+        test_client.config._session = mock_session
+
+        with pytest.raises(USPTOApiNotFoundError):
+            list(
+                test_client.paginate_results(
+                    method_name="test_method",
+                    response_container_attr="items",
+                    limit=2,
+                )
+            )
+
     def test_paginate_results_with_nested_pagination(
         self, mock_session: MagicMock
     ) -> None:
@@ -710,13 +823,13 @@ class TestBaseUSPTOClient:
 
         # Create mock responses
         # response.count is the TOTAL count across all pages
-        # Break condition: response.count < limit + offset
+        # Break condition: response.count <= limit + offset
         first_response = MagicMock()
         first_response.count = 3  # Total: 3 items across all pages
         first_response.items = ["item1", "item2"]
 
         second_response = MagicMock()
-        second_response.count = 3  # Total still 3, triggers break: 3 < 2 + 2 is False, but we yield then break
+        second_response.count = 3  # Total still 3; 3 <= 2 + 2, so we yield then break
         second_response.items = ["item3"]
 
         # Track what post_body was actually sent
@@ -789,38 +902,30 @@ class TestBaseUSPTOClient:
         assert "offset" not in second_body
         assert "limit" not in second_body
 
-    def test_paginate_results_with_flat_pagination(
+    def test_paginate_results_nests_pagination_for_body_without_pagination(
         self, mock_session: MagicMock
     ) -> None:
-        """Test paginate_results still works with flat (top-level) pagination structure."""
-        # Setup client
+        """Test paginate_results adds a nested pagination dict when post_body has none."""
         client: BaseUSPTOClient[Any] = BaseUSPTOClient(base_url="https://api.test.com")
         client.config._session = mock_session
 
-        # Create mock responses
-        # First page: 2 items, total count shows there's only 1 item total (less than limit)
-        first_response = MagicMock()
-        first_response.count = 1  # Total count (triggers break since 1 < 2 + 0)
-        first_response.items = ["item1"]
+        response = MagicMock()
+        response.count = 1  # Total count (1 <= 25 + 0, so a single page)
+        response.items = ["item1"]
 
         received_bodies: list[dict[str, Any]] = []
 
         def mock_test_method(
             post_body: dict[str, Any] | None = None, **kwargs: Any
         ) -> Any:
-            """Mock method that tracks POST body and returns appropriate response."""
+            """Mock method that records each POST body it receives."""
             if post_body:
-                received_bodies.append(post_body.copy())
-            return first_response
+                received_bodies.append(post_body)
+            return response
 
-        # Add the mock method to the client
         client.test_method = mock_test_method  # type: ignore[attr-defined]
 
-        # Test with flat (top-level) pagination structure
-        post_body = {
-            "q": "test query",
-            "limit": 2,  # Flat structure
-        }
+        post_body = {"q": "test query"}
 
         results = list(
             client.paginate_results(
@@ -830,16 +935,30 @@ class TestBaseUSPTOClient:
             )
         )
 
-        # Verify results
         assert results == ["item1"]
+        assert received_bodies == [
+            {"q": "test query", "pagination": {"offset": 0, "limit": 25}}
+        ]
+        # The caller's body is reused for every page, so it must not change
+        assert post_body == {"q": "test query"}
 
-        # Verify that pagination params were added at top-level
-        assert len(received_bodies) == 1
-        first_body = received_bodies[0]
-        assert first_body["offset"] == 0
-        assert first_body["limit"] == 2
-        # Should NOT have nested pagination
-        assert "pagination" not in first_body
+    def test_paginate_results_rejects_top_level_limit_in_post_body(
+        self, mock_session: MagicMock
+    ) -> None:
+        """Test that a top-level limit in post_body is rejected (the API returns 400)."""
+        client: BaseUSPTOClient[Any] = BaseUSPTOClient(base_url="https://api.test.com")
+        client.config._session = mock_session
+
+        post_body = {"q": "test", "limit": 50}
+
+        with pytest.raises(ValueError, match=r"post_body\['pagination'\]"):
+            list(
+                client.paginate_results(
+                    method_name="test_method",
+                    response_container_attr="items",
+                    post_body=post_body,
+                )
+            )
 
     def test_paginate_results_rejects_offset_in_nested_pagination(
         self, mock_session: MagicMock
@@ -2093,6 +2212,25 @@ class TestExtractArchive:
         # Directory entries are skipped, but files are extracted
         assert (extract_to / "testdir" / "file.txt").exists()
 
+    def test_zip_single_file_returns_written_path(self, tmp_path: Any) -> None:
+        """Test a single-file zip returns the path zipfile wrote, not the stored name."""
+        import zipfile
+
+        client: BaseUSPTOClient[Any] = BaseUSPTOClient(
+            config=USPTOConfig(api_key="test"), base_url="https://test.com"
+        )
+
+        zip_path = tmp_path / "test.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            # zipfile drops ".." parts on extraction, writing a/b.txt
+            zf.writestr("a/../b.txt", "content")
+
+        extract_to = tmp_path / "extracted"
+        result = client._extract_archive(zip_path, extract_to=extract_to)
+
+        assert result == str(extract_to / "a" / "b.txt")
+        assert (extract_to / "a" / "b.txt").read_text() == "content"
+
 
 class TestExtractArchiveSymlinks:
     """Tests for symlink skipping in _extract_archive."""
@@ -2202,6 +2340,64 @@ class TestExtractArchiveSymlinks:
         # No files extracted, returns directory
         assert result == str(extract_to)
         assert not (extract_to / "evil_link").exists()
+
+
+class TestExtractArchiveSpecialMembers:
+    """Tests for tar special files and permission bits in _extract_archive."""
+
+    def test_tar_fifo_skipped(self, tmp_path: Any) -> None:
+        """Test that named pipes in tar archives are skipped."""
+        import io
+        import tarfile
+
+        client: BaseUSPTOClient[Any] = BaseUSPTOClient(
+            config=USPTOConfig(api_key="test"), base_url="https://test.com"
+        )
+
+        tar_path = tmp_path / "test.tar"
+        with tarfile.open(tar_path, "w") as tar:
+            fifo_info = tarfile.TarInfo(name="pipe")
+            fifo_info.type = tarfile.FIFOTYPE
+            tar.addfile(fifo_info)
+
+            data = b"real content"
+            info = tarfile.TarInfo(name="real.txt")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+
+        extract_to = tmp_path / "extracted"
+        result = client._extract_archive(tar_path, extract_to=extract_to)
+
+        assert result == str(extract_to / "real.txt")
+        assert not (extract_to / "pipe").exists()
+
+    def test_tar_member_mode_not_applied(self, tmp_path: Any) -> None:
+        """Test extracted files get default permissions, not the archive's (setuid)."""
+        import io
+        import stat
+        import tarfile
+
+        client: BaseUSPTOClient[Any] = BaseUSPTOClient(
+            config=USPTOConfig(api_key="test"), base_url="https://test.com"
+        )
+
+        tar_path = tmp_path / "test.tar"
+        with tarfile.open(tar_path, "w") as tar:
+            data = b"#!/bin/sh\n"
+            info = tarfile.TarInfo(name="run.sh")
+            info.size = len(data)
+            info.mode = 0o4777
+            tar.addfile(info, io.BytesIO(data))
+
+        extract_to = tmp_path / "extracted"
+        client._extract_archive(tar_path, extract_to=extract_to)
+
+        # A file created normally in the same place shows the default permissions
+        reference = tmp_path / "reference"
+        reference.write_bytes(data)
+        assert stat.S_IMODE((extract_to / "run.sh").stat().st_mode) == stat.S_IMODE(
+            reference.stat().st_mode
+        )
 
 
 class TestDownloadAndExtract:

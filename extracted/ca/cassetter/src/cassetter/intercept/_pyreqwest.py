@@ -9,7 +9,8 @@ import pyreqwest_impersonate as pri
 
 from cassetter._core import HttpResponse as _HttpResponse
 from cassetter._state import get_current_cassette
-from cassetter.cassette import NoMatchError, body_to_bytes
+from cassetter.cassette import NoMatchError
+from cassetter.compare import body_to_bytes
 from cassetter.intercept._shared import apply_before_record_request
 
 METHODS_WITH_BODY = frozenset({"post", "put", "patch"})
@@ -117,11 +118,13 @@ def intercept(
     method, url, norm_headers, body = raw.method, raw.uri, raw.headers, raw.body
 
     try:
-        response = cassette.play(method, url, norm_headers, body)
-        return build_replay_response(url, response)
+        expected = cassette.match(method, url, norm_headers, body)
+        if not cassette.verifies:
+            return build_replay_response(url, expected[1])
     except NoMatchError:
         if not cassette.can_record:
             raise
+        expected = None
 
     order = cassette.reserve_record_order()
     real_response = original(client, *original_args, **kwargs)
@@ -141,6 +144,7 @@ def intercept(
         response_headers=resp_headers,
         response_body=real_response.content,
         order=order,
+        expected=expected,
     )
     return real_response
 

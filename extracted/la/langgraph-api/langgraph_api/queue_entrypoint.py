@@ -19,6 +19,7 @@ from contextlib import suppress
 
 import structlog
 
+from langgraph_api.asyncio import run_main_loop
 from langgraph_api.utils.errors import GraphLoadError, HealthServerStartupError
 from langgraph_api.utils.network import format_hostport, normalize_host
 from langgraph_runtime import lifespan
@@ -309,11 +310,4 @@ if __name__ == "__main__":
     with open(pathlib.Path(__file__).parent.parent / "logging.json") as file:
         loaded_config = json.load(file)
         logging.config.dictConfig(loaded_config)
-    try:
-        import uvloop
-
-        uvloop.install()
-    except ImportError:
-        pass
-    # run the entrypoint
-    asyncio.run(main())
+    run_main_loop(main())

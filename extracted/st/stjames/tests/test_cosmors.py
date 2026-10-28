@@ -1,5 +1,7 @@
 """Test cosmors behavior and validation."""
 
+from pytest import mark
+
 from stjames import COSMORSParameterization, Molecule, Solvent
 
 COSMORS: dict[str, float | str] = {
@@ -18,16 +20,17 @@ COSMORS: dict[str, float | str] = {
 }
 
 
-def test_molecule_cosmors_round_trip() -> None:
+@mark.parametrize("parameterization", list(COSMORSParameterization))
+def test_molecule_cosmors_round_trip(parameterization: COSMORSParameterization) -> None:
     """Merging COSMO-RS results into a Molecule, as condor's engine_result_to_stjames does."""
     water = Molecule.from_xyz("H 0 0 0\nO 0 0 1\nH 0 1 1")
     assert water.cosmo_rs_data is None
 
-    mol = Molecule.model_validate(water.model_dump() | {"cosmo_rs_data": COSMORS})
+    mol = Molecule.model_validate(water.model_dump() | {"cosmo_rs_data": COSMORS | {"parameterization": parameterization.value}})
     assert mol.cosmo_rs_data is not None
     assert mol.cosmo_rs_data.solvation_free_energy == -0.011
     assert mol.cosmo_rs_data.solvent is Solvent.WATER
-    assert mol.cosmo_rs_data.parameterization is COSMORSParameterization.OPENCOSMO_RS_24A
+    assert mol.cosmo_rs_data.parameterization is parameterization
 
     dumped = mol.model_dump(mode="json")
     assert dumped["cosmo_rs_data"]["solvation_free_energy"] == -0.011

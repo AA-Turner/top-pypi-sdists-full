@@ -26,6 +26,7 @@
 
 #include "bonmin_interface.hpp"
 #include "bonmin_nlp.hpp"
+#include "../ipopt/ipopt_uout_journal.hpp"
 #include "casadi/core/casadi_misc.hpp"
 #include "../../core/global_options.hpp"
 #include "../../core/casadi_interrupt.hpp"
@@ -132,6 +133,9 @@ namespace casadi {
   void BonminInterface::init(const Dict& opts) {
     // Call the init method of the base class
     Nlpsol::init(opts);
+
+    // Bonmin returns no multipliers (lam is NaN): skip post-solve lam_x/lam_p
+    calc_lam_x_ = calc_lam_p_ = false;
 
     // Default options
     pass_nonlinear_variables_ = true;
@@ -417,8 +421,7 @@ namespace casadi {
 
     {
       // Direct output through casadi::uout()
-      StreamJournal* jrnl_raw = new StreamJournal("console", J_ITERSUMMARY);
-      jrnl_raw->SetOutputStream(&casadi::uout());
+      UoutJournal* jrnl_raw = new UoutJournal("console", J_ITERSUMMARY);
       jrnl_raw->SetPrintLevel(J_DBG, J_NONE);
       SmartPtr<Journal> jrnl = jrnl_raw;
       journalist->AddJournal(jrnl);

@@ -117,7 +117,7 @@ ACTION_COPY: dict[Action, tuple[str, str]] = {
     ),
     Action.SETTINGS: (
         "Settings",
-        "Automatic updates and research plan review.",
+        "Automatic updates and pasted-image uploads.",
     ),
     Action.DIAGNOSE: (
         "Diagnose a problem",

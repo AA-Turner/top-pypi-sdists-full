@@ -44,6 +44,8 @@ api_key_job_admin/org_id,ws_id:
     - r+w+d:job_run/org_id,ws_id,*,{env=*}
 api_key_history_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
+    - dh_viewer_live/org_id,ws_id
+    - chart_viewer_live/org_id,ws_id
     - dh_deleter_live/org_id,ws_id
     - r+w+d:workspace_decision_history/org_id,ws_id
 api_key_audit_logs/org_id,ws_id:

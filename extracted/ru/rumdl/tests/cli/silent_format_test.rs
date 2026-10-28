@@ -32,6 +32,88 @@ fn assert_no_format_cache(root: &Path) {
 }
 
 #[test]
+fn silent_format_keeps_native_urls_in_reference_continuations_and_empty_labels() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("a.md");
+    let options = [
+        "--no-config",
+        "--no-cache",
+        "--respect-gitignore=false",
+        "--flavor=standard",
+        "--enable=MD034",
+        "a.md",
+    ];
+    for (atom, replacement) in [
+        ("https://example.com", "<https://example.com>"),
+        ("name@example.com", "<name@example.com>"),
+        ("www.example.com", "<https://www.example.com>"),
+    ] {
+        for source in [
+            format!("[x]:\n  {atom}\n"),
+            format!("[x]: https://example.org\n  \"{atom}\"\n"),
+            format!("![{atom}][r]\n\n[r]: <>\n"),
+            format!("[{atom}][r]\n\n[r]: <>\n"),
+        ] {
+            let expected = source.replace(atom, replacement);
+            fs::write(&path, &source).unwrap();
+            let checked = run(dir.path(), &[&["fmt", "--check", "--silent"][..], &options].concat());
+            assert_eq!(checked.status.code(), Some(1), "{source:?}: {checked:?}");
+            assert_eq!(fs::read_to_string(&path).unwrap(), source);
+
+            for mode in [
+                &["fmt", "--silent"][..],
+                &["fmt"][..],
+                &["check", "--fix", "--silent"][..],
+            ] {
+                fs::write(&path, &source).unwrap();
+                let output = run(dir.path(), &[mode, &options].concat());
+                assert_eq!(output.status.code(), Some(0), "{source:?}, {mode:?}: {output:?}");
+                assert_eq!(fs::read_to_string(&path).unwrap(), expected, "{source:?}, {mode:?}");
+            }
+
+            let stable = run(dir.path(), &[&["fmt", "--check", "--silent"][..], &options].concat());
+            assert_eq!(stable.status.code(), Some(0), "{source:?}: {stable:?}");
+            assert_eq!(fs::read_to_string(&path).unwrap(), expected);
+        }
+    }
+}
+
+#[test]
+fn silent_format_keeps_native_list_ownership_around_display_math() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("a.md");
+    let source = "1. a\n\n$$x\n- root\n  see `$$`\n  more\n";
+    let expected = "1. a\n\n$$x\n- root\n   see `$$`\n   more\n";
+    let options = [
+        "--no-config",
+        "--no-cache",
+        "--flavor=standard",
+        "--enable=MD077",
+        "a.md",
+    ];
+
+    fs::write(&path, source).unwrap();
+    let checked = run(dir.path(), &[&["fmt", "--check", "--silent"][..], &options].concat());
+    assert_eq!(checked.status.code(), Some(1), "{checked:?}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), source);
+
+    for mode in [
+        &["fmt", "--silent"][..],
+        &["fmt"][..],
+        &["check", "--fix", "--silent"][..],
+    ] {
+        fs::write(&path, source).unwrap();
+        let output = run(dir.path(), &[mode, &options].concat());
+        assert_eq!(output.status.code(), Some(0), "{mode:?}: {output:?}");
+        assert_eq!(fs::read_to_string(&path).unwrap(), expected, "{mode:?}");
+    }
+
+    let stable = run(dir.path(), &[&["fmt", "--check", "--silent"][..], &options].concat());
+    assert_eq!(stable.status.code(), Some(0), "{stable:?}");
+    assert_eq!(fs::read_to_string(&path).unwrap(), expected);
+}
+
+#[test]
 fn silent_format_reuses_a_complete_clean_check_without_running_fixes() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("a.md");

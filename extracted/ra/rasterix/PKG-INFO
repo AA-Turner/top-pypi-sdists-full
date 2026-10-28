@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rasterix
-Version: 0.2.4
+Version: 0.3.0
 Summary: Raster extensions for Xarray
 License-Expression: Apache-2.0
 License-File: LICENSE

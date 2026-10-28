@@ -1,3 +1,4 @@
+import uuid
 from enum import Enum
 from typing import Optional
 
@@ -113,6 +114,25 @@ class UniqueBook(ormar.Model):
     )
 
 
+class Tag(ormar.Model):
+    ormar_config = base_ormar_config.copy(tablename="bulk_tags")
+
+    id: int = ormar.Integer(primary_key=True)
+    name: str = ormar.String(max_length=50)
+    note: Optional[str] = ormar.String(
+        max_length=20, nullable=True, server_default="srv"
+    )
+
+
+class NullableUuid(ormar.Model):
+    ormar_config = base_ormar_config.copy(tablename="nullable_uuids")
+
+    id: int = ormar.Integer(primary_key=True)
+    name: str = ormar.String(max_length=100)
+    u_hex: Optional[uuid.UUID] = ormar.UUID(nullable=True)
+    u_str: Optional[uuid.UUID] = ormar.UUID(nullable=True, uuid_format="string")
+
+
 create_test_database = init_tests(base_ormar_config)
 
 
@@ -170,6 +190,19 @@ async def test_delete_and_update():
             await Book.objects.delete(each=True)
             all_books = await Book.objects.all()
             assert len(all_books) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_after_exclude_checks_all_matches():
+    async with base_ormar_config.database:
+        for title in ["a", "b", "c"]:
+            await Book.objects.create(title=title, author="Anonymous")
+
+        with pytest.raises(ormar.exceptions.MultipleMatches):
+            await Book.objects.exclude(title="zzz").get()
+
+        book = await Book.objects.exclude(title__in=["a", "b"]).get()
+        assert book.title == "c"
 
 
 @pytest.mark.asyncio
@@ -237,6 +270,41 @@ async def test_get_or_create_with_defaults():
             assert created is False
             assert book2.title == "overwritten"
             assert book2 == book
+
+
+@pytest.mark.asyncio
+async def test_update_and_delete_with_related_filter_raise():
+    async with base_ormar_config.database:
+        async with base_ormar_config.database.transaction(force_rollback=True):
+            category = await Category.objects.create(name="x")
+            await Note.objects.create(text="a", category=category)
+            await Note.objects.create(text="b")
+
+            with pytest.raises(QueryDefinitionError):
+                await Note.objects.filter(category__name="x").update(text="z")
+            with pytest.raises(QueryDefinitionError):
+                await Note.objects.exclude(category__name="x").update(text="z")
+            with pytest.raises(QueryDefinitionError):
+                await Note.objects.filter(
+                    ormar.or_(category__name="x", text="b")
+                ).delete()
+            with pytest.raises(QueryDefinitionError):
+                await Note.objects.delete(category__name="x")
+
+            with pytest.raises(QueryDefinitionError):
+                await Note.objects.filter(
+                    ormar.and_(ormar.or_(category__name__icontains="x"))
+                ).delete()
+            with pytest.raises(QueryDefinitionError):
+                await Note.objects.exclude(category__name="x").delete()
+
+            assert await Note.objects.filter(text="z").count() == 0
+            assert await Note.objects.count() == 2
+
+            assert await Note.objects.filter(category=category).update(text="z") == 1
+            assert await Note.objects.filter(text="z").count() == 1
+            assert await Note.objects.filter(category=category).delete() == 1
+            assert await Note.objects.count() == 1
 
 
 @pytest.mark.asyncio
@@ -338,6 +406,33 @@ async def test_bulk_create():
 
             with pytest.raises(ormar.exceptions.ModelListEmptyError):
                 await ToDo.objects.bulk_create([])
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_mixed_server_default_values():
+    async with base_ormar_config.database:
+        async with base_ormar_config.database.transaction(force_rollback=True):
+            await Tag.objects.bulk_create(
+                [Tag(name="a"), Tag(name="b", note="q"), Tag(name="c")]
+            )
+            tags = await Tag.objects.order_by("name").all()
+            assert [(t.name, t.note) for t in tags] == [
+                ("a", "srv"),
+                ("b", "q"),
+                ("c", "srv"),
+            ]
+
+
+@pytest.mark.asyncio
+async def test_bulk_create_mixed_explicit_pk():
+    async with base_ormar_config.database:
+        async with base_ormar_config.database.transaction(force_rollback=True):
+            await Tag.objects.bulk_create([Tag(name="x"), Tag(id=50, name="y")])
+            await Tag.objects.bulk_create([Tag(id=60, name="z"), Tag(name="w")])
+            tags = await Tag.objects.order_by("name").all()
+            assert {t.name: t.id for t in tags}["y"] == 50
+            assert {t.name: t.id for t in tags}["z"] == 60
+            assert len(tags) == 4
 
 
 @pytest.mark.asyncio
@@ -541,6 +636,26 @@ async def test_bulk_operations_with_json():
                 )
             ]
             assert len(res) == 2
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_keeps_none_in_nullable_uuid_fields():
+    async with base_ormar_config.database:
+        async with base_ormar_config.database.transaction(force_rollback=True):
+            first = await NullableUuid.objects.create(name="a")
+            first.name = "b"
+            await NullableUuid.objects.bulk_update([first], columns=["name"])
+
+            second = await NullableUuid.objects.create(
+                name="c", u_hex=uuid.uuid4(), u_str=uuid.uuid4()
+            )
+            second.u_str = None
+            await NullableUuid.objects.bulk_update([second])
+
+            assert (await NullableUuid.objects.get(id=first.id)).name == "b"
+            loaded = await NullableUuid.objects.get(id=second.id)
+            assert loaded.u_hex == second.u_hex
+            assert loaded.u_str is None
 
 
 @pytest.mark.asyncio

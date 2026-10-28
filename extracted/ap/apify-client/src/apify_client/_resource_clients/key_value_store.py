@@ -22,7 +22,7 @@ from apify_client._utils.http import response_to_dict, to_path_segment
 from apify_client.errors import ApifyApiError, InvalidResponseBodyError
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterator
+    from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
     from datetime import timedelta
 
     from apify_client._literals import GeneralAccess
@@ -105,6 +105,7 @@ class KeyValueStoreClient(ResourceClient):
         self,
         *,
         name: str | None = None,
+        title: str | None = None,
         general_access: GeneralAccess | None = None,
         timeout: Timeout = 'long',
     ) -> KeyValueStoreResource:
@@ -114,13 +115,14 @@ class KeyValueStoreClient(ResourceClient):
 
         Args:
             name: The new name for key-value store.
+            title: The new title for the key-value store.
             general_access: Determines how others can access the key-value store.
             timeout: Timeout for the API HTTP request.
 
         Returns:
             The updated key-value store.
         """
-        result = self._update(timeout=timeout, name=name, generalAccess=general_access)
+        result = self._update(timeout=timeout, name=name, title=title, generalAccess=general_access)
         return KeyValueStoreResponse.model_validate(result).data
 
     def delete(self, *, timeout: Timeout = 'short') -> None:
@@ -318,7 +320,7 @@ class KeyValueStoreClient(ResourceClient):
     @contextmanager
     def stream_record(
         self, key: str, *, signature: str | None = None, timeout: Timeout = 'long'
-    ) -> Iterator[dict | None]:
+    ) -> Generator[dict | None]:
         """Retrieve the given record from the key-value store, as a stream.
 
         https://docs.apify.com/api/v2#/reference/key-value-stores/record/get-record
@@ -541,6 +543,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
         self,
         *,
         name: str | None = None,
+        title: str | None = None,
         general_access: GeneralAccess | None = None,
         timeout: Timeout = 'long',
     ) -> KeyValueStoreResource:
@@ -550,13 +553,14 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
 
         Args:
             name: The new name for key-value store.
+            title: The new title for the key-value store.
             general_access: Determines how others can access the key-value store.
             timeout: Timeout for the API HTTP request.
 
         Returns:
             The updated key-value store.
         """
-        result = await self._update(timeout=timeout, name=name, generalAccess=general_access)
+        result = await self._update(timeout=timeout, name=name, title=title, generalAccess=general_access)
         return KeyValueStoreResponse.model_validate(result).data
 
     async def delete(self, *, timeout: Timeout = 'short') -> None:
@@ -756,7 +760,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
     @asynccontextmanager
     async def stream_record(
         self, key: str, *, signature: str | None = None, timeout: Timeout = 'long'
-    ) -> AsyncIterator[dict | None]:
+    ) -> AsyncGenerator[dict | None]:
         """Retrieve the given record from the key-value store, as a stream.
 
         https://docs.apify.com/api/v2#/reference/key-value-stores/record/get-record

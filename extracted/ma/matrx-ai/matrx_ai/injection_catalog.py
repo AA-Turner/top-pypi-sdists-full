@@ -301,9 +301,11 @@ INJECTION_SOURCES: dict[str, Extractor] = {
 }
 
 # Per-source names that are hardcoded but intentionally NOT ``tool_def`` rows.
-# Example: xAI native realtime session builtins — provider-side, not our registry.
+# Example: realtime session builtins (xAI / Google / OpenAI) — provider-side, not our registry.
 SOURCE_REGISTRY_EXEMPT: dict[str, frozenset[str]] = {
-    "aidream/services/ai_execution/realtime_tools.py": frozenset({"web_search", "x_search"}),
+    "aidream/services/ai_execution/realtime_tools.py": frozenset(
+        {"web_search", "x_search", "code_execution", "url_context"}
+    ),
 }
 
 INJECTION_SOURCES_NOT_COVERED: tuple[str, ...] = (

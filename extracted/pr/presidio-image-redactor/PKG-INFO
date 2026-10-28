@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: presidio-image-redactor
-Version: 0.0.61
+Version: 0.0.62
 Summary: Presidio image redactor package
 License-Expression: MIT
 Keywords: presidio_image_redactor
 Author: Presidio
 Author-email: presidio@dataprivacystack.org
-Requires-Python: >=3.10,<3.15
+Requires-Python: >=3.11,<3.15
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -20,7 +19,7 @@ Requires-Dist: flask (>=1.1,<4.0.0) ; extra == "server"
 Requires-Dist: gunicorn (>=25.3.0,<26.0.0) ; extra == "server"
 Requires-Dist: matplotlib (>=3.6.0,<4.0.0)
 Requires-Dist: opencv-python (>=4.13.0.92,<5.0.0)
-Requires-Dist: pillow (>=12.3.0,<13.0.0)
+Requires-Dist: pillow (>=13.0.0,<14.0.0)
 Requires-Dist: presidio-analyzer (>=2.2.0,<3.0.0)
 Requires-Dist: pydicom (>=2.3.0,<4.0.0)
 Requires-Dist: pypng (>=0.20220715.0,<1.0.0)

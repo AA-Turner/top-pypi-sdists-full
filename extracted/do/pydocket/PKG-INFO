@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydocket
-Version: 0.27.0
+Version: 0.27.1
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://docket.lol/
 Project-URL: Documentation, https://docket.lol/en/latest/
@@ -23,7 +23,7 @@ Requires-Dist: burner-redis>=0.1.7
 Requires-Dist: cloudpickle>=3.1.1
 Requires-Dist: cronsim>=2.6
 Requires-Dist: exceptiongroup>=1.2.0; python_version < '3.11'
-Requires-Dist: opentelemetry-api>=1.33.0
+Requires-Dist: opentelemetry-api>=1.45.1
 Requires-Dist: prometheus-client>=0.21.1
 Requires-Dist: py-key-value-aio[memory,redis]>=0.3.0
 Requires-Dist: python-json-logger>=2.0.7

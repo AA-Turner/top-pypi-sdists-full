@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix-evals
-Version: 3.9.4
+Version: 3.9.5
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -15,7 +15,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.11
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: <3.16,>=3.11
 Requires-Dist: jsonpath-ng
 Requires-Dist: openinference-instrumentation>=0.1.20
 Requires-Dist: openinference-semantic-conventions>=0.1.19
@@ -38,7 +39,7 @@ Requires-Dist: nest-asyncio; extra == 'test'
 Requires-Dist: openai>=1.0.0; extra == 'test'
 Requires-Dist: openinference-semantic-conventions; extra == 'test'
 Requires-Dist: pandas; extra == 'test'
-Requires-Dist: pandas-stubs==2.0.3.230814; extra == 'test'
+Requires-Dist: pandas-stubs; extra == 'test'
 Requires-Dist: tqdm; extra == 'test'
 Requires-Dist: types-tqdm; extra == 'test'
 Requires-Dist: typing-extensions<5,>=4.5; extra == 'test'

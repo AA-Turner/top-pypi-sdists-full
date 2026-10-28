@@ -86,10 +86,10 @@ class TarArchive(BaseArchive):
             return self._archive.extractfile(member)
 
     def extract(self, to_path=''):
-        to_path = Path(to_path)
+        to_path = Path(to_path).resolve(strict=False)
         members = self._archive.getmembers()
         for member in members:
-            target = to_path.joinpath(member.name)
+            target = to_path.joinpath(member.name).resolve(strict=False)
             try:
                 target.relative_to(to_path)
             except ValueError as e:
@@ -103,7 +103,7 @@ class TarArchive(BaseArchive):
 
 class ZipArchive(BaseArchive):
     def __init__(self, file):
-        super(ZipArchive, self).__init__(file)
+        super().__init__(file)
         self._archive = zipfile.ZipFile(file)
 
     def printdir(self, *args, **kwargs):
@@ -118,13 +118,12 @@ class ZipArchive(BaseArchive):
         except KeyError:
             raise self.FileNotExist(name)
 
-    def extract(self, to_path='', safe=False):
-        # XXX unify with TarFile.extract
-        basedir = Path(to_path)
+    def extract(self, to_path=""):
+        basedir = Path(to_path).resolve(strict=False)
         unzipfile = self._archive
         members = unzipfile.namelist()
         for name in members:
-            fpath = basedir.joinpath(name)
+            fpath = basedir.joinpath(name).resolve(strict=False)
             try:
                 fpath.relative_to(basedir)
             except ValueError as e:

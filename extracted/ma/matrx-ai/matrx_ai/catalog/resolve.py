@@ -264,10 +264,13 @@ async def _resolve_device_profile(
         wire_format="device_chat",
         client_attr=client_attr_for_wire_format("device_chat"),
         capabilities=capabilities,
-        # llama-server speaks OpenAI chat-completions: the generic OpenAI wire rules.
-        controls=_fallback_controls("generic_openai_chat").with_output_maximum(
-            fact("max_tokens")
-        ),
+        # The model's device offering's compiled controls (its setting profile: exactly the
+        # values its chat template accepts, ai_131); without one, llama-server speaks OpenAI
+        # chat-completions: the generic OpenAI wire rules.
+        controls=(
+            (None if is_catalog_dict else manager.device_controls_for(model_id))
+            or _fallback_controls("generic_openai_chat")
+        ).with_output_maximum(fact("max_tokens")),
         pricing=None,
         token_billed=False,
         model_is_deprecated=bool(model_state.get("is_deprecated", False)),
@@ -313,6 +316,23 @@ def _own_file_tools_fact(metadata: dict[str, Any]) -> bool | None:
     return None
 
 
+#: The ONE name the device publishes for "this file's chat template has a thinking switch, on or off
+#: by default" (metadata.gguf), pinned by the same fixture. Values: on_by_default | off_by_default |
+#: none (a template without the switch). Unpublished = unknown (no template read).
+_OWN_FILE_THINKING_KEY = "thinking_switch"
+_OWN_FILE_THINKING_VALUES = frozenset({"on_by_default", "off_by_default", "none"})
+
+
+def _own_file_thinking_fact(metadata: dict[str, Any]) -> str | None:
+    """The thinking-switch fact the DEVICE reported for the file (``metadata.gguf``), or None."""
+    gguf = metadata.get("gguf")
+    if isinstance(gguf, dict):
+        value = gguf.get(_OWN_FILE_THINKING_KEY)
+        if value in _OWN_FILE_THINKING_VALUES:
+            return str(value)
+    return None
+
+
 async def _resolve_own_device_file_profile(served_via: ServedVia) -> ResolvedCallProfile:
     """The ONE route of a person's own uncatalogued model file (``route_kind="device"``).
 
@@ -343,6 +363,9 @@ async def _resolve_own_device_file_profile(served_via: ServedVia) -> ResolvedCal
     model_name = name or placeholder
     context_window = _own_file_context_window(dict(own.metadata or {}))
     tools_fact = _own_file_tools_fact(dict(own.metadata or {}))
+    thinking_switch = _own_file_thinking_fact(dict(own.metadata or {}))
+    await ai_catalog_manager.ensure_loaded()
+    thinking_controls = ai_catalog_manager.device_thinking_controls(thinking_switch)
     unknown = [
         f for f in _OWN_FILE_UNKNOWN_FACTS if not (f == "function_calling" and tools_fact is not None)
     ] + ([] if context_window else ["context_window"])
@@ -377,7 +400,7 @@ async def _resolve_own_device_file_profile(served_via: ServedVia) -> ResolvedCal
             # the tools and llama-server decides; a reported False strips them, announced.
             update={"supports_function_calling": tools_fact is not False}
         ),
-        controls=_fallback_controls("generic_openai_chat").with_output_maximum(None),
+        controls=(thinking_controls or _fallback_controls("generic_openai_chat")).with_output_maximum(None),
         pricing=None,
         token_billed=False,
         offering_metadata={
@@ -392,6 +415,10 @@ async def _resolve_own_device_file_profile(served_via: ServedVia) -> ResolvedCal
                 "function_calling": {
                     "value": tools_fact,
                     "source": "device_reported" if tools_fact is not None else "unknown",
+                },
+                "thinking_switch": {
+                    "value": thinking_switch,
+                    "source": "device_reported" if thinking_switch else "unknown",
                 },
                 "model_key": {
                     "value": model_key,
@@ -496,6 +523,21 @@ async def resolve_call_profile(
                 f"resolve_call_profile: no available offering for model '{model.name}' "
                 f"on endpoint '{endpoint_hint}'"
             )
+
+    if not offerings and offering_id is None and manager.device_offering_for(model_id) is not None:
+        # A model that runs only on a person's own computer, asked for without ``served_via``:
+        # never DeviceChat (it cannot know which computer), never a cloud guess.
+        from matrx_ai.providers.device.errors import (
+            DEVICE_NOT_CHOSEN_USER_MESSAGE,
+            DeviceNotChosenError,
+        )
+
+        raise DeviceNotChosenError(
+            f"resolve_call_profile: model '{model.name}' ({model_id}) runs only on a "
+            f"person's own computer — the request must name the computer (served_via).",
+            user_message=DEVICE_NOT_CHOSEN_USER_MESSAGE,
+            details={"model_id": str(model_id), "model_name": model.name},
+        )
 
     if not offerings and offering_id is None:
         # (A pinned call diagnoses an empty list itself, naming the class.)

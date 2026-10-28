@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Dict, List, Iterable, Optional
 from typing_extensions import Literal
 
@@ -14,7 +15,7 @@ from ...types import (
     internal_account_update_params,
     internal_account_update_account_capability_params,
 )
-from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -69,21 +70,10 @@ class InternalAccounts(SyncAPIResource):
         name: str,
         account_capabilities: Iterable[internal_account_create_params.AccountCapability] | Omit = omit,
         account_type: Literal[
-            "base_wallet",
-            "cash",
-            "checking",
-            "crypto_wallet",
-            "ethereum_wallet",
-            "general_ledger",
-            "loan",
-            "non_resident",
-            "other",
-            "overdraft",
-            "polygon_wallet",
-            "savings",
-            "solana_wallet",
+            "cash", "checking", "general_ledger", "loan", "non_resident", "other", "overdraft", "savings"
         ]
         | Omit = omit,
+        allowed_ach_debit_company_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         connection_id: str | Omit = omit,
         counterparty_id: str | Omit = omit,
         debitable: Optional[bool] | Omit = omit,
@@ -93,10 +83,19 @@ class InternalAccounts(SyncAPIResource):
         parent_account_id: str | Omit = omit,
         party_address: internal_account_create_params.PartyAddress | Omit = omit,
         party_name: Optional[str] | Omit = omit,
+        party_type: Optional[Literal["individual", "business"]] | Omit = omit,
         requested_account_number_types: List[
-            Literal["base_address", "ethereum_address", "polygon_address", "solana_address"]
+            Literal[
+                "arbitrum_address",
+                "avalanche_address",
+                "base_address",
+                "ethereum_address",
+                "polygon_address",
+                "solana_address",
+            ]
         ]
         | Omit = omit,
+        title: Optional[str] | Omit = omit,
         vendor_attributes: Dict[str, str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -120,6 +119,11 @@ class InternalAccounts(SyncAPIResource):
 
           account_type: The account type, used to provision the appropriate account at the financial
               institution.
+
+          allowed_ach_debit_company_ids: The ACH Company IDs allowed to debit this account. `null` allows every company.
+              An empty array allows none. Debits from any other company are returned with code
+              R10. Only applicable to debitable accounts under a Modern Treasury PSP
+              connection.
 
           connection_id: The identifier of the financial institution the account belongs to. If not
               provided, defaults to the default connection, or the sole connection if only one
@@ -145,7 +149,15 @@ class InternalAccounts(SyncAPIResource):
 
           party_name: The legal name of the entity which owns the account.
 
+          party_type: Either individual or business. Inherits from associated LegalEntity
+              legal_entity_type, if one exists.
+
           requested_account_number_types: An array of account number types requested for provisioning.
+
+          title: The account title at the financial institution, used in place of the party name.
+              Defaults to the party name if not set. Only applicable to accounts created under
+              supported connections. Please reach out to your customer success manager to
+              enable this capability for your program.
 
           vendor_attributes: A hash of vendor specific attributes that will be used when creating the account
               at the vendor specified by the given connection.
@@ -168,6 +180,7 @@ class InternalAccounts(SyncAPIResource):
                     "name": name,
                     "account_capabilities": account_capabilities,
                     "account_type": account_type,
+                    "allowed_ach_debit_company_ids": allowed_ach_debit_company_ids,
                     "connection_id": connection_id,
                     "counterparty_id": counterparty_id,
                     "debitable": debitable,
@@ -177,7 +190,9 @@ class InternalAccounts(SyncAPIResource):
                     "parent_account_id": parent_account_id,
                     "party_address": party_address,
                     "party_name": party_name,
+                    "party_type": party_type,
                     "requested_account_number_types": requested_account_number_types,
+                    "title": title,
                     "vendor_attributes": vendor_attributes,
                 },
                 internal_account_create_params.InternalAccountCreateParams,
@@ -237,6 +252,7 @@ class InternalAccounts(SyncAPIResource):
         name: str | Omit = omit,
         parent_account_id: str | Omit = omit,
         party_address: AddressRequest | Omit = omit,
+        party_type: Optional[Literal["individual", "business"]] | Omit = omit,
         status: Literal["pending_closure"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -270,6 +286,9 @@ class InternalAccounts(SyncAPIResource):
               the account's bank; you are responsible for verifying that the address is
               accurate.
 
+          party_type: Either individual or business. Inherits from associated LegalEntity
+              legal_entity_type, if one exists.
+
           status: Requests closure of the internal account. The resulting status may be `closed`
               for vendors that close synchronously.
 
@@ -297,6 +316,7 @@ class InternalAccounts(SyncAPIResource):
                     "name": name,
                     "parent_account_id": parent_account_id,
                     "party_address": party_address,
+                    "party_type": party_type,
                     "status": status,
                 },
                 internal_account_update_params.InternalAccountUpdateParams,
@@ -415,6 +435,7 @@ class InternalAccounts(SyncAPIResource):
             model=InternalAccount,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def request_closure(
         self,
         id: str,
@@ -427,8 +448,10 @@ class InternalAccounts(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> InternalAccount:
-        """
-        request closure of internal account
+        """This endpoint has been deprecated.
+
+        Request closure with PATCH
+        /api/internal_accounts/{id} and status: "pending_closure".
 
         Args:
           extra_headers: Send extra headers
@@ -544,21 +567,10 @@ class AsyncInternalAccounts(AsyncAPIResource):
         name: str,
         account_capabilities: Iterable[internal_account_create_params.AccountCapability] | Omit = omit,
         account_type: Literal[
-            "base_wallet",
-            "cash",
-            "checking",
-            "crypto_wallet",
-            "ethereum_wallet",
-            "general_ledger",
-            "loan",
-            "non_resident",
-            "other",
-            "overdraft",
-            "polygon_wallet",
-            "savings",
-            "solana_wallet",
+            "cash", "checking", "general_ledger", "loan", "non_resident", "other", "overdraft", "savings"
         ]
         | Omit = omit,
+        allowed_ach_debit_company_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         connection_id: str | Omit = omit,
         counterparty_id: str | Omit = omit,
         debitable: Optional[bool] | Omit = omit,
@@ -568,10 +580,19 @@ class AsyncInternalAccounts(AsyncAPIResource):
         parent_account_id: str | Omit = omit,
         party_address: internal_account_create_params.PartyAddress | Omit = omit,
         party_name: Optional[str] | Omit = omit,
+        party_type: Optional[Literal["individual", "business"]] | Omit = omit,
         requested_account_number_types: List[
-            Literal["base_address", "ethereum_address", "polygon_address", "solana_address"]
+            Literal[
+                "arbitrum_address",
+                "avalanche_address",
+                "base_address",
+                "ethereum_address",
+                "polygon_address",
+                "solana_address",
+            ]
         ]
         | Omit = omit,
+        title: Optional[str] | Omit = omit,
         vendor_attributes: Dict[str, str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -595,6 +616,11 @@ class AsyncInternalAccounts(AsyncAPIResource):
 
           account_type: The account type, used to provision the appropriate account at the financial
               institution.
+
+          allowed_ach_debit_company_ids: The ACH Company IDs allowed to debit this account. `null` allows every company.
+              An empty array allows none. Debits from any other company are returned with code
+              R10. Only applicable to debitable accounts under a Modern Treasury PSP
+              connection.
 
           connection_id: The identifier of the financial institution the account belongs to. If not
               provided, defaults to the default connection, or the sole connection if only one
@@ -620,7 +646,15 @@ class AsyncInternalAccounts(AsyncAPIResource):
 
           party_name: The legal name of the entity which owns the account.
 
+          party_type: Either individual or business. Inherits from associated LegalEntity
+              legal_entity_type, if one exists.
+
           requested_account_number_types: An array of account number types requested for provisioning.
+
+          title: The account title at the financial institution, used in place of the party name.
+              Defaults to the party name if not set. Only applicable to accounts created under
+              supported connections. Please reach out to your customer success manager to
+              enable this capability for your program.
 
           vendor_attributes: A hash of vendor specific attributes that will be used when creating the account
               at the vendor specified by the given connection.
@@ -643,6 +677,7 @@ class AsyncInternalAccounts(AsyncAPIResource):
                     "name": name,
                     "account_capabilities": account_capabilities,
                     "account_type": account_type,
+                    "allowed_ach_debit_company_ids": allowed_ach_debit_company_ids,
                     "connection_id": connection_id,
                     "counterparty_id": counterparty_id,
                     "debitable": debitable,
@@ -652,7 +687,9 @@ class AsyncInternalAccounts(AsyncAPIResource):
                     "parent_account_id": parent_account_id,
                     "party_address": party_address,
                     "party_name": party_name,
+                    "party_type": party_type,
                     "requested_account_number_types": requested_account_number_types,
+                    "title": title,
                     "vendor_attributes": vendor_attributes,
                 },
                 internal_account_create_params.InternalAccountCreateParams,
@@ -712,6 +749,7 @@ class AsyncInternalAccounts(AsyncAPIResource):
         name: str | Omit = omit,
         parent_account_id: str | Omit = omit,
         party_address: AddressRequest | Omit = omit,
+        party_type: Optional[Literal["individual", "business"]] | Omit = omit,
         status: Literal["pending_closure"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -745,6 +783,9 @@ class AsyncInternalAccounts(AsyncAPIResource):
               the account's bank; you are responsible for verifying that the address is
               accurate.
 
+          party_type: Either individual or business. Inherits from associated LegalEntity
+              legal_entity_type, if one exists.
+
           status: Requests closure of the internal account. The resulting status may be `closed`
               for vendors that close synchronously.
 
@@ -772,6 +813,7 @@ class AsyncInternalAccounts(AsyncAPIResource):
                     "name": name,
                     "parent_account_id": parent_account_id,
                     "party_address": party_address,
+                    "party_type": party_type,
                     "status": status,
                 },
                 internal_account_update_params.InternalAccountUpdateParams,
@@ -890,6 +932,7 @@ class AsyncInternalAccounts(AsyncAPIResource):
             model=InternalAccount,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def request_closure(
         self,
         id: str,
@@ -902,8 +945,10 @@ class AsyncInternalAccounts(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> InternalAccount:
-        """
-        request closure of internal account
+        """This endpoint has been deprecated.
+
+        Request closure with PATCH
+        /api/internal_accounts/{id} and status: "pending_closure".
 
         Args:
           extra_headers: Send extra headers
@@ -1004,8 +1049,10 @@ class InternalAccountsWithRawResponse:
         self.list = _legacy_response.to_raw_response_wrapper(
             internal_accounts.list,
         )
-        self.request_closure = _legacy_response.to_raw_response_wrapper(
-            internal_accounts.request_closure,
+        self.request_closure = (  # pyright: ignore[reportDeprecated]
+            _legacy_response.to_raw_response_wrapper(
+                internal_accounts.request_closure,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.update_account_capability = _legacy_response.to_raw_response_wrapper(
             internal_accounts.update_account_capability,
@@ -1032,8 +1079,10 @@ class AsyncInternalAccountsWithRawResponse:
         self.list = _legacy_response.async_to_raw_response_wrapper(
             internal_accounts.list,
         )
-        self.request_closure = _legacy_response.async_to_raw_response_wrapper(
-            internal_accounts.request_closure,
+        self.request_closure = (  # pyright: ignore[reportDeprecated]
+            _legacy_response.async_to_raw_response_wrapper(
+                internal_accounts.request_closure,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.update_account_capability = _legacy_response.async_to_raw_response_wrapper(
             internal_accounts.update_account_capability,
@@ -1060,8 +1109,10 @@ class InternalAccountsWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             internal_accounts.list,
         )
-        self.request_closure = to_streamed_response_wrapper(
-            internal_accounts.request_closure,
+        self.request_closure = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                internal_accounts.request_closure,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.update_account_capability = to_streamed_response_wrapper(
             internal_accounts.update_account_capability,
@@ -1088,8 +1139,10 @@ class AsyncInternalAccountsWithStreamingResponse:
         self.list = async_to_streamed_response_wrapper(
             internal_accounts.list,
         )
-        self.request_closure = async_to_streamed_response_wrapper(
-            internal_accounts.request_closure,
+        self.request_closure = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                internal_accounts.request_closure,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.update_account_capability = async_to_streamed_response_wrapper(
             internal_accounts.update_account_capability,

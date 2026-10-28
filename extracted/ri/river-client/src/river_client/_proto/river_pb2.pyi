@@ -736,7 +736,7 @@ class ImageInput(_message.Message):
     def __init__(self, data: _Optional[bytes] = ..., image_handle: _Optional[str] = ...) -> None: ...
 
 class InferencePrompt(_message.Message):
-    __slots__ = ("prompt", "max_tokens", "temperature", "top_p", "top_k", "stop", "seed", "logprobs", "return_prompt_logprobs", "images", "return_expert_routing", "input_ids", "image_inputs", "resolved_image_handles", "return_prompt_token_ids", "kv_cache_namespace", "kv_cache_policy", "top_logprobs_format")
+    __slots__ = ("prompt", "max_tokens", "temperature", "top_p", "top_k", "stop", "seed", "logprobs", "return_prompt_logprobs", "images", "return_expert_routing", "input_ids", "image_inputs", "resolved_image_handles", "return_prompt_token_ids", "kv_cache_namespace", "kv_cache_policy", "top_logprobs_format", "return_sampling_log_mass")
     PROMPT_FIELD_NUMBER: _ClassVar[int]
     MAX_TOKENS_FIELD_NUMBER: _ClassVar[int]
     TEMPERATURE_FIELD_NUMBER: _ClassVar[int]
@@ -755,6 +755,7 @@ class InferencePrompt(_message.Message):
     KV_CACHE_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     KV_CACHE_POLICY_FIELD_NUMBER: _ClassVar[int]
     TOP_LOGPROBS_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    RETURN_SAMPLING_LOG_MASS_FIELD_NUMBER: _ClassVar[int]
     prompt: str
     max_tokens: int
     temperature: float
@@ -773,7 +774,8 @@ class InferencePrompt(_message.Message):
     kv_cache_namespace: str
     kv_cache_policy: KvCachePolicy
     top_logprobs_format: int
-    def __init__(self, prompt: _Optional[str] = ..., max_tokens: _Optional[int] = ..., temperature: _Optional[float] = ..., top_p: _Optional[float] = ..., top_k: _Optional[int] = ..., stop: _Optional[_Iterable[str]] = ..., seed: _Optional[int] = ..., logprobs: _Optional[int] = ..., return_prompt_logprobs: bool = ..., images: _Optional[_Iterable[bytes]] = ..., return_expert_routing: bool = ..., input_ids: _Optional[_Iterable[int]] = ..., image_inputs: _Optional[_Iterable[_Union[ImageInput, _Mapping]]] = ..., resolved_image_handles: _Optional[_Iterable[str]] = ..., return_prompt_token_ids: bool = ..., kv_cache_namespace: _Optional[str] = ..., kv_cache_policy: _Optional[_Union[KvCachePolicy, _Mapping]] = ..., top_logprobs_format: _Optional[int] = ...) -> None: ...
+    return_sampling_log_mass: bool
+    def __init__(self, prompt: _Optional[str] = ..., max_tokens: _Optional[int] = ..., temperature: _Optional[float] = ..., top_p: _Optional[float] = ..., top_k: _Optional[int] = ..., stop: _Optional[_Iterable[str]] = ..., seed: _Optional[int] = ..., logprobs: _Optional[int] = ..., return_prompt_logprobs: bool = ..., images: _Optional[_Iterable[bytes]] = ..., return_expert_routing: bool = ..., input_ids: _Optional[_Iterable[int]] = ..., image_inputs: _Optional[_Iterable[_Union[ImageInput, _Mapping]]] = ..., resolved_image_handles: _Optional[_Iterable[str]] = ..., return_prompt_token_ids: bool = ..., kv_cache_namespace: _Optional[str] = ..., kv_cache_policy: _Optional[_Union[KvCachePolicy, _Mapping]] = ..., top_logprobs_format: _Optional[int] = ..., return_sampling_log_mass: bool = ...) -> None: ...
 
 class SampleFromTrainingRequest(_message.Message):
     __slots__ = ("model_id", "prompts", "metrics_type")
@@ -816,7 +818,7 @@ class PolicySpan(_message.Message):
     def __init__(self, end: _Optional[int] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ...) -> None: ...
 
 class InferenceResult(_message.Message):
-    __slots__ = ("text", "token_logprobs", "tokens", "prompt_token_logprobs", "token_ids", "prompt_token_ids", "top_logprobs", "prompt_top_logprobs", "expert_routing", "metrics", "policy_version", "retained_kv", "cached_prompt_tokens", "prompt_tokens", "kv_cache_policy_version", "policy_spans")
+    __slots__ = ("text", "token_logprobs", "tokens", "prompt_token_logprobs", "token_ids", "prompt_token_ids", "top_logprobs", "prompt_top_logprobs", "expert_routing", "metrics", "policy_version", "retained_kv", "cached_prompt_tokens", "prompt_tokens", "kv_cache_policy_version", "policy_spans", "sampling_log_masses")
     class MetricsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -840,6 +842,7 @@ class InferenceResult(_message.Message):
     PROMPT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     KV_CACHE_POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
     POLICY_SPANS_FIELD_NUMBER: _ClassVar[int]
+    SAMPLING_LOG_MASSES_FIELD_NUMBER: _ClassVar[int]
     text: str
     token_logprobs: _containers.RepeatedScalarFieldContainer[float]
     tokens: _containers.RepeatedScalarFieldContainer[str]
@@ -856,7 +859,8 @@ class InferenceResult(_message.Message):
     prompt_tokens: int
     kv_cache_policy_version: PolicyVersion
     policy_spans: _containers.RepeatedCompositeFieldContainer[PolicySpan]
-    def __init__(self, text: _Optional[str] = ..., token_logprobs: _Optional[_Iterable[float]] = ..., tokens: _Optional[_Iterable[str]] = ..., prompt_token_logprobs: _Optional[_Iterable[float]] = ..., token_ids: _Optional[_Iterable[int]] = ..., prompt_token_ids: _Optional[_Iterable[int]] = ..., top_logprobs: _Optional[_Union[_top_logprobs_pb2.TopLogprobs, _Mapping]] = ..., prompt_top_logprobs: _Optional[_Union[_top_logprobs_pb2.TopLogprobs, _Mapping]] = ..., expert_routing: _Optional[_Union[ExpertRouting, _Mapping]] = ..., metrics: _Optional[_Mapping[str, float]] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., retained_kv: bool = ..., cached_prompt_tokens: _Optional[int] = ..., prompt_tokens: _Optional[int] = ..., kv_cache_policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., policy_spans: _Optional[_Iterable[_Union[PolicySpan, _Mapping]]] = ...) -> None: ...
+    sampling_log_masses: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(self, text: _Optional[str] = ..., token_logprobs: _Optional[_Iterable[float]] = ..., tokens: _Optional[_Iterable[str]] = ..., prompt_token_logprobs: _Optional[_Iterable[float]] = ..., token_ids: _Optional[_Iterable[int]] = ..., prompt_token_ids: _Optional[_Iterable[int]] = ..., top_logprobs: _Optional[_Union[_top_logprobs_pb2.TopLogprobs, _Mapping]] = ..., prompt_top_logprobs: _Optional[_Union[_top_logprobs_pb2.TopLogprobs, _Mapping]] = ..., expert_routing: _Optional[_Union[ExpertRouting, _Mapping]] = ..., metrics: _Optional[_Mapping[str, float]] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., retained_kv: bool = ..., cached_prompt_tokens: _Optional[int] = ..., prompt_tokens: _Optional[int] = ..., kv_cache_policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., policy_spans: _Optional[_Iterable[_Union[PolicySpan, _Mapping]]] = ..., sampling_log_masses: _Optional[_Iterable[float]] = ...) -> None: ...
 
 class ExpertRouting(_message.Message):
     __slots__ = ("num_tokens", "num_decoder_layers", "top_k", "layer_indices", "topk_ids", "topk_weights", "routing_handle")

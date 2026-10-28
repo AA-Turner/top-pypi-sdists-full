@@ -23,6 +23,9 @@ from istari_digital_client.sdk._base import (
 from istari_digital_client.sdk._generated.v3.models.comment_dto import CommentDto
 from istari_digital_client.sdk._generated.v3.models.resource_dto import ResourceDto
 from istari_digital_client.sdk._generated.v3.models.resource_revision_dto import ResourceRevisionDto
+from istari_digital_client.sdk._generated.v3.models.revision_download_url_dto import (
+    RevisionDownloadUrlDto,
+)
 from istari_digital_client.sdk._generated.v3.models.revision_relationship_dto import (
     RevisionRelationshipDto,
 )
@@ -128,25 +131,28 @@ class Resource(
         return self.resource_type == "connected_container"
 
     def extracted(self) -> list[Resource]:
-        """The records extracted from this connected pointer into Istari — the real data behind the stub.
+        """The resources extracted from this one into Istari — the real data behind a stub or a binary.
 
-        Aliases: contents inside data records requirements search find where-is
-        locate full-text sweep
+        Aliases: contents inside data records requirements children artifacts search
+        find where-is locate full-text sweep
 
-        Answers "what data is inside this connected DOORS/Jira/Confluence file". A
-        connected pointer's real content lives in the artifacts Istari extracted from
-        it; this returns those resources (equivalent to
-        ``related(direction="outgoing")``). Read each returned resource for the actual
-        content — the external system itself is NOT reachable from here (you cannot
-        fetch its URL or follow the link), so report these extracted records and hand
-        the user the link rather than implying you read the external page. Empty if
-        nothing has been extracted yet, or if this is not a connected pointer — check
-        :attr:`is_connected_pointer` first.
+        Answers "what data is inside this connected DOORS/Jira/Confluence file" and
+        "what was extracted from this SysML/CAD/PDF model". A connected pointer's real
+        content lives in the records Istari pulled in from the external system; an
+        uploaded model's substance lives in the artifacts its extraction job produced
+        (requirements, element and relationship lists, diagrams, part trees). This
+        returns those resources (equivalent to ``related(direction="outgoing")``).
+        Read each returned resource for the actual content. For a pointer, the
+        external system itself is NOT reachable from here (you cannot fetch its URL or
+        follow the link), so report these extracted records and hand the user the
+        link rather than implying you read the external page. Empty if nothing has
+        been extracted yet — check :attr:`has_children` first, and never tell the user
+        a binary has nothing inside, or offer to run extraction, while it is True.
 
-        To FIND a fact when you do not know which file holds it, do NOT open pointers
+        To FIND a fact when you do not know which file holds it, do NOT open resources
         one at a time — run the COMPLETE survey once and read it. ``contents`` with
         ``include_extracted=True`` returns every tracked resource AND everything
-        extracted from every connected pointer in a single call::
+        extracted from every pointer and model in a single call::
 
             # branch = system.get_branch("<name>") or the branch you are working in.
             survey = branch.contents(include_extracted=True, max_chars_per_file=2000)
@@ -160,7 +166,7 @@ class Resource(
             #   client.resources.get("<resource_id>").read_text()
 
         Do this BEFORE concluding a fact is not in the system: a branch listing shows
-        only tracked resources, so the answer is often inside a connected pointer's
+        only tracked resources, so the answer is often inside a pointer's or a model's
         extraction, which the listing never shows.
         """
         return self.related(direction="outgoing")
@@ -269,6 +275,15 @@ class ResourceRevision(ResourceRevisionDto, ClientHaving, Readable):
     def stem(self) -> str | None:
         """The revision's file name without its extension, or None if unnamed."""
         return Path(self.name).stem if self.name else None
+
+    def download_url(self) -> RevisionDownloadUrlDto:
+        """Mint a temporary URL that downloads this revision as a browser attachment.
+
+        Aliases: link share browser presigned
+
+        See :meth:`Revisions.download_url`.
+        """
+        return self._mgr._revision_download_url(self)
 
 
 class Comment(CommentDto, ClientHaving, Readable, Archivable):

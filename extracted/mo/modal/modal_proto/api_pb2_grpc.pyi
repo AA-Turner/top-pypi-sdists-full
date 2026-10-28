@@ -125,6 +125,23 @@ class ModalClientStub:
         modal_proto.api_pb2.AttemptStartRequest,
         modal_proto.api_pb2.AttemptStartResponse,
     ]
+    AuditLogCount: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AuditLogCountRequest,
+        modal_proto.api_pb2.AuditLogCountResponse,
+    ]
+    """Audit logs"""
+    AuditLogList: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AuditLogListRequest,
+        modal_proto.api_pb2.AuditLogListResponse,
+    ]
+    AuditLogPlan: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AuditLogBucketsRequest,
+        modal_proto.api_pb2.AuditLogPlanResponse,
+    ]
+    AuditLogSettingsGet: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AuditLogSettingsGetRequest,
+        modal_proto.api_pb2.AuditLogSettingsGetResponse,
+    ]
     AuthTokenGet: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AuthTokenGetRequest,
         modal_proto.api_pb2.AuthTokenGetResponse,
@@ -294,6 +311,10 @@ class ModalClientStub:
     EndpointGetInfo: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EndpointGetInfoRequest,
         modal_proto.api_pb2.EndpointGetInfoResponse,
+    ]
+    EndpointGetLibrary: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EndpointGetLibraryRequest,
+        modal_proto.api_pb2.EndpointGetLibraryResponse,
     ]
     EndpointGetLifecycle: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EndpointGetLifecycleRequest,
@@ -586,11 +607,6 @@ class ModalClientStub:
         modal_proto.api_pb2.MountPutFileRequest,
         modal_proto.api_pb2.MountPutFileResponse,
     ]
-    NotebookKernelPublishResults: grpc.UnaryUnaryMultiCallable[
-        modal_proto.api_pb2.NotebookKernelPublishResultsRequest,
-        google.protobuf.empty_pb2.Empty,
-    ]
-    """Notebooks"""
     PersistentSandboxCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.PersistentSandboxCreateRequest,
         modal_proto.api_pb2.PersistentSandboxCreateResponse,
@@ -736,6 +752,10 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxGetTaskIdRequest,
         modal_proto.api_pb2.SandboxGetTaskIdResponse,
     ]
+    SandboxGetTimeRangeStats: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxGetTimeRangeStatsRequest,
+        modal_proto.api_pb2.SandboxGetTimeRangeStatsResponse,
+    ]
     SandboxGetTunnels: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxGetTunnelsRequest,
         modal_proto.api_pb2.SandboxGetTunnelsResponse,
@@ -763,6 +783,14 @@ class ModalClientStub:
     SandboxSetName: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxSetNameRequest,
         modal_proto.api_pb2.SandboxSetNameResponse,
+    ]
+    SandboxSetOutboundPolicy: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxSetOutboundPolicyRequest,
+        modal_proto.api_pb2.SandboxSetOutboundPolicyResponse,
+    ]
+    SandboxSetOutboundPolicyV2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxSetOutboundPolicyRequest,
+        modal_proto.api_pb2.SandboxSetOutboundPolicyResponse,
     ]
     SandboxSnapshot: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxSnapshotRequest,
@@ -950,11 +978,15 @@ class ModalClientStub:
         modal_proto.api_pb2.TemplateListResponse,
     ]
     """Templates"""
+    TokenDelete: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.TokenDeleteRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    """Tokens (web auth flow)"""
     TokenFlowCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.TokenFlowCreateRequest,
         modal_proto.api_pb2.TokenFlowCreateResponse,
     ]
-    """Tokens (web auth flow)"""
     TokenFlowWait: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.TokenFlowWaitRequest,
         modal_proto.api_pb2.TokenFlowWaitResponse,
@@ -962,6 +994,10 @@ class ModalClientStub:
     TokenInfoGet: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.TokenInfoGetRequest,
         modal_proto.api_pb2.TokenInfoGetResponse,
+    ]
+    TokensList: grpc.UnaryUnaryMultiCallable[
+        google.protobuf.empty_pb2.Empty,
+        modal_proto.api_pb2.TokensListResponse,
     ]
     TunnelStart: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.TunnelStartRequest,
@@ -1291,6 +1327,31 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.AttemptStartResponse: ...
     @abc.abstractmethod
+    def AuditLogCount(
+        self,
+        request: modal_proto.api_pb2.AuditLogCountRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AuditLogCountResponse:
+        """Audit logs"""
+    @abc.abstractmethod
+    def AuditLogList(
+        self,
+        request: modal_proto.api_pb2.AuditLogListRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AuditLogListResponse: ...
+    @abc.abstractmethod
+    def AuditLogPlan(
+        self,
+        request: modal_proto.api_pb2.AuditLogBucketsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AuditLogPlanResponse: ...
+    @abc.abstractmethod
+    def AuditLogSettingsGet(
+        self,
+        request: modal_proto.api_pb2.AuditLogSettingsGetRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AuditLogSettingsGetResponse: ...
+    @abc.abstractmethod
     def AuthTokenGet(
         self,
         request: modal_proto.api_pb2.AuthTokenGetRequest,
@@ -1540,6 +1601,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.EndpointGetInfoRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.EndpointGetInfoResponse: ...
+    @abc.abstractmethod
+    def EndpointGetLibrary(
+        self,
+        request: modal_proto.api_pb2.EndpointGetLibraryRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EndpointGetLibraryResponse: ...
     @abc.abstractmethod
     def EndpointGetLifecycle(
         self,
@@ -1972,13 +2039,6 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.MountPutFileResponse: ...
     @abc.abstractmethod
-    def NotebookKernelPublishResults(
-        self,
-        request: modal_proto.api_pb2.NotebookKernelPublishResultsRequest,
-        context: grpc.ServicerContext,
-    ) -> google.protobuf.empty_pb2.Empty:
-        """Notebooks"""
-    @abc.abstractmethod
     def PersistentSandboxCreate(
         self,
         request: modal_proto.api_pb2.PersistentSandboxCreateRequest,
@@ -2194,6 +2254,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxGetTaskIdResponse: ...
     @abc.abstractmethod
+    def SandboxGetTimeRangeStats(
+        self,
+        request: modal_proto.api_pb2.SandboxGetTimeRangeStatsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxGetTimeRangeStatsResponse: ...
+    @abc.abstractmethod
     def SandboxGetTunnels(
         self,
         request: modal_proto.api_pb2.SandboxGetTunnelsRequest,
@@ -2235,6 +2301,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.SandboxSetNameRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxSetNameResponse: ...
+    @abc.abstractmethod
+    def SandboxSetOutboundPolicy(
+        self,
+        request: modal_proto.api_pb2.SandboxSetOutboundPolicyRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxSetOutboundPolicyResponse: ...
+    @abc.abstractmethod
+    def SandboxSetOutboundPolicyV2(
+        self,
+        request: modal_proto.api_pb2.SandboxSetOutboundPolicyRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxSetOutboundPolicyResponse: ...
     @abc.abstractmethod
     def SandboxSnapshot(
         self,
@@ -2512,12 +2590,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     ) -> modal_proto.api_pb2.TemplateListResponse:
         """Templates"""
     @abc.abstractmethod
+    def TokenDelete(
+        self,
+        request: modal_proto.api_pb2.TokenDeleteRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty:
+        """Tokens (web auth flow)"""
+    @abc.abstractmethod
     def TokenFlowCreate(
         self,
         request: modal_proto.api_pb2.TokenFlowCreateRequest,
         context: grpc.ServicerContext,
-    ) -> modal_proto.api_pb2.TokenFlowCreateResponse:
-        """Tokens (web auth flow)"""
+    ) -> modal_proto.api_pb2.TokenFlowCreateResponse: ...
     @abc.abstractmethod
     def TokenFlowWait(
         self,
@@ -2530,6 +2614,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.TokenInfoGetRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.TokenInfoGetResponse: ...
+    @abc.abstractmethod
+    def TokensList(
+        self,
+        request: google.protobuf.empty_pb2.Empty,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.TokensListResponse: ...
     @abc.abstractmethod
     def TunnelStart(
         self,

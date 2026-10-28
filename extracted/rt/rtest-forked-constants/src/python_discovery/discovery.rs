@@ -2,7 +2,7 @@
 
 use crate::collection::error::{CollectionError, CollectionResult, CollectionWarning};
 use crate::python_discovery::cases::{
-    parse_decorators_to_specs, CannotExpandReason, CasesExpansion, DuplicateIds,
+    parse_decorators_to_specs, CannotExpandReason, CasesExpansion, DuplicateIds, ParametrizeWrapper,
 };
 use crate::python_discovery::constant_resolver::ConstantResolver;
 use crate::python_discovery::module_resolver::ModuleResolver;
@@ -57,6 +57,12 @@ pub struct TestDiscoveryConfig {
     pub python_classes: Vec<String>,
     pub python_functions: Vec<String>,
     pub duplicate_ids: DuplicateIds,
+    pub parametrize_wrappers: Vec<ParametrizeWrapper>,
+    /// Qualified functions that return a `Literal` type's values like `typing.get_args`,
+    /// also flattening unions of `Literal` types.
+    pub literal_values_functions: Vec<String>,
+    /// Qualified functions that return their first argument unchanged.
+    pub passthrough_functions: Vec<String>,
 }
 
 impl Default for TestDiscoveryConfig {
@@ -65,6 +71,9 @@ impl Default for TestDiscoveryConfig {
             python_classes: vec!["Test*".into()],
             python_functions: vec!["test*".into()],
             duplicate_ids: DuplicateIds::default(),
+            parametrize_wrappers: Vec::new(),
+            literal_values_functions: Vec::new(),
+            passthrough_functions: Vec::new(),
         }
     }
 }
@@ -109,7 +118,7 @@ pub(crate) fn collect_test_methods(
                         &func.decorator_list,
                         resolver,
                         Some(class.name.as_str()),
-                        config.duplicate_ids,
+                        config,
                     ),
                 })
             }

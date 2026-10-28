@@ -6,7 +6,7 @@ import pytest
 
 @pytest.fixture
 def test_files(nb_file):
-    pytest.importorskip("nbconvert", exc_type=ImportError)
+    pytest.importorskip("nbconvert")
     pytest.importorskip("nbformat")
     import nbconvert
     import nbformat
@@ -29,6 +29,7 @@ def test_files(nb_file):
                 raise Exception(f"{output.ename}: {output.evalue}")
 
 
+@pytest.mark.skip(reason="Notebooks should be updated")
 @pytest.mark.parametrize(
     "nb_file",
     (
@@ -36,8 +37,7 @@ def test_files(nb_file):
         "examples/05_benchmarking_layers.ipynb",
     ),
 )
-def test_ipython_notebooks(test_files: None):
-    ...
+def test_ipython_notebooks(test_files: None): ...
 
 
 @pytest.mark.skip(reason="these notebooks need special software or hardware")
@@ -54,5 +54,4 @@ def test_ipython_notebooks(test_files: None):
         "examples/06_predicting_like_terms.ipynb",
     ),
 )
-def test_ipython_notebooks_slow(test_files: None):
-    ...
+def test_ipython_notebooks_slow(test_files: None): ...

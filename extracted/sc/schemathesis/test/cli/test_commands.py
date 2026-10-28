@@ -35,7 +35,7 @@ from schemathesis.specs.openapi import unregister_string_format
 from test.apps.catalog.graphql import bookstore as graphql_bookstore
 from test.apps.catalog.openapi import basic as openapi_basic
 from test.apps.fragments import handlers
-from test.apps.fragments.schemas import linked_users
+from test.apps.fragments.schemas import PAYLOAD_SCHEMA, linked_users
 from test.fixtures.app_runner import accept_connections, wait_for_port
 from test.utils import HERE, SIMPLE_PATH, refusing_url
 
@@ -609,7 +609,7 @@ def test_stateful_timeout_absorbed_by_health_monitor(ctx, cli, snapshot_cli):
 
 @pytest.mark.snapshot(replace_test_cases=False, replace_reproduce_with=True)
 def test_fuzzing_timeout_outlasting_time_budget(ctx, cli, snapshot_cli):
-    # Each request times out after its operation's share of `--max-time` has run out.
+    # The first request times out on its own; the second one is still waiting when `--max-time` runs out.
     app, _ = ctx.openapi.make_flask_app(
         {
             "/first": {"get": {"responses": {"200": {"description": "OK"}}}},
@@ -639,6 +639,82 @@ def test_fuzzing_timeout_outlasting_time_budget(ctx, cli, snapshot_cli):
     finally:
         release.set()
     assert result == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_max_time_cuts_hanging_request(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/a/hanging": {"get": {"responses": {"200": {"description": "OK"}}}},
+            **{
+                f"/b/fast{index}": {
+                    "get": {
+                        "parameters": [{"name": "q", "in": "query", "schema": {"type": "integer"}}],
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+                for index in range(3)
+            },
+        }
+    )
+    release = threading.Event()
+
+    @app.route("/a/hanging")
+    def hanging():
+        release.wait()
+        return jsonify({})
+
+    @app.route("/b/fast<int:index>")
+    def fast(index):
+        return jsonify({})
+
+    started = time.monotonic()
+    try:
+        result = cli.run_openapi_app(
+            app,
+            "--max-time=2",
+            "--request-timeout=30",
+            "--phases=examples,coverage,fuzzing",
+            "--checks=not_a_server_error",
+        )
+    finally:
+        release.set()
+    assert time.monotonic() - started < 15
+    assert result == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_max_time_reports_unreached_operations(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/a/slow": {"get": {"responses": {"200": {"description": "OK"}}}},
+            **{
+                f"/b/fast{index}": {
+                    "get": {
+                        "parameters": [{"name": "q", "in": "query", "schema": {"type": "integer"}}],
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+                for index in range(3)
+            },
+        }
+    )
+
+    @app.route("/a/slow")
+    def slow():
+        time.sleep(2)
+        return jsonify({})
+
+    @app.route("/b/fast<int:index>")
+    def fast(index):
+        return jsonify({})
+
+    assert (
+        cli.run_openapi_app(
+            app, "--max-time=1", "--phases=examples,coverage,fuzzing", "--checks=not_a_server_error", "--workers=1"
+        )
+        == snapshot_cli
+    )
 
 
 @pytest.fixture
@@ -861,7 +937,7 @@ def test_multiple_failures_single_check(ctx, cli, snapshot_cli):
 def test_continue_on_failure(ctx, cli):
     api = ctx.openapi.apps.multiple_failures()
     result = cli.run_and_assert(api.schema_url, "--continue-on-failure", exit_code=ExitCode.TESTS_FAILED)
-    assert "116 generated" in result.stdout
+    assert "118 generated" in result.stdout
 
 
 def test_multiple_failures_different_check(ctx, cli, snapshot_cli):
@@ -1677,23 +1753,31 @@ def test_no_schema_in_media_type(ctx, cli, snapshot_cli):
     assert cli.run_openapi_app(app, "--max-examples=1", "--checks=not_a_server_error") == snapshot_cli
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        {"application.json": {"schema": {"type": "object"}}},
+        {"": {"schema": {"type": "object"}}, "application/json": {"schema": PAYLOAD_SCHEMA}},
+    ],
+    ids=["only-malformed", "valid-sibling"],
+)
 @pytest.mark.filterwarnings("error")
-def test_malformed_media_type_in_request_body(ctx, cli, snapshot_cli):
-    api = ctx.openapi.apps.success()
+def test_malformed_media_type_in_request_body(ctx, cli, snapshot_cli, content):
+    api = ctx.openapi.apps.payload()
     schema_path = ctx.openapi.write_schema(
         {
-            "/data": {
+            "/payload": {
                 "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application.json": {"schema": {"type": "object"}}},
-                    },
+                    "requestBody": {"required": True, "content": content},
                     "responses": {"200": {"description": "OK"}},
                 }
             }
         }
     )
-    assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--max-examples=1") == snapshot_cli
+    assert (
+        cli.run(str(schema_path), f"--url={api.base_url}/api", "--max-examples=1", "--checks=not_a_server_error")
+        == snapshot_cli
+    )
 
 
 MALFORMED_KEYWORD_OPERATIONS = {

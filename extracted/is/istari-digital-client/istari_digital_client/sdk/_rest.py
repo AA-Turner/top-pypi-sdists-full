@@ -7,6 +7,7 @@ import ssl
 import urllib3
 from typing import Any, Optional
 
+from istari_digital_client._transfer.request_options import transport_request_options
 from istari_digital_client.sdk._exceptions import ApiException, ApiValueError
 from istari_digital_client.sdk._proxy import (
     proxy_headers_for,
@@ -29,6 +30,21 @@ def is_socks_proxy_url(url):
         return False
     else:
         return split_section[0].lower() in SUPPORTED_SOCKS_PROXIES
+
+
+
+def _transfer_pool_maxsize(configuration) -> int:
+    """Per-host connection pool size: 4 x transfer_concurrency (16 at the default).
+
+    ``transfer_concurrency`` is read defensively: the legacy stack is often handed
+    the sdk ``Configuration``, and a post-construction assignment skips validation.
+    """
+    concurrency = getattr(configuration, "transfer_concurrency", None)
+    try:
+        concurrency = int(concurrency) if concurrency is not None else 4
+    except (TypeError, ValueError):
+        concurrency = 4
+    return max(1, min(concurrency, 16)) * 4
 
 
 class RESTResponse(io.IOBase):
@@ -80,8 +96,26 @@ class RESTClientObject:
             "ca_cert_data": None,
         }
 
-        if configuration.retry_enabled:
-            pool_args["retries"] = configuration.retry_max_attempts
+        # A finite total would also consume the redirect allowance. Keep error
+        # categories finite instead, with redirects independently bounded at 3.
+        # Attempts include the initial request; unset uses urllib3's default.
+        retries = urllib3.Retry.DEFAULT.total
+        if not configuration.retry_enabled:
+            retries = 0
+        elif configuration.retry_max_attempts is not None:
+            retries = max(int(configuration.retry_max_attempts) - 1, 0)
+        pool_args["retries"] = urllib3.Retry(
+            total=None,
+            connect=retries,
+            read=retries,
+            status=retries,
+            other=retries,
+            redirect=3,
+        )
+        # The transfer engine runs ``transfer_concurrency`` parallel PUT/GETs per
+        # client against one host; urllib3's per-host default of 1 would churn
+        # connections. Overflow only costs extra connections plus a warning.
+        pool_args["maxsize"] = _transfer_pool_maxsize(configuration)
 
         if configuration.proxy_url and is_socks_proxy_url(configuration.proxy_url):
             raise ApiValueError(
@@ -136,6 +170,51 @@ class RESTClientObject:
         self.pool_manager.clear()
         for manager in self._proxy_managers.values():
             manager.clear()
+
+    def request_raw(
+        self,
+        method,
+        url,
+        *,
+        headers=None,
+        body=None,
+        timeout=None,
+        preload_content=False,
+        decode_content=True,
+    ):
+        """Send one request as given and return the raw urllib3 response.
+
+        This is the transfer engine's data-plane path for presigned URLs: no
+        default headers, no auth, no JSON serialization, no urllib3 retry and no
+        redirect following (a 3xx is returned so the caller can rewind ``body``
+        and re-send). ``body`` is bytes or a readable; the caller sets
+        ``Content-Length`` so a readable is never sent chunked. ``timeout`` is a
+        ``urllib3.Timeout`` (or seconds). Proxy and CA handling are shared with
+        ``request``. The caller owns retries and must release the response.
+        """
+        pool_manager = self._pool_manager_for(url)
+        if timeout is not None and not isinstance(timeout, urllib3.Timeout):
+            timeout = urllib3.Timeout(connect=timeout, read=timeout)
+        try:
+            return pool_manager.request(
+                method.upper(),
+                url,
+                body=body,
+                headers=headers or {},
+                timeout=timeout,
+                preload_content=preload_content,
+                decode_content=decode_content,
+                retries=False,
+                redirect=False,
+            )
+        except urllib3.exceptions.SSLError as e:
+            msg = "\n".join([type(e).__name__, str(e)])
+            raise ApiException(status=0, reason=msg) from e
+        except urllib3.exceptions.MaxRetryError as e:
+            if not isinstance(e.reason, urllib3.exceptions.SSLError):
+                raise
+            msg = "\n".join([type(e.reason).__name__, str(e.reason)])
+            raise ApiException(status=0, reason=msg) from e
 
     def request(
         self,
@@ -198,6 +277,7 @@ class RESTClientObject:
                         timeout=timeout,
                         headers=headers,
                         preload_content=False,
+                        **transport_request_options(),
                     )
                 elif content_type == "application/x-www-form-urlencoded":
                     r = pool_manager.request(
@@ -208,6 +288,7 @@ class RESTClientObject:
                         timeout=timeout,
                         headers=headers,
                         preload_content=False,
+                        **transport_request_options(),
                     )
                 elif content_type == "multipart/form-data":
                     # must del headers['Content-Type'], or the correct
@@ -227,6 +308,7 @@ class RESTClientObject:
                         timeout=timeout,
                         headers=headers,
                         preload_content=False,
+                        **transport_request_options(),
                     )
                 # Pass a `string` parameter directly in the body to support
                 # other content types than JSON when `body` argument is
@@ -239,6 +321,7 @@ class RESTClientObject:
                         timeout=timeout,
                         headers=headers,
                         preload_content=False,
+                        **transport_request_options(),
                     )
                 elif headers["Content-Type"].startswith("text/") and isinstance(
                     body, bool
@@ -251,6 +334,7 @@ class RESTClientObject:
                         preload_content=False,
                         timeout=timeout,
                         headers=headers,
+                        **transport_request_options(),
                     )
                 else:
                     # Cannot generate the request from given parameters
@@ -267,16 +351,17 @@ class RESTClientObject:
                     timeout=timeout,
                     headers=headers,
                     preload_content=False,
+                    **transport_request_options(),
                 )
         except urllib3.exceptions.SSLError as e:
             msg = "\n".join([type(e).__name__, str(e)])
-            raise ApiException(status=0, reason=msg)
+            raise ApiException(status=0, reason=msg) from e
         except urllib3.exceptions.MaxRetryError as e:
-            # retries wrap the underlying SSLError; unwrap so certificate
-            # failures surface the same way with and without retries
+            # retries wrap the underlying SSLError; preserve the complete chain
+            # so the transfer engine can classify the certificate failure.
             if not isinstance(e.reason, urllib3.exceptions.SSLError):
                 raise
             msg = "\n".join([type(e.reason).__name__, str(e.reason)])
-            raise ApiException(status=0, reason=msg)
+            raise ApiException(status=0, reason=msg) from e
 
         return RESTResponse(r)

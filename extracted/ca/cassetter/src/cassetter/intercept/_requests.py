@@ -7,7 +7,8 @@ import requests
 
 from cassetter._core import HttpResponse as _HttpResponse
 from cassetter._state import get_current_cassette
-from cassetter.cassette import NoMatchError, body_to_bytes
+from cassetter.cassette import NoMatchError
+from cassetter.compare import body_to_bytes
 from cassetter.intercept._shared import apply_before_record_request, extract_headers as _extract_headers
 
 
@@ -43,11 +44,13 @@ class RequestsInterceptor:
             method, uri, headers, body = raw.method, raw.uri, raw.headers, raw.body
 
             try:
-                response = cassette.play(method, uri, headers, body)
-                return build_requests_response(request, response)
+                expected = cassette.match(method, uri, headers, body)
+                if not cassette.verifies:
+                    return build_requests_response(request, expected[1])
             except NoMatchError:
                 if not cassette.can_record:
                     raise
+                expected = None
 
             order = cassette.reserve_record_order()
             real_response = original_send(session, request, **kwargs)
@@ -64,6 +67,7 @@ class RequestsInterceptor:
                 response_headers=resp_headers,
                 response_body=real_response.content,
                 order=order,
+                expected=expected,
             )
             return real_response
 

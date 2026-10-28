@@ -60,8 +60,9 @@ def test_capitalize_name_flag_capitalizes_on_parse() -> None:
 
 
 def test_constructor_suffix_delimiter_layers_onto_policy() -> None:
-    n = HumanName("Doe, John, RN - CRNA", constants=Constants(),
-                  suffix_delimiter=" - ")
+    # ' | ', not ' - ': a hyphen standing alone is built in (#889)
+    n = HumanName("Doe, John, RN | CRNA", constants=Constants(),
+                  suffix_delimiter=" | ")
     assert n.suffix == "RN, CRNA"
 
 
@@ -545,20 +546,21 @@ def test_v14_humanname_blob_unpickles() -> None:
 
 
 def test_suffix_delimiter_reassignment_after_construction() -> None:
-    n = HumanName("Doe, John, RN - CRNA")
-    assert n.suffix == "RN - CRNA"          # no delimiter: one entry
-    n.suffix_delimiter = " - "
+    # ' | ', not ' - ': a hyphen standing alone is built in (#889)
+    n = HumanName("Doe, John, RN | CRNA")
+    assert n.suffix == "RN | CRNA"          # no delimiter: one entry
+    n.suffix_delimiter = " | "
     n.parse_full_name()
     assert n.suffix == "RN, CRNA"           # setter invalidated the Policy
     n.suffix_delimiter = None
     n.parse_full_name()
-    assert n.suffix == "RN - CRNA"          # and back
+    assert n.suffix == "RN | CRNA"          # and back
 
 
 def test_c_swap_keeps_instance_suffix_delimiter() -> None:
     # both invalidation paths together: swapping C must not lose the
     # instance-level delimiter layered onto the new snapshot's Policy
-    n = HumanName("Doe, John, RN - CRNA", suffix_delimiter=" - ")
+    n = HumanName("Doe, John, RN | CRNA", suffix_delimiter=" | ")
     assert n.suffix == "RN, CRNA"
     n.C = Constants()
     n.parse_full_name()
@@ -1081,3 +1083,15 @@ def test_the_v1_off_switch_unjoins_the_link_only() -> None:
     unjoined = HumanName("Josep Carod i Rovira", constants)
     assert unjoined.middle == "Carod i"
     assert unjoined.last == "Rovira"
+
+
+def test_the_ph_d_pair_merges_whatever_the_vocabulary_says() -> None:
+    # v1's fix_phd merged 'Ph. D.' by its spelling alone, so a config
+    # without 'phd' still read the pair as one suffix; the split
+    # credential's vocabulary pre-test must not stand in front of that
+    # answer (#752's review)
+    c = Constants()
+    c.suffix_acronyms.remove("phd")
+    assert HumanName("John Smith Ph. D.", constants=c).suffix == "Ph. D."
+    h = HumanName("John Smith, Ph. D.", constants=c)
+    assert (h.first, h.last, h.suffix) == ("John", "Smith", "Ph. D.")

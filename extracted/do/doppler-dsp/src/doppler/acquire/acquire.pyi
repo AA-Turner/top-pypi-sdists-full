@@ -23,8 +23,9 @@ class CarrierAcquisition:
     zero_pad : int, default 4
         PSD zero-pad factor (>= 1); see psd_core.h.
     window : Literal["hann", "kaiser", "blackman-harris"], default "hann"
-        "hann" (the default, and the window the threshold was fit at), "kaiser"
-        or "blackman-harris".
+        The search window. `hann` is the default and the window the detection
+        threshold was fit at.
+        One of ``"hann"``, ``"kaiser"``, ``"blackman-harris"``.
 
         - ``"hann"`` — Hann: the default.
         - ``"kaiser"`` — Kaiser, shaped by `beta`.
@@ -326,7 +327,9 @@ class Acquisition:
     pd : float, default 0.9
         Target detection probability (0,1).
     noise_mode : Literal["mean", "median", "min", "max"], default "mean"
-        CFAR mode index: 0=mean, 1=median, 2=min, 3=max.
+        The CFAR reference: the statistic the noise floor is estimated with,
+        which the detection threshold scales.
+        One of ``"mean"``, ``"median"``, ``"min"``, ``"max"``.
     code_only_epochs : int, default 1
         Whole code-only epochs a waveform's code-only window holds at any chip
         phase (floor(W_symbols * chips_per_symbol / sf) - 1; design §2.1) --
@@ -600,10 +603,10 @@ class Acquisition:
           own frequency implies, `f_tile / carrier` chips per chip, aligned to
           the block's middle, before the slow-time transform (a linear phase on
           each epoch's product, exact to a fraction of a sample). Measured at
-          SPEC's 20 ppm with D = 154 (3.1 chips of drift across the block):
-          without it the block's peak is 13 dB down and 3 chips wide and the
-          depth detects nothing at 34 dB-Hz; with it the block reads as a still
-          one.
+          the specification's 20 ppm with D = 154 (3.1 chips of drift across
+          the block): without it the block's peak is 13 dB down and 3 chips
+          wide and the depth detects nothing at 34 dB-Hz; with it the block
+          reads as a still one.
         - **The hand-off** (dp_acq_build_handoff()) advances the hit's code
           phase by the drift over half the dwell -- the non-coherent sum's peak
           is the phase at the dwell's middle, the seed is wanted at its end:
@@ -1335,7 +1338,9 @@ class BurstAcquisition:
     pd : float, default 0.9
         Target detection probability (0,1).
     noise_mode : Literal["mean", "median", "min", "max"], default "mean"
-        CFAR mode index: 0=mean, 1=median, 2=min, 3=max.
+        The CFAR reference: the statistic the noise floor is estimated with,
+        which the detection threshold scales.
+        One of ``"mean"``, ``"median"``, ``"min"``, ``"max"``.
     doppler_rate : float, default 0.0
         Doppler rate in Hz/s (>= 0) that caps the coherent depth at
         `f_epoch/sqrt(2*doppler_rate)` repetitions (doppler#1482); 0 is no
@@ -1875,7 +1880,9 @@ class BurstCapture:
     pd : float, default 0.9
         Target detection probability, in (0, 1).
     noise_mode : Literal["mean", "median", "min", "max"], default "mean"
-        CFAR reference: 0=mean, 1=median, 2=min, 3=max.
+        The CFAR reference: the statistic the noise floor is estimated with,
+        which the detection threshold scales.
+        One of ``"mean"``, ``"median"``, ``"min"``, ``"max"``.
     doppler_rate : float, default 0.0
         Doppler rate, Hz/s (>= 0), that caps the acquisition's coherent depth
         at `f_epoch/sqrt(2*doppler_rate)` repetitions (doppler#1482); 0 is no
@@ -2651,7 +2658,9 @@ class PersistentBurstCapture:
     pd : float, default 0.9
         Target detection probability, in (0, 1).
     noise_mode : Literal["mean", "median", "min", "max"], default "mean"
-        CFAR reference: 0=mean, 1=median, 2=min, 3=max.
+        The CFAR reference: the statistic the noise floor is estimated with,
+        which the detection threshold scales.
+        One of ``"mean"``, ``"median"``, ``"min"``, ``"max"``.
     doppler_rate : float, default 0.0
         Doppler rate, Hz/s (>= 0), that caps the acquisition's coherent depth
         at `f_epoch/sqrt(2*doppler_rate)` repetitions (doppler#1482); 0 is no

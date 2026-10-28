@@ -30,6 +30,7 @@ from arthur_client.api_bindings.api.data_plane_associations_v1_api import DataPl
 from arthur_client.api_bindings.api.data_planes_v1_api import DataPlanesV1Api
 from arthur_client.api_bindings.api.data_retrieval_v1_api import DataRetrievalV1Api
 from arthur_client.api_bindings.api.datasets_v1_api import DatasetsV1Api
+from arthur_client.api_bindings.api.default_dashboards_v1_api import DefaultDashboardsV1Api
 from arthur_client.api_bindings.api.discovery_runs_v1_api import DiscoveryRunsV1Api
 from arthur_client.api_bindings.api.discovery_sources_v1_api import DiscoverySourcesV1Api
 from arthur_client.api_bindings.api.feature_flags_v1_api import FeatureFlagsV1Api
@@ -72,6 +73,7 @@ from arthur_client.api_bindings.models.agent_registration_response import AgentR
 from arthur_client.api_bindings.models.agent_registration_status import AgentRegistrationStatus
 from arthur_client.api_bindings.models.agent_response import AgentResponse
 from arthur_client.api_bindings.models.agent_sort import AgentSort
+from arthur_client.api_bindings.models.agentic_apps_first_dashboard import AgenticAppsFirstDashboard
 from arthur_client.api_bindings.models.aggregation_kind import AggregationKind
 from arthur_client.api_bindings.models.aggregation_metric_type import AggregationMetricType
 from arthur_client.api_bindings.models.aggregation_spec import AggregationSpec
@@ -95,6 +97,7 @@ from arthur_client.api_bindings.models.alert_rule_timeline_streak import AlertRu
 from arthur_client.api_bindings.models.alert_rule_timeline_totals import AlertRuleTimelineTotals
 from arthur_client.api_bindings.models.alert_sort import AlertSort
 from arthur_client.api_bindings.models.alert_webhook_called import AlertWebhookCalled
+from arthur_client.api_bindings.models.anthropic_thinking_block_binding import AnthropicThinkingBlockBinding
 from arthur_client.api_bindings.models.anthropic_thinking_param import AnthropicThinkingParam
 from arthur_client.api_bindings.models.attestation_record import AttestationRecord
 from arthur_client.api_bindings.models.available_dataset import AvailableDataset
@@ -165,6 +168,7 @@ from arthur_client.api_bindings.models.custom_aggregation_version_spec_schema im
 from arthur_client.api_bindings.models.custom_aggregation_version_spec_schema_aggregate_args_inner import CustomAggregationVersionSpecSchemaAggregateArgsInner
 from arthur_client.api_bindings.models.d_type import DType
 from arthur_client.api_bindings.models.dashboard import Dashboard
+from arthur_client.api_bindings.models.dashboard_preferences import DashboardPreferences
 from arthur_client.api_bindings.models.dashboard_template import DashboardTemplate
 from arthur_client.api_bindings.models.dashboard_visibility import DashboardVisibility
 from arthur_client.api_bindings.models.data_plane import DataPlane
@@ -196,6 +200,7 @@ from arthur_client.api_bindings.models.dataset_reference import DatasetReference
 from arthur_client.api_bindings.models.dataset_scalar_type import DatasetScalarType
 from arthur_client.api_bindings.models.dataset_schema import DatasetSchema
 from arthur_client.api_bindings.models.datasets_sort import DatasetsSort
+from arthur_client.api_bindings.models.default_dashboard import DefaultDashboard
 from arthur_client.api_bindings.models.definition import Definition
 from arthur_client.api_bindings.models.delete_group_membership import DeleteGroupMembership
 from arthur_client.api_bindings.models.delete_model_task_job_spec import DeleteModelTaskJobSpec
@@ -456,9 +461,11 @@ from arthur_client.api_bindings.models.put_available_dataset import PutAvailable
 from arthur_client.api_bindings.models.put_available_datasets import PutAvailableDatasets
 from arthur_client.api_bindings.models.put_custom_aggregation_spec_schema import PutCustomAggregationSpecSchema
 from arthur_client.api_bindings.models.put_dataset_schema import PutDatasetSchema
+from arthur_client.api_bindings.models.put_default_dashboard import PutDefaultDashboard
 from arthur_client.api_bindings.models.put_discovery_run_outcome import PutDiscoveryRunOutcome
 from arthur_client.api_bindings.models.put_discovery_source_test_result import PutDiscoverySourceTestResult
 from arthur_client.api_bindings.models.put_job_state import PutJobState
+from arthur_client.api_bindings.models.put_model_default_dashboard import PutModelDefaultDashboard
 from arthur_client.api_bindings.models.put_model_metric_spec import PutModelMetricSpec
 from arthur_client.api_bindings.models.put_model_metrics_schedule import PutModelMetricsSchedule
 from arthur_client.api_bindings.models.put_retrieved_data import PutRetrievedData
@@ -490,6 +497,7 @@ from arthur_client.api_bindings.models.resource_list_data_plane import ResourceL
 from arthur_client.api_bindings.models.resource_list_data_plane_association import ResourceListDataPlaneAssociation
 from arthur_client.api_bindings.models.resource_list_data_source import ResourceListDataSource
 from arthur_client.api_bindings.models.resource_list_dataset import ResourceListDataset
+from arthur_client.api_bindings.models.resource_list_default_dashboard import ResourceListDefaultDashboard
 from arthur_client.api_bindings.models.resource_list_discovery_source import ResourceListDiscoverySource
 from arthur_client.api_bindings.models.resource_list_discovery_source_config import ResourceListDiscoverySourceConfig
 from arthur_client.api_bindings.models.resource_list_discovery_source_type_schema import ResourceListDiscoverySourceTypeSchema

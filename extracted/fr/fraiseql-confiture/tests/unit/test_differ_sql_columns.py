@@ -42,7 +42,8 @@ class TestAnAddedColumnKeepsItsDeclaration:
     def test_the_declared_type_is_written(self) -> None:
         sql = DifferSQLGenerator().generate_up(_change(*ONE_COLUMN, ColumnAdded))
         assert _parses(sql)
-        assert sql.strip() == "ALTER TABLE tenant.t ADD COLUMN x INTEGER NOT NULL;"
+        # NOT NULL with nothing to fill it: added nullable, then tightened (#766).
+        assert sql.startswith("ALTER TABLE tenant.t ADD COLUMN IF NOT EXISTS x INTEGER;\n")
 
     def test_no_column_is_invented_as_text(self) -> None:
         """``text`` was the fallback for a change with no ``details``, which is
@@ -103,6 +104,14 @@ class TestADroppedTableIsRecreatedByItsDown:
         sql = DifferSQLGenerator().generate_down(_change(*self.DROPPED, TableDropped))
         assert _parses(sql)
         assert "CREATE TABLE IF NOT EXISTS tenant.t" in sql
+
+    def test_the_down_recreates_the_table_plainly_when_asked(self) -> None:
+        sql = DifferSQLGenerator().generate_down(
+            _change(*self.DROPPED, TableDropped), plain_creates=True
+        )
+        [stmt] = [raw.stmt for raw in pglast.parse_sql(sql)]
+        assert (stmt.relation.schemaname, stmt.relation.relname) == ("tenant", "t")
+        assert not stmt.if_not_exists
 
     def test_the_recreated_table_keeps_its_constraints(self) -> None:
         sql = DifferSQLGenerator().generate_down(_change(*self.DROPPED, TableDropped))

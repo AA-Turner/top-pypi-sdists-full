@@ -180,9 +180,10 @@ def lint_output_schema(
                             path=path,
                             message=(
                                 "Dynamic-key map (additionalProperties is a schema/true): "
-                                f"{' and '.join(strict)} cannot express it and will receive it "
-                                "narrowed to an empty object. Declare the entries as an array "
-                                "of {key, value} objects to keep them enforced everywhere."
+                                f"{' and '.join(strict)} cannot express it, so a run bound to "
+                                "this schema there is answered as prompt-guided JSON (checked "
+                                "afterwards, never grammar-enforced). Declare the entries as an "
+                                "array of {key, value} objects to keep them enforced everywhere."
                             ),
                         )
                     )

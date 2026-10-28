@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest import TestCase
 
 from bson import Binary, Code, Decimal128, ObjectId, encode
 from pyarrow import Array, bool_, int32, int64, timestamp
-
 from pymongoarrow.lib import (
     BinaryBuilder,
     BoolBuilder,
@@ -84,7 +83,7 @@ class TestDatetimeBuilder(TestCase):
         self.maxDiff = None
 
         builder = DatetimeBuilder(dtype=timestamp("ms"), allow_invalid=True)
-        datetimes = [datetime.now(timezone.utc) + timedelta(days=k * 100) for k in range(5)]
+        datetimes = [datetime.now(UTC) + timedelta(days=k * 100) for k in range(5)]
         builder.append(datetimes[0])
         builder.append_values(datetimes[1:])
         builder.append(1)
@@ -105,7 +104,7 @@ class TestDatetimeBuilder(TestCase):
         self.maxDiff = None
 
         builder = DatetimeBuilder(dtype=timestamp("ms"))
-        datetimes = [datetime.now(timezone.utc) + timedelta(days=k * 100) for k in range(5)]
+        datetimes = [datetime.now(UTC) + timedelta(days=k * 100) for k in range(5)]
         builder.append(datetimes[0])
         builder.append_values(datetimes[1:])
         with self.assertRaisesRegex(

@@ -5,9 +5,9 @@ This module contains tests for the BulkDataClient class, including core function
 model handling, edge cases, and response handling.
 """
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -350,7 +350,7 @@ class TestBulkDataClientCore:
             file_data_from_date=date(2023, 1, 1),
             file_data_to_date=date(2023, 12, 31),
             file_type_text="TAR",
-            file_release_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            file_release_date=datetime(2024, 1, 1, tzinfo=UTC),
         )
         destination = "./downloads"
 
@@ -384,7 +384,7 @@ class TestBulkDataClientCore:
             file_data_from_date=date(2023, 1, 1),
             file_data_to_date=date(2023, 12, 31),
             file_type_text="ZIP",
-            file_release_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            file_release_date=datetime(2024, 1, 1, tzinfo=UTC),
         )
         destination = "./downloads"
 
@@ -465,8 +465,42 @@ class TestBulkDataClientCore:
             mock_paginate_results.assert_called_once_with(
                 method_name="search_products",
                 response_container_attr="bulk_data_product_bag",
+                count_is_total=False,
                 param="value",
             )
+
+    def test_paginate_products_reads_past_full_pages(
+        self, mock_bulk_data_client: BulkDataClient
+    ) -> None:
+        """Test paginate_products continues past a full page (count is per page)."""
+        products = [
+            BulkDataProduct(
+                product_identifier=f"PRODUCT{i}",
+                product_description_text="Description",
+                product_title_text="Title",
+                product_frequency_text="Weekly",
+            )
+            for i in range(3)
+        ]
+        pages = [
+            BulkDataResponse(count=2, bulk_data_product_bag=products[:2]),
+            BulkDataResponse(count=1, bulk_data_product_bag=products[2:]),
+        ]
+
+        with patch.object(
+            mock_bulk_data_client, "search_products", autospec=True, side_effect=pages
+        ) as mock_search_products:
+            results = list(mock_bulk_data_client.paginate_products(limit=2))
+
+        assert [p.product_identifier for p in results] == [
+            "PRODUCT0",
+            "PRODUCT1",
+            "PRODUCT2",
+        ]
+        assert mock_search_products.call_args_list == [
+            call(offset=0, limit=2),
+            call(offset=2, limit=2),
+        ]
 
 
 class TestBulkDataClientEdgeCases:
@@ -518,7 +552,7 @@ class TestBulkDataClientEdgeCases:
             file_data_from_date=date(2023, 1, 1),
             file_data_to_date=date(2023, 12, 31),
             file_type_text="ZIP",
-            file_release_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            file_release_date=datetime(2024, 1, 1, tzinfo=UTC),
         )
         destination = "./downloads"
 
@@ -557,7 +591,7 @@ class TestBulkDataClientEdgeCases:
             file_data_from_date=date(2023, 1, 1),
             file_data_to_date=date(2023, 12, 31),
             file_type_text="ZIP",
-            file_release_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            file_release_date=datetime(2024, 1, 1, tzinfo=UTC),
             file_download_uri="https://example.com/direct/test.zip",
         )
 

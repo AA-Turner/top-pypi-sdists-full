@@ -110,7 +110,7 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
             self.temp_views: t.Dict[str, DF] = {}
         if not self._has_connection or conn:
             self._connection = conn
-        if not getattr(self, "schema", None) or schema:
+        if not hasattr(self, "_schema") or schema is not None:
             self._schema = schema
 
     # https://github.com/eakmanrq/sqlframe/issues/262
@@ -196,9 +196,17 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
         return self._table(self, *args, **kwargs)
 
     def __new__(cls, *args, **kwargs):
-        if _BaseSession._instance is None or not isinstance(_BaseSession._instance, cls):
+        if _BaseSession._instance is None or (
+            cls is not _BaseSession and type(_BaseSession._instance) is not cls
+        ):
             _BaseSession._instance = super().__new__(cls)
         return _BaseSession._instance
+
+    def __copy__(self) -> Self:
+        # DataFrame.copy() copies its session. Going through __new__ would paste this session's state
+        # onto whichever session is the singleton, so keep the same session and make it the active one.
+        _BaseSession._instance = self
+        return self
 
     @property
     def _has_connection(self) -> bool:
@@ -449,22 +457,54 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
     ) -> DF:
         dialect = Dialect.get_or_raise(dialect or self.input_dialect)
         expression = (
-            sqlglot.parse_one(
-                normalize_string(sqlQuery, from_dialect=dialect, is_query=True),
-                read=dialect,
+            sqlglot.parse_one(sqlQuery, read=dialect) if isinstance(sqlQuery, str) else sqlQuery
+        )
+        preserve_nested_ctes = dialect == self.input_dialect and any(
+            with_expression.parent is not expression
+            for with_expression in expression.find_all(exp.With)
+        )
+        if isinstance(sqlQuery, str) and not preserve_nested_ctes:
+            expression = sqlglot.parse_one(
+                normalize_string(sqlQuery, from_dialect=dialect, is_query=True), read=dialect
             )
-            if isinstance(sqlQuery, str)
-            else sqlQuery
-        )
-        expression = sqlglot.parse_one(
-            normalize_string(
-                expression.sql(dialect=dialect),
-                from_dialect=dialect,
-                to_dialect=self.input_dialect,
-                is_query=True,
-            ),
-            dialect=self.input_dialect,
-        )
+        if (
+            isinstance(expression, exp.Create)
+            and expression.args.get("kind") == "TABLE"
+            and self.execution_dialect_name == "duckdb"
+            and any(
+                file_format.name.lower() == "delta"
+                for file_format in expression.find_all(exp.FileFormatProperty)
+            )
+        ):
+            raise NotImplementedError(
+                "DuckDB cannot CREATE or REPLACE Delta tables with USING delta. "
+                "Delta table writes and registration are unsupported; for reads use "
+                "session.read.format('delta').load(path), or run the DDL in a Delta-capable engine."
+            )
+        if isinstance(expression, exp.Create) and expression.expression is None:
+            kind = expression.args.get("kind") or "object"
+            raise NotImplementedError(
+                f"CREATE {kind} without AS SELECT is not supported by Session.sql(); "
+                "execute this DDL through the native engine connection."
+            )
+        if isinstance(expression, exp.Insert) and expression.expression is None:
+            raise NotImplementedError(
+                "INSERT without a query is not supported by Session.sql(); "
+                "execute this DML through the native engine connection."
+            )
+        if preserve_nested_ctes:
+            # The SQLGlot generator hoists nested CTEs, which changes their scope.
+            expression = normalize_identifiers(expression.copy(), dialect=self.input_dialect)
+        else:
+            expression = sqlglot.parse_one(
+                normalize_string(
+                    expression.sql(dialect=dialect),
+                    from_dialect=dialect,
+                    to_dialect=self.input_dialect,
+                    is_query=True,
+                ),
+                dialect=self.input_dialect,
+            )
         if qualify:
             expression = qualify_func(
                 expression,

@@ -128,6 +128,22 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def AuditLogCount(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AuditLogCountRequest, modal_proto.api_pb2.AuditLogCountResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def AuditLogList(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AuditLogListRequest, modal_proto.api_pb2.AuditLogListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def AuditLogPlan(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AuditLogBucketsRequest, modal_proto.api_pb2.AuditLogPlanResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def AuditLogSettingsGet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AuditLogSettingsGetRequest, modal_proto.api_pb2.AuditLogSettingsGetResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def AuthTokenGet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AuthTokenGetRequest, modal_proto.api_pb2.AuthTokenGetResponse]') -> None:
         pass
 
@@ -285,6 +301,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def EndpointGetInfo(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EndpointGetInfoRequest, modal_proto.api_pb2.EndpointGetInfoResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def EndpointGetLibrary(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EndpointGetLibraryRequest, modal_proto.api_pb2.EndpointGetLibraryResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -568,10 +588,6 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def NotebookKernelPublishResults(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.NotebookKernelPublishResultsRequest, google.protobuf.empty_pb2.Empty]') -> None:
-        pass
-
-    @abc.abstractmethod
     async def PersistentSandboxCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.PersistentSandboxCreateRequest, modal_proto.api_pb2.PersistentSandboxCreateResponse]') -> None:
         pass
 
@@ -712,6 +728,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def SandboxGetTimeRangeStats(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetTimeRangeStatsRequest, modal_proto.api_pb2.SandboxGetTimeRangeStatsResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def SandboxGetTunnels(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetTunnelsRequest, modal_proto.api_pb2.SandboxGetTunnelsResponse]') -> None:
         pass
 
@@ -737,6 +757,14 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def SandboxSetName(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxSetNameRequest, modal_proto.api_pb2.SandboxSetNameResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxSetOutboundPolicy(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxSetOutboundPolicyRequest, modal_proto.api_pb2.SandboxSetOutboundPolicyResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxSetOutboundPolicyV2(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxSetOutboundPolicyRequest, modal_proto.api_pb2.SandboxSetOutboundPolicyResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -920,6 +948,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def TokenDelete(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.TokenDeleteRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def TokenFlowCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.TokenFlowCreateRequest, modal_proto.api_pb2.TokenFlowCreateResponse]') -> None:
         pass
 
@@ -929,6 +961,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def TokenInfoGet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.TokenInfoGetRequest, modal_proto.api_pb2.TokenInfoGetResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def TokensList(self, stream: 'grpclib.server.Stream[google.protobuf.empty_pb2.Empty, modal_proto.api_pb2.TokensListResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -1251,6 +1287,30 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.AttemptStartRequest,
                 modal_proto.api_pb2.AttemptStartResponse,
             ),
+            '/modal.client.ModalClient/AuditLogCount': grpclib.const.Handler(
+                self.AuditLogCount,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AuditLogCountRequest,
+                modal_proto.api_pb2.AuditLogCountResponse,
+            ),
+            '/modal.client.ModalClient/AuditLogList': grpclib.const.Handler(
+                self.AuditLogList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AuditLogListRequest,
+                modal_proto.api_pb2.AuditLogListResponse,
+            ),
+            '/modal.client.ModalClient/AuditLogPlan': grpclib.const.Handler(
+                self.AuditLogPlan,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AuditLogBucketsRequest,
+                modal_proto.api_pb2.AuditLogPlanResponse,
+            ),
+            '/modal.client.ModalClient/AuditLogSettingsGet': grpclib.const.Handler(
+                self.AuditLogSettingsGet,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AuditLogSettingsGetRequest,
+                modal_proto.api_pb2.AuditLogSettingsGetResponse,
+            ),
             '/modal.client.ModalClient/AuthTokenGet': grpclib.const.Handler(
                 self.AuthTokenGet,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1490,6 +1550,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.EndpointGetInfoRequest,
                 modal_proto.api_pb2.EndpointGetInfoResponse,
+            ),
+            '/modal.client.ModalClient/EndpointGetLibrary': grpclib.const.Handler(
+                self.EndpointGetLibrary,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EndpointGetLibraryRequest,
+                modal_proto.api_pb2.EndpointGetLibraryResponse,
             ),
             '/modal.client.ModalClient/EndpointGetLifecycle': grpclib.const.Handler(
                 self.EndpointGetLifecycle,
@@ -1911,12 +1977,6 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.MountPutFileRequest,
                 modal_proto.api_pb2.MountPutFileResponse,
             ),
-            '/modal.client.ModalClient/NotebookKernelPublishResults': grpclib.const.Handler(
-                self.NotebookKernelPublishResults,
-                grpclib.const.Cardinality.UNARY_UNARY,
-                modal_proto.api_pb2.NotebookKernelPublishResultsRequest,
-                google.protobuf.empty_pb2.Empty,
-            ),
             '/modal.client.ModalClient/PersistentSandboxCreate': grpclib.const.Handler(
                 self.PersistentSandboxCreate,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -2127,6 +2187,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.SandboxGetTaskIdRequest,
                 modal_proto.api_pb2.SandboxGetTaskIdResponse,
             ),
+            '/modal.client.ModalClient/SandboxGetTimeRangeStats': grpclib.const.Handler(
+                self.SandboxGetTimeRangeStats,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxGetTimeRangeStatsRequest,
+                modal_proto.api_pb2.SandboxGetTimeRangeStatsResponse,
+            ),
             '/modal.client.ModalClient/SandboxGetTunnels': grpclib.const.Handler(
                 self.SandboxGetTunnels,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -2168,6 +2234,18 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SandboxSetNameRequest,
                 modal_proto.api_pb2.SandboxSetNameResponse,
+            ),
+            '/modal.client.ModalClient/SandboxSetOutboundPolicy': grpclib.const.Handler(
+                self.SandboxSetOutboundPolicy,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxSetOutboundPolicyRequest,
+                modal_proto.api_pb2.SandboxSetOutboundPolicyResponse,
+            ),
+            '/modal.client.ModalClient/SandboxSetOutboundPolicyV2': grpclib.const.Handler(
+                self.SandboxSetOutboundPolicyV2,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxSetOutboundPolicyRequest,
+                modal_proto.api_pb2.SandboxSetOutboundPolicyResponse,
             ),
             '/modal.client.ModalClient/SandboxSnapshot': grpclib.const.Handler(
                 self.SandboxSnapshot,
@@ -2439,6 +2517,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.TemplateListRequest,
                 modal_proto.api_pb2.TemplateListResponse,
             ),
+            '/modal.client.ModalClient/TokenDelete': grpclib.const.Handler(
+                self.TokenDelete,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.TokenDeleteRequest,
+                google.protobuf.empty_pb2.Empty,
+            ),
             '/modal.client.ModalClient/TokenFlowCreate': grpclib.const.Handler(
                 self.TokenFlowCreate,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -2456,6 +2540,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.TokenInfoGetRequest,
                 modal_proto.api_pb2.TokenInfoGetResponse,
+            ),
+            '/modal.client.ModalClient/TokensList': grpclib.const.Handler(
+                self.TokensList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                google.protobuf.empty_pb2.Empty,
+                modal_proto.api_pb2.TokensListResponse,
             ),
             '/modal.client.ModalClient/TunnelStart': grpclib.const.Handler(
                 self.TunnelStart,
@@ -2859,6 +2949,30 @@ class ModalClientStub:
             modal_proto.api_pb2.AttemptStartRequest,
             modal_proto.api_pb2.AttemptStartResponse,
         )
+        self.AuditLogCount = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AuditLogCount',
+            modal_proto.api_pb2.AuditLogCountRequest,
+            modal_proto.api_pb2.AuditLogCountResponse,
+        )
+        self.AuditLogList = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AuditLogList',
+            modal_proto.api_pb2.AuditLogListRequest,
+            modal_proto.api_pb2.AuditLogListResponse,
+        )
+        self.AuditLogPlan = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AuditLogPlan',
+            modal_proto.api_pb2.AuditLogBucketsRequest,
+            modal_proto.api_pb2.AuditLogPlanResponse,
+        )
+        self.AuditLogSettingsGet = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AuditLogSettingsGet',
+            modal_proto.api_pb2.AuditLogSettingsGetRequest,
+            modal_proto.api_pb2.AuditLogSettingsGetResponse,
+        )
         self.AuthTokenGet = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/AuthTokenGet',
@@ -3098,6 +3212,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/EndpointGetInfo',
             modal_proto.api_pb2.EndpointGetInfoRequest,
             modal_proto.api_pb2.EndpointGetInfoResponse,
+        )
+        self.EndpointGetLibrary = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EndpointGetLibrary',
+            modal_proto.api_pb2.EndpointGetLibraryRequest,
+            modal_proto.api_pb2.EndpointGetLibraryResponse,
         )
         self.EndpointGetLifecycle = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -3519,12 +3639,6 @@ class ModalClientStub:
             modal_proto.api_pb2.MountPutFileRequest,
             modal_proto.api_pb2.MountPutFileResponse,
         )
-        self.NotebookKernelPublishResults = grpclib.client.UnaryUnaryMethod(
-            channel,
-            '/modal.client.ModalClient/NotebookKernelPublishResults',
-            modal_proto.api_pb2.NotebookKernelPublishResultsRequest,
-            google.protobuf.empty_pb2.Empty,
-        )
         self.PersistentSandboxCreate = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/PersistentSandboxCreate',
@@ -3735,6 +3849,12 @@ class ModalClientStub:
             modal_proto.api_pb2.SandboxGetTaskIdRequest,
             modal_proto.api_pb2.SandboxGetTaskIdResponse,
         )
+        self.SandboxGetTimeRangeStats = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxGetTimeRangeStats',
+            modal_proto.api_pb2.SandboxGetTimeRangeStatsRequest,
+            modal_proto.api_pb2.SandboxGetTimeRangeStatsResponse,
+        )
         self.SandboxGetTunnels = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/SandboxGetTunnels',
@@ -3776,6 +3896,18 @@ class ModalClientStub:
             '/modal.client.ModalClient/SandboxSetName',
             modal_proto.api_pb2.SandboxSetNameRequest,
             modal_proto.api_pb2.SandboxSetNameResponse,
+        )
+        self.SandboxSetOutboundPolicy = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxSetOutboundPolicy',
+            modal_proto.api_pb2.SandboxSetOutboundPolicyRequest,
+            modal_proto.api_pb2.SandboxSetOutboundPolicyResponse,
+        )
+        self.SandboxSetOutboundPolicyV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxSetOutboundPolicyV2',
+            modal_proto.api_pb2.SandboxSetOutboundPolicyRequest,
+            modal_proto.api_pb2.SandboxSetOutboundPolicyResponse,
         )
         self.SandboxSnapshot = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -4047,6 +4179,12 @@ class ModalClientStub:
             modal_proto.api_pb2.TemplateListRequest,
             modal_proto.api_pb2.TemplateListResponse,
         )
+        self.TokenDelete = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/TokenDelete',
+            modal_proto.api_pb2.TokenDeleteRequest,
+            google.protobuf.empty_pb2.Empty,
+        )
         self.TokenFlowCreate = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/TokenFlowCreate',
@@ -4064,6 +4202,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/TokenInfoGet',
             modal_proto.api_pb2.TokenInfoGetRequest,
             modal_proto.api_pb2.TokenInfoGetResponse,
+        )
+        self.TokensList = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/TokensList',
+            google.protobuf.empty_pb2.Empty,
+            modal_proto.api_pb2.TokensListResponse,
         )
         self.TunnelStart = grpclib.client.UnaryUnaryMethod(
             channel,

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+from logging import WARNING
 import os
 import tempfile
 import textwrap
@@ -30,6 +31,7 @@ from kfp.dsl import component
 from kfp.dsl import pipeline
 from kfp.pipeline_spec import pipeline_spec_pb2
 import kfp_server_api
+import kubernetes as k8s
 import yaml
 
 
@@ -286,6 +288,159 @@ class TestClient(parameterized.TestCase):
                     run_id='foo', timeout=1, sleep_duration=0)
                 mock_get_run.assert_called_once_with(run_id='foo')
 
+    @parameterized.parameters(None, 'test-ns')
+    def test_get_pipeline_id_passes_namespace(self, namespace):
+        with patch.object(
+                self.client._pipelines_api,
+                'pipeline_service_list_pipelines') as mock_list_pipelines:
+            mock_list_pipelines.return_value = Mock(
+                pipelines=[Mock(pipeline_id='pipeline-id')])
+
+            pipeline_id = self.client.get_pipeline_id(
+                'test-pipeline', namespace=namespace)
+
+            self.assertEqual(pipeline_id, 'pipeline-id')
+            mock_list_pipelines.assert_called_once()
+            self.assertEqual(mock_list_pipelines.call_args.kwargs['namespace'],
+                             namespace)
+            pipeline_filter = json.loads(
+                mock_list_pipelines.call_args.kwargs['filter'])
+            self.assertEqual(pipeline_filter['predicates'][0]['stringValue'],
+                             'test-pipeline')
+
+    def test_get_pipeline_id_returns_none_when_not_found(self):
+        with patch.object(
+                self.client._pipelines_api,
+                'pipeline_service_list_pipelines') as mock_list_pipelines:
+            mock_list_pipelines.return_value = Mock(pipelines=None)
+
+            self.assertIsNone(
+                self.client.get_pipeline_id(
+                    'test-pipeline', namespace='test-ns'))
+
+    def test_get_pipeline_id_raises_when_name_is_not_unique(self):
+        with patch.object(
+                self.client._pipelines_api,
+                'pipeline_service_list_pipelines') as mock_list_pipelines:
+            mock_list_pipelines.return_value = Mock(
+                pipelines=[Mock(pipeline_id='a'),
+                           Mock(pipeline_id='b')])
+
+            with self.assertRaisesRegex(ValueError, 'Multiple pipelines'):
+                self.client.get_pipeline_id(
+                    'test-pipeline', namespace='test-ns')
+
+    def test_run_pipeline_sends_namespace_without_experiment(self):
+        # The server resolves the namespace's default experiment when
+        # experiment_id is omitted, so both fields must reach the request.
+        # The model is mocked because published kfp-server-api releases
+        # before 2.18 have no Run.namespace.
+        with patch.object(kfp_server_api, 'V2beta1Run') as mock_run:
+            with patch.object(self.client._run_api, 'run_service_create_run'):
+                self.client.run_pipeline(
+                    job_name='run1',
+                    namespace='ns1',
+                    pipeline_id='p1',
+                )
+
+            run_kwargs = mock_run.call_args.kwargs
+            self.assertEqual(run_kwargs['namespace'], 'ns1')
+            self.assertIsNone(run_kwargs['experiment_id'])
+
+    def test_run_pipeline_omits_unset_namespace(self):
+        # Those older models reject a namespace argument, so it must not be
+        # passed when unset.
+        with patch.object(kfp_server_api, 'V2beta1Run') as mock_run:
+            with patch.object(self.client._run_api, 'run_service_create_run'):
+                self.client.run_pipeline('exp1', 'run1', pipeline_id='p1')
+
+            self.assertNotIn('namespace', mock_run.call_args.kwargs)
+
+    def test_run_pipeline_keeps_positional_experiment_id(self):
+        # experiment_id stays the first parameter, so existing positional
+        # callers are unaffected.
+        with patch.object(self.client._run_api,
+                          'run_service_create_run') as mock_create:
+            self.client.run_pipeline('exp1', 'run1', pipeline_id='p1')
+
+            run = mock_create.call_args.kwargs['run']
+            self.assertEqual(run.experiment_id, 'exp1')
+            self.assertIsNone(getattr(run, 'namespace', None))
+
+    def test_run_pipeline_keeps_later_positional_arguments(self):
+        # namespace is appended rather than inserted, so a caller passing
+        # pipeline_root positionally still sets the pipeline root.
+        with patch.object(self.client._run_api,
+                          'run_service_create_run') as mock_create:
+            self.client.run_pipeline('exp1', 'run1', None, {}, 'p1', 'v1',
+                                     'gs://bucket/root')
+
+            run = mock_create.call_args.kwargs['run']
+            self.assertEqual(run.runtime_config.pipeline_root,
+                             'gs://bucket/root')
+            self.assertIsNone(getattr(run, 'namespace', None))
+
+    def test_create_recurring_run_keeps_later_positional_arguments(self):
+        # The same for recurring runs: interval_second must not shift onto
+        # another parameter.
+        with patch.object(
+                self.client._recurring_run_api,
+                'recurring_run_service_create_recurring_run') as mock_create:
+            self.client.create_recurring_run(
+                'exp1', 'recurring1', None, None, None, 3600, pipeline_id='p1')
+
+            recurring_run = mock_create.call_args.kwargs['recurring_run']
+            self.assertEqual(
+                recurring_run.trigger.periodic_schedule.interval_second, 3600)
+            self.assertIsNone(recurring_run.namespace)
+
+    def test_create_recurring_run_sends_namespace_without_experiment(self):
+        with patch.object(
+                self.client._recurring_run_api,
+                'recurring_run_service_create_recurring_run') as mock_create:
+            self.client.create_recurring_run(
+                job_name='recurring1',
+                namespace='ns1',
+                pipeline_id='p1',
+                interval_second=3600,
+            )
+
+            recurring_run = mock_create.call_args.kwargs['recurring_run']
+            self.assertEqual(recurring_run.namespace, 'ns1')
+            self.assertIsNone(recurring_run.experiment_id)
+
+    def test_run_pipeline_requires_job_name(self):
+        # job_name only defaults to None because experiment_id precedes it;
+        # an empty name reaches the server as a 500, so reject it locally.
+        with patch.object(self.client._run_api,
+                          'run_service_create_run') as mock_create:
+            for job_name in (None, ''):
+                with self.assertRaisesRegex(ValueError,
+                                            'job_name is required.'):
+                    self.client.run_pipeline(
+                        job_name=job_name,
+                        namespace='ns1',
+                        pipeline_id='p1',
+                    )
+
+            mock_create.assert_not_called()
+
+    def test_create_recurring_run_requires_job_name(self):
+        with patch.object(
+                self.client._recurring_run_api,
+                'recurring_run_service_create_recurring_run') as mock_create:
+            for job_name in (None, ''):
+                with self.assertRaisesRegex(ValueError,
+                                            'job_name is required.'):
+                    self.client.create_recurring_run(
+                        job_name=job_name,
+                        namespace='ns1',
+                        pipeline_id='p1',
+                        interval_second=3600,
+                    )
+
+            mock_create.assert_not_called()
+
     @patch('kfp.Client.get_experiment', side_effect=ValueError)
     def test_create_experiment_no_experiment_should_raise_error(
             self, mock_get_experiment):
@@ -422,6 +577,23 @@ class TestClient(parameterized.TestCase):
                         description='description',
                         namespace='ns1')
 
+    @parameterized.parameters(None, 'tenant-ns')
+    def test_upload_namespace_is_explicit(self, upload_namespace):
+        # setUp configures the client default namespace as ns1. An omitted
+        # upload namespace must still mean shared, not silently change scope.
+        with patch.object(self.client._upload_api,
+                          'upload_pipeline') as mock_upload:
+            with patch.object(auth, 'is_ipython', return_value=False):
+                self.client.upload_pipeline(
+                    'fake.yaml',
+                    pipeline_name='migration-test',
+                    namespace=upload_namespace)
+        mock_upload.assert_called_once_with(
+            'fake.yaml',
+            name='migration-test',
+            description=None,
+            namespace=upload_namespace)
+
     def test_upload_pipeline_from_pipeline_func(self):
 
         @component
@@ -546,6 +718,178 @@ class TestClient(parameterized.TestCase):
                 description='A test pipeline version')
 
             self.assertEqual(result, expected_result)
+
+
+class TestLoadConfigKubeConfigFallback(parameterized.TestCase):
+    """Tests the kube config fallback path of ``Client._load_config``.
+
+    This path is only reached when no ``host`` and no explicit
+    credentials are supplied, and the SDK is not running inside a
+    cluster.
+    """
+
+    def setUp(self):
+        super().setUp()
+        # _load_config does not depend on any state set up by __init__ for the
+        # code path under test, so __init__ is bypassed to avoid contacting a
+        # cluster while constructing the client.
+        self.client = client.Client.__new__(client.Client)
+
+    def _load_config(self, **overrides):
+        kwargs = dict(
+            host=None,
+            client_id=None,
+            namespace='my-namespace',
+            other_client_id=None,
+            other_client_secret=None,
+            existing_token=None,
+            proxy=None,
+            ssl_ca_cert=None,
+            kube_context=None,
+            credentials=None,
+            verify_ssl=None,
+        )
+        kwargs.update(overrides)
+        return self.client._load_config(**kwargs)
+
+    @patch('kubernetes.config.load_incluster_config')
+    @patch('kubernetes.config.load_kube_config')
+    def test_kube_config_failure_logs_underlying_cause(
+            self, mock_load_kube_config, mock_load_incluster_config):
+        mock_load_incluster_config.side_effect = k8s.config.ConfigException(
+            'Service host/port is not set.')
+        mock_load_kube_config.side_effect = k8s.config.ConfigException(
+            'Invalid kube-config file. No configuration found.')
+
+        with self.assertLogs(level='WARNING') as logs:
+            self._load_config()
+
+        self.assertLen(logs.records, 1)
+        message = logs.records[0].getMessage()
+        self.assertIn('Failed to load kube config', message)
+        # The cause is the actionable part of the message; without it the user
+        # cannot tell a missing file from a malformed one.
+        self.assertIn('Invalid kube-config file. No configuration found.',
+                      message)
+
+    @patch('kubernetes.config.load_incluster_config')
+    @patch('kubernetes.config.load_kube_config')
+    def test_kube_config_failure_returns_config(self, mock_load_kube_config,
+                                                mock_load_incluster_config):
+        mock_load_incluster_config.side_effect = k8s.config.ConfigException(
+            'Service host/port is not set.')
+        mock_load_kube_config.side_effect = k8s.config.ConfigException(
+            'Invalid kube-config file.')
+
+        with self.assertLogs(level='WARNING'):
+            config = self._load_config()
+
+        # Loading the kube config is best effort; failing to do so must not
+        # raise, to preserve behavior for callers that recover downstream.
+        self.assertIsInstance(config, kfp_server_api.Configuration)
+
+    @patch('kubernetes.config.load_incluster_config')
+    @patch('kubernetes.config.load_kube_config')
+    def test_out_of_cluster_detection_does_not_warn(self, mock_load_kube_config,
+                                                    mock_load_incluster_config):
+        mock_load_incluster_config.side_effect = k8s.config.ConfigException(
+            'Service host/port is not set.')
+
+        with self.assertLogs(level='DEBUG') as logs:
+            self._load_config()
+
+        # Running outside a cluster is the common case and must not surface a
+        # warning, otherwise every local invocation emits a false alarm.
+        self.assertEmpty(
+            [record for record in logs.records if record.levelno >= WARNING])
+
+    @parameterized.named_parameters(
+        {
+            'testcase_name': 'from_incluster_probe',
+            'incluster_side_effect': KeyboardInterrupt(),
+        },
+        {
+            'testcase_name':
+                'from_kube_config_load',
+            'incluster_side_effect':
+                k8s.config.ConfigException('Service host/port is not set.'),
+        },
+    )
+    def test_keyboard_interrupt_is_not_swallowed(self, incluster_side_effect):
+        # KeyboardInterrupt derives from BaseException, so a bare `except:`
+        # swallows it and leaves the user unable to interrupt the client.
+        with patch('kubernetes.config.load_incluster_config') as mock_incluster:
+            with patch('kubernetes.config.load_kube_config') as mock_kube:
+                mock_incluster.side_effect = incluster_side_effect
+                mock_kube.side_effect = KeyboardInterrupt()
+
+                with self.assertRaises(KeyboardInterrupt):
+                    self._load_config()
+
+
+class TestCreateJobConfigPipelineVersionReference(parameterized.TestCase):
+    """`version_id` is optional; the server resolves the default version."""
+
+    def setUp(self):
+        super().setUp()
+        # __init__ contacts the cluster, and none of the code under test needs
+        # the state it sets up.
+        self.sdk_client = client.Client.__new__(client.Client)
+
+    def _job_config(self, pipeline_id, version_id):
+        return self.sdk_client._create_job_config(
+            params={},
+            pipeline_package_path=None,
+            pipeline_id=pipeline_id,
+            version_id=version_id,
+            enable_caching=None,
+            cache_key=None,
+            pipeline_root=None,
+        )
+
+    def test_pipeline_id_only_omits_version(self):
+        config = self._job_config(pipeline_id='p1', version_id=None)
+
+        self.assertEqual(config.pipeline_version_reference.pipeline_id, 'p1')
+        self.assertIsNone(config.pipeline_version_reference.pipeline_version_id)
+
+    def test_pipeline_id_only_is_omitted_on_the_wire(self):
+        # The server treats an absent pipeline_version_id as "use the default
+        # version", so it must not be serialized as an explicit null.
+        config = self._job_config(pipeline_id='p1', version_id=None)
+
+        payload = kfp_server_api.ApiClient().sanitize_for_serialization(
+            config.pipeline_version_reference)
+
+        self.assertEqual(payload, {'pipeline_id': 'p1'})
+
+    def test_pipeline_id_and_version_id(self):
+        config = self._job_config(pipeline_id='p1', version_id='v1')
+
+        self.assertEqual(config.pipeline_version_reference.pipeline_id, 'p1')
+        self.assertEqual(config.pipeline_version_reference.pipeline_version_id,
+                         'v1')
+
+    def test_version_id_without_pipeline_id_raises(self):
+        with self.assertRaisesRegex(ValueError,
+                                    '`pipeline_id` is also required'):
+            self._job_config(pipeline_id=None, version_id='v1')
+
+    def test_no_source_raises(self):
+        with self.assertRaisesRegex(ValueError, 'Must specify either'):
+            self._job_config(pipeline_id=None, version_id=None)
+
+    def test_both_sources_raises(self):
+        with self.assertRaisesRegex(ValueError, 'Must specify either'):
+            self.sdk_client._create_job_config(
+                params={},
+                pipeline_package_path='pipeline.yaml',
+                pipeline_id='p1',
+                version_id=None,
+                enable_caching=None,
+                cache_key=None,
+                pipeline_root=None,
+            )
 
 
 if __name__ == '__main__':

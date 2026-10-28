@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: treelite
-Version: 4.8.0
+Version: 4.8.1
 Summary: Treelite: Universal model exchange format for decision tree forests
 Author-Email: Hyunsu Cho <chohyu01@cs.washington.edu>
 License: Apache-2.0

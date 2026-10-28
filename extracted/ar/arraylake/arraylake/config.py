@@ -24,3 +24,11 @@ config.ensure_file(
 def default_service_uri() -> str:
     # default to using production service if service URI is not specified anywhere
     return config.get("service.uri", "https://api.earthmover.io")
+
+
+def default_token() -> str | None:
+    """The configured API token (e.g. from ``ARRAYLAKE_TOKEN``), or None if unset or blank."""
+    token = config.get("token", None)
+    if token is None:
+        return None
+    return str(token).strip() or None

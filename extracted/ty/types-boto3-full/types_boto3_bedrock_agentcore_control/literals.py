@@ -134,6 +134,7 @@ __all__ = (
     "MonitoringType",
     "NetworkModeType",
     "OAuthGrantTypeType",
+    "OnBehalfOfClientAuthenticationMethodType",
     "OnBehalfOfTokenExchangeGrantTypeTypeType",
     "OnlineEvaluationConfigStatusType",
     "OnlineEvaluationExecutionStatusType",
@@ -381,6 +382,7 @@ MetadataValueTypeType = Literal["NUMBER", "STRING", "STRINGLIST"]
 MonitoringType = Literal["BASIC", "DETAILED"]
 NetworkModeType = Literal["PUBLIC", "VPC"]
 OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "TOKEN_EXCHANGE"]
+OnBehalfOfClientAuthenticationMethodType = Literal["NO_CLIENT"]
 OnBehalfOfTokenExchangeGrantTypeTypeType = Literal["JWT_AUTHORIZATION_GRANT", "TOKEN_EXCHANGE"]
 OnlineEvaluationConfigStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "ERROR", "UPDATE_FAILED", "UPDATING"

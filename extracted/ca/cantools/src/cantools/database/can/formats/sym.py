@@ -9,10 +9,12 @@ from itertools import groupby
 from typing import TYPE_CHECKING
 
 from textparser import (
+    MISMATCH,
     Any,
     DelimitedList,
     Optional,
     Parser,
+    Pattern,
     Sequence,
     Token,
     TokenizeError,
@@ -46,6 +48,17 @@ MAX_SIGNAL_NAME_LENGTH = 32
 SEND_MESSAGE_SENDER = 'ECU'
 # If a message is in the RECEIVE section of a SYM file, it is sent by the Peripheral devices
 RECEIVE_MESSAGE_SENDER = 'Peripherals'
+
+
+class _HexWord(Pattern):
+    """Recognize hex values where the grammar expects a number, not a name."""
+
+    def match(self, tokens):
+        token = tokens.peek()
+        if (token.kind == 'WORD'
+                and re.fullmatch(r'-?[A-F][0-9A-F]*h', token.value)):
+            return tokens.get_value()
+        return MISMATCH
 
 
 class SymParser60(Parser):
@@ -140,7 +153,7 @@ class SymParser60(Parser):
             ('SEND',               r'\{SEND\}'),
             ('RECEIVE',            r'\{RECEIVE\}'),
             ('SENDRECEIVE',        r'\{SENDRECEIVE\}'),
-            ('WORD',               r'[^\s=\(\]\-]+'),
+            ('WORD',               r'-[A-F][0-9A-F]*h\b|[^\s=\(\]\-]+'),
             ('MISMATCH',           r'.')
         ]
 
@@ -171,6 +184,7 @@ class SymParser60(Parser):
 
     def grammar(self):
         word = choice('WORD', *list(self.KEYWORDS))
+        hex_number = choice('HEXNUMBER', _HexWord())
         version = Sequence('FormatVersion', '=', 'NUMBER', 'COMMENT')
         title = Sequence('Title' , '=', 'STRING')
         unique_variables = Sequence('UniqueVariables' , '=', word)
@@ -226,18 +240,18 @@ class SymParser60(Parser):
 
         symbol = Sequence('[', Any(), ']',
                           ZeroOrMoreDict(choice(
-                              Sequence('ID', '=', 'HEXNUMBER',
-                                       Optional('HEXNUMBER'),
+                              Sequence('ID', '=', hex_number,
+                                       Optional(hex_number),
                                        Optional('COMMENT')),
                               Sequence('Len', '=', 'NUMBER'),
                               Sequence('Mux', '=', Any(), 'NUMBER', ',',
-                                       'NUMBER', choice('NUMBER', 'HEXNUMBER'),
+                                       'NUMBER', choice('NUMBER', hex_number),
                                        ZeroOrMore(choice('-t', '-m')),
                                        Optional('COMMENT')),
                               Sequence('CycleTime', '=', 'NUMBER', Optional('-p')),
                               Sequence('Timeout', '=', 'NUMBER'),
                               Sequence('MinInterval', '=', 'NUMBER'),
-                              Sequence('Color', '=', 'HEXNUMBER'),
+                              Sequence('Color', '=', hex_number),
                               variable,
                               Sequence('Sig', '=', Any(), 'NUMBER'),
                               Sequence('Type', '=', Any()))))
@@ -920,7 +934,12 @@ def _dump_message(message: Message, signals: list[Signal], min_frame_id: int | N
         multiplexer_signal_name = multiplexer_signal.name
         if not multiplexer_signal_name:
             raise ValueError(f"The name of the multiplexer signal with ID {hex_multiplexer_id} is empty. The database is corrupt.")
-        message_str += f'Mux="{multiplexer_signal_name}" {_convert_start(multiplexer_signal.start, multiplexer_signal.byte_order)},{multiplexer_signal.length} {hex_multiplexer_id}h {m_flag}\n'
+        mux_str = f'Mux="{multiplexer_signal_name}" {_convert_start(multiplexer_signal.start, multiplexer_signal.byte_order)},{multiplexer_signal.length} {hex_multiplexer_id}h {m_flag}'
+        if multiplexer_signal.comment:
+            # The loader reads the multiplexer signal's comment from the
+            # Mux line, not from its entry in {SIGNALS}.
+            mux_str = mux_str.rstrip() + _dump_comment(multiplexer_signal.comment)
+        message_str += mux_str + '\n'
     for signal in signals:
         message_str += f'Sig="{_get_signal_name(signal)}" {_convert_start(signal.start, signal.byte_order)}\n'
     return message_str

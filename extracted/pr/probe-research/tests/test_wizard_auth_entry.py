@@ -931,7 +931,7 @@ def test_reported_login_success_cannot_open_submenus_with_rejected_credentials(e
     assert "Sign in to use the wizard" in result.output
 
 
-@pytest.mark.parametrize("action", ["diagnose", "uninstall", "logout"])
+@pytest.mark.parametrize("action", ["diagnose", "logout"])
 def test_headless_maintenance_stays_available_while_signed_out(entry, monkeypatch, action):
     monkeypatch.setattr(setup, "interactive", lambda: False)
     monkeypatch.setattr(
@@ -942,44 +942,55 @@ def test_headless_maintenance_stays_available_while_signed_out(entry, monkeypatc
     assert [event for event, _ in entry] == ["apply"]
 
 
-def test_uninstall_signs_the_device_out_once_however_many_agents(entry, monkeypatch):
-    """The account is device-wide -- one config file -- so it is released ONCE,
-    after the last coding agent has been torn down.
-
-    Ordering is the load-bearing part: each agent's pass ends by publishing its
-    emptied state to the server with the token this releases, so releasing from
-    inside that loop would turn the next agent's registration into a 401 and
-    leave the dashboard showing a device that is gone.
-    """
-    order: list[str] = []
-    monkeypatch.setattr(
-        main, "_run_wizard_action", lambda *a, **kw: order.append("removed") or ["Removed."]
-    )
-    monkeypatch.setattr(
-        setup, "finish_removal", lambda: order.append("released") or ["Signed out."]
-    )
-
-    result = CliRunner().invoke(
-        main.app, ["wizard", "--action", "uninstall", "--agent", "both", "--yes"]
-    )
-
+@pytest.mark.parametrize("argv", [
+    ["wizard", "--action", "uninstall", "--yes"],
+    ["uninstall", "--yes"],
+])
+def test_every_way_to_uninstall_is_the_one_uninstall_run_once(entry, monkeypatch, argv):
+    """`probe uninstall` IS `probe wizard --action uninstall` (one
+    implementation, `probe.cli.uninstall`): it runs once for the whole device,
+    signed in or not, never per agent through the wizard's action loop. Its
+    phases are `test_uninstall.py`'s."""
+    runs: list[dict] = []
+    monkeypatch.setattr(main, "_run_uninstall", lambda **kw: runs.append(kw) or 0)
+    monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: pytest.fail("the per-agent removal ran"))
+    monkeypatch.setattr(setup, "finish_removal", lambda: pytest.fail("the old sign-out ran"))
+    result = CliRunner().invoke(main.app, argv)
     assert result.exit_code == 0, result.output
-    assert order == ["removed", "removed", "released"]
-    assert "Signed out." in result.output
+    assert len(runs) == 1 and runs[0]["yes"] is True
 
 
-def test_declining_the_removal_signs_nobody_out(entry, monkeypatch):
-    """Uninstall now clears the credentials, so "no" at the confirmation has to
-    mean no -- an empty result from a back-out must not fall through into a
-    sign-out the user just refused."""
-    monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        setup, "finish_removal", lambda: pytest.fail("a declined removal must not sign out")
-    )
+def test_uninstall_with_agent_removes_probe_from_that_agent_only(entry, monkeypatch):
+    """`probe wizard --action uninstall --agent codex` keeps what the setup
+    command documents: Probe out of that agent (its plugins, hooks and rules),
+    no account key revoked, the CLI kept: never the whole `probe uninstall`."""
+    from probe.cli.capabilities import agent_source
 
+    removed: list[tuple] = []
+    monkeypatch.setattr(main, "_run_uninstall", lambda **kw: pytest.fail("the whole uninstall ran"))
+    monkeypatch.setattr(setup, "finish_removal", lambda: pytest.fail("a key was released"))
+    monkeypatch.setattr(setup, "release_credentials", lambda: pytest.fail("a key was released"))
+    monkeypatch.setattr(main, "_run_wizard_action",
+                        lambda action, *a, **kw: removed.append((action, agent_source())) or ["Removed."])
+    result = CliRunner().invoke(main.app, ["wizard", "--action", "uninstall", "--agent", "codex", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert [(str(action), source) for action, source in removed] == [("uninstall", "codex")]
+
+
+def test_declining_the_removal_changes_nothing(entry, monkeypatch):
+    """"No" at the confirmation is no: nothing planned, revoked or removed."""
+    from probe.cli import uninstall, uninstall_procs
+    from probe.service import paths
+
+    monkeypatch.setattr(setup, "interactive", lambda: True)
+    monkeypatch.setattr(setup, "confirm_removal", lambda *a, **k: False)
+    monkeypatch.setattr(uninstall_procs, "live_users", lambda: [])
+    monkeypatch.setattr(uninstall_procs, "recorded_session_here", lambda: None)
+    monkeypatch.setattr(uninstall, "_server_ids", lambda run: None)
+    monkeypatch.setattr(uninstall, "_take_lock", lambda run: pytest.fail("declined, yet it went on"))
     result = CliRunner().invoke(main.app, ["wizard", "--action", "uninstall"])
-
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 2, result.output
+    assert not paths.uninstall_dir().exists()
 
 
 def test_declining_at_the_confirmation_reports_nothing_happened(entry, monkeypatch):

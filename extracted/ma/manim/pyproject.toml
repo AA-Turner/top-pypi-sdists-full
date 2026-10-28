@@ -1,6 +1,6 @@
 [project]
 name = "manim"
-version = "0.22.0"
+version = "0.22.1"
 description = "Animation engine for explanatory math videos."
 license = "MIT"
 license-files = [

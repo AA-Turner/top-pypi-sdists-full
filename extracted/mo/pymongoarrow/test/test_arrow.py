@@ -21,8 +21,6 @@ import unittest
 import unittest.mock as mock
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from test import client_context
-from test.utils import AllowListEventListener, NullsTestMixin
 
 import bson
 import pyarrow as pa
@@ -55,7 +53,13 @@ from pymongo.collection import Collection
 from pytz import timezone
 
 import pymongoarrow.version as pymongoarrow_version
-from pymongoarrow.api import Schema, aggregate_arrow_all, find_arrow_all, write
+from pymongoarrow.api import (
+    Schema,
+    aggregate_arrow_all,
+    aggregate_numpy_all,
+    find_arrow_all,
+    write,
+)
 from pymongoarrow.errors import ArrowWriteError
 from pymongoarrow.monkey import patch_all
 from pymongoarrow.types import (
@@ -65,6 +69,8 @@ from pymongoarrow.types import (
     Decimal128Type,
     ObjectIdType,
 )
+from test import client_context
+from test.utils import AllowListEventListener, NullsTestMixin
 
 try:
     import pandas as pd
@@ -1171,26 +1177,28 @@ class ArrowApiTestMixin:
                 if isinstance(arrow_value, decimal.Decimal):
                     assert (
                         Decimal128(arrow_value).to_decimal() == Decimal128(mongo_value).to_decimal()
-                    ), f"Precision loss in decimal field '{column_name}' for row {row_idx}. Expected {arrow_value}, got {mongo_value}."
+                    ), (
+                        f"Precision loss in decimal field '{column_name}' for row {row_idx}. Expected {arrow_value}, got {mongo_value}."
+                    )
                 elif isinstance(arrow_value, (np.datetime64, pd.Timestamp, datetime)):
                     arrow_value_rounded = pd.Timestamp(arrow_value).round(
                         "ms"
                     )  # Round to milliseconds
-                    assert (
-                        arrow_value_rounded.to_pydatetime() == mongo_value
-                    ), f"Datetime mismatch in field '{column_name}' for row {row_idx}. Expected {arrow_value_rounded}, got {mongo_value}."
+                    assert arrow_value_rounded.to_pydatetime() == mongo_value, (
+                        f"Datetime mismatch in field '{column_name}' for row {row_idx}. Expected {arrow_value_rounded}, got {mongo_value}."
+                    )
                 elif isinstance(arrow_value, (list, np.ndarray)):
-                    assert (
-                        arrow_value == mongo_value
-                    ), f"List mismatch in field '{column_name}' for row {row_idx}. Expected {arrow_value}, got {mongo_value}."
+                    assert arrow_value == mongo_value, (
+                        f"List mismatch in field '{column_name}' for row {row_idx}. Expected {arrow_value}, got {mongo_value}."
+                    )
                 elif isinstance(arrow_value, timedelta):
-                    assert (
-                        arrow_value == timedelta(seconds=mongo_value)
-                    ), f"Timedelta mismatch in field '{column_name}' for row {row_idx}. Expected {arrow_value}, got {mongo_value}."
+                    assert arrow_value == timedelta(seconds=mongo_value), (
+                        f"Timedelta mismatch in field '{column_name}' for row {row_idx}. Expected {arrow_value}, got {mongo_value}."
+                    )
                 else:
-                    assert (
-                        arrow_value == mongo_value
-                    ), f"Value mismatch in field '{column_name}' for row {row_idx}. Expected {arrow_value}, got {mongo_value}."
+                    assert arrow_value == mongo_value, (
+                        f"Value mismatch in field '{column_name}' for row {row_idx}. Expected {arrow_value}, got {mongo_value}."
+                    )
 
     def test_all_types(self):
         """
@@ -1494,3 +1502,94 @@ class TestFindArrowAllParallelism(unittest.TestCase):
                     )
                     self._assert_empty_arrow_table(table, expected.schema)
                     self.assertTrue(table.equals(expected), msg=f"{table} != {expected}")
+
+    def test_aggregate_arrow_all_parallel_batches(self):
+        self.coll.insert_many(
+            [{"_id": i, "value": i} for i in range(10)] + [{"_id": 10, "value": 2**40}]
+        )
+        original = self.coll.aggregate_raw_batches
+
+        def small_batches(*args, **kwargs):
+            kwargs["batchSize"] = 2
+            return original(*args, **kwargs)
+
+        with mock.patch.object(
+            pymongo.collection.Collection, "aggregate_raw_batches", wraps=small_batches
+        ):
+            for parallelism in ("threads", "processes"):
+                with self.subTest(parallelism=parallelism):
+                    table = aggregate_arrow_all(
+                        self.coll, [{"$sort": {"_id": 1}}], parallelism=parallelism
+                    )
+                    self.assertEqual(table["_id"].to_pylist(), list(range(11)))
+                    self.assertEqual(table["value"].to_pylist(), list(range(10)) + [2**40])
+                    self.assertEqual(table.schema.field("value").type, int64())
+
+
+class TestRawBatchParallelism(unittest.TestCase):
+    def setUp(self):
+        self.collection = mock.Mock()
+        self.collection.codec_options = CodecOptions()
+
+    def test_find_parallel_uses_one_cursor(self):
+        self.collection.find_raw_batches.side_effect = lambda *args, **kwargs: iter(
+            [bson.encode({"value": 12})]
+        )
+        for parallelism in ("threads", "processes"):
+            with self.subTest(parallelism=parallelism):
+                result = find_arrow_all(self.collection, {}, parallelism=parallelism)
+                self.assertEqual(result["value"].to_pylist(), [12])
+                self.collection.find_raw_batches.assert_called_once_with({})
+                self.collection.find_raw_batches.reset_mock()
+
+    def test_parallel_batches_promote_schema_and_preserve_order(self):
+        batches = [
+            bson.encode({"_id": 1, "value": 12}),
+            bson.encode({"_id": 2, "value": 2**40}),
+            bson.encode({"_id": 3, "value": -7}),
+        ]
+        expected = Table.from_pydict(
+            {"_id": [1, 2, 3], "value": [12, 2**40, -7]},
+            ArrowSchema([("_id", int32()), ("value", int64())]),
+        )
+        self.collection.aggregate_raw_batches.side_effect = lambda *args, **kwargs: iter(batches)
+
+        for parallelism in ("off", "threads", "processes"):
+            with self.subTest(parallelism=parallelism):
+                pipeline = [{"$match": {"value": {"$exists": True}}}]
+                result = aggregate_arrow_all(
+                    self.collection, pipeline, parallelism=parallelism, allowDiskUse=True
+                )
+                self.assertTrue(result.equals(expected), msg=f"{result} != {expected}")
+                self.collection.aggregate_raw_batches.assert_called_with(
+                    pipeline, allowDiskUse=True
+                )
+
+    def test_empty_batches_keep_schema(self):
+        self.collection.aggregate_raw_batches.side_effect = lambda *args, **kwargs: iter(())
+        for schema in (None, Schema({"value": int64()})):
+            for parallelism in ("off", "threads", "processes"):
+                with self.subTest(schema=schema, parallelism=parallelism):
+                    pipeline = [{"$match": {"value": 999}}]
+                    result = aggregate_arrow_all(
+                        self.collection, pipeline, schema=schema, parallelism=parallelism
+                    )
+                    self.assertEqual(result.num_rows, 0)
+                    if schema:
+                        self.assertEqual(result.schema, ArrowSchema([("value", int64())]))
+                        self.collection.aggregate_raw_batches.assert_called_with(
+                            [{"$match": {"value": 999}}, {"$project": schema._get_projection()}]
+                        )
+                    else:
+                        self.assertEqual(result.num_columns, 0)
+                        self.collection.aggregate_raw_batches.assert_called_with(pipeline)
+
+    def test_aggregate_numpy_forwards_parallelism(self):
+        with mock.patch(
+            "pymongoarrow.api.aggregate_arrow_all", return_value=pa.table({"value": [12]})
+        ) as aggregate:
+            result = aggregate_numpy_all(self.collection, [], parallelism="threads")
+        self.assertEqual(result["value"][0], 12)
+        aggregate.assert_called_once_with(
+            self.collection, [], schema=None, allow_invalid=False, parallelism="threads"
+        )

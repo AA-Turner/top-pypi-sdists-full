@@ -1,7 +1,9 @@
 """Login vault client: Chronos ``/api/login-vault``. The accounts (list, read,
 create, edit, bake, archive, restore), plus the settings a run reads beside its
 account: an app's default account (by clone), an app's sign-in hint (by
-``login_key``) and the proxy exits with their bans.
+``login_key``) and the proxy exits with their bans; and the persona pool sign-ups
+draw from (each persona's email and phone, and which ones have no account on an
+app yet).
 
 Chronos keeps every login SETTING in its own tables, and those are the truth;
 1Password keeps the SECRETS (password, TOTP seed, security answers, and the
@@ -74,13 +76,19 @@ from plato.chronos.api.login_vault import (
     bake_login_vault_account,
     create_login_vault_account,
     get_login_vault_account,
+    get_login_vault_account_persona,
     get_login_vault_app,
     get_login_vault_default,
     get_login_vault_grant,
     get_login_vault_grant_token,
+    list_login_vault_account_personas,
     list_login_vault_accounts,
     list_login_vault_exits,
+    list_login_vault_free_personas,
+    list_login_vault_personas,
     restore_login_vault_account,
+    set_login_vault_account_persona,
+    set_login_vault_persona,
     update_login_vault_account,
 )
 from plato.chronos.errors import APIError, NotFoundError, raise_for_status
@@ -88,6 +96,9 @@ from plato.chronos.models import (
     LoginVaultAccount,
     LoginVaultAccountCreate,
     LoginVaultAccountList,
+    LoginVaultAccountPersona,
+    LoginVaultAccountPersonaList,
+    LoginVaultAccountPersonaUpdate,
     LoginVaultAccountSummary,
     LoginVaultAccountUpdate,
     LoginVaultAppHint,
@@ -96,8 +107,12 @@ from plato.chronos.models import (
     LoginVaultBakeResponse,
     LoginVaultDefault,
     LoginVaultExitList,
+    LoginVaultFreePersonas,
     LoginVaultGrant,
     LoginVaultGrantToken,
+    LoginVaultPersona,
+    LoginVaultPersonaList,
+    LoginVaultPersonaUpdate,
 )
 
 __all__ = [
@@ -685,6 +700,73 @@ class LoginVault(_VaultBase):
         app) and the accounts bound to it. No provider credentials."""
         args = list_login_vault_exits._build_request_args(x_api_key=self._api_key)
         return _parse(LoginVaultExitList, self._call(args))
+
+    def get_account_persona(self, login_key: str, account: str) -> LoginVaultAccountPersona | None:
+        """The account's persona record; None when it has none."""
+        lk, ac = _keys(login_key, account)
+        args = get_login_vault_account_persona._build_request_args(login_key=lk, account=ac, x_api_key=self._api_key)
+        try:
+            return _parse(LoginVaultAccountPersona, self._call(args))
+        except NotFoundError:
+            return None
+
+    def set_account_persona(self, login_key: str, account: str, body: Mapping[str, Any]) -> LoginVaultAccountPersona:
+        """Merge ``body`` (a persona update: ``person_key``, ``live``, ``fixture``)
+        into the account's record. Sent as given: an explicit null removes a key."""
+        lk, ac = _keys(login_key, account)
+        update = _validated(LoginVaultAccountPersonaUpdate, body)
+        args = set_login_vault_account_persona._build_request_args(
+            login_key=lk, account=ac, body=update, x_api_key=self._api_key
+        )
+        # The generated args drop None values; the merge needs explicit nulls.
+        args["json"] = to_jsonable_python(dict(body))
+        return _parse(LoginVaultAccountPersona, self._call(args))
+
+    def list_account_personas(self, login_key: str | None = None) -> LoginVaultAccountPersonaList:
+        """Every live account's persona record (of ``login_key`` only, when given), every page."""
+        accounts: list[LoginVaultAccountPersona] = []
+        cursor: str | None = None
+        while True:
+            args = list_login_vault_account_personas._build_request_args(
+                login_key=normalize_key(login_key) or None, cursor=cursor, x_api_key=self._api_key
+            )
+            page = _parse(LoginVaultAccountPersonaList, self._call(args))
+            accounts.extend(page.accounts)
+            if page.next_cursor is None:
+                return LoginVaultAccountPersonaList(accounts=accounts)
+            cursor = page.next_cursor
+
+    def list_personas(self) -> LoginVaultPersonaList:
+        """Every persona of the sign-up pool, every page."""
+        personas: list[LoginVaultPersona] = []
+        cursor: str | None = None
+        while True:
+            args = list_login_vault_personas._build_request_args(cursor=cursor, x_api_key=self._api_key)
+            page = _parse(LoginVaultPersonaList, self._call(args))
+            personas.extend(page.personas)
+            if page.next_cursor is None:
+                return LoginVaultPersonaList(personas=personas)
+            cursor = page.next_cursor
+
+    def set_persona(
+        self, persona: str, *, email: str | None = None, inbox: str | None = None, phone: str | None = None
+    ) -> LoginVaultPersona:
+        """Create a persona or change the fields given (None leaves one as it
+        is, ``""`` clears ``inbox`` or ``phone``); ``email`` is required for a
+        new persona."""
+        body = _validated(LoginVaultPersonaUpdate, {"email": email, "inbox": inbox, "phone": phone})
+        args = set_login_vault_persona._build_request_args(
+            persona=_slug(persona, "persona"), body=body, x_api_key=self._api_key
+        )
+        return _parse(LoginVaultPersona, self._call(args))
+
+    def free_personas(self, login_key: str, *, show_all: bool = False) -> LoginVaultFreePersonas:
+        """The personas with no account on ``login_key`` yet, free ones first;
+        ``show_all`` adds every other persona with its state."""
+        args = list_login_vault_free_personas._build_request_args(
+            login_key=_slug(login_key, "login_key"), all=True if show_all else None, x_api_key=self._api_key
+        )
+        return _parse(LoginVaultFreePersonas, self._call(args))
 
     def get_grant(self, login_key: str, account: str, kind: GrantKind) -> LoginVaultGrant | None:
         """The account's ``kind`` app grant without secrets:

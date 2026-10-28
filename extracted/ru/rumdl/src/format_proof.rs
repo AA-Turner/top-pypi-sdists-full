@@ -5,6 +5,9 @@
 #[cfg(test)]
 pub(crate) mod native_regressions;
 
+#[cfg(test)]
+mod nested_regressions;
+
 use crate::config::MarkdownFlavor;
 use crate::lint_context::document_parser::ParsedDocument;
 use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
@@ -103,6 +106,95 @@ struct Item {
     line: usize,
     indent: usize,
     content_column: usize,
+}
+
+/// A second, conservative certificate for default CommonMark continuation
+/// indentation. The strict check below also compares nested prose with every
+/// ancestor; native MD077 instead defers to the nested item. Source guards in
+/// `analyze_with` still reject ambiguous markers, tables, quotes and literals.
+fn nested_continuations_are_unchanged(source: &str, lines: &[Line], items: &[Item], literals: &[Range<usize>]) -> bool {
+    let mut open: Vec<usize> = Vec::new();
+    let mut next_item = 0;
+    let mut literal = 0;
+    let mut tight = true;
+    let mut closed_child_column: Option<usize> = None;
+    let mut continuation_ceiling: Option<usize> = None;
+    for (index, line) in lines.iter().copied().enumerate() {
+        while open.last().is_some_and(|&item| items[item].range.end <= line.start) {
+            let child = open.pop().unwrap();
+            if !open.is_empty() {
+                closed_child_column =
+                    Some(closed_child_column.map_or(items[child].indent, |old| old.min(items[child].indent)));
+            }
+        }
+        if let Some(item) = items.get(next_item)
+            && item.line == index
+        {
+            // Multiple markers on a line and crossing ranges keep native
+            // ownership, independently of the earlier source guards.
+            if items.get(next_item + 1).is_some_and(|next| next.line == index)
+                || open
+                    .last()
+                    .is_some_and(|&parent| item.range.end > items[parent].range.end)
+            {
+                return false;
+            }
+            open.push(next_item);
+            next_item += 1;
+            tight = true;
+            closed_child_column = None;
+            // This marker either reopens a child at the disputed ancestor's
+            // content column or ends that ancestor's native walk. Deeper
+            // markers alone cannot restore ownership we might have lost.
+            if continuation_ceiling.is_some_and(|column| item.indent <= column) {
+                continuation_ceiling = None;
+            }
+            continue;
+        }
+        let text = line.text(source);
+        if text.trim_matches(' ').is_empty() {
+            // Counting even a blank inside a literal is conservative: it can
+            // only prevent us from certifying a later tight continuation.
+            tight = false;
+            continue;
+        }
+        while literals.get(literal).is_some_and(|range| range.end <= line.start) {
+            literal += 1;
+        }
+        if literals.get(literal).is_some_and(|range| range.start <= line.start) {
+            continue;
+        }
+        let Some(&owner) = open.last() else {
+            continue;
+        };
+        let indent = text.len() - text.trim_start_matches(' ').len();
+        // Native loose continuation can extend beyond a parser child's end.
+        // At or left of every closed child's marker it either ends that
+        // child's loose scope or is permitted tight under-indentation. Between
+        // its marker and content columns it could still need a native fix.
+        if closed_child_column.is_some_and(|marker| indent > marker)
+            || continuation_ceiling.is_some_and(|column| indent > column)
+        {
+            return false;
+        }
+        let column = items[owner].content_column;
+        if indent > column {
+            return false;
+        }
+        if indent < column && (!tight || open.iter().any(|&item| items[item].content_column < indent)) {
+            // Default MD077 accepts tight under-indentation. Requiring it to
+            // be at or left of every ancestor's column rules out a native
+            // over-indent on this line, independently of paragraph ownership.
+            return false;
+        }
+        if indent < column && open.iter().any(|&item| items[item].content_column == indent) {
+            // At an ancestor's exact content column, native lazy-continuation
+            // detection might pop the deeper owner. Later prose must not
+            // over-indent that ancestor until a suitable marker reopens it.
+            continuation_ceiling = Some(continuation_ceiling.map_or(indent, |old| old.min(indent)));
+        }
+    }
+    next_item == items.len()
 }
 
 /// Tables cannot change a list's native lazy-continuation boundary when they
@@ -281,6 +373,13 @@ impl<'a> FormatProof<'a> {
         if flavor != MarkdownFlavor::Standard || source.contains(['\r', '\0', '\t']) {
             return Self::default();
         }
+        // Native display-math scanning can close at a delimiter inside a code
+        // span, across blocks the primary parser keeps separate. Its line map
+        // can then hide list markers and change which earlier item owns later
+        // prose. Parser events alone cannot certify that source reading.
+        if source.contains("$$") {
+            return Self::default();
+        }
         let first = source.lines().next().unwrap_or("");
         let front_matter_candidate = ["---", "+++", "{", "- --", "-- -"].iter().any(|marker| {
             first
@@ -350,6 +449,7 @@ impl<'a> FormatProof<'a> {
         }
         let mut inline_code = Vec::<Range<usize>>::new();
         let mut links = Vec::<Range<usize>>::new();
+        let mut unprotected_urls = Vec::<Range<usize>>::new();
         let mut fences = Vec::<Range<usize>>::new();
         let mut config_literals = Vec::<Range<usize>>::new();
         let mut tables = Vec::<Range<usize>>::new();
@@ -371,6 +471,11 @@ impl<'a> FormatProof<'a> {
             .collect();
         let mut unsupported = false;
         let (parsed, references) = parse(&offsets, &mut |event, range| {
+            // Continue native parsing for the handoff, but stop collecting a
+            // certificate after its unsupported syntax has made it unusable.
+            if unsupported {
+                return;
+            }
             if range.start < front_matter_byte_end {
                 // A construct crossing the native metadata boundary has a
                 // different source view; keep its complete native analysis.
@@ -441,6 +546,12 @@ impl<'a> FormatProof<'a> {
                 Event::Start(Tag::Link { dest_url, .. } | Tag::Image { dest_url, .. }) => {
                     if dest_url.trim().is_empty() || dest_url.trim() == "#" {
                         facts.reject(&[42]);
+                    }
+                    // Native MD034 still reads the label of a reference link
+                    // or image whose destination is empty. An empty inline
+                    // destination can conservatively keep that native check too.
+                    if dest_url.is_empty() {
+                        unprotected_urls.push(range.clone());
                     }
                     links.push(range.clone());
                 }
@@ -614,6 +725,16 @@ impl<'a> FormatProof<'a> {
             facts.bits = 0;
             return facts;
         }
+        for reference in &references {
+            // MD034 skips only the definition's opening physical line. A URL
+            // in its continued destination or title still gets the native
+            // check, even though the parser's definition span contains it.
+            if let Some(next) = lines.get(line_at(reference.start) + 1)
+                && next.start < reference.end
+            {
+                unprotected_urls.push(next.start..reference.end);
+            }
+        }
         links.extend(references);
 
         // Ranges retain only source positions and are disjointed once here;
@@ -634,6 +755,7 @@ impl<'a> FormatProof<'a> {
         merge(&mut literals);
         merge(&mut inline_code);
         merge(&mut links);
+        merge(&mut unprotected_urls);
         merge(&mut config_literals);
         let contains = |ranges: &[Range<usize>], pos: usize| {
             let end = ranges.partition_point(|range| range.start <= pos);
@@ -736,7 +858,7 @@ impl<'a> FormatProof<'a> {
                     facts.reject(&[4, 5, 7, 29, 30, 32, 69, 76, 77]);
                 }
             }
-            if text.contains(['*', '_']) {
+            if facts.bits & (1u128 << 49) != 0 && text.contains(['*', '_']) {
                 // Use MD049's lexical pairing, rather than inferring its
                 // source-aware behavior from the Markdown emphasis events.
                 // Its later context filters only remove these candidates.
@@ -836,16 +958,17 @@ impl<'a> FormatProof<'a> {
                     link_index += 1;
                 }
                 let in_link = links.get(link_index).is_some_and(|range| range.start <= absolute);
+                let url_is_protected = in_link && !contains(&unprotected_urls, absolute);
                 match bytes[at] {
                     // Standard's native code-span ranges come from these
                     // same primary parser events. Unmatched source backticks
                     // cannot add a native MD038 edit. Its context exclusions
                     // only remove spans; other flavors keep native analysis.
-                    b'@' if !in_link => facts.reject(&[34]),
-                    b':' if !in_link && (text[at..].starts_with("://") || text[..at].ends_with("xmpp")) => {
+                    b'@' if !url_is_protected => facts.reject(&[34]),
+                    b':' if !url_is_protected && (text[at..].starts_with("://") || text[..at].ends_with("xmpp")) => {
                         facts.reject(&[34])
                     }
-                    b'w' if text[at..].starts_with("www.") && !in_link => facts.reject(&[34]),
+                    b'w' if text[at..].starts_with("www.") && !url_is_protected => facts.reject(&[34]),
                     b')' if bytes.get(at + 1) == Some(&b'[') => facts.reject(&[11]),
                     b'[' => {
                         if bytes.get(at + 1).is_none_or(u8::is_ascii_whitespace) {
@@ -1037,16 +1160,19 @@ impl<'a> FormatProof<'a> {
             if start > 0 && !is_blank(start - 1) || end + 1 < lines.len() && !is_blank(end + 1) {
                 facts.reject(&[31]);
             }
+            // A fence-like line may sit behind quote markers and indentation;
+            // MD070 judges it relative to its container, so any such prefix
+            // here must decline the proof rather than guess where it ends.
             for line in lines.iter().take(end).skip(start + 1) {
-                if line.text(source).trim_start().starts_with("```")
-                    || line.text(source).trim_start().starts_with("~~~")
-                {
+                let text = line.text(source).trim_start_matches(['>', ' ', '\t']);
+                if text.starts_with("```") || text.starts_with("~~~") {
                     facts.reject(&[70]);
                 }
             }
         }
 
         let mut bullet = None;
+        let mut strict_continuations = true;
         for list in &lists {
             let mut previous_indent = None;
             let mut next_number = list.start_value;
@@ -1098,18 +1224,21 @@ impl<'a> FormatProof<'a> {
                         facts.reject(&[76]);
                     }
                 }
-                let end = line_at(item.range.end.saturating_sub(1));
-                for (line_index, line) in lines.iter().enumerate().take(end + 1).skip(item.line + 1) {
-                    let text = line.text(source);
-                    if is_blank(line_index)
-                        || contains(&literals, line.start)
-                        || item_lines.binary_search(&line_index).is_ok()
-                    {
-                        continue;
-                    }
-                    let indent = text.len() - text.trim_start_matches(' ').len();
-                    if indent != item.content_column {
-                        facts.reject(&[77]);
+                if facts.bits & (1u128 << 77) != 0 && strict_continuations {
+                    let end = line_at(item.range.end.saturating_sub(1));
+                    for (line_index, line) in lines.iter().enumerate().take(end + 1).skip(item.line + 1) {
+                        let text = line.text(source);
+                        if is_blank(line_index)
+                            || contains(&literals, line.start)
+                            || item_lines.binary_search(&line_index).is_ok()
+                        {
+                            continue;
+                        }
+                        let indent = text.len() - text.trim_start_matches(' ').len();
+                        if indent != item.content_column {
+                            strict_continuations = false;
+                            break;
+                        }
                     }
                 }
             }
@@ -1125,6 +1254,12 @@ impl<'a> FormatProof<'a> {
                     facts.reject(&[32]);
                 }
             }
+        }
+        if !strict_continuations
+            && facts.bits & (1 << 77) != 0
+            && !nested_continuations_are_unchanged(source, &lines, &items, &literals)
+        {
+            facts.reject(&[77]);
         }
         facts
     }
@@ -1237,6 +1372,119 @@ mod tests {
             }
         }
         failures
+    }
+
+    #[test]
+    fn reference_url_certificates_follow_native_line_and_destination_guards() {
+        use crate::rule::Rule;
+
+        let rule = crate::rules::MD034NoBareUrls;
+        let policy = NativeFormatPolicy::validated(&rule).unwrap();
+        for source in [
+            "[x]:\n  https://example.com\n",
+            "[x]: https://example.com\n  \"name@example.com\"\n",
+            "> [x]:\n>   https://example.com\n",
+            "![www.example.com][r]\n\n[r]: <>\n",
+            "[https://example.com][r]\n\n[r]: <>\n",
+        ] {
+            let context = LintContext::new(source, MarkdownFlavor::Standard, None);
+            assert_ne!(rule.fix(&context).unwrap(), source);
+            assert!(!policy.proven(&FormatProof::analyze(source, MarkdownFlavor::Standard)));
+            assert_proofs(source);
+        }
+        for source in [
+            "[x]: https://example.com\n",
+            "[x]:\n  /path\n",
+            "[https://example.com](#)\n",
+            "[https://example.com](< >)\n",
+            "[https://example.com][r]\n\n[r]: target\n",
+            "![name@example.com][r]\n\n[r]: target\n",
+        ] {
+            let context = LintContext::new(source, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.fix(&context).unwrap(), source);
+            assert!(policy.proven(&FormatProof::analyze(source, MarkdownFlavor::Standard)));
+            assert_proofs(source);
+        }
+    }
+
+    #[test]
+    fn source_display_math_keeps_native_list_ownership() {
+        use crate::rule::Rule;
+
+        let source = "1. a\n\n$$x\n- root\n  see `$$`\n  more\n";
+        let expected = "1. a\n\n$$x\n- root\n   see `$$`\n   more\n";
+        let context = LintContext::new(source, MarkdownFlavor::Standard, None);
+        let rule = crate::rules::MD077ListContinuationIndent::default();
+        let warnings = rule.check(&context).unwrap();
+        assert_eq!(warnings.len(), 2);
+        assert_eq!(rule.fix(&context).unwrap(), expected);
+        assert!(!FormatProof::analyze(source, MarkdownFlavor::Standard).eligible());
+        assert_proofs(source);
+    }
+
+    #[test]
+    fn nested_default_continuations_can_be_proven_unchanged() {
+        use crate::rule::Rule;
+
+        for source in [
+            "- outer\n  - inner\n    nested prose\n",
+            "- outer\n  - inner\nlazy continuation\n",
+            "- outer\n  - inner\n  ancestor column\n  - sibling\n    sibling prose\n",
+            "- outer\n  - middle\n    - inner\n      nested prose\n\n    middle prose\n\n  outer prose\n",
+        ] {
+            let facts = FormatProof::analyze(source, MarkdownFlavor::Standard);
+            assert!(NativeFormatPolicy::new(77).proven(&facts), "{source:?}");
+            let context = LintContext::new(source, MarkdownFlavor::Standard, None);
+            let rule = crate::rules::MD077ListContinuationIndent::default();
+            assert!(rule.check(&context).unwrap().is_empty(), "{source:?}");
+            assert_proofs(source);
+        }
+    }
+
+    #[test]
+    fn ambiguous_loose_nested_continuations_keep_native_fixes() {
+        use crate::rule::Rule;
+
+        for source in [
+            "- outer\n  - inner\n\n   escaped child\n",
+            "- outer\n  - inner\n\n     over-indented child\n",
+            "- outer\n\n   over-indented outer\n",
+        ] {
+            let facts = FormatProof::analyze(source, MarkdownFlavor::Standard);
+            assert!(!NativeFormatPolicy::new(77).proven(&facts), "{source:?}");
+            let context = LintContext::new(source, MarkdownFlavor::Standard, None);
+            let rule = crate::rules::MD077ListContinuationIndent::default();
+            assert_ne!(rule.fix(&context).unwrap(), source, "{source:?}");
+            assert_proofs(source);
+        }
+    }
+
+    #[test]
+    fn ancestor_aligned_lazy_boundaries_keep_native_ownership() {
+        for source in [
+            "- outer\n  - inner\n    [r]: /x\n  parent column\n    child column\n",
+            "- outer\n  - inner\n  [r]: /x\n  parent column\n    child column\n",
+            "- outer\n  - inner\n  parent column\n    - deeper marker\n\n    inner prose\n",
+        ] {
+            let facts = FormatProof::analyze(source, MarkdownFlavor::Standard);
+            assert!(!NativeFormatPolicy::new(77).proven(&facts), "{source:?}");
+            assert_proofs(source);
+        }
+    }
+
+    #[test]
+    fn unchanged_nested_lists_avoid_full_context() {
+        let source = "- outer\n  - inner\n    nested prose\n";
+        let config = Config::default();
+        let rules = crate::rules::filter_rules(&crate::rules::all_rules(&config), &config.global);
+        let mut content = source.to_owned();
+        let result = crate::fix_coordinator::FixCoordinator::new()
+            .apply_fixes_iterative(&rules, &[], &mut content, &config, 100, None)
+            .unwrap();
+
+        assert_eq!(content, source);
+        assert_eq!(result.context_creations, 0);
+        assert!(result.converged);
     }
 
     #[test]
@@ -1602,6 +1850,40 @@ mod tests {
                 assert_proofs(&format!("{first}{second}"));
             }
         }
+    }
+
+    #[test]
+    fn fence_ended_by_its_list_item_is_proven_for_md070() {
+        // The list item ends the unclosed `yaml` fence, so the fence after the
+        // list is a block of its own. MD070 agrees with the proof, so `fmt` on
+        // stdin and on a file give the same result.
+        let source = "- Item:\n\n  ```yaml\n  key: |\n    raw\n\nAfter the list.\n\n```text\nplain\n```\n";
+        assert!(NativeFormatPolicy::new(70).proven(&FormatProof::analyze(source, MarkdownFlavor::Standard)));
+        assert_proofs(source);
+    }
+
+    #[test]
+    fn fence_collisions_behind_container_prefixes_are_not_proven_for_md070() {
+        for source in [
+            "> ```markdown\n> ```bash\n> x\n> ```\n> ```\n",
+            "10. a\n\n    ```markdown\n    ```bash\n    x\n    ```\n    ```\n",
+            "- a\n  - b\n\n    ```markdown\n    ```bash\n    x\n    ```\n    ```\n",
+            "- a\n\n  > ~~~markdown\n  > ~~~bash\n  > x\n  > ~~~\n  > ~~~\n",
+        ] {
+            assert!(
+                !NativeFormatPolicy::new(70).proven(&FormatProof::analyze(source, MarkdownFlavor::Standard)),
+                "{source:?}"
+            );
+            assert_proofs(source);
+        }
+    }
+
+    #[test]
+    fn closer_valid_inside_its_list_item_agrees_with_md070() {
+        // Five raw columns is three past the item's content: the fence closes
+        // there, so `fmt` on stdin and on a file leave the document alone.
+        let source = "- a\n\n  ```md\n  x\n     ```\n\n```text\ny\n```\n";
+        assert_proofs(source);
     }
 
     #[test]

@@ -166,6 +166,10 @@ lint.per-file-ignores = {"tests/**" = ["S101", "B017"]}
 extend-exclude = [".venv", "dist", "build", "__pycache__", "venv", "langgraph_api/grpc/generated/**"]
 target-version = "py311"
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"asyncio.set_event_loop_policy".msg = "Pass a loop_factory to asyncio.Runner instead."
+"uvloop.install".msg = "Use langgraph_api.asyncio.run_main_loop instead."
+
 [tool.ty.rules]
 possibly-missing-attribute = "error"
 possibly-missing-implicit-call = "error"

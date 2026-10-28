@@ -167,6 +167,38 @@ class MassTest(unittest.TestCase):
             mass.Composition(sequence='XYZ', aa_comp=self.aa_comp) * 2,
             {atom: 2 for atom in 'ABCDE'})
 
+    def test_Composition_imul_zero(self):
+        for cls in (auxiliary.BasicComposition, mass.Composition):
+            for counts in ({}, {'H': 2}, {'H': 2, 'O': 1}):
+                for multiplier in (0, False):
+                    with self.subTest(cls=cls, counts=counts, multiplier=multiplier):
+                        comp = cls(counts)
+                        alias = comp
+                        expected = comp * multiplier
+                        comp *= multiplier
+                        self.assertIs(comp, alias)
+                        self.assertEqual(dict(comp), dict(expected))
+                        self.assertEqual(len(comp), 0)
+
+    def test_Composition_imul_nonzero(self):
+        for cls in (auxiliary.BasicComposition, mass.Composition):
+            for multiplier in (1, 2, -1):
+                with self.subTest(cls=cls, multiplier=multiplier):
+                    comp = cls({'H': 2, 'O': 1})
+                    alias = comp
+                    expected = comp * multiplier
+                    comp *= multiplier
+                    self.assertIs(comp, alias)
+                    self.assertEqual(dict(comp), dict(expected))
+
+    def test_Composition_imul_noninteger(self):
+        for cls in (auxiliary.BasicComposition, mass.Composition):
+            with self.subTest(cls=cls):
+                comp = cls({'H': 2, 'O': 1})
+                with self.assertRaises(auxiliary.PyteomicsError):
+                    comp *= 0.5
+                self.assertEqual(dict(comp), {'H': 2, 'O': 1})
+
     def test_Composition_positional(self):
         # Test creation from positional args
         ac = self.aa_comp.copy()
@@ -278,34 +310,6 @@ class MassTest(unittest.TestCase):
             self.assertAlmostEqual(
                 mass.isotopic_composition_abundance(formula='A[1]F[6]' * peplen, mass_data=self.mass_data),
                 (self.mass_data['A'][1][1] * self.mass_data['F'][6][1]) ** peplen)
-
-    def test_Unimod_mass(self):
-        db = mass.Unimod(gzip.open('unimod.xml.gz'))
-        for x in db.mods:
-            self.assertGreater(0.00001,
-                abs(x['mono_mass'] - mass.calculate_mass(x['composition'], mass_data=db.mass_data)))
-
-    def test_Unimod_methods(self):
-        db = mass.Unimod(gzip.open('unimod.xml.gz'))
-        rec_id = 1
-        rec_name = 'Acetylation'
-        rec_title = 'Acetyl'
-        record = db.by_id(rec_id)
-        self.assertEqual(record['title'], rec_title)
-        self.assertEqual(record['full_name'], rec_name)
-        self.assertEqual(record, db[rec_id])
-        self.assertEqual(record, db.by_title(rec_title))
-        self.assertEqual(record, db.by_name(rec_name))
-
-    def test_compare_ion_comp_with_Unimod(self):
-        db = mass.Unimod(gzip.open('unimod.xml.gz'))
-        for ion_type in 'abcxz':
-            with self.subTest(ion_type=ion_type):
-                unimod_ion = db.by_title(f'{ion_type}-type-ion')
-                if unimod_ion:
-                    self.assertEqual(unimod_ion['composition'], mass.std_ion_comp[ion_type])
-                else:
-                    self.skipTest(f'Saved Unimod does not contain a record for {ion_type}-type-ion')
 
     def test_ion_complementarity(self):
         for pair in [('a+1', 'x+1'), ('b', 'y'), ('c', 'z')]:
@@ -508,6 +512,43 @@ class MassTest(unittest.TestCase):
         # With maxcharge=2, should have twice as many fragments
         self.assertEqual(len(fragments_z2['b']), 12)  # 6 fragments × 2 charge states
         self.assertEqual(len(fragments_z2['y']), 12)
+
+
+class UnimodTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.db = mass.Unimod(gzip.open('unimod.xml.gz'))
+
+    def test_Unimod_mass(self):
+        for x in self.db.mods:
+            self.assertGreater(0.00001,
+                abs(x['mono_mass'] - mass.calculate_mass(x['composition'], mass_data=self.db.mass_data)))
+
+    def test_Unimod_methods(self):
+        db = self.db
+        rec_id = 1
+        rec_name = 'Acetylation'
+        rec_title = 'Acetyl'
+        record = db.by_id(rec_id)
+        self.assertEqual(record['title'], rec_title)
+        self.assertEqual(record['full_name'], rec_name)
+        self.assertEqual(record, db[rec_id])
+        self.assertEqual(record, db.by_title(rec_title))
+        self.assertEqual(record, db.by_name(rec_name))
+
+    def test_compare_ion_comp_with_Unimod(self):
+        db = self.db
+        for ion_type in 'abcxz':
+            with self.subTest(ion_type=ion_type):
+                unimod_ion = db.by_title(f'{ion_type}-type-ion')
+                if unimod_ion:
+                    self.assertEqual(unimod_ion['composition'], mass.std_ion_comp[ion_type])
+                else:
+                    self.skipTest(f'Saved Unimod does not contain a record for {ion_type}-type-ion')
+
+    def test_does_not_require_optional_fields(self):
+        custom_db = mass.Unimod('unimod_custom.xml')
+        self.assertEqual(custom_db.by_title('Acetyl')['full_name'], 'Acetylation')
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: devpi-common
-Version: 4.1.1
+Version: 4.1.2
 Summary: Utilities jointly used by devpi-server, devpi-client and others.
 Maintainer-email: Florian Schulze <mail@pyfidelity.com>
 License: 
@@ -62,6 +62,19 @@ Changelog
 
 .. towncrier release notes start
 
+4.1.2 (2026-10-26)
+==================
+
+Bug Fixes
+---------
+
+- Fix check for relative paths when extracting archives.
+  Reported by ffasterss and shirabe0x05
+  https://github.com/devpi/devpi/security/advisories/GHSA-5qcc-697r-rj64
+
+- Avoid packaging prerelease deprecation warnings when parsing requirements while retaining prerelease matching.
+
+
 4.1.1 (2026-02-09)
 ==================
 
@@ -71,6 +84,7 @@ Bug Fixes
 - Implement missing __hash__ for Version and CompareMixin classes.
 
 - Fix ``py.typed`` to properly export type information.
+
 
 4.1.0 (2025-05-18)
 ==================
@@ -99,13 +113,4 @@ Bug Fixes
 ---------
 
 - Add ``is_prerelease`` and other methods to ``LegacyVersion`` to fix ``get_sorted_versions`` with ``stable=True`` and some other cases.
-
-
-4.0.2 (2023-10-15)
-==================
-
-Bug Fixes
----------
-
-- Do not mark commands with returncode ``None`` from tox 4.x as failed.
 

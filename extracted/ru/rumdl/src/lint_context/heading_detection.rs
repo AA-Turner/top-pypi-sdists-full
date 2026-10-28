@@ -1,6 +1,8 @@
 use crate::config::MarkdownFlavor;
 use crate::utils::code_block_utils::CodeBlockUtils;
+use crate::utils::skip_context::SkipRegions;
 use crate::utils::table_utils::TableUtils;
+use std::cell::LazyCell;
 use std::sync::LazyLock;
 
 use super::line_computation::spanned_lines;
@@ -1214,6 +1216,9 @@ pub(super) fn detect_headings_and_blockquotes(
     mdx_flow_lines: Option<&[bool]>,
     mdx_literal_ranges: Option<[&[(usize, usize)]; 2]>,
 ) -> HeadingAnalysis {
+    // Most documents need no link membership queries. Index only when an ATX
+    // candidate asks, preserving strict endpoints and overlapping link ranges.
+    let link_regions = LazyCell::new(|| SkipRegions::new(link_byte_ranges.to_vec()));
     // Only a `=`/`-` run under a line of text asks what paragraph is open, and
     // most documents hold none, so the pass runs on the first one that does.
     let mut trailing: Option<Pass> = None;
@@ -1326,9 +1331,7 @@ pub(super) fn detect_headings_and_blockquotes(
         // Only a line opening with an ATX marker needs the range scan.
         let in_html_comment_or_link = atx.is_some()
             && (crate::utils::skip_context::is_in_html_comment_ranges(html_comment_ranges, line_offset)
-                || link_byte_ranges
-                    .iter()
-                    .any(|&(start, end)| line_offset > start && line_offset < end));
+                || link_regions.contains_interior(line_offset));
 
         if let Some(AtxOpening::MissingSpace { level }) = atx
             && !in_html_comment_or_link
@@ -1402,9 +1405,7 @@ pub(super) fn detect_headings_and_blockquotes(
             let state = pass.states[i];
             if state.carries_item
                 && !crate::utils::skip_context::is_in_html_comment_ranges(html_comment_ranges, line_offset)
-                && !link_byte_ranges
-                    .iter()
-                    .any(|&(start, end)| line_offset > start && line_offset < end)
+                && !link_regions.contains_interior(line_offset)
                 && let Some(AtxOpening::Heading(caps)) = atx_opening(state.text)
             {
                 let heading = atx_heading_info(&caps, state.text_start, content_lines, lines, i);
@@ -1855,7 +1856,8 @@ fn parser_html_block_is_text(opener: &LineInfo) -> bool {
 /// [`parser_html_block_is_text`] reads. Comments, processing instructions and
 /// declarations are tracked as comments elsewhere, MDX reads a tag alone on a
 /// line as JSX, and a block opened after a container marker would hide that
-/// marker's line from the rules, so none of those is marked.
+/// marker's line from the rules, so none of those is marked. A block opened inside
+/// a quote is marked below its opening line.
 pub(super) fn mark_parser_html_blocks(
     content: &str,
     lines: &mut [LineInfo],
@@ -1873,11 +1875,25 @@ pub(super) fn mark_parser_html_blocks(
         let before_tag = &content[opener.byte_offset..start];
         if opener.in_html_block
             || parser_html_block_is_text(opener)
-            || !before_tag.trim().is_empty()
             || content[start..].starts_with("<!")
             || content[start..].starts_with("<?")
         {
             continue;
+        }
+        let mut spanned = spanned;
+        if !before_tag.trim().is_empty() {
+            // A block opened inside a quote (which may itself sit in list items) keeps
+            // its opening line visible to the rules, which read the quote marker there;
+            // the lines below it are raw HTML. Any other container marker leaves the
+            // whole block unmarked.
+            if !before_tag.contains('>')
+                || !before_tag
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || matches!(c, '>' | ' ' | '\t' | '-' | '+' | '*' | '.' | ')'))
+            {
+                continue;
+            }
+            spanned.start += 1;
         }
         for line in &mut lines[spanned] {
             line.in_html_block = true;
@@ -1887,29 +1903,33 @@ pub(super) fn mark_parser_html_blocks(
     }
 }
 
-/// The lines of every HTML block CommonMark's parser found, as runs of line
-/// indices in document order. Unlike the `in_html_block` flag this includes
+/// Every HTML block CommonMark's parser found, as half-open source byte ranges
+/// in document order. Unlike the `in_html_block` flag this includes
 /// comments, processing instructions, declarations and blocks opened after a
 /// container marker, so it answers whether a line is HTML rather than
 /// paragraph text. A block the flavor reads as text or JSX is left out, as in
 /// [`mark_parser_html_blocks`].
-pub(super) fn parser_html_block_lines(
+pub(super) fn parser_html_blocks(
     lines: &[LineInfo],
     blocks: &[(usize, usize)],
     flavor: MarkdownFlavor,
-) -> Vec<std::ops::Range<usize>> {
-    if flavor.supports_jsx() {
-        return Vec::new();
-    }
-    blocks
-        .iter()
-        .map(|&(start, end)| spanned_lines(lines, start, end))
-        .filter(|spanned| {
-            lines
+) -> (Vec<(usize, usize)>, Vec<std::ops::Range<usize>>) {
+    let mut ranges = Vec::new();
+    let mut line_runs = Vec::new();
+    if !flavor.supports_jsx() {
+        for &(start, end) in blocks {
+            let spanned = spanned_lines(lines, start, end);
+            if lines
                 .get(spanned.start)
                 .is_some_and(|opener| !parser_html_block_is_text(opener))
-        })
-        .collect()
+            {
+                ranges.push((start, end));
+                line_runs.push(spanned);
+            }
+        }
+    }
+    debug_assert!(ranges.windows(2).all(|pair| pair[0].1 <= pair[1].0));
+    (ranges, line_runs)
 }
 
 /// Detect HTML blocks in the content

@@ -1,6 +1,6 @@
 [package]
 name = "rumdl"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 rust-version = "1.94.0"
 description = "A fast Markdown linter and formatter written in Rust"
@@ -61,6 +61,7 @@ debug = true
 strip = false
 
 [dependencies]
+aho-corasick = "1.1"
 clap = { version = "4.6", features = ["derive"] }
 colored = { version = "3.1.1", optional = true }
 fancy-regex = "0.17.0"
@@ -70,7 +71,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 toml = "1.1"
-thiserror = "2.0.20"
+thiserror = "2.0.21"
 globset = "0.4.20"
 indexmap = { version = "2", features = ["serde"] }
 log = "0.4.34"
@@ -78,10 +79,11 @@ memchr = "2.8"
 # `default-features` would add `getopts` for pulldown-cmark's own CLI binary,
 # which rumdl never builds. `html` is the renderer MD085 uses.
 pulldown-cmark = { version = "0.13.4", default-features = false, features = ["html"] }
-unicase = "2.9"
-# MDX structure and JavaScript expression boundaries. Oxc 0.137 supports our
-# Rust 1.94 minimum; regular-expression validation is unnecessary for boundaries.
-markdown = "1.0.0"
+unicase = "2.10"
+# Identifier classification for the bundled markdown-rs parser.
+unicode-id = { version = "0.3", features = ["no_std"] }
+# MDX JavaScript boundaries. Oxc 0.137 supports our Rust 1.94 minimum;
+# regular-expression validation is unnecessary for boundaries.
 oxc_parser = { version = "0.137.0", default-features = false }
 oxc_allocator = "0.137.0"
 oxc_span = "0.137.0"
@@ -92,6 +94,7 @@ unicode-normalization = "0.1"
 schemars = "1.2"
 unicode-width = "0.2"
 percent-encoding = "2.3"
+pep440_rs = { version = "0.7.3", default-features = false }
 
 # LSP dependencies (native only)
 tower-lsp = { version = "0.20", optional = true }
@@ -115,7 +118,7 @@ postcard = { version = "1.1", default-features = false, features = ["alloc"], op
 wasm-bindgen = { version = "0.2", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
-clap_complete = "4.6.9"
+clap_complete = "4.6.11"
 
 # `.editorconfig` reading, opt-in per project via `editorconfig = true`. Needs a
 # real filesystem to walk for `.editorconfig` files, so it is absent from the
@@ -152,11 +155,13 @@ wasm = ["wasm-bindgen", "console_error_panic_hook", "serde-wasm-bindgen"]
 wasi = ["parallel", "colored", "blake3", "postcard", "chrono", "env_logger", "notify", "ec4rs"]
 
 [dev-dependencies]
+# Compatibility oracle for the bundled parser; never used by production code.
+markdown = "=1.0.0"
 assert_cmd = "2.2.2"
 indoc = "2"
 predicates = "3.1.4"
 tempfile = "3.27"
-proptest = "1.11"
+proptest = "1.12"
 # CodSpeed's criterion compatibility layer, imported as `criterion`: plain
 # `cargo bench` runs ordinary criterion, and `cargo codspeed` builds the same
 # benches with CodSpeed instrumentation (see `make bench-codspeed`).

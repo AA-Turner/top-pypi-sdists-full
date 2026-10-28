@@ -75,6 +75,7 @@ class Span:
     logprobs: np.ndarray | None
     sampler_topk_ids: np.ndarray | None
     sampler_topk_logprobs: np.ndarray | None
+    sampling_log_masses: np.ndarray | None
     _chunks: tuple[dict, ...]
 
     def __init__(
@@ -93,6 +94,7 @@ class Span:
         routing_num_tokens=None,
         sampler_topk_ids=None,
         sampler_topk_logprobs=None,
+        sampling_log_masses=None,
     ):
         if isinstance(kv_cache_policy_version, dict):
             kv_cache_policy_version = PolicyVersion(**kv_cache_policy_version)
@@ -182,12 +184,18 @@ class Span:
             ):
                 raise ValueError("top-k ID dtype must convert losslessly to int32")
             head_ids = _readonly_array(ids, np.int32)
+        masses = None
+        if sampling_log_masses is not None:
+            masses = _readonly_array(sampling_log_masses, np.float32)
+            if kind != "generated" or masses.shape != (n,):
+                raise ValueError("generated tokens require one sampling log mass each")
         for name, value in (
             ("kind", kind),
             ("_chunks", tuple(stored)),
             ("logprobs", lp),
             ("sampler_topk_ids", head_ids),
             ("sampler_topk_logprobs", head_lp),
+            ("sampling_log_masses", masses),
             ("policy_step", policy_step),
             ("policy_version", policy_version),
             ("policy_spans", policy_spans),
@@ -221,6 +229,11 @@ class Span:
                         "sampler_topk_logprobs": self.sampler_topk_logprobs,
                     }
                     if self.sampler_topk_ids is not None
+                    else {}
+                ),
+                **(
+                    {"sampling_log_masses": self.sampling_log_masses}
+                    if self.sampling_log_masses is not None
                     else {}
                 ),
                 "kind": self.kind,
@@ -273,6 +286,7 @@ class Trajectory:
         self.final_text = ""
         self.last_stop_reason = ""
         self.reward: float | None = None
+        self.failure: dict[str, str] | None = None
         self.truncated: str | None = None
         self.done = False
         self.turns = 0
@@ -286,6 +300,16 @@ class Trajectory:
         self.sample_index = 0
         self.loss_mask_end: int | None = None
         self.active_turn_max_tokens: int | None = None
+
+    @property
+    def dropped(self) -> bool:
+        """Whether error handling ended this rollout without a reward.
+
+        Dropped trajectories are terminal (``done``) but never train. ``failure``
+        records the operation, exception type, and message for diagnostics.
+        The persisted terminal phase prevents resume from replaying them.
+        """
+        return self.phase == "dropped"
 
     @property
     def spans(self) -> tuple[Span, ...]:
@@ -353,6 +377,7 @@ class Trajectory:
                     if sample.top_logprobs is not None
                     else None
                 ),
+                sampling_log_masses=sample.sampling_log_masses,
                 policy_step=sample.model_step if policy_step is None else policy_step,
                 run=self.run,
                 policy_version=sample.policy_version,
@@ -388,6 +413,8 @@ class Trajectory:
         max_staleness: int | None = None,
         requirements: LossRequirements | None = None,
     ) -> list[dict]:
+        if self.dropped:
+            raise ValueError("dropped trajectories cannot enter training")
         if not math.isfinite(advantage):
             raise ValueError("advantage must be finite")
         if max_staleness is not None and (max_staleness < 0 or current_step is None):
@@ -408,6 +435,16 @@ class Trajectory:
                 continue
             spans = spans[: generated[-1] + 1]
             n = sum(map(len, spans))
+            with_masses = {
+                s.sampling_log_masses is not None
+                for s in spans
+                if s.kind == "generated"
+            }
+            if len(with_masses) > 1:
+                raise ValueError(
+                    "sampling log masses must cover every generated span or none"
+                )
+            masses = np.zeros(n, dtype=np.float32) if True in with_masses else None
             old = np.zeros(n, dtype=np.float32)
             adv = np.zeros(n, dtype=np.float32)
             metadata = {}
@@ -444,6 +481,10 @@ class Trajectory:
                     if offset == 0:
                         raise ValueError("generated tokens need a conditioning prefix")
                     old[offset - 1 : offset + len(span) - 1] = span.logprobs
+                    if masses is not None:
+                        masses[offset - 1 : offset + len(span) - 1] = (
+                            span.sampling_log_masses
+                        )
                     age = 0 if current_step is None else current_step - span.policy_step
                     if age < 0:
                         raise ValueError(
@@ -479,6 +520,8 @@ class Trajectory:
                 offset += len(span)
             chunks = [c for s in spans for c in s.chunks]
             datum = {"old_logprobs": old.tolist(), "advantages": adv.tolist()}
+            if masses is not None:
+                datum["sampling_log_masses"] = masses.tolist()
             if metadata:
                 datum["sampling_metadata"] = metadata
             if any(c["type"] == "image" for c in chunks):

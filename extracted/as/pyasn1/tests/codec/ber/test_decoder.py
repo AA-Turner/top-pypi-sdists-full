@@ -168,6 +168,27 @@ class BitStringDecoderTestCase(BaseTestCase):
             bytes((35, 128, 3, 2, 0, 169, 3, 2, 1, 138, 0, 0))
         ) == ((1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1), b'')
 
+    def testChunkedWithIntermediatePadding(self):
+        fragments = (b'\x03\x02\x03\x10' + b'\x03\x01\x00' +
+                     b'\x03\x02\x05\xa0' + b'\x03\x02\x01\x81')
+        expected = univ.BitString(binValue='000101011000000')
+
+        for substrate in (b'\x23' + encode_length(len(fragments)) + fragments,
+                          b'\x23\x80' + fragments + b'\x00\x00'):
+            for asn1Spec in (None, univ.BitString()):
+                value, rest = decoder.decode(substrate, asn1Spec=asn1Spec)
+                assert value == expected
+                assert len(value) == len(expected)
+                assert rest == b''
+
+    def testManyDefModeFragments(self):
+        fragments = b'\x03\x02\x00\x81' * 256
+        substrate = b'\x23' + encode_length(len(fragments)) + fragments
+        value, rest = decoder.decode(substrate)
+
+        assert value == univ.BitString.fromOctetString(b'\x81' * 256)
+        assert rest == b''
+
     def testDefModeChunkedSubst(self):
         assert decoder.decode(
             bytes((35, 8, 3, 2, 0, 169, 3, 2, 1, 138)),
@@ -222,6 +243,32 @@ class OctetStringDecoderTestCase(BaseTestCase):
         assert decoder.decode(
             bytes((36, 128, 4, 4, 81, 117, 105, 99, 4, 4, 107, 32, 98, 114, 4, 4, 111, 119, 110, 32, 4, 3, 102, 111, 120, 0, 0))
         ) == (b'Quick brown fox', b'')
+
+    def testManyFragments(self):
+        fragments = b'\x04\x02AB' * 256
+
+        for substrate in (b'\x24' + encode_length(len(fragments)) + fragments,
+                          b'\x24\x80' + fragments + b'\x00\x00'):
+            for asn1Spec in (None, univ.OctetString()):
+                value, rest = decoder.decode(substrate, asn1Spec=asn1Spec)
+                assert value.asOctets() == b'AB' * 256
+                assert rest == b''
+
+    def testNestedIndefModeChunked(self):
+        substrate = bytes.fromhex('24 07 24 80 04 01 41 00 00')
+
+        for asn1Spec in (None, univ.OctetString()):
+            value, rest = decoder.decode(substrate, asn1Spec=asn1Spec)
+            assert value.asOctets() == b'A'
+            assert rest == b''
+
+    def testNestedDefModeChunked(self):
+        substrate = bytes.fromhex('24 05 24 03 04 01 41')
+
+        for asn1Spec in (None, univ.OctetString()):
+            value, rest = decoder.decode(substrate, asn1Spec=asn1Spec)
+            assert value.asOctets() == b'A'
+            assert rest == b''
 
     def testDefModeChunkedSubst(self):
         assert decoder.decode(
@@ -764,6 +811,16 @@ class RealDecoderTestCase(BaseTestCase):
 
         assert tuple(value) == (-1, 2, 76354972)
         assert rest == b''
+
+    def testLongBinaryMantissa(self):
+        mantissa = b'\x80' + b'\x01' * 511
+        content = b'\x80\x00' + mantissa
+        substrate = b'\x09' + encode_length(len(content)) + content
+
+        for asn1Spec in (None, univ.Real()):
+            value, rest = decoder.decode(substrate, asn1Spec=asn1Spec)
+            assert tuple(value) == (int.from_bytes(mantissa, 'big'), 2, 0)
+            assert rest == b''
 
     def testLongFormBinaryRealExponentLength(self):
         value, rest = decoder.decode(
@@ -1844,6 +1901,14 @@ class AnyDecoderTestCase(BaseTestCase):
         assert decoder.decode(
             bytes((4, 3, 102, 111, 120)), asn1Spec=self.s
         ) == (univ.Any('\004\003fox'), b'')
+
+    def testManyIndefiniteLengthComponents(self):
+        fragments = b'\x04\x01A' * 128
+        substrate = b'\x30\x80' + fragments + b'\x00\x00'
+        value, rest = decoder.decode(substrate, asn1Spec=self.s)
+
+        assert value == b'\x30\x80' + fragments
+        assert rest == b''
 
     def testTaggedExIndefMode(self):
         s = univ.Any('\004\003fox').subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 4))

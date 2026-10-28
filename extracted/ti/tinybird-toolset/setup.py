@@ -1,7 +1,7 @@
 from setuptools import setup, Extension
 
 NAME = 'tinybird-toolset'
-VERSION = '2.8.0'
+VERSION = '2.8.1'
 
 # Shared metadata for both the full (extension) build and the metadata-only
 # fallback below, so the two setup() calls can't drift apart.
@@ -44,6 +44,7 @@ try:
             "functions/RowBinaryEncoder.h",
             "src/PythonThreadHandler.h",
             "ts_build/libCHToolset.a",
+            "ts_build/libclickhouse_ttl_functions.a",
         ],
     )
     setup(

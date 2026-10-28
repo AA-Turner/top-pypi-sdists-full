@@ -368,7 +368,7 @@ namespace casadi {
     virtual const Function& get_function(const std::string &name) const;
 
     // Check if a particular dependency exists
-    virtual bool has_function(const std::string& fname) const {return false;}
+    virtual bool has_function(const std::string& fname) const;
 
     // Add embedded function to map, helper function
     void add_embedded(std::map<FunctionInternal*, std::pair<Function, size_t> >& all_fun,
@@ -1408,6 +1408,9 @@ namespace casadi {
     std::string compiler_plugin_;
     Importer compiler_;
     Dict jit_options_;
+
+    /// Options of the code generator of jit
+    Dict codegen_options_;
 
     /// Penalty factor for using a complete Jacobian to calculate directional derivatives
     double jac_penalty_;

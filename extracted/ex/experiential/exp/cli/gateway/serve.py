@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -20,7 +21,12 @@ _LOOPBACK_HOST = LOOPBACK_HOST
 DEFAULT_GATEWAY_PORT = 8000
 DEFAULT_GRACEFUL_TIMEOUT_SECONDS = 10.0
 DEFAULT_MAX_ACTIVE_REQUESTS = 1024
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 120.0
+# One hour: long enough for the longest single provider answer, short enough
+# that a stuck request still ends on its own.
+MAXIMUM_REQUEST_TIMEOUT_SECONDS = 3600.0
 _console = Console(theme=EXP_THEME)
+_logger = logging.getLogger(__name__)
 _EXP_WORDMARK = "\n".join(
     (
         "███████╗██╗  ██╗██████╗ ",
@@ -73,6 +79,16 @@ def run(
         min=1,
         help="Maximum concurrently admitted requests.",
     ),
+    request_timeout: float = typer.Option(
+        DEFAULT_REQUEST_TIMEOUT_SECONDS,
+        "--request-timeout",
+        min=1.0,
+        max=MAXIMUM_REQUEST_TIMEOUT_SECONDS,
+        help=(
+            "Total seconds one request may take, failover included. Raise it for long "
+            "streamed answers; a stream cut at this limit ends with a time-limit error."
+        ),
+    ),
 ) -> None:
     """Start the local gateway directly, optionally with one project-backed alias.
 
@@ -87,6 +103,7 @@ def run(
         check: Whether to validate gateway readiness without binding.
         graceful_timeout: Gateway shutdown drain bound in seconds.
         max_active_requests: Concurrent-admission bound for the data plane.
+        request_timeout: Total per-request budget in seconds, failover included.
 
     Raises:
         typer.BadParameter: The selected project form or activation is invalid.
@@ -102,6 +119,7 @@ def run(
         check=check,
         graceful_timeout=graceful_timeout,
         max_active_requests=max_active_requests,
+        request_timeout=request_timeout,
     )
 
 
@@ -117,6 +135,7 @@ def start_gateway(
     check: bool = False,
     graceful_timeout: float = DEFAULT_GRACEFUL_TIMEOUT_SECONDS,
     max_active_requests: int = DEFAULT_MAX_ACTIVE_REQUESTS,
+    request_timeout: float = DEFAULT_REQUEST_TIMEOUT_SECONDS,
 ) -> None:
     """Start the local gateway, optionally materializing one project-backed alias.
 
@@ -131,6 +150,7 @@ def start_gateway(
         check: Whether to validate gateway readiness without binding.
         graceful_timeout: Gateway shutdown drain bound in seconds.
         max_active_requests: Concurrent-admission bound for the data plane.
+        request_timeout: Total per-request budget in seconds, failover included.
 
     Raises:
         typer.BadParameter: The selected project form or activation is invalid,
@@ -152,6 +172,7 @@ def start_gateway(
         check=check,
         graceful_timeout=graceful_timeout,
         max_active_requests=max_active_requests,
+        request_timeout=request_timeout,
     )
 
 
@@ -185,6 +206,7 @@ def _run_gateway(
     check: bool,
     graceful_timeout: float,
     max_active_requests: int = DEFAULT_MAX_ACTIVE_REQUESTS,
+    request_timeout: float = DEFAULT_REQUEST_TIMEOUT_SECONDS,
 ) -> None:
     """Validate, optionally set up, and serve the native gateway.
 
@@ -205,6 +227,7 @@ def _run_gateway(
         check: Whether to validate gateway readiness without binding.
         graceful_timeout: Gateway shutdown drain bound in seconds.
         max_active_requests: Concurrent-admission bound for the data plane.
+        request_timeout: Total per-request budget in seconds, failover included.
 
     Raises:
         typer.BadParameter: Setup, alias loading, native servability, or the
@@ -283,6 +306,7 @@ def _run_gateway(
                     data_plane_metrics=exp_gateway_native.metrics_snapshot_json,
                     guardrails=guardrails,
                     capture=capture_controller,
+                    request_timeout_seconds=request_timeout,
                 )
                 receipt = {
                     "schema_version": 1,
@@ -323,14 +347,13 @@ def _run_gateway(
                         )
                         _emit_unavailable_aliases(components.unavailable_aliases)
 
-                if check:
-                    announce_ready()
-                    return
-
                 # Readiness is announced by the native server itself, from
                 # its bound-listener callback, so a launch that cannot own
                 # the port fails without ever printing a ready receipt.
                 try:
+                    if check:
+                        announce_ready()
+                        return
                     serve_native_gateway(
                         control_plane,
                         host=_LOOPBACK_HOST,
@@ -343,6 +366,10 @@ def _run_gateway(
                 except NativeGatewayServerError as exc:
                     raise typer.BadParameter(str(exc)) from exc
                 finally:
+                    while not control_plane.close(
+                        timeout_seconds=min(300.0, max(0.1, graceful_timeout))
+                    ):
+                        _logger.warning("Waiting for retained gateway accounting before shutdown")
                     if capture_controller is not None:
                         capture_controller.native.close(0)
     except typer.BadParameter:

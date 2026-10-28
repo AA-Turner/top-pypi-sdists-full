@@ -2,12 +2,12 @@ schema = 1
 
 [[word]]
 text = "wm"
-excluded = { title = { reason = "William, abbreviated, and no title of any kind: #68 asked that 'Wm. Scott Magargee III' not read given name 'Wm.', a request judged mistaken, since Wm is the given name; a bare 'WM' opened the given part 69 times in the FEC donor list (re-measured 2026-10-24 on 08d130ed), every one read as a title. The dotted 'Wm.' opening the given part is still taken by the leading period-abbreviation shape rule whether listed or not", issue = [68, 789], decided = 2026-10-22 } }
+excluded = { title = { reason = "William, abbreviated, and no title of any kind: #68 asked that 'Wm. Scott Magargee III' not read given name 'Wm.', a request judged mistaken, since Wm is the given name; a bare 'WM' opened the given part 69 times in the FEC donor list (re-measured 2026-10-24 on 08d130ed), every one then read as a title. The dotted 'Wm.' opening the given part reads given too, by the given reading below, which outranks the leading period-abbreviation shape rule (#789, phase 2k of #752)", issue = [68, 789], decided = 2026-10-22 } }
+given = { us_ssa = 2736, as_of = 2026-10-26, same_as = "william", note = "William written short; US SSA births summed over both sexes (F 86, M 2,650); Wikidata labels no one Wm" }
 
 [[word]]
 text = "goodman"
-salutation = { gender = "m", expands = "the archaic Mr., 'Goodman Brown'", excluded = { after_given = "a common surname (Benny Goodman), and middle names are drawn from surnames" } }
-given = { us_ssa = 22, wikidata = 11, as_of = 2026-10-24 }
+salutation = { gender = "m", expands = "the archaic Mr., 'Goodman Brown'", excluded = { after_given = "a common surname (Benny Goodman), and middle names are drawn from surnames" }, note = "borne as a given name: US SSA 22 births, Wikidata 11 people (2026-10-24); kept here, not as a `given` reading, which would make the title one only inside a title phrase (rules/H9)" }
 family = { us_census_2010 = 73136, wikidata = 743, as_of = 2026-10-24 }
 
 [[word]]
@@ -24,8 +24,7 @@ salutation = { gender = "f", after_given = true }
 
 [[word]]
 text = "master"
-salutation = { addresses = "given", gender = "m", expands = "the style for a boy, 'Master Harry'", excluded = { after_given = "a surname and a given name, borne as a middle name either way" } }
-given = { us_ssa = 476, wikidata = 2, as_of = 2026-10-24 }
+salutation = { addresses = "given", gender = "m", expands = "the style for a boy, 'Master Harry'", excluded = { after_given = "a surname and a given name, borne as a middle name either way" }, note = "borne as a given name: US SSA 476 births, Wikidata 2 people (2026-10-24); kept here, not as a `given` reading, which would make the title one only inside a title phrase (rules/H9)" }
 family = { us_census_2010 = 2735, wikidata = 61, as_of = 2026-10-24 }
 
 [[word]]
@@ -39,13 +38,11 @@ salutation = { gender = "f", expands = "the plural of miss, 'the Misses Smith'",
 
 [[word]]
 text = "mr"
-salutation = { gender = "m", after_given = true }
-given = { us_ssa = 5, as_of = 2026-10-24, note = "kept for after_given (decisions/H8)" }
+salutation = { gender = "m", after_given = true, note = "borne as a given name: US SSA 5 births (2026-10-24); kept for after_given (decisions/H8); kept here, not as a `given` reading, which would make the title one only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "mister"
-salutation = { gender = "m", same_as = "mr", excluded = { after_given = "a given name and a surname, borne as a middle name either way" } }
-given = { us_ssa = 746, as_of = 2026-10-24 }
+salutation = { gender = "m", same_as = "mr", excluded = { after_given = "a given name and a surname, borne as a middle name either way" }, note = "borne as a given name: US SSA 746 births (2026-10-24); kept here, not as a `given` reading, which would make the title one only inside a title phrase (rules/H9)" }
 family = { us_census_2010 = 1211, wikidata = 2, as_of = 2026-10-24 }
 
 [[word]]
@@ -56,7 +53,7 @@ salutation = { gender = "f", after_given = true }
 text = "ms"
 salutation = { gender = "f" }
 [word.credential]
-note = "NOT may_be_name, though #296's audit table put it there for the leading-title collision: the gate is position-blind and the collision is not (gated, 'John Smith, MS' read title 'MS'); a title/credential dual that position decides (decisions/C8)"
+note = "NOT marked as possibly a name (no name reading), though #296's audit table put it there for the leading-title collision: the gate is position-blind and the collision is not (gated, 'John Smith, MS' read title 'MS'); a title/credential dual that position decides (decisions/C8)"
 
 [[word]]
 text = "mx"
@@ -73,6 +70,12 @@ style = {}
 [[word]]
 text = "excellency"
 style = {}
+
+[[word]]
+text = "grace"
+style = { issue = 752, decided = 2026-10-26, expands = "'His Grace', a duke's or an archbishop's style", note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'His Grace John Smith' reads the title, 'Grace Smith' the given name, unreported, since no listed phrase holds it" }
+given = { us_ssa = 536340, wikidata = 3908, as_of = 2026-10-26, note = "US SSA: female and male births added" }
+family = { us_census_2010 = 28098, wikidata = 311, as_of = 2026-10-26 }
 
 [[word]]
 text = "highness"
@@ -113,6 +116,10 @@ academic = { expands = "the address of an engineer, 'Engr. Cruz' in the Philippi
 [[word]]
 text = "nurse"
 academic = { expands = "the address of a nurse, 'Nurse Smith'" }
+
+[[word]]
+text = "pro"
+academic = { issue = 9, expands = "Pro Se Law Clerk", note = "academic rather than modifier since 2026-10-25 (#752): a part after a comma written 'Pro' is the person's role, which decision 10's modifier rule would read out of the title (decisions/vocabulary-model)" }
 
 [[word]]
 text = "abbess"
@@ -168,7 +175,8 @@ religious = { addresses = "given", gender = "m", expands = "a member of a religi
 
 [[word]]
 text = "buddha"
-religious = {}
+religious = { issue = 869, decided = 2026-10-26, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Buddha Bahadur Tamang' reads the given name, unreported, since no listed phrase holds it" }
+given = { us_ssa = 6, wikidata = 4, as_of = 2026-10-26, note = "US SSA: male births; Wikidata is a lower bound; the first half of Nepali compound given names (Buddha Bahadur, Buddha Maya): 83 of nepal-candidates' 126,981 pairs write it, opening the name in 79" }
 
 [[word]]
 text = "canon"
@@ -292,7 +300,8 @@ religious = {}
 
 [[word]]
 text = "siddha"
-religious = {}
+religious = { issue = 869, decided = 2026-10-26, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Siddha Raj Joshi' reads the given name, unreported, since no listed phrase holds it" }
+given = { note = "no US SSA year reaches 5 births and Wikidata counts no one; declared as the first half of Nepali compound given names (Siddha Raj): 12 of nepal-candidates' 126,981 pairs write it, each opening the name (2026-10-26)" }
 
 [[word]]
 text = "sister"
@@ -300,9 +309,9 @@ religious = { addresses = "given", gender = "f", expands = "a nun or religious s
 
 [[word]]
 text = "st"
+given = { us_ssa = 24, as_of = 2026-10-25, note = "male births only" }
 religious = { expands = "Saint, abbreviated" }
 [word.saint]
-may_be_given = true
 expands = "Saint, abbreviated"
 note = "Also in TITLES and consumed there before particle logic runs, so moving it between the may-be-given and never-given halves changes nothing; kept for the load-bearing TITLES intersection"
 
@@ -336,7 +345,7 @@ nobility = { gender = "f" }
 
 [[word]]
 text = "chief"
-nobility = { expands = "a chief of a people or clan, 'Chief Obafemi Awolowo'" }
+nobility = { expands = "a chief of a people or clan, 'Chief Obafemi Awolowo'", attaches = ["office", "military"], issue = 752, note = "attaches: Chief Justice, Chief Clerk (rules/H9)" }
 
 [[word]]
 text = "chieftain"
@@ -382,7 +391,9 @@ nobility = { gender = "f" }
 
 [[word]]
 text = "king"
-nobility = { addresses = "given", gender = "m" }
+nobility = { addresses = "given", gender = "m", issue = 752, decided = 2026-10-26, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'His Majesty King Charles' reads the title, 'King Curtis' and 'Mr King Smith' the given name, unreported, since no listed phrase holds it" }
+given = { us_ssa = 37890, wikidata = 178, as_of = 2026-10-26, note = "US SSA: male and female births added; Wikidata is a lower bound (United States 92); nam_dict band 1 in the U.S.A. and China" }
+family = { us_census_2010 = 465422, wikidata = 4554, as_of = 2026-10-26, note = "US Census rank 34" }
 
 [[word]]
 text = "knight"
@@ -422,11 +433,15 @@ nobility = {}
 
 [[word]]
 text = "prince"
-nobility = { addresses = "given", gender = "m", issue = 519, note = "addresses by the GIVEN name ('Prince Harry', 'Princess Anne'); membership decides only which field the one word behind it takes, and 'Prince Fielder' is #348's collision either way" }
+nobility = { addresses = "given", gender = "m", issue = 752, decided = 2026-10-27, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'His Royal Highness Prince Harry' and 'Prince of Wales' read the title, 'Prince Fielder' and 'Mr Prince Smith' the given name, unreported, since no listed phrase holds it; inside a phrase it addresses by the GIVEN name (#519)" }
+given = { us_ssa = 24151, wikidata = 204, as_of = 2026-10-27, note = "US SSA: male and female births added; Wikidata is a lower bound (United States 53, Ghana 19, Nigeria 10); nam_dict band 1 in the U.S.A. and India/Sri Lanka" }
+family = { us_census_2010 = 47168, wikidata = 525, as_of = 2026-10-27, note = "US Census rank 743" }
 
 [[word]]
 text = "princess"
-nobility = { addresses = "given", gender = "f", issue = 519, note = "addresses by the GIVEN name ('Prince Harry', 'Princess Anne'); membership decides only which field the one word behind it takes, and 'Prince Fielder' is #348's collision either way" }
+nobility = { addresses = "given", gender = "f", issue = 752, decided = 2026-10-27, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Her Royal Highness Princess Anne' reads the title, 'Princess Smith' and 'Ms Princess Smith' the given name, unreported, since no listed phrase holds it; inside a phrase it addresses by the GIVEN name (#519)" }
+given = { us_ssa = 15982, wikidata = 29, as_of = 2026-10-27, note = "US SSA: female and male births added; Wikidata is a lower bound (Nigeria 6, Ghana 3); nam_dict band 1 in the U.S.A." }
+family = { wikidata = 1, as_of = 2026-10-27, note = "US Census: under 100 bearers, not listed" }
 
 [[word]]
 text = "queen"
@@ -678,8 +693,16 @@ text = "maj"
 military = { expands = "Major" }
 
 [[word]]
+text = "major"
+military = { issue = 752, decided = 2026-10-25, attaches = ["general"], note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Major General Smith' reads the title, 'Major Smith' and 'Mr Major Smith' the given name; attaches: Major General" }
+given = { us_ssa = 21749, wikidata = 65, as_of = 2026-10-25, note = "US SSA: female and male births added" }
+family = { us_census_2010 = 20977, wikidata = 400, as_of = 2026-10-25 }
+
+[[word]]
 text = "marshal"
-excluded = { military = { reason = "a given name (Marshal Yanda); the accepted cost is that 'Field Marshal Bernard Montgomery' reads title Field, given Marshal", issue = 606, decided = 2026-10-04 } }
+military = { issue = 752, decided = 2026-10-26, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Field Marshal Bernard Montgomery' reads the title, 'Marshal Yanda' the given name; until 2026-10-26 excluded as a given name (#606)" }
+given = { us_ssa = 5559, wikidata = 28, as_of = 2026-10-26, note = "US SSA: female and male births added" }
+family = { wikidata = 34, as_of = 2026-10-26 }
 
 [[word]]
 text = "mcpo"
@@ -769,11 +792,11 @@ military = { expands = "Senior Chief Petty Officer" }
 
 [[word]]
 text = "sergeant"
-military = {}
+military = { attaches = ["major"], issue = 752, decided = 2026-10-26, note = "attaches: Sergeant Major (rules/H9); a word, not the military kind, which made Sgt Marshal Smith a title" }
 
 [[word]]
 text = "sgt"
-military = { same_as = "sergeant" }
+military = { attaches = ["major"], issue = 752, decided = 2026-10-26, note = "attaches: Sergeant Major (rules/H9); a word, not the military kind, which made Sgt Marshal Smith a title", same_as = "sergeant" }
 
 [[word]]
 text = "sfc"
@@ -957,6 +980,16 @@ text = "courtier"
 office = {}
 
 [[word]]
+text = "d'affaires"
+office = { expands = "the second word of chargé d'affaires", issue = 752, note = "office rather than modifier since 2026-10-25: it stands behind its head, where decision 10's modifier rule asks for a head title after a modifier (rules/H9)" }
+
+[[word]]
+text = "dean"
+office = { issue = 752, decided = 2026-10-25, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Dean of Students' and 'Associate Dean Smith' read the title, 'Dean Smith' the given name (decision 13 of decisions/vocabulary-model)" }
+given = { us_ssa = 195844, wikidata = 2246, as_of = 2026-10-25, note = "US SSA: female and male births added" }
+family = { us_census_2010 = 114030, wikidata = 1128, as_of = 2026-10-25 }
+
+[[word]]
 text = "delegate"
 office = {}
 
@@ -1002,7 +1035,9 @@ office = {}
 
 [[word]]
 text = "justice"
-excluded = { office = { reason = "a given name (Justice Smith); the accepted cost is that 'Chief Justice John Roberts' reads title Chief, given Justice", issue = 606, decided = 2026-10-04 } }
+office = { issue = 752, decided = 2026-10-25, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Chief Justice John Roberts' and 'The Hon. Justice Smith' read the title, 'Justice Smith' the given name; until 2026-10-25 excluded as a given name (#606), the cost being 'Chief Justice' read as title Chief, given Justice" }
+given = { us_ssa = 38674, wikidata = 85, as_of = 2026-10-25, note = "US SSA: female and male births added" }
+family = { us_census_2010 = 32480, wikidata = 100, as_of = 2026-10-25 }
 
 [[word]]
 text = "leader"
@@ -1031,6 +1066,10 @@ office = { same_as = "magistrate-judge" }
 [[word]]
 text = "mayor"
 office = {}
+
+[[word]]
+text = "member"
+office = { issue = 752, note = "office rather than modifier since 2026-10-25: the head noun of the phrases it stands in, 'Designated Member' and 'Member of Parliament', which decision 10's modifier rule would read out of the title (rules/H9)" }
 
 [[word]]
 text = "minister"
@@ -1195,7 +1234,9 @@ occupation = {}
 
 [[word]]
 text = "bard"
-occupation = {}
+occupation = { issue = 867, decided = 2026-10-26, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Bard Larsen' reads the given name, unreported, since no listed phrase holds it" }
+given = { us_ssa = 218, wikidata = 10, as_of = 2026-10-26, note = "mostly the Norwegian Bård with its accent dropped: US SSA folds it to BARD (male births); Wikidata is a lower bound, and holds 107 more spelled 'Bård' (Norway 87); nam_dict band 5 in Norway as 'Bård'" }
+family = { us_census_2010 = 5953, wikidata = 100, as_of = 2026-10-26 }
 
 [[word]]
 text = "barrister"
@@ -1642,6 +1683,14 @@ text = "researcher"
 occupation = {}
 
 [[word]]
+text = "resident"
+occupation = { issue = 752, note = "occupation rather than modifier since 2026-10-25: a part after a comma written 'Resident' is the person's role, which decision 10's modifier rule would read out of the title (decisions/vocabulary-model)" }
+
+[[word]]
+text = "rt"
+occupation = { issue = 752, expands = "Right, abbreviated ('Rt Hon'); also a respiratory therapist", note = "occupation rather than modifier since 2026-10-25: a part after a comma written 'RT' is the person's role, which decision 10's modifier rule would read out of the title (decisions/vocabulary-model)" }
+
+[[word]]
 text = "sailor"
 occupation = {}
 
@@ -1910,10 +1959,6 @@ text = "customs"
 modifier = {}
 
 [[word]]
-text = "d'affaires"
-modifier = { expands = "the second word of chargé d'affaires" }
-
-[[word]]
 text = "designated"
 modifier = { issue = 9, expands = "Designated Judge" }
 
@@ -2062,10 +2107,6 @@ text = "mathematics"
 modifier = {}
 
 [[word]]
-text = "member"
-modifier = {}
-
-[[word]]
 text = "military"
 modifier = {}
 
@@ -2118,10 +2159,6 @@ text = "prime"
 modifier = {}
 
 [[word]]
-text = "pro"
-modifier = { issue = 9, expands = "Pro Se Law Clerk" }
-
-[[word]]
 text = "queen's"
 modifier = { expands = "Queen's Counsel" }
 
@@ -2134,20 +2171,12 @@ text = "rear"
 modifier = {}
 
 [[word]]
-text = "resident"
-modifier = {}
-
-[[word]]
 text = "revenue"
 modifier = {}
 
 [[word]]
 text = "right"
 modifier = { expands = "'Right Honourable', 'Right Reverend'" }
-
-[[word]]
-text = "rt"
-modifier = { same_as = "right" }
 
 [[word]]
 text = "risk"
@@ -2261,7 +2290,9 @@ modifier = {}
 
 [[word]]
 text = "wing"
-modifier = {}
+modifier = { issue = 752, decided = 2026-10-26, note = "a title only beside a head title (rules/H9), its given reading the clash: 'Wing Commander Lau' reads the title, 'Wing Lau' and 'Lau, Wing Kai' the given name, unreported, since no listed phrase holds it" }
+given = { us_ssa = 188, wikidata = 17, as_of = 2026-10-26, note = "US SSA: female and male births added; Wikidata is a lower bound; nam_dict band 1 in China" }
+family = { us_census_2010 = 12614, wikidata = 218, as_of = 2026-10-26 }
 
 [[word]]
 text = "jr"
@@ -2295,7 +2326,7 @@ credential = {}
 text = "aba"
 family = { us_census_2010 = 231, wikidata = 18, as_of = 2026-10-21 }
 given = { us_ssa = 32, wikidata = 40, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 183 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 183 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "abc"
@@ -2318,7 +2349,7 @@ credential = {}
 [[word]]
 text = "aca"
 family = { us_census_2010 = 375, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 141 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 141 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "acas"
@@ -2328,12 +2359,12 @@ credential = {}
 text = "ace"
 family = { us_census_2010 = 1199, wikidata = 8, as_of = 2026-10-21 }
 given = { us_ssa = 26483, wikidata = 45, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 9 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 9 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "acha"
 family = { us_census_2010 = 477, wikidata = 26, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "acp"
@@ -2379,7 +2410,7 @@ credential = {}
 text = "ala"
 family = { us_census_2010 = 743, wikidata = 14, as_of = 2026-10-21 }
 given = { us_ssa = 943, wikidata = 163, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 3 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 3 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "alc"
@@ -2389,7 +2420,7 @@ credential = {}
 text = "alp"
 family = { us_census_2010 = 116, wikidata = 55, as_of = 2026-10-21 }
 given = { us_ssa = 467, wikidata = 75, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "am"
@@ -2410,7 +2441,7 @@ credential = {}
 [[word]]
 text = "ams"
 family = { us_census_2010 = 135, wikidata = 2, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 5 US healthcare providers write it (healthcare only, August 2026 file). Surname reading is the larger of the two small counts (#796's revised rule).", issue = 796 }
+credential = { note = "NPPES 5 US healthcare providers write it (healthcare only, August 2026 file). Surname reading is the larger of the two small counts (#796's revised rule).", issue = 796 }
 
 [[word]]
 text = "aphr"
@@ -2443,7 +2474,7 @@ credential = {}
 [[word]]
 text = "arm"
 family = { us_census_2010 = 283, wikidata = 8, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "arrc"
@@ -2453,7 +2484,7 @@ credential = {}
 text = "asa"
 family = { us_census_2010 = 508, wikidata = 5, as_of = 2026-10-21 }
 given = { us_ssa = 23067, wikidata = 283, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 3 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 3 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "asc"
@@ -2470,7 +2501,7 @@ credential = {}
 [[word]]
 text = "asp"
 family = { us_census_2010 = 733, wikidata = 63, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "atc"
@@ -2482,8 +2513,9 @@ credential = {}
 
 [[word]]
 text = "ba"
+family = { us_census_2010 = 2451, wikidata = 117, as_of = 2026-10-25 }
+given = { us_ssa = 5, wikidata = 59, as_of = 2026-10-25, note = "male births only; Wikidata is a lower bound; nam_dict band 9 in Vietnam" }
 [word.credential]
-may_be_name = true
 expands = "Bachelor of Arts"
 issue = 342
 note = "Ba is a real surname (Vietnamese; Senegalese Fula) about as common as BA is a credential, the ma/Ma shape"
@@ -2507,7 +2539,7 @@ credential = {}
 [[word]]
 text = "bem"
 family = { us_census_2010 = 339, wikidata = 29, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "bls-i"
@@ -2560,7 +2592,7 @@ credential = {}
 [[word]]
 text = "caha"
 family = { us_census_2010 = 116, wikidata = 28, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "caia"
@@ -2577,7 +2609,7 @@ credential = {}
 [[word]]
 text = "capa"
 family = { us_census_2010 = 175, wikidata = 7, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 11 US healthcare providers write it (healthcare only, August 2026 file). Surname reading is the larger of the two small counts (#796's revised rule).", issue = 796 }
+credential = { note = "NPPES 11 US healthcare providers write it (healthcare only, August 2026 file). Surname reading is the larger of the two small counts (#796's revised rule).", issue = 796 }
 
 [[word]]
 text = "capm"
@@ -2587,7 +2619,7 @@ credential = {}
 text = "capp"
 family = { us_census_2010 = 1588, wikidata = 13, as_of = 2026-10-21 }
 given = { us_ssa = 5, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 7 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 7 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "caps"
@@ -2597,7 +2629,7 @@ credential = {}
 text = "caro"
 family = { us_census_2010 = 10064, wikidata = 236, as_of = 2026-10-21 }
 given = { us_ssa = 274, wikidata = 50, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "cas"
@@ -2766,7 +2798,7 @@ credential = {}
 [[word]]
 text = "cea"
 family = { us_census_2010 = 1275, wikidata = 21, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 13 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 13 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "ceas"
@@ -2788,7 +2820,7 @@ credential = {}
 text = "cela"
 family = { us_census_2010 = 637, wikidata = 18, as_of = 2026-10-21 }
 given = { us_ssa = 90, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "cem"
@@ -2802,7 +2834,7 @@ credential = {}
 text = "cera"
 family = { us_census_2010 = 1224, wikidata = 18, as_of = 2026-10-21 }
 given = { us_ssa = 1410, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "cet"
@@ -2930,7 +2962,7 @@ credential = {}
 text = "che"
 family = { us_census_2010 = 2393, wikidata = 5936, as_of = 2026-10-21 }
 given = { us_ssa = 2469, wikidata = 48, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 16 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 16 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "ches"
@@ -2945,7 +2977,6 @@ text = "chi"
 family = { us_census_2010 = 7273, wikidata = 219, as_of = 2026-10-21 }
 given = { us_ssa = 1326, wikidata = 123, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
 [word.credential]
-may_be_name = true
 issue = 791
 note = "Chi is a common surname (Census 2010: 7,273 family-name bearers, rank 4,843; Wikidata 219+ family) and a Vietnamese given name; measured 2026-10-21 by tools/name_usage.py. No expansion is recorded: the 2019 bulk import (af5bdab, #93) carried none"
 
@@ -3037,7 +3068,7 @@ credential = {}
 text = "ciro"
 family = { us_census_2010 = 265, wikidata = 6, as_of = 2026-10-21 }
 given = { us_ssa = 2587, wikidata = 409, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "cisa"
@@ -3290,7 +3321,7 @@ credential = {}
 [[word]]
 text = "csi"
 family = { wikidata = 590, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 95 US healthcare providers write it (healthcare only, August 2026 file). Surname evidence is Wikidata only (no Census bearers); marked on C-i.", issue = 796 }
+credential = { note = "NPPES 95 US healthcare providers write it (healthcare only, August 2026 file). Surname evidence is Wikidata only (no Census bearers); marked on C-i.", issue = 796 }
 
 [[word]]
 text = "csp"
@@ -3347,7 +3378,7 @@ credential = {}
 [[word]]
 text = "cua"
 family = { us_census_2010 = 1082, wikidata = 3, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 2 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 2 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "cusp"
@@ -3517,7 +3548,9 @@ credential = {}
 
 [[word]]
 text = "do"
-credential = { may_be_name = true, expands = "Doctor of Osteopathic Medicine" }
+family = { us_census_2010 = 30301, wikidata = 100, as_of = 2026-10-25 }
+given = { us_ssa = 11, wikidata = 9, as_of = 2026-10-25, note = "male births only; Wikidata is a lower bound; nam_dict band 8 in Korea, 6 in Vietnam, 1 in the Netherlands" }
+credential = { expands = "Doctor of Osteopathic Medicine" }
 
 [[word]]
 text = "dphil"
@@ -3575,11 +3608,13 @@ credential = {}
 text = "ea"
 family = { us_census_2010 = 496, wikidata = 2, as_of = 2026-10-21 }
 given = { us_ssa = 11, wikidata = 11, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 2 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 2 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "ed"
-credential = { may_be_name = true, expands = "Doctor of Education" }
+family = { us_census_2010 = 262, wikidata = 7, as_of = 2026-10-25 }
+given = { us_ssa = 26370, wikidata = 2924, as_of = 2026-10-25, note = "US SSA births summed over both sexes; Wikidata is a lower bound; nam_dict band 6 in the Netherlands, 3 in U.S.A., 2 in Great Britain" }
+credential = { expands = "Doctor of Education" }
 
 [[word]]
 text = "edd"
@@ -3591,7 +3626,7 @@ cased = { reason = "a mask applies in every role, and Edd is borne as a given na
 text = "ei"
 family = { us_census_2010 = 127, wikidata = 3, as_of = 2026-10-21 }
 given = { wikidata = 4, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 12 US healthcare providers write it (healthcare only, August 2026 file). Not a healthcare credential (usually Engineer Intern): NPPES says nothing about it; marked under C-i's default under uncertainty.", issue = 796 }
+credential = { note = "NPPES 12 US healthcare providers write it (healthcare only, August 2026 file). Not a healthcare credential (usually Engineer Intern): NPPES says nothing about it; marked under C-i's default under uncertainty.", issue = 796 }
 
 [[word]]
 text = "eit"
@@ -3601,7 +3636,7 @@ credential = {}
 text = "els"
 family = { us_census_2010 = 362, wikidata = 9, as_of = 2026-10-21 }
 given = { wikidata = 322, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "emd"
@@ -3630,7 +3665,7 @@ credential = {}
 [[word]]
 text = "erd"
 family = { us_census_2010 = 222, wikidata = 1, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "evp"
@@ -3695,7 +3730,7 @@ credential = {}
 [[word]]
 text = "faia"
 family = { us_census_2010 = 271, wikidata = 7, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "faicp"
@@ -3752,7 +3787,7 @@ credential = {}
 [[word]]
 text = "fic"
 family = { wikidata = 22, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Surname evidence is Wikidata only (no Census bearers); marked on C-i.", issue = 796 }
+credential = { note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Surname evidence is Wikidata only (no Census bearers); marked on C-i.", issue = 796 }
 
 [[word]]
 text = "ficf"
@@ -3946,7 +3981,8 @@ credential = {}
 
 [[word]]
 text = "jd"
-credential = { may_be_name = true, expands = "Juris Doctor" }
+given = { us_ssa = 1449, as_of = 2026-10-25, note = "US SSA births summed over both sexes" }
+credential = { expands = "Juris Doctor" }
 
 [[word]]
 text = "jp"
@@ -4002,8 +4038,8 @@ credential = { cased = "Kt" }
 
 [[word]]
 text = "lac"
+family = { us_census_2010 = 696, wikidata = 3, as_of = 2026-10-25 }
 [word.credential]
-may_be_name = true
 expands = "Licensed Acupuncturist"
 issue = 540
 note = "Lac is a Vietnamese given name (the trailing word in native order, Nguyen Van Lac) and a French surname"
@@ -4032,8 +4068,7 @@ credential = { note = "NPPES 3,023 US healthcare providers (August 2026 file); 0
 
 [[word]]
 text = "ld"
-given = { us_ssa = 45, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { note = "NPPES 11,703 US healthcare providers (August 2026 file); 45 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it. Not marked: 45 SSA births against 11,703 providers, the credential reading far the larger (C-i, 2026-10-21 rule)", issue = 797 }
+credential = { note = "NPPES 11,703 US healthcare providers (August 2026 file); 45 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it. Not marked: 45 US SSA births (both sexes summed, 2026-10-21) against 11,703 providers, the credential reading far the larger (C-i, 2026-10-21 rule). The given count stands here rather than as a given reading, which would mark the word (decisions/vocabulary-model, 2026-10-25)", issue = 797 }
 
 [[word]]
 text = "lg"
@@ -4113,7 +4148,9 @@ credential = {}
 
 [[word]]
 text = "ma"
-credential = { may_be_name = true, expands = "Master of Arts" }
+family = { us_census_2010 = 28452, wikidata = 4996, as_of = 2026-10-25 }
+given = { us_ssa = 631, wikidata = 17, as_of = 2026-10-25, note = "female births only; Wikidata is a lower bound; nam_dict band 1 in the Netherlands, 1 in China, 1 in Korea, 1 in Vietnam" }
+credential = { expands = "Master of Arts" }
 
 [[word]]
 text = "maaa"
@@ -4158,7 +4195,7 @@ expands = "son of, Mac contracted"
 same_as = "mac"
 note = "Unlike 'mac' (Mac Miller) it is not a standalone given name. Measured misparse: \"Mc Donald\" gave given='Mc'. Also in SUFFIX_ACRONYMS as Master of Ceremonies, but that is trailing position and unaffected -- \"John Smith MC\" still reads suffix (#360)."
 [word.credential]
-note = "NOT may_be_name though also a particle: #454 closed by design, neither mc nor vd is a borne name (rules/P6's Accepted clause)"
+note = "NOT marked as possibly a name (no name reading) though also a particle: #454 closed by design, neither mc nor vd is a borne name (rules/P6's Accepted clause)"
 
 [[word]]
 text = "mcct"
@@ -4219,8 +4256,9 @@ credential = {}
 
 [[word]]
 text = "meng"
+family = { us_census_2010 = 5729, wikidata = 1319, as_of = 2026-10-25 }
+given = { us_ssa = 568, wikidata = 23, as_of = 2026-10-25, note = "US SSA births summed over both sexes; Wikidata is a lower bound; nam_dict band 6 in China" }
 [word.credential]
-may_be_name = true
 expands = "Master of Engineering"
 issue = 540
 note = "Meng is a Chinese surname and given name"
@@ -4447,13 +4485,13 @@ credential = {}
 text = "obi"
 family = { us_census_2010 = 1403, wikidata = 28, as_of = 2026-10-21 }
 given = { us_ssa = 299, wikidata = 17, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "oca"
 family = { us_census_2010 = 344, wikidata = 2, as_of = 2026-10-21 }
 given = { us_ssa = 16, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "ocm"
@@ -4471,7 +4509,7 @@ credential = {}
 text = "om"
 family = { us_census_2010 = 784, wikidata = 135, as_of = 2026-10-21 }
 given = { us_ssa = 2321, wikidata = 10, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 66 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 66 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "oscp"
@@ -4489,7 +4527,7 @@ credential = { expands = "Occupational Therapist Registered, Licensed", note = "
 text = "pa"
 family = { us_census_2010 = 739, as_of = 2026-10-21 }
 given = { us_ssa = 1343, wikidata = 36, as_of = 2026-10-21, note = "US SSA births summed over both sexes, almost all female; Wikidata is a lower bound" }
-credential = { may_be_name = true, expands = "Physician Assistant", note = "NPPES 54,128 US healthcare providers (August 2026 file); 23 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it. Marked on C-i: the surname reading is substantial (Census 2010 bearers 739, over the 200 threshold)", issue = 797 }
+credential = { expands = "Physician Assistant", note = "NPPES 54,128 US healthcare providers (August 2026 file); 23 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it. Marked on C-i: the surname reading is substantial (Census 2010 bearers 739, over the 200 threshold)", issue = 797 }
 
 [[word]]
 text = "pa-c"
@@ -4506,7 +4544,7 @@ credential = {}
 [[word]]
 text = "pe"
 family = { us_census_2010 = 582, wikidata = 305, as_of = 2026-10-21 }
-credential = { may_be_name = true, note = "NPPES 44 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 44 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "pfmp"
@@ -4785,7 +4823,7 @@ credential = {}
 text = "se"
 family = { us_census_2010 = 384, wikidata = 1, as_of = 2026-10-21 }
 given = { us_ssa = 18, wikidata = 1, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
-credential = { may_be_name = true, note = "NPPES 18 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+credential = { note = "NPPES 18 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
 text = "secb"
@@ -4808,7 +4846,6 @@ text = "si"
 family = { us_census_2010 = 1166, wikidata = 275, as_of = 2026-10-21 }
 given = { us_ssa = 185, wikidata = 124, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
 [word.credential]
-may_be_name = true
 issue = 791
 note = "Si is a common surname (Census 2010: 1,166 family-name bearers; Wikidata 275+ family) and a Vietnamese and Chinese given name; measured 2026-10-21 by tools/name_usage.py. No expansion is recorded: the 2019 bulk import (af5bdab, #93) carried none"
 
@@ -4895,7 +4932,7 @@ credential = {}
 [[word]]
 text = "vd"
 [word.credential]
-note = "NOT may_be_name though also a particle: #454 closed by design, neither mc nor vd is a borne name (rules/P6's Accepted clause)"
+note = "NOT marked as possibly a name (no name reading) though also a particle: #454 closed by design, neither mc nor vd is a borne name (rules/P6's Accepted clause)"
 
 [[word]]
 text = "vrd"
@@ -4925,8 +4962,8 @@ courtesy = { same_as = "esq" }
 
 [[word]]
 text = "mac"
+given = { us_ssa = 11455, wikidata = 178, as_of = 2026-10-25, note = "US SSA births summed over both sexes; Wikidata is a lower bound; nam_dict band 1 in Great Britain" }
 [word.clan]
-may_be_given = true
 expands = "son of"
 note = "Mac Miller: a real given name. This is the case that shows #360's vowel heuristic was not the criterion -- 'mac' and 'mc' differ by attestation, not by shape"
 
@@ -4953,3 +4990,43 @@ birth_marker = { gender = "f" }
 [[word]]
 text = "nee"
 birth_marker = { issue = 274, same_as = "née", gender = "f", note = "née typed without its accent" }
+
+[[word]]
+text = "benj"
+given = { wikidata = 2, as_of = 2026-10-26, same_as = "benjamin", note = "Benjamin written short; no US SSA year reaches 5 births; Wikidata is a lower bound" }
+
+[[word]]
+text = "chas"
+given = { us_ssa = 3223, wikidata = 43, as_of = 2026-10-26, same_as = "charles", note = "Charles written short; US SSA births summed over both sexes (F 10, M 3,213); nam_dict band 1 in the U.S.A.; Wikidata is a lower bound" }
+
+[[word]]
+text = "edw"
+given = { us_ssa = 6, as_of = 2026-10-26, same_as = "edward", note = "Edward written short; US SSA male births only" }
+
+[[word]]
+text = "geo"
+given = { us_ssa = 1324, wikidata = 47, as_of = 2026-10-26, same_as = "george", note = "George written short; US SSA births summed over both sexes (F 16, M 1,308); also a given name of its own (Wikidata: Romania 8, Belgium 6, Italy 5; nam_dict band 1 in Italy, the Netherlands and Switzerland), a given name on either reading; Wikidata is a lower bound" }
+
+[[word]]
+text = "jas"
+given = { us_ssa = 124, wikidata = 1, as_of = 2026-10-26, same_as = "james", note = "James written short; US SSA births summed over both sexes (F 13, M 111); also a Punjabi given name (nam_dict band 2 in India/Sri Lanka), and a surname (US Census 2010 117 bearers, Wikidata 25), which a period-marked word opening the given part is not; Wikidata is a lower bound" }
+
+[[word]]
+text = "jno"
+given = { us_ssa = 11, as_of = 2026-10-26, same_as = "john", note = "John written short; US SSA male births only" }
+
+[[word]]
+text = "richd"
+given = { same_as = "richard", note = "Richard written short; no US SSA year reaches 5 births and Wikidata labels no one Richd: declared as the traditional English abbreviation, beside its set (#789)" }
+
+[[word]]
+text = "robt"
+given = { us_ssa = 468, as_of = 2026-10-26, same_as = "robert", note = "Robert written short; US SSA male births only" }
+
+[[word]]
+text = "saml"
+given = { same_as = "samuel", note = "Samuel written short; no US SSA year reaches 5 births and Wikidata labels no one Saml: declared as the traditional English abbreviation, beside its set (#789)" }
+
+[[word]]
+text = "thos"
+given = { us_ssa = 166, as_of = 2026-10-26, same_as = "thomas", note = "Thomas written short; US SSA male births only; Wikidata labels no one Thos as a given name" }

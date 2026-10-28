@@ -109,7 +109,7 @@ class LegalEntityUpdateParams(TypedDict, total=False):
     """An individual's prefix."""
 
     primary_social_media_sites: SequenceNotStr[str]
-    """A list of primary social media URLs for the business."""
+    """A list of the entity's primary social media URLs."""
 
     regulators: Optional[Iterable[Regulator]]
     """Array of regulatory bodies overseeing this institution."""
@@ -119,6 +119,13 @@ class LegalEntityUpdateParams(TypedDict, total=False):
 
     service_provider_legal_entity_id: Optional[str]
     """The UUID of the parent legal entity in the service provider tree."""
+
+    status: Literal["pending"]
+    """Set to pending to submit a draft legal entity for processing.
+
+    Only valid while the legal entity is draft, and must be the only attribute in
+    the request. Draft child legal entities are submitted with it.
+    """
 
     suffix: Optional[str]
     """An individual's suffix."""

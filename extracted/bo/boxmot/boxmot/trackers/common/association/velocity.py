@@ -1,5 +1,7 @@
 # Mikel Broström 🔥 BoxMOT 🧾 AGPL-3.0 license
 
+from collections.abc import Callable
+
 import numpy as np
 
 from boxmot.trackers.common.association.matching import solve_assignment
@@ -63,7 +65,18 @@ def associate(
     aw_off=None,
     aw_param=None,
     is_obb=False,
+    similarity_conditioner: Callable[[np.ndarray], np.ndarray] | None = None,
+    gate_before_assignment: bool = False,
+    cost_conditioner: Callable[[np.ndarray], np.ndarray] | None = None,
 ):
+    """Match geometry and motion, optionally conditioning geometric similarity.
+
+    Conditioning precedes the unique-match fast path and affects both ranking
+    and final geometric acceptance. Appearance gating still uses the original
+    geometry so guidance does not change how motion or embeddings are weighted.
+    A final cost conditioner receives detection-by-track negative similarities
+    after all ranking cues and disables the unique-pair shortcut.
+    """
     if len(trackers) == 0:
         return AssociationResult(
             matches=np.empty((0, 2), dtype=int),
@@ -88,7 +101,12 @@ def associate(
     confidence_idx = 5 if is_obb else 4
     valid_mask[np.where(previous_obs[:, confidence_idx] < 0)] = 0
 
-    similarity_matrix = asso_func(detections, trackers)
+    original_similarity = asso_func(detections, trackers)
+    similarity_matrix = (
+        original_similarity
+        if similarity_conditioner is None
+        else similarity_conditioner(original_similarity)
+    )
     scores = np.repeat(detections[:, -1][:, np.newaxis], trackers.shape[0], axis=1)
     valid_mask = np.repeat(valid_mask[:, np.newaxis], X.shape[1], axis=1)
 
@@ -97,20 +115,29 @@ def associate(
     angle_diff_cost = angle_diff_cost * scores
 
     if min(similarity_matrix.shape):
-        a = (similarity_matrix > similarity_threshold).astype(np.int32)
-        if a.sum(1).max() == 1 and a.sum(0).max() == 1:
+        admissible = (
+            similarity_matrix >= similarity_threshold
+            if gate_before_assignment
+            else similarity_matrix > similarity_threshold
+        )
+        a = admissible.astype(np.int32)
+        if cost_conditioner is None and a.sum(1).max() == 1 and a.sum(0).max() == 1:
             matched_indices = np.stack(np.where(a), axis=1)
         else:
             if emb_cost is None:
                 emb_cost = 0
             else:
-                emb_cost[similarity_matrix <= 0] = 0
+                emb_cost[original_similarity <= 0] = 0
                 if not aw_off:
                     emb_cost = compute_aw_max_metric(emb_cost, w_assoc_emb, bottom=aw_param)
                 else:
                     emb_cost *= w_assoc_emb
 
             final_cost = -(similarity_matrix + angle_diff_cost + emb_cost)
+            if cost_conditioner is not None:
+                final_cost = cost_conditioner(final_cost)
+            if cost_conditioner is not None or gate_before_assignment or not np.isfinite(similarity_matrix).all():
+                final_cost = np.where(similarity_matrix >= similarity_threshold, final_cost, np.inf)
             matched_indices = solve_assignment(final_cost)
             if matched_indices.size == 0:
                 matched_indices = np.empty(shape=(0, 2))

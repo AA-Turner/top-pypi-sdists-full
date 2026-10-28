@@ -151,6 +151,9 @@ def begin(trigger: str, *, argv: list[str] | None = None, before_exec=None) -> E
     if _begun:
         return None
     _begun = True
+    refused = _uninstalling()
+    if refused is not None:
+        return refused
     if os.environ.get(handoff.ADOPT_ENV):
         return adopt()
     if not runs_managed_cli():
@@ -171,10 +174,36 @@ def begin(trigger: str, *, argv: list[str] | None = None, before_exec=None) -> E
     except Exception as exc:  # noqa: BLE001 -- the update goes on here, as before
         _answer = {"result": "error", "detail": f"{type(exc).__name__}: {exc}"}
     result = _answer.get("result")
+    if result == getattr(handoff.Result, "UNINSTALLING", "uninstalling"):
+        # The hand-off (v3) found `probe uninstall`'s barrier LIVE: the update
+        # ENDS here, never goes on in this release instead.
+        return Ending(DEFERRED_EXIT, "not updating: Probe is being uninstalled on this computer"
+                      + (f" ({_answer['detail']})" if _answer.get("detail") else ""))
     if result not in (handoff.Result.CURRENT, handoff.Result.NOT_MANAGED):
         _say(f"the newest release could not take this update over ({result}"
              + (f": {_answer['detail']}" if _answer.get("detail") else "") + "); it goes on here")
     return None
+
+
+def _uninstalling() -> Ending | None:
+    """`probe uninstall` runs, or must be finished (its barrier is LIVE,
+    `probe._shared.uninstall_barrier`): no update installs or switches
+    anything, here or in the release a hand-off exec'd (PROBE_UPDATE_ADOPT,
+    whose variables and inherited install lock are let go unused)."""
+    from probe._shared import uninstall_barrier
+
+    try:
+        said = uninstall_barrier.refusal()
+    except Exception:  # noqa: BLE001 -- the reader never raises; a bug in it must not stop updates for good
+        said = None
+    if not said:
+        return None
+    target = os.environ.pop(handoff.ADOPT_ENV, "")
+    for name in (handoff.DROPPED_WITH_ENV, handoff.FROM_ENV, handoff.TRIGGER_ENV):
+        os.environ.pop(name, None)
+    if target:
+        handoff.release_inherited(Path(target).parent.parent)
+    return Ending(DEFERRED_EXIT, f"not updating: {said}")
 
 
 def selftest() -> str | None:

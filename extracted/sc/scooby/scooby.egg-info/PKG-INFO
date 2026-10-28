@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scooby
-Version: 0.12.0
+Version: 0.12.1
 Summary: A Great Dane turned Python environment detective
 Author-email: "Dieter Werthmüller, Bane Sullivan, Alex Kaszynski, and contributors" <info@pyvista.org>
 License-Expression: MIT
@@ -220,9 +220,15 @@ class Report(scooby.Report):
         # Optional packages.
         optional = ['your_optional_packages', 'e.g.', 'matplotlib']
 
-        scooby.Report.__init__(self, additional=additional, core=core,
-                               optional=optional, ncol=ncol,
-                               text_width=text_width, sort=sort)
+        scooby.Report.__init__(
+            self,
+            additional=additional,
+            core=core,
+            optional=optional,
+            ncol=ncol,
+            text_width=text_width,
+            sort=sort,
+        )
 ```
 
 This makes it particularly easy for a user of your project to quickly generate
@@ -249,6 +255,7 @@ soft dependency. Instead of `import scooby` use the following snippet:
 try:
     from scooby import Report as ScoobyReport
 except ImportError:
+
     class ScoobyReport:
         def __init__(self, *args, **kwargs):
             message = (
@@ -272,10 +279,15 @@ class Report(ScoobyReport):
         # Optional packages.
         optional = ['your_optional_packages', 'e.g.', 'matplotlib']
 
-        scooby.Report.__init__(self, additional=additional, core=core,
-                               optional=optional, ncol=ncol,
-                               text_width=text_width, sort=sort)
-
+        scooby.Report.__init__(
+            self,
+            additional=additional,
+            core=core,
+            optional=optional,
+            ncol=ncol,
+            text_width=text_width,
+            sort=sort,
+        )
 ```
 
 If a user has scooby installed, all works as expected. If scooby is not
@@ -331,14 +343,16 @@ distribution requirements with the `AutoReport` class:
 ### Solving Mysteries
 
 Are you struggling with the mystery of whether or not code is being executed in
-IPython, Jupyter, or normal Python? Try using some of scooby's investigative
-functions to solve these kinds of mysteries:
+IPython, Jupyter, marimo, or normal Python? Try using some of scooby's
+investigative functions to solve these kinds of mysteries:
 
 ```py
 import scooby
 
 if scooby.in_ipykernel():
     # Do Jupyter/IPyKernel stuff
+elif scooby.in_marimo():
+    # Do marimo notebook stuff
 elif scooby.in_ipython():
     # Do IPython stuff
 else:

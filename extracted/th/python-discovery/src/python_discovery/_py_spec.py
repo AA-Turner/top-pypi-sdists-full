@@ -104,6 +104,11 @@ def _parse_specifier(string_spec: str) -> PythonSpec | None:
         version_specifier = SpecifierSet.from_string(spec_text)
     except InvalidSpecifier:  # pragma: no cover
         return None
+    # the set never raises: it keeps an unparsable version as None and drops items without an operator, so fall back
+    # to a literal path, like any other unrecognized spec, unless every item parsed into a usable version
+    items = [item for item in spec_text.split(",") if item.strip()]
+    if len(items) != len(version_specifier.specifiers) or any(spec.version is None for spec in version_specifier):
+        return None
     if impl in {"py", "python"}:
         impl = None
     if impl == "graalvm":

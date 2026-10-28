@@ -138,13 +138,16 @@ def test_when_requires_single_dep_and_own_dep_refs():
 
 
 def test_when_predicate_sandbox_rejects_calls():
+    # The plan gate runs the ENGINE's check: a safe helper (len) passes, any other call is refused.
     plan = _plan(
         [
             _step(1),
-            _step(2, depends_on=[1], when="len($steps.1.output.final_text) > 0"),
+            _step(2, depends_on=[1], when="open($steps.1.output.final_text) > 0"),
         ]
     )
-    assert "disallowed expression element" in _messages(plan).lower()
+    assert "disallowed" in _messages(plan).lower()
+    ok = _plan([_step(1), _step(2, depends_on=[1], when="len($steps.1.output.final_text) > 0")])
+    assert "disallowed" not in _messages(ok).lower()
 
 
 def test_valid_when_predicate_passes():

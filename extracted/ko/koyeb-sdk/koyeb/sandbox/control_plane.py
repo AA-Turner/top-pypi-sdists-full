@@ -144,7 +144,9 @@ class SyncControlPlane:
             latest_deployment_id=service.latest_deployment_id,
         )
 
-    def update_service(self, service_id: str, definition: Dict[str, Any]) -> Optional[str]:
+    def update_service(
+        self, service_id: str, definition: Dict[str, Any]
+    ) -> Optional[str]:
         reply = self._clients.services.update_service(
             id=service_id, service=UpdateService(definition=definition)
         )
@@ -182,11 +184,15 @@ class SyncControlPlane:
         return services, reply.count or 0
 
     def get_deployment(self, deployment_id: str) -> DeploymentInfo:
-        deployment = self._clients.deployments.get_deployment(id=deployment_id).deployment
+        deployment = self._clients.deployments.get_deployment(
+            id=deployment_id
+        ).deployment
         return _deployment_info(deployment)
 
     def deployment_definition(self, deployment_id: str) -> Dict[str, Any]:
-        deployment = self._clients.deployments.get_deployment(id=deployment_id).deployment
+        deployment = self._clients.deployments.get_deployment(
+            id=deployment_id
+        ).deployment
         return deployment.definition.to_dict()
 
 

@@ -19,12 +19,15 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from connector_sdk_types.generated.models.access_graph_entitlement_rule import AccessGraphEntitlementRule
 from connector_sdk_types.generated.models.access_graph_entitlement_type import AccessGraphEntitlementType
 from connector_sdk_types.generated.models.access_graph_implied_access_rule import AccessGraphImpliedAccessRule
 from connector_sdk_types.generated.models.entitlement_type import EntitlementType
 from connector_sdk_types.generated.models.probe_check_name import ProbeCheckName
 from connector_sdk_types.generated.models.resource_type import ResourceType
+from connector_sdk_types.generated.models.ticket_body_format import TicketBodyFormat
+from connector_sdk_types.generated.models.ticket_destination_field import TicketDestinationField
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -48,8 +51,13 @@ class OpenAPISpecificationInfo(BaseModel):
     x_capabilities: List[StrictStr] = Field(alias="x-capabilities")
     x_multi_credential: StrictBool = Field(alias="x-multi-credential")
     x_probe_checks: Optional[List[ProbeCheckName]] = Field(default=None, description="The `probe_integration` checks this connector implements, in the order it runs them.  Null when the connector has no probe, or a probe that declares no checks, which callers should read as a legacy probe performing the baseline checks. An empty list means the probe declares checks but can perform none of them.", alias="x-probe-checks")
+    x_ticket_destination_fields: Optional[List[TicketDestinationField]] = Field(default=None, description="The fields that make up a ticket destination, in display order. Null when the connector doesn't create tickets.", alias="x-ticket-destination-fields")
+    x_ticket_description_formats: Optional[List[TicketBodyFormat]] = Field(default=None, description="The formats `create_ticket` accepts for a ticket description.", alias="x-ticket-description-formats")
+    x_ticket_comment_formats: Optional[List[TicketBodyFormat]] = Field(default=None, description="The formats `add_ticket_comment` accepts for a comment body.", alias="x-ticket-comment-formats")
+    x_ticket_summary_max_length: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="The most characters the ticketing system accepts in a ticket summary, if it caps them. Advertised for the caller to respect; nothing enforces it.", alias="x-ticket-summary-max-length")
+    x_ticket_description_max_length: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="The most characters the ticketing system accepts in a ticket description, if it caps them. Advertised for the caller to respect; nothing enforces it.", alias="x-ticket-description-max-length")
     x_allowed_credentials: List[List[StrictStr]] = Field(alias="x-allowed-credentials")
-    __properties: ClassVar[List[str]] = ["title", "description", "version", "x-app-id", "x-app-logo-url", "x-app-vendor-domain", "x-entitlement-types", "x-access-graph-entitlement-types", "x-access-graph-entitlement-rules", "x-implied-access-rules", "x-resource-types", "x-categories", "x-oauth-settings", "x-capabilities", "x-multi-credential", "x-probe-checks", "x-allowed-credentials"]
+    __properties: ClassVar[List[str]] = ["title", "description", "version", "x-app-id", "x-app-logo-url", "x-app-vendor-domain", "x-entitlement-types", "x-access-graph-entitlement-types", "x-access-graph-entitlement-rules", "x-implied-access-rules", "x-resource-types", "x-categories", "x-oauth-settings", "x-capabilities", "x-multi-credential", "x-probe-checks", "x-ticket-destination-fields", "x-ticket-description-formats", "x-ticket-comment-formats", "x-ticket-summary-max-length", "x-ticket-description-max-length", "x-allowed-credentials"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -125,6 +133,13 @@ class OpenAPISpecificationInfo(BaseModel):
                 if _item_x_resource_types:
                     _items.append(_item_x_resource_types.to_dict())
             _dict['x-resource-types'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in x_ticket_destination_fields (list)
+        _items = []
+        if self.x_ticket_destination_fields:
+            for _item_x_ticket_destination_fields in self.x_ticket_destination_fields:
+                if _item_x_ticket_destination_fields:
+                    _items.append(_item_x_ticket_destination_fields.to_dict())
+            _dict['x-ticket-destination-fields'] = _items
         return _dict
 
     @classmethod
@@ -153,6 +168,11 @@ class OpenAPISpecificationInfo(BaseModel):
             "x-capabilities": obj.get("x-capabilities"),
             "x-multi-credential": obj.get("x-multi-credential"),
             "x-probe-checks": obj.get("x-probe-checks"),
+            "x-ticket-destination-fields": [TicketDestinationField.from_dict(_item) for _item in obj["x-ticket-destination-fields"]] if obj.get("x-ticket-destination-fields") is not None else None,
+            "x-ticket-description-formats": obj.get("x-ticket-description-formats"),
+            "x-ticket-comment-formats": obj.get("x-ticket-comment-formats"),
+            "x-ticket-summary-max-length": obj.get("x-ticket-summary-max-length"),
+            "x-ticket-description-max-length": obj.get("x-ticket-description-max-length"),
             "x-allowed-credentials": obj.get("x-allowed-credentials")
         })
         return _obj

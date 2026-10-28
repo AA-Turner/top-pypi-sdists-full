@@ -40,8 +40,8 @@ def main() -> int:
         pool.update(size=5)
         print("✓ Updated: size=5")
 
-        # Refresh re-fetches the pool (status, ready_count, ...).
-        pool.refresh()
+        # Refresh returns a new handle: read state from it, not the stale one.
+        pool = pool.refresh()
         print(f"✓ Refreshed, ready_count={pool.ready_count}, status={pool.status}")
         assert pool.size == 5, f"Expected size 5 after update, got {pool.size}"
     except Exception as e:  # noqa: BLE001 - surface any failure but still clean up

@@ -65,8 +65,10 @@ class _AllAirBase(_TemplateSystem):
         * latent_heat_recovery
         * demand_controlled_ventilation
         * schedules
+        * has_air_loop
         * has_district_heating
         * has_district_cooling
+        * balances_exhaust
         * user_data
         * properties
     """
@@ -135,7 +137,6 @@ class _AllAirBase(_TemplateSystem):
         if value is None or value == 0:
             self._sensible_heat_recovery = 0
         else:
-            self._air_loop_check('sensible_heat_recovery')
             self._sensible_heat_recovery = \
                 float_in_range(value, 0.0, 1.0, 'hvac sensible heat recovery')
 
@@ -149,7 +150,6 @@ class _AllAirBase(_TemplateSystem):
         if value is None or value == 0:
             self._latent_heat_recovery = 0
         else:
-            self._air_loop_check('latent_heat_recovery')
             self._latent_heat_recovery = \
                 float_in_range(value, 0.0, 1.0, 'hvac latent heat recovery')
 
@@ -163,6 +163,16 @@ class _AllAirBase(_TemplateSystem):
         self._demand_controlled_ventilation = bool(value)
         if self._demand_controlled_ventilation:
             self._air_loop_check('demand_controlled_ventilation')
+
+    @property
+    def has_air_loop(self):
+        """True for most All-Air systems but False for PTAC/PTHP."""
+        return self._has_air_loop
+
+    @property
+    def balances_exhaust(self):
+        """True for most All-Air systems but False for PTAC/PTHP."""
+        return self.has_air_loop
 
     @property
     def properties(self):

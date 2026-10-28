@@ -21,6 +21,7 @@ PROC COMPARE in SAS - i.e. human-readable reporting on the difference between
 two dataframes.
 """
 
+import inspect
 import logging
 from copy import deepcopy
 from typing import Any, Dict, List, cast
@@ -48,6 +49,16 @@ LOG = logging.getLogger(__name__)
 
 STRING_TYPE = ["String", "Utf8"]
 LIST_TYPE = ["List", "Array"]
+
+# ``DataFrame.join`` spells its null-equality argument ``join_nulls`` up to polars
+# 1.23, ``nulls_equal`` from polars 1.24, and drops ``join_nulls`` entirely in
+# polars 2.0.  Resolving the name from the installed signature keeps a single
+# join path across the whole supported range.
+_JOIN_NULLS_KWARG = (
+    "nulls_equal"
+    if "nulls_equal" in inspect.signature(pl.DataFrame.join).parameters
+    else "join_nulls"
+)
 
 _POLARS_DEFAULT_COMPARATORS = [
     PolarsArrayLikeComparator(),
@@ -374,7 +385,8 @@ class PolarsCompare(BaseCompare):
         df1 = df1.with_columns(_merge_left=pl.lit(True))
         df2 = df2.with_columns(_merge_right=pl.lit(True))
 
-        outer_join = df1.join(df2, how="full", coalesce=True, join_nulls=True, **params)
+        null_equality: Dict[str, Any] = {_JOIN_NULLS_KWARG: True}
+        outer_join = df1.join(df2, how="full", coalesce=True, **null_equality, **params)
 
         # process merge indicator
         outer_join = outer_join.with_columns(
@@ -664,9 +676,12 @@ class PolarsCompare(BaseCompare):
             LOG.info("Only join keys in data, returning mismatches based on unq_rows")
             return pl.concat([self.df1_unq_rows, self.df2_unq_rows])
 
-        for col in self.intersect_rows.columns:
-            if col.endswith("_match"):
-                orig_col_name = col[:-6]
+        # Walk the compared columns rather than every intersect_rows column
+        # ending in "_match": join columns and columns unique to one frame can
+        # have that suffix too, and are not compared.
+        for orig_col_name in self.intersect_columns():
+            if orig_col_name not in self.join_columns:
+                col = orig_col_name + "_match"
 
                 col_comparison = columns_equal(
                     col_1=self.intersect_rows[orig_col_name + "_" + self.df1_name],

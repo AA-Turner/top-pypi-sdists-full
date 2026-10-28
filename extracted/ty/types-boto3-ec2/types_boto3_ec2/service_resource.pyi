@@ -276,6 +276,7 @@ from .type_defs import (
     RouteTypeDef,
     RunInstancesRequestServiceResourceCreateInstancesTypeDef,
     RunInstancesRequestSubnetCreateInstancesTypeDef,
+    ScanResultsTypeDef,
     SecurityGroupCreateTagsRequestTypeDef,
     SnapshotCreateTagsRequestTypeDef,
     StartInstancesRequestInstanceStartTypeDef,
@@ -2869,6 +2870,7 @@ class Image(ServiceResource):
     free_tier_eligible: bool
     public_ssm_parameter_name: str
     image_watermarks: list[ImageWatermarkTypeDef]
+    scan_results: ScanResultsTypeDef
     instance_type_specification: InstanceTypeSpecificationTypeDef
     image_id: str
     image_location: str

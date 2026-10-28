@@ -3,7 +3,7 @@ project(casadi C CXX)
 
 set(CASADI_MAJOR_VERSION 3)
 set(CASADI_MINOR_VERSION 8)
-set(CASADI_PATCH_VERSION 1)
+set(CASADI_PATCH_VERSION 2)
 set(CASADI_IS_RELEASE 1)
 
 set(CASADI_VERSION ${CASADI_MAJOR_VERSION}.${CASADI_MINOR_VERSION}.${CASADI_PATCH_VERSION})
@@ -672,14 +672,14 @@ add_feature_info(dynamic-loading WITH_DL "Compile with support for dynamic loadi
 # Support for import of FMI 2.0 binaries
 option(WITH_FMI2 "Compile with support for import of FMI 2.0 binaries" ON)
 if(WITH_FMI2)
-  set(FMI2_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external_packages/FMI-Standard-2.0.2/headers)
+  set(FMI2_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external_packages/FMI-Standard-2.0.2/headers CACHE PATH "Directory containing the FMI 2.0 headers")
 endif()
 add_feature_info(dynamic-loading WITH_FMI2 "Support for import of FMI 2.0 binaries")
 
 # Support for import of FMI 3.0 binaries
 option(WITH_FMI3 "Compile with support for import of FMI 3.0 binaries" ON)
 if(WITH_FMI3)
-  set(FMI3_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external_packages/FMI-Standard-3.0/headers)
+  set(FMI3_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external_packages/FMI-Standard-3.0/headers CACHE PATH "Directory containing the FMI 3.0 headers")
 endif()
 add_feature_info(dynamic-loading WITH_FMI3 "Support for import of FMI 3.0 binaries")
 
@@ -876,8 +876,8 @@ add_feature_info(clang-interface WITH_CLANG "Interface to the Clang JIT compiler
 # Lapack: Dense linear solvers
 option(WITH_LAPACK "Compile the interface to LAPACK" ${WITH_LAPACK_DEF})
 option(WITH_BUILD_LAPACK "Download and install OpenBLAS for LAPACK+BLAS" OFF)
-set(BUILD_LAPACK_GIT_REPO https://github.com/xianyi/OpenBLAS.git  CACHE STRING "Git repo used together with BUILD_LAPACK_VERSION")
-set(BUILD_LAPACK_VERSION v0.3.24 CACHE STRING "Tag/branch/hash to be used for BUILD_LAPACK_GIT_REPO")
+set(BUILD_LAPACK_GIT_REPO https://github.com/jgillis/OpenBLAS.git CACHE STRING "Git repo used together with BUILD_LAPACK_VERSION")
+set(BUILD_LAPACK_VERSION 0.3.24.mod CACHE STRING "Tag/branch/hash to be used for BUILD_LAPACK_GIT_REPO")
 set(BUILD_LAPACK_GIT_SHALLOW ON CACHE BOOL "Use shallow clone for LAPACK")
 
 # qpOASES: An active-set QP solver

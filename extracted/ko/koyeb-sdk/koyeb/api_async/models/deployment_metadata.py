@@ -26,6 +26,7 @@ from koyeb.api_async.models.database_deployment_metadata import (
 from koyeb.api_async.models.deployment_proxy_port_metadata import (
     DeploymentProxyPortMetadata,
 )
+from koyeb.api_async.models.docker_deployment_metadata import DockerDeploymentMetadata
 from koyeb.api_async.models.git_deployment_metadata import GitDeploymentMetadata
 from koyeb.api_async.models.sandbox_metadata import SandboxMetadata
 from koyeb.api_async.models.trigger_deployment_metadata import TriggerDeploymentMetadata
@@ -45,6 +46,7 @@ class DeploymentMetadata(BaseModel):
     archive: Optional[ArchiveDeploymentMetadata] = None
     proxy_ports: Optional[List[DeploymentProxyPortMetadata]] = None
     sandbox: Optional[SandboxMetadata] = None
+    docker: Optional[DockerDeploymentMetadata] = None
     __properties: ClassVar[List[str]] = [
         "trigger",
         "database",
@@ -52,6 +54,7 @@ class DeploymentMetadata(BaseModel):
         "archive",
         "proxy_ports",
         "sandbox",
+        "docker",
     ]
 
     model_config = ConfigDict(
@@ -116,6 +119,9 @@ class DeploymentMetadata(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of sandbox
         if self.sandbox:
             _dict["sandbox"] = self.sandbox.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of docker
+        if self.docker:
+            _dict["docker"] = self.docker.to_dict()
         return _dict
 
     @classmethod
@@ -149,6 +155,9 @@ class DeploymentMetadata(BaseModel):
                 else None,
                 "sandbox": SandboxMetadata.from_dict(obj["sandbox"])
                 if obj.get("sandbox") is not None
+                else None,
+                "docker": DockerDeploymentMetadata.from_dict(obj["docker"])
+                if obj.get("docker") is not None
                 else None,
             }
         )

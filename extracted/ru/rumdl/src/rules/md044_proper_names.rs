@@ -1,9 +1,9 @@
 use crate::utils::fast_hash;
 use crate::utils::regex_cache::{escape_regex, get_cached_regex};
 
+use crate::lint_context::SourcePositions;
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::utils::frontmatter_values;
-use crate::utils::range_utils::byte_to_char_count;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
@@ -11,6 +11,77 @@ mod md044_config;
 pub(super) use md044_config::MD044Config;
 
 type WarningPosition = (usize, usize, String, usize); // (line, column, found_name, proper_name_index)
+
+/// Bound repeated delimiter scans in one line. Ordinary links need no index.
+/// Queries can start after an opening byte that was escaped in the full line,
+/// so the index also records those starts at their surrounding nesting depth.
+#[derive(Default)]
+struct FallbackDelimiters {
+    scanned_bytes: usize,
+    pairs: Option<HashMap<usize, usize>>,
+}
+
+impl FallbackDelimiters {
+    fn find(&mut self, bytes: &[u8], from: usize, open: u8, close: u8) -> Option<usize> {
+        debug_assert!(from > 0 && bytes.get(from - 1) == Some(&open));
+        if self.pairs.is_none() && self.scanned_bytes >= bytes.len().saturating_mul(2) {
+            let mut pairs = HashMap::new();
+            let mut pending = Vec::new();
+            let mut depth = 0usize;
+            let mut pos = 0;
+            while pos < bytes.len() {
+                match bytes[pos] {
+                    b'\\' => {
+                        if bytes.get(pos + 1) == Some(&open) {
+                            pending.push((depth, pos + 2));
+                        }
+                        pos += 1;
+                    }
+                    byte if byte == open => {
+                        depth += 1;
+                        pending.push((depth, pos + 1));
+                    }
+                    byte if byte == close => {
+                        while pending.last().is_some_and(|&(level, _)| level == depth) {
+                            let (_, start) = pending.pop().unwrap();
+                            pairs.insert(start, pos + 1);
+                        }
+                        depth = depth.saturating_sub(1);
+                    }
+                    _ => {}
+                }
+                pos += 1;
+            }
+            self.pairs = Some(pairs);
+        }
+        if let Some(pairs) = &self.pairs {
+            return pairs.get(&from).copied();
+        }
+        let end = Self::scan(bytes, from, open, close);
+        self.scanned_bytes = self.scanned_bytes.saturating_add(end.unwrap_or(bytes.len()) - from);
+        end
+    }
+
+    fn scan(bytes: &[u8], from: usize, open: u8, close: u8) -> Option<usize> {
+        let mut depth = 1usize;
+        let mut pos = from;
+        while pos < bytes.len() {
+            match bytes[pos] {
+                b'\\' => pos += 1,
+                byte if byte == open => depth += 1,
+                byte if byte == close => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(pos + 1);
+                    }
+                }
+                _ => {}
+            }
+            pos += 1;
+        }
+        None
+    }
+}
 
 /// Rule MD044: Proper names should be capitalized
 ///
@@ -238,6 +309,8 @@ impl MD044ProperNames {
         let directive_comments =
             crate::inline_config::config_comment_ranges(content, |open| ctx.is_in_code_block_or_span(open));
 
+        let mut wikilink_urls = None;
+
         // Use ctx.lines for better performance
         for (line_idx, line_info) in ctx.lines.iter().enumerate() {
             let line_num = line_idx + 1;
@@ -304,6 +377,11 @@ impl MD044ProperNames {
                 continue;
             }
 
+            // Reuse fallback ranges across all matches on this line.
+            let mut angle_urls = None;
+            let mut fallback_code = None;
+            let mut fallback_urls = None;
+
             // Use the combined regex to find all matches in one pass
             for cap in combined_regex.find_iter(line) {
                 let found_name = &line[cap.start()..cap.end()];
@@ -341,6 +419,10 @@ impl MD044ProperNames {
                     continue; // Not at word boundary
                 }
 
+                if Self::is_file_extension_suffix(line, start_pos, found_name) {
+                    continue;
+                }
+
                 if self.config.whole_words
                     && ((Self::is_joined_identifier_boundary(line, start_pos, true)
                         && !Self::is_underscore_emphasis_boundary(ctx, byte_pos, true))
@@ -359,7 +441,10 @@ impl MD044ProperNames {
                     // comments, HTML blocks, or frontmatter, so backtick-wrapped
                     // text isn't detected by is_in_code_block_or_span. Check directly.
                     if (line_info.in_html_comment || line_info.in_html_block || line_info.in_front_matter)
-                        && Self::is_in_backtick_code_in_line(line, start_pos)
+                        && crate::inline_config::offset_in_ranges(
+                            fallback_code.get_or_insert_with(|| Self::backtick_code_ranges(line)),
+                            start_pos,
+                        )
                     {
                         continue;
                     }
@@ -373,7 +458,10 @@ impl MD044ProperNames {
                 // Skip if inside an angle-bracket URL (e.g., <https://...>)
                 // The link parser skips autolinks inside HTML comments,
                 // so we detect them directly in the line text.
-                if Self::is_in_angle_bracket_url(line, start_pos) {
+                if crate::inline_config::offset_in_ranges(
+                    angle_urls.get_or_insert_with(|| Self::angle_bracket_url_ranges(line)),
+                    start_pos,
+                ) {
                     continue;
                 }
 
@@ -381,7 +469,10 @@ impl MD044ProperNames {
                 // pulldown-cmark doesn't parse Markdown syntax (HTML comments,
                 // HTML blocks, frontmatter).
                 if (line_info.in_html_comment || line_info.in_html_block || line_info.in_front_matter)
-                    && Self::is_in_markdown_link_url(line, start_pos)
+                    && crate::inline_config::offset_in_ranges(
+                        fallback_urls.get_or_insert_with(|| Self::markdown_link_url_ranges(line)),
+                        start_pos,
+                    )
                 {
                     continue;
                 }
@@ -390,7 +481,10 @@ impl MD044ProperNames {
                 // parenthesised destination — [[text]](url). pulldown-cmark
                 // registers [[text]] as a WikiLink in ctx.links() but leaves the
                 // (url) as plain text, so is_in_link() misses those bytes.
-                if Self::is_in_wikilink_url(ctx, byte_pos) {
+                if crate::inline_config::offset_in_ranges(
+                    wikilink_urls.get_or_insert_with(|| Self::wikilink_url_ranges(ctx)),
+                    byte_pos,
+                ) {
                     continue;
                 }
 
@@ -552,12 +646,13 @@ impl MD044ProperNames {
             )
     }
 
-    /// Check if a position within a line falls inside an angle-bracket URL (`<scheme://...>`).
+    /// Collect disjoint, source-ordered angle-bracket URL ranges (`<scheme://...>`).
     ///
     /// The link parser skips autolinks inside HTML comments, so `ctx.links()` won't
     /// contain them. This function detects angle-bracket URLs directly in the line
     /// text, covering both HTML comments and regular text as a safety net.
-    fn is_in_angle_bracket_url(line: &str, pos: usize) -> bool {
+    fn angle_bracket_url_ranges(line: &str) -> Vec<std::ops::Range<usize>> {
+        let mut ranges = Vec::new();
         let bytes = line.as_bytes();
         let len = bytes.len();
         let mut i = 0;
@@ -592,10 +687,8 @@ impl MD044ProperNames {
                                 _ => j += 1,
                             }
                         }
-                        if found_close && pos >= i && pos <= j {
-                            return true;
-                        }
                         if found_close {
+                            ranges.push(i..j + 1);
                             i = j + 1;
                             continue;
                         }
@@ -604,163 +697,118 @@ impl MD044ProperNames {
             }
             i += 1;
         }
-        false
+        ranges
     }
 
-    /// Check if `byte_pos` falls inside the URL of a `[[text]](url)` construct.
-    ///
-    /// pulldown-cmark with WikiLinks enabled parses `[[text]]` as a WikiLink and
-    /// records it in `ctx.links()`, but the immediately following `(url)` is left as
-    /// plain text and is therefore absent from `ctx.links()`. This function detects
-    /// that gap by looking for a WikiLink entry whose `byte_end` falls exactly on a
-    /// `(` in the raw content, then checking whether `byte_pos` lies inside the
-    /// matching parenthesised URL span.
-    ///
-    /// Unlike `is_in_markdown_link_url`, this function is anchored to real parser
-    /// output (`ctx.links()`) and will not suppress violations in text that merely
-    /// looks like a link (e.g. `[foo](github x)` with a space in the URL).
-    fn is_in_wikilink_url(ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
+    #[cfg(test)]
+    fn is_in_angle_bracket_url(line: &str, pos: usize) -> bool {
+        crate::inline_config::offset_in_ranges(&Self::angle_bracket_url_ranges(line), pos)
+    }
+
+    /// Destinations immediately following parsed WikiLinks. The parser leaves
+    /// their parentheses as prose, so ordinary link ranges do not cover them.
+    /// Scan once for all requested openers, preserving the fallback's raw-byte
+    /// nesting, backslash escapes and rejection of unescaped whitespace.
+    fn wikilink_url_ranges(ctx: &crate::lint_context::LintContext) -> Vec<std::ops::Range<usize>> {
         use pulldown_cmark::LinkType;
         let content = ctx.content.as_bytes();
-
-        for link in ctx.links_starting_before_or_at(byte_pos) {
-            if !matches!(link.link_type, LinkType::WikiLink { .. }) {
-                continue;
-            }
-            let wiki_end = link.byte_end;
-            // The WikiLink must end before byte_pos and be immediately followed by '('.
-            if wiki_end >= byte_pos || wiki_end >= content.len() || content[wiki_end] != b'(' {
-                continue;
-            }
-            // Scan to the matching ')' tracking nested parens and backslash escapes.
-            // Per CommonMark, an unquoted inline link destination cannot contain
-            // spaces, tabs, or newlines. If we encounter one, this is parenthesised
-            // prose rather than a URL, and pulldown-cmark will not parse it as a link.
-            let mut depth: u32 = 1;
-            let mut k = wiki_end + 1;
-            let mut valid_destination = true;
-            while k < content.len() && depth > 0 {
-                match content[k] {
-                    b'\\' => {
-                        k += 1; // skip escaped character
+        let starts: HashSet<_> = ctx
+            .links()
+            .iter()
+            .filter(|link| matches!(link.link_type, LinkType::WikiLink { .. }))
+            .map(|link| link.byte_end)
+            .filter(|&end| content.get(end) == Some(&b'('))
+            .collect();
+        let mut ranges: Vec<std::ops::Range<usize>> = Vec::new();
+        let Some(mut pos) = starts.iter().min().copied() else {
+            return ranges;
+        };
+        let last_start = *starts.iter().max().unwrap();
+        // Only requested destinations need stack entries; other parentheses
+        // contribute to depth without allocating per nesting level.
+        let mut stack = Vec::new();
+        let mut depth = 0usize;
+        while pos < content.len() {
+            match content[pos] {
+                b'\\' => pos += 1,
+                b'(' => {
+                    depth += 1;
+                    if starts.contains(&pos) {
+                        stack.push((pos, depth));
                     }
-                    b'(' => depth += 1,
-                    b')' => depth -= 1,
-                    b' ' | b'\t' | b'\n' | b'\r' => {
-                        valid_destination = false;
-                        break;
-                    }
-                    _ => {}
                 }
-                k += 1;
+                b')' => {
+                    if stack.last().is_some_and(|&(_, level)| level == depth) {
+                        let (open, _) = stack.pop().unwrap();
+                        // Balanced destinations are nested or disjoint. An outer
+                        // destination subsumes the inner ranges at the end of the
+                        // vector, leaving source-ordered disjoint ranges for lookup.
+                        while ranges.last().is_some_and(|range| range.start > open) {
+                            ranges.pop();
+                        }
+                        ranges.push(open + 1..pos + 1);
+                    }
+                    depth = depth.saturating_sub(1);
+                }
+                // Every still-open destination crosses this whitespace and is invalid.
+                b' ' | b'\t' | b'\n' | b'\r' => {
+                    stack.clear();
+                    depth = 0;
+                }
+                _ => {}
             }
-            // byte_pos is inside the URL if it falls between '(' and the matching ')'
-            // and the destination is valid (no unescaped whitespace).
-            if valid_destination && depth == 0 && byte_pos > wiki_end && byte_pos < k {
-                return true;
+            if pos >= last_start && stack.is_empty() {
+                break;
             }
+            pos += 1;
         }
-        false
+        ranges
     }
 
-    /// Check if a position within a line falls inside a Markdown link's
-    /// non-text portion (URL or reference label).
+    /// Collect a line's Markdown link destinations and reference labels.
     ///
     /// Used as a text-level fallback for HTML comments, HTML blocks, and
     /// frontmatter where pulldown-cmark skips link parsing entirely. Operates on
     /// raw line bytes and therefore cannot distinguish real links from text that
     /// merely resembles link syntax; do not call on regular markdown lines.
-    /// - `[text](url)` — returns true if `pos` is within `(...)`
-    /// - `[text][ref]` — returns true if `pos` is within the second `[...]`
-    fn is_in_markdown_link_url(line: &str, pos: usize) -> bool {
+    /// - `[text](url)` — bytes after `(` through the closing `)`.
+    /// - `[text][ref]` — bytes after the second `[` through its closing `]`.
+    fn markdown_link_url_ranges(line: &str) -> Vec<std::ops::Range<usize>> {
+        let mut ranges = Vec::new();
         let bytes = line.as_bytes();
-        let len = bytes.len();
+        let mut brackets = FallbackDelimiters::default();
+        let mut parentheses = FallbackDelimiters::default();
         let mut i = 0;
-
-        while i < len {
-            // Look for unescaped '[' (handle double-escaped \\[ as unescaped)
-            if bytes[i] == b'[' && (i == 0 || bytes[i - 1] != b'\\' || (i >= 2 && bytes[i - 2] == b'\\')) {
-                // Find matching ']' handling nested brackets
-                let mut depth: u32 = 1;
-                let mut j = i + 1;
-                while j < len && depth > 0 {
-                    match bytes[j] {
-                        b'\\' => {
-                            j += 1; // skip escaped char
-                        }
-                        b'[' => depth += 1,
-                        b']' => depth -= 1,
-                        _ => {}
-                    }
-                    j += 1;
-                }
-
-                // j is now one past the ']'
-                if depth == 0 && j < len {
-                    if bytes[j] == b'(' {
-                        // Inline link: [text](url)
-                        let url_start = j;
-                        let mut paren_depth: u32 = 1;
-                        let mut k = j + 1;
-                        while k < len && paren_depth > 0 {
-                            match bytes[k] {
-                                b'\\' => {
-                                    k += 1; // skip escaped char
-                                }
-                                b'(' => paren_depth += 1,
-                                b')' => paren_depth -= 1,
-                                _ => {}
-                            }
-                            k += 1;
-                        }
-
-                        if paren_depth == 0 {
-                            if pos > url_start && pos < k {
-                                return true;
-                            }
-                            i = k;
-                            continue;
-                        }
-                    } else if bytes[j] == b'[' {
-                        // Reference link: [text][ref]
-                        let ref_start = j;
-                        let mut ref_depth: u32 = 1;
-                        let mut k = j + 1;
-                        while k < len && ref_depth > 0 {
-                            match bytes[k] {
-                                b'\\' => {
-                                    k += 1;
-                                }
-                                b'[' => ref_depth += 1,
-                                b']' => ref_depth -= 1,
-                                _ => {}
-                            }
-                            k += 1;
-                        }
-
-                        if ref_depth == 0 {
-                            if pos > ref_start && pos < k {
-                                return true;
-                            }
-                            i = k;
-                            continue;
-                        }
-                    }
+        while i < bytes.len() {
+            // Preserve the fallback's existing treatment of double escapes.
+            if bytes[i] == b'['
+                && (i == 0 || bytes[i - 1] != b'\\' || (i >= 2 && bytes[i - 2] == b'\\'))
+                && let Some(j) = brackets.find(bytes, i + 1, b'[', b']')
+            {
+                let end = match bytes.get(j) {
+                    Some(b'(') => parentheses.find(bytes, j + 1, b'(', b')'),
+                    Some(b'[') => brackets.find(bytes, j + 1, b'[', b']'),
+                    _ => None,
+                };
+                if let Some(end) = end {
+                    ranges.push(j + 1..end);
+                    i = end;
+                    continue;
                 }
             }
             i += 1;
         }
-        false
+        ranges
     }
 
-    /// Check if a position within a line falls inside backtick-delimited code.
+    /// Collect content ranges of backtick-delimited code on a line.
     ///
     /// pulldown-cmark does not parse markdown syntax inside HTML comments, so
     /// `ctx.is_in_code_block_or_span` returns false for backtick-wrapped text
     /// within comments. This function detects backtick code spans directly in
-    /// the line text following CommonMark rules: a code span starts with N
-    /// backticks and ends with exactly N backticks.
-    fn is_in_backtick_code_in_line(line: &str, pos: usize) -> bool {
+    /// the line text, looking for matching runs of exactly the same length.
+    fn backtick_code_ranges(line: &str) -> Vec<std::ops::Range<usize>> {
+        let mut ranges = Vec::new();
         let bytes = line.as_bytes();
         let len = bytes.len();
         let mut i = 0;
@@ -786,9 +834,7 @@ impl MD044ProperNames {
                             // closing backticks (exclusive of the backticks themselves).
                             let content_start = open_start + tick_len;
                             let content_end = close_start;
-                            if pos >= content_start && pos < content_end {
-                                return true;
-                            }
+                            ranges.push(content_start..content_end);
                             // Continue scanning after this pair
                             break;
                         }
@@ -801,7 +847,12 @@ impl MD044ProperNames {
                 i += 1;
             }
         }
-        false
+        ranges
+    }
+
+    #[cfg(test)]
+    fn is_in_backtick_code_in_line(line: &str, pos: usize) -> bool {
+        crate::inline_config::offset_in_ranges(&Self::backtick_code_ranges(line), pos)
     }
 
     // Check if a character is a word boundary (handles Unicode)
@@ -828,6 +879,25 @@ impl MD044ProperNames {
                 Some(c) => Self::is_word_boundary_char(c),
             }
         }
+    }
+
+    /// Preserve a name immediately after a single dot, as in `favorite.toml`
+    /// or `.toml`. Check only the match and its immediate prefix: scanning for
+    /// a whole filename would collide with Markdown punctuation. The stem
+    /// stays checkable, and `node.js` still matches the whole name `Node.js`.
+    fn is_file_extension_suffix(line: &str, start: usize, name: &str) -> bool {
+        let Some(prefix) = line[..start].strip_suffix('.') else {
+            return false;
+        };
+
+        // An ellipsis can introduce prose without a space. Multiword names
+        // and names with other punctuation (such as `.NET`) are not suffixes.
+        !prefix.ends_with('.')
+            && name.starts_with(char::is_alphanumeric)
+            && name.ends_with(char::is_alphanumeric)
+            && name
+                .chars()
+                .all(|character| character.is_alphanumeric() || matches!(character, '.' | '-' | '_'))
     }
 
     /// Whether `pos` is separated from another Unicode-alphanumeric
@@ -896,8 +966,9 @@ impl MD044ProperNames {
     /// case, so `fm_value` is required rather than optional: a caller cannot
     /// accidentally invoke this for a line that has no known value span.
     ///
-    /// A slash is mandatory: without it a bare extension rule would swallow
-    /// dotted proper names such as `Node.js`.
+    /// A slash is mandatory for exempting a whole path token: a blanket
+    /// dotted-token exemption would swallow proper names such as `Node.js`.
+    /// Extension suffixes are protected separately without exempting the stem.
     ///
     /// The 3+ segment sole-value signal only fires for a genuinely
     /// single-token value. A quoted value that collapsed from several
@@ -1023,6 +1094,7 @@ impl Rule for MD044ProperNames {
         }
         let violations = self.find_name_violations(ctx);
 
+        let mut positions = SourcePositions::new(content, &ctx.lines);
         let warnings = violations
             .into_iter()
             .map(|(line, column, found_name, proper_name_index)| {
@@ -1036,8 +1108,7 @@ impl Rule for MD044ProperNames {
                 let byte_end = byte_start + found_name.len();
                 // The displayed columns are character offsets; convert from the byte
                 // offset within the line so they are correct on multi-byte lines.
-                let line_text = ctx.line_info(line).map_or("", |li| li.content(ctx.content));
-                let char_col = byte_to_char_count(line_text, column - 1);
+                let char_col = positions.column_on_line(line - 1, byte_start) + 1;
                 LintWarning {
                     rule_name: Some(self.name().to_string()),
                     line,
@@ -1099,6 +1170,129 @@ mod tests {
             whole_words: true,
             ..Default::default()
         })
+    }
+
+    #[test]
+    fn file_extension_suffixes_preserve_case_but_prose_is_checked() {
+        let content = "I like toml in my favorite.toml file.\n\
+                       Extensions: .toml (.toml) [.toml] \".toml\" '.toml' “.toml” ‘.toml’.\n\
+                       Files: config.toml.example v2.toml café.toml my_conf.toml foo-.toml file(1).toml.\n\
+                       Patterns: *.toml **.toml** _.toml_ /.toml \\.toml.\n\
+                       Next.js uses js, and toml is a format.\n";
+        let expected = content
+            .replacen("I like toml", "I like TOML", 1)
+            .replace("uses js, and toml", "uses JS, and TOML");
+
+        for whole_words in [false, true] {
+            let rule = MD044ProperNames::from_config_struct(MD044Config {
+                names: vec!["TOML".to_string(), "JS".to_string()],
+                whole_words,
+                ..Default::default()
+            });
+            let ctx = create_context(content);
+            assert_eq!(rule.check(&ctx).unwrap().len(), 3);
+            assert_eq!(rule.fix(&ctx).unwrap(), expected);
+            assert!(rule.check(&create_context(&expected)).unwrap().is_empty());
+            assert_eq!(rule.fix(&create_context(&expected)).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn file_extensions_keep_dotted_names_stems_and_function_calls_checkable() {
+        let rule = MD044ProperNames::new(
+            ["TOML", "Oklch", "Node.js", "MyApp", ".NET", "GitHub"]
+                .map(str::to_string)
+                .to_vec(),
+            false,
+        );
+        let content = "Use node.js and .net for myapp.\n\
+                       See docs/myapp.md and docs/myapp(1).md.\n\
+                       Oklch syntax is oklch(.5 .5 255); github(tm) is a reference.\n\
+                       I like TOML in my favorite.toml file.\n\
+                       Use `favorite.toml` and `oklch(.5 .5 255)`.\n";
+        let expected = "Use Node.js and .NET for MyApp.\n\
+                        See docs/MyApp.md and docs/MyApp(1).md.\n\
+                        Oklch syntax is Oklch(.5 .5 255); GitHub(tm) is a reference.\n\
+                        I like TOML in my favorite.toml file.\n\
+                        Use `favorite.toml` and `oklch(.5 .5 255)`.\n";
+        let ctx = create_context(content);
+        assert_eq!(rule.check(&ctx).unwrap().len(), 7);
+        assert_eq!(rule.fix(&ctx).unwrap(), expected);
+        assert!(rule.check(&create_context(expected)).unwrap().is_empty());
+    }
+
+    #[test]
+    fn file_extensions_do_not_exempt_ellipsis_or_multiword_prose() {
+        let rule = MD044ProperNames::new(vec!["TOML".to_string(), "My App".to_string()], false);
+        let content = "Wait...toml or …toml; e.g. toml and file. toml.\n\
+                       Sentence.my app is still prose.\n";
+        let expected = "Wait...TOML or …TOML; e.g. TOML and file. TOML.\n\
+                        Sentence.My App is still prose.\n";
+        let ctx = create_context(content);
+        assert_eq!(rule.check(&ctx).unwrap().len(), 5);
+        assert_eq!(rule.fix(&ctx).unwrap(), expected);
+    }
+
+    #[test]
+    fn file_extension_syntax_applies_to_dotted_tokens_and_html_prose() {
+        let rule = MD044ProperNames::new(["TOML", "Node.js", "GitHub"].map(str::to_string).to_vec(), false);
+        // A single dot is a syntax cue, not proof of a filename. In particular,
+        // missing a space after a sentence period can hide a capitalization error.
+        let content = ".github api.node.js api.github.com i.e.toml\n\
+                       node.js github and toml\n\
+                       <!-- favorite.toml toml -->\n\
+                       <div>favorite.toml toml</div>\n";
+        let expected = ".github api.node.js api.github.com i.e.toml\n\
+                        Node.js GitHub and TOML\n\
+                        <!-- favorite.toml TOML -->\n\
+                        <div>favorite.toml TOML</div>\n";
+        let ctx = create_context(content);
+        assert_eq!(rule.check(&ctx).unwrap().len(), 5);
+        assert_eq!(rule.fix(&ctx).unwrap(), expected);
+        assert!(rule.check(&create_context(expected)).unwrap().is_empty());
+    }
+
+    #[test]
+    fn file_extensions_in_markdown_preserve_suffixes_and_check_prose() {
+        let content = "**favorite.toml** *favorite.toml* _favorite.toml_\n\
+                       [favorite.toml](other.md) [toml](favorite.toml)\n\
+                       ![favorite.toml](img.png) ![toml](img.toml)\n\
+                       [[favorite.toml]] [[Page|favorite.toml]] [[Page|toml]]\n\
+                       `favorite.toml toml`\n\
+                       ```text\n\
+                       favorite.toml toml\n\
+                       ```\n";
+        for code_blocks in [false, true] {
+            let rule = MD044ProperNames::new(vec!["TOML".to_string()], code_blocks);
+            let mut expected = content.replace("[toml]", "[TOML]").replace("|toml]]", "|TOML]]");
+            if code_blocks {
+                expected = expected.replace("favorite.toml toml", "favorite.toml TOML");
+            }
+            for flavor in [
+                crate::config::MarkdownFlavor::Standard,
+                crate::config::MarkdownFlavor::Obsidian,
+            ] {
+                let ctx = LintContext::new(content, flavor, None);
+                assert_eq!(rule.check(&ctx).unwrap().len(), if code_blocks { 5 } else { 3 });
+                assert_eq!(rule.fix(&ctx).unwrap(), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn file_extensions_in_frontmatter_preserve_suffixes_and_check_prose() {
+        let rule = MD044ProperNames::new(["TOML", "Node.js", "MyApp"].map(str::to_string).to_vec(), false);
+        for content in [
+            "---\ntoml: favorite.toml\ntitle: node.js guide to toml\nimage: myapp.png\npath: docs/myapp.md\n---\n",
+            "+++\ntoml = \"favorite.toml\"\ntitle = \"node.js guide to toml\"\nimage = \"myapp.png\"\npath = \"docs/myapp.md\"\n+++\n",
+        ] {
+            let expected = content
+                .replace("node.js guide to toml", "Node.js guide to TOML")
+                .replace("myapp.png", "MyApp.png");
+            let ctx = create_context(content);
+            assert_eq!(rule.check(&ctx).unwrap().len(), 3);
+            assert_eq!(rule.fix(&ctx).unwrap(), expected);
+        }
     }
 
     #[test]
@@ -3100,6 +3294,402 @@ Visit [github documentation](https://github.com/docs) for details.
     }
 
     #[test]
+    fn test_fallback_delimiter_index_matches_direct_scans() {
+        let alphabet = [b'a', b'\\', b'[', b']', b'(', b')'];
+        for mut value in 0..alphabet.len().pow(6) {
+            let mut bytes = [0; 6];
+            for byte in &mut bytes {
+                *byte = alphabet[value % alphabet.len()];
+                value /= alphabet.len();
+            }
+            for (open, close) in [(b'[', b']'), (b'(', b')')] {
+                let mut lookup = FallbackDelimiters {
+                    scanned_bytes: bytes.len() * 2,
+                    ..Default::default()
+                };
+                for from in (1..=bytes.len()).chain((1..=bytes.len()).rev()) {
+                    if bytes[from - 1] == open {
+                        assert_eq!(
+                            lookup.find(&bytes, from, open, close),
+                            FallbackDelimiters::scan(&bytes, from, open, close),
+                            "{bytes:?}, {from}, {open}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_fallback_ranges_match_scalar_queries() {
+        fn scalar_links(line: &str, pos: usize) -> bool {
+            let bytes = line.as_bytes();
+            let len = bytes.len();
+            let mut i = 0;
+
+            while i < len {
+                // Look for unescaped '[' (handle double-escaped \\[ as unescaped)
+                if bytes[i] == b'[' && (i == 0 || bytes[i - 1] != b'\\' || (i >= 2 && bytes[i - 2] == b'\\')) {
+                    // Find matching ']' handling nested brackets
+                    let mut depth: u32 = 1;
+                    let mut j = i + 1;
+                    while j < len && depth > 0 {
+                        match bytes[j] {
+                            b'\\' => {
+                                j += 1; // skip escaped char
+                            }
+                            b'[' => depth += 1,
+                            b']' => depth -= 1,
+                            _ => {}
+                        }
+                        j += 1;
+                    }
+
+                    // j is now one past the ']'
+                    if depth == 0 && j < len {
+                        if bytes[j] == b'(' {
+                            // Inline link: [text](url)
+                            let url_start = j;
+                            let mut paren_depth: u32 = 1;
+                            let mut k = j + 1;
+                            while k < len && paren_depth > 0 {
+                                match bytes[k] {
+                                    b'\\' => {
+                                        k += 1; // skip escaped char
+                                    }
+                                    b'(' => paren_depth += 1,
+                                    b')' => paren_depth -= 1,
+                                    _ => {}
+                                }
+                                k += 1;
+                            }
+
+                            if paren_depth == 0 {
+                                if pos > url_start && pos < k {
+                                    return true;
+                                }
+                                i = k;
+                                continue;
+                            }
+                        } else if bytes[j] == b'[' {
+                            // Reference link: [text][ref]
+                            let ref_start = j;
+                            let mut ref_depth: u32 = 1;
+                            let mut k = j + 1;
+                            while k < len && ref_depth > 0 {
+                                match bytes[k] {
+                                    b'\\' => {
+                                        k += 1;
+                                    }
+                                    b'[' => ref_depth += 1,
+                                    b']' => ref_depth -= 1,
+                                    _ => {}
+                                }
+                                k += 1;
+                            }
+
+                            if ref_depth == 0 {
+                                if pos > ref_start && pos < k {
+                                    return true;
+                                }
+                                i = k;
+                                continue;
+                            }
+                        }
+                    }
+                }
+                i += 1;
+            }
+            false
+        }
+
+        fn scalar_code(line: &str, pos: usize) -> bool {
+            let bytes = line.as_bytes();
+            let len = bytes.len();
+            let mut i = 0;
+            while i < len {
+                if bytes[i] == b'`' {
+                    // Count the opening backtick sequence length
+                    let open_start = i;
+                    while i < len && bytes[i] == b'`' {
+                        i += 1;
+                    }
+                    let tick_len = i - open_start;
+
+                    // Scan forward for a closing sequence of exactly tick_len backticks
+                    while i < len {
+                        if bytes[i] == b'`' {
+                            let close_start = i;
+                            while i < len && bytes[i] == b'`' {
+                                i += 1;
+                            }
+                            if i - close_start == tick_len {
+                                // Matched pair found; the code span content is between
+                                // the end of the opening backticks and the start of the
+                                // closing backticks (exclusive of the backticks themselves).
+                                let content_start = open_start + tick_len;
+                                let content_end = close_start;
+                                if pos >= content_start && pos < content_end {
+                                    return true;
+                                }
+                                // Continue scanning after this pair
+                                break;
+                            }
+                            // Not the right length; keep scanning
+                        } else {
+                            i += 1;
+                        }
+                    }
+                } else {
+                    i += 1;
+                }
+            }
+            false
+        }
+
+        let tokens = [
+            "javascript",
+            "`",
+            "``",
+            "```",
+            "`javascript`",
+            "``javascript``",
+            "`javascript``",
+            "\\`",
+            "[javascript](url)",
+            "[text][javascript]",
+            "[[x]](url)",
+            "[a [b] c](x(y)z)",
+            "[a](x\\)y)",
+            "[a][x\\]y]",
+            "[a](x y)",
+            "[a](x",
+            "[a][x",
+            "[[",
+            "[",
+            "]",
+            "(",
+            ")",
+            "\\[",
+            "\\\\[",
+            "\\\\\\[",
+            "\\\\",
+            "é日本🙂",
+            "<!--",
+            "-->",
+        ];
+        for first in tokens {
+            for second in tokens {
+                let text = format!("{first}{second}");
+                let urls = MD044ProperNames::markdown_link_url_ranges(&text);
+                let code = MD044ProperNames::backtick_code_ranges(&text);
+                for ranges in [&urls, &code] {
+                    assert!(ranges.windows(2).all(|pair| pair[0].end <= pair[1].start));
+                }
+                for byte in 0..=text.len() + 1 {
+                    assert_eq!(
+                        crate::inline_config::offset_in_ranges(&urls, byte),
+                        scalar_links(&text, byte),
+                        "links {text:?} at {byte}: {urls:?}"
+                    );
+                    assert_eq!(
+                        crate::inline_config::offset_in_ranges(&code, byte),
+                        scalar_code(&text, byte),
+                        "code {text:?} at {byte}: {code:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_fallback_ranges_preserve_code_and_link_fixes() {
+        let body =
+            "javascript `javascript` [javascript](javascript) [javascript][javascript] <custom:javascript> CAFÉ ";
+        let fixed =
+            "JavaScript `javascript` [JavaScript](javascript) [JavaScript][javascript] <custom:javascript> Café ";
+        for (prefix, suffix) in [
+            ("<!--\n", "\n-->"),
+            ("<div>\n", "\n</div>"),
+            ("---\ntitle: ", "\n---\n"),
+        ] {
+            for ending in ["\n", "\r\n"] {
+                let content = format!("{prefix}{}{suffix}", body.repeat(32)).replace('\n', ending);
+                let expected = format!("{prefix}{}{suffix}", fixed.repeat(32)).replace('\n', ending);
+                let ctx = create_context(&content);
+                let rule = MD044ProperNames::new(vec!["JavaScript".into(), "Café".into()], false);
+                let warnings = rule.check(&ctx).unwrap();
+                assert_eq!(warnings.len(), 128, "{prefix:?} {ending:?}");
+                assert_eq!(rule.check(&ctx).unwrap(), warnings);
+                assert_eq!(rule.fix(&ctx).unwrap(), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn test_wikilink_url_ranges_match_scalar_queries() {
+        fn scalar(ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
+            use pulldown_cmark::LinkType;
+            let content = ctx.content.as_bytes();
+
+            for link in ctx.links_starting_before_or_at(byte_pos) {
+                if !matches!(link.link_type, LinkType::WikiLink { .. }) {
+                    continue;
+                }
+                let wiki_end = link.byte_end;
+                // The WikiLink must end before byte_pos and be immediately followed by '('.
+                if wiki_end >= byte_pos || wiki_end >= content.len() || content[wiki_end] != b'(' {
+                    continue;
+                }
+                // Scan to the matching ')' tracking nested parens and backslash escapes.
+                // Per CommonMark, an unquoted inline link destination cannot contain
+                // spaces, tabs, or newlines. If we encounter one, this is parenthesised
+                // prose rather than a URL, and pulldown-cmark will not parse it as a link.
+                let mut depth: u32 = 1;
+                let mut k = wiki_end + 1;
+                let mut valid_destination = true;
+                while k < content.len() && depth > 0 {
+                    match content[k] {
+                        b'\\' => {
+                            k += 1; // skip escaped character
+                        }
+                        b'(' => depth += 1,
+                        b')' => depth -= 1,
+                        b' ' | b'\t' | b'\n' | b'\r' => {
+                            valid_destination = false;
+                            break;
+                        }
+                        _ => {}
+                    }
+                    k += 1;
+                }
+                // byte_pos is inside the URL if it falls between '(' and the matching ')'
+                // and the destination is valid (no unescaped whitespace).
+                if valid_destination && depth == 0 && byte_pos > wiki_end && byte_pos < k {
+                    return true;
+                }
+            }
+            false
+        }
+
+        use crate::config::MarkdownFlavor;
+        let tokens = [
+            "[[target]](javascript)",
+            "[[target]](a(b)c)",
+            "[[target]](a\\)b)",
+            "[[target]](a\\ b)",
+            "[[target]](a b)",
+            "[[target]](a\tb)",
+            "[[target]](a\nb)",
+            "[[target]](a\rb)",
+            "[[target]](a",
+            "[[target]](a[[inner]](b)c)",
+            "[[target]](a[[inner]](b)",
+            "\\[[target]](path)",
+            "`[[target]](path)`",
+            "![x](path)",
+            "é🙂 ",
+            "[[x]]",
+            "\\)",
+            "([[target]](x))",
+        ];
+        for flavor in [
+            MarkdownFlavor::Standard,
+            MarkdownFlavor::Obsidian,
+            MarkdownFlavor::MDX,
+            MarkdownFlavor::Quarto,
+        ] {
+            for first in tokens {
+                for second in tokens {
+                    let content = format!("{first}{second}");
+                    let ctx = LintContext::new(&content, flavor, None);
+                    let ranges = MD044ProperNames::wikilink_url_ranges(&ctx);
+                    assert!(ranges.windows(2).all(|pair| pair[0].end <= pair[1].start));
+                    for byte in 0..=content.len() + 1 {
+                        assert_eq!(
+                            crate::inline_config::offset_in_ranges(&ranges, byte),
+                            scalar(&ctx, byte),
+                            "{flavor:?} {content:?} at {byte}: {ranges:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_wikilink_destinations_preserve_prose_fixes() {
+        use crate::config::MarkdownFlavor;
+        for flavor in [MarkdownFlavor::Standard, MarkdownFlavor::Obsidian] {
+            let content = "javascript [[target]](javascript) javascript [[other]](a(javascript)b) CAFÉ";
+            let ctx = LintContext::new(content, flavor, None);
+            let rule = MD044ProperNames::new(vec!["JavaScript".into(), "Café".into()], false);
+            assert_eq!(rule.check(&ctx).unwrap().len(), 3);
+            assert_eq!(
+                rule.fix(&ctx).unwrap(),
+                "JavaScript [[target]](javascript) JavaScript [[other]](a(javascript)b) Café"
+            );
+        }
+    }
+
+    #[test]
+    fn test_repeated_name_columns_and_fixes_with_unicode() {
+        for ending in ["\n", "\r\n"] {
+            let line = "é日本🙂 javascript CAFÉ JavaScript <custom:javascript> ".repeat(64);
+            let content = format!("{line}{ending}{ending}{line}");
+            let ctx = create_context(&content);
+            let rule = MD044ProperNames::new(vec!["JavaScript".into(), "Café".into()], false);
+            let warnings = rule.check(&ctx).unwrap();
+            let mut expected = Vec::new();
+            for (line_idx, line_info) in ctx.lines.iter().enumerate() {
+                let text = line_info.content(ctx.content);
+                for (byte, _) in text.match_indices("javascript CAFÉ") {
+                    for (offset, found, replacement) in [(0, "javascript", "JavaScript"), (11, "CAFÉ", "Café")] {
+                        let start = byte + offset;
+                        let column = text[..start].chars().count() + 1;
+                        expected.push((
+                            line_idx + 1,
+                            column,
+                            column + found.chars().count(),
+                            line_info.byte_offset + start..line_info.byte_offset + start + found.len(),
+                            replacement,
+                        ));
+                    }
+                }
+            }
+            assert_eq!(warnings.len(), 256);
+            assert_eq!(warnings.len(), expected.len());
+            for (warning, (line, column, end_column, range, replacement)) in warnings.iter().zip(expected) {
+                assert_eq!(
+                    (warning.line, warning.column, warning.end_line, warning.end_column),
+                    (line, column, line, end_column)
+                );
+                assert_eq!(warning.fix, Some(Fix::new(range, replacement.to_owned())));
+            }
+            assert_eq!(rule.check(&ctx).unwrap(), warnings, "cached diagnostics");
+            assert_eq!(rule.clone().check(&ctx).unwrap(), warnings, "shared cache");
+            assert_eq!(
+                rule.fix(&ctx).unwrap(),
+                content.replace("javascript CAFÉ", "JavaScript Café")
+            );
+        }
+    }
+
+    #[test]
+    fn test_angle_url_ranges_preserve_boundaries() {
+        let line = "<bad space> <x:one> <y:two\tthree> <z:unclosed <good:last> tail";
+        let ranges = MD044ProperNames::angle_bracket_url_ranges(line);
+        let expected = ["<x:one>", "<y:two\tthree>", "<good:last>"];
+        assert_eq!(ranges.len(), expected.len());
+        for (range, text) in ranges.iter().zip(expected) {
+            assert_eq!(&line[range.clone()], text);
+            assert!(MD044ProperNames::is_in_angle_bracket_url(line, range.start));
+            assert!(MD044ProperNames::is_in_angle_bracket_url(line, range.end - 1));
+            assert!(!MD044ProperNames::is_in_angle_bracket_url(line, range.end));
+        }
+    }
+
+    #[test]
     fn test_is_in_angle_bracket_url_helper() {
         // Direct tests of the helper function
         let line = "text <https://example.test> more text";
@@ -3425,7 +4015,7 @@ Some javascript text.
     // Double-bracket WikiLink + URL: [[text]](url)
     // pulldown-cmark parses [[text]] as a WikiLink but leaves the (url)
     // as plain text, so ctx.links() does not cover the URL portion.
-    // MD044 must fall back to is_in_markdown_link_url for all lines.
+    // MD044 must fall back to markdown_link_url_ranges for all lines.
 
     #[test]
     fn test_double_bracket_link_url_not_flagged() {
@@ -3504,7 +4094,7 @@ Some javascript text.
     fn test_link_like_text_in_code_span_still_flagged_when_code_blocks_enabled() {
         // When code-blocks = true the user explicitly opts into checking code spans.
         // A code span containing link-like text (`[foo](https://github.com)`) must
-        // NOT be silently suppressed by is_in_markdown_link_url: the content is
+        // NOT be silently suppressed by markdown_link_url_ranges: the content is
         // literal characters, not a real Markdown link.
         let rule = MD044ProperNames::new(vec!["GitHub".to_string()], true);
         let content = "`[foo](https://github.com/org/repo)`";

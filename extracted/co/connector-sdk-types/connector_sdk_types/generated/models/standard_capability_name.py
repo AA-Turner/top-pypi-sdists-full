@@ -78,6 +78,18 @@ class StandardCapabilityName(str, Enum):
     VALIDATE_CREDENTIAL_CONFIG = 'validate_credential_config'
     PROBE_INTEGRATION = 'probe_integration'
     FULFILL_ARBITRARY_ENDPOINT = 'fulfill_arbitrary_endpoint'
+    CREATE_TICKET = 'create_ticket'
+    ADD_TICKET_COMMENT = 'add_ticket_comment'
+    TRANSITION_TICKET = 'transition_ticket'
+    GET_TICKET = 'get_ticket'
+    LIST_TICKET_TRANSITIONS = 'list_ticket_transitions'
+    LIST_TICKET_FIELDS = 'list_ticket_fields'
+    LIST_TICKET_DESTINATION_OPTIONS = 'list_ticket_destination_options'
+    REGISTER_TICKET_WEBHOOK = 'register_ticket_webhook'
+    DEREGISTER_TICKET_WEBHOOK = 'deregister_ticket_webhook'
+    REFRESH_TICKET_WEBHOOK = 'refresh_ticket_webhook'
+    PARSE_TICKET_EVENT = 'parse_ticket_event'
+    GET_TICKET_ATTACHMENT = 'get_ticket_attachment'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

@@ -224,7 +224,7 @@ class ServerHelperTests(unittest.TestCase):
         self.assertEqual(config.endpoint, "http://localhost:9501/v1")
 
     def test_main_stdio_prints_clean_error_on_validation_failure(self):
-        async def boom():
+        async def boom(legacy_flags):
             raise RuntimeError("bad credentials")
 
         args = parse_args(["--transport", "stdio"])
@@ -623,7 +623,7 @@ class ServerHelperTests(unittest.TestCase):
             ctx.meta = None
             ctx.session.client_params = None
             params = types.CallToolRequestParams(
-                name="appwrite_call_tool",
+                name="appwrite_call_write_tool",
                 arguments={
                     "tool_name": "functions_create_variable",
                     "confirm_write": True,
@@ -671,7 +671,7 @@ class ServerHelperTests(unittest.TestCase):
             ctx.meta = None
             ctx.session.client_params = None
             params = types.CallToolRequestParams(
-                name="appwrite_call_tool",
+                name="appwrite_call_write_tool",
                 arguments={
                     "tool_name": "functions_create_variable",
                     "confirm_write": True,
@@ -977,7 +977,7 @@ class ServerHelperTests(unittest.TestCase):
 
             def execute_public_tool(self, name, arguments):
                 raise WriteConfirmationRequired(
-                    "Tool tables_db_create is write. Re-run appwrite_call_tool "
+                    "Tool tables_db_create is write. Re-run appwrite_call_write_tool "
                     "with confirm_write=true if you intend to mutate Appwrite state."
                 )
 
@@ -1003,7 +1003,7 @@ class ServerHelperTests(unittest.TestCase):
             ctx.meta = None
             ctx.session.client_params = None
             params = types.CallToolRequestParams(
-                name="appwrite_call_tool",
+                name="appwrite_call_write_tool",
                 arguments={"tool_name": "tables_db_create"},
             )
             result = await entry.handler(ctx, params)
@@ -1676,9 +1676,11 @@ class ServerHelperTests(unittest.TestCase):
         self.assertEqual(capture.call_args.kwargs["tags"]["appwrite.service"], "users")
         self.assertIn("context", capture.call_args.kwargs)
 
-    def test_parse_args_rejects_removed_flags(self):
+    def test_parse_args_rejects_unknown_flags(self):
+        # Legacy service flags such as --users are accepted (see legacy.py and
+        # tests/e2e/test_stdio.py); anything else still fails.
         with (
-            patch.object(sys, "argv", ["mcp-server-appwrite", "--users"]),
+            patch.object(sys, "argv", ["mcp-server-appwrite", "--userz"]),
             patch("sys.stderr", new_callable=io.StringIO),
         ):
             with self.assertRaises(SystemExit):

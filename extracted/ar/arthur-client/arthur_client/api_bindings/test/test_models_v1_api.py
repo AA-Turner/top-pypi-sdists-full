@@ -54,6 +54,13 @@ class TestModelsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_model_dashboard_preferences(self) -> None:
+        """Test case for get_model_dashboard_preferences
+
+        Get Dashboard Preferences For A Model
+        """
+        pass
+
     def test_get_model_governance_view(self) -> None:
         """Test case for get_model_governance_view
 

@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import json
 import warnings
 from datetime import timedelta
 
@@ -68,7 +69,10 @@ class SearchParamTestSuite:
         'test_params_show_request',
         'test_params_skip',
         'test_params_sort',
+        'test_params_sort_invalid',
+        'test_params_sort_mixed',
         'test_params_timeout',
+        'test_params_timeout_getter',
         'test_phrase_query',
         'test_prefix_query',
         'test_query_string_query',
@@ -1005,6 +1009,23 @@ class SearchParamTestSuite:
         params['sort'] = search_query.sort
         assert params == exp_opts
 
+    def test_params_sort_invalid(self, cb_env, base_query_opts):
+        q, _ = base_query_opts
+        opts = SearchOptions(sort=[1, 2])
+        with pytest.raises(InvalidArgumentException):
+            search.SearchQueryBuilder.create_search_query_object(
+                cb_env.TEST_INDEX_NAME, q, opts
+            )
+
+    def test_params_sort_mixed(self, cb_env, base_query_opts):
+        q, _ = base_query_opts
+        opts = SearchOptions(sort=['f1', search.SortScore()])
+        search_query = search.SearchQueryBuilder.create_search_query_object(
+            cb_env.TEST_INDEX_NAME, q, opts
+        )
+        specs = [json.loads(s) for s in search_query.as_encodable()['sort_specs']]
+        assert specs == ['f1', {'by': 'score'}]
+
     def test_params_timeout(self, cb_env, base_query_opts):
         q, base_opts = base_query_opts
         opts = SearchOptions(timeout=timedelta(seconds=20))
@@ -1032,6 +1053,18 @@ class SearchParamTestSuite:
         exp_opts = base_opts.copy()
         exp_opts['timeout'] = 25500
         assert search_query.params == exp_opts
+
+    def test_params_timeout_getter(self, cb_env, base_query_opts):
+        q, _ = base_query_opts
+        search_query = search.SearchQueryBuilder.create_search_query_object(
+            cb_env.TEST_INDEX_NAME, q, SearchOptions(timeout=timedelta(seconds=20))
+        )
+        assert search_query.timeout == 20
+
+        search_query = search.SearchQueryBuilder.create_search_query_object(
+            cb_env.TEST_INDEX_NAME, q, SearchOptions()
+        )
+        assert search_query.timeout is None
 
     def test_phrase_query(self, cb_env):
         exp_json = {
@@ -1370,7 +1403,8 @@ class VectorSearchParamTestSuite:
         'test_vector_search_with_prefilter',
         'test_vector_search_base64',
         'test_vector_search_invalid',
-        'test_vector_search_multiple_queries'
+        'test_vector_search_multiple_queries',
+        'test_vector_query_combination_reads_back'
     ]
 
     def test_search_request_invalid(self):
@@ -1532,6 +1566,27 @@ class VectorSearchParamTestSuite:
             VectorSearch.from_vector_query(None)
         with pytest.raises(InvalidArgumentException):
             VectorSearch.from_vector_query(1)
+
+    def test_vector_query_combination_reads_back(self, cb_env):
+        # the encoded query has always been right; the getter was reading highlight_style
+        for combination in (VectorQueryCombination.AND, VectorQueryCombination.OR):
+            vector_search = VectorSearch([VectorQuery('vector_field', self.TEST_VECTOR)],
+                                         VectorSearchOptions(vector_query_combination=combination))
+            search_query = search.SearchQueryBuilder.create_search_query_from_request(
+                cb_env.TEST_INDEX_NAME,
+                SearchRequest.create(vector_search)
+            )
+            assert search_query.vector_query_combination == combination
+
+        search_query.highlight_style = HighlightStyle.Ansi
+        assert search_query.vector_query_combination == VectorQueryCombination.OR
+
+        no_combination = search.SearchQueryBuilder.create_search_query_from_request(
+            cb_env.TEST_INDEX_NAME,
+            SearchRequest.create(VectorSearch.from_vector_query(VectorQuery('vector_field', self.TEST_VECTOR)))
+        )
+        no_combination.highlight_style = HighlightStyle.Ansi
+        assert no_combination.vector_query_combination is None
 
     def test_vector_search_multiple_queries(self, cb_env):
         exp_json = {

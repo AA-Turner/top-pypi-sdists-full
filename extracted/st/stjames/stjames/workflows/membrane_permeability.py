@@ -21,18 +21,22 @@ class MembranePermeabilityWorkflow(SMILESWorkflow, MoleculeWorkflow):
 
     Attributes:
         initial_smiles: SMILES string of the molecule
-        initial_molecule: SMILES string of the molecule
+        initial_molecule: molecule of interest
 
     Inputs:
 
         membrane_permeability_method: model used to predict membrane permeability
 
-        caco_2_P_app: base-10 logarithm of the Caco-2 apparent permeability P_app, in cm/s
-        caco_2_logP: Caco-2 intrinsic permeability coefficient logP
-        blm_logP: bilayer-lipid-membrane intrinsic permeability coefficient logP
-        pampa_logP: PAMPA intrinsic permeability coefficient logP
-        plasma_logP: plasma-membrane intrinsic permeability coefficient logP
-        bbb_logP: blood–brain-barrier intrinsic permeability coefficient logP
+        caco_2_P_app: base-10 logarithm of Caco-2 apparent permeability, in cm/s
+        blm_P_app: base-10 logarithm of bilayer-lipid-membrane apparent permeability, in cm/s
+        pampa_P_app: base-10 logarithm of PAMPA apparent permeability, in cm/s
+        plasma_P_app: base-10 logarithm of plasma-membrane apparent permeability, in cm/s
+        bbb_P_app: base-10 logarithm of blood-brain-barrier apparent permeability, in cm/s
+        caco_2_logP: base-10 logarithm of Caco-2 intrinsic permeability, in cm/s
+        blm_logP: base-10 logarithm of bilayer-lipid-membrane intrinsic permeability, in cm/s
+        pampa_logP: base-10 logarithm of PAMPA intrinsic permeability, in cm/s
+        plasma_logP: base-10 logarithm of plasma-membrane intrinsic permeability, in cm/s
+        bbb_logP: base-10 logarithm of blood-brain-barrier intrinsic permeability, in cm/s
         energy_profile: how the energy of the compound is predicted to change as it passes through a membrane.
             the first value is the membrane profile, in Å, the second is the energy, in kcal/mol
     """
@@ -43,6 +47,10 @@ class MembranePermeabilityWorkflow(SMILESWorkflow, MoleculeWorkflow):
     membrane_permeability_method: MembranePermeabilityMethod = MembranePermeabilityMethod.CHEMPROP_OHLSSON2025
 
     caco_2_P_app: Annotated[float, AfterValidator(round_float(3))] | None = None
+    blm_P_app: Annotated[float, AfterValidator(round_float(3))] | None = None
+    pampa_P_app: Annotated[float, AfterValidator(round_float(3))] | None = None
+    plasma_P_app: Annotated[float, AfterValidator(round_float(3))] | None = None
+    bbb_P_app: Annotated[float, AfterValidator(round_float(3))] | None = None
 
     caco_2_logP: Annotated[float, AfterValidator(round_float(3))] | None = None
     blm_logP: Annotated[float, AfterValidator(round_float(3))] | None = None

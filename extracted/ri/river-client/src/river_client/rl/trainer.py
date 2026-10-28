@@ -25,10 +25,10 @@ from river_client.types import Checkpoint, RiverError
 from .advantages import (
     Batchwise,
     GroupCentered,
+    _training_rewards,
     accumulation_scale,
     build_batch,
     decouple_ppo,
-    reward_values,
 )
 from .checkpoint import (
     Checkpointing,
@@ -387,6 +387,7 @@ class AsyncTrainer:
                 )
         self.forward_backward_groups = forward_backward_groups
         self._accumulating_groups = []
+        self._prepared_groups = {}
         if self.normalize == "prompt" and completion.on_stragglers == "carry_over":
             raise ValueError(
                 "prompt normalization does not support carry_over; splitting a "
@@ -782,6 +783,7 @@ class AsyncTrainer:
                         logprobs=span.logprobs,
                         sampler_topk_ids=span.sampler_topk_ids,
                         sampler_topk_logprobs=span.sampler_topk_logprobs,
+                        sampling_log_masses=span.sampling_log_masses,
                         policy_step=policy_step,
                         run=span.run,
                         policy_version=sampled,
@@ -1207,12 +1209,25 @@ class AsyncTrainer:
                         for g in groups
                         if sum(
                             value is not None
-                            for value in reward_values(
-                                [g.trajectories], self.truncation
+                            for value in _training_rewards(
+                                [g.trajectories],
+                                self.truncation,
+                                estimator=estimator,
+                                min_members=self.completion.min_members,
                             )[0]
                         )
                         >= self.completion.min_members
                     ]
+                # Complete groups with local baselines are stable within an
+                # update. Retain their token arrays while the threshold fills,
+                # but never reuse preparations at another step or after a
+                # reservation change removes a group from this selection.
+                eligible = {(self._committed_step, g.id) for g in groups}
+                self._prepared_groups = {
+                    key: prepared
+                    for key, prepared in self._prepared_groups.items()
+                    if key in eligible
+                }
                 if not groups:
                     return
                 starting_custom = (
@@ -1235,8 +1250,11 @@ class AsyncTrainer:
                 by_id = None
                 if flush:
                     all_values = estimator(
-                        reward_values(
-                            [g.trajectories for g in batch_groups], self.truncation
+                        _training_rewards(
+                            [g.trajectories for g in batch_groups],
+                            self.truncation,
+                            estimator=estimator,
+                            min_members=self.completion.min_members,
                         ),
                         min_members=self.completion.min_members,
                     )
@@ -1248,33 +1266,40 @@ class AsyncTrainer:
                 data, selected = [], []
                 tokens = 0
                 for group in groups:
-                    self._apply_policy_provenance(group.trajectories)
-                    contribution, metrics = build_batch(
-                        [group.trajectories],
-                        estimator=estimator,
-                        normalize=self._loss_binding.normalize,
-                        truncation=self.truncation,
-                        min_members=self.completion.min_members,
-                        current_step=self._committed_step,
-                        max_staleness=self.max_staleness,
-                        defer_normalization=True,
-                        advantages=None if by_id is None else [by_id[group.id]],
-                        include_loss_mask=self._loss_binding.is_custom,
-                        loss=self._loss_binding,
-                    )
-                    if metrics["staleness/frac_masked"]:
-                        raise RuntimeError(
-                            "backward accumulation received samples outside the staleness bound"
+                    key = (self._committed_step, group.id)
+                    if key not in self._prepared_groups:
+                        self._apply_policy_provenance(group.trajectories)
+                        contribution, metrics = build_batch(
+                            [group.trajectories],
+                            estimator=estimator,
+                            normalize=self._loss_binding.normalize,
+                            truncation=self.truncation,
+                            min_members=self.completion.min_members,
+                            current_step=self._committed_step,
+                            max_staleness=self.max_staleness,
+                            defer_normalization=True,
+                            advantages=None if by_id is None else [by_id[group.id]],
+                            include_loss_mask=self._loss_binding.is_custom,
+                            loss=self._loss_binding,
                         )
+                        if metrics["staleness/frac_masked"]:
+                            raise RuntimeError(
+                                "backward accumulation received samples outside the staleness bound"
+                            )
+                        # Advantages align with every input position, including
+                        # conditioning text and expanded image tokens.
+                        self._prepared_groups[key] = (
+                            contribution,
+                            sum(len(d["advantages"]) for d in contribution),
+                        )
+                    contribution, input_tokens = self._prepared_groups[key]
                     if starting_custom and not any(
                         any(d["advantages"]) for d in contribution
                     ):
                         continue
                     data.extend(contribution)
                     selected.append(group)
-                    # Advantages align with every input position, including
-                    # conditioning text and expanded image tokens.
-                    tokens += sum(len(d["advantages"]) for d in contribution)
+                    tokens += input_tokens
                     if (
                         self.forward_backward_batch is not None
                         and self.forward_backward_batch.reached(len(data), tokens)
@@ -1335,6 +1360,8 @@ class AsyncTrainer:
                 if self._streaming_custom_loss is not None:
                     self._streaming_custom_loss.group_order.extend(g.id for g in groups)
                 self._streamed_groups.update(g.id for g in groups)
+                for group in groups:
+                    del self._prepared_groups[self._committed_step, group.id]
                 if wait_for_more:
                     return
 
@@ -1627,6 +1654,7 @@ class AsyncTrainer:
         self._n, self._submitted = 0, 0
         self._active, self._finished, self._received = set(), set(), set()
         self._pending, self._journal = [], []
+        self._prepared_groups.clear()
         self._durable_base = False
         self._accumulating_groups = []
         self._admitted_policy_steps = {}
@@ -2057,6 +2085,7 @@ class AsyncTrainer:
                                     )
                                 self._pending = remaining_pending
                                 self._accumulating_groups = []
+                                self._prepared_groups.clear()
                                 if self.stale_policy == "wait":
                                     for group in selected:
                                         del self._admitted_policy_steps[group.id]
@@ -2196,6 +2225,7 @@ class AsyncTrainer:
             )
             raise
         finally:
+            self._prepared_groups.clear()
             self.engine._latest_snapshot_sampling = previous_snapshot_sampling
             if self._status == "running":
                 self._status = "completed" if self._n == steps else "stopped"

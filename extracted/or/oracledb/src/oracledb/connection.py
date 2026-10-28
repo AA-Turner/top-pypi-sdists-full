@@ -1149,6 +1149,20 @@ class BaseConnection(metaclass=BaseMetaClass):
             raise TypeError(msg)
         self._impl.set_end_user_security_context(context._impl)
 
+    def set_opentelemetry_trace_context(
+        self, traceparent: str | None, tracestate: str = ""
+    ) -> None:
+        """
+        Sets the W3C trace context used for Oracle Database tracing.
+
+        Passing a traceparent enables tracing. Passing None disables tracing
+        and clears the trace context. Changes are sent with the next database
+        round trip. This is supported only in Thin mode with Oracle AI
+        Database 26ai (version 23.26.2) or later.
+        """
+        self._verify_connected()
+        self._impl.set_opentelemetry_trace_context(traceparent, tracestate)
+
     @property
     def stmtcachesize(self) -> int:
         """
@@ -1165,6 +1179,16 @@ class BaseConnection(metaclass=BaseMetaClass):
     def stmtcachesize(self, value: int) -> None:
         self._verify_connected()
         self._impl.set_stmt_cache_size(value)
+
+    @property
+    def supports_opentelemetry_tracing(self) -> bool:
+        """
+        This read-only attribute returns whether the database supports
+        OpenTelemetry tracing on this connection. It does not indicate whether
+        an OpenTelemetry export endpoint is configured on the database.
+        """
+        self._verify_connected()
+        return self._impl.supports_opentelemetry_tracing()
 
     @property
     def tag(self) -> str:
@@ -2199,6 +2223,7 @@ def connect(
     operation_callback: Callable | None = None,
     round_trip_callback: Callable | None = None,
     transaction_priority: oracledb.TransactionPriority | None = None,
+    use_eztls: bool | None = None,
     handle: int | None = None,
 ) -> Connection:
     """
@@ -2475,7 +2500,7 @@ def connect(
       <Defaults.driver_name>`)
 
     - ``use_sni``: a boolean indicating whether to use the TLS SNI extension to
-      bypass the second TLS neogiation that would otherwise be required
+      bypass the second TLS negotiation that would otherwise be required
       (default: False)
 
     - ``thick_mode_dsn_passthrough``: a boolean indicating whether to pass the
@@ -2518,6 +2543,13 @@ def connect(
       enumeration that specifies the priority of any transaction that is
       created by the connection
       (default: None)
+
+    - ``use_eztls``: boolean indicating whether to use ezTLS. For a connection
+      using TCP this enables TLS encryption over TCP, which is similar to what
+      was previously done with Native Network Encryption (NNE). For a
+      connection using TCPS this allows the server to use a simpler method for
+      authenticating itself
+      (default: False)
 
     - ``handle``: an integer representing a pointer to a valid service context
       handle. This value is only used in python-oracledb Thick mode. It should
@@ -3348,6 +3380,7 @@ def connect_async(
     operation_callback: Callable | None = None,
     round_trip_callback: Callable | None = None,
     transaction_priority: oracledb.TransactionPriority | None = None,
+    use_eztls: bool | None = None,
     handle: int | None = None,
 ) -> AsyncConnection:
     """
@@ -3624,7 +3657,7 @@ def connect_async(
       <Defaults.driver_name>`)
 
     - ``use_sni``: a boolean indicating whether to use the TLS SNI extension to
-      bypass the second TLS neogiation that would otherwise be required
+      bypass the second TLS negotiation that would otherwise be required
       (default: False)
 
     - ``thick_mode_dsn_passthrough``: a boolean indicating whether to pass the
@@ -3667,6 +3700,13 @@ def connect_async(
       enumeration that specifies the priority of any transaction that is
       created by the connection
       (default: None)
+
+    - ``use_eztls``: boolean indicating whether to use ezTLS. For a connection
+      using TCP this enables TLS encryption over TCP, which is similar to what
+      was previously done with Native Network Encryption (NNE). For a
+      connection using TCPS this allows the server to use a simpler method for
+      authenticating itself
+      (default: False)
 
     - ``handle``: an integer representing a pointer to a valid service context
       handle. This value is only used in python-oracledb Thick mode. It should

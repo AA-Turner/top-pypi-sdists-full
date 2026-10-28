@@ -19,20 +19,12 @@ from .mps_ops import MPSOps
 from .numpy_ops import NumpyOps
 from .ops import Ops
 
-try:
-    from .apple_ops import AppleOps
-except ImportError:
-    AppleOps = None
-
 context_ops: ContextVar[Optional[Ops]] = ContextVar("context_ops", default=None)
 context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
 
 # Internal use of thread-local storage only for detecting cases where a Jupyter
 # notebook might not have preserved contextvars across cells.
 _GLOBAL_STATE = {"ops": None}
-
-# Thread-local state.
-_LOCAL_STATE = threading.local()
 
 
 def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
@@ -88,6 +80,10 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
 
 
 def _import_extra_cpu_backends():
+    try:
+        from thinc_apple_ops import AppleOps
+    except ImportError:
+        pass
     try:
         from thinc_bigendian_ops import BigEndianOps
     except ImportError:
@@ -156,14 +152,22 @@ def contextvars_eq_thread_ops() -> bool:
     return False
 
 
-def _get_thread_state() -> threading.local:
+def _get_thread_state():
     """Get a thread-specific state variable that inherits from a global
     state when it's created."""
-    if not hasattr(_LOCAL_STATE, "initialized") or not _LOCAL_STATE.initialized:
-        for name, value in _GLOBAL_STATE.items():
-            setattr(_LOCAL_STATE, name, value)
-        _LOCAL_STATE.initialized = True
-    return _LOCAL_STATE
+    thread: threading.Thread = threading.current_thread()
+    if not hasattr(thread, "__local"):
+        thread.__local = _create_thread_local(_GLOBAL_STATE)
+    return thread.__local
+
+
+def _create_thread_local(
+    attrs: Dict[str, Any], local_class: Type[threading.local] = threading.local
+):
+    obj = local_class()
+    for name, value in attrs.items():
+        setattr(obj, name, value)
+    return obj
 
 
 __all__ = [
@@ -172,7 +176,6 @@ __all__ = [
     "use_ops",
     "ParamServer",
     "Ops",
-    "AppleOps",
     "CupyOps",
     "MPSOps",
     "NumpyOps",

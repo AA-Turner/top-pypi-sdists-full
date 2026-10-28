@@ -68,6 +68,14 @@ PLATFORM_PARTS: dict[str, PlatformPart] = {
             "when and how to emit the Kind Directives the agent declares",
         ),
         PlatformPart(
+            "agent_identity",
+            "Who made this agent",
+            "turn_context",
+            "matrx_ai/config/agent_identity.py render_identity (knobs agents.identity; lab = catalog maker)",
+            "the agent says it is a collaboration between AI Matrx and the lab of the model answering "
+            "(Arman 2026-10-26); also appended to realtime voice session instructions",
+        ),
+        PlatformPart(
             "turn_context",
             "Per-turn context",
             "turn_context",
@@ -244,9 +252,11 @@ def mid_loop_reason_registered(reason: str) -> bool:
 
 
 def _patterns() -> list[tuple[str, re.Pattern[str]]]:
+    from matrx_ai.config.agent_identity import IDENTITY_CLOSE, IDENTITY_OPEN
     from matrx_ai.instructions.core import DATE_BLOCK_CLOSE, DATE_BLOCK_OPEN
 
     return [
+        ("agent_identity", re.compile(re.escape(IDENTITY_OPEN) + r".*?" + re.escape(IDENTITY_CLOSE), re.S)),
         ("current_date", re.compile(re.escape(DATE_BLOCK_OPEN) + r".*?" + re.escape(DATE_BLOCK_CLOSE), re.S)),
         ("organization_catalog", re.compile(r"<org_catalog\b.*?</org_catalog>", re.S)),
         ("skills", re.compile(r"<available_skills>.*?</available_skills>", re.S)),

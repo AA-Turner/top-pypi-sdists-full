@@ -27,7 +27,7 @@ class A2AService:
             AgentCard: agent discovery metadata for the assistant
         """
         return self._api.get(
-            f"/v1/a2a/assistants/{assistant_id}/.well-known/agent.json",
+            f"/v1/a2a/assistants/{assistant_id}/.well-known/agent-card.json",
             AgentCard,
             wrap_response=False,
         )

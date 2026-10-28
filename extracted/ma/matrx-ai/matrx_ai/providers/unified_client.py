@@ -69,6 +69,14 @@ _WEB_SEARCH_JSON_MODE_CONFLICT_WIRE_FORMAT = "openai_chat"
 _TOOL_STRUCTURED_OUTPUT_CONFLICT_WIRE_FORMATS = frozenset({"cerebras_chat", "groq_chat"})
 
 
+def _firewall_check_dispatch(config: Any) -> None:
+    """The request firewall on a config a seam dispatch carries no ``config=`` for (research
+    agent, extraction); the dispatch then says ``firewall_checked=True``."""
+    from matrx_ai.config.request_firewall import check_at_send
+
+    check_at_send(config, door="provider_dispatch", record=False)
+
+
 async def _apply_message_flags(wire_config: Any, config: Any, profile: Any, wire_format: str) -> Any:
     """Plan message flags for this call and shape the WIRE copy (never the live config).
 
@@ -268,6 +276,22 @@ def _wire_message_list(messages: Any) -> Any:
 _MAP_NARROWING_WIRES = frozenset({"anthropic_chat", "openai_chat"})
 
 
+def _narrows_maps(rf: dict[str, Any], wire_format: str) -> bool:
+    """Whether ``wire_format`` will narrow every dynamic-key map in ``rf``'s schema to ``{}``.
+
+    The OpenAI-compatible wires (``BaseTranslator._OPENAI_COMPATIBLE_SUBSET``) run the same strict
+    pass, map narrowing included, whenever the envelope sends ``strict: true`` — and every kind
+    binding does."""
+    if wire_format in _MAP_NARROWING_WIRES:
+        return True
+    from matrx_ai.providers.base_translator import BaseTranslator, tool_format_for_wire_format
+
+    if tool_format_for_wire_format(wire_format) not in BaseTranslator._OPENAI_COMPATIBLE_SUBSET:
+        return False
+    inner = rf.get("json_schema")
+    return bool((inner if isinstance(inner, dict) else rf).get("strict"))
+
+
 #: A schema whose SMALLEST Anthropic form (every nullable narrowed, identical subtrees shared) still costs
 #: this much against the compiled-grammar budget is refused on every rung of the grammar ladder: the lowest
 #: measured refusal scored 72.0 (``anthropic_grammar_cost``), and this is twice that. Sending it only buys
@@ -337,11 +361,14 @@ def _downgrade_response_format(
         target = "json_object" if mode is StructuredOutputMode.JSON else "text"
     elif rf_type == "json_object" and mode is StructuredOutputMode.TEXT:
         target = "text"
-    elif rf_type == "json_schema" and wire_format in _MAP_NARROWING_WIRES:
-        # A grammar-constrained decoder narrows every dynamic-key map to `{}`; a REQUIRED one is then
-        # forced empty and the answer can never carry its content (2026-10-24: Output Schema
-        # `visual_map`, `"spec": {}` on Haiku and Sonnet, 0 of 6 diagrams drawn). Prompt-guided JSON
-        # keeps the content; the answer is still checked against the declared schema afterwards.
+    elif rf_type == "json_schema" and _narrows_maps(rf, wire_format):
+        # A grammar-constrained decoder narrows every dynamic-key map to `{}`, so no answer can carry
+        # its content — required, optional or nullable alike (2026-10-24: Output Schema `visual_map`,
+        # `"spec": {}` on Haiku and Sonnet, 0 of 6 diagrams drawn; 2026-10-27: the optional
+        # `keyword_goals` of `research.suggest_setup` came back `{}` on every run). Prompt-guided JSON
+        # keeps the content; the answer is still checked against the declared schema afterwards. The
+        # json_object it lands on is what the existing wire gates then see: OpenAI drops hosted web search
+        # and groq/cerebras drop tools beside it, each announced — content over an emptied map, by design.
         from matrx_ai.schema.answer_contract import declared_schema_of as _declared
         from matrx_ai.schema.rules import forced_empty_maps
 
@@ -408,7 +435,7 @@ def _downgrade_response_format(
         detail={
             **shape,
             "action": (
-                f"response_format {rf_type} → {target}: the required map(s) "  # agent-context-text-ok: finding detail for engineers, never sent to a model
+                f"response_format {rf_type} → {target}: the map(s) "  # agent-context-text-ok: finding detail for engineers, never sent to a model
                 f"{', '.join(emptied)} would be forced empty by the {wire_format} decoder"
                 if emptied
                 else f"response_format {rf_type} → {target}: {over_budget}"
@@ -774,6 +801,13 @@ def _strip_chat_decorations_if_non_fc(config: Any, caps: ResolvedModelCapabiliti
 
     if caps.supports_function_calling:
         return
+    # Who made this agent (config/agent_identity.py) is chat-only too: a TTS model would
+    # speak it. The send boundary staged it before the capability was known; clear it here.
+    from matrx_ai.config.agent_identity import IDENTITY_SLOT
+
+    attach = getattr(getattr(config, "messages", None), "attach_turn_context", None)
+    if attach is not None:
+        attach("", slot=IDENTITY_SLOT)
     si = getattr(config, "system_instruction", None)
     if isinstance(si, SystemInstruction):
         si.strip_chat_decorations()
@@ -2012,11 +2046,13 @@ class UnifiedAIClient:
                     "agent-turn translator today."
                 )
             research_client = await self._get_provider_client("google_research_agent")
+            _firewall_check_dispatch(config)
             return self._stamp_offering_usage(
                 await self._dispatch_with_billing_net(
                     lambda: research_client.execute(config, profile, debug),
                     profile=profile,
                     provider_client=research_client,
+                    firewall_checked=True,
                 ),
                 profile,
                 config,
@@ -2052,10 +2088,12 @@ class UnifiedAIClient:
         # to forward the config, move this return to AFTER the two gate calls
         # below (or call them here) so an extraction model can't leak either.
         if caps.interaction == "extraction" or profile.client_attr == "extraction":
+            _firewall_check_dispatch(config)
             return self._stamp_offering_usage(
                 await self._dispatch_with_billing_net(
                     lambda: self._execute_extraction(config, wire_format, model_name, debug),
                     profile=profile,
+                    firewall_checked=True,
                 ),
                 profile,
                 config,
@@ -2308,6 +2346,7 @@ class UnifiedAIClient:
         provider_client: Any | None = None,
         transient_retries: int = 0,
         config: Any = None,
+        firewall_checked: bool = False,
     ) -> Any:
         """Run one provider dispatch under the LAYER 2 billing net.
 
@@ -2357,6 +2396,16 @@ class UnifiedAIClient:
         from matrx_ai.providers.request_capture import is_capturing
 
         await admit_child_safety(None)
+        # THE REQUEST FIREWALL, again, on what is really dispatched: the client shapes its wire copy
+        # AFTER the send boundary (message flags, capability gates, wire additions). Refuse-only,
+        # never recorded twice. A seam call with no config (speech, rerank, embeddings) cannot be
+        # read, so a term list refuses it. No scope: one ContextVar read.
+        from matrx_ai.config.request_firewall import check_at_send, refuse_unscannable_call
+
+        if config is not None:
+            check_at_send(config, door="provider_dispatch", record=False)
+        elif not firewall_checked:
+            refuse_unscannable_call("this provider call", door="provider_dispatch")
         try:
             if is_capturing():
                 # CAPTURE MODE (request_capture.py): nothing is sent, nothing is

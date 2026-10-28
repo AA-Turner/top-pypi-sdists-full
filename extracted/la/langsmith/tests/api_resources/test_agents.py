@@ -135,6 +135,7 @@ class TestAgents:
             agent_id="agent_id",
             agent_type="CUSTOM",
             name="name",
+            owner_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             source_type="LSD",
         )
         assert_matches_type(Agent, agent, path=["response"])
@@ -383,6 +384,7 @@ class TestAsyncAgents:
             agent_id="agent_id",
             agent_type="CUSTOM",
             name="name",
+            owner_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             source_type="LSD",
         )
         assert_matches_type(Agent, agent, path=["response"])

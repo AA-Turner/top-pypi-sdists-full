@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union, overload
 
@@ -1003,6 +1003,7 @@ class Sandbox:
         port: int,
         *,
         expires_in_seconds: int = 600,
+        embed_origins: Optional[Sequence[str]] = None,
         headers: RequestHeaders = None,
     ) -> ServiceURL:
         """Get an authenticated URL for a service running in this sandbox.
@@ -1013,6 +1014,10 @@ class Sandbox:
         Args:
             port: Port the service is listening on inside the sandbox.
             expires_in_seconds: Token TTL in seconds (1--86400, default 600).
+            embed_origins: Origins whose pages may show the URL in an iframe:
+                at most 5, each ``https://host[:port]`` (``http`` only on
+                localhost). They are signed into each token, so every refresh
+                keeps them; open ``embed_url`` in the frame.
             headers: Optional per-request header overrides.
 
         Returns:
@@ -1028,6 +1033,7 @@ class Sandbox:
             self.name,
             port,
             expires_in_seconds=expires_in_seconds,
+            embed_origins=embed_origins,
             headers=headers,
         )
         service._sandbox_id = self.id

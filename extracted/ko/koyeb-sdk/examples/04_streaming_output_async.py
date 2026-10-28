@@ -28,6 +28,14 @@ async def main():
             api_token=api_token,
         )
 
+        # With streaming callbacks the output is delivered to the callbacks
+        # only: result.stdout stays empty. Keep a copy to check it.
+        streamed = []
+
+        def on_stdout(data):
+            print(data.strip())
+            streamed.append(data)
+
         # Stream output in real-time
         result = await sandbox.exec(
             '''python3 -u -c "
@@ -36,12 +44,12 @@ for i in range(5):
     print(f'Line {i+1}')
     time.sleep(0.5)
 "''',
-            on_stdout=lambda data: print(data.strip()),
+            on_stdout=on_stdout,
             on_stderr=lambda data: print(f"ERR: {data.strip()}"),
         )
         print(f"\nExit code: {result.exit_code}")
-        assert result.exit_code == 0, result.stderr
-        assert "Line 5" in result.stdout
+        assert result.exit_code == 0
+        assert "Line 5" in "".join(streamed)
 
         # Stream a script
         await sandbox.filesystem.write_file(
@@ -50,12 +58,13 @@ for i in range(5):
         )
         await sandbox.exec("chmod +x /tmp/counter.py")
 
+        streamed.clear()
         result = await sandbox.exec(
             "python3 /tmp/counter.py",
-            on_stdout=lambda data: print(data.strip()),
+            on_stdout=on_stdout,
         )
-        assert result.exit_code == 0, result.stderr
-        assert "Done!" in result.stdout
+        assert result.exit_code == 0
+        assert "Done!" in "".join(streamed)
 
         return 0
     finally:

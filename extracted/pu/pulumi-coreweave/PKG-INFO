@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_coreweave
-Version: 1.0.3
+Version: 1.0.4
 Summary: A Pulumi package for creating and managing CoreWeave cloud resources.
 License: Apache-2.0
 Project-URL: Homepage, https://www.pulumi.com

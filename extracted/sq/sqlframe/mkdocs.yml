@@ -15,10 +15,12 @@ nav:
       - BigQuery: bigquery.md
       - Snowflake: snowflake.md
       - Postgres: postgres.md
+      - ClickHouse (preview): clickhouse.md
       - Databricks: databricks.md
       - Spark: spark.md
       - Standalone: standalone.md
       - Redshift (community): redshift.md
+      - Trino (preview): trino.md
   - API reference:
       - Compatibility overview: reference/index.md
       - DuckDB: reference/duckdb.md

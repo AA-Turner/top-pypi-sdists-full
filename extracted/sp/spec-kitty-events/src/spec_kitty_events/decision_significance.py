@@ -1,0 +1,129 @@
+"""Decision-significance event contracts (RACI-aware).
+
+``SignificanceEvaluated`` mirrors, by shape and never by import (C-002), core's
+emitted ``SignificanceEvaluatedPayload`` from
+``src/runtime/next/_internal_runtime/significance.py`` (lines 485-522) and the
+RACI value objects from ``schema.py`` (lines 79-140). ``DecisionTimeoutExpired``
+has no core emitter yet — core defines ``TimeoutExpiredPayload`` in that file but
+does not emit it, so the event-type name and this payload's contract are the
+package's own (see COMPATIBILITY.md / CHANGELOG 11.1.0).
+
+Deliberate differences from the producer (operator rulings) — three narrowings:
+
+* R1: ``RuntimeActorIdentity`` is untouched; a new ``RaciRoleBinding`` is used.
+* R2: ``RaciRoleBinding.actor_id`` is REQUIRED and non-empty, where core emits
+  ``str | None = None``. It applies to every binding, including nested
+  ones in ``raci_snapshot`` and ``escalation_targets``; a payload with a
+  null, empty or absent ``actor_id`` is refused until core sets it.
+* D6: core carries ``raci_snapshot`` as an untyped ``dict``; here it is the
+  typed ``ResolvedRaciSnapshot`` so nested actors are validated.
+* T1: ``DecisionTimeoutExpired.effective_band`` is ``Literal["medium", "high"]``
+  — never ``"low"``, because a low-significance decision auto-proceeds and so
+  never times out.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Final, FrozenSet, List, Literal, Optional, Tuple
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+SIGNIFICANCE_EVALUATED: str = "SignificanceEvaluated"
+DECISION_TIMEOUT_EXPIRED: str = "DecisionTimeoutExpired"
+
+DECISION_SIGNIFICANCE_EVENT_TYPES: FrozenSet[str] = frozenset(
+    {SIGNIFICANCE_EVALUATED, DECISION_TIMEOUT_EXPIRED}
+)
+
+# RACI actor-id sentinels (operator ruling 2026-10-19, #136). A producer that
+# resolves a binding with no actor_id maps it before emitting, since R2 refuses
+# a null or empty actor_id:
+#   * an inferred HUMAN binding -> HUMAN_IN_CHARGE_ACTOR_ID (the built-in
+#     human-in-charge agent profile, i.e. the human operator);
+#   * any other binding that cannot be attributed to the human operator
+#     (llm/service with no id) -> UNKNOWN_ACTOR_ID.
+# These are conventions only: actor_id stays any non-empty string.
+HUMAN_IN_CHARGE_ACTOR_ID: Final = "human-in-charge"
+UNKNOWN_ACTOR_ID: Final = "UNKNOWN"
+
+
+class RaciRoleBinding(BaseModel):
+    """Single actor-role binding; ``actor_id`` is required (R2)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    actor_type: Literal["human", "llm", "service"]
+    actor_id: str = Field(..., min_length=1)
+
+
+class ResolvedRaciSnapshot(BaseModel):
+    """Fully resolved RACI binding with provenance (core ``ResolvedRACIBinding``).
+
+    Core enforces no accountable-is-human rule on the resolved binding (that
+    belongs to ``RACIAssignment``), so none is enforced here.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    step_id: str
+    responsible: RaciRoleBinding
+    accountable: RaciRoleBinding
+    consulted: List[RaciRoleBinding] = Field(default_factory=list)
+    informed: List[RaciRoleBinding] = Field(default_factory=list)
+    source: Literal["inferred", "explicit"]
+    inferred_rule: Optional[str] = None
+    override_reason: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _validate_provenance(self) -> "ResolvedRaciSnapshot":
+        # Mirrors core schema.py _validate_provenance (three rules).
+        if self.source == "explicit" and not self.override_reason:
+            raise ValueError("source='explicit' requires non-empty override_reason")
+        if self.source == "inferred" and not self.inferred_rule:
+            raise ValueError("source='inferred' requires non-empty inferred_rule")
+        if self.source == "inferred" and self.override_reason is not None:
+            raise ValueError("source='inferred' must not have override_reason")
+        return self
+
+
+class SignificanceEvaluatedPayload(BaseModel):
+    """A decision's significance was scored and routed."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    run_id: str = Field(..., min_length=1)
+    decision_id: str = Field(..., min_length=1)
+    step_id: str = Field(..., min_length=1)
+    significance_score: Dict[str, Any]
+    hard_trigger_classes: Tuple[str, ...] = ()
+    effective_band: Literal["low", "medium", "high"]
+    actor: RaciRoleBinding
+
+
+class DecisionTimeoutExpiredPayload(BaseModel):
+    """A decision exceeded its configured timeout window."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    run_id: str = Field(..., min_length=1)
+    decision_id: str = Field(..., min_length=1)
+    step_id: str = Field(..., min_length=1)
+    significance_score: Dict[str, Any]
+    effective_band: Literal["medium", "high"]  # never "low": low auto-proceeds
+    timeout_configured_seconds: int = Field(..., gt=0)
+    escalation_targets: Tuple[RaciRoleBinding, ...] = ()
+    raci_snapshot: ResolvedRaciSnapshot
+    actor: RaciRoleBinding
+
+
+__all__ = [
+    "SIGNIFICANCE_EVALUATED",
+    "DECISION_TIMEOUT_EXPIRED",
+    "DECISION_SIGNIFICANCE_EVENT_TYPES",
+    "HUMAN_IN_CHARGE_ACTOR_ID",
+    "UNKNOWN_ACTOR_ID",
+    "RaciRoleBinding",
+    "ResolvedRaciSnapshot",
+    "SignificanceEvaluatedPayload",
+    "DecisionTimeoutExpiredPayload",
+]

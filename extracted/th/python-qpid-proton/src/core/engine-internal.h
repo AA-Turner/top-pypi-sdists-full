@@ -144,6 +144,11 @@ struct pn_transport_t {
 #define PN_DEFAULT_MAX_FRAME_SIZE (32*1024)
   uint32_t   local_max_frame;
   uint32_t   remote_max_frame;
+  /* Limit on total unread delivery-buffer bytes across all sessions.
+   * 0 = unlimited. Default: PN_DEFAULT_MAX_BUFFERED_DELIVERY_BYTES. */
+#define PN_DEFAULT_MAX_BUFFERED_DELIVERY_BYTES (4*1024*1024)
+  size_t max_buffered_delivery_bytes;
+  size_t buffered_delivery_bytes;   /* running total, mirrors sum of ssn->incoming_bytes */
   pn_condition_t remote_condition;
   pn_condition_t condition;
   pn_error_t *error;
@@ -322,6 +327,8 @@ struct pn_link_t {
   pn_sequence_t credit;
   pn_sequence_t queued;
   pn_sequence_t more_id;
+  pn_delivery_tag_t more_tag; // owned copy, valid while more_pending
+  uint32_t more_format;
   int drained; // number of drained credits
   uint8_t snd_settle_mode;
   uint8_t rcv_settle_mode;
@@ -331,19 +338,62 @@ struct pn_link_t {
   bool drain;
   bool detached;
   bool more_pending;
+  bool tag_truncated; // a delivery-tag on this link has been truncated (warn once)
+};
+
+typedef enum pn_disposition_type_t {
+  PN_DISP_EMPTY    = 0,
+  PN_DISP_CUSTOM   = 1,
+  PN_DISP_RECEIVED = PN_RECEIVED,
+  PN_DISP_ACCEPTED = PN_ACCEPTED,
+  PN_DISP_REJECTED = PN_REJECTED,
+  PN_DISP_RELEASED = PN_RELEASED,
+  PN_DISP_MODIFIED = PN_MODIFIED,
+  PN_DISP_DECLARED = PN_DECLARED,
+  PN_DISP_TRANSACTIONAL = PN_TRANSACTIONAL_STATE,
+} pn_disposition_type_t;
+
+struct pn_received_disposition_t {
+  uint64_t section_offset;
+  uint32_t section_number;
+};
+
+struct pn_rejected_disposition_t {
+  pn_condition_t condition;
+};
+
+struct pn_modified_disposition_t {
+  pn_data_t *annotations;
+  pn_bytes_t annotations_raw;
+  bool failed;
+  bool undeliverable;
+};
+
+struct pn_declared_disposition_t {
+  pn_bytes_t id;
+};
+
+struct pn_transactional_disposition_t {
+  pn_bytes_t id;
+  pn_bytes_t outcome_raw;
+};
+
+struct pn_custom_disposition_t {
+  pn_data_t *data;
+  pn_bytes_t data_raw;
+  uint64_t   type;
 };
 
 struct pn_disposition_t {
-  pn_condition_t condition;
-  uint64_t type;
-  pn_data_t *data;
-  pn_bytes_t data_raw;
-  pn_data_t *annotations;
-  pn_bytes_t annotations_raw;
-  uint64_t section_offset;
-  uint32_t section_number;
-  bool failed;
-  bool undeliverable;
+  union {
+    struct pn_received_disposition_t s_received;
+    struct pn_rejected_disposition_t s_rejected;
+    struct pn_modified_disposition_t s_modified;
+    struct pn_declared_disposition_t s_declared;
+    struct pn_transactional_disposition_t s_transactional;
+    struct pn_custom_disposition_t   s_custom;
+  } u;
+  uint16_t type;
   bool settled;
 };
 
@@ -384,6 +434,7 @@ void pn_transport_sasl_init(pn_transport_t *transport);
 
 void pn_condition_init(pn_condition_t *condition);
 void pn_condition_tini(pn_condition_t *condition);
+
 void pn_modified(pn_connection_t *connection, pn_endpoint_t *endpoint, bool emit);
 void pn_real_settle(pn_delivery_t *delivery);  // will free delivery if link is freed
 void pn_clear_tpwork(pn_delivery_t *delivery);

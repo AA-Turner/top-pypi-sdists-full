@@ -10,7 +10,7 @@ R = TypeVar("R")
 def _redact(value: Any) -> Any:
     """Replace raw byte payloads with a size marker so file/document content is
     never written to logs (and log volume stays bounded for large uploads)."""
-    if isinstance(value, (bytes, bytearray)):
+    if isinstance(value, (bytes, bytearray, memoryview)):
         return f"<bytes:{len(value)}>"
     return value
 

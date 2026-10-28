@@ -32,7 +32,7 @@ import sys
 from collections.abc import Sequence
 from math import log10
 from struct import iter_unpack
-from typing import Any, Callable, ClassVar, Optional, Union, cast
+from typing import Any, Callable, ClassVar, NoReturn, Optional, Union, cast
 
 if sys.version_info[:2] >= (3, 10):
     from typing import TypeGuard
@@ -164,6 +164,8 @@ class PdfObject:
                 and clone.indirect_reference.pdf == pdf_dest
             ):
                 return clone
+        except MemoryError:  # pragma: no cover  # TODO: BLE001
+            raise
         except Exception:
             pass
         ind = self.indirect_reference
@@ -504,6 +506,8 @@ class FloatObject(float, PdfObject):
         try:
             value = float(value)
             return float.__new__(cls, value)
+        except MemoryError:  # pragma: no cover  # TODO: BLE001
+            raise
         except Exception as exception:
             # If this isn't a valid decimal (happens in malformed PDFs)
             # fallback to 0
@@ -891,9 +895,8 @@ class NameObject(str, PdfObject):  # noqa: SLOT000
         return NameObject("/" + name)
 
     @classproperty
-    def surfix(cls) -> bytes:  # noqa: N805
+    def surfix(cls) -> NoReturn:  # noqa: N805
         deprecation_with_replacement("surfix", "prefix", "5.0.0")
-        return b"/"
 
     @staticmethod
     def unnumber(sin: bytes) -> bytes:
@@ -931,6 +934,8 @@ class NameObject(str, PdfObject):  # noqa: SLOT000
                 try:
                     ret = name.decode(enc)
                     return NameObject(ret)
+                except MemoryError:  # pragma: no cover  # TODO: BLE001
+                    raise
                 except Exception:
                     pass
             raise UnicodeDecodeError("", name, 0, 0, "Code Not Found")

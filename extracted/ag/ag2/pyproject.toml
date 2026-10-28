@@ -400,7 +400,7 @@ keywords = [
     "agentic",
 ]
 requires-python = ">=3.10"
-version = "1.2.1"
+version = "1.2.2"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
@@ -454,8 +454,8 @@ acp = [
     "uvicorn>=0.51.0,<1",
 ]
 ag-ui = ["ag-ui-protocol>=1.0,<2"]
-openai = ["openai>=3.27.0,<4"]
-anthropic = ["anthropic>=1.9.0,<2"]
+openai = ["openai>=3.37.0,<4"]
+anthropic = ["anthropic>=1.15.0,<3"]
 gemini = [
     "google-genai>=1.68.0,<3.0",
     "google-auth",
@@ -491,6 +491,7 @@ test-core = [
     "pytest-cov==7.1.0",
     "pytest-timeout>=2.4.0,<3",
     "dirty-equals>=0.11,<0.12",
+    "freezegun>=1.5,<2",
 ]
 test = [
     { include-group = "test-core" },

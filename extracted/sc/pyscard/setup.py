@@ -65,7 +65,7 @@ else:
     except:
         platform_include_dirs = ["/usr/include/PCSC", "/usr/local/include/PCSC"]
 
-VERSION_INFO = (2, 3, 1, 0)
+VERSION_INFO = (2, 3, 2, 0)
 VERSION_STR = "%i.%i.%i" % VERSION_INFO[:3]
 VERSION_ALT = "%i,%01i,%01i,%04i" % VERSION_INFO
 
@@ -147,6 +147,8 @@ kw = {
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Topic :: Security",
     ],
 }

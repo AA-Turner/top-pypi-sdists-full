@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: simplepyble
-Version: 1.2.0
-Summary: The ultimate fully-fledged cross-platform BLE library, designed for simplicity and ease of use.
+Version: 1.3.0
+Summary: Python bindings for the cross-platform SimpleBLE Bluetooth Low Energy library, for Windows, macOS, and Linux. Free for non-commercial use; commercial use requires a license.
 Home-page: https://github.com/simpleble/simpleble
 Author: Kevin Dewald
 Author-email: kevin@simpleble.org
+License-Expression: BUSL-1.1
 Platform: Windows
 Platform: macOS
 Platform: Linux
-Classifier: License :: Free for non-commercial use
-Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -18,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Dynamic: author
 Dynamic: author-email
@@ -27,161 +26,204 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
+Dynamic: license-expression
 Dynamic: platform
 Dynamic: requires-python
 Dynamic: summary
 
-|PyPI Licence|
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/simpleble/simpleble/main/docs/public/simpleBLE-logo.png">
+    <img src="https://raw.githubusercontent.com/simpleble/simpleble/main/docs/public/simpleBLE-logo-dark.png" alt="SimpleBLE" width="360">
+  </picture>
+</p>
 
-SimplePyBLE
-===========
+# SimplePyBLE
 
-The ultimate cross-platform library and bindings for Bluetooth Low Energy (BLE), designed for simplicity and ease of use.
+**Build Bluetooth once. Ship it everywhere.**
 
-Key Features
-------------
+SimplePyBLE brings [SimpleBLE](https://github.com/simpleble/simpleble) to Python
+on Windows, macOS, and Linux. Discover and connect Bluetooth peripherals, read
+and write GATT values, subscribe to notifications, and host local GATT services
+through one API, with type hints and an asyncio module included.
 
-* **Cross-Platform**: Enterprise-grade support for Windows, macOS, Linux
-* **Easy Integration**: Clean, consistent API across all platforms
-* **Multiple Language Bindings**: Production-ready bindings for C, C++, C#, Python, Java and Rust, with more coming soon
-* **Commercial Ready**: Source-available commercial license for proprietary applications
+## Why SimplePyBLE
 
-Support & Resources
---------------------
+- **One cross-platform API:** Keep your Bluetooth scripts, tools, and services the same on Windows, macOS, and Linux.
+- **Native underneath:** Use WinRT, CoreBluetooth, and BlueZ through one maintained stack.
+- **Built for real products:** Act as a central or a peripheral on every supported platform.
+- **Commercially supported:** Ship proprietary applications with commercial licensing and direct technical support from the team that builds SimpleBLE.
 
-We're here to help you succeed with SimpleBLE:
+## Support and resources
 
-* **Documentation**: Visit our `Documentation`_ page for comprehensive guides
-* **Commercial Support**: Check out |website|_ or |email|_ about licensing and professional services.
-* **Community**: Join our `Discord`_ server for discussions and help
-* **Dongl**: Try the `official SimpleBLE Bluetooth dongle`_ for reliable prototyping and production.
+- **Documentation:** The [usage guide](https://docs.simpleble.org/simplepyble/usage?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme&utm_content=support) and [examples](https://github.com/simpleble/simpleble/tree/main/examples/simplepyble) cover every API.
+- **Commercial support:** Visit [simpleble.org](https://simpleble.org?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme&utm_content=support) or [email us](mailto:contact@simpleble.org) about licensing and professional services.
+- **Community:** Ask questions and share projects in [GitHub Discussions](https://github.com/simpleble/simpleble/discussions).
+- **Dongl:** Prototype and ship with the [official SimpleBLE USB adapter](https://www.simpleble.org/dongl?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme&utm_content=support).
+- **Contribute:** Send changes to [simpleble/simpleble](https://github.com/simpleble/simpleble/tree/main/simplepyble).
 
-**Don't hesitate to reach out if you need assistance - we're happy to help!**
+## Get started
 
-Installation
-------------
+Use Python 3.10 or newer:
 
-You can install SimplePyBLE from PyPI using pip: ::
+```sh
+pip install simplepyble
+```
 
-   pip install simplepyble
+The wheels include the native SimpleBLE library for every supported platform,
+so nothing is compiled during installation.
 
-When building from source on Debian or Ubuntu, install the DBus development headers first: ::
+Scan for five seconds and print what was found:
 
-   sudo apt-get install libdbus-1-dev
+```python
+import simplepyble
 
-Usage
------
+adapter = simplepyble.Adapter.get_adapters()[0]
 
-Scan for nearby devices: ::
+adapter.set_callback_on_scan_found(
+    lambda peripheral: print(f"{peripheral.identifier()} [{peripheral.address()}] {peripheral.rssi()} dBm")
+)
+adapter.scan_for(5000)
+```
 
-    import simplepyble
+## Scanning and events
 
-    adapters = simplepyble.Adapter.get_adapters()
-    if not adapters:
-        raise SystemExit("No Bluetooth adapters found.")
+An adapter takes callbacks for `scan_start`, `scan_stop`, `scan_found`,
+`scan_updated`, `power_on`, and `power_off` through
+`set_callback_on_scan_found()` and its siblings; a peripheral takes
+`set_callback_on_connected()` and `set_callback_on_disconnected()`. Pass `None`
+to clear a callback. Callbacks run on SimpleBLE's threads, so hand longer work
+to your own.
 
-    adapter = adapters[0]
-    print(f"Using adapter: {adapter.identifier()} [{adapter.address()}]")
+Use `scan_start()` and `scan_stop()` when your application controls scan
+timing, and `scan_get_results()` for the peripherals seen by the last scan.
+
+## Connect and use GATT
+
+Read the battery level of a peripheral and follow its notifications:
+
+```python
+BATTERY_SERVICE = "0000180f-0000-1000-8000-00805f9b34fb"
+BATTERY_LEVEL = "00002a19-0000-1000-8000-00805f9b34fb"
+
+peripheral = next(p for p in adapter.scan_get_results() if p.identifier() == "My Sensor")
+
+peripheral.set_callback_on_disconnected(lambda: print("Disconnected"))
+peripheral.connect()
+
+level = peripheral.read(BATTERY_SERVICE, BATTERY_LEVEL)
+print(f"Battery: {level[0]}%")
+
+peripheral.notify(BATTERY_SERVICE, BATTERY_LEVEL, lambda value: print(f"Battery: {value[0]}%"))
+```
+
+`services()` lists the services, characteristics, capabilities, and descriptors
+of a connected peripheral. `read`, `write_request`, and `write_command` access
+characteristic values; `descriptor_read` and `descriptor_write` access
+descriptors. `notify` and `indicate` call your function with each value as
+`bytes`, and `unsubscribe` stops them. Failures raise `RuntimeError` with
+SimpleBLE's message.
+
+## Host a GATT service
+
+Create a local peripheral from an adapter, add services and characteristics,
+then start advertising:
+
+```python
+from simplepyble import LocalCharacteristicCapability
+
+host = adapter.create_local_peripheral()
+host.add_advertised_service(BATTERY_SERVICE)
+
+service = host.add_service(BATTERY_SERVICE)
+battery = service.add_characteristic(
+    BATTERY_LEVEL, [LocalCharacteristicCapability.READ, LocalCharacteristicCapability.NOTIFY]
+)
+battery.set_value(bytes([100]))
+
+host.set_callback_on_client_connected(lambda address: print(f"{address} connected"))
+host.start()
+```
+
+`set_value()` updates the stored value and publishes it to subscribers.
+Characteristics take `set_callback_on_write()`, `set_callback_on_subscribed()`,
+and `set_callback_on_unsubscribed()`, and `set_callback_on_read()` computes a
+value for each read. Configure services before `start()`; call `stop()` before
+changing them.
+
+## Use a Dongl
+
+A [Dongl](https://docs.simpleble.org/dongl?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme&utm_content=dongl) is a USB Bluetooth adapter made for
+SimpleBLE. Its backend is on by default; use the adapters of the Dongl backend:
+
+```python
+adapter = simplepyble.Backend.get_dongl().adapters()[0]
+```
+
+`simplepyble.config` holds the Dongl, BlueZ, and WinRT backend settings; set
+them before the first call that reaches a backend. Pairing through a Dongl
+happens without the operating system: register a callback with
+`set_passkey_request_callback()`, `set_passkey_display_callback()`, or
+`set_numeric_comparison_callback()` from `simplepyble.advanced.dongl` before
+`connect()`.
+
+## Asyncio
+
+`simplepyble.aio` has the same API for `asyncio`. Calls that wait on the
+Bluetooth stack are coroutines, and callbacks can be functions or coroutines;
+they run on the event loop that registered them.
+
+```python
+import asyncio
+from simplepyble.aio import Adapter
+
+async def main():
+    adapter = Adapter.get_adapters()[0]
 
     adapter.set_callback_on_scan_found(
-        lambda peripheral: print(
-            f"Found: {peripheral.identifier()} [{peripheral.address()}] {peripheral.rssi()} dBm"
-        )
+        lambda peripheral: print(f"{peripheral.identifier()} [{peripheral.address()}] {peripheral.rssi()} dBm")
     )
+    async with adapter:
+        await adapter.scan_for(5000)
 
-    adapter.scan_for(5000)
+asyncio.run(main())
+```
 
-    print("Scan results:")
-    for peripheral in adapter.scan_get_results():
-        state = "connectable" if peripheral.is_connectable() else "not connectable"
-        print(f"- {peripheral.identifier()} [{peripheral.address()}] {state}")
+Leaving `async with` on an adapter, peripheral, or local peripheral clears its
+callbacks and stops its scan, subscriptions, or advertising.
 
-See the `code examples`_ on GitHub for connect, read/write, and notify flows.
+## Platforms
 
-Asynchronous Support
---------------------
+| Platform | Architectures | Requirements |
+| --- | --- | --- |
+| macOS 15.0 or newer | x64, arm64 | Bluetooth permission for the app that runs Python |
+| Windows 10 or newer | x64, x86, arm64 | |
+| Linux | x64, x86, arm64 | BlueZ and the D-Bus library |
 
-SimplePyBLE provides an asynchronous API via the ``simplepyble.aio`` module. This module
-is designed to work with ``asyncio`` and provides a more idiomatic way to handle
-asynchronous operations in Python.
+See [Bluetooth permissions](https://docs.simpleble.org/fundamentals/permissions?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme&utm_content=platforms)
+for the setup each platform needs.
 
-Example: ::
+## Versions
 
-   import asyncio
-   from simplepyble.aio import Adapter
+SimplePyBLE follows SimpleBLE's release versions. pip installs the latest
+stable release, and development builds of the main branch are published as
+pre-releases:
 
-   async def main():
-       adapters = Adapter.get_adapters()
-       adapter = adapters[0]
+```sh
+pip install --pre simplepyble
+```
 
-       async with adapter:
-           await adapter.scan_for(5000)
-           peripherals = adapter.scan_get_results()
-           for peripheral in peripherals:
-               print(f"Found: {peripheral.identifier()} [{peripheral.address()}]")
+## License
 
-   if __name__ == "__main__":
-       asyncio.run(main())
+SimplePyBLE follows the [SimpleBLE license](https://github.com/simpleble/simpleble/blob/main/LICENSE.md),
+the Business Source License 1.1 (BUSL-1.1). It is free for non-commercial use,
+and commercial use needs a commercial license. We offer free commercial licenses
+for small projects and early-stage companies: [email us](mailto:contact@simpleble.org)
+or [leave us a message](https://www.simpleble.org/contact?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme&utm_content=license)
+to discuss your use case. Commercial licenses carry no royalties or revenue
+sharing; see the [licensing page](https://docs.simpleble.org/licensing?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme&utm_content=license) for
+terms.
 
-Check out the `async examples`_ for more details.
+---
 
-License
-=======
-
-Since January 20th 2025, SimpleBLE is now available under the Business Source License 1.1 (BUSL-1.1). Each
-version of SimpleBLE will convert to the GNU General Public License version 3 after four years of its initial release.
-Qualifying non-commercial users may instead continue using and distributing that version under the original
-BUSL-1.1 terms under the Non-Commercial Perpetual Use Grant in ``LICENSE.md``.
-
-The project is free to use for non-commercial purposes, but requires a commercial license for commercial use. We
-also offer FREE commercial licenses for small projects and early-stage companies - reach out to discuss your use case!
-
-**Why purchase a commercial license?**
-
-- Build and deploy unlimited commercial applications
-- Use across your entire development team
-- Zero revenue sharing or royalty payments
-- Choose features that match your needs and budget
-- Priority technical support included
-- Clear terms for integrating into MIT-licensed projects
-
-**Looking for information on pricing and commercial terms of service?** Visit |website-url|_ for more details.
-
-For further enquiries, please |email|_ or |leavemessage|_ and we can discuss the specifics of your situation.
-
-----
-
-**SimpleBLE** is a project powered by |caos|_.
-
-.. Links
-
-.. |email| replace:: email us
-.. _email: mailto:contact@simpleble.org
-
-.. |leavemessage| replace:: leave us a message on our website
-.. _leavemessage: https://www.simpleble.org/contact?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme
-
-.. |website| replace:: our website
-.. _website: https://simpleble.org?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme
-
-.. |website-url| replace:: www.simpleble.org
-.. _website-url: https://simpleble.org?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme
-
-.. |caos| replace:: **The California Open Source Company**
-.. _caos: https://californiaopensource.com?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme
-
-.. _SimplePyBLE: https://pypi.org/project/simplepyble/
-
-.. _SimpleBLE: https://github.com/simpleble/simpleble/
-
-.. _official SimpleBLE Bluetooth dongle: https://www.simpleble.org/dongl?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=dongl_launch
-
-.. _code examples: https://github.com/simpleble/simpleble/tree/main/examples/simplepyble
-
-.. _async examples: https://github.com/simpleble/simpleble/tree/main/examples/simplepyble
-
-.. _Discord: https://discord.gg/N9HqNEcvP3
-
-.. _Documentation: https://docs.simpleble.org
-
-.. |PyPI Licence| image:: https://img.shields.io/pypi/l/simplepyble
+**SimpleBLE** is a project powered by [The California Open Source Company](https://californiaopensource.com?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme&utm_content=footer).

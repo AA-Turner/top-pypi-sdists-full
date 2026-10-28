@@ -85,11 +85,7 @@ def _params(fn):
 
 
 def _own_callable_names(cls):
-    return {
-        name
-        for name in vars(cls)
-        if callable(getattr(cls, name, None))
-    }
+    return {name for name in vars(cls) if callable(getattr(cls, name, None))}
 
 
 class TestSyncAsyncSignatureParity(unittest.TestCase):
@@ -185,7 +181,9 @@ class TestNoneDefaultsAreOptional(unittest.TestCase):
     def _check_function(fname, fn):
         violations = []
         pos = fn.args.posonlyargs + fn.args.args
-        for default, arg in zip(fn.args.defaults, pos[len(pos) - len(fn.args.defaults):]):
+        for default, arg in zip(
+            fn.args.defaults, pos[len(pos) - len(fn.args.defaults) :]
+        ):
             violations.extend(
                 TestNoneDefaultsAreOptional._check_arg(fname, fn, arg, default)
             )

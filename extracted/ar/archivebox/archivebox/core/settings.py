@@ -1,6 +1,8 @@
 __package__ = "archivebox.core"
 
 import importlib
+import base64
+import hashlib
 import inspect
 import logging
 import os
@@ -74,8 +76,10 @@ INSTALLED_APPS = [
     "archivebox.personas",  # handles Persona and session management
     "archivebox.core",  # core django model with Snapshot, ArchiveResult, etc. (crawls depends on this)
     "archivebox.crawls",  # handles Crawl and CrawlSchedule models and management (depends on core)
+    "archivebox.importers",  # generic source management; provider behavior belongs to plugins
     "archivebox.progressmonitor",  # live progress endpoint and admin monitor template
     "archivebox.api",  # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
+    "archivebox.memento",  # read-only datetime negotiation and capture metadata on existing views
     # 3rd-party apps from PyPI that need to be loaded last
     "admin_data_views",  # handles rendering some convenient automatic read-only views of data in Django admin
     "django_extensions",  # provides Django Debug Toolbar (and other non-debug helpers)
@@ -85,8 +89,9 @@ DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD = "POST"
 
 
 MIDDLEWARE = [
-    "archivebox.core.middleware.TimezoneMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "archivebox.core.middleware.HealthCheckMiddleware",
+    "archivebox.core.middleware.TimezoneMiddleware",
     "archivebox.core.middleware.CacheControlMiddleware",
     "archivebox.core.middleware.AdminCookieIsolationMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -317,17 +322,21 @@ CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
 ### Security Settings
 ################################################################################
 
-# Persist SECRET_KEY on first use. Data dirs created before init wrote a
-# SECRET_KEY line — or those whose ArchiveBox.conf was hand-edited to remove
-# it — would otherwise sign session cookies with a fresh random key on every
-# boot (because the pydantic field's default_factory regenerates), logging
-# users out on every server restart. ``archivebox init`` writes this for new
-# collections; this branch is the recovery path for the rest.
-#
-# We can't check ``CONFIG.SECRET_KEY`` for "missing" — pydantic's
-# default_factory already filled it with a fresh random value. We have to
-# inspect the conf file directly to know whether the value will survive.
+# Load the adopted DB key before Django's app registry is ready. Startup
+# reconciliation moves legacy file keys into Machine.config without rotation.
+# For a new collection, persist the generated key temporarily until the DB is
+# initialized; reconciliation removes the file entry only after DB commit.
+# Check the persisted stores explicitly: CONFIG.SECRET_KEY already contains
+# a random default when neither store has a key.
 SECRET_KEY = CONFIG.SECRET_KEY
+_secret_in_db = None
+try:
+    from archivebox.misc.db import load_db_secret
+
+    _secret_in_db = load_db_secret(CONFIG)
+    SECRET_KEY = CONFIG.SECRET_KEY = _secret_in_db or SECRET_KEY
+except Exception as err:
+    logger.warning("Unable to load DB secret; retaining file/env key (%s)", type(err).__name__)
 try:
     from archivebox.config.configset import BaseConfigSet as _BaseConfigSet
 
@@ -335,16 +344,16 @@ try:
     _secret_persisted = bool((_persisted_keys.get("SECRET_KEY") or "").strip())
 except (OSError, RuntimeError, ValueError):
     _secret_persisted = True  # err on the side of NOT touching disk
-if not _secret_persisted:
+if not _secret_persisted and not _secret_in_db:
     try:
         from archivebox.config.collection import write_config_file
 
         write_config_file({"SECRET_KEY": SECRET_KEY})
-    except (OSError, RuntimeError, ValueError):
+    except (Exception, SystemExit) as err:
         # Read-only mount, missing data dir, mid-init race — fall back to the
         # in-memory random key. The user will get logged out on the next boot
         # but the server still comes up.
-        logger.debug("Unable to persist generated SECRET_KEY", exc_info=True)
+        logger.warning("Unable to persist SECRET_KEY; retaining in-memory key (%s)", type(err).__name__)
 
 ALLOWED_HOSTS = [host.strip() for host in CONFIG.ALLOWED_HOSTS.split(",") if host.strip()]
 if (CONFIG.SERVER_SECURITY_MODE == "auto" or CONFIG.USES_SUBDOMAIN_ROUTING) and "*" not in ALLOWED_HOSTS:
@@ -465,6 +474,10 @@ LOGGING = SETTINGS_LOGGING
 # Add default webhook configuration to the User model
 SIGNAL_WEBHOOKS_CUSTOM_MODEL = "archivebox.api.models.OutboundWebhook"
 SIGNAL_WEBHOOKS: dict[str, object] = {
+    # Reuse the collection's persistent secret with a separate key derivation
+    # context so webhook tokens can be encrypted across server restarts.
+    "CIPHER_KEY": base64.b64encode(hashlib.sha256(f"archivebox.webhooks:{SECRET_KEY}".encode()).digest()).decode(),
+    "HIDE_TOKEN": True,
     "TIMEOUT": 30,
     "TASK_HANDLER": "archivebox.api.webhooks.transaction_on_commit_task_handler",
     "ERROR_HANDLER": "archivebox.api.webhooks.warning_error_handler",

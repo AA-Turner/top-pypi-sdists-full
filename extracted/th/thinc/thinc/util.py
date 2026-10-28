@@ -9,7 +9,6 @@ import threading
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -24,17 +23,10 @@ from typing import (
 )
 
 import numpy
+from confection.validation import Schema, ValidationError, validate_type
 from packaging.version import Version
-
-try:
-    from pydantic.v1 import ValidationError, create_model
-except ImportError:
-    from pydantic import ValidationError, create_model  # type: ignore
-
-import numpy
 from wasabi import table  # type: ignore
 
-from . import types  # noqa: E402
 from .compat import (
     cupy,
     cupy_from_dlpack,
@@ -50,13 +42,16 @@ from .compat import (
 from .compat import mxnet as mx
 from .compat import tensorflow as tf
 from .compat import torch
+
+DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
+
+from typing import TYPE_CHECKING
+
+from . import types  # noqa: E402
 from .types import ArgsKwargs, ArrayXd, FloatsXd, IntsXd, Padded, Ragged  # noqa: E402
 
 if TYPE_CHECKING:
     from .api import Ops
-
-
-DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
 
 def get_torch_default_device() -> "torch.device":
@@ -98,12 +93,18 @@ def gpu_is_available():
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     """Set the random seed across random, numpy.random and cupy.random."""
     random.seed(seed)
-    numpy.random.seed(seed)
+    numpy.random.seed(seed % 2**32)
     if has_torch:
-        torch.manual_seed(seed)
+        # Must be within the inclusive range [-0x8000_0000_0000_0000, 0xffff_ffff_ffff_ffff]
+        # https://github.com/pytorch/pytorch/blob/d38164a545b4a4e4e0cf73ce67173f70574890b6/torch/random.py#L32-L41
+        torch.manual_seed(seed % 0xFFFF_FFFF_FFFF_FFFF)
     if has_cupy_gpu:
+        # cupy has no documented range limit on seed as of 2026-01-15
+        # https://docs.cupy.dev/en/latest/reference/generated/cupy.random.seed.html
         cupy.random.seed(seed)
         if has_torch and has_torch_cuda_gpu:
+            # torch.cuda has no documented range limit on seed as of 2026-01-15
+            # https://docs.pytorch.org/docs/stable/generated/torch.cuda.manual_seed_all.html
             torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
@@ -549,11 +550,6 @@ class DataValidationError(ValueError):
         ValueError.__init__(self, "\n\n" + "\n".join(result))
 
 
-class _ArgModelConfig:
-    extra = "forbid"
-    arbitrary_types_allowed = True
-
-
 def validate_fwd_input_output(
     name: str, func: Callable[[Any, Any, bool], Any], X: Any, Y: Any
 ) -> None:
@@ -561,35 +557,29 @@ def validate_fwd_input_output(
     annotations, if available. Used in Model.initialize with the input and
     output samples as they pass through the network.
     """
-    sig = inspect.signature(func)
-    empty = inspect.Signature.empty
-    params = list(sig.parameters.values())
-    if len(params) != 3:
-        bad_params = f"{len(params)} ({', '.join([p.name for p in params])})"
-        err = f"Invalid forward function. Expected 3 arguments (model, X , is_train), got {bad_params}"
+    schema = Schema.from_function(func)
+    fields = list(schema.model_fields)
+    if len(fields) != 3:
+        bad_params = f"{len(fields)} ({', '.join(fields)})"
+        err = f"Invalid forward function. Expected 3 arguments (model, X, is_train), got {bad_params}"
         raise DataValidationError(name, X, Y, [{"msg": err}])
-    annot_x = params[1].annotation
-    annot_y = sig.return_annotation
-    sig_args: Dict[str, Any] = {"__config__": _ArgModelConfig}
-    args = {}
-    if X is not None and annot_x != empty:
+    x_field = schema.model_fields[fields[1]]
+    y_field = schema.model_fields[fields[2]]  # noqa: F841
+    errors = []
+    if X is not None and x_field.annotation is not Any:
         if isinstance(X, list) and len(X) > 5:
             X = X[:5]
-        sig_args["X"] = (annot_x, ...)
-        args["X"] = X
-    if Y is not None and annot_y != empty:
-        if isinstance(Y, list) and len(Y) > 5:
-            Y = Y[:5]
-        sig_args["Y"] = (annot_y, ...)
-        args["Y"] = (Y, lambda x: x)
-    ArgModel = create_model("ArgModel", **sig_args)
-    # Make sure the forward refs are resolved and the types used by them are
-    # available in the correct scope. See #494 for details.
-    ArgModel.update_forward_refs(**types.__dict__)
-    try:
-        ArgModel.parse_obj(args)
-    except ValidationError as e:
-        raise DataValidationError(name, X, Y, e.errors()) from None
+        err = validate_type(X, x_field.annotation)
+        if err:
+            errors.append({"loc": ("X",), "msg": err})
+    if Y is not None:
+        ret = inspect.signature(func).return_annotation
+        if ret is not inspect.Signature.empty:
+            err = validate_type((Y, lambda x: x), ret)
+            if err:
+                errors.append({"loc": ("Y",), "msg": err})
+    if errors:
+        raise DataValidationError(name, X, Y, errors)
 
 
 @contextlib.contextmanager

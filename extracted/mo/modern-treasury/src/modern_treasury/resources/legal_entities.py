@@ -96,6 +96,7 @@ class LegalEntities(SyncAPIResource):
         regulators: Optional[Iterable[legal_entity_create_params.Regulator]] | Omit = omit,
         risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
         service_provider_legal_entity_id: Optional[str] | Omit = omit,
+        status: Literal["draft"] | Omit = omit,
         suffix: Optional[str] | Omit = omit,
         terms_of_use: Optional[legal_entity_create_params.TermsOfUse] | Omit = omit,
         third_party_verification: Optional[ThirdPartyVerification] | Omit = omit,
@@ -180,13 +181,16 @@ class LegalEntities(SyncAPIResource):
 
           prefix: An individual's prefix.
 
-          primary_social_media_sites: A list of primary social media URLs for the business.
+          primary_social_media_sites: A list of the entity's primary social media URLs.
 
           regulators: Array of regulatory bodies overseeing this institution.
 
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
           service_provider_legal_entity_id: The UUID of the parent legal entity in the service provider tree.
+
+          status: Set to draft to create the legal entity as a draft. Omit to create it as
+              pending. Inline child legal entities take the parent's status.
 
           suffix: An individual's suffix.
 
@@ -250,6 +254,7 @@ class LegalEntities(SyncAPIResource):
                     "regulators": regulators,
                     "risk_rating": risk_rating,
                     "service_provider_legal_entity_id": service_provider_legal_entity_id,
+                    "status": status,
                     "suffix": suffix,
                     "terms_of_use": terms_of_use,
                     "third_party_verification": third_party_verification,
@@ -341,6 +346,7 @@ class LegalEntities(SyncAPIResource):
         regulators: Optional[Iterable[legal_entity_update_params.Regulator]] | Omit = omit,
         risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
         service_provider_legal_entity_id: Optional[str] | Omit = omit,
+        status: Literal["pending"] | Omit = omit,
         suffix: Optional[str] | Omit = omit,
         terms_of_use: Optional[legal_entity_update_params.TermsOfUse] | Omit = omit,
         third_party_verification: Optional[ThirdPartyVerification] | Omit = omit,
@@ -411,13 +417,17 @@ class LegalEntities(SyncAPIResource):
 
           prefix: An individual's prefix.
 
-          primary_social_media_sites: A list of primary social media URLs for the business.
+          primary_social_media_sites: A list of the entity's primary social media URLs.
 
           regulators: Array of regulatory bodies overseeing this institution.
 
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
           service_provider_legal_entity_id: The UUID of the parent legal entity in the service provider tree.
+
+          status: Set to pending to submit a draft legal entity for processing. Only valid while
+              the legal entity is draft, and must be the only attribute in the request. Draft
+              child legal entities are submitted with it.
 
           suffix: An individual's suffix.
 
@@ -478,6 +488,7 @@ class LegalEntities(SyncAPIResource):
                     "regulators": regulators,
                     "risk_rating": risk_rating,
                     "service_provider_legal_entity_id": service_provider_legal_entity_id,
+                    "status": status,
                     "suffix": suffix,
                     "terms_of_use": terms_of_use,
                     "third_party_verification": third_party_verification,
@@ -507,7 +518,7 @@ class LegalEntities(SyncAPIResource):
         metadata: Dict[str, str] | Omit = omit,
         per_page: int | Omit = omit,
         show_deleted: str | Omit = omit,
-        status: Literal["pending", "active", "suspended", "denied"] | Omit = omit,
+        status: Literal["pending", "draft", "active", "suspended", "denied"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -665,6 +676,7 @@ class AsyncLegalEntities(AsyncAPIResource):
         regulators: Optional[Iterable[legal_entity_create_params.Regulator]] | Omit = omit,
         risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
         service_provider_legal_entity_id: Optional[str] | Omit = omit,
+        status: Literal["draft"] | Omit = omit,
         suffix: Optional[str] | Omit = omit,
         terms_of_use: Optional[legal_entity_create_params.TermsOfUse] | Omit = omit,
         third_party_verification: Optional[ThirdPartyVerification] | Omit = omit,
@@ -749,13 +761,16 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           prefix: An individual's prefix.
 
-          primary_social_media_sites: A list of primary social media URLs for the business.
+          primary_social_media_sites: A list of the entity's primary social media URLs.
 
           regulators: Array of regulatory bodies overseeing this institution.
 
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
           service_provider_legal_entity_id: The UUID of the parent legal entity in the service provider tree.
+
+          status: Set to draft to create the legal entity as a draft. Omit to create it as
+              pending. Inline child legal entities take the parent's status.
 
           suffix: An individual's suffix.
 
@@ -819,6 +834,7 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "regulators": regulators,
                     "risk_rating": risk_rating,
                     "service_provider_legal_entity_id": service_provider_legal_entity_id,
+                    "status": status,
                     "suffix": suffix,
                     "terms_of_use": terms_of_use,
                     "third_party_verification": third_party_verification,
@@ -910,6 +926,7 @@ class AsyncLegalEntities(AsyncAPIResource):
         regulators: Optional[Iterable[legal_entity_update_params.Regulator]] | Omit = omit,
         risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
         service_provider_legal_entity_id: Optional[str] | Omit = omit,
+        status: Literal["pending"] | Omit = omit,
         suffix: Optional[str] | Omit = omit,
         terms_of_use: Optional[legal_entity_update_params.TermsOfUse] | Omit = omit,
         third_party_verification: Optional[ThirdPartyVerification] | Omit = omit,
@@ -980,13 +997,17 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           prefix: An individual's prefix.
 
-          primary_social_media_sites: A list of primary social media URLs for the business.
+          primary_social_media_sites: A list of the entity's primary social media URLs.
 
           regulators: Array of regulatory bodies overseeing this institution.
 
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
           service_provider_legal_entity_id: The UUID of the parent legal entity in the service provider tree.
+
+          status: Set to pending to submit a draft legal entity for processing. Only valid while
+              the legal entity is draft, and must be the only attribute in the request. Draft
+              child legal entities are submitted with it.
 
           suffix: An individual's suffix.
 
@@ -1047,6 +1068,7 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "regulators": regulators,
                     "risk_rating": risk_rating,
                     "service_provider_legal_entity_id": service_provider_legal_entity_id,
+                    "status": status,
                     "suffix": suffix,
                     "terms_of_use": terms_of_use,
                     "third_party_verification": third_party_verification,
@@ -1076,7 +1098,7 @@ class AsyncLegalEntities(AsyncAPIResource):
         metadata: Dict[str, str] | Omit = omit,
         per_page: int | Omit = omit,
         show_deleted: str | Omit = omit,
-        status: Literal["pending", "active", "suspended", "denied"] | Omit = omit,
+        status: Literal["pending", "draft", "active", "suspended", "denied"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,

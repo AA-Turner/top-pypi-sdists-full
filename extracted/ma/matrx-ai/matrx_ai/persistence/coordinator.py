@@ -110,6 +110,15 @@ def _scream_lost_write(
     )
 
 
+def _ambient_app_context() -> Any:
+    try:
+        from matrx_connect import try_get_app_context
+
+        return try_get_app_context()
+    except Exception:
+        return None
+
+
 class CoordinatorPhase(Enum):
     OPEN = "open"
     FLUSHING = "flushing"
@@ -435,6 +444,7 @@ class Coordinator:
 
     __slots__ = (
         "_session",
+        "_seal_ctx",
         "_phase",
         "_report",
         "_lock",
@@ -498,6 +508,9 @@ class Coordinator:
         # Tracks queue-call drops (no model_cls available, etc.) that bypass
         # the Session entirely. Surfaces in FlushReport.ops_lost.
         self._dropped_ops_count = 0
+        # The run's context as it stood when this Coordinator was minted: a write queued from a
+        # detached task (fresh contextvars) still knows whether the run is confidential.
+        self._seal_ctx: Any = _ambient_app_context()
 
         # Fire-and-forget commits in flight. commit_async() fires a turn's flush
         # as a background task (own connection) and records it here; the next
@@ -617,6 +630,17 @@ class Coordinator:
         ``depends_on`` is accepted for back-compat and ignored — Session
         derives dependencies from each Model's declared FK fields.
         """
+        # CONFIDENTIAL RUNS: the seal is applied HERE, at the Coordinator, so no caller (the tool
+        # ledger queues directly) can put content on a sealed conversation's row. Idempotent with
+        # the earlier pass in ``queue_helpers._queue_or_drop``.
+        from matrx_ai.persistence.sealed import seal_payload, sealed_context
+
+        seal_ctx = next((c for c in (_ambient_app_context(), getattr(self, "_seal_ctx", None)) if sealed_context(c)), None)
+        if seal_ctx is not None:
+            sealed = seal_payload(table, payload, op_type=op_type, ctx=seal_ctx)
+            if sealed is None:
+                return ""
+            payload = sealed
         sanitization = sanitize_postgres_text(payload)
         if sanitization.replacements:
             payload = sanitization.value

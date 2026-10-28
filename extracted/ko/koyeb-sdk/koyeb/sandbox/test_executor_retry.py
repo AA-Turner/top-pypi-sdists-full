@@ -91,9 +91,7 @@ class TestSyncRetryScope(unittest.TestCase):
             response = client._request_with_retry("GET", "https://sb.example/health")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(handler.calls, 4)
-        self.assertEqual(
-            [c.args[0] for c in sleep.call_args_list], [1.0, 2.0, 4.0]
-        )
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [1.0, 2.0, 4.0])
 
     def test_5xx_exhausted_raises_service_error(self):
         handler = _ScriptedHandler([_ScriptedHandler.response(500)] * 4)
@@ -138,9 +136,7 @@ class TestSyncRetryScope(unittest.TestCase):
         def connect_error(request):
             raise httpx.ConnectError("refused", request=request)
 
-        handler = _ScriptedHandler(
-            [connect_error, _ScriptedHandler.response(200)]
-        )
+        handler = _ScriptedHandler([connect_error, _ScriptedHandler.response(200)])
         client, handler = _make_sync_client(handler)
         with patch("koyeb.sandbox.executor_client.time.sleep"):
             response = client._request_with_retry("GET", "https://sb.example/health")
@@ -187,9 +183,7 @@ class TestAsyncRetryScope(unittest.TestCase):
         client, _ = _make_async_client(handler)
 
         async def run():
-            return await client._request_with_retry(
-                "GET", "https://sb.example/health"
-            )
+            return await client._request_with_retry("GET", "https://sb.example/health")
 
         with self.assertRaises(SandboxRequestError) as cm:
             asyncio.run(run())
@@ -212,6 +206,84 @@ class TestAsyncRetryScope(unittest.TestCase):
             asyncio.run(run())
         self.assertNotIsInstance(cm.exception, SandboxRequestError)
         self.assertEqual(handler.calls, 4)
+
+
+class TestRunNotRetried(unittest.TestCase):
+    """/run and /start_process start a command: a 5xx or a dropped connection
+    may come after it ran (the gateway's 504 on a /run over 5 min), so only a
+    failed connect is retried."""
+
+    def test_504_on_run_sent_once(self):
+        handler = _ScriptedHandler(
+            [_ScriptedHandler.response(504, text="stream timeout")]
+            + [_ScriptedHandler.response(200, json={"code": 0})] * 3
+        )
+        client, handler = _make_sync_client(handler)
+        with patch("koyeb.sandbox.executor_client.time.sleep") as sleep:
+            with self.assertRaises(SandboxServiceError) as cm:
+                client.run("sleep 330")
+        self.assertEqual(cm.exception.status_code, 504)
+        self.assertEqual(handler.calls, 1)
+        sleep.assert_not_called()
+
+    def test_5xx_on_start_process_sent_once(self):
+        handler = _ScriptedHandler([_ScriptedHandler.response(502)] * 4)
+        client, handler = _make_sync_client(handler)
+        with patch("koyeb.sandbox.executor_client.time.sleep"):
+            with self.assertRaises(SandboxServiceError):
+                client.start_process("python -u server.py")
+        self.assertEqual(handler.calls, 1)
+
+    def test_dropped_connection_on_run_sent_once(self):
+        def read_error(request):
+            raise httpx.ReadError("connection reset", request=request)
+
+        handler = _ScriptedHandler([read_error] * 4)
+        client, handler = _make_sync_client(handler)
+        with patch("koyeb.sandbox.executor_client.time.sleep"):
+            with self.assertRaises(SandboxError):
+                client.run("echo hi")
+        self.assertEqual(handler.calls, 1)
+
+    def test_connect_error_on_run_retried(self):
+        def connect_error(request):
+            raise httpx.ConnectError("refused", request=request)
+
+        handler = _ScriptedHandler(
+            [connect_error, _ScriptedHandler.response(200, json={"code": 0})]
+        )
+        client, handler = _make_sync_client(handler)
+        with patch("koyeb.sandbox.executor_client.time.sleep"):
+            self.assertEqual(client.run("echo hi"), {"code": 0})
+        self.assertEqual(handler.calls, 2)
+
+    def test_async_504_on_run_sent_once(self):
+        handler = _ScriptedHandler([_ScriptedHandler.response(504)] * 4)
+        client, handler = _make_async_client(handler)
+
+        async def run():
+            with patch("koyeb.sandbox.executor_client.asyncio.sleep"):
+                return await client.run("sleep 330")
+
+        with self.assertRaises(SandboxServiceError):
+            asyncio.run(run())
+        self.assertEqual(handler.calls, 1)
+
+    def test_async_connect_error_on_run_retried(self):
+        def connect_error(request):
+            raise httpx.ConnectError("refused", request=request)
+
+        handler = _ScriptedHandler(
+            [connect_error, _ScriptedHandler.response(200, json={"code": 0})]
+        )
+        client, handler = _make_async_client(handler)
+
+        async def run():
+            with patch("koyeb.sandbox.executor_client.asyncio.sleep"):
+                return await client.run("echo hi")
+
+        self.assertEqual(asyncio.run(run()), {"code": 0})
+        self.assertEqual(handler.calls, 2)
 
 
 if __name__ == "__main__":

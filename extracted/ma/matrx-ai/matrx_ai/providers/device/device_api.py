@@ -113,10 +113,20 @@ class DeviceChat(GenericOpenAIChat):
         stream_options = dict(data.get("stream_options") or {})
         stream_options["include_usage"] = True
         data["stream_options"] = stream_options
-        thinking = device_thinking(getattr(config, "reasoning_effort", None))
+        # The model's controls (its device offering's setting profile) already shaped the value to
+        # what its chat template accepts; a template reads it only from chat_template_kwargs.
+        shaped = data.pop("reasoning_effort", None)
+        thinking = device_thinking(
+            shaped if shaped is not None else getattr(config, "reasoning_effort", None)
+        )
+        kwargs = dict(data.get("chat_template_kwargs") or {})
         if thinking is not None:
-            kwargs = dict(data.get("chat_template_kwargs") or {})
+            # Qwen 3 / Qwen 3.5 / Gemma 4 / GLM templates: the boolean switch.
             kwargs["enable_thinking"] = thinking
+        if shaped is not None and str(shaped) not in ("auto", *_THINKING_OFF):
+            # gpt-oss (low/medium/high) and Mistral Small 4 (high) templates: the level by name.
+            kwargs["reasoning_effort"] = str(shaped)
+        if kwargs:
             data["chat_template_kwargs"] = kwargs
         return data
 

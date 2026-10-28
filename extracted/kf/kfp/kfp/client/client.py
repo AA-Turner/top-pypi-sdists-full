@@ -32,6 +32,7 @@ from google.protobuf import json_format
 from kfp import compiler
 from kfp.client import auth
 from kfp.client import set_volume_credentials
+from kfp.client.schedule_handoff import retry_schedule_handoff
 from kfp.client.token_credentials_base import TokenCredentialsBase
 from kfp.dsl import base_component
 from kfp.pipeline_spec import pipeline_spec_pb2
@@ -302,7 +303,13 @@ class Client:
         in_cluster = True
         try:
             k8s.config.load_incluster_config()
-        except:
+        except Exception as e:
+            # Running outside of a cluster is the expected case here, so this is
+            # logged at debug level to avoid a misleading warning. The local kube
+            # config is loaded below instead.
+            logging.debug(
+                'Not running in-cluster (%s). Falling back to the '
+                'local kube config.', e)
             in_cluster = False
 
         if in_cluster:
@@ -313,8 +320,11 @@ class Client:
         try:
             k8s.config.load_kube_config(
                 client_configuration=config, context=kube_context)
-        except:
-            print('Failed to load kube config.')
+        except Exception as e:
+            logging.warning(
+                'Failed to load kube config: %s. Proceeding without it; '
+                'subsequent requests to the Kubeflow Pipelines API may fail.',
+                e)
             return config
 
         if config.host:
@@ -487,11 +497,17 @@ class Client:
 
         return experiment
 
-    def get_pipeline_id(self, name: str) -> Optional[str]:
+    def get_pipeline_id(
+        self,
+        name: str,
+        namespace: Optional[str] = None,
+    ) -> Optional[str]:
         """Gets the ID of a pipeline by its name.
 
         Args:
             name: Pipeline name.
+            namespace: Kubernetes namespace of a private (namespaced) pipeline.
+                If not set, only shared pipelines are searched.
 
         Returns:
             The pipeline ID if a pipeline with the name exists.
@@ -504,7 +520,7 @@ class Client:
             }]
         })
         result = self._pipelines_api.pipeline_service_list_pipelines(
-            filter=pipeline_filter)
+            namespace=namespace, filter=pipeline_filter)
         if result.pipelines is None:
             return None
         if len(result.pipelines) == 1:
@@ -678,8 +694,8 @@ class Client:
     # TODO: provide default namespace, similar to kubectl default namespaces.
     def run_pipeline(
         self,
-        experiment_id: str,
-        job_name: str,
+        experiment_id: Optional[str] = None,
+        job_name: Optional[str] = None,
         pipeline_package_path: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
         pipeline_id: Optional[str] = None,
@@ -688,12 +704,14 @@ class Client:
         enable_caching: Optional[bool] = None,
         cache_key: Optional[str] = None,
         service_account: Optional[str] = None,
+        namespace: Optional[str] = None,
     ) -> kfp_server_api.V2beta1Run:
         """Runs a specified pipeline.
 
         Args:
-            experiment_id: ID of an experiment.
-            job_name: Name of the job.
+            experiment_id: ID of an experiment. If not set, the run is
+                placed in the default experiment of ``namespace``.
+            job_name: Name of the job. Required.
             pipeline_package_path: Local path of the pipeline package (the
                 filename should end with one of the following .tar.gz, .tgz,
                 .zip, .json).
@@ -710,14 +728,21 @@ class Client:
                 is ``True`` for all tasks by default. If set, the
                 setting applies to all tasks in the pipeline (overrides the
                 compile time settings).
-            cache_key (optional): Customized cache key for this task.
-                If set, the cache_key will be used as the key for the task's cache.
+            cache_key (optional): Customized cache key for tasks.
+                The customized cache key is combined with component reference identity
+                to prevent cross-component cache collisions, overriding automatic
+                task fingerprinting.
             service_account: Specifies which Kubernetes service
                 account to use for this run.
+            namespace: Kubernetes namespace to place the run in when
+                ``experiment_id`` is not set. Required in multi-user mode.
 
         Returns:
             ``V2beta1Run`` object.
         """
+        if not job_name:
+            raise ValueError('job_name is required.')
+
         job_config = self._create_job_config(
             params=params,
             pipeline_package_path=pipeline_package_path,
@@ -728,13 +753,17 @@ class Client:
             pipeline_root=pipeline_root,
         )
 
+        # Published kfp-server-api releases before 2.18 lack Run.namespace, so
+        # only pass it when set to keep existing callers working with them.
+        namespace_kwargs = {'namespace': namespace} if namespace else {}
         run_body = kfp_server_api.V2beta1Run(
             experiment_id=experiment_id,
             display_name=job_name,
             pipeline_spec=job_config.pipeline_spec,
             pipeline_version_reference=job_config.pipeline_version_reference,
             runtime_config=job_config.runtime_config,
-            service_account=service_account)
+            service_account=service_account,
+            **namespace_kwargs)
 
         response = self._run_api.run_service_create_run(run=run_body)
 
@@ -794,8 +823,8 @@ class Client:
 
     def create_recurring_run(
         self,
-        experiment_id: str,
-        job_name: str,
+        experiment_id: Optional[str] = None,
+        job_name: Optional[str] = None,
         description: Optional[str] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
@@ -812,12 +841,17 @@ class Client:
         enable_caching: Optional[bool] = None,
         cache_key: Optional[str] = None,
         service_account: Optional[str] = None,
+        namespace: Optional[str] = None,
     ) -> kfp_server_api.V2beta1RecurringRun:
         """Creates a recurring run.
 
+        Explicit upgrade-handoff rejections are retried up to five attempts
+        with 1, 2, 4, and 8 second waits. Other failures are not replayed.
+
         Args:
-            experiment_id: ID of the experiment.
-            job_name: Name of the job.
+            experiment_id: ID of the experiment. If not set, the recurring
+                run is placed in the default experiment of ``namespace``.
+            job_name: Name of the job. Required.
             description: Description of the job.
             start_time: RFC3339 time string of the time when to start the
                 job.
@@ -855,13 +889,19 @@ class Client:
                 different caching options for individual tasks. If set, the
                 setting applies to all tasks in the pipeline (overrides the
                 compile time settings).
-            cache_key (optional): Customized cache key for this task.
-                If set, the cache_key will be used as the key for the task's cache.
+            cache_key (optional): Customized cache key for tasks.
+                The customized cache key is combined with component reference identity
+                to prevent cross-component cache collisions, overriding automatic
+                task fingerprinting.
             service_account: Specifies which Kubernetes service
                 account this recurring run uses.
+            namespace: Kubernetes namespace to place the recurring run in when
+                ``experiment_id`` is not set. Required in multi-user mode.
         Returns:
             ``V2beta1RecurringRun`` object.
         """
+        if not job_name:
+            raise ValueError('job_name is required.')
 
         job_config = self._create_job_config(
             params=params,
@@ -896,6 +936,7 @@ class Client:
 
         job_body = kfp_server_api.V2beta1RecurringRun(
             experiment_id=experiment_id,
+            namespace=namespace,
             mode=mode,
             pipeline_spec=job_config.pipeline_spec,
             pipeline_version_reference=job_config.pipeline_version_reference,
@@ -906,8 +947,9 @@ class Client:
             trigger=trigger,
             max_concurrency=max_concurrency,
             service_account=service_account)
-        return self._recurring_run_api.recurring_run_service_create_recurring_run(
-            recurring_run=job_body)
+        return retry_schedule_handoff(
+            lambda: self._recurring_run_api.
+            recurring_run_service_create_recurring_run(recurring_run=job_body))
 
     def _create_job_config(
         self,
@@ -937,8 +979,10 @@ class Client:
                 different caching options for individual tasks. If set, the
                 setting applies to all tasks in the pipeline (overrides the
                 compile time settings).
-            cache_key (optional): Customized cache key for this task.
-                If set, the cache_key will be used as the key for the task's cache.
+            cache_key (optional): Customized cache key for tasks.
+                The customized cache key is combined with component reference identity
+                to prevent cross-component cache collisions, overriding automatic
+                task fingerprinting.
             pipeline_root: Root path of the pipeline outputs.
 
         Returns:
@@ -949,11 +993,10 @@ class Client:
         from_template = pipeline_id is not None or version_id is not None
         if from_spec == from_template:
             raise ValueError(
-                'Must specify either `pipeline_pacakge_path` or both `pipeline_id` and `version_id`.'
-            )
-        if (pipeline_id is None) != (version_id is None):
+                'Must specify either `pipeline_package_path` or `pipeline_id`.')
+        if version_id is not None and pipeline_id is None:
             raise ValueError(
-                'To run a pipeline from an existing template, both `pipeline_id` and `version_id` are required.'
+                'To run a specific pipeline version, `pipeline_id` is also required.'
             )
 
         if params is None:
@@ -971,7 +1014,9 @@ class Client:
             pipeline_spec = pipeline_doc.to_dict()
 
         pipeline_version_reference = None
-        if pipeline_id is not None and version_id is not None:
+        if pipeline_id is not None:
+            # version_id is optional: the server resolves the pipeline's default
+            # version when it is omitted.
             pipeline_version_reference = kfp_server_api.V2beta1PipelineVersionReference(
                 pipeline_id=pipeline_id, pipeline_version_id=version_id)
 
@@ -1016,8 +1061,10 @@ class Client:
                 different caching options for individual tasks. If set, the
                 setting applies to all tasks in the pipeline (overrides the
                 compile time settings).
-            cache_key (optional): Customized cache key for this task.
-                If set, the cache_key will be used as the key for the task's cache.
+            cache_key (optional): Customized cache key for tasks.
+                The customized cache key is combined with component reference identity
+                to prevent cross-component cache collisions, overriding automatic
+                task fingerprinting.
             service_account: Specifies which Kubernetes service
                 account to use for this run.
             experiment_id: ID of the experiment to add the run to. You cannot specify both experiment_id and experiment_name.
@@ -1081,8 +1128,10 @@ class Client:
                 different caching options for individual tasks. If set, the
                 setting applies to all tasks in the pipeline (overrides the
                 compile time settings).
-            cache_key (optional): Customized cache key for this task.
-                If set, the cache_key will be used as the key for the task's cache.
+            cache_key (optional): Customized cache key for tasks.
+                The customized cache key is combined with component reference identity
+                to prevent cross-component cache collisions, overriding automatic
+                task fingerprinting.
             service_account: Specifies which Kubernetes service
                 account to use for this run.
             experiment_id: ID of the experiment to add the run to. You cannot specify both experiment_id and experiment_name.
@@ -1175,14 +1224,19 @@ class Client:
     def disable_recurring_run(self, recurring_run_id: str) -> dict:
         """Disables a recurring run.
 
+        Explicit upgrade-handoff rejections are retried up to five attempts
+        with 1, 2, 4, and 8 second waits. Other failures are not replayed.
+
         Args:
             recurring_run_id: ID of the recurring_run.
 
         Returns:
             Empty dictionary.
         """
-        return self._recurring_run_api.recurring_run_service_disable_recurring_run(
-            recurring_run_id=recurring_run_id)
+        return retry_schedule_handoff(
+            lambda: self._recurring_run_api.
+            recurring_run_service_disable_recurring_run(
+                recurring_run_id=recurring_run_id))
 
     def enable_job(self, job_id: str) -> dict:
         """Enables a job (recurring run).
@@ -1203,14 +1257,19 @@ class Client:
     def enable_recurring_run(self, recurring_run_id: str) -> dict:
         """Enables a recurring run.
 
+        Explicit upgrade-handoff rejections are retried up to five attempts
+        with 1, 2, 4, and 8 second waits. Other failures are not replayed.
+
         Args:
             recurring_run_id: ID of the recurring_run.
 
         Returns:
             Empty dictionary.
         """
-        return self._recurring_run_api.recurring_run_service_enable_recurring_run(
-            recurring_run_id=recurring_run_id)
+        return retry_schedule_handoff(
+            lambda: self._recurring_run_api.
+            recurring_run_service_enable_recurring_run(
+                recurring_run_id=recurring_run_id))
 
     def list_runs(
         self,
@@ -1420,8 +1479,11 @@ class Client:
             pipeline_name: Name of the pipeline to be shown in the UI.
             description: Description of the pipeline to be shown in the UI.
             namespace: Optional. Kubernetes namespace where the pipeline should
-                be uploaded. For single user deployment, leave it as None; For
-                multi user, input a namespace where the user is authorized.
+                be uploaded. In multi-user mode, pass this explicitly for a
+                private pipeline; the client default namespace is not used.
+                None requests a shared upload and requires pipeline creation
+                permission in the KFP installation namespace. In single-user
+                mode, leave it as None.
 
         Returns:
             ``V2beta1Pipeline`` object.
@@ -1459,8 +1521,11 @@ class Client:
             pipeline_name: Name of the pipeline to be shown in the UI.
             description: Description of the pipeline to be shown in the UI.
             namespace: Optional. Kubernetes namespace where the pipeline should
-                be uploaded. For single user deployment, leave it as None; For
-                multi user, input a namespace where the user is authorized.
+                be uploaded. In multi-user mode, pass this explicitly for a
+                private pipeline; the client default namespace is not used.
+                None requests a shared upload and requires pipeline creation
+                permission in the KFP installation namespace. In single-user
+                mode, leave it as None.
 
         Returns:
             ``V2beta1Pipeline`` object.
@@ -1488,6 +1553,10 @@ class Client:
         description: Optional[str] = None,
     ) -> kfp_server_api.V2beta1PipelineVersion:
         """Uploads a new version of the pipeline.
+
+        The version inherits its parent pipeline namespace, including shared
+        visibility. Upload authorization uses that namespace, not the client
+        default namespace. Prefer pipeline_id to identify the intended parent.
 
         Args:
             pipeline_package_path: Local path to the pipeline package.

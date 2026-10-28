@@ -506,7 +506,7 @@ _EXTRACTION_DEFAULT_UNIT = (
 # Every podcast agent is a named MANDATE (`podcast.*`) in agent.mandate,
 # declared host-side in aidream/services/mandates/podcast_mandates.py (which
 # also installs the resolver here at import time). The admin rebinds from
-# /administration/agents/mandates — never by editing the version ids in this file.
+# /admin/agents/mandates — never by editing the version ids in this file.
 # 🚨 NO CLASS BELOW CARRIES AN AGENT ID (2026-08-16). Each declares only its
 # `mandate_key`; the DATABASE owns which agent runs and whether that pin is a
 # version snapshot — a dynamic setting, never a code constant. With no resolver

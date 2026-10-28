@@ -289,10 +289,12 @@ class Dedup(Enum):
 
 
 def _dedup_key_and_hashes(
-    kwargs: dict[str, Any],
+    kwargs: dict[str, Any], body_canonical: str | None = None
 ) -> tuple[dict[str, Any], tuple, dict[ParameterLocation, int]]:
     request = _dedup_key(kwargs)
-    key, hashes = _to_hashable_key_with_json_parts(request)
+    key, hashes = _to_hashable_key_with_json_parts(
+        request, {"body": body_canonical} if body_canonical is not None else None
+    )
     initial_hashes = {
         location: hashes[name]
         for name, location in CONTAINER_TO_LOCATION.items()
@@ -312,9 +314,11 @@ class CaseEmitter:
     seen_positive: HashSet
     seen_negative: HashSet
 
-    def is_new_request(self, kwargs: dict[str, Any], mode: GenerationMode) -> tuple[bool, dict[ParameterLocation, int]]:
+    def is_new_request(
+        self, kwargs: dict[str, Any], mode: GenerationMode, body_canonical: str | None = None
+    ) -> tuple[bool, dict[ParameterLocation, int]]:
         # Repeating a request already sent tests nothing, whichever mode sent it first.
-        request, key, initial_hashes = _dedup_key_and_hashes(kwargs)
+        request, key, initial_hashes = _dedup_key_and_hashes(kwargs, body_canonical)
         if mode == GenerationMode.POSITIVE:
             is_new = self.seen_positive.insert(request, key=key)
         else:
@@ -404,11 +408,12 @@ class CaseEmitter:
         kwargs: dict[str, Any] | None = None,
         raw: dict[str, Any] | None = None,
         dedup: Dedup = Dedup.REQUEST,
+        body_canonical: str | None = None,
     ) -> Case | None:
         checked_kwargs = data.kwargs if kwargs is None else kwargs
         initial_hashes: dict[ParameterLocation, int] = {}
         if dedup is Dedup.REQUEST:
-            is_new, initial_hashes = self.is_new_request(checked_kwargs, mode)
+            is_new, initial_hashes = self.is_new_request(checked_kwargs, mode, body_canonical)
             if not is_new:
                 return None
         if dedup is Dedup.NEGATIVE_SET:
@@ -625,7 +630,7 @@ def _generate_raw_body_coverage_values(body: OpenApiBody) -> list[tuple[str, Gen
 
 
 def _generate_multipart_body_from_custom_strategies(
-    body: OpenApiBody,
+    run: CoverageRun, body: OpenApiBody
 ) -> tuple[dict[str, Any], dict[str, str]] | None:
     """Generate a body dict for multipart forms using custom encoding strategies, with each part's content type.
 
@@ -648,12 +653,28 @@ def _generate_multipart_body_from_custom_strategies(
                 result[prop_name] = examples.generate_one(strategy)
                 break
 
-    for prop_name in required:
-        if prop_name not in result:
-            prop_schema = properties.get(prop_name, {})
-            result[prop_name] = b"" if prop_schema.get("format") == "binary" else ""
+    if not content_types:
+        return None
+    missing = [name for name in required if name not in result]
+    if missing:
+        # Other required parts take their values from the first valid body.
+        valid = _first_positive_body(run, body)
+        if not isinstance(valid, dict):
+            return None
+        result.update({name: valid[name] for name in missing if name in valid})
+    return result, content_types
 
-    return (result, content_types) if content_types else None
+
+def _first_positive_body(run: CoverageRun, body: OpenApiBody) -> object:
+    """The first body the positive coverage walk yields, or None when the schema admits none."""
+    value = _first_positive_value(
+        run,
+        as_object_schema(body.unoptimized_schema),
+        ParameterLocation.BODY,
+        is_required=body.is_required,
+        media_type=media_types.parse(body.media_type),
+    )
+    return None if value is None else value.value
 
 
 def _filter_draws_for_case(
@@ -774,15 +795,19 @@ def _json_media_type(parameter: OpenApiParameter) -> tuple[str, str] | None:
     return None
 
 
-def _positive_fallback(run: CoverageRun, parameter: OpenApiParameter, schema: dict[str, Any]) -> GeneratedValue | None:
-    """The value a positive run would seed for this parameter, if any."""
-    generator = cover_schema_iter(
-        _coverage_context(
-            run, schema, parameter.location, [GenerationMode.POSITIVE], is_required=parameter.is_required
-        ),
-        schema,
+def _first_positive_value(
+    run: CoverageRun,
+    schema: dict[str, Any],
+    location: ParameterLocation,
+    *,
+    is_required: bool,
+    media_type: tuple[str, str] | None = None,
+) -> GeneratedValue | None:
+    """The first value the positive coverage walk yields, or None when the schema admits none."""
+    context = _coverage_context(
+        run, schema, location, [GenerationMode.POSITIVE], is_required=is_required, media_type=media_type
     )
-    return next(generator, None)
+    return next(cover_schema_iter(context, schema), None)
 
 
 def _reject_malformed_definition(
@@ -898,7 +923,7 @@ def _seed_parameters(run: CoverageRun) -> None:
                 schema.setdefault("minLength", 1)
             # Dropping a required parameter would leave it out of every case built off this template, so
             # those cases would fail on the omission instead of the mutation they target.
-            fallback = _positive_fallback(run, parameter, schema)
+            fallback = _first_positive_value(run, schema, parameter.location, is_required=parameter.is_required)
             if fallback is None and location == ParameterLocation.PATH:
                 fallback = GeneratedValue(
                     "value",
@@ -979,7 +1004,7 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
     for body in operation.body:
         instant = Instant()
 
-        multipart = _generate_multipart_body_from_custom_strategies(body)
+        multipart = _generate_multipart_body_from_custom_strategies(run, body)
         custom_values: list[tuple[str, dict[str, str] | None, GeneratedValue]]
         if multipart is not None:
             multipart_body, part_content_types = multipart
@@ -1076,19 +1101,10 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
                 # invalidate the one thing being tested.  If the first body value is
                 # a negative mutation (NEGATIVE-only mode), generate a positive value
                 # separately and prefer it for the template.
-                pos_gen = cover_schema_iter(
-                    _coverage_context(
-                        run,
-                        schema,
-                        ParameterLocation.BODY,
-                        [GenerationMode.POSITIVE],
-                        is_required=body.is_required,
-                        media_type=media_type,
-                    ),
-                    schema,
+                first_positive = _first_positive_value(
+                    run, schema, ParameterLocation.BODY, is_required=body.is_required, media_type=media_type
                 )
-                first_positive = next(pos_gen, NOT_SET)
-                if isinstance(first_positive, NotSet):
+                if first_positive is None:
                     template.body_is_fallback_negative = True
                     template.set_body(value, body.media_type)
                 else:
@@ -1114,8 +1130,11 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
 
 
 def _emit_body_case(run: CoverageRun, value: GeneratedValue, media_type: str, elapsed: float) -> Case | None:
+    data = run.template.with_body(value=value, media_type=media_type)
+    # The known spelling describes the generated value, not one the wire serialization replaced.
+    body_canonical = value.canonical if data.kwargs.get("body") is value.value else None
     return run.emitter.emit(
-        run.template.with_body(value=value, media_type=media_type),
+        data,
         mode=value.generation_mode,
         elapsed=elapsed,
         scenario=value.scenario,
@@ -1123,6 +1142,7 @@ def _emit_body_case(run: CoverageRun, value: GeneratedValue, media_type: str, el
         location=value.location,
         parameter=media_type,
         parameter_location=ParameterLocation.BODY,
+        body_canonical=body_canonical,
     )
 
 

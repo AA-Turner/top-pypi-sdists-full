@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictInt
 from typing import Any, ClassVar, Dict, List, Optional
+from koyeb.api.models.grpc_health_check import GRPCHealthCheck
 from koyeb.api.models.http_health_check import HTTPHealthCheck
 from koyeb.api.models.tcp_health_check import TCPHealthCheck
 from typing import Optional, Set
@@ -37,6 +38,7 @@ class DeploymentHealthCheck(BaseModel):
     timeout: Optional[StrictInt] = None
     tcp: Optional[TCPHealthCheck] = None
     http: Optional[HTTPHealthCheck] = None
+    grpc: Optional[GRPCHealthCheck] = None
     __properties: ClassVar[List[str]] = [
         "grace_period",
         "interval",
@@ -44,6 +46,7 @@ class DeploymentHealthCheck(BaseModel):
         "timeout",
         "tcp",
         "http",
+        "grpc",
     ]
 
     model_config = ConfigDict(
@@ -89,6 +92,9 @@ class DeploymentHealthCheck(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of http
         if self.http:
             _dict["http"] = self.http.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of grpc
+        if self.grpc:
+            _dict["grpc"] = self.grpc.to_dict()
         return _dict
 
     @classmethod
@@ -111,6 +117,9 @@ class DeploymentHealthCheck(BaseModel):
                 else None,
                 "http": HTTPHealthCheck.from_dict(obj["http"])
                 if obj.get("http") is not None
+                else None,
+                "grpc": GRPCHealthCheck.from_dict(obj["grpc"])
+                if obj.get("grpc") is not None
                 else None,
             }
         )

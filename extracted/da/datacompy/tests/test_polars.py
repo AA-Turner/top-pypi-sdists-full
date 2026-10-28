@@ -17,13 +17,14 @@
 Testing out the datacompy functionality
 """
 
+import inspect
 import io
 import logging
 import os
 import re
 import sys
 import tempfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from unittest import mock
 
@@ -44,6 +45,29 @@ from polars.testing import assert_frame_equal, assert_series_equal
 from pytest import raises
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+
+def read_fixture_csv(data: str) -> pl.DataFrame:
+    """Read a pipe-delimited fixture, keeping empty fields as empty strings.
+
+    ``missing_utf8_is_empty_string`` was renamed to ``empty_string_is_null`` in
+    polars 1.43 with the meaning inverted (``missing_utf8_is_empty_string=True``
+    is ``empty_string_is_null=False``) and removed in polars 2.0, so the keyword
+    has to follow whichever version is installed.
+    """
+    if "empty_string_is_null" in inspect.signature(pl.read_csv).parameters:
+        return pl.read_csv(
+            io.StringIO(data),
+            separator="|",
+            null_values=["NULL"],
+            empty_string_is_null=False,
+        )
+    return pl.read_csv(
+        io.StringIO(data),
+        separator="|",
+        null_values=["NULL"],
+        missing_utf8_is_empty_string=True,
+    )
 
 
 def test_numeric_columns_equal_abs():
@@ -74,6 +98,15 @@ NULL|NULL|True"""
     assert_series_equal(expect_out, actual_out, check_names=False)
 
 
+def test_large_integer_columns_compared_exactly():
+    df1 = pl.DataFrame({"id": [1, 2], "v": [2**60, 2**60 + 1]})
+    df2 = pl.DataFrame({"id": [1, 2], "v": [2**60 + 1, 2**60 + 1]})
+    assert columns_equal(df1["v"], df2["v"]).to_list() == [False, True]
+    compare = PolarsCompare(df1, df2, join_columns="id")
+    assert not compare.matches()
+    assert compare.intersect_rows["v_match"].to_list() == [False, True]
+
+
 def test_string_columns_equal():
     data = """a|b|expected
 Hi|Hi|True
@@ -89,12 +122,7 @@ datacompy|DataComPy|False
 something|NULL|False
 NULL|something|False
 NULL|NULL|True"""
-    df = pl.read_csv(
-        io.StringIO(data),
-        separator="|",
-        null_values=["NULL"],
-        missing_utf8_is_empty_string=True,
-    )
+    df = read_fixture_csv(data)
     actual_out = columns_equal(df["a"], df["b"], rel_tol=0.2)
     expect_out = df["expected"]
     assert_series_equal(expect_out, actual_out, check_names=False)
@@ -115,12 +143,7 @@ datacompy|DataComPy|False
 something||False
 NULL|something|False
 NULL|NULL|True"""
-    df = pl.read_csv(
-        io.StringIO(data),
-        separator="|",
-        null_values=["NULL"],
-        missing_utf8_is_empty_string=True,
-    )
+    df = read_fixture_csv(data)
     actual_out = columns_equal(df["a"], df["b"], rel_tol=0.2, ignore_spaces=True)
     expect_out = df["expected"]
     assert_series_equal(expect_out, actual_out, check_names=False)
@@ -141,12 +164,7 @@ datacompy|DataComPy|True
 something||False
 NULL|something|False
 NULL|NULL|True"""
-    df = pl.read_csv(
-        io.StringIO(data),
-        separator="|",
-        null_values=["NULL"],
-        missing_utf8_is_empty_string=True,
-    )
+    df = read_fixture_csv(data)
     actual_out = columns_equal(
         df["a"], df["b"], rel_tol=0.2, ignore_spaces=True, ignore_case=True
     )
@@ -162,12 +180,7 @@ def test_date_columns_equal():
 2017-01-01||False
 |2017-01-01|False
 ||True"""
-    df = pl.read_csv(
-        io.StringIO(data),
-        separator="|",
-        null_values=["NULL"],
-        missing_utf8_is_empty_string=True,
-    )
+    df = read_fixture_csv(data)
     # First compare just the strings
     actual_out = columns_equal(df["a"], df["b"], rel_tol=0.2)
     expect_out = df["expected"]
@@ -189,12 +202,7 @@ def test_date_columns_equal_with_ignore_spaces():
 2017-01-01||False
 |2017-01-01|False
 ||True"""
-    df = pl.read_csv(
-        io.StringIO(data),
-        separator="|",
-        null_values=["NULL"],
-        missing_utf8_is_empty_string=True,
-    )
+    df = read_fixture_csv(data)
     # First compare just the strings
     actual_out = columns_equal(df["a"], df["b"], rel_tol=0.2, ignore_spaces=True)
     expect_out = df["expected"]
@@ -217,12 +225,7 @@ def test_date_columns_equal_with_ignore_spaces_and_case():
 2017-01-01||False
 |2017-01-01|False
 ||True"""
-    df = pl.read_csv(
-        io.StringIO(data),
-        separator="|",
-        null_values=["NULL"],
-        missing_utf8_is_empty_string=True,
-    )
+    df = read_fixture_csv(data)
     # First compare just the strings
     actual_out = columns_equal(
         df["a"], df["b"], rel_tol=0.2, ignore_spaces=True, ignore_case=True
@@ -1226,12 +1229,27 @@ def test_calculate_max_diff(column, expected):
         [date(2020, 1, 1), date(2020, 1, 3)],
         [datetime(2020, 1, 1), datetime(2020, 1, 3)],
         [timedelta(days=1), timedelta(days=3)],
+        [time(1, 0), time(3, 0)],
     ],
 )
 def test_calculate_max_diff_temporal(values):
     base = pl.Series([values[0], values[0]])
     other = pl.Series(values)
     assert calculate_max_diff(base, other) == 0
+
+
+@pytest.mark.parametrize(
+    "temporal",
+    [
+        pl.Series([date(2020, 1, 1), date(2020, 1, 3)]),
+        pl.Series([datetime(2020, 1, 1), datetime(2020, 1, 3)]),
+        pl.Series([time(1, 0), time(3, 0)]),
+    ],
+)
+def test_calculate_max_diff_mixed_temporal_numeric(temporal):
+    numeric = pl.Series([1, 2], dtype=pl.Int64)
+    assert calculate_max_diff(temporal, numeric) == 0
+    assert calculate_max_diff(numeric, temporal) == 0
 
 
 def test_dupes_with_nulls():
@@ -1564,12 +1582,7 @@ def test_single_date_columns_equal_to_string():
 2017-01-01||False
 |2017-01-01|False
 ||True"""
-    df = pl.read_csv(
-        io.StringIO(data),
-        separator="|",
-        null_values=["NULL"],
-        missing_utf8_is_empty_string=True,
-    )
+    df = read_fixture_csv(data)
     col_a = df["a"].str.strip_chars().str.to_date(strict=False)
     col_b = df["b"]
 
@@ -1588,12 +1601,7 @@ def test_temporal_equal():
 2017-01-01||False
 |2017-01-01|False
 ||True"""
-    df = pl.read_csv(
-        io.StringIO(data),
-        separator="|",
-        null_values=["NULL"],
-        missing_utf8_is_empty_string=True,
-    )
+    df = read_fixture_csv(data)
     expect_out = df["expected"]
 
     col_a = df["a"].str.to_date(strict=False)
@@ -2733,3 +2741,40 @@ def test_sensitive_columns_numeric_types_with_tolerance():
     assert compare.intersect_rows[0, "c_df1"] == "*******"
     assert compare.intersect_rows[0, "c_df2"] == "*******"
     assert compare.intersect_rows[0, "c_match"]
+
+
+@pytest.mark.parametrize(
+    ("df1", "df2", "join_columns"),
+    [
+        # a column only in df1 whose name ends in "_match"
+        (
+            pl.DataFrame({"id": [1, 2], "amt": [1, 2], "is_match": [True, False]}),
+            pl.DataFrame({"id": [1, 2], "amt": [1, 3]}),
+            ["id"],
+        ),
+        # a column only in df2 whose name ends in "_match"
+        (
+            pl.DataFrame({"id": [1, 2], "amt": [1, 2]}),
+            pl.DataFrame({"id": [1, 2], "amt": [1, 3], "is_match": [True, False]}),
+            ["id"],
+        ),
+        # a join column whose name ends in "_match"
+        (
+            pl.DataFrame({"id_match": [1, 2], "amt": [1, 2]}),
+            pl.DataFrame({"id_match": [1, 2], "amt": [1, 3]}),
+            ["id_match"],
+        ),
+    ],
+)
+@pytest.mark.parametrize("ignore_matching_cols", [False, True])
+def test_all_mismatch_column_name_ending_in_match(
+    df1, df2, join_columns, ignore_matching_cols
+):
+    compare = PolarsCompare(df1, df2, join_columns)
+
+    output = compare.all_mismatch(ignore_matching_cols=ignore_matching_cols)
+
+    assert output.columns == [*join_columns, "amt_df1", "amt_df2"]
+    assert output[join_columns[0]].to_list() == [2]
+    assert output["amt_df1"].to_list() == [2]
+    assert output["amt_df2"].to_list() == [3]

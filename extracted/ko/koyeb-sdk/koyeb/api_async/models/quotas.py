@@ -37,7 +37,6 @@ class Quotas(BaseModel):
     apps: Optional[StrictStr] = None
     services: Optional[StrictStr] = None
     domains: Optional[StrictStr] = None
-    services_by_app: Optional[StrictStr] = None
     service_provisioning_concurrency: Optional[StrictStr] = None
     memory_mb: Optional[StrictStr] = None
     instance_types: Optional[List[StrictStr]] = None
@@ -61,7 +60,6 @@ class Quotas(BaseModel):
         "apps",
         "services",
         "domains",
-        "services_by_app",
         "service_provisioning_concurrency",
         "memory_mb",
         "instance_types",
@@ -163,7 +161,6 @@ class Quotas(BaseModel):
                 "apps": obj.get("apps"),
                 "services": obj.get("services"),
                 "domains": obj.get("domains"),
-                "services_by_app": obj.get("services_by_app"),
                 "service_provisioning_concurrency": obj.get(
                     "service_provisioning_concurrency"
                 ),

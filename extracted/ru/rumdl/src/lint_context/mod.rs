@@ -26,7 +26,9 @@ mod mdx;
 mod native_structure;
 pub(crate) use native_structure::{NativeListSource, NativePreparedStructure};
 mod scratch;
+mod source_positions;
 pub(crate) use mdx::{leaf_block_ranges as mdx_leaf_block_ranges, structure_signature as mdx_structure_signature};
+pub(crate) use source_positions::SourcePositions;
 mod table_confirm;
 #[cfg(test)]
 mod tests;
@@ -87,32 +89,7 @@ impl LinkTargetPolicy {
         F: IntoIterator<Item = PathBuf>,
         D: IntoIterator<Item = PathBuf>,
     {
-        let files: Vec<PathBuf> = files.into_iter().collect();
-        let directories: Vec<PathBuf> = directories.into_iter().collect();
-        let roots = Self::working_roots();
-        let declared = Self::build(
-            Vec::<PathBuf>::new(),
-            files.clone(),
-            directories.clone(),
-            allow_disk_fallback,
-            &roots,
-        );
-        let paths: Vec<PathBuf> = paths.into_iter().map(|path| path.as_ref().to_path_buf()).collect();
-        let documents = Self::build(&paths, Vec::new(), Vec::new(), allow_disk_fallback, &roots);
-        let policy = Self::build(paths, files, directories, allow_disk_fallback, &roots);
-        // A file that is both supplied and declared is a document: its content
-        // is known, so it is not a declared-only target.
-        let declared_paths = declared
-            .supplied_paths
-            .iter()
-            .filter(|path| !documents.supplied_paths.contains(*path))
-            .cloned()
-            .collect();
-        Self {
-            declared_paths: Arc::new(declared_paths),
-            declared_dirs: declared.supplied_dirs,
-            ..policy
-        }
+        Self::build(paths, files, directories, allow_disk_fallback, Self::working_roots())
     }
 
     fn working_roots() -> Vec<PathBuf> {
@@ -191,13 +168,33 @@ impl LinkTargetPolicy {
         for path in paths {
             add_spellings(&mut supplied_paths, path.as_ref());
         }
+        let mut declared_paths = std::collections::HashSet::new();
         for path in files {
-            add_spellings(&mut supplied_paths, &path);
+            add_spellings(&mut declared_paths, &path);
         }
         let mut declared_dirs = std::collections::HashSet::new();
         for path in directories {
             add_spellings(&mut declared_dirs, &path);
         }
+        // Supplied documents have known content, even when also declared.
+        let declared_only = declared_paths.difference(&supplied_paths).cloned().collect();
+        let content_unknown_dirs = Self::implied_dirs(&declared_paths, &declared_dirs, &roots);
+        supplied_paths.extend(declared_paths);
+        let supplied_dirs = Self::implied_dirs(&supplied_paths, &declared_dirs, &roots);
+        Self {
+            supplied_paths: Arc::new(supplied_paths),
+            supplied_dirs: Arc::new(supplied_dirs),
+            declared_paths: Arc::new(declared_only),
+            declared_dirs: Arc::new(content_unknown_dirs),
+            allow_disk_fallback,
+        }
+    }
+
+    fn implied_dirs(
+        supplied_paths: &std::collections::HashSet<PathBuf>,
+        declared_dirs: &std::collections::HashSet<PathBuf>,
+        roots: &[PathBuf],
+    ) -> std::collections::HashSet<PathBuf> {
         // Collected from the normalized paths, so directories are compared
         // component by component: `doc` never matches a supplied `docs/b.md`.
         // A relative path's last ancestor is the empty path, which is how the
@@ -233,26 +230,24 @@ impl LinkTargetPolicy {
             })
         };
         let outside_roots = [outside_root(true), outside_root(false)];
-        let supplied_dirs = supplied_paths
+        let mut supplied_dirs = std::collections::HashSet::new();
+        for seed in supplied_paths
             .iter()
-            .flat_map(|path| path.ancestors().skip(1))
-            .chain(declared_dirs.iter().flat_map(|dir| dir.ancestors()))
-            .filter(|dir| {
-                !escapes_roots(dir)
-                    || outside_roots
-                        .iter()
-                        .flatten()
-                        .any(|outside_root| dir.starts_with(outside_root))
-            })
-            .map(Path::to_path_buf)
-            .collect();
-        Self {
-            supplied_paths: Arc::new(supplied_paths),
-            supplied_dirs: Arc::new(supplied_dirs),
-            declared_paths: Arc::default(),
-            declared_dirs: Arc::default(),
-            allow_disk_fallback,
+            .filter_map(|path| path.parent())
+            .chain(declared_dirs.iter().map(PathBuf::as_path))
+        {
+            for dir in seed.ancestors() {
+                if !escapes_roots(dir) || outside_roots.iter().flatten().any(|root| dir.starts_with(root)) {
+                    // A previously visited directory already contributed every
+                    // eligible ancestor under these same bounds.
+                    if supplied_dirs.contains(dir) {
+                        break;
+                    }
+                    supplied_dirs.insert(dir.to_path_buf());
+                }
+            }
         }
+        supplied_dirs
     }
 
     /// The path the set resolves `path` to, when that answer is a declared
@@ -434,8 +429,10 @@ pub struct LintContext<'a> {
     bare_urls_cache: OnceLock<Arc<Vec<BareUrl>>>,           // Lazy-loaded bare URLs
     has_mixed_list_nesting_cache: OnceLock<bool>, // Cached result for mixed ordered/unordered list nesting detection
     html_comment_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed HTML comment ranges
+    html_block_ranges: Vec<(usize, usize)>,       // Parser HTML blocks excluding opaque flavor regions
     html_block_lines: Vec<std::ops::Range<usize>>, // Line runs of the parser's HTML blocks, in any container
     pub table_blocks: Vec<crate::utils::table_utils::TableBlock>, // Pre-computed table blocks
+    parser_table_ranges: Vec<(usize, usize)>,     // Complete native table spans, including pipe-less body rows
     jinja_ranges: Vec<(usize, usize)>,            // Pre-computed Jinja template ranges ({{ }}, {% %})
     jinja_string_ranges_cache: OnceLock<Vec<(usize, usize)>>,
     pub flavor: MarkdownFlavor,                                  // Markdown flavor being used
@@ -1284,7 +1281,7 @@ impl<'a> LintContext<'a> {
                 let text = line.content(content);
                 let content_start = line.byte_offset + line.indent;
                 let content_end = line.byte_offset + text.trim_end().len();
-                line.in_html_comment = crate::utils::skip_context::is_line_entirely_in_html_comment(
+                line.in_html_comment = crate::utils::skip_context::is_line_entirely_in_sorted_html_comment(
                     &html_comment_ranges,
                     content_start,
                     content_end,
@@ -1327,24 +1324,15 @@ impl<'a> LintContext<'a> {
         let mut pulldown_result = profile_section!(
             "Links, images & link ranges",
             profile,
-            pending_links.finish(&lines, &code_blocks, flavor, &html_comment_ranges)
+            if let Some(mdx) = &mdx_context {
+                pending_links.finish_mdx(mdx, &lines)
+            } else {
+                pending_links.finish(&lines, &code_blocks, flavor, &html_comment_ranges)
+            }
         );
 
-        if let Some(mdx) = &mdx_context {
-            let (links, images) = mdx.links_and_images(content, &lines);
-            pulldown_result.link_byte_ranges = links.iter().map(|link| (link.byte_offset, link.byte_end)).collect();
-            pulldown_result.link_found_positions = links.iter().map(|link| link.byte_offset).collect();
-            pulldown_result.image_found_positions = images.iter().map(|image| image.byte_offset).collect();
-            pulldown_result.links = links;
-            pulldown_result.images = images;
-            pulldown_result.footnote_refs = mdx.footnote_refs();
-            pulldown_result
-                .broken_links
-                .retain(|link| mdx.contains_text(link.span.start, link.span.end));
-        }
-
         heading_detection::mark_parser_html_blocks(content, &mut lines, &html_blocks, flavor);
-        let html_block_lines = heading_detection::parser_html_block_lines(&lines, &html_blocks, flavor);
+        let (html_block_ranges, html_block_lines) = heading_detection::parser_html_blocks(&lines, &html_blocks, flavor);
 
         // Now detect headings and blockquotes
         let mdx_flow_lines = mdx_context.as_ref().map(|mdx| mdx.flow_lines(&lines));
@@ -1939,7 +1927,9 @@ impl<'a> LintContext<'a> {
                 has_mixed_list_nesting_cache: OnceLock::new(),
                 html_comment_ranges,
                 html_block_lines,
+                html_block_ranges,
                 table_blocks,
+                parser_table_ranges: table_ranges,
                 jinja_ranges,
                 jinja_string_ranges_cache: OnceLock::new(),
                 flavor,
@@ -2406,6 +2396,24 @@ impl<'a> LintContext<'a> {
         native_structure::offset_to_line_col(self.content, &self.line_offsets, offset)
     }
 
+    /// The line component of `offset_to_line_col`, without counting a character
+    /// column. This also preserves its empty-input and trailing-newline behavior.
+    pub(crate) fn line_number_at_offset(&self, offset: usize) -> usize {
+        self.line_offsets.partition_point(|&start| start <= offset)
+    }
+
+    /// Return the half-open parser HTML block containing a source byte offset.
+    /// Opaque flavor regions are excluded using the same policy as HTML block lines.
+    pub fn html_block_range_at(&self, byte_offset: usize) -> Option<(usize, usize)> {
+        let index = self
+            .html_block_ranges
+            .partition_point(|&(start, _)| start <= byte_offset);
+        self.html_block_ranges
+            .get(index.checked_sub(1)?)
+            .copied()
+            .filter(|&(_, end)| byte_offset < end)
+    }
+
     /// Position conversions borrow the context's existing source table. Building
     /// a full index here would clone every offset and hash all code-block lines,
     /// even though membership is already available from this context.
@@ -2465,6 +2473,20 @@ impl<'a> LintContext<'a> {
     /// Return the byte range spanning complete 1-indexed lines, inclusive.
     pub fn line_span_byte_range(&self, start_line: usize, end_line: usize) -> Range<usize> {
         self.line_index().multi_line_range(start_line, end_line)
+    }
+
+    /// Native parser span for a table opening on this 1-indexed source line.
+    /// The scanner may own fewer rows than the parser (for example a final
+    /// pipe-less GFM row). Reordering rules must not rewrite just that subset.
+    pub(crate) fn parsed_table_range_at_line(&self, line: usize) -> Option<(usize, usize)> {
+        let span = self.line_content_byte_range(line);
+        let index = self
+            .parser_table_ranges
+            .partition_point(|&(start, _)| start < span.start);
+        self.parser_table_ranges
+            .get(index)
+            .copied()
+            .filter(|&(start, _)| start < span.end)
     }
 
     /// Check if a position is within a code block or code span. O(log n).
@@ -3181,21 +3203,10 @@ impl<'a> LintContext<'a> {
     /// `start_col`/`end_col` it feeds into match rumdl's diagnostic convention
     /// (columns are character positions). On lines with multi-byte UTF-8
     /// characters the two differ; reporting bytes would mis-position highlights.
+    #[cfg(test)]
     #[inline]
     fn find_line_for_offset(lines: &[LineInfo], content: &str, byte_offset: usize) -> (usize, usize, usize) {
-        // Binary search to find the line containing this byte offset
-        let idx = match lines.binary_search_by(|line| {
-            if byte_offset < line.byte_offset {
-                std::cmp::Ordering::Greater
-            } else if byte_offset > line.byte_offset + line.byte_len {
-                std::cmp::Ordering::Less
-            } else {
-                std::cmp::Ordering::Equal
-            }
-        }) {
-            Ok(idx) => idx,
-            Err(idx) => idx.saturating_sub(1),
-        };
+        let idx = source_positions::line_index(lines, byte_offset);
 
         let line = &lines[idx];
         let line_num = idx + 1;

@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 dynamic = ["version"]
 dependencies = [
     "prettytable<4",
-    "sqlglot>=30.0.0,<30.25",
+    "sqlglot>=30.0.0,<30.26",
     "typing_extensions",
     "more-itertools",
 ]
@@ -34,10 +34,15 @@ bigquery = [
     "google-cloud-bigquery[pandas]>=3,<4",
     "google-cloud-bigquery-storage>=2,<3",
 ]
+clickhouse = [
+    "clickhouse-connect>=0.13,<2",
+]
 databricks = [
     "databricks-sql-connector[pyarrow]>=3.6,<5",
 ]
 dev = [
+    # chdb-core publishes no Windows wheels
+    "chdb>=4.4,<5; sys_platform != 'win32'",
     "duckdb>=1.2,<2.1",
     "findspark>=2,<3",
     # 3.0.0 dropped support for Python 3.9 and this is needed by pytest-postgresql
@@ -90,6 +95,9 @@ spark = [
 standalone = [
     "pyarrow>=10,<27",
 ]
+trino = [
+    "trino>=0.330,<1",
+]
 
 [tool.setuptools.packages.find]
 include = ["sqlframe", "sqlframe.*"]
@@ -105,9 +113,11 @@ local_scheme = "no-local-version"
 [tool.pytest.ini_options]
 markers = [
     "bigquery: test for BigQuery",
+    "clickhouse: test against a ClickHouse server",
     "duckdb: test for DuckDB",
     "local: tests that don't rely on external connections",
     "postgres: test for Postgres",
+    "trino: test against a Trino server",
 ]
 addopts = "-n 0 --dist=loadgroup"
 

@@ -134,7 +134,7 @@ def test_(request, case):
     result = testdir.runpytest("-v", "-s")
     result.assert_outcomes(passed=2)
     # Then total number of Hypothesis calls should be `max_examples` per pytest test
-    result.stdout.re_match_lines([r"Hypothesis calls: 12$"])
+    result.stdout.re_match_lines([r"Hypothesis calls: 14$"])
 
 
 def test_direct_schema(testdir):
@@ -170,7 +170,7 @@ def test_(request, case):
     # Then it should be correctly used in the generated case
     result = testdir.runpytest("-v", "-s")
     result.assert_outcomes(passed=1)
-    result.stdout.re_match_lines([r"Hypothesis calls: 3$"])
+    result.stdout.re_match_lines([r"Hypothesis calls: 4$"])
 
 
 def test_specified_example_body(testdir):
@@ -183,7 +183,7 @@ from hypothesis import Phase
 @settings(max_examples=1, phases=[Phase.explicit])
 def test(request, case):
     request.config.HYPOTHESIS_CASES += 1
-    assert case.body in ({"name": "John"}, {"name": ""})
+    assert case.body in ({"name": "John"}, {"name": ""}, {"name": "a" * 65537})
 """,
         paths={
             "/users": {
@@ -214,8 +214,8 @@ def test(request, case):
     result = testdir.runpytest("-v", "-s")
     # Then this example should be used in tests
     result.assert_outcomes(passed=1)
-    # 3 calls = 1 explicit example + 2 coverage cases (example value + per-property variant).
-    result.stdout.re_match_lines([r"Hypothesis calls: 3$"])
+    # 4 calls = 1 explicit example + 3 coverage cases (example value + per-property variants).
+    result.stdout.re_match_lines([r"Hypothesis calls: 4$"])
 
 
 @pytest.mark.parametrize(
@@ -332,7 +332,7 @@ from hypothesis import Phase
 @settings(max_examples=1, phases=[Phase.explicit])
 def test(request, case):
     request.config.HYPOTHESIS_CASES += 1
-    assert case.body in ({"name": "John1"}, {"name": "John2"})
+    assert case.body in ({"name": "John1"}, {"name": "John2"}, {"name": "a" * 65537})
     if not hasattr(case.meta.phase.data, "description"):
         assert case.query == {"age": 35}
 """,
@@ -367,8 +367,8 @@ def test(request, case):
     result = testdir.runpytest("-v", "-s")
     # Then these examples should be used in tests as a part of a single request, i.e. combined
     result.assert_outcomes(passed=1)
-    # 4 calls = 2 examples (from body schema & Media Type Object) + 2 coverage cases
-    result.stdout.re_match_lines([r"Hypothesis calls: 4$"])
+    # 6 calls = 2 examples (from body schema & Media Type Object) + 4 coverage cases
+    result.stdout.re_match_lines([r"Hypothesis calls: 6$"])
 
 
 def test_multiple_examples_same_location(testdir):
@@ -413,7 +413,7 @@ def test(request, case):
     result = testdir.runpytest("-v", "-s")
     # Then these examples should be used combined in tests
     result.assert_outcomes(passed=1)
-    result.stdout.re_match_lines([r"Hypothesis calls: 5$"])
+    result.stdout.re_match_lines([r"Hypothesis calls: 7$"])
 
 
 def test_deselecting(testdir):
@@ -509,7 +509,7 @@ def test_(request, case):
     result = testdir.runpytest()
     # Then test should be executed
     result.assert_outcomes(passed=1)
-    result.stdout.re_match_lines([r"Hypothesis calls: 23$"])
+    result.stdout.re_match_lines([r"Hypothesis calls: 24$"])
 
 
 def test_exception_during_test(testdir):
@@ -561,6 +561,41 @@ def test_(request, case):
     # Then the tests should fail with the relevant error message
     result.assert_outcomes(failed=1, passed=2)
     result.stdout.re_match_lines([r".*test_invalid_operation.py::test_\[GET /invalid\] FAILED"])
+
+
+def test_malformed_media_type_beside_valid_one(testdir):
+    testdir.make_test(
+        """
+@schema.parametrize()
+@settings(max_examples=1)
+def test_(case):
+    pass
+""",
+        schema_name="simple_openapi.yaml",
+        paths={
+            "/payload": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application.json": {"schema": {"type": "object"}},
+                            "application/json": {"schema": {"type": "object"}},
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    )
+    result = testdir.runpytest("-v", "-rf")
+    result.assert_outcomes(passed=2, failed=1)
+    result.stdout.re_match_lines(
+        [
+            r".*::test_\[POST /payload\] PASSED",
+            r".*::test_\[POST /payload\]\[schema-error\] FAILED",
+            r".*Malformed media type: `application.json`",
+        ]
+    )
 
 
 def test_no_base_path(testdir):

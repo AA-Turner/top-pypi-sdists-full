@@ -15,6 +15,7 @@ manager re-implementing them (SDK_REDESIGN.md §3.2/§5.4).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from istari_digital_client.sdk._base import _Manager
@@ -60,10 +61,13 @@ _CONTROL_TAG_ENDPOINTS = {
 
 
 class _SupportsRead(_Manager):
-    """Readable hook: read an object's content blob via storage."""
+    """Readable hooks: read or download an object's content blob via storage."""
 
     def _read_contents(self, obj: Any) -> bytes:
         return self._engine.storage.read_contents(obj.content_token)
+
+    def _download_to(self, obj: Any, dest: Path, **hooks: Any) -> Path:
+        return self._engine.storage.download_to(obj.content_token, dest, **hooks)
 
 
 class _AclManager(_Manager):

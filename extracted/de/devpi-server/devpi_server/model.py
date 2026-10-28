@@ -7,6 +7,7 @@ from .config import hookimpl
 from .filestore import Digests
 from .filestore import FileEntry
 from .filestore import get_hash_spec
+from .keyfs_types import InvalidRelPathError
 from .log import threadlog
 from .markers import NotSet
 from .markers import notset
@@ -16,6 +17,7 @@ from .readonly import DictViewReadonly
 from .readonly import SetViewReadonly
 from .readonly import get_mutable_deepcopy
 from abc import abstractmethod
+from contextlib import suppress
 from devpi_common.metadata import get_latest_version
 from devpi_common.metadata import parse_version
 from devpi_common.metadata import splitbasename
@@ -241,8 +243,9 @@ class RootModel:
 
     def get_user(self, name: str) -> User | None:
         user = User(self, name)
-        if user.key.exists():
-            return user
+        with suppress(InvalidRelPathError):
+            if user.key.exists():
+                return user
         return None
 
     def get_userlist(self):
@@ -347,7 +350,7 @@ name_char_blocklist_regexp = re.compile(
 
 
 def is_valid_name(name: str) -> bool:
-    return not name_char_blocklist_regexp.search(name)
+    return not (name in {".", ".."} or name_char_blocklist_regexp.search(name))
 
 
 class InvalidUserconfig(Exception):

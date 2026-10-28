@@ -650,6 +650,28 @@ def _optional_prompt_logprobs(
     return list(r.get("prompt_token_logprobs", []) or [])
 
 
+def _optional_sampling_log_masses(
+    r: dict, return_sampling_log_mass: bool
+) -> np.ndarray | None:
+    """Return requested log masses, one per output token logprob.
+
+    A server that predates the field drops the request flag and returns none,
+    which must not reach callers as a silently absent sampled distribution.
+    """
+    if not return_sampling_log_mass:
+        return None
+    masses = np.array(r["sampling_log_masses"], dtype=np.float64)
+    tokens = len(r.get("token_logprobs") or [])
+    if len(masses) != tokens:
+        raise RiverError(
+            f"return_sampling_log_mass was requested, but the server returned "
+            f"{len(masses)} sampling log masses for {tokens} output tokens; the "
+            "River API server or inference backend does not support it yet"
+        )
+    masses.flags.writeable = False
+    return masses
+
+
 def _optional_prompt_token_ids(
     r: dict, return_prompt_token_ids: bool
 ) -> list[int] | None:
@@ -925,6 +947,7 @@ def _build_sample_prompt_dicts(
     seed: int | None,
     return_prompt_logprobs: bool,
     logprobs: int | None,
+    return_sampling_log_mass: bool = False,
     seeds: list[int] | None = None,
     images: list[Image] | list[list[Image]] | None = None,
     return_expert_routing: bool = False,
@@ -981,6 +1004,8 @@ def _build_sample_prompt_dicts(
                 d["logprobs"] = logprobs
             if return_expert_routing:
                 d["return_expert_routing"] = True
+            if return_sampling_log_mass:
+                d["return_sampling_log_mass"] = True
             # All ``num_samples`` repeats of a prompt see the same
             # images — image processing is deterministic per image, no
             # per-sample variation.
@@ -1002,6 +1027,7 @@ def _group_sample_dicts(
     request_id: str,
     return_prompt_logprobs: bool,
     return_prompt_token_ids: bool,
+    return_sampling_log_mass: bool = False,
 ) -> list[list[Sample]]:
     expected = num_prompts * num_samples
     if len(raw_results) != expected:
@@ -1046,6 +1072,9 @@ def _group_sample_dicts(
                     ),
                     top_logprobs=r.get("top_logprobs"),
                     prompt_top_logprobs=r.get("prompt_top_logprobs"),
+                    sampling_log_masses=_optional_sampling_log_masses(
+                        r, return_sampling_log_mass
+                    ),
                     expert_routing=_dict_to_expert_routing(r.get("expert_routing")),
                     metrics=dict(r.get("metrics") or {}),
                 )
@@ -1513,7 +1542,22 @@ class Model:
             allow_routing_fallback: If capture expiry is rejected before admission,
                 retry the affected request without replay or the flip metric.
                 Intended for restored RL data. Other errors still propagate.
-            **loss_config: Loss function configuration
+            **loss_config: Loss function configuration. The policy-gradient
+                losses (``importance_sampling``, ``ppo``, ``cispo``,
+                ``echo_cispo``, ``dro``) must repeat the settings the rollouts
+                were sampled with: ``logprob_temperature`` equal to the
+                sampling ``temperature``, ``logprob_top_p`` equal to
+                ``top_p``, and ``logprob_top_k`` equal to ``top_k`` (omit
+                the filter keys for unfiltered sampling). The sampler draws
+                from the tempered, filtered distribution but reports
+                unfiltered logprobs; without matching values the loss trains
+                a different policy than the one sampled, biasing the
+                gradient. With a filter, each datum must also carry
+                ``sampling_log_masses`` aligned with ``old_logprobs``: the
+                ``Sample.sampling_log_masses`` returned when sampling with
+                ``return_sampling_log_mass=True``, which make the importance
+                ratio exact. ``rl.AsyncTrainer`` does all of this from its
+                ``RolloutEngine``. A CustomLoss receives none of them.
 
         Returns:
             ForwardResult with metrics and logprobs when returned by the worker.
@@ -1673,7 +1717,8 @@ class Model:
         Args:
             data: List of training samples, each with "input_ids" and "labels"
             lr: Learning rate
-            **loss_config: Loss function configuration
+            **loss_config: Loss function configuration; RL losses must match
+                the rollout sampling settings, see :meth:`forward_backward`.
 
         Returns:
             Tuple of (ForwardResult, OptimStepResult).
@@ -2099,6 +2144,7 @@ class Model:
         seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
         logprobs: int | None = None,
+        return_sampling_log_mass: bool = False,
         images: list[Image] | list[list[Image]] | None = None,
         return_expert_routing: bool = False,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
@@ -2131,6 +2177,10 @@ class Model:
                 ``return_prompt_logprobs=True``, at each prompt position).
                 Off by default — enabling it roughly halves server
                 throughput for small serialization gain, so it's opt-in.
+            return_sampling_log_mass: Also return ``Sample.sampling_log_masses``:
+                per output token, the log of the tempered probability mass in
+                the top-k/top-p set it was drawn from, so
+                ``exp(logprob - log_mass)`` is its sampled probability.
             images: Optional raw image bytes (PNG / JPEG) for
                 multimodal sampling. Accepts ``list[Image]`` (broadcast
                 the same image set to every prompt) or
@@ -2202,6 +2252,7 @@ class Model:
             seeds=seeds,
             return_prompt_logprobs=return_prompt_logprobs,
             logprobs=logprobs,
+            return_sampling_log_mass=return_sampling_log_mass,
             images=images,
             return_expert_routing=return_expert_routing,
             prompt_token_ids=prompt_token_ids,
@@ -2226,6 +2277,7 @@ class Model:
         return_prompt_logprobs: bool = False,
         return_prompt_token_ids: bool = False,
         logprobs: int | None = None,
+        return_sampling_log_mass: bool = False,
         images: list[Image] | list[list[Image]] | None = None,
         return_expert_routing: bool = False,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
@@ -2275,6 +2327,7 @@ class Model:
             return_prompt_logprobs=return_prompt_logprobs,
             return_prompt_token_ids=return_prompt_token_ids,
             logprobs=logprobs,
+            return_sampling_log_mass=return_sampling_log_mass,
             images=images,
             return_expert_routing=return_expert_routing,
             prompt_token_ids=prompt_token_ids,
@@ -2304,6 +2357,7 @@ class Model:
         seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
         logprobs: int | None = None,
+        return_sampling_log_mass: bool = False,
         images: list[Image] | list[list[Image]] | None = None,
         return_expert_routing: bool = False,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
@@ -2336,6 +2390,7 @@ class Model:
             seeds=seeds,
             return_prompt_logprobs=return_prompt_logprobs,
             logprobs=logprobs,
+            return_sampling_log_mass=return_sampling_log_mass,
             images=images,
             return_expert_routing=return_expert_routing,
             prompt_token_ids=prompt_token_ids,
@@ -2372,6 +2427,7 @@ class Model:
                 return_prompt_token_ids=(
                     return_prompt_logprobs or return_expert_routing
                 ),
+                return_sampling_log_mass=return_sampling_log_mass,
             )
 
         return PendingSample(
@@ -3054,6 +3110,7 @@ class Session:
         seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
         logprobs: int | None = None,
+        return_sampling_log_mass: bool = False,
         return_expert_routing: bool = False,
         images: list[Image] | list[list[Image]] | None = None,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
@@ -3086,6 +3143,10 @@ class Session:
             logprobs: If set to ``K > 0``, request the top-K alternative
                 logprobs at each position. Off by default — enabling it
                 roughly halves server throughput.
+            return_sampling_log_mass: Also return ``Sample.sampling_log_masses``:
+                per output token, the log of the tempered probability mass in
+                the top-k/top-p set it was drawn from, so
+                ``exp(logprob - log_mass)`` is its sampled probability.
             images: Optional raw image bytes for multimodal sampling.
                 See :meth:`Model.sample` for the per-prompt vs.
                 broadcast semantics.
@@ -3120,6 +3181,7 @@ class Session:
             seeds=seeds,
             return_prompt_logprobs=return_prompt_logprobs,
             logprobs=logprobs,
+            return_sampling_log_mass=return_sampling_log_mass,
             return_expert_routing=return_expert_routing,
             images=images,
             prompt_token_ids=prompt_token_ids,
@@ -3146,6 +3208,7 @@ class Session:
         return_prompt_logprobs: bool = False,
         return_prompt_token_ids: bool = False,
         logprobs: int | None = None,
+        return_sampling_log_mass: bool = False,
         return_expert_routing: bool = False,
         images: list[Image] | list[list[Image]] | None = None,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
@@ -3178,6 +3241,7 @@ class Session:
             return_prompt_logprobs=return_prompt_logprobs,
             return_prompt_token_ids=return_prompt_token_ids,
             logprobs=logprobs,
+            return_sampling_log_mass=return_sampling_log_mass,
             return_expert_routing=return_expert_routing,
             images=images,
             prompt_token_ids=prompt_token_ids,
@@ -3204,6 +3268,7 @@ class Session:
         seeds: list[int] | None = None,
         return_prompt_logprobs: bool = False,
         logprobs: int | None = None,
+        return_sampling_log_mass: bool = False,
         return_expert_routing: bool = False,
         images: list[Image] | list[list[Image]] | None = None,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
@@ -3246,6 +3311,7 @@ class Session:
             seeds=seeds,
             return_prompt_logprobs=return_prompt_logprobs,
             logprobs=logprobs,
+            return_sampling_log_mass=return_sampling_log_mass,
             return_expert_routing=return_expert_routing,
             images=images,
             prompt_token_ids=prompt_token_ids,
@@ -3285,6 +3351,7 @@ class Session:
                 return_prompt_token_ids=(
                     return_prompt_logprobs or return_expert_routing
                 ),
+                return_sampling_log_mass=return_sampling_log_mass,
             )
 
         remaining_timeout = timeout - (time.monotonic() - operation_started_at)
@@ -4168,6 +4235,8 @@ class Session:
                 proto.return_prompt_token_ids = True
             if p.get("return_expert_routing"):
                 proto.return_expert_routing = True
+            if p.get("return_sampling_log_mass"):
+                proto.return_sampling_log_mass = True
             # Pre-tokenized prompt: `prompt` stays empty and the ids are sent
             # as-is, bypassing server-side tokenization.
             if p.get("input_ids"):
@@ -4204,6 +4273,8 @@ class Session:
           * ``prompt_token_ids`` (list[int])
           * ``top_logprobs`` (TopLogprobs | None) — output side top-K
           * ``prompt_top_logprobs`` (TopLogprobs | None) — prompt side top-K
+          * ``sampling_log_masses`` (list[float]) — one per output token
+            logprob when requested
           * ``metrics`` (dict[str, float]) — per-result scalar metrics; empty
             unless the request carried a recognized ``metrics_type`` token
         """
@@ -4248,6 +4319,7 @@ class Session:
                 "prompt_token_ids": _optional_proto_list(r, "prompt_token_ids"),
                 "top_logprobs": _result_top_logprobs(r, "top_logprobs"),
                 "prompt_top_logprobs": _result_top_logprobs(r, "prompt_top_logprobs"),
+                "sampling_log_masses": _optional_proto_list(r, "sampling_log_masses"),
                 "expert_routing": _expert_routing_proto_to_dict(
                     getattr(r, "expert_routing", None)
                 ),
@@ -5067,6 +5139,7 @@ class Client:
         prompts: str | list[str] | None = None,
         *,
         base_model: str,
+        checkpoint: str | Checkpoint | None = None,
         num_samples: int = 1,
         max_tokens: int = 256,
         temperature: float = 1.0,
@@ -5076,6 +5149,7 @@ class Client:
         seed: int | None = None,
         return_prompt_logprobs: bool = False,
         logprobs: int | None = None,
+        return_sampling_log_mass: bool = False,
         images: list[Image] | list[list[Image]] | None = None,
         prompt_token_ids: list[int] | list[list[int]] | None = None,
         model_input: list[dict] | list[list[dict]] | None = None,
@@ -5083,13 +5157,17 @@ class Client:
         metrics_type: str = "",
         timeout: float | None = None,
     ) -> list[Sample]:
-        """Sample from a base model (no session required).
+        """Sample from a base model or a saved checkpoint (no session required).
 
         Args:
             prompts: Single prompt string or list of prompts.
                 Mutually exclusive with ``prompt_token_ids``.
             base_model: Base model name
-                (e.g. ``"Qwen/Qwen3.6-35B-A3B-FP8"``).
+                (e.g. ``"Qwen/Qwen3.6-35B-A3B-FP8"``); with ``checkpoint``,
+                the base model the checkpoint was trained from.
+            checkpoint: Optional ``river://`` path or :class:`Checkpoint`
+                object. If provided, samples from that checkpoint's LoRA
+                weights, which the caller must own or which must be public.
             num_samples: Number of independent samples per prompt.
             max_tokens: Maximum tokens to generate per sample.
             temperature: Sampling temperature.
@@ -5101,6 +5179,10 @@ class Client:
             logprobs: If set to ``K > 0``, request the top-K alternative
                 logprobs at each position. Off by default — enabling it
                 roughly halves server throughput.
+            return_sampling_log_mass: Also return ``Sample.sampling_log_masses``:
+                per output token, the log of the tempered probability mass in
+                the top-k/top-p set it was drawn from, so
+                ``exp(logprob - log_mass)`` is its sampled probability.
             images: Optional raw image bytes for multimodal sampling.
                 See :meth:`Model.sample` for the per-prompt vs.
                 broadcast semantics.
@@ -5151,21 +5233,42 @@ class Client:
             seed=seed,
             return_prompt_logprobs=return_prompt_logprobs,
             logprobs=logprobs,
+            return_sampling_log_mass=return_sampling_log_mass,
             images=images,
             prompt_token_ids=prompt_token_ids,
         )
 
-        grpc_req = pb2.InferenceGenerateRequest(
-            base_model=base_model,
-            prompts=Session._prompts_to_proto(prompt_dicts),
-            metrics_type=metrics_type,
-        )
-        response = self._rpc_with_retry(
-            lambda: self._get_stub().InferenceGenerate(
-                grpc_req, metadata=self._get_metadata()
-            ),
-            context="Pool generate",
-        )
+        proto_prompts = Session._prompts_to_proto(prompt_dicts)
+        if checkpoint is None:
+            model_step = 0
+            response = self._rpc_with_retry(
+                lambda: self._get_stub().InferenceGenerate(
+                    pb2.InferenceGenerateRequest(
+                        base_model=base_model,
+                        prompts=proto_prompts,
+                        metrics_type=metrics_type,
+                    ),
+                    metadata=self._get_metadata(),
+                ),
+                context="Pool generate",
+            )
+        else:
+            if isinstance(checkpoint, Checkpoint):
+                checkpoint_path, model_step = checkpoint.path, checkpoint.step
+            else:
+                checkpoint_path, model_step = checkpoint, 0
+            response = self._rpc_with_retry(
+                lambda: self._get_stub().SampleFromCheckpoint(
+                    pb2.SampleFromCheckpointRequest(
+                        checkpoint_path=checkpoint_path,
+                        base_model=base_model,
+                        prompts=proto_prompts,
+                        metrics_type=metrics_type,
+                    ),
+                    metadata=self._get_metadata(),
+                ),
+                context="Pool sample from checkpoint",
+            )
         future_result = self._wait_for_future(response.request_id, timeout=timeout)
 
         if future_result.WhichOneof("response") != "inference":
@@ -5189,7 +5292,7 @@ class Client:
                     token_data_is_exact=bool(r.get("token_ids"))
                     and len(r.get("token_logprobs") or []) == len(r["token_ids"]),
                     stop_reason=stop_reason,
-                    model_step=0,
+                    model_step=model_step,
                     prompt_logprobs=_optional_prompt_logprobs(
                         r, return_prompt_logprobs
                     ),
@@ -5198,6 +5301,9 @@ class Client:
                     ),
                     top_logprobs=r.get("top_logprobs"),
                     prompt_top_logprobs=r.get("prompt_top_logprobs"),
+                    sampling_log_masses=_optional_sampling_log_masses(
+                        r, return_sampling_log_mass
+                    ),
                     metrics=dict(r.get("metrics") or {}),
                 )
             )
@@ -5810,6 +5916,7 @@ def _prepare_independent_samples(
     return_prompt_logprobs=False,
     return_prompt_token_ids=False,
     logprobs=None,
+    return_sampling_log_mass=False,
     return_expert_routing=False,
     images=None,
     prompt_token_ids=None,
@@ -5851,6 +5958,7 @@ def _prepare_independent_samples(
         seeds=seeds,
         return_prompt_logprobs=return_prompt_logprobs,
         logprobs=logprobs,
+        return_sampling_log_mass=return_sampling_log_mass,
         images=images,
         return_expert_routing=return_expert_routing,
         prompt_token_ids=prompt_token_ids,
@@ -5909,6 +6017,7 @@ def _prepare_independent_samples(
                 return_prompt_token_ids=return_prompt_token_ids
                 or return_prompt_logprobs
                 or return_expert_routing,
+                return_sampling_log_mass=return_sampling_log_mass,
             )[0][0]
 
         return PendingSamplingBatch(

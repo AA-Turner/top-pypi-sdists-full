@@ -11,6 +11,8 @@ from skylos.commands.done_cmd import build_parser as build_done_parser
 from skylos.core.safe_cache_io import write_text_no_symlink
 from skylos.rules.config.cicd.github_actions import scan_github_actions
 
+PR_UPLOAD_JOBS = ("pr-policy", "pr-scan", "pr-publish")
+
 
 def test_default_workflow_valid_yaml():
     content = generate_workflow()
@@ -118,7 +120,84 @@ def test_workflow_with_llm():
     assert "agent scan" in content
     assert "--changed" in content
     assert "claude-sonnet-4-5-20250929" in content
-    assert "SKYLOS_API_KEY" in content
+    assert "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}" in content
+    assert "SKYLOS_API_KEY" not in content
+
+
+def _llm_step(content):
+    steps = yaml.safe_load(content)["jobs"]["skylos"]["steps"]
+    return next(s for s in steps if s.get("name") == "Skylos Agent Review (LLM)")
+
+
+@pytest.mark.parametrize(
+    ("model", "env_var"),
+    [
+        ("gpt-4.1", "OPENAI_API_KEY"),
+        ("claude-sonnet-4-20250514", "ANTHROPIC_API_KEY"),
+        ("gemini/gemini-2.0-flash", "GEMINI_API_KEY"),
+        ("groq/llama3-70b-8192", "GROQ_API_KEY"),
+        ("mistral/mistral-large-latest", "MISTRAL_API_KEY"),
+    ],
+)
+def test_workflow_llm_step_passes_the_key_the_cli_reads(model, env_var):
+    from skylos.cloud.credentials import PROVIDERS
+    from skylos.llm.runtime import detect_provider
+
+    step = _llm_step(generate_workflow(use_llm=True, model=model))
+
+    assert PROVIDERS[detect_provider(model)] == env_var
+    assert step["env"] == {env_var: f"${{{{ secrets.{env_var} }}}}"}
+
+
+def test_workflow_llm_step_with_a_local_model_needs_no_key():
+    content = generate_workflow(use_llm=True, model="ollama/llama3")
+
+    assert "env" not in _llm_step(content)
+    assert "API_KEY" not in content
+    assert "# Pull requests (no secrets needed):" in content
+
+
+def test_workflow_llm_header_names_the_secret():
+    content = generate_workflow(use_llm=True, model="gpt-4.1")
+
+    assert (
+        "# Pull requests (the LLM review step needs the OPENAI_API_KEY secret):"
+        in content
+    )
+    assert "no secrets needed" not in content
+
+
+def test_workflow_llm_step_runs_a_command_the_agent_parser_accepts():
+    from skylos.cli import _build_agent_parser
+
+    step = _llm_step(generate_workflow(use_llm=True, model="gpt-4.1"))
+    args = _build_agent_parser().parse_args(shlex.split(step["run"])[2:])
+
+    assert (args.agent_cmd, args.model, args.changed) == ("scan", "gpt-4.1", True)
+    assert (args.format, args.output) == ("json", "skylos-llm-results.json")
+
+
+def test_workflow_llm_installs_the_llm_extra_only_in_the_gate_job():
+    content = generate_workflow(use_llm=True, model="gpt-4.1", skylos_version="5.1.1")
+    jobs = yaml.safe_load(content)["jobs"]
+
+    def install_runs(job):
+        return [
+            s["run"] for s in jobs[job]["steps"] if s.get("name") == "Install Skylos"
+        ]
+
+    assert install_runs("skylos") == [
+        "python -I -m pip install 'skylos[dart,llm]==5.1.1'"
+    ]
+    assert install_runs("cloud-upload") == [
+        "python -I -m pip install 'skylos[dart]==5.1.1'"
+    ]
+
+
+def test_workflow_without_llm_installs_no_llm_extra():
+    content = generate_workflow(skylos_version="5.1.1")
+
+    assert "llm" not in content.lower()
 
 
 def test_workflow_claude_model_adds_anthropic_key():
@@ -195,7 +274,9 @@ def test_workflow_uploads_through_oidc_by_default():
     parsed = yaml.safe_load(content)
     assert "SKYLOS_TOKEN" not in content
     gate_job = parsed["jobs"]["skylos"]
-    assert gate_job["if"] == "github.event_name != 'push'"
+    assert gate_job["if"] == (
+        "github.event_name != 'push' && github.event_name != 'pull_request_target'"
+    )
     analysis_step = next(
         s for s in gate_job["steps"] if s.get("name") == "Run Skylos Analysis"
     )
@@ -245,7 +326,7 @@ def test_workflow_upload_with_llm():
     analysis_step = next(s for s in steps if s.get("name") == "Run Skylos Analysis")
     assert "--upload" not in analysis_step["run"]
     llm_step = next(s for s in steps if s.get("name") == "Skylos Agent Review (LLM)")
-    assert "SKYLOS_API_KEY" in llm_step["env"]
+    assert llm_step["env"] == {"OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}"}
     upload_steps = parsed["jobs"]["cloud-upload"]["steps"]
     assert any(s.get("run", "").startswith("skylos cloud ") for s in upload_steps)
     assert all("SKYLOS_API_KEY" not in s.get("env", {}) for s in upload_steps)
@@ -431,7 +512,8 @@ def test_risk_review_job_runs_on_pull_requests_and_reviews():
     }
     # Other jobs do not rerun on reviews.
     assert parsed["jobs"]["skylos"]["if"] == (
-        "github.event_name != 'push' && github.event_name != 'pull_request_review'"
+        "github.event_name != 'push' && github.event_name != 'pull_request_target' "
+        "&& github.event_name != 'pull_request_review'"
     )
     assert parsed["jobs"]["done"]["if"] == (
         "github.event_name == 'pull_request' || github.event_name == 'merge_group'"
@@ -444,7 +526,8 @@ def test_risk_review_job_runs_on_pull_requests_and_reviews():
     )
     assert claude["jobs"]["claude-security"]["if"] == (
         "github.event_name != 'pull_request_review' "
-        "&& github.event_name != 'merge_group'"
+        "&& github.event_name != 'merge_group' "
+        "&& github.event_name != 'pull_request_target'"
     )
 
 
@@ -642,7 +725,7 @@ def test_cicd_init_adds_done_for_pytest_projects(tmp_path, monkeypatch):
     exit_code, workflow, printed = _run_cicd_init(tmp_path, monkeypatch)
 
     assert exit_code == 0
-    assert set(workflow["jobs"]) == {"skylos", "done", "cloud-upload"}
+    assert set(workflow["jobs"]) == {"skylos", "done", "cloud-upload", *PR_UPLOAD_JOBS}
     install = workflow["jobs"]["done"]["steps"][3]["run"]
     assert install.strip() == "python -I -m pip install -r requirements.txt pytest"
     assert "Skylos Done" in printed and "runs your tests" in printed
@@ -687,7 +770,7 @@ def test_cicd_init_done_and_upload_flags(tmp_path, monkeypatch):
     _, workflow, _ = _run_cicd_init(
         tmp_path, monkeypatch, "--no-done", "--upload", "--force"
     )
-    assert set(workflow["jobs"]) == {"skylos", "cloud-upload"}
+    assert set(workflow["jobs"]) == {"skylos", "cloud-upload", *PR_UPLOAD_JOBS}
 
 
 def test_cicd_init_risk_review_flag(tmp_path, monkeypatch):
@@ -698,6 +781,7 @@ def test_cicd_init_risk_review_flag(tmp_path, monkeypatch):
         "risk-review",
         "risk-review-recheck",
         "cloud-upload",
+        *PR_UPLOAD_JOBS,
     }
     assert "Skylos risk review" in printed
     assert "bot approvals do not count" in printed
@@ -1148,11 +1232,13 @@ def test_no_merge_group_without_pull_requests():
 def test_claude_jobs_stay_off_merge_groups():
     parsed = yaml.safe_load(generate_workflow(use_claude_security=True))
     assert parsed["jobs"]["claude-security"]["if"] == (
-        "github.event_name != 'merge_group'"
+        "github.event_name != 'merge_group' "
+        "&& github.event_name != 'pull_request_target'"
     )
     assert parsed["jobs"]["upload-claude-findings"]["if"] == (
         "always() && needs.skylos.result != 'skipped' "
-        "&& github.event_name != 'merge_group'"
+        "&& github.event_name != 'merge_group' "
+        "&& github.event_name != 'pull_request_target'"
     )
 
 

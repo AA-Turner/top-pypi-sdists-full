@@ -1,14 +1,15 @@
 Metadata-Version: 2.4
 Name: python-engineio
-Version: 4.14.0
+Version: 4.15.0
 Summary: Engine.IO server and client for Python
 Author-email: Miguel Grinberg <miguel.grinberg@gmail.com>
-License: MIT
-Project-URL: homepage, https://code.miguelgrinberg.com/miguelgrinberg/python-engineio
-Project-URL: documentation, https://python-engineio.readthedocs.io/
-Project-URL: repository, https://code.miguelgrinberg.com/miguelgrinberg/python-engineio
-Project-URL: issues, https://github.com/miguelgrinberg/python-engineio/issues
-Project-URL: changelog, https://code.miguelgrinberg.com/miguelgrinberg/python-engineio/src/branch/main/CHANGES.md
+License-Expression: MIT
+Project-URL: Homepage, https://code.miguelgrinberg.com/miguelgrinberg/python-engineio
+Project-URL: Documentation, https://python-engineio.readthedocs.io/
+Project-URL: Source Code, https://code.miguelgrinberg.com/miguelgrinberg/python-engineio
+Project-URL: Issue Tracker, https://code.miguelgrinberg.com/miguelgrinberg/python-engineio/issues
+Project-URL: Changelog, https://code.miguelgrinberg.com/miguelgrinberg/python-engineio/src/branch/main/CHANGES.md
+Project-URL: Funding, https://code.miguelgrinberg.com/miguelgrinberg/python-engineio#sponsor-this-project
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3

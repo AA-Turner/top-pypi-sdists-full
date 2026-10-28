@@ -32,6 +32,28 @@ pub enum CjkSoftBreak {
     Join,
 }
 
+/// Whether punctuation at the end of a link label or image alt text may end
+/// the surrounding sentence. The entire Markdown construct remains atomic.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LinkTextPunctuation {
+    /// Only punctuation outside the link or image ends a sentence.
+    #[default]
+    Ignore,
+    /// Consider literal punctuation at the end of its visible text.
+    Trailing,
+}
+
+/// A literal label terminator on an outermost link/image, in paragraph byte
+/// coordinates. Collected in source order with no overlaps, so both starts and
+/// ends are strictly increasing and may be searched independently.
+#[derive(Clone, Copy)]
+struct TerminalLink {
+    start: usize,
+    end: usize,
+    punctuation: char,
+}
+
 /// Length calculation mode for reflow
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ReflowLengthMode {
@@ -104,6 +126,10 @@ fn code_span_wraps_losslessly(content: &str) -> bool {
 /// How the inline structure nested inside a span's content constrains where a
 /// line break may land.
 struct NestedStructure {
+    /// Balanced prose asides, held together only by semantic sentence detection.
+    parentheticals: Vec<(usize, usize)>,
+    /// Outermost label terminals, sorted by start and end without overlaps.
+    terminal_links: Vec<TerminalLink>,
     /// Ranges a break may never land inside, merged into outermost,
     /// non-overlapping ranges. The whitespace in a code span is literal, and
     /// the whitespace in a link destination or an HTML tag is structural, so
@@ -307,8 +333,12 @@ fn nested_structure(content: &str, defined_references: Option<&HashSet<String>>,
     // Every list is sorted by start: the merged ones by the merge, which also
     // leaves them non-overlapping and so with their ends in order, the links
     // by the sort above, and the code spans by the parse, since code spans do
-    // not nest. A window onto a paragraph bisects them on that.
+    // not nest. Terminal links start empty; the opt-in collector supplies
+    // outermost, non-overlapping ranges in source order. A paragraph window
+    // bisects these lists on that ordering.
     NestedStructure {
+        parentheticals: Vec::new(),
+        terminal_links: Vec::new(),
         atomic: merge_ranges(atomic),
         markers: merge_ranges(markers),
         marker_closers: merge_ranges(marker_closers),
@@ -465,6 +495,9 @@ pub struct ReflowOptions {
     /// Periods are optional - both "Dr" and "Dr." work the same
     /// Custom abbreviations are always added to the built-in defaults
     pub abbreviations: Option<Vec<String>>,
+    /// Additional whole-word split points for semantic reflow, matched without
+    /// case sensitivity and added to the built-in English break words.
+    pub break_words: Vec<String>,
     /// How to measure string length for line-length comparisons
     pub length_mode: ReflowLengthMode,
     /// Whether to treat {#id .class key="value"} as atomic (unsplittable) elements.
@@ -479,6 +512,8 @@ pub struct ReflowOptions {
     /// When false, "word. lowercase" is also treated as a sentence boundary.
     /// Does not affect ! and ? which are always treated as sentence boundaries.
     pub require_sentence_capital: bool,
+    /// Whether terminal link-label punctuation can end the surrounding sentence.
+    pub link_text_punctuation: LinkTextPunctuation,
     /// Cap list continuation indent to this value when set.
     /// Used by mkdocs flavor where continuation is always 4 spaces
     /// regardless of checkbox markers.
@@ -555,10 +590,12 @@ impl Default for ReflowOptions {
             first_line_length: None,
             semantic_line_breaks: false,
             abbreviations: None,
+            break_words: Vec::new(),
             length_mode: ReflowLengthMode::default(),
             attr_lists: false,
             myst_roles: false,
             require_sentence_capital: true,
+            link_text_punctuation: LinkTextPunctuation::default(),
             max_list_continuation_indent: None,
             defined_references: None,
             atomic_spans: true,
@@ -849,7 +886,21 @@ impl ParagraphStructure<'_> {
                 .map(|&(start, end)| (start - base, (end - base).min(len)))
                 .collect()
         };
+        let first_terminal = self.structure.terminal_links.partition_point(|link| link.start < base);
+        let past_terminal = first_terminal
+            + self.structure.terminal_links[first_terminal..].partition_point(|link| link.start < window_end);
         NestedStructure {
+            parentheticals: inside(&self.structure.parentheticals),
+            // A partial link must never acquire a synthetic terminal boundary.
+            terminal_links: self.structure.terminal_links[first_terminal..past_terminal]
+                .iter()
+                .filter(|link| link.end <= window_end)
+                .map(|link| TerminalLink {
+                    start: link.start - base,
+                    end: link.end - base,
+                    ..*link
+                })
+                .collect(),
             atomic: inside(&self.structure.atomic),
             markers: inside(&self.structure.markers),
             marker_closers: inside(&self.structure.marker_closers),
@@ -1194,10 +1245,11 @@ fn sentence_boundary(
             return None;
         }
 
-        // Check for single-letter initials (e.g., "J. K. Rowling")
-        // A single uppercase letter before the period preceded by whitespace or start
-        // is likely an initial, not a sentence ending.
-        if chars[pos - 1].is_ascii_uppercase() && (pos == 1 || (pos >= 2 && chars[pos - 2].is_whitespace())) {
+        // A lone capital can be a name initial or a technical label ("plan B.").
+        // Keep initials in name context, at sentence start, or in a chain like
+        // "J. K. Rowling". Only lowercase context followed by a strict-mode
+        // sentence opener relaxes this guard, even with a source break or relaxed mode.
+        if single_letter_initial(chars, pos, next_char_pos, first_char) {
             return None;
         }
     }
@@ -1259,6 +1311,48 @@ fn sentence_boundary(
     }
 
     Some(space_pos)
+}
+
+/// Whether a lone capital keeps the initial guard instead of ending a sentence.
+/// `next_word` precedes inline opener/quote skipping; `first_char` follows it.
+fn single_letter_initial(chars: &[char], period: usize, next_word: usize, first_char: char) -> bool {
+    if period == 0 || !chars[period - 1].is_ascii_uppercase() || (period > 1 && !chars[period - 2].is_whitespace()) {
+        return false;
+    }
+
+    let before = &chars[..period - 1];
+    let end = before.iter().rposition(|c| !c.is_whitespace()).map_or(0, |i| i + 1);
+    if end == 0 {
+        return true;
+    }
+    let before = &before[..end];
+    let start = before.iter().rposition(|c| c.is_whitespace()).map_or(0, |i| i + 1);
+    let previous_word = &before[start..];
+    let previous_ender = previous_word
+        .iter()
+        .rev()
+        .copied()
+        .find(|&c| !matches!(c, '*' | '_' | '~') && !is_closing_quote(c) && !is_closing_bracket(c));
+    // Tags and entities can precede a capitalized visible name; their
+    // own lowercase spelling is not evidence for a sentence ending.
+    if previous_word
+        .iter()
+        .any(|&c| matches!(c, '.' | '!' | '?' | '<' | '>' | '&') || is_cjk_sentence_ending(c))
+        || previous_ender.is_some_and(continues_clause)
+        || !previous_word
+            .iter()
+            .find(|c| c.is_alphabetic())
+            .is_some_and(|c| c.is_lowercase())
+        || !opens_sentence_in_strict_mode(first_char)
+    {
+        return true;
+    }
+
+    // A following initial identifies the start of a chain even after a
+    // lowercase word, as in "written by J. K. Rowling".
+    chars.get(next_word).is_some_and(char::is_ascii_uppercase)
+        && chars.get(next_word + 1) == Some(&'.')
+        && chars.get(next_word + 2).is_none_or(|c| c.is_whitespace())
 }
 
 /// Index of the space that follows the run of emphasis and strikethrough
@@ -1324,6 +1418,213 @@ fn link_opener_len(chars: &[char], pos: usize, end: usize) -> usize {
     alias - pos
 }
 
+/// Read terminal evidence from actual link/image labels, never destinations,
+/// titles, autolinks, code or HTML. References need a real definition. This
+/// parse is opt-in and skipped without `[`. Unlike `nested_structure`, it
+/// keeps leading indentation as written; if that hides a link from this parse,
+/// no terminal is inferred. The atomic-end check also fails closed on any
+/// disagreement, including the deliberate footnote-enabled parse here.
+fn parse_terminal_links(
+    text: &str,
+    references: Option<&HashSet<String>>,
+    abbreviations: &HashSet<String>,
+) -> Vec<TerminalLink> {
+    if !text.contains('[') {
+        return Vec::new();
+    }
+    struct Label {
+        start: usize,
+        link_type: LinkType,
+        visible: String,
+        literal_terminal: bool,
+    }
+    let resolve = |link: BrokenLink<'_>| {
+        references
+            .filter(|defs| defs.contains(&normalize_reference_label(&link.reference)))
+            .map(|_| (CowStr::Borrowed(""), CowStr::Borrowed("")))
+    };
+    let parser = Parser::new_with_broken_link_callback(
+        text,
+        Options::ENABLE_STRIKETHROUGH | Options::ENABLE_FOOTNOTES,
+        Some(resolve),
+    )
+    .into_offset_iter();
+    let mut labels: Vec<Label> = Vec::new();
+    let mut result = Vec::new();
+    for (event, range) in parser {
+        match event {
+            Event::Start(Tag::Link { link_type, .. } | Tag::Image { link_type, .. }) => {
+                labels.push(Label {
+                    start: range.start,
+                    link_type,
+                    visible: String::new(),
+                    literal_terminal: false,
+                });
+            }
+            Event::Text(value) => {
+                if let Some(label) = labels.last_mut() {
+                    label.visible.push_str(&value);
+                    let visible = value.trim_end_matches(is_closing_quote);
+                    if let Some(last) = visible.chars().next_back() {
+                        // Entity-expanded punctuation is not literal source evidence.
+                        let source = text[range].trim_end_matches(is_closing_quote);
+                        label.literal_terminal =
+                            (matches!(last, '.' | '!' | '?') || is_cjk_sentence_ending(last)) && source.ends_with(last);
+                    }
+                }
+            }
+            Event::End(TagEnd::Link | TagEnd::Image) => {
+                let Some(label) = labels.pop() else { continue };
+                let mut end = range.end;
+                if matches!(label.link_type, LinkType::Collapsed | LinkType::CollapsedUnknown)
+                    && text[end..].starts_with("[]")
+                {
+                    // pulldown can omit the final [] from a collapsed
+                    // reference range. Keep it inside the construct; the
+                    // atomic-end check rejects any remaining disagreement.
+                    end += 2;
+                }
+                if let Some(parent) = labels.last_mut() {
+                    parent.visible.push_str(&label.visible);
+                    parent.literal_terminal =
+                        label.literal_terminal && !matches!(label.link_type, LinkType::Autolink | LinkType::Email);
+                } else if !matches!(label.link_type, LinkType::Autolink | LinkType::Email)
+                    && label.literal_terminal
+                    && let Some(punctuation) = label_terminator(&label.visible, abbreviations)
+                {
+                    result.push(TerminalLink {
+                        start: label.start,
+                        end,
+                        punctuation,
+                    });
+                }
+            }
+            Event::Code(_)
+            | Event::Html(_)
+            | Event::InlineHtml(_)
+            | Event::InlineMath(_)
+            | Event::DisplayMath(_)
+            | Event::FootnoteReference(_)
+            | Event::SoftBreak
+            | Event::HardBreak => {
+                if let Some(label) = labels.last_mut() {
+                    label.visible.push(' ');
+                    label.literal_terminal = false;
+                }
+            }
+            _ => {}
+        }
+    }
+    result
+}
+
+/// Apply the existing period guards to the visible label alone, never the
+/// prose before the link. Probe coordinates stay local: no offset is used to
+/// cut source Markdown.
+fn label_terminator(label: &str, abbreviations: &HashSet<String>) -> Option<char> {
+    let label = label.trim_end_matches(is_closing_quote);
+    let punctuation = label.chars().next_back()?;
+    if !matches!(punctuation, '.' | '!' | '?') && !is_cjk_sentence_ending(punctuation) {
+        return None;
+    }
+    let prefix = &label[..label.len() - punctuation.len_utf8()];
+    if !prefix.chars().any(char::is_alphanumeric) {
+        return None;
+    }
+    // Exclamation, question and CJK enders have no period-specific lexical
+    // guards. The actual next sentence is checked in source coordinates.
+    if punctuation != '.' {
+        return Some(punctuation);
+    }
+    // A numeric label or version is not a complete sentence.
+    if punctuation == '.'
+        && label[..label.len() - 1]
+            .chars()
+            .next_back()
+            .is_some_and(char::is_numeric)
+    {
+        return None;
+    }
+    // Any strict opener gives the period guards the same lexical evidence.
+    const STRICT_OPENER: &str = " Next";
+    let probe = format!("{label}{STRICT_OPENER}");
+    let chars: Vec<char> = probe.chars().collect();
+    let offsets = char_byte_offsets(&chars);
+    let st = SentenceText {
+        text: &probe,
+        chars: &chars,
+        char_offsets: &offsets,
+        links: &[],
+        code_spans: &[],
+        markers: &[],
+        marker_closers: &[],
+        paragraph: None,
+        cjk_soft_break: CjkSoftBreak::Space,
+    };
+    let pos = label.chars().count() - 1;
+    debug_assert_eq!(chars[pos], punctuation);
+    sentence_boundary(&st, pos, abbreviations, true).map(|_| punctuation)
+}
+
+/// Decide the cut after the complete construct in original source coordinates.
+/// Labels can be titles ("Yahoo! today"), so ASCII punctuation always needs a
+/// strict sentence opener, including when prose capitalization is relaxed.
+fn terminal_link_boundary(st: &SentenceText<'_>, pos: usize, punctuation: char) -> Option<usize> {
+    let cut = cjk_sentence_end(st, pos)?;
+    let chars = st.chars;
+    let mut resume = cut;
+    while resume < chars.len() && is_breakable_whitespace(chars[resume]) {
+        resume += 1;
+    }
+    if resume == chars.len() || opens_ordered_list_marker(&chars[resume..]) {
+        return None;
+    }
+    if is_cjk_sentence_ending(punctuation) {
+        let break_dropped = st.cjk_soft_break == CjkSoftBreak::Join
+            && joins_cjk_soft_break(chars[cut - 1])
+            && joins_cjk_soft_break(chars[resume]);
+        if (resume > cut) == break_dropped || continues_clause(chars[resume]) {
+            return None;
+        }
+    } else {
+        if resume == cut {
+            return None;
+        }
+        let mut first = resume;
+        while first < chars.len() {
+            if let Some(end) = st.link_end_at(first) {
+                first += link_opener_len(chars, first, end);
+            } else if matches!(chars[first], '*' | '_' | '~') || is_opening_quote(chars[first]) {
+                first += 1;
+            } else {
+                break;
+            }
+        }
+        if !chars.get(first).is_some_and(|&c| opens_sentence_in_strict_mode(c)) {
+            return None;
+        }
+    }
+    st.cut_keeps_text(cut, resume).then_some(cut)
+}
+
+fn sentence_structure_with_links(
+    text: &str,
+    references: Option<&HashSet<String>>,
+    abbreviations: &HashSet<String>,
+    policy: LinkTextPunctuation,
+    semantic: bool,
+) -> NestedStructure {
+    let mut structure = if semantic {
+        semantic_sentence_structure(text, references)
+    } else {
+        sentence_structure(text, references)
+    };
+    if policy == LinkTextPunctuation::Trailing {
+        structure.terminal_links = parse_terminal_links(text, references, abbreviations);
+    }
+    structure
+}
+
 /// Split text into sentences.
 ///
 /// `defined_references` is the document's set of normalized reference labels,
@@ -1350,7 +1651,64 @@ pub fn split_into_sentences(
         cjk_soft_break,
         defined_references,
         None,
+        LinkTextPunctuation::Ignore,
     )
+}
+
+/// Configured sentence detection for MD013's check and reflow paths.
+pub(crate) fn split_into_sentences_with_link_text(
+    text: &str,
+    references: Option<&HashSet<String>>,
+    require_sentence_capital: bool,
+    cjk: CjkSoftBreak,
+    policy: LinkTextPunctuation,
+    abbreviations: &Option<Vec<String>>,
+) -> Vec<String> {
+    // Preserve the legacy checker's built-in-only abbreviation policy when
+    // this option is off. The enabled path shares configured label guards.
+    let abbreviations = get_abbreviations(if policy == LinkTextPunctuation::Trailing {
+        abbreviations
+    } else {
+        &None
+    });
+    split_into_sentences_with_set(
+        text,
+        &abbreviations,
+        require_sentence_capital,
+        cjk,
+        references,
+        None,
+        policy,
+    )
+}
+
+/// Count units in the supplied text, with balanced asides held together. This
+/// count does not model subsequent width wrapping or hard-break segmentation.
+pub(crate) fn semantic_sentence_count(
+    text: &str,
+    defined_references: Option<&HashSet<String>>,
+    require_sentence_capital: bool,
+    cjk_soft_break: CjkSoftBreak,
+    abbreviations: &Option<Vec<String>>,
+    link_text_punctuation: LinkTextPunctuation,
+) -> usize {
+    let abbreviations = get_abbreviations(abbreviations);
+    let structure =
+        sentence_structure_with_links(text, defined_references, &abbreviations, link_text_punctuation, true);
+    split_into_sentence_ranges(
+        text,
+        &abbreviations,
+        require_sentence_capital,
+        cjk_soft_break,
+        defined_references,
+        Some(ParagraphStructure {
+            text,
+            structure: &structure,
+            base: 0,
+        }),
+        link_text_punctuation,
+    )
+    .len()
 }
 
 /// Internal function to split text into sentences with a pre-computed abbreviations set
@@ -1367,6 +1725,7 @@ fn split_into_sentences_with_set(
     cjk_soft_break: CjkSoftBreak,
     defined_references: Option<&HashSet<String>>,
     paragraph: Option<ParagraphStructure<'_>>,
+    link_text_punctuation: LinkTextPunctuation,
 ) -> Vec<String> {
     split_into_sentence_ranges(
         text,
@@ -1375,6 +1734,7 @@ fn split_into_sentences_with_set(
         cjk_soft_break,
         defined_references,
         paragraph,
+        link_text_punctuation,
     )
     .into_iter()
     .map(|(start, end)| text[start..end].to_string())
@@ -1404,6 +1764,7 @@ fn split_into_sentence_ranges(
     cjk_soft_break: CjkSoftBreak,
     defined_references: Option<&HashSet<String>>,
     paragraph: Option<ParagraphStructure<'_>>,
+    link_text_punctuation: LinkTextPunctuation,
 ) -> Vec<(usize, usize)> {
     let char_vec: Vec<char> = text.chars().collect();
     let char_offsets = char_byte_offsets(&char_vec);
@@ -1412,6 +1773,8 @@ fn split_into_sentence_ranges(
     // and the link-like ones a sentence may open with. A part of a paragraph
     // takes them from the paragraph's parse; only a whole text is parsed here.
     let NestedStructure {
+        parentheticals,
+        terminal_links,
         atomic,
         links,
         code_spans,
@@ -1419,7 +1782,7 @@ fn split_into_sentence_ranges(
         marker_closers,
     } = match paragraph {
         Some(paragraph) => paragraph.window(text.len()),
-        None => sentence_structure(text, defined_references),
+        None => sentence_structure_with_links(text, defined_references, abbreviations, link_text_punctuation, false),
     };
     let mut atomic_it = atomic.iter().peekable();
     let st = SentenceText {
@@ -1461,7 +1824,24 @@ fn split_into_sentence_ranges(
             .peek()
             .is_some_and(|&&(start, end)| byte_idx >= start && byte_idx < end);
 
-        if !in_atomic && let Some(cut) = sentence_boundary(&st, pos, abbreviations, require_sentence_capital) {
+        let boundary = if in_atomic && !terminal_links.is_empty() {
+            let end = st.byte_at(pos + 1);
+            // Only the complete outermost label may end its merged atomic
+            // range. Reject labels enclosed in a larger construct, adjacent
+            // atomic constructs (such as attr lists), and parse disagreements.
+            terminal_links
+                .binary_search_by_key(&end, |link| link.end)
+                .ok()
+                .filter(|_| atomic_it.peek().is_some_and(|&&(_, atomic_end)| atomic_end == end))
+                .and_then(|index| terminal_link_boundary(&st, pos, terminal_links[index].punctuation))
+        } else if !in_atomic {
+            sentence_boundary(&st, pos, abbreviations, require_sentence_capital)
+        } else {
+            None
+        };
+        if let Some(cut) = boundary
+            && !inside_parenthetical(char_offsets[cut], &parentheticals)
+        {
             // Everything from the ender to the cut is glued to the sentence,
             // and none of it ends one, so the walk resumes past the cut.
             pos = next_sentence_start(cut);
@@ -1518,6 +1898,8 @@ fn sentence_structure(text: &str, defined_references: Option<&HashSet<String>>) 
     let holds_emphasis = text.contains(['*', '_', '~']);
     if !holds_construct && !holds_emphasis {
         return NestedStructure {
+            parentheticals: Vec::new(),
+            terminal_links: Vec::new(),
             atomic: Vec::new(),
             markers: Vec::new(),
             marker_closers: Vec::new(),
@@ -1526,6 +1908,59 @@ fn sentence_structure(text: &str, defined_references: Option<&HashSet<String>>) 
         };
     }
     nested_structure(text, defined_references, false)
+}
+
+/// Semantic reflow treats a balanced prose aside as one unit during sentence
+/// detection. The width cascade can still wrap it if the aside itself is long.
+/// Read the whole paragraph so a group spanning inline elements is recognised.
+fn semantic_sentence_structure(text: &str, defined_references: Option<&HashSet<String>>) -> NestedStructure {
+    let mut structure = sentence_structure(text, defined_references);
+    let (Some(open), Some(close)) = (text.find('('), text.rfind(')')) else {
+        return structure;
+    };
+    // Without a terminator between any pair of parentheses there is no
+    // sentence cut to protect, so ordinary asides need no stack or ranges.
+    if open >= close || !text[open..close].contains(['.', '!', '?', '。', '！', '？']) {
+        return structure;
+    }
+    let mut atomic = structure.atomic.iter().peekable();
+    let mut opens = Vec::new();
+    let mut groups = Vec::new();
+    let mut escaped = false;
+    for (offset, character) in text.char_indices() {
+        while atomic.peek().is_some_and(|&&(_, end)| end <= offset) {
+            atomic.next();
+        }
+        if atomic
+            .peek()
+            .is_some_and(|&&(start, end)| start <= offset && offset < end)
+        {
+            escaped = false;
+            continue;
+        }
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match character {
+            '\\' => escaped = true,
+            '(' => opens.push(offset),
+            ')' => {
+                if let Some(start) = opens.pop() {
+                    groups.push((start, offset + 1));
+                }
+            }
+            _ => {}
+        }
+    }
+    structure.parentheticals = merge_ranges(groups);
+    structure
+}
+
+/// A cut at a group's closing edge leaves the group intact and is allowed.
+fn inside_parenthetical(offset: usize, groups: &[(usize, usize)]) -> bool {
+    let past = groups.partition_point(|&(start, _)| start < offset);
+    past > 0 && offset < groups[past - 1].1
 }
 
 /// Check if a line is a horizontal rule (---, ___, ***)
@@ -1870,7 +2305,7 @@ pub(crate) fn code_span_crosses_last_break<S: AsRef<str>>(lines: &[S]) -> bool {
 /// emphasis delimiters, a link or a code span keeps its space: removing it could
 /// change what the delimiters parse as.
 pub(crate) fn join_soft_break_lines<S: AsRef<str>>(lines: &[S], cjk: CjkSoftBreak) -> String {
-    join_soft_break_lines_with_sentences(lines, cjk, None)
+    join_soft_break_lines_with_sentences(lines, cjk, None, LinkTextPunctuation::Ignore, None)
 }
 
 /// Join hard-wrapped continuations while retaining existing sentence breaks.
@@ -1880,13 +2315,27 @@ pub(crate) fn join_sentence_lines<S: AsRef<str>>(
     lines: &[S],
     cjk: CjkSoftBreak,
     abbreviations: &Option<Vec<String>>,
+    link_text_punctuation: LinkTextPunctuation,
+    references: Option<&HashSet<String>>,
 ) -> String {
-    join_soft_break_lines_with_sentences(lines, cjk, Some(abbreviations))
+    join_soft_break_lines_with_sentences(
+        lines,
+        cjk,
+        Some(abbreviations),
+        link_text_punctuation,
+        references.filter(|_| link_text_punctuation == LinkTextPunctuation::Trailing),
+    )
 }
 
 fn join_reflow_lines<S: AsRef<str>>(lines: &[S], options: &ReflowOptions) -> String {
     if options.sentence_per_line {
-        join_sentence_lines(lines, options.cjk_soft_break, &options.abbreviations)
+        join_sentence_lines(
+            lines,
+            options.cjk_soft_break,
+            &options.abbreviations,
+            options.link_text_punctuation,
+            options.defined_references.as_ref(),
+        )
     } else {
         join_soft_break_lines(lines, options.cjk_soft_break)
     }
@@ -1896,6 +2345,8 @@ fn join_soft_break_lines_with_sentences<S: AsRef<str>>(
     lines: &[S],
     cjk: CjkSoftBreak,
     sentence_abbreviations: Option<&Option<Vec<String>>>,
+    link_text_punctuation: LinkTextPunctuation,
+    references: Option<&HashSet<String>>,
 ) -> String {
     let SoftBreakJoin {
         mut joined,
@@ -1911,10 +2362,18 @@ fn join_soft_break_lines_with_sentences<S: AsRef<str>>(
         for &join in &joins {
             joined.replace_range(join..=join, "\n");
         }
-        split_into_sentence_ranges(&joined, &get_abbreviations(abbreviations), true, cjk, None, None)
-            .into_iter()
-            .map(|(_, end)| end)
-            .collect::<HashSet<_>>()
+        split_into_sentence_ranges(
+            &joined,
+            &get_abbreviations(abbreviations),
+            true,
+            cjk,
+            references,
+            None,
+            link_text_punctuation,
+        )
+        .into_iter()
+        .map(|(_, end)| end)
+        .collect::<HashSet<_>>()
     });
     // The joins and the code spans both run forward through the text, so one
     // cursor over the spans finds the span around each join, and the text is
@@ -3531,7 +3990,13 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
     // after them, so the sentence breaks on the wrong side of a run or inside
     // a link.
     let (paragraph_text, piece_ranges) = elements_source_text(elements);
-    let paragraph = sentence_structure(&paragraph_text, options.defined_references.as_ref());
+    let paragraph = sentence_structure_with_links(
+        &paragraph_text,
+        options.defined_references.as_ref(),
+        &abbreviations,
+        options.link_text_punctuation,
+        options.semantic_line_breaks,
+    );
     let structure_from = |base: usize| ParagraphStructure {
         text: &paragraph_text,
         structure: &paragraph,
@@ -3567,6 +4032,23 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
 
     for (idx, element) in elements.iter().enumerate() {
         let (line_start, line_end, structure) = absorb(line.unwrap_or(piece_ranges[idx].0), piece_ranges[idx]);
+        // Once a held line has entered a protected aside, intervening pieces
+        // cannot contain a sentence cut. Read the held bytes again only when
+        // the group closes, rather than re-scanning a growing paragraph for
+        // every inline code/emphasis element inside the group.
+        if !paragraph.parentheticals.is_empty() && line.is_some() && idx > 0 {
+            let previous_end = piece_ranges[idx - 1].1;
+            let past = paragraph
+                .parentheticals
+                .partition_point(|&(start, _)| start < previous_end);
+            if past > 0 {
+                let group_end = paragraph.parentheticals[past - 1].1;
+                if previous_end < group_end && line_end < group_end {
+                    line = Some(line_start);
+                    continue;
+                }
+            }
+        }
         let combined = &paragraph_text[line_start..line_end];
 
         // Text and emphasis are absorbed the same way. An emphasis span is
@@ -3590,6 +4072,7 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
                     options.cjk_soft_break,
                     options.defined_references.as_ref(),
                     Some(structure),
+                    options.link_text_punctuation,
                 ),
                 None => trim_range(combined, 0, combined.len()).into_iter().collect(),
             };
@@ -3610,32 +4093,28 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
             let next_bracketed = elements
                 .get(idx + 1)
                 .filter(|next| next.opens_with_bracket())
-                .map(|next| {
-                    let trailing = &combined[combined.trim_end_matches(is_breakable_whitespace).len()..];
-                    let gap = if trailing.contains('\n') {
-                        "\n"
-                    } else {
-                        source_gap_before(elements, idx + 1)
-                    };
-                    (gap, next.to_string())
-                });
+                .map(|_| piece_ranges[idx + 1]);
             let closes_before_next = |sentence: &str| -> bool {
-                if glued_to_next {
+                let sentence_end = line_start + combined.trim_end_matches(is_breakable_whitespace).len();
+                if glued_to_next || inside_parenthetical(sentence_end, &paragraph.parentheticals) {
                     return false;
                 }
-                let Some((gap, next_str)) = &next_bracketed else {
+                let Some((next_start, next_end)) = next_bracketed else {
                     return true;
                 };
-                let mut probe = sentence.to_string();
-                push_source_gap(&mut probe, gap);
-                probe.push_str(next_str);
+                // Probe the paragraph's own bytes and structure, including an
+                // aside or emphasis span that opened before this sentence.
+                let probe_start = sentence_end - sentence.len();
+                let probe = &paragraph_text[probe_start..next_end];
+                let next_str = &paragraph_text[next_start..next_end];
                 let probe_sentences = split_into_sentences_with_set(
-                    &probe,
+                    probe,
                     &abbreviations,
                     require_sentence_capital,
                     options.cjk_soft_break,
                     options.defined_references.as_ref(),
-                    None,
+                    Some(structure_from(probe_start)),
+                    options.link_text_punctuation,
                 );
                 probe_sentences.last().is_some_and(|last| last == next_str)
             };
@@ -3664,7 +4143,7 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
                 line = pending_start.map(|held| line_start + held);
             } else {
                 // Single sentence - check if it's complete
-                let trimmed = combined.trim();
+                let trimmed = combined.trim_matches(is_breakable_whitespace);
 
                 // If the combined result is only whitespace, don't accumulate it.
                 // This prevents leading spaces on subsequent elements when lines
@@ -3714,6 +4193,7 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
             options.cjk_soft_break,
             options.defined_references.as_ref(),
             Some(structure_from(line_start)),
+            options.link_text_punctuation,
         ));
     }
     lines
@@ -4240,8 +4720,13 @@ fn line_fits(line: &str, options: &ReflowOptions) -> bool {
 }
 
 /// The non-Text element span that strictly contains `pos`, if any.
+/// Flat element spans are sorted and non-overlapping; searching every span for
+/// each character would make long parenthetical scans quadratic.
 fn element_containing(pos: usize, spans: &[ElementSpan]) -> Option<ElementSpan> {
-    spans.iter().copied().find(|span| span.contains(pos))
+    let past = spans.partition_point(|span| span.start < pos);
+    past.checked_sub(1)
+        .map(|index| spans[index])
+        .filter(|span| span.contains(pos))
 }
 
 /// Check if a byte position falls inside any non-Text element span
@@ -4429,49 +4914,46 @@ fn split_at_break_word(
     line_length: usize,
     element_spans: &[ElementSpan],
     length_mode: ReflowLengthMode,
+    custom_break_words: &[String],
 ) -> Option<(String, String)> {
-    let lower = text.to_lowercase();
     let min_first_len = ((line_length as f64) * MIN_SPLIT_RATIO) as usize;
-    let mut best_split: Option<(usize, usize)> = None; // (byte_start, word_len_bytes)
+    let mut best_split = None;
 
     // Build a paren-depth map so we can skip break-words inside plain-text
     // parenthetical groups (matching the protection added to split_at_clause_punctuation).
     let depth_map = paren_depth_map(text, element_spans);
 
-    for &word in BREAK_WORDS {
-        let mut search_start = 0;
-        while let Some(pos) = lower[search_start..].find(word) {
-            let abs_pos = search_start + pos;
-
-            // Verify it's a word boundary: preceded by space, followed by space
-            let preceded_by_space = abs_pos == 0 || text.as_bytes().get(abs_pos - 1) == Some(&b' ');
-            let followed_by_space = text.as_bytes().get(abs_pos + word.len()) == Some(&b' ');
-
-            if preceded_by_space && followed_by_space {
-                // The break goes BEFORE the word, so first part ends at abs_pos - 1
-                let first_part = text[..abs_pos].trim_end();
-                let first_part_len = measure(first_part, 0, element_spans, length_mode).effective();
-
-                // Skip break-words inside plain-text parenthetical groups.
-                let inside_paren = depth_map.get(abs_pos).is_some_and(|&d| d > 0);
-
-                if first_part_len >= min_first_len
-                    && first_part_len <= line_length
-                    && !is_inside_element(abs_pos, element_spans)
-                    && !inside_paren
-                {
-                    // Prefer the latest valid split point
-                    if best_split.is_none_or(|(prev_pos, _)| abs_pos > prev_pos) {
-                        best_split = Some((abs_pos, word.len()));
-                    }
-                }
-            }
-
-            search_start = abs_pos + word.len();
+    // Keep offsets in the original text. Lowercasing an entire Unicode string
+    // can change its byte length, making offsets into that copy unsafe here.
+    let mut offset = 0;
+    for token in text.split_inclusive(' ') {
+        let Some(word) = token.strip_suffix(' ') else {
+            break;
+        };
+        let position = offset;
+        offset += token.len();
+        if word.is_empty()
+            || !(BREAK_WORDS.iter().any(|default| word.eq_ignore_ascii_case(default))
+                || custom_break_words
+                    .iter()
+                    .any(|custom| unicase::UniCase::new(word) == unicase::UniCase::new(custom.as_str())))
+        {
+            continue;
+        }
+        let first_part = text[..position].trim_end();
+        let first_part_len = measure(first_part, 0, element_spans, length_mode).effective();
+        let inside_paren = depth_map.get(position).is_some_and(|&depth| depth > 0);
+        if first_part_len >= min_first_len
+            && first_part_len <= line_length
+            && !is_inside_element(position, element_spans)
+            && !inside_paren
+        {
+            // Positions arrive in source order, so the last valid one wins.
+            best_split = Some(position);
         }
     }
 
-    let (byte_start, _word_len) = best_split?;
+    let byte_start = best_split?;
 
     let first = text[..byte_start].trim_end().to_string();
     let rest = text[byte_start..].to_string();
@@ -4581,7 +5063,15 @@ fn cascade_split_line(text: &str, options: &ReflowOptions) -> Vec<String> {
         };
         let split = at_whitespace(split_at_parenthetical(remaining, line_length, &spans, length_mode))
             .or_else(|| at_whitespace(split_at_clause_punctuation(remaining, line_length, &spans, length_mode)))
-            .or_else(|| at_whitespace(split_at_break_word(remaining, line_length, &spans, length_mode)));
+            .or_else(|| {
+                at_whitespace(split_at_break_word(
+                    remaining,
+                    line_length,
+                    &spans,
+                    length_mode,
+                    &options.break_words,
+                ))
+            });
 
         if let Some((first, rest)) = split {
             let consumed = remaining.len().saturating_sub(rest.len());
@@ -4618,6 +5108,50 @@ fn cascade_split_line(text: &str, options: &ReflowOptions) -> Vec<String> {
     result
 }
 
+/// A fitting aside stays intact. For an oversized aside, restore its inner
+/// sentence boundaries before the width cascade. Besides preferring natural
+/// breaks, this avoids repeatedly cascading a whole paragraph as one sentence.
+fn cascade_semantic_sentence(text: &str, options: &ReflowOptions) -> Vec<String> {
+    let (Some(open), Some(close)) = (text.find('('), text.rfind(')')) else {
+        return cascade_split_line(text, options);
+    };
+    if open >= close || !text[open..close].contains(['.', '!', '?', '。', '！', '？']) {
+        return cascade_split_line(text, options);
+    }
+    let abbreviations = get_abbreviations(&options.abbreviations);
+    let mut structure = sentence_structure_with_links(
+        text,
+        options.defined_references.as_ref(),
+        &abbreviations,
+        options.link_text_punctuation,
+        true,
+    );
+    let protected = structure.parentheticals.len();
+    structure
+        .parentheticals
+        .retain(|&(start, end)| line_fits(&text[start..end], options));
+    if structure.parentheticals.len() == protected {
+        return cascade_split_line(text, options);
+    }
+
+    split_into_sentence_ranges(
+        text,
+        &abbreviations,
+        options.require_sentence_capital,
+        options.cjk_soft_break,
+        options.defined_references.as_ref(),
+        Some(ParagraphStructure {
+            text,
+            structure: &structure,
+            base: 0,
+        }),
+        options.link_text_punctuation,
+    )
+    .into_iter()
+    .flat_map(|(start, end)| cascade_split_line(&text[start..end], options))
+    .collect()
+}
+
 /// Reflow elements using semantic line breaks strategy:
 /// 1. Split at sentence boundaries (always)
 /// 2. For lines exceeding line_length, cascade through clause punct → break-words → word wrap
@@ -4632,11 +5166,15 @@ fn reflow_elements_semantic(elements: &[Element], options: &ReflowOptions) -> Ve
     }
 
     let mut result = Vec::new();
+    let mut sentence_starts = Vec::new();
     for line in sentence_lines {
+        if options.link_text_punctuation == LinkTextPunctuation::Trailing {
+            sentence_starts.push(result.len());
+        }
         if line_fits(&line, options) {
             result.push(line);
         } else {
-            result.extend(cascade_split_line(&line, options));
+            result.extend(cascade_semantic_sentence(&line, options));
         }
     }
 
@@ -4644,8 +5182,14 @@ fn reflow_elements_semantic(elements: &[Element], options: &ReflowOptions) -> Ve
     // Word wrap can produce lines like "was" or "see" on their own, which reads poorly.
     let min_line_len = ((options.line_length as f64) * MIN_SPLIT_RATIO) as usize;
     let mut merged: Vec<String> = Vec::with_capacity(result.len());
-    for line in result {
-        if !merged.is_empty() && line_width(&line, options) < min_line_len && !line.trim().is_empty() {
+    for (index, line) in result.into_iter().enumerate() {
+        // A label terminal ends at Markdown syntax rather than a punctuation
+        // character, so the trailing-character heuristic below cannot see it.
+        if !merged.is_empty()
+            && sentence_starts.binary_search(&index).is_err()
+            && line_width(&line, options) < min_line_len
+            && !line.trim().is_empty()
+        {
             // Don't merge a line that is itself a standalone parenthetical group —
             // it was placed on its own line intentionally by split_at_parenthetical.
             if is_standalone_parenthetical(&line) {
@@ -6319,7 +6863,13 @@ mod tests {
     fn source_sentence_breaks_respect_custom_abbreviations_and_atomic_constructs() {
         let custom = Some(vec!["Widget".to_string()]);
         assert_eq!(
-            join_sentence_lines(&["Use Widget.", "then retry."], CjkSoftBreak::Space, &custom),
+            join_sentence_lines(
+                &["Use Widget.", "then retry."],
+                CjkSoftBreak::Space,
+                &custom,
+                LinkTextPunctuation::Ignore,
+                None,
+            ),
             "Use Widget. then retry."
         );
         for lines in [
@@ -6327,10 +6877,19 @@ mod tests {
             vec!["Read [literal.", "text](url) here."],
             vec!["Read <span title=\"literal.", "text\"> here."],
         ] {
-            assert_eq!(join_sentence_lines(&lines, CjkSoftBreak::Space, &None), lines.join(" "));
+            assert_eq!(
+                join_sentence_lines(&lines, CjkSoftBreak::Space, &None, LinkTextPunctuation::Ignore, None),
+                lines.join(" ")
+            );
         }
         assert_eq!(
-            join_sentence_lines(&["First sentence.", "lowercase follows."], CjkSoftBreak::Space, &None),
+            join_sentence_lines(
+                &["First sentence.", "lowercase follows."],
+                CjkSoftBreak::Space,
+                &None,
+                LinkTextPunctuation::Ignore,
+                None,
+            ),
             "First sentence.\nlowercase follows."
         );
     }

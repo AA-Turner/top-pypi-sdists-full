@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: python-ulid
-Version: 4.0.1
+Version: 4.1.0
 Summary: Universally unique lexicographically sortable identifier
 Project-URL: Homepage, https://github.com/mdomke/python-ulid
 Project-URL: Documentation, https://python-ulid.readthedocs.io
@@ -18,14 +18,13 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.10
-Requires-Dist: typing-extensions; python_version < '3.11'
+Requires-Python: >=3.11
+Requires-Dist: typing-extensions; python_version < '3.12'
 Provides-Extra: pydantic
 Requires-Dist: pydantic>=2.0; extra == 'pydantic'
 Description-Content-Type: text/x-rst

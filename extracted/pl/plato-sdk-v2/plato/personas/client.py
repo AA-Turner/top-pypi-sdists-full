@@ -2,79 +2,39 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pydantic import ValidationError
-
-from plato.personas.models import LoginInventory, PersonaRecord, PersonaUpdate
+from plato.chronos.login_vault import normalize_key
+from plato.personas.models import PersonaRecord, PersonaUpdate
 
 if TYPE_CHECKING:
-    from plato.cli.vault.client import VaultConsoleClient
-
-# plato.cli.vault imports this module (the persona commands), so its console client is imported inside the
-# methods: a top-level import is a circular import when a fresh process imports this module first.
+    from plato.chronos.login_vault import LoginVault
 
 
-class PersonaConsole:
-    """Read and write persona records. Pass ``client`` to reuse an open VaultConsoleClient."""
+class PersonaVault:
+    """Persona records in the Chronos login vault. ``vault`` is an open LoginVault; the caller closes it."""
 
-    def __init__(self, console_url: str | None = None, *, client: VaultConsoleClient | None = None) -> None:
-        self._owned = client is None
-        if client is None:
-            from plato.cli.vault.client import VaultConsoleClient, resolve_base_url
-
-            client = VaultConsoleClient(resolve_base_url(console_url))
-        self.client = client
-
-    def __enter__(self) -> PersonaConsole:
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        self.close()
-
-    def close(self) -> None:
-        if self._owned:
-            self.client.close()
+    def __init__(self, vault: LoginVault) -> None:
+        self.vault = vault
 
     def get(self, login_key: str, account: str) -> PersonaRecord | None:
         """The account's persona record, or None when it has none."""
-        from plato.cli.vault.client import NotFound
-
-        try:
-            return PersonaRecord.model_validate(self.client.get_persona(login_key, account))
-        except NotFound:
-            return None
+        found = self.vault.get_account_persona(login_key, account)
+        return None if found is None else PersonaRecord.model_validate(found.model_dump(mode="json"))
 
     def put(self, login_key: str, account: str, update: PersonaUpdate) -> PersonaRecord:
-        """Merge ``update`` into the record. Only the keys set on ``update`` reach the console."""
+        """Merge ``update`` into the record. Only the keys set on ``update`` are sent."""
         body = update.model_dump(mode="json", exclude_unset=True)
-        return PersonaRecord.model_validate(self.client.put_persona(login_key, account, body))
+        return PersonaRecord.model_validate(
+            self.vault.set_account_persona(login_key, account, body).model_dump(mode="json")
+        )
 
-    def inventory(self) -> LoginInventory:
-        """The console's login list. Raises VaultConsoleError when it lacks the group or account lists."""
-        from plato.cli.vault.client import VaultConsoleError
-
-        try:
-            return LoginInventory.model_validate(self.client.list_logins())
-        except ValidationError as e:
-            where = "; ".join(f"{'.'.join(map(str, x['loc']))}: {x['msg']}" for x in e.errors(include_input=False))
-            raise VaultConsoleError(f"the console's login list is unreadable ({where})") from None
+    def records(self, login_key: str | None = None) -> list[PersonaRecord]:
+        """Every live account's persona record (of ``login_key`` only, when given), by (login_key, account)."""
+        listing = self.vault.list_account_personas(login_key)
+        return [PersonaRecord.model_validate(r.model_dump(mode="json")) for r in listing.accounts]
 
     def others_with_persona(self, login_key: str, exclude_account: str) -> list[PersonaRecord]:
-        """The persona records of the other accounts of ``login_key``, sorted by account. Raises VaultConsoleError
-        when the console's account list may be incomplete: a missing account would move the others into its slot."""
-        from plato.cli.vault.client import VaultConsoleError
-
-        inventory = self.inventory()
-        if inventory.vault_error:
-            raise VaultConsoleError(
-                f"the console's account list may be incomplete ({inventory.vault_error}), "
-                "so the other accounts cannot be bound to their slots"
-            )
-        accounts = sorted(
-            a.account
-            for g in inventory.groups
-            if g.login_key.lower() == login_key.lower()
-            for a in g.accounts
-            if a.has_persona and a.account.lower() != exclude_account.lower()
+        """The persona records of the other accounts of ``login_key``, sorted by account."""
+        return sorted(
+            (r for r in self.records(login_key) if normalize_key(r.account) != normalize_key(exclude_account)),
+            key=lambda r: r.account,
         )
-        records = [self.get(login_key, a) for a in accounts]
-        return [r for r in records if r is not None]

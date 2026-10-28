@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-evals
-Version: 2.61.0
+Version: 2.63.0
 Summary: Framework for evaluating stochastic code execution, especially code making use of LLMs
 Project-URL: Homepage, https://pydantic.dev/docs/ai/evals/evals/
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -31,7 +31,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
 Requires-Dist: anyio>=4.7.0
 Requires-Dist: logfire-api>=3.14.1
-Requires-Dist: pydantic-ai-slim==2.61.0
+Requires-Dist: pydantic-ai-slim==2.63.0
 Requires-Dist: pydantic>=2.12
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: rich>=13.9.4
@@ -42,7 +42,7 @@ Description-Content-Type: text/markdown
 # Pydantic Evals
 
 [![CI](https://github.com/pydantic/pydantic-ai/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/pydantic/pydantic-ai/actions/workflows/ci.yml?query=branch%3Amain)
-[![Coverage](https://coverage-badge.samuelcolvin.workers.dev/pydantic/pydantic-ai.svg)](https://coverage-badge.samuelcolvin.workers.dev/redirect/pydantic/pydantic-ai)
+![Coverage](https://coverage-badge.samuelcolvin.workers.dev/pydantic/pydantic-ai.svg)
 [![PyPI](https://img.shields.io/pypi/v/pydantic-evals.svg)](https://pypi.python.org/pypi/pydantic-evals)
 [![python versions](https://img.shields.io/pypi/pyversions/pydantic-evals.svg)](https://github.com/pydantic/pydantic-ai)
 [![license](https://img.shields.io/github/license/pydantic/pydantic-ai.svg)](https://github.com/pydantic/pydantic-ai/blob/main/LICENSE)

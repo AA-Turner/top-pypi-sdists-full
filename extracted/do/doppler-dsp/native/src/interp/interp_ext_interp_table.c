@@ -154,7 +154,14 @@ InterpolatedTableObj_execute (InterpolatedTableObject *self, PyObject *args,
           Py_DECREF (in_arr);
           return NULL;
         }
-      size_t _cap     = (size_t)PyArray_SIZE (out_arr);
+      size_t _cap = (size_t)PyArray_SIZE (out_arr);
+      if (!self->handle)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (in_arr);
+          PyErr_SetString (PyExc_RuntimeError, "destroyed");
+          return NULL;
+        }
       size_t _omax    = dp_interp_table_execute_max_out (self->handle);
       size_t _min_cap = _omax > (size_t)n ? _omax : ((size_t)n);
       if (_cap < _min_cap)
@@ -163,6 +170,13 @@ InterpolatedTableObj_execute (InterpolatedTableObject *self, PyObject *args,
                         _cap, _min_cap);
           Py_DECREF (out_arr);
           Py_DECREF (in_arr);
+          return NULL;
+        }
+      if (!self->handle)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (in_arr);
+          PyErr_SetString (PyExc_RuntimeError, "destroyed");
           return NULL;
         }
       size_t n_out = dp_interp_table_execute (
@@ -195,6 +209,12 @@ InterpolatedTableObj_execute (InterpolatedTableObject *self, PyObject *args,
         }
       return _oview;
     }
+  if (!self->handle)
+    {
+      Py_DECREF (in_arr);
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   size_t _need = (size_t)n;
   size_t _cap  = dp_interp_table_execute_max_out (self->handle);
   if (!_cap || _cap < _need)
@@ -218,6 +238,13 @@ InterpolatedTableObj_execute (InterpolatedTableObject *self, PyObject *args,
     }
   double _Complex *_d0
       = (double _Complex *)PyArray_DATA ((PyArrayObject *)arr0);
+  if (!self->handle)
+    {
+      Py_DECREF (arr0);
+      Py_DECREF (in_arr);
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
   size_t n_out = dp_interp_table_execute (
       self->handle, (const double *)PyArray_DATA (in_arr), (size_t)n, _d0,
       _cap);
@@ -404,25 +431,28 @@ static PyTypeObject InterpolatedTableObjType = {
   .tp_basicsize                           = sizeof (InterpolatedTableObject),
   .tp_dealloc = (destructor)InterpolatedTableObj_dealloc,
   .tp_flags   = Py_TPFLAGS_DEFAULT,
-  .tp_doc     = "Create an InterpolatedTable instance.\n"
-                "\n"
-                "Parameters\n"
-                "----------\n"
-                "table : NDArray[np.complex128]\n"
-                "    Complex table, one period, length table_len.\n"
-                "method : Literal[\"floor\", \"nearest\", \"linear\"], default "
-                "\"linear\"\n"
-                "    0 = floor, 1 = nearest, 2 = linear.\n"
-                "\n"
-                "Examples\n"
-                "--------\n"
-                ">>> from doppler.interp import InterpolatedTable\n"
-                ">>> import numpy as np\n"
-                ">>> t = InterpolatedTable(\n"
-                "...     np.array([0.0, 1.0, 2.0], dtype=np.complex128),\n"
-                "...     method=\"linear\")\n"
-                ">>> t.n\n"
-                "3\n",
+  .tp_doc
+  = "Create an InterpolatedTable instance.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "table : NDArray[np.complex128]\n"
+    "    Complex table, one period, length table_len.\n"
+    "method : Literal[\"floor\", \"nearest\", \"linear\"], default "
+    "\"linear\"\n"
+    "    How a lookup between table points resolves: the point below, the\n"
+    "    nearest point, or linear interpolation.\n"
+    "    One of ``\"floor\"``, ``\"nearest\"``, ``\"linear\"``.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.interp import InterpolatedTable\n"
+    ">>> import numpy as np\n"
+    ">>> t = InterpolatedTable(\n"
+    "...     np.array([0.0, 1.0, 2.0], dtype=np.complex128),\n"
+    "...     method=\"linear\")\n"
+    ">>> t.n\n"
+    "3\n",
   .tp_methods = InterpolatedTableObj_methods,
   .tp_getset  = InterpolatedTable_getset,
   .tp_new     = InterpolatedTableObj_new,

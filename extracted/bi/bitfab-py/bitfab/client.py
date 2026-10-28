@@ -9,6 +9,7 @@ import functools
 import inspect
 import json
 import logging
+import math
 import os
 import sys
 import threading
@@ -384,6 +385,19 @@ def _extract_prompt_from_collector(collector: Any) -> str | None:
         return None
 
 
+def _reported_cost_of(call: Any) -> float | None:
+    try:
+        http_response = getattr(call, "http_response", None)
+        body = _parse_http_body(getattr(http_response, "body", None))
+        usage = body.get("usage") if isinstance(body, dict) else None
+        cost = usage.get("cost") if isinstance(usage, dict) else None
+        if isinstance(cost, bool) or not isinstance(cost, (int, float)):
+            return None
+        return float(cost) if math.isfinite(cost) else None
+    except Exception:
+        return None
+
+
 def _extract_context_from_collector(collector: Any) -> dict[str, Any] | None:
     try:
         last_log = collector.last
@@ -418,6 +432,14 @@ def _extract_context_from_collector(collector: Any) -> dict[str, Any] | None:
             context["inputTokens"] = input_tokens
         if output_tokens is not None:
             context["outputTokens"] = output_tokens
+        cached_input_tokens = getattr(usage, "cached_input_tokens", None)
+        if cached_input_tokens is None:
+            cached_input_tokens = getattr(call_usage, "cached_input_tokens", None)
+        if cached_input_tokens is not None:
+            context["cachedInputTokens"] = cached_input_tokens
+        cost_usd = _reported_cost_of(selected_call)
+        if cost_usd is not None:
+            context["costUsd"] = cost_usd
 
         timing = getattr(last_log, "timing", None) if last_log else None
         duration_ms = getattr(timing, "duration_ms", None)
@@ -2053,6 +2075,7 @@ class Bitfab:
         code_change: CodeChangeType | None = None,
         code_change_description: str | None = None,
         code_change_files: list[CodeChangeFile] | None = None,
+        code_change_base: str | None = None,
         experiment_group_id: str | None = None,
         experiment_group_name: str | None = None,
         dataset_id: str | None = None,
@@ -2135,10 +2158,12 @@ class Bitfab:
                 - ``"default-branch"``: the diff against where HEAD split from
                   the default branch (``origin/HEAD``, else ``origin/main``,
                   ``origin/master``, ``main``, ``master``)
+                - ``"ref"``: the diff against where HEAD split from the branch
+                  or commit in ``code_change_base``
                 - ``"skip"``: no code change, such as for a baseline run
                 - ``"manual"``: the files passed in ``code_change_files``
 
-                The three git choices include uncommitted edits and untracked
+                The four git choices include uncommitted edits and untracked
                 files, and warn and attach nothing when they find no changed
                 files.
             code_change_description: Description of the code change being
@@ -2148,6 +2173,11 @@ class Bitfab:
                 ``"manual"``, and only then. Each entry is
                 ``{"path", "before", "after"}``. Use ``""`` for newly created
                 (``before``) or deleted (``after``) files.
+            code_change_base: The branch or commit to diff against when
+                ``code_change`` is ``"ref"``, and only then, such as ``"dev"``,
+                ``"release/2.3"``, or a commit SHA. A branch that exists only on
+                the remote is read as ``origin/<name>``. A name git cannot
+                resolve is refused.
             experiment_group_id: Optional UUID that groups multiple replay runs
                 into a single experiment batch. The run joins that group, and an
                 ID no group has yet creates it.
@@ -2305,6 +2335,7 @@ class Bitfab:
             code_change=code_change,
             code_change_description=code_change_description,
             code_change_files=code_change_files,
+            code_change_base=code_change_base,
             experiment_group_id=experiment_group_id,
             experiment_group_name=experiment_group_name,
             dataset_id=dataset_id,

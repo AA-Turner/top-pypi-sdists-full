@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: traits
-Version: 7.2.0
+Version: 7.3.0
 Summary: Observable typed attributes for Python classes
 Home-page: http://docs.enthought.com/traits
 Download-URL: https://pypi.python.org/pypi/traits

@@ -19,16 +19,15 @@ from arraylake.api_utils import ArraylakeHttpClient
 from arraylake.exceptions import ArraylakeClientError
 from arraylake.types import (
     AzureCredentials,
+    DatasetFilter,
     ExplicitVirtualChunkAccessPolicyResponse,
     GSCredentials,
+    NodeFilter,
     S3Credentials,
+    SubscriptionType,
     VirtualChunkCredentials,
 )
-from tests.test_subscriptions import (
-    create_filtered_subscription_repo,
-    create_exchange_listing,
-    create_subscription_repo,
-)
+from tests.test_subscriptions import create_exchange_listing
 
 
 @asynccontextmanager
@@ -995,12 +994,13 @@ def assert_subscription_vcap_resolution(client: Client, sub_repo_name: str, vcc_
         sub_repo = client.get_repo(sub_repo_name)
         TestAuthorization.assert_prefixes_authorized(sub_repo, vcc_url_prefixes)
     else:
-        with pytest.raises(ValueError, match="not covered by any Virtual Chunk Access Policy"):
+        with pytest.raises(ValueError, match="not covered by any public Virtual Chunk Access Policy"):
             client.get_repo(sub_repo_name)
 
 
 @pytest.mark.skipif(not IS_IC2, reason="Paid marketplace listings require icechunk 2.x")
-async def test_filtered_subscription_implementation(two_isolated_orgs, default_bucket, token):
+@pytest.mark.parametrize("bucket_prefix", [None, "prefix"], ids=["no-bucket-prefix", "bucket-prefix"])
+async def test_filtered_subscription_implementation(two_isolated_orgs, default_bucket, token, bucket_prefix):
     """
     Filtered subscription: subscriber has its own bucket, VCC points to provider's chunks.
 
@@ -1008,11 +1008,15 @@ async def test_filtered_subscription_implementation(two_isolated_orgs, default_b
     1. Creating a filtered subscription automatically creates a SubscriptionVCAP
     2. The server returns runtime_vcc_name so client can create the VCC at runtime
     3. The subscriber can access the provider repo's chunks via the auto-created VCC
+
+    It runs with and without a bucket prefix. The repo prefix already includes the bucket
+    prefix, so the prefix must appear only once in the chunks url.
     """
     # Provider repo storage — anonymous so the same bucket config can serve as a VCAP
     provider_repo_bucket = default_bucket(
         nickname="provider_repo_bucket",
         name="anonbucket",
+        prefix=bucket_prefix,
         auth_config={"method": "anonymous"},
     )
     # Writable bucket for subscriber repo storage
@@ -1037,6 +1041,7 @@ async def test_filtered_subscription_implementation(two_isolated_orgs, default_b
 
         parent_repo_obj = await async_client.get_repo_object(parent_repo_name)
         repo_prefix = parent_repo_obj.prefix.strip("/")
+        assert repo_prefix.startswith(f"{provider_repo_bucket.prefix}/") == bool(bucket_prefix)
 
         # Create the icechunk repo manually (anonymous bucket config, but MinIO allows writes)
         # Use spec_version=2 since paid exchange listings require IC2 repos
@@ -1059,13 +1064,12 @@ async def test_filtered_subscription_implementation(two_isolated_orgs, default_b
         # Use paid pricing model to support filtered subscriptions
         listing = await create_exchange_listing(token, org_a, parent_repo_obj.id, pricing_model="paid")
 
-        await create_filtered_subscription_repo(
-            token,
-            org_b,
-            "sub-repo",
+        await async_client.subscribe_to_listing(
+            f"{org_b}/sub-repo",
             listing["id"],
-            bucket_nickname=subscriber_bucket.nickname,
-            target_filter={"nodes": {"include_paths": ["/data"]}},
+            subscription_type=SubscriptionType.FILTERED,
+            target_filter=DatasetFilter(nodes=NodeFilter(include_paths=["/data"])),
+            bucket_config_nickname=subscriber_bucket.nickname,
         )
 
         # Open the subscriber repo via client.get_repo() - this will:
@@ -1200,7 +1204,7 @@ class TestSubscriptionToRepoContainingVirtualChunks:
         # Direct subscriptions are only allowed on free listings
         async with provider_with_virtual_chunks(two_isolated_orgs, default_bucket, token, public, pricing_model="free") as (
             client,
-            _,
+            async_client,
             _,
             org_b,
             _,
@@ -1209,7 +1213,7 @@ class TestSubscriptionToRepoContainingVirtualChunks:
             vcc_url_prefix,
             listing,
         ):
-            await create_subscription_repo(token, org_b, "sub-repo", listing["id"])
+            await async_client.subscribe_to_listing(f"{org_b}/sub-repo", listing["id"])
             assert_subscription_vcap_resolution(client, f"{org_b}/sub-repo", {vcc_url_prefix}, public)
 
     @pytest.mark.skipif(not IS_IC2, reason="Paid marketplace listings require icechunk 2.x")
@@ -1239,13 +1243,12 @@ class TestSubscriptionToRepoContainingVirtualChunks:
 
             # The subscription VCAP (auto-created) covers provider repo chunks
             # The explicit VCAP (public/private) covers the virtual chunk bucket
-            await create_filtered_subscription_repo(
-                token,
-                org_b,
-                "sub-repo",
+            await async_client.subscribe_to_listing(
+                f"{org_b}/sub-repo",
                 listing["id"],
-                bucket_nickname=subscriber_bucket.nickname,
-                target_filter={"nodes": {"include_paths": ["/data"]}},
+                subscription_type=SubscriptionType.FILTERED,
+                target_filter=DatasetFilter(nodes=NodeFilter(include_paths=["/data"])),
+                bucket_config_nickname=subscriber_bucket.nickname,
             )
 
             # Open the icechunk repo created by the server during filtered subscription creation.

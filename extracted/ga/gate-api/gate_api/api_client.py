@@ -28,6 +28,7 @@ import tempfile
 # python 2 and python 3 compatibility library
 import six
 from six.moves.urllib.parse import quote
+from urllib3.filepost import encode_multipart_formdata
 
 from gate_api.configuration import Configuration
 import gate_api.models
@@ -83,7 +84,7 @@ class ApiClient(object):
             self.default_headers[header_name] = header_value
         self.cookie = cookie
         # Set default User-Agent.
-        self.user_agent = 'OpenAPI-Generator/7.2.161/python'
+        self.user_agent = 'OpenAPI-Generator/7.2.167/python'
         # Set default X-Gate-Size-Decimal header for futures API
         self.default_headers['X-Gate-Size-Decimal'] = '1'
         self.client_side_validation = configuration.client_side_validation
@@ -172,6 +173,14 @@ class ApiClient(object):
         # body
         if body:
             body = self.sanitize_for_serialization(body)
+
+        # Finalize multipart exactly once: its randomly selected boundary and
+        # bytes must be identical for signing and the subsequent HTTP request.
+        content_type = header_params.get('Content-Type', '')
+        if content_type.split(';', 1)[0].lower() == 'multipart/form-data':
+            body, content_type = encode_multipart_formdata(post_params or [])
+            header_params['Content-Type'] = content_type
+            post_params = None
 
         # request url
         if _host is None:
@@ -285,11 +294,27 @@ class ApiClient(object):
         if response_type == "file":
             return self.__deserialize_file(response)
 
-        # fetch data from response object
-        try:
-            data = json.loads(response.data)
-        except ValueError:
-            data = response.data
+        # A transport success with broken JSON must not fabricate empty model
+        # instances or iterate characters as list elements. Non-JSON text/file
+        # responses retain their original behavior.
+        if response_type == "bytes":
+            return response.data
+        payload = response.data
+        content_type = response.getheader('content-type') or ''
+        if isinstance(payload, bytes):
+            match = re.search(r"charset=([a-zA-Z\-\d]+)", content_type)
+            payload = payload.decode(match.group(1) if match else 'utf-8')
+        if payload == '' or payload is None:
+            return None
+        if content_type and 'json' not in content_type.lower():
+            # Text may happen to look like JSON; its media type still owns the
+            # protocol and quoted text must remain quoted text.
+            data = payload
+        else:
+            try:
+                data = json.loads(payload)
+            except ValueError:
+                raise ApiException(status=response.status, reason='Invalid JSON response')
 
         return self.__deserialize(data, response_type)
 
@@ -306,11 +331,15 @@ class ApiClient(object):
 
         if type(klass) == str:
             if klass.startswith('list['):
+                if not isinstance(data, (list, tuple)):
+                    raise ApiValueError('Expected an array response')
                 sub_kls = re.match(r'list\[(.*)\]', klass).group(1)
                 return [self.__deserialize(sub_data, sub_kls)
                         for sub_data in data]
 
             if klass.startswith('dict('):
+                if not isinstance(data, dict):
+                    raise ApiValueError('Expected an object response')
                 sub_kls = re.match(r'dict\(([^,]*), (.*)\)', klass).group(2)
                 return {k: self.__deserialize(v, sub_kls)
                         for k, v in six.iteritems(data)}
@@ -558,7 +587,7 @@ class ApiClient(object):
             auth_setting = self.configuration.auth_settings().get(auth)
             if auth_setting:
                 if auth_setting['type'] == 'apiv4':
-                    auth_headers = self.gen_sign(method, urlparse(url).path, unquote_plus(urlencode(querys)), body)
+                    auth_headers = self.gen_sign(method, urlparse(url).path, unquote_plus(urlencode(querys or [])), body)
                     headers.update(auth_headers)
                     continue
                 if auth_setting['in'] == 'cookie':
@@ -584,9 +613,12 @@ class ApiClient(object):
         t = time.time()
         m = hashlib.sha512()
         if body is not None:
-            if not isinstance(body, six.string_types):
-                body = json.dumps(body)
-            m.update(body.encode('utf-8'))
+            if isinstance(body, bytes):
+                m.update(body)
+            else:
+                if not isinstance(body, six.string_types):
+                    body = json.dumps(body)
+                m.update(body.encode('utf-8'))
         hashed_payload = m.hexdigest()
         s = '%s\n%s\n%s\n%s\n%s' % (method, url, query_string or "", hashed_payload, t)
         sign = hmac.new(self.configuration.secret.encode('utf-8'), s.encode('utf-8'),
@@ -690,6 +722,11 @@ class ApiClient(object):
 
         if not klass.openapi_types and has_discriminator is False:
             return data
+
+        # Primitive/enum helpers above remain scalar; models with declared
+        # properties require an object, not an arbitrary string or array.
+        if not isinstance(data, dict):
+            raise ApiValueError('Expected an object response for %s' % klass.__name__)
 
         kwargs = {}
         if (data is not None and

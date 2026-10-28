@@ -60,6 +60,11 @@ _CREDENTIAL_ENV_VARS = (
 )
 
 
+def _is_int(value: object) -> bool:
+    # int() would silently truncate 16.9 or -0.5 past the bounds checks; bool is an int subclass
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 @dataclass
 class Configuration:
     """
@@ -140,6 +145,35 @@ class Configuration:
         )
     )
 
+    # === Transfer (data-plane) config fields ===
+    transfer_concurrency: Optional[int] = field(
+        default_factory=env_int("ISTARI_CLIENT_TRANSFER_CONCURRENCY", default=4)
+    )
+    """Parallel part uploads / range downloads per transfer, 1..16. Every transfer
+    the client runs at once multiplies this, so a caller with its own upload pool
+    opens ``pool_size x transfer_concurrency`` data-plane connections per host."""
+    transfer_retry_deadline_secs: Optional[int] = field(
+        default_factory=env_int("ISTARI_CLIENT_TRANSFER_RETRY_DEADLINE_SECS", default=300)
+    )
+    """Retry window for transfer registry calls and each part/range request.
+    The window starts on the first retryable failure, not during healthy initial
+    transfer time. Only new download offsets renew an active window. Backoff and
+    jitter use ``retry_*``; disabling retries permits exactly one attempt.
+    Socket inactivity/request timeouts bound silent attempts separately; this is
+    not a strict transfer wall-clock deadline or cancellable DNS guarantee."""
+    transfer_read_timeout_secs: Optional[int] = field(
+        default_factory=env_int("ISTARI_CLIENT_TRANSFER_READ_TIMEOUT_SECS", default=120)
+    )
+    """Data-plane socket idle timeout (per read, not wall-clock). Connect uses
+    ``http_request_timeout_secs``, or 30 s when that is unset."""
+    filesystem_cache_max_size: Optional[int] = field(
+        default_factory=env_int(
+            "ISTARI_CLIENT_FILESYSTEM_CACHE_MAX_SIZE", default=2 * 1024 * 1024 * 1024
+        )
+    )
+    """Largest content (bytes) written to the filesystem cache; bigger downloads
+    bypass it so a second full copy is never written."""
+
     # === Direct S3 upload config fields ===
     s3_direct_upload_enabled: Optional[bool] = field(
         default_factory=env_bool("ISTARI_CLIENT_S3_DIRECT_UPLOAD", default=False)
@@ -186,12 +220,14 @@ class Configuration:
     has a PAT uses the PAT instead. A PAT passed as an argument also wins over a secret read
     from the environment. Both of those PAT rules yield to ``identity_service_required``."""
     identity_service_secret: Optional[str] = field(
-        default=cast(Optional[str], _FROM_ENV)  # omitted: read from ISTARI_CLIENT_IDENTITY_SERVICE_SECRET
+        default=cast(Optional[str], _FROM_ENV),  # omitted: read from ISTARI_CLIENT_IDENTITY_SERVICE_SECRET
+        repr=False,
     )
     """Inline credentials: a base64-encoded JSON blob {clientId, keyId, key}
     where key is a PEM-encoded ECDSA P-384 private key."""
     identity_service_secret_file: Optional[Union[str, Path]] = field(
-        default=cast(Optional[Union[str, Path]], _FROM_ENV)  # omitted: read from ISTARI_CLIENT_IDENTITY_SERVICE_SECRET_FILE
+        default=cast(Optional[Union[str, Path]], _FROM_ENV),  # omitted: read from ISTARI_CLIENT_IDENTITY_SERVICE_SECRET_FILE
+        repr=False,
     )
     """Path to a raw JSON credentials file, as a str or Path. Preferred over
     the inline secret when both are set."""
@@ -297,8 +333,25 @@ class Configuration:
                 "ISTARI_CLIENT_S3_BUCKET_NAME must be set when ISTARI_CLIENT_S3_DIRECT_UPLOAD is enabled"
             )
 
+        self._validate_transfer_settings()
         self._configure_logging()
         self._configure_identity_service()
+
+    def _validate_transfer_settings(self) -> None:
+        """Reject out-of-range transfer knobs at construction."""
+        concurrency = self.transfer_concurrency
+        if not _is_int(concurrency) or not 1 <= concurrency <= 16:
+            raise ConfigurationError(
+                "ISTARI_CLIENT_TRANSFER_CONCURRENCY must be an integer between 1 and 16"
+            )
+        for name in ("transfer_retry_deadline_secs", "filesystem_cache_max_size"):
+            value = getattr(self, name)
+            if not _is_int(value) or value < 0:
+                raise ConfigurationError(f"{name} must be a non-negative integer")
+        # urllib3 rejects a read timeout of 0, so it would fail every transfer.
+        timeout = self.transfer_read_timeout_secs
+        if not _is_int(timeout) or timeout <= 0:
+            raise ConfigurationError("transfer_read_timeout_secs must be a positive integer")
 
     def _retry_policy(self) -> RetryPolicy:
         """Build a RetryPolicy for the Identity Service token fetch from the SDK's retry_* knobs."""

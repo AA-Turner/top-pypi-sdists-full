@@ -13,6 +13,7 @@ from cassetter._core import (
     WsFrame,
     WsInteraction,
 )
+from cassetter._state import get_current_cassette as active_cassette
 from cassetter.cassette import (
     BeforeRecordRequest,
     BeforeRecordResponse,
@@ -28,12 +29,14 @@ from cassetter.cassette import (
     SkipRecording,
     UriNormalizer,
 )
+from cassetter.compare import BeforeCompareResponse, Compare, ResponseMismatchError
 from cassetter.config import Cassetter
 from cassetter.context import use_cassette
 from cassetter.introspection import RecordedRequest
 from cassetter.recording import RecordMode
 
 __all__ = [
+    "BeforeCompareResponse",
     "BeforeRecordRequest",
     "BeforeRecordResponse",
     "BeforeRecordWsFrame",
@@ -43,6 +46,7 @@ __all__ = [
     "CassetteExpiredWarning",
     "CassetteLoadError",
     "CassetteNotFoundError",
+    "Compare",
     "Cassetter",
     "GrpcInteraction",
     "GrpcRequest",
@@ -56,10 +60,12 @@ __all__ = [
     "RecordedRequest",
     "RawResponse",
     "RecordMode",
+    "ResponseMismatchError",
     "SkipRecording",
     "SecurityConfig",
     "UriNormalizer",
     "WsFrame",
     "WsInteraction",
+    "active_cassette",
     "use_cassette",
 ]

@@ -36,11 +36,18 @@ from arraylake.types import (
     OptimizationWindow,
 )
 from arraylake.types import Repo as RepoModel
+
+from . import fake_jwt
 from arraylake.types import (
     RepoOperationMode,
     RepoOperationStatusResponse,
     UserInfo,
 )
+
+
+def _without_health(buckets):
+    # The server probes bucket health in the background after a create, so a listing may already carry it.
+    return [bucket.model_copy(update={"health": None}) for bucket in buckets]
 
 
 @pytest.mark.asyncio
@@ -59,7 +66,7 @@ def test_client_repr_does_not_show_token(ClientClass, test_token):
 
 
 @pytest.mark.parametrize("ClientClass", [Client, AsyncClient])
-@pytest.mark.parametrize("bad_token", ["emax", "em", "_", ""])
+@pytest.mark.parametrize("bad_token", ["emax", "em", "_"])
 def test_client_raises_for_bad_token(ClientClass, bad_token):
     with pytest.raises(ValueError, match="Invalid token provided"):
         client = ClientClass(token=bad_token)
@@ -80,6 +87,76 @@ def test_client_finds_config_token(ClientClass, test_token):
         client = ClientClass()
         assert client.token is not None
         assert client.token == test_token
+
+
+@pytest.mark.parametrize("ClientClass", [Client, AsyncClient])
+@pytest.mark.parametrize("blank", ["", "   ", "\n"])
+def test_client_treats_blank_token_as_unset(ClientClass, blank, test_token):
+    # e.g. `ARRAYLAKE_TOKEN=""` falls back to the cached login rather than raising "Invalid token provided"
+    with config.set({"token": blank}):
+        assert ClientClass().token is None
+        assert ClientClass(token=blank).token is None
+    with config.set({"token": f" {test_token}\n"}):
+        assert ClientClass(token=blank).token == test_token
+
+
+@pytest.mark.parametrize("ClientClass", [Client, AsyncClient])
+def test_client_treats_blank_env_token_as_unset(ClientClass, monkeypatch):
+    monkeypatch.setenv("ARRAYLAKE_TOKEN", "")
+    config.refresh()
+    try:
+        assert ClientClass().token is None
+    finally:
+        monkeypatch.delenv("ARRAYLAKE_TOKEN")
+        config.refresh()
+
+
+@pytest.mark.asyncio
+async def test_list_orgs_is_an_alias_for_get_orgs(test_token):
+    orgs = [MagicMock()]
+    with patch.object(AsyncClient, "get_orgs", AsyncMock(return_value=orgs)) as get_orgs:
+        assert await AsyncClient(token=test_token).list_orgs() is orgs
+        assert Client(token=test_token).list_orgs() is orgs
+    assert get_orgs.await_count == 2
+
+
+def _set_cached_id_token(token_file, id_token):
+    data = json.loads(token_file.read_text())
+    data["id_token"] = id_token
+    token_file.write_text(json.dumps(data))
+
+
+@pytest.mark.asyncio
+async def test_get_auth_headers_uses_api_token(test_token):
+    assert await AsyncClient(token=test_token).get_auth_headers() == {"Authorization": f"Bearer {test_token}"}
+    assert Client(token=test_token).get_auth_headers() == {"Authorization": f"Bearer {test_token}"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expires_in, expect_refresh", [(-10, True), (3600, False)])
+async def test_get_auth_headers_uses_fresh_cached_login(test_token_file, monkeypatch, expires_in, expect_refresh):
+    old_token = fake_jwt(time.time() + expires_in)
+    new_token = fake_jwt(time.time() + 7200)
+    _set_cached_id_token(test_token_file, old_token)
+    refreshes = []
+
+    async def refresh_quietly(self):
+        refreshes.append(self.api_endpoint)
+        self.update({"id_token": new_token})
+
+    monkeypatch.setattr(TokenHandler, "refresh_quietly", refresh_quietly)
+    expected = {"Authorization": f"Bearer {new_token if expect_refresh else old_token}"}
+    with config.set({"token": None}):
+        assert await AsyncClient("https://foo.com").get_auth_headers() == expected
+        assert Client("https://foo.com").get_auth_headers() == expected
+    assert refreshes == (["https://foo.com"] if expect_refresh else [])
+
+
+@pytest.mark.asyncio
+async def test_get_auth_headers_requires_login(test_token_file):
+    test_token_file.unlink()
+    with config.set({"token": None}), pytest.raises(AuthException, match="al auth login"):
+        await AsyncClient("https://foo.com").get_auth_headers()
 
 
 @pytest.mark.asyncio
@@ -485,7 +562,7 @@ async def test_hmac_bucket_config(token, helpers):
     )
     buckets = await aclient.list_bucket_configs(org_name)
     assert len(buckets) == 1
-    assert new_bucket in buckets
+    assert new_bucket in _without_health(buckets)
     test_bucket_config = buckets[0]
     assert test_bucket_config.auth_config.method == "hmac"
     assert test_bucket_config.auth_config.access_key_id == "access-key"
@@ -1351,7 +1428,7 @@ async def test_bucket_lifecycle(isolated_org, default_bucket, token, helpers):
         )
         buckets = await aclient.list_bucket_configs(org_name)
         assert len(buckets) == 3
-        assert valid_bucket in buckets
+        assert valid_bucket in _without_health(buckets)
         assert valid_bucket.extra_config["endpoint_url"] == "http://some-other-url:4567"
 
         # Creating a bucket with an invalid platform should fail
@@ -1482,7 +1559,7 @@ async def test_aws_customer_managed_role_bucket_with_secret(token, helpers):
     # Verify the bucket was created
     buckets = await aclient.list_bucket_configs(org_name)
     assert len(buckets) == 1
-    assert new_bucket in buckets
+    assert new_bucket in _without_health(buckets)
 
     # Get the bucket config and verify the auth config
     retrieved_bucket = await aclient.get_bucket_config(org=org_name, nickname=bucket_nickname)
@@ -1525,7 +1602,7 @@ async def test_azure_credential_delegation_bucket(token, helpers):
     # Verify the bucket was created
     buckets = await aclient.list_bucket_configs(org_name)
     assert len(buckets) == 1
-    assert new_bucket in buckets
+    assert new_bucket in _without_health(buckets)
 
     # Get the bucket config and verify the auth config
     retrieved_bucket = await aclient.get_bucket_config(org=org_name, nickname=bucket_nickname)

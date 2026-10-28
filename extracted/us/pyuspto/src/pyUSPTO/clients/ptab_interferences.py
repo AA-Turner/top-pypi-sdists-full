@@ -97,7 +97,9 @@ class PTABInterferencesClient(BaseUSPTOClient[PTABInterferenceResponse]):
             limit: Maximum number of records to return.
             facets: Facet configuration string.
             fields: Specific fields to return.
-            filters: Filter configuration string.
+            filters: Filter as "field value" (a space, not a colon), e.g.
+                "documentData.decisionTypeCategory Decision".
+                A value containing a space only works in post_body filters.
             range_filters: Range filter configuration string.
             post_body: Optional POST body for complex queries.
             interference_number_q: Filter by interference number.
@@ -128,7 +130,10 @@ class PTABInterferencesClient(BaseUSPTOClient[PTABInterferenceResponse]):
 
             # Search with POST body
             >>> response = client.search_decisions(
-            ...     post_body={"q": "decisionTypeCategory:Final Decision", "limit": 100}
+            ...     post_body={
+            ...         "q": 'documentData.interferenceOutcomeCategory:"Final Decision"',
+            ...         "pagination": {"limit": 100},
+            ...     }
             ... )
         """
         endpoint = self.ENDPOINTS["search_decisions"]

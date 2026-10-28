@@ -117,12 +117,12 @@ class TrackerManager:
         return create_tracker(spec)
 
     def _tracker_spec(self, request: FrameRequest) -> TrackerSpec:
+        """Resolve algorithm options without coupling track lifetime to stream FPS."""
         options: dict[str, object] = {
             "asso_func": self.settings.asso_func,
-            "variable_dt": self.settings.variable_dt,
         }
-        if self.settings.tracker_type in {"bytetrack", "botsort"}:
-            options["frame_rate"] = request.frame_rate
+        if self.settings.tracker_type != "sfsort":
+            options["kalman.variable_dt"] = self.settings.variable_dt
         return TrackerSpec(
             name=self.settings.tracker_type,
             backend="python",

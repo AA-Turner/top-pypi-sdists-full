@@ -3,7 +3,7 @@ import decimal
 import unittest
 import uuid
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from strong_typing.inspection import is_dataclass_type
 from strong_typing.topological import topological_sort, type_topological_sort
@@ -51,24 +51,24 @@ class TestTopological(unittest.TestCase):
         graph: dict[int, set[int]] = {
             0: set(),
             1: set(),
-            2: set([3]),
-            3: set([1]),
-            4: set([0, 1]),
-            5: set([0, 2]),
+            2: {3},
+            3: {1},
+            4: {0, 1},
+            5: {0, 2},
         }
         order = topological_sort(graph)
         self.assertEqual(order, [0, 1, 3, 2, 4, 5])
 
     def test_loop(self) -> None:
-        graph: dict[int, set[int]] = {0: set([0])}
+        graph: dict[int, set[int]] = {0: {0}}
         order = topological_sort(graph)
         self.assertEqual(order, [0])
 
     def test_cycle(self) -> None:
         graph: dict[int, set[int]] = {
-            0: set([1, 2]),
-            1: set([2]),
-            2: set([0, 3]),
+            0: {1, 2},
+            1: {2},
+            2: {0, 3},
             3: set(),
         }
         with self.assertRaises(RuntimeError):
@@ -92,7 +92,7 @@ class TestTopological(unittest.TestCase):
         order = type_topological_sort([NestedDataClass])
         self.assertNotIn(decimal.Decimal, order)
 
-        def fn(cls: type) -> list[type]:
+        def fn(cls: type[Any]) -> list[type[Any]]:
             return [decimal.Decimal] if is_dataclass_type(cls) else []
 
         order = type_topological_sort([NestedDataClass], fn)

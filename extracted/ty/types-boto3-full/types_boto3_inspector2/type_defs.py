@@ -28,6 +28,9 @@ from .literals import (
     AggregationFindingTypeType,
     AggregationResourceTypeType,
     AggregationTypeType,
+    AmiConfigurationStatusType,
+    AmiScanDurationType,
+    AmiScanModeType,
     AmiSortByType,
     ArchitectureType,
     AssociationResultStatusCodeType,
@@ -94,7 +97,10 @@ from .literals import (
     LambdaLayerSortByType,
     ListCisScansDetailLevelType,
     ListCisScansSortByType,
+    MachineImagePlatformType,
     NetworkProtocolType,
+    OnDemandScanStatusReasonType,
+    OnDemandScanStatusType,
     OperationType,
     PackageManagerType,
     PackageSortByType,
@@ -112,6 +118,7 @@ from .literals import (
     RuntimeType,
     SbomReportFormatType,
     ScanModeType,
+    ScanSourceType,
     ScanStatusCodeType,
     ScanStatusReasonType,
     ScanTypeType,
@@ -147,6 +154,12 @@ __all__ = (
     "AggregationResponseTypeDef",
     "AmiAggregationResponseTypeDef",
     "AmiAggregationTypeDef",
+    "AmiConfigurationStateTypeDef",
+    "AmiConfigurationTypeDef",
+    "AmiScanModeConfigurationOutputTypeDef",
+    "AmiScanModeConfigurationTypeDef",
+    "AmiScanModeConfigurationUnionTypeDef",
+    "AmiTagFilterTypeDef",
     "AssociateConfigurationRequestTypeDef",
     "AssociateMemberRequestTypeDef",
     "AssociateMemberResponseTypeDef",
@@ -356,6 +369,8 @@ __all__ = (
     "GetFindingsReportStatusResponseTypeDef",
     "GetMemberRequestTypeDef",
     "GetMemberResponseTypeDef",
+    "GetOnDemandScanStatusRequestTypeDef",
+    "GetOnDemandScanStatusResponseTypeDef",
     "GetSbomExportRequestTypeDef",
     "GetSbomExportResponseTypeDef",
     "ImageLayerAggregationResponseTypeDef",
@@ -421,11 +436,16 @@ __all__ = (
     "ListMembersRequestPaginateTypeDef",
     "ListMembersRequestTypeDef",
     "ListMembersResponseTypeDef",
+    "ListOnDemandScansRequestPaginateTypeDef",
+    "ListOnDemandScansRequestTypeDef",
+    "ListOnDemandScansResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ListUsageTotalsRequestPaginateTypeDef",
     "ListUsageTotalsRequestTypeDef",
     "ListUsageTotalsResponseTypeDef",
+    "MachineImageDetailsTypeDef",
+    "MachineImageMetadataTypeDef",
     "MapFilterTypeDef",
     "MemberAccountEc2DeepInspectionStatusStateTypeDef",
     "MemberAccountEc2DeepInspectionStatusTypeDef",
@@ -434,6 +454,7 @@ __all__ = (
     "NetworkPathTypeDef",
     "NetworkReachabilityDetailsTypeDef",
     "NumberFilterTypeDef",
+    "OnDemandScanTypeDef",
     "PackageAggregationResponseTypeDef",
     "PackageAggregationTypeDef",
     "PackageFilterTypeDef",
@@ -488,6 +509,8 @@ __all__ = (
     "StartCisSessionRequestTypeDef",
     "StartCodeSecurityScanRequestTypeDef",
     "StartCodeSecurityScanResponseTypeDef",
+    "StartOnDemandScanRequestTypeDef",
+    "StartOnDemandScanResponseTypeDef",
     "StateTypeDef",
     "StatusCountsTypeDef",
     "StepTypeDef",
@@ -576,6 +599,7 @@ ResourceStatusTypeDef = TypedDict(
         "lambda": NotRequired[StatusType],
         "lambdaCode": NotRequired[StatusType],
         "codeRepository": NotRequired[StatusType],
+        "ami": NotRequired[StatusType],
     },
 )
 
@@ -590,6 +614,11 @@ class FindingTypeAggregationTypeDef(TypedDict):
 class StringFilterTypeDef(TypedDict):
     comparison: StringComparisonType
     value: str
+
+
+class AmiTagFilterTypeDef(TypedDict):
+    key: str
+    value: NotRequired[str]
 
 
 class CodeSecurityResourceTypeDef(TypedDict):
@@ -623,6 +652,7 @@ AutoEnableTypeDef = TypedDict(
         "lambda": NotRequired[bool],
         "lambdaCode": NotRequired[bool],
         "codeRepository": NotRequired[bool],
+        "ami": NotRequired[bool],
     },
 )
 
@@ -987,6 +1017,7 @@ class DestinationTypeDef(TypedDict):
     bucketName: str
     kmsKeyArn: str
     keyPrefix: NotRequired[str]
+    expectedBucketOwner: NotRequired[str]
 
 
 class CreateGitLabSelfManagedIntegrationDetailTypeDef(TypedDict):
@@ -1224,6 +1255,12 @@ class MemberTypeDef(TypedDict):
     updatedAt: NotRequired[datetime]
 
 
+class GetOnDemandScanStatusRequestTypeDef(TypedDict):
+    resourceId: str
+    scanId: str
+    resourceType: Literal["AMI"]
+
+
 class GetSbomExportRequestTypeDef(TypedDict):
     reportId: str
 
@@ -1309,6 +1346,23 @@ class ListMembersRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListOnDemandScansRequestTypeDef(TypedDict):
+    resourceId: str
+    resourceType: Literal["AMI"]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class OnDemandScanTypeDef(TypedDict):
+    scanId: str
+    resourceId: str
+    resourceType: Literal["AMI"]
+    scanStatus: OnDemandScanStatusType
+    startedAt: datetime
+    scanStatusReason: NotRequired[OnDemandScanStatusReasonType]
+    completedAt: NotRequired[datetime]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
@@ -1317,6 +1371,25 @@ class ListUsageTotalsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
     accountIds: NotRequired[Sequence[str]]
+
+
+class MachineImageDetailsTypeDef(TypedDict):
+    machineImageId: str
+    name: NotRequired[str]
+    ownerAccountId: NotRequired[str]
+    platform: NotRequired[str]
+    architecture: NotRequired[ArchitectureType]
+    creationDate: NotRequired[datetime]
+    state: NotRequired[str]
+    isPublic: NotRequired[bool]
+    rootDeviceType: NotRequired[str]
+    virtualizationType: NotRequired[str]
+    sourceResourceId: NotRequired[str]
+
+
+class MachineImageMetadataTypeDef(TypedDict):
+    tags: NotRequired[dict[str, str]]
+    platform: NotRequired[MachineImagePlatformType]
 
 
 class StepTypeDef(TypedDict):
@@ -1435,6 +1508,12 @@ class StartCisSessionMessageTypeDef(TypedDict):
     sessionToken: str
 
 
+class StartOnDemandScanRequestTypeDef(TypedDict):
+    resourceId: str
+    resourceType: Literal["AMI"]
+    clientToken: NotRequired[str]
+
+
 class StopCisMessageProgressTypeDef(TypedDict):
     totalChecks: NotRequired[int]
     successfulChecks: NotRequired[int]
@@ -1464,6 +1543,7 @@ class UpdateCisTargetsTypeDef(TypedDict):
 class UpdateConfigurationInheritanceTypeDef(TypedDict):
     ec2Configuration: NotRequired[Literal["INHERIT_FROM_ADMIN"]]
     ecrConfiguration: NotRequired[Literal["INHERIT_FROM_ADMIN"]]
+    amiConfiguration: NotRequired[Literal["INHERIT_FROM_ADMIN"]]
 
 
 class UpdateEc2DeepInspectionConfigurationRequestTypeDef(TypedDict):
@@ -1519,6 +1599,7 @@ class AmiAggregationResponseTypeDef(TypedDict):
     cloudAccountId: NotRequired[str]
     severityCounts: NotRequired[SeverityCountsTypeDef]
     affectedInstances: NotRequired[int]
+    scanSource: NotRequired[ScanSourceType]
 
 
 class AwsEcrContainerAggregationResponseTypeDef(TypedDict):
@@ -1683,6 +1764,7 @@ ResourceStateTypeDef = TypedDict(
         "lambda": NotRequired[StateTypeDef],
         "lambdaCode": NotRequired[StateTypeDef],
         "codeRepository": NotRequired[StateTypeDef],
+        "ami": NotRequired[StateTypeDef],
     },
 )
 
@@ -1705,6 +1787,7 @@ class AmiAggregationTypeDef(TypedDict):
     amis: NotRequired[Sequence[StringFilterTypeDef]]
     sortOrder: NotRequired[SortOrderType]
     sortBy: NotRequired[AmiSortByType]
+    scanSources: NotRequired[Sequence[ScanSourceType]]
 
 
 class CodeRepositoryAggregationTypeDef(TypedDict):
@@ -1755,6 +1838,20 @@ class TitleAggregationTypeDef(TypedDict):
     findingType: NotRequired[AggregationFindingTypeType]
     sortOrder: NotRequired[SortOrderType]
     sortBy: NotRequired[TitleSortByType]
+
+
+class AmiScanModeConfigurationOutputTypeDef(TypedDict):
+    scanMode: AmiScanModeType
+    tags: NotRequired[list[AmiTagFilterTypeDef]]
+    excludeCopiedAmis: NotRequired[bool]
+    excludeBackupDlmAmis: NotRequired[bool]
+
+
+class AmiScanModeConfigurationTypeDef(TypedDict):
+    scanMode: AmiScanModeType
+    tags: NotRequired[Sequence[AmiTagFilterTypeDef]]
+    excludeCopiedAmis: NotRequired[bool]
+    excludeBackupDlmAmis: NotRequired[bool]
 
 
 class AssociateConfigurationRequestTypeDef(TypedDict):
@@ -1928,6 +2025,17 @@ class GetEncryptionKeyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetOnDemandScanStatusResponseTypeDef(TypedDict):
+    scanId: str
+    resourceId: str
+    resourceType: Literal["AMI"]
+    scanStatus: OnDemandScanStatusType
+    scanStatusReason: OnDemandScanStatusReasonType
+    startedAt: datetime
+    completedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1936,6 +2044,11 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 class StartCodeSecurityScanResponseTypeDef(TypedDict):
     scanId: str
     status: CodeScanStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartOnDemandScanResponseTypeDef(TypedDict):
+    scanId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2404,6 +2517,12 @@ class ListMembersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListOnDemandScansRequestPaginateTypeDef(TypedDict):
+    resourceId: str
+    resourceType: Literal["AMI"]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListUsageTotalsRequestPaginateTypeDef(TypedDict):
     accountIds: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -2422,6 +2541,12 @@ class ListMembersResponseTypeDef(TypedDict):
 
 class ListAccountPermissionsResponseTypeDef(TypedDict):
     permissions: list[PermissionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListOnDemandScansResponseTypeDef(TypedDict):
+    items: list[OnDemandScanTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2522,13 +2647,6 @@ class StopCisSessionMessageTypeDef(TypedDict):
     benchmarkProfile: NotRequired[str]
 
 
-class UpdateConfigurationRequestTypeDef(TypedDict):
-    accountId: NotRequired[str]
-    ecrConfiguration: NotRequired[EcrConfigurationTypeDef]
-    ec2Configuration: NotRequired[Ec2ConfigurationTypeDef]
-    updateConfigurationInheritance: NotRequired[UpdateConfigurationInheritanceTypeDef]
-
-
 class UpdateIntegrationDetailsTypeDef(TypedDict):
     gitlabSelfManaged: NotRequired[UpdateGitLabSelfManagedIntegrationDetailTypeDef]
     github: NotRequired[UpdateGitHubIntegrationDetailTypeDef]
@@ -2573,6 +2691,19 @@ class EnableResponseTypeDef(TypedDict):
     accounts: list[AccountTypeDef]
     failedAccounts: list[FailedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AmiConfigurationStateTypeDef(TypedDict):
+    lastLaunchedWithin: NotRequired[AmiScanDurationType]
+    createdWithin: NotRequired[AmiScanDurationType]
+    scanModeConfiguration: NotRequired[AmiScanModeConfigurationOutputTypeDef]
+    status: NotRequired[AmiConfigurationStatusType]
+    updatedAt: NotRequired[datetime]
+
+
+AmiScanModeConfigurationUnionTypeDef = Union[
+    AmiScanModeConfigurationTypeDef, AmiScanModeConfigurationOutputTypeDef
+]
 
 
 class BatchAssociateCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
@@ -2648,6 +2779,10 @@ class FilterCriteriaOutputTypeDef(TypedDict):
     epssScore: NotRequired[list[NumberFilterTypeDef]]
     codeRepositoryProjectName: NotRequired[list[StringFilterTypeDef]]
     codeRepositoryProviderType: NotRequired[list[StringFilterTypeDef]]
+    machineImageId: NotRequired[list[StringFilterTypeDef]]
+    machineImageName: NotRequired[list[StringFilterTypeDef]]
+    machineImageOwnerAccountId: NotRequired[list[StringFilterTypeDef]]
+    machineImagePlatform: NotRequired[list[StringFilterTypeDef]]
     cloudProvider: NotRequired[list[StringFilterTypeDef]]
     cloudProviderRegion: NotRequired[list[StringFilterTypeDef]]
     cloudProviderAccountId: NotRequired[list[StringFilterTypeDef]]
@@ -2679,6 +2814,7 @@ class ResourceDetailsTypeDef(TypedDict):
     awsEcrContainerImage: NotRequired[AwsEcrContainerImageDetailsTypeDef]
     awsLambdaFunction: NotRequired[AwsLambdaFunctionDetailsTypeDef]
     codeRepository: NotRequired[CodeRepositoryDetailsTypeDef]
+    machineImage: NotRequired[MachineImageDetailsTypeDef]
     vm: NotRequired[VmTypeDef]
     image: NotRequired[ImageTypeDef]
     serverlessFunction: NotRequired[ServerlessFunctionTypeDef]
@@ -2758,6 +2894,7 @@ class CoverageFilterCriteriaTypeDef(TypedDict):
     lambdaFunctionName: NotRequired[Sequence[CoverageStringFilterTypeDef]]
     lambdaFunctionTags: NotRequired[Sequence[CoverageMapFilterTypeDef]]
     lambdaFunctionRuntime: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    machineImageTags: NotRequired[Sequence[CoverageMapFilterTypeDef]]
     lastScannedAt: NotRequired[Sequence[CoverageDateFilterTypeDef]]
     scanMode: NotRequired[Sequence[CoverageStringFilterTypeDef]]
     imagePulledAt: NotRequired[Sequence[CoverageDateFilterTypeDef]]
@@ -2842,6 +2979,10 @@ class FilterCriteriaTypeDef(TypedDict):
     epssScore: NotRequired[Sequence[NumberFilterTypeDef]]
     codeRepositoryProjectName: NotRequired[Sequence[StringFilterTypeDef]]
     codeRepositoryProviderType: NotRequired[Sequence[StringFilterTypeDef]]
+    machineImageId: NotRequired[Sequence[StringFilterTypeDef]]
+    machineImageName: NotRequired[Sequence[StringFilterTypeDef]]
+    machineImageOwnerAccountId: NotRequired[Sequence[StringFilterTypeDef]]
+    machineImagePlatform: NotRequired[Sequence[StringFilterTypeDef]]
     cloudProvider: NotRequired[Sequence[StringFilterTypeDef]]
     cloudProviderRegion: NotRequired[Sequence[StringFilterTypeDef]]
     cloudProviderAccountId: NotRequired[Sequence[StringFilterTypeDef]]
@@ -3040,12 +3181,6 @@ class ScheduleTypeDef(TypedDict):
     monthly: NotRequired[MonthlyScheduleTypeDef]
 
 
-class GetConfigurationResponseTypeDef(TypedDict):
-    ecrConfiguration: EcrConfigurationStateTypeDef
-    ec2Configuration: Ec2ConfigurationStateTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class BatchGetFindingDetailsResponseTypeDef(TypedDict):
     findingDetails: list[FindingDetailTypeDef]
     errors: list[FindingDetailsErrorTypeDef]
@@ -3126,6 +3261,19 @@ class BatchGetAccountStatusResponseTypeDef(TypedDict):
     accounts: list[AccountStateTypeDef]
     failedAccounts: list[FailedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetConfigurationResponseTypeDef(TypedDict):
+    ecrConfiguration: EcrConfigurationStateTypeDef
+    ec2Configuration: Ec2ConfigurationStateTypeDef
+    amiConfiguration: AmiConfigurationStateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AmiConfigurationTypeDef(TypedDict):
+    scanModeConfiguration: AmiScanModeConfigurationUnionTypeDef
+    lastLaunchedWithin: NotRequired[AmiScanDurationType]
+    createdWithin: NotRequired[AmiScanDurationType]
 
 
 class FilterTypeDef(TypedDict):
@@ -3292,12 +3440,21 @@ class ResourceScanMetadataTypeDef(TypedDict):
     containerRepository: NotRequired[ContainerRepositoryMetadataTypeDef]
     containerRegistry: NotRequired[ContainerRegistryMetadataTypeDef]
     serverlessFunction: NotRequired[ServerlessFunctionMetadataTypeDef]
+    machineImage: NotRequired[MachineImageMetadataTypeDef]
 
 
 class CreateSbomExportRequestTypeDef(TypedDict):
     reportFormat: SbomReportFormatType
     s3Destination: DestinationTypeDef
     resourceFilterCriteria: NotRequired[ResourceFilterCriteriaUnionTypeDef]
+
+
+class UpdateConfigurationRequestTypeDef(TypedDict):
+    accountId: NotRequired[str]
+    ecrConfiguration: NotRequired[EcrConfigurationTypeDef]
+    ec2Configuration: NotRequired[Ec2ConfigurationTypeDef]
+    amiConfiguration: NotRequired[AmiConfigurationTypeDef]
+    updateConfigurationInheritance: NotRequired[UpdateConfigurationInheritanceTypeDef]
 
 
 class ListFiltersResponseTypeDef(TypedDict):

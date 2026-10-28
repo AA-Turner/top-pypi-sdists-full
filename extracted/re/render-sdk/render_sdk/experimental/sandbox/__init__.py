@@ -13,10 +13,17 @@ _real = importlib.import_module("render.experimental.sandbox")
 
 __doc__ = _real.__doc__
 __all__ = [
+    "Build",
+    "BuildClient",
+    "BuildNotFoundError",
+    "BuildNotReadyError",
+    "BuildSource",
     "EgressRule",
     "NetworkPolicy",
+    "RegistryCredential",
     "Sandbox",
     "SandboxClient",
+    "SandboxCreateWaitError",
     "SandboxDownloadError",
     "SandboxExecError",
     "SandboxExecEvent",
@@ -28,12 +35,19 @@ __all__ = [
     "SandboxGroupList",
     "SandboxList",
     "SandboxNotFoundError",
+    "SandboxNotRunningError",
+    "SandboxPlan",
+    "SandboxWaitOptions",
+    "SandboxWaitTimeoutError",
     "Snapshot",
     "SnapshotClient",
+    "SnapshotCreateWaitError",
+    "SnapshotFailedError",
     "SnapshotList",
     "SnapshotNotFoundError",
     "SnapshotNotReadyError",
     "SnapshotPlanMismatchError",
+    "SnapshotWaitTimeoutError",
 ]
 
 

@@ -47,8 +47,13 @@
 // for symmetry with non-empty string literals.
 #![allow(clippy::manual_string_new)]
 
+extern crate alloc;
+
 pub mod code_block_tools;
 pub mod config;
+#[cfg(any(feature = "native", feature = "wasi"))]
+#[doc(hidden)]
+pub mod custom_rules;
 pub mod discovery;
 pub mod doc_comment_lint;
 pub mod document_run;
@@ -61,9 +66,11 @@ pub mod inline_config;
 pub mod linguist_data;
 pub mod lint_context;
 pub mod markdownlint_config;
+mod mdx_parser;
 pub mod merge_conflict;
 pub mod profiling;
 pub mod rule;
+pub mod unused_assets;
 #[cfg(feature = "colored")]
 pub mod vscode;
 pub mod workspace_index;

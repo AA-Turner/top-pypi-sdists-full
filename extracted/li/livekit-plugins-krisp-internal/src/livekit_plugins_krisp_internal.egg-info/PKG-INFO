@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-krisp-internal
-Version: 0.2.0
+Version: 0.2.2
 Summary: LiveKit Krisp Viva noise filter (private wheel)
 License: SEE LICENSE IN https://livekit.io/legal/terms-of-service
 Keywords: webrtc,realtime,audio,livekit,krisp

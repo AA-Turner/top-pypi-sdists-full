@@ -7349,15 +7349,7 @@ module.exports = async function createcasadi() {
       let __ptr;
       switch (args.length) {
         case 1: {
-          if ((typeof args[0] === 'string')) {
-            const __nps0 = M.lengthBytesUTF8(args[0]);
-            const __ps0  = M._malloc(__nps0 + 1);
-            M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_1(__ps0));
-            M._free(__ps0);
-            break;
-          }
-          if (M._swig_can_Function(__unwrap(args[0]))) { __ptr = __chk(M._swig_casadi_Function_new_8(__unwrap(args[0]))); break; }
+          if (M._swig_can_Function(__unwrap(args[0]))) { __ptr = __chk(M._swig_casadi_Function_new_7(__unwrap(args[0]))); break; }
           throw new TypeError(`Function: arg-type mismatch at length 1`);
         }
         case 3: {
@@ -7365,7 +7357,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_2(__ps0, __unwrap(__arr_to_vec(args[1], SXVector)), __unwrap(__arr_to_vec(args[2], SXVector)), undefined));
+            __ptr = __chk(M._swig_casadi_Function_new_1(__ps0, __unwrap(__arr_to_vec(args[1], SXVector)), __unwrap(__arr_to_vec(args[2], SXVector)), undefined));
             M._free(__ps0);
             break;
           }
@@ -7373,7 +7365,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_5(__ps0, __unwrap(__arr_to_vec(args[1], MXVector)), __unwrap(__arr_to_vec(args[2], MXVector)), undefined));
+            __ptr = __chk(M._swig_casadi_Function_new_4(__ps0, __unwrap(__arr_to_vec(args[1], MXVector)), __unwrap(__arr_to_vec(args[2], MXVector)), undefined));
             M._free(__ps0);
             break;
           }
@@ -7384,7 +7376,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_2(__ps0, __unwrap(__arr_to_vec(args[1], SXVector)), __unwrap(__arr_to_vec(args[2], SXVector)), args[3]));
+            __ptr = __chk(M._swig_casadi_Function_new_1(__ps0, __unwrap(__arr_to_vec(args[1], SXVector)), __unwrap(__arr_to_vec(args[2], SXVector)), args[3]));
             M._free(__ps0);
             break;
           }
@@ -7392,7 +7384,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_4(__ps0, args[1], __unwrap(__arr_to_vec(args[2], StringVector)), __unwrap(__arr_to_vec(args[3], StringVector)), undefined));
+            __ptr = __chk(M._swig_casadi_Function_new_3(__ps0, args[1], __unwrap(__arr_to_vec(args[2], StringVector)), __unwrap(__arr_to_vec(args[3], StringVector)), undefined));
             M._free(__ps0);
             break;
           }
@@ -7400,7 +7392,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_5(__ps0, __unwrap(__arr_to_vec(args[1], MXVector)), __unwrap(__arr_to_vec(args[2], MXVector)), args[3]));
+            __ptr = __chk(M._swig_casadi_Function_new_4(__ps0, __unwrap(__arr_to_vec(args[1], MXVector)), __unwrap(__arr_to_vec(args[2], MXVector)), args[3]));
             M._free(__ps0);
             break;
           }
@@ -7408,7 +7400,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_7(__ps0, args[1], __unwrap(__arr_to_vec(args[2], StringVector)), __unwrap(__arr_to_vec(args[3], StringVector)), undefined));
+            __ptr = __chk(M._swig_casadi_Function_new_6(__ps0, args[1], __unwrap(__arr_to_vec(args[2], StringVector)), __unwrap(__arr_to_vec(args[3], StringVector)), undefined));
             M._free(__ps0);
             break;
           }
@@ -7419,7 +7411,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_3(__ps0, __unwrap(__arr_to_vec(args[1], SXVector)), __unwrap(__arr_to_vec(args[2], SXVector)), __unwrap(__arr_to_vec(args[3], StringVector)), __unwrap(__arr_to_vec(args[4], StringVector)), undefined));
+            __ptr = __chk(M._swig_casadi_Function_new_2(__ps0, __unwrap(__arr_to_vec(args[1], SXVector)), __unwrap(__arr_to_vec(args[2], SXVector)), __unwrap(__arr_to_vec(args[3], StringVector)), __unwrap(__arr_to_vec(args[4], StringVector)), undefined));
             M._free(__ps0);
             break;
           }
@@ -7427,7 +7419,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_4(__ps0, args[1], __unwrap(__arr_to_vec(args[2], StringVector)), __unwrap(__arr_to_vec(args[3], StringVector)), args[4]));
+            __ptr = __chk(M._swig_casadi_Function_new_3(__ps0, args[1], __unwrap(__arr_to_vec(args[2], StringVector)), __unwrap(__arr_to_vec(args[3], StringVector)), args[4]));
             M._free(__ps0);
             break;
           }
@@ -7435,7 +7427,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_6(__ps0, __unwrap(__arr_to_vec(args[1], MXVector)), __unwrap(__arr_to_vec(args[2], MXVector)), __unwrap(__arr_to_vec(args[3], StringVector)), __unwrap(__arr_to_vec(args[4], StringVector)), undefined));
+            __ptr = __chk(M._swig_casadi_Function_new_5(__ps0, __unwrap(__arr_to_vec(args[1], MXVector)), __unwrap(__arr_to_vec(args[2], MXVector)), __unwrap(__arr_to_vec(args[3], StringVector)), __unwrap(__arr_to_vec(args[4], StringVector)), undefined));
             M._free(__ps0);
             break;
           }
@@ -7443,7 +7435,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_7(__ps0, args[1], __unwrap(__arr_to_vec(args[2], StringVector)), __unwrap(__arr_to_vec(args[3], StringVector)), args[4]));
+            __ptr = __chk(M._swig_casadi_Function_new_6(__ps0, args[1], __unwrap(__arr_to_vec(args[2], StringVector)), __unwrap(__arr_to_vec(args[3], StringVector)), args[4]));
             M._free(__ps0);
             break;
           }
@@ -7454,7 +7446,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_3(__ps0, __unwrap(__arr_to_vec(args[1], SXVector)), __unwrap(__arr_to_vec(args[2], SXVector)), __unwrap(__arr_to_vec(args[3], StringVector)), __unwrap(__arr_to_vec(args[4], StringVector)), args[5]));
+            __ptr = __chk(M._swig_casadi_Function_new_2(__ps0, __unwrap(__arr_to_vec(args[1], SXVector)), __unwrap(__arr_to_vec(args[2], SXVector)), __unwrap(__arr_to_vec(args[3], StringVector)), __unwrap(__arr_to_vec(args[4], StringVector)), args[5]));
             M._free(__ps0);
             break;
           }
@@ -7462,7 +7454,7 @@ module.exports = async function createcasadi() {
             const __nps0 = M.lengthBytesUTF8(args[0]);
             const __ps0  = M._malloc(__nps0 + 1);
             M.stringToUTF8(args[0], __ps0, __nps0 + 1);
-            __ptr = __chk(M._swig_casadi_Function_new_6(__ps0, __unwrap(__arr_to_vec(args[1], MXVector)), __unwrap(__arr_to_vec(args[2], MXVector)), __unwrap(__arr_to_vec(args[3], StringVector)), __unwrap(__arr_to_vec(args[4], StringVector)), args[5]));
+            __ptr = __chk(M._swig_casadi_Function_new_5(__ps0, __unwrap(__arr_to_vec(args[1], MXVector)), __unwrap(__arr_to_vec(args[2], MXVector)), __unwrap(__arr_to_vec(args[3], StringVector)), __unwrap(__arr_to_vec(args[4], StringVector)), args[5]));
             M._free(__ps0);
             break;
           }
@@ -17119,6 +17111,60 @@ module.exports = async function createcasadi() {
       }
       throw new TypeError(`triangle: no overload matches arg types`);
     },
+    bspline_dual(...args) {
+      if (args.length === 3 && M._swig_can_DoubleVector(__unwrap(args[0])) && M._swig_can_std__vectorT_std__vectorT_double_t_t(__unwrap(args[1])) && M._swig_can_IntVector(__unwrap(args[2]))) {
+        const [a0, a1, a2] = args;
+      const a3 = {};
+
+      let __vp1 = a0;
+      let __vown1 = false;
+      if (Array.isArray(a0)) {
+        __vp1 = new DoubleVector();
+        __vown1 = true;
+        for (const __x of a0) __vp1.push_back(__x);
+      }
+
+      let __vp3 = a2;
+      let __vown3 = false;
+      if (Array.isArray(a2)) {
+        __vp3 = new IntVector();
+        __vown3 = true;
+        for (const __x of a2) __vp3.push_back(__x);
+      }
+      const __r = __from_handle(__chk(M._swig_casadi_casadi_bspline_dual_0(__unwrap(__vp1), __unwrap(a1), __unwrap(__vp3), __unwrap(a3))));
+
+      if (__vown1 && __vp1.delete) __vp1.delete();
+
+      if (__vown3 && __vp3.delete) __vp3.delete();
+      return __r;
+      }
+      if (args.length === 4 && M._swig_can_DoubleVector(__unwrap(args[0])) && M._swig_can_std__vectorT_std__vectorT_double_t_t(__unwrap(args[1])) && M._swig_can_IntVector(__unwrap(args[2])) && M._swig_can_std__mapT_std__string_casadi__GenericType_t(__unwrap(args[3]))) {
+        const [a0, a1, a2, a3] = args;
+
+      let __vp1 = a0;
+      let __vown1 = false;
+      if (Array.isArray(a0)) {
+        __vp1 = new DoubleVector();
+        __vown1 = true;
+        for (const __x of a0) __vp1.push_back(__x);
+      }
+
+      let __vp3 = a2;
+      let __vown3 = false;
+      if (Array.isArray(a2)) {
+        __vp3 = new IntVector();
+        __vown3 = true;
+        for (const __x of a2) __vp3.push_back(__x);
+      }
+      const __r = __from_handle(__chk(M._swig_casadi_casadi_bspline_dual_0(__unwrap(__vp1), __unwrap(a1), __unwrap(__vp3), __unwrap(a3))));
+
+      if (__vown1 && __vp1.delete) __vp1.delete();
+
+      if (__vown3 && __vp3.delete) __vp3.delete();
+      return __r;
+      }
+      throw new TypeError(`bspline_dual: no overload matches arg types`);
+    },
     event_out() {
       return __vec_to_arr(__from_handle(__chk(M._swig_casadi_event_out_0())));
     },
@@ -20950,13 +20996,25 @@ module.exports = async function createcasadi() {
         const [a0] = args;
       return __from_handle(__chk(M._swig_casadi_casadi_densify_0(__unwrap(__coerce(a0, MX)))));
       }
+      if (args.length === 2 && (M._swig_can_MX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0])) && (M._swig_can_MX(__unwrap(args[1])) || typeof args[1] === 'number' || typeof args[1] === 'bigint' || Array.isArray(args[1]))) {
+        const [a0, a1] = args;
+      return __from_handle(__chk(M._swig_casadi_casadi_densify_1(__unwrap(__coerce(a0, MX)), __unwrap(__coerce(a1, MX)))));
+      }
       if (args.length === 1 && (M._swig_can_DM(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0]))) {
         const [a0] = args;
-      return __from_handle(__chk(M._swig_casadi_casadi_densify_1(__unwrap(__coerce(a0, DM)))));
+      return __from_handle(__chk(M._swig_casadi_casadi_densify_2(__unwrap(__coerce(a0, DM)))));
+      }
+      if (args.length === 2 && (M._swig_can_DM(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0])) && (M._swig_can_DM(__unwrap(args[1])) || typeof args[1] === 'number' || typeof args[1] === 'bigint' || Array.isArray(args[1]))) {
+        const [a0, a1] = args;
+      return __from_handle(__chk(M._swig_casadi_casadi_densify_3(__unwrap(__coerce(a0, DM)), __unwrap(__coerce(a1, DM)))));
       }
       if (args.length === 1 && (M._swig_can_SX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0]))) {
         const [a0] = args;
-      return __from_handle(__chk(M._swig_casadi_casadi_densify_2(__unwrap(__coerce(a0, SX)))));
+      return __from_handle(__chk(M._swig_casadi_casadi_densify_4(__unwrap(__coerce(a0, SX)))));
+      }
+      if (args.length === 2 && (M._swig_can_SX(__unwrap(args[0])) || typeof args[0] === 'number' || typeof args[0] === 'bigint' || Array.isArray(args[0])) && (M._swig_can_SX(__unwrap(args[1])) || typeof args[1] === 'number' || typeof args[1] === 'bigint' || Array.isArray(args[1]))) {
+        const [a0, a1] = args;
+      return __from_handle(__chk(M._swig_casadi_casadi_densify_5(__unwrap(__coerce(a0, SX)), __unwrap(__coerce(a1, SX)))));
       }
       throw new TypeError(`densify: no overload matches arg types`);
     },

@@ -1,4 +1,4 @@
-"""Validate and restore the fixed KF calibration of a resumed tuning run."""
+"""Record and restore calibrated KF priors held fixed during parameter search."""
 
 from __future__ import annotations
 
@@ -10,16 +10,19 @@ from typing import Any
 
 import yaml
 
-from boxmot.engine.tracker_config import resolve_tracker_options
-from boxmot.motion.kalman_filters.noise import KALMAN_NOISE_OPTIONS, KALMAN_TIMING_OPTIONS
+from boxmot.engine.config.trackers import resolve_tracker_options
+from boxmot.engine.tuning.kalman_refinement import is_kalman_option
+from boxmot.trackers.common.config import flatten_tracker_options
+from boxmot.trackers.common.motion.kalman_filters.noise import KALMAN_NOISE_OPTIONS, KALMAN_TIMING_OPTIONS
 
 CALIBRATED_KF_OPTIONS = (
+    "kalman.type",
     *KALMAN_NOISE_OPTIONS,
     *KALMAN_TIMING_OPTIONS,
-    "variable_dt",
-    "adaptive_kf",
+    "kalman.variable_dt",
+    "kalman.adaptive_kf",
 )
-_REQUIRED_OPTIONS = (*KALMAN_NOISE_OPTIONS, *KALMAN_TIMING_OPTIONS, "variable_dt")
+_REQUIRED_OPTIONS = (*KALMAN_NOISE_OPTIONS, *KALMAN_TIMING_OPTIONS, "kalman.variable_dt")
 
 
 def _metadata_selection(value: Any, *, key: str) -> tuple:
@@ -36,16 +39,11 @@ def _metadata_selection(value: Any, *, key: str) -> tuple:
     return tuple(sorted(value))
 
 
-def _validate_metadata(args: Any, report: Mapping[str, Any]) -> None:
+def validate_calibration_metadata(args: Any, report: Mapping[str, Any]) -> None:
     """Require the same calibration inputs as the validated resumed evaluation."""
-    expected = {
-        "tracker": args.tracker,
-        "geometry": args.geometry,
-        "dataset": args.dataset_id,
-        "split": args.split,
-        "per_class": bool(getattr(args, "per_class", False)),
-    }
-    for name, value in expected.items():
+    expected = calibration_metadata(args)
+    for name in ("tracker", "geometry", "dataset", "split", "per_class"):
+        value = expected[name]
         recorded = report.get(name)
         if recorded != value or (name == "per_class" and not isinstance(recorded, bool)):
             raise ValueError(f"Saved tuning calibration {name} differs from this run; start a new tuning run.")
@@ -53,16 +51,21 @@ def _validate_metadata(args: Any, report: Mapping[str, Any]) -> None:
     if (
         not isinstance(recorded_build, str)
         or not recorded_build
-        or Path(recorded_build).resolve() != Path(args.build_path).resolve()
+        or Path(recorded_build).resolve() != Path(expected["build"])
     ):
         raise ValueError("Saved tuning calibration build differs from this run; start a new tuning run.")
-    selections = {
-        "class_ids": list(getattr(args, "tracker_class_ids", ()) or ()),
-        "sequences": list(getattr(args, "sequence_names", None) or args.seq_info),
-    }
-    for name, selection in selections.items():
-        if _metadata_selection(report.get(name), key=name) != _metadata_selection(selection, key=name):
+    for name in ("class_ids", "sequences"):
+        if _metadata_selection(report.get(name), key=name) != _metadata_selection(expected[name], key=name):
             raise ValueError(f"Saved tuning calibration {name} differs from this run; start a new tuning run.")
+
+
+def record_tuning_calibration(report_path: Path, fixed_options: Mapping[str, Any]) -> None:
+    """Record calibrated settings that search must preserve when tuning resumes."""
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["tuning"] = {"fixed_options": dict(fixed_options)}
+    temporary = report_path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    temporary.replace(report_path)
 
 
 def load_tuning_calibration(
@@ -99,11 +102,13 @@ def load_tuning_calibration(
     if not isinstance(tuning, Mapping) or not isinstance(tuning.get("fixed_options"), Mapping):
         raise ValueError("Saved calibration is missing tuning.fixed_options; it is not a calibrated tuning run.")
     fixed = dict(tuning["fixed_options"])
-    _validate_metadata(args, report)
+    validate_calibration_metadata(args, report)
     try:
         saved_yaml = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     except (yaml.YAMLError, UnicodeDecodeError) as exc:
         raise ValueError(f"Saved tuning calibration profile is malformed: {config_path}") from exc
+    if isinstance(saved_yaml, Mapping):
+        saved_yaml = flatten_tracker_options(saved_yaml)
     if not isinstance(saved_yaml, Mapping) or any(name not in saved_yaml for name in _REQUIRED_OPTIONS):
         raise ValueError(
             "Saved tuning calibration profile is incomplete; all KF scales and timing settings are required."
@@ -112,7 +117,7 @@ def load_tuning_calibration(
     saved_args.tracker_config = config_path
     saved_args.variable_dt = None
     saved_config = resolve_tracker_options(saved_args, include_defaults=True, stamp_timing=True)
-    expected_keys = {name for name in CALIBRATED_KF_OPTIONS if name in saved_config}
+    expected_keys = {name for name in saved_config if name in CALIBRATED_KF_OPTIONS or is_kalman_option(name)}
     if set(fixed) != expected_keys or any(name not in saved_yaml for name in expected_keys):
         raise ValueError(
             "Saved tuning calibration fixed_options must contain every applicable KF prior and timing setting."
@@ -136,4 +141,36 @@ def load_tuning_calibration(
     return config, fixed
 
 
-__all__ = ("CALIBRATED_KF_OPTIONS", "load_tuning_calibration")
+def fixed_calibration_options(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Capture all calibrated priors, filter policies and any frozen camera mask."""
+    fixed = {name: value for name, value in config.items() if name == "kalman.type" or is_kalman_option(name)}
+    if config.get("cmc_min_conf") is not None:
+        fixed.update({name: config[name] for name in ("use_cmc", "cmc_method", "cmc_min_conf")})
+        fixed.update(
+            {name: config[name] for name in ("sof_target_width", "sof_ransac_reproj_threshold") if name in config}
+        )
+    return fixed
+
+
+def calibration_metadata(args: Any) -> dict[str, Any]:
+    """Describe the resolved input selection used to fit a tuning filter bank."""
+    return {
+        "tracker": args.tracker,
+        "geometry": args.geometry,
+        "dataset": args.dataset_id,
+        "split": args.split,
+        "build": str(Path(args.build_path).resolve()),
+        "sequences": list(getattr(args, "sequence_names", None) or args.seq_info),
+        "per_class": bool(getattr(args, "per_class", False)),
+        "class_ids": list(getattr(args, "tracker_class_ids", ()) or ()),
+    }
+
+
+__all__ = (
+    "CALIBRATED_KF_OPTIONS",
+    "calibration_metadata",
+    "fixed_calibration_options",
+    "load_tuning_calibration",
+    "record_tuning_calibration",
+    "validate_calibration_metadata",
+)

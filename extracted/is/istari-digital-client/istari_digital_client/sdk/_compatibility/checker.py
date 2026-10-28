@@ -1,8 +1,16 @@
-"""Compatibility response header reading and warning mechanism.
+"""Registry API-version compatibility check.
 
-Reads X-Istari-Compatibility, X-Istari-Incompatible-Tags, and
-X-Istari-Deprecated-Tags headers from server responses and emits
-warnings on first occurrence.
+Reads the registry's ``X-Istari-Registry-Version`` response header and warns once
+per session when it differs from this SDK's built-against registry API version by
+a **major** version. Same major → silent (compatible by contract). Never blocks;
+real ``404``/``410``/``422`` responses carry the precise, usage-scoped truth.
+
+``SDK_API_VERSION`` is generated from the registry spec's ``info.version`` at
+codegen (``_api_version.py``); the registry serves the matching value because it
+is built from its version-stamped tag at release (release-orchestration design
+§7c). A ``0.x`` version on either side (pre-release / unstamped) disables the
+compare. This replaces the old per-tag hash handshake (``X-Istari-Compatibility``
++ ``X-Istari-*-Tags``).
 """
 
 from __future__ import annotations
@@ -12,12 +20,24 @@ import warnings
 from dataclasses import dataclass, field
 from typing import Optional
 
+from istari_digital_client.sdk._compatibility._api_version import SDK_API_VERSION
+
 logger = logging.getLogger("istari.compatibility")
+
+
+def _major(version: str) -> str:
+    """Leading integer of a semver string (``v12.3.1`` / ``12.3.1-rc2`` → ``12``)."""
+    return version.lstrip("v").split(".", 1)[0]
 
 
 @dataclass
 class CompatibilityResult:
-    """Structured result from a compatibility header check."""
+    """Structured result from a compatibility header check.
+
+    ``incompatible_tags`` / ``deprecated_tags`` are retained for backward
+    compatibility with the old per-tag handshake; the major-only check leaves
+    them empty.
+    """
 
     server_version: Optional[str] = None
     status: Optional[str] = None
@@ -26,76 +46,45 @@ class CompatibilityResult:
 
 
 class CompatibilityChecker:
-    """Reads compatibility response headers and emits warnings once per session."""
+    """Reads ``X-Istari-Registry-Version`` and warns once on a major mismatch."""
 
     def __init__(self) -> None:
         self._warned: bool = False
         self.last_result: Optional[CompatibilityResult] = None
 
     def process_response_headers(self, headers: dict) -> None:
-        """Check response headers for compatibility information.
+        """Read the registry version from response headers and warn once on a major gap.
 
         Args:
-            headers: Response headers dict (may be case-sensitive after conversion from HTTPHeaderDict).
+            headers: Response headers dict (may be case-sensitive after conversion
+                from HTTPHeaderDict).
         """
         # Normalize to lowercase keys — urllib3's HTTPHeaderDict loses
         # case-insensitivity when converted to a plain dict.
-        h = {k.lower(): v for k, v in headers.items()}
-
-        version = h.get("x-istari-registry-version")
-        status = h.get("x-istari-compatibility")
-
-        if version is None and status is None:
+        server = {k.lower(): v for k, v in headers.items()}.get("x-istari-registry-version")
+        if not server:
             return
 
-        result = CompatibilityResult(server_version=version, status=status)
-
-        incompatible = h.get("x-istari-incompatible-tags", "")
-        if incompatible:
-            result.incompatible_tags = [t.strip() for t in incompatible.split(",") if t.strip()]
-
-        deprecated = h.get("x-istari-deprecated-tags", "")
-        if deprecated:
-            result.deprecated_tags = [t.strip() for t in deprecated.split(",") if t.strip()]
-
-        self.last_result = result
-
-        if self._warned:
+        # A 0.x version on either side is pre-release / unstamped — no compatibility
+        # contract yet, so record the server version but do not judge.
+        if _major(server) == "0" or _major(SDK_API_VERSION) == "0":
+            self.last_result = CompatibilityResult(server_version=server, status="unknown")
             return
 
-        v = f"v{version}" if version else "unknown version"
+        same_major = _major(server) == _major(SDK_API_VERSION)
+        self.last_result = CompatibilityResult(
+            server_version=server,
+            status="compatible" if same_major else "major-mismatch",
+        )
 
-        if status == "compatible":
-            logger.info("Connected to Istari Registry %s — SDK is up to date.", v)
-            self._warned = True
+        if self._warned or same_major:
             return
 
-        if status == "incompatible":
-            self._warned = True
-            msg = (
-                f"SDK is incompatible with Istari Registry {v} "
-                f"(affected APIs: {', '.join(result.incompatible_tags)}). "
-                "Please update your SDK to match the server version."
-            )
-            warnings.warn(msg, UserWarning, stacklevel=4)
-            logger.warning(msg)
-
-        elif status == "revision-mismatch":
-            self._warned = True
-            msg = (
-                f"SDK has a minor version difference with Istari Registry {v} "
-                f"(affected APIs: {', '.join(result.incompatible_tags)}). "
-                "Some newer API features may not be available."
-            )
-            warnings.warn(msg, UserWarning, stacklevel=4)
-            logger.warning(msg)
-
-        elif status == "deprecation-warning":
-            self._warned = True
-            msg = (
-                f"SDK uses deprecated APIs on Istari Registry {v} "
-                f"(affected APIs: {', '.join(result.deprecated_tags)}). "
-                "Consider updating your SDK to avoid future incompatibility."
-            )
-            warnings.warn(msg, DeprecationWarning, stacklevel=4)
-            logger.warning(msg)
+        self._warned = True
+        msg = (
+            f"This SDK was built against Istari Registry API v{SDK_API_VERSION}, but the "
+            f"server is API v{server} — they differ by a major version and some calls may "
+            "fail. Update your SDK."
+        )
+        warnings.warn(msg, UserWarning, stacklevel=4)
+        logger.warning(msg)

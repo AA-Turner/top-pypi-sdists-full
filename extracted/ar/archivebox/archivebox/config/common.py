@@ -2,6 +2,7 @@ from __future__ import annotations
 
 __package__ = "archivebox.config"
 
+import copy
 import inspect
 import json
 import os
@@ -19,15 +20,16 @@ from urllib.parse import quote, urlparse
 from abx_plugins.plugins.base.utils import build_config_model
 from django.db import DatabaseError
 from pydantic import BaseModel, Field, PrivateAttr, TypeAdapter, create_model, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic._internal._utils import deep_update
+from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
 from rich.console import Console
 
-from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, decode_config_inputs
+from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, IniConfigSettingsSource, decode_config_inputs
 
 from .constants import CONSTANTS
 from .ldap import LDAPConfig
 from .permissions import IN_DOCKER
-from .version import VERSION, get_BUILD_TIME, get_COMMIT_HASH
+from .version import get_BUILD_TIME, get_COMMIT_HASH
 
 ConfigOverrides = Mapping[str, object]
 ConfigPayload = dict[str, object]
@@ -58,6 +60,10 @@ def _resolve_cookie_file_paths(config: dict[str, Any]) -> dict[str, Any]:
 _STDOUT_CONSOLE = Console()
 _STDERR_CONSOLE = Console(stderr=True)
 _WARNED_ARCHIVING_CONFIGS: set[tuple[int, bool]] = set()
+# Building a TypeAdapter compiles a pydantic validator; get_config() used to build one
+# per explicit *_ENABLED input on every call, though bool's validator never changes.
+_BOOL_ADAPTER = TypeAdapter(bool)
+_WARNED_CONFIG_TYPOS: set[str] = set()
 
 
 def _legacy_bool(value: object) -> bool | None:
@@ -129,7 +135,8 @@ def resolve_delete_after_config_value(*configs: Mapping[str, Any] | None) -> str
         if config is None:
             continue
         value = config.get("DELETE_AFTER")
-        if value:
+        # Explicit JSON zero/false disables retention instead of inheriting it.
+        if value is not None and value != "":
             return str(value)
     return "0"
 
@@ -231,33 +238,14 @@ def build_crawl_config_snapshot(
     """Build the frozen crawl config stored on Crawl.config at creation time."""
     explicit_overrides = set(overrides or {})
     plugin_owned_keys = set(_plugin_config_properties(PLUGIN_CONFIG_SCHEMAS)) - set(ArchiveBoxBaseConfig.model_fields)
-    effective = get_config(persona=persona, base_config=base_config)
-    frozen = effective.for_crawl_frozen(persona=persona)
-    for key in ("BIND_ADDR", "BASE_URL", "CSRF_TRUSTED_ORIGINS", "SERVER_SECURITY_MODE"):
-        value = getattr(effective, key, None)
-        if value is not None:
-            frozen[key] = value
+    effective = get_config(persona=persona, base_config=base_config, overrides=overrides)
+    frozen = effective.for_crawl_frozen()
+    # Persona-owned plugin values stay live unless the crawl explicitly overrides them.
     if persona is not None:
         persona_config = persona.get_derived_config()
         for key in plugin_owned_keys - explicit_overrides:
             if key in persona_config:
                 frozen.pop(key, None)
-    if overrides:
-        resolved = get_config(base_config=frozen, overrides=overrides, include_machine=False)
-        resolved_payload = normalize_runtime_config(resolved)
-        frozen = resolved.for_crawl_frozen(persona=persona)
-        for key in ("BIND_ADDR", "BASE_URL", "CSRF_TRUSTED_ORIGINS", "SERVER_SECURITY_MODE"):
-            value = getattr(resolved, key, None)
-            if value is not None:
-                frozen[key] = value
-        for key in plugin_owned_keys & explicit_overrides:
-            if ArchiveBoxConfig.scope_for_key(key) == _SCOPE_CRAWL_FROZEN and key in resolved_payload:
-                frozen[key] = resolved_payload[key]
-        if persona is not None:
-            persona_config = persona.get_derived_config()
-            for key in plugin_owned_keys - explicit_overrides:
-                if key in persona_config:
-                    frozen.pop(key, None)
     return frozen
 
 
@@ -338,7 +326,7 @@ class ServerConfig(BaseConfigSet):
 
     SECRET_KEY: str = Field(default_factory=lambda: "".join(secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789_") for _ in range(50)))
     BIND_ADDR: str = Field(default="127.0.0.1:5797")
-    BASE_URL: str = Field(default="")
+    BASE_URL: str = Field(default="", json_schema_extra={"scope": _SCOPE_CRAWL_FROZEN})
     ALLOWED_HOSTS: str = Field(default="*")
     CSRF_TRUSTED_ORIGINS: str = Field(default="")
     SERVER_SECURITY_MODE: str = Field(default="auto")
@@ -496,6 +484,13 @@ class ArchivingConfig(BaseConfigSet):
         description="Comma-separated plugin selection for this run. Empty means use enabled plugin defaults.",
     )
     PARSER: str = Field(default="auto", description="Parser used to read the submitted Crawl input document.")
+    CRAWL_DISCOVERY_PLUGINS: str = Field(
+        default="",
+        description=(
+            "Comma-separated plugins whose discovered URLs may create child snapshots. "
+            "Empty accepts every plugin. Does not change explicit seeds, plugin execution, or saved outputs."
+        ),
+    )
 
     ONLY_NEW: bool = Field(default=True)
     INDEX_ONLY: bool = Field(default=False)
@@ -505,15 +500,17 @@ class ArchivingConfig(BaseConfigSet):
     CRAWL_MAX_SIZE: int = Field(default=0)
     CRAWL_TIMEOUT: int = Field(default=0, description="Maximum total crawl runtime in seconds (0 = unlimited).")
     CRAWL_MAX_CONCURRENT_SNAPSHOTS: int = Field(
-        default=4,
-        description="Maximum number of snapshots to archive concurrently within one crawl.",
+        default=0,
+        ge=0,
+        description="Automatic concurrency based on available resources (0), or an explicit per-crawl ceiling.",
     )
     SNAPSHOT_MAX_SIZE: int = Field(default=0)
 
     RESOLUTION: str = Field(default="1440,2000")
     CHECK_SSL_VALIDITY: bool = Field(default=True)
     USER_AGENT: str = Field(
-        default=f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)",
+        default="",
+        description="HTTP user agent override. Empty uses the identity detected from Chrome during browser setup.",
     )
     COOKIES_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
     AUTH_STORAGE_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
@@ -525,7 +522,7 @@ class ArchivingConfig(BaseConfigSet):
 
     URL_DENYLIST: str = Field(
         default=(
-            r"\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$"
+            r"\.(css|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$"
             r"|^https?://news\.ycombinator\.com/(?:vote|hide)/?(?:[?#]|$)"
         ),
         alias="URL_BLACKLIST",
@@ -656,15 +653,24 @@ def _explicit_plugin_enabled_keys(config: Mapping[str, object]) -> set[str]:
     expands ``PLUGINS`` into concrete booleans.
     """
     provided = {str(key) for key in config}
-    explicit: set[str] = set()
+    return {key for key, input_names in _plugin_enabled_input_names() if provided & input_names}
+
+
+@lru_cache(maxsize=1)
+def _plugin_enabled_input_names() -> tuple[tuple[str, frozenset[str]], ...]:
+    """Each plugin ``*_ENABLED`` key with the input names (key and aliases) that set it.
+
+    Derived only from the plugin schemas loaded at import; get_config() checks
+    several inputs against it per call, so re-walking every schema was waste.
+    """
+    enabled_inputs: list[tuple[str, frozenset[str]]] = []
     for key, prop in _plugin_config_properties(PLUGIN_CONFIG_SCHEMAS).items():
         if not key.endswith("_ENABLED") or not isinstance(prop, Mapping):
             continue
-        aliases = prop.get("x-aliases") if isinstance(prop, Mapping) else None
+        aliases = prop.get("x-aliases")
         input_names = {key, *(str(alias) for alias in aliases if str(alias).strip())} if isinstance(aliases, list) else {key}
-        if provided & input_names:
-            explicit.add(key)
-    return explicit
+        enabled_inputs.append((key, frozenset(input_names)))
+    return tuple(enabled_inputs)
 
 
 def _discover_plugin_config_schemas() -> PluginSchemaDocuments:
@@ -697,6 +703,13 @@ def _archivebox_config_input_names() -> set[str]:
         if isinstance(aliases, list):
             names.update(str(alias) for alias in aliases if str(alias).strip())
     return names
+
+
+def filter_crawl_env(env: Mapping[str, Any]) -> dict[str, Any]:
+    """Project known config inputs for hooks; preserve tool env and plugin credentials."""
+    allowed = ArchiveBoxConfig._crawl_runtime_keys() - {"PLUGINS", "SEARCH_BACKEND_ENGINE"}
+    inputs = _archivebox_config_input_names()
+    return {key: value for key, value in env.items() if key not in inputs or key in allowed}
 
 
 class ArchiveBoxBaseConfig(
@@ -829,16 +842,9 @@ class ArchiveBoxBaseConfig(
             config.pop(key, None)
         return config
 
-    def for_crawl_frozen(self, *, persona: Any = None) -> dict[str, Any]:
+    def for_crawl_frozen(self) -> dict[str, Any]:
         """Config safe to persist permanently on Crawl.config."""
-        frozen = self._scoped_config(include_execution=False)
-        if persona is not None:
-            persona_config = dict(persona.config or {})
-            scope_by_key = type(self)._scope_by_key()
-            for key in persona.get_derived_config():
-                if key not in persona_config and scope_by_key.get(key) == _SCOPE_CRAWL_EXECUTION:
-                    frozen.pop(key, None)
-        return frozen
+        return self._scoped_config(include_execution=False)
 
     def for_crawl_runtime(
         self,
@@ -855,37 +861,21 @@ class ArchiveBoxBaseConfig(
         config = self.for_crawl()
         config["DATA_DIR"] = str(CONSTANTS.DATA_DIR)
         scope_by_key = type(self)._scope_by_key()
-        model_fields = type(self).model_fields
-        # ArchiveBox-only selectors are consumed during model validation to
-        # derive hook-owned *_ENABLED flags. They are stripped below after
-        # crawl/snapshot overlays have had a chance to apply.
-        config.pop("SEARCH_BACKEND_ENGINE", None)
         if persona is not None:
             for key, value in persona.get_derived_config().items():
                 if scope_by_key.get(key) == _SCOPE_CRAWL_EXECUTION:
                     config[key] = value
 
         if crawl is not None:
-            for key, value in dict(crawl.config or {}).items():
-                if key in model_fields and scope_by_key.get(key) != _SCOPE_CRAWL_EXECUTION:
-                    config[key] = value
             config["CRAWL_DIR"] = str(crawl_output_dir if crawl_output_dir is not None else crawl.output_dir)
 
         if snapshot is not None:
-            for key, value in dict(snapshot.config or {}).items():
-                if key in model_fields and scope_by_key.get(key) != _SCOPE_CRAWL_EXECUTION:
-                    config[key] = value
             config["SNAP_DIR"] = str(snapshot_output_dir if snapshot_output_dir is not None else snapshot.output_dir)
 
         if runtime_overrides:
             config.update(normalize_runtime_config(runtime_overrides, json_safe=False))
 
         _resolve_cookie_file_paths(config)
-
-        # Hooks should only see concrete plugin-local flags, never the
-        # ArchiveBox selectors used to derive them.
-        config.pop("PLUGINS", None)
-        config.pop("SEARCH_BACKEND_ENGINE", None)
 
         if extra_context:
             context: dict[str, Any] = {}
@@ -897,7 +887,7 @@ class ArchiveBoxBaseConfig(
             context.update(dict(extra_context))
             config["EXTRA_CONTEXT"] = json.dumps(context, separators=(",", ":"), sort_keys=True)
 
-        return config
+        return filter_crawl_env(config)
 
     @model_validator(mode="after")
     def resolve_runtime_paths(self):
@@ -972,6 +962,31 @@ class ArchiveBoxSourceSettings(ArchiveBoxConfig, BaseSettings):
     """Environment and INI source loader for the pure runtime config model."""
 
     model_config = SettingsConfigDict(**{**ArchiveBoxConfig.model_config, "extra": "ignore"})
+
+
+_ENV_SOURCE_VALUES: tuple[Mapping[str, str | None], dict[str, Any]] | None = None
+
+
+def load_source_config() -> ArchiveBoxBaseConfig:
+    """Return the same config ``ArchiveBoxSourceSettings()`` loads, with less repeated work.
+
+    ``BaseSettings.__init__`` re-derives the env names, aliases and JSON-complexity of
+    every core and plugin field on each call, which made it the bulk of every
+    ``get_config()``. The env source's output depends only on the environment snapshot
+    it captured, so it is reused while that snapshot is unchanged; ArchiveBox.conf is
+    re-read every call, and defaults and validators still run every call.
+    """
+    global _ENV_SOURCE_VALUES
+    env_source = EnvSettingsSource(ArchiveBoxSourceSettings)
+    env_values = _ENV_SOURCE_VALUES
+    if env_values is None or env_values[0] != env_source.env_vars:
+        env_values = _ENV_SOURCE_VALUES = (env_source.env_vars, env_source())
+    # Same sources, precedence and nested-dict merge as settings_customise_sources():
+    # env over ArchiveBox.conf. Copy so validation can never alias the reused env values.
+    values = deep_update(IniConfigSettingsSource(ArchiveBoxSourceSettings)(), copy.deepcopy(env_values[1]))
+    # Validate with the plain model: pydantic routes BaseSettings.model_validate()
+    # through BaseSettings.__init__, which would reload every source again.
+    return ArchiveBoxConfig.model_validate(values)
 
 
 def _normalize_plugins_config_value(value: Any) -> set[str]:
@@ -1061,9 +1076,12 @@ def find_config_section(key: str) -> str:
 
     if key in CONSTANTS_CONFIG:
         return "CONSTANT"
-    for section_id, section in get_all_configs().items():
-        if key in type(section).model_fields:
-            return section_id
+    # Sections describe the schema, not today's settings. Resolving source
+    # config per field made cold admin forms take seconds and hid their edit
+    # options when an unrelated live value was invalid.
+    for config_cls in ArchiveBoxConfig._core_config_classes():
+        if key in config_cls.model_fields:
+            return str(config_cls.model_fields["toml_section_header"].default)
     if key in _plugin_config_properties(PLUGIN_CONFIG_SCHEMAS):
         return "PLUGINS"
     return "DYNAMIC"
@@ -1188,7 +1206,7 @@ def get_config(
     config_data["PERSONAS_DIR"] = str(CONSTANTS.PERSONAS_DIR)
     base_config_payload: ConfigPayload = {}
     file_config: dict[str, Any] | None = None
-    base_config_model = ArchiveBoxSourceSettings() if base_config is None else None
+    base_config_model = load_source_config() if base_config is None else None
 
     if crawl_config_base:
         assert base_config_model is not None
@@ -1209,6 +1227,12 @@ def get_config(
         )
         file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
         legacy_config = {**file_config, **os.environ}
+        if "SAVE_ARCHIVE_DOT_ORG" in legacy_config and "SAVE_ARCHIVE_DOT_ORG" not in _WARNED_CONFIG_TYPOS:
+            _STDERR_CONSOLE.print(
+                "[!] SAVE_ARCHIVE_DOT_ORG is ignored; use ARCHIVEDOTORG_ENABLED instead.",
+                markup=False,
+            )
+            _WARNED_CONFIG_TYPOS.add("SAVE_ARCHIVE_DOT_ORG")
         legacy_permissions = permissions_from_legacy_public_flags(legacy_config)
         if legacy_permissions:
             config_data["PERMISSIONS"] = legacy_permissions
@@ -1332,7 +1356,7 @@ def get_config(
             config = config.model_copy(update={"SERVER_SECURITY_MODE": "safe-subdomains-fullreplay"})
     for key in explicit_plugin_enabled_keys:
         if key in config_data:
-            setattr(config, key, TypeAdapter(bool).validate_python(config_data[key]))
+            setattr(config, key, _BOOL_ADAPTER.validate_python(config_data[key]))
     if config.PLUGINS:
         config._derive_plugin_enabled_config(respect_current_enabled=True)
     if redact_sensitive:
@@ -1349,7 +1373,7 @@ def get_config(
 
 def get_all_configs() -> dict[str, BaseConfigSet]:
     """Get all config section objects as a dictionary."""
-    resolved = ArchiveBoxSourceSettings().model_dump(mode="json")
+    resolved = load_source_config().model_dump(mode="json")
     return {
         "SHELL_CONFIG": ShellConfig.model_validate(resolved),
         "STORAGE_CONFIG": StorageConfig.model_validate(resolved),

@@ -1,6 +1,7 @@
 #include "Protocol.h"
 
 #include <cstring>
+#include <simpleble/Exceptions.h>
 #include "protocol/simpleble.pb.h"
 
 using namespace SimpleBLE::Dongl::Serial;
@@ -155,7 +156,7 @@ simpleble_ReadRsp Protocol::simpleble_read(uint16_t conn_handle, uint16_t handle
 simpleble_WriteRsp Protocol::simpleble_write(uint16_t conn_handle, uint16_t handle, simpleble_WriteOperation operation,
                                              const std::vector<uint8_t>& data) {
     if (data.size() > sizeof(simpleble_WriteCmd_data_t::bytes)) {
-        throw std::length_error("Payload exceeds maximum size of 512 bytes");
+        throw Exception::OperationFailed("Payload exceeds maximum size of 512 bytes");
     }
 
     dongl_Command command = dongl_Command_init_zero;
@@ -235,4 +236,17 @@ simpleble_GetPairedPeripheralCountRsp Protocol::simpleble_get_paired_peripheral_
 
     dongl_Response response = exchange(command);
     return response.rsp.simpleble.rsp.get_paired_peripheral_count;
+}
+
+simpleble_SecureConnectionRsp Protocol::simpleble_secure_connection(uint16_t conn_handle, uint8_t request_id,
+                                                                    bool mitm) {
+    dongl_Command command = dongl_Command_init_zero;
+    command.which_cmd = dongl_Command_simpleble_tag;
+    command.cmd.simpleble.which_cmd = simpleble_Command_secure_connection_tag;
+    command.cmd.simpleble.cmd.secure_connection.conn_handle = conn_handle;
+    command.cmd.simpleble.cmd.secure_connection.request_id = request_id;
+    command.cmd.simpleble.cmd.secure_connection.mitm = mitm;
+
+    dongl_Response response = exchange(command);
+    return response.rsp.simpleble.rsp.secure_connection;
 }

@@ -298,12 +298,23 @@ class Rule(BaseModel):
     """
 
     match_hosts: Optional[List[str]] = None
-    """MatchHosts is only accepted for header injection rules.
-
-    Provider auth rules use built-in host matching.
+    """
+    MatchHosts is only accepted for header injection and relay rules. Provider auth
+    rules use built-in host matching. A relay rule may also list IP addresses and
+    CIDR blocks (10.0.0.0/8), which match connections the sandbox makes to an IP
+    address rather than a name.
     """
 
     match_paths: Optional[List[str]] = None
+
+    relay_id: Optional[str] = None
+    """
+    RelayID is the ID of the LangSmith relay (a connection of kind relay) that
+    carries connections to match_hosts when type is relay. Those connections leave
+    from the relay's connector, and its network and IP, instead of the sandbox host.
+    Access control still applies first, the first enabled matching relay rule wins,
+    and a matched host never falls back to a direct connection.
+    """
 
     type: Optional[str] = None
 

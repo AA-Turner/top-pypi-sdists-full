@@ -19,6 +19,7 @@ from pypdf import (
     PdfWriter,
     Transformation,
 )
+from pypdf._utils import get_stream_data
 from pypdf.annotations import Link
 from pypdf.constants import FieldDictionaryAttributes
 from pypdf.errors import DeprecationError, LimitReachedError, PageSizeNotDefinedError, PdfReadError, PyPdfError
@@ -938,6 +939,41 @@ def test_add_named_destination_with_fit(fit, expected):
     assert destination.dest_array[1:] == expected
 
 
+@pytest.mark.parametrize("catalog_dests", [False, True])
+def test_resolve_links__named_destinations(catalog_dests):
+    source = PdfWriter()
+    source.add_blank_page(width=100, height=100)
+    source.add_blank_page(width=100, height=100)
+    source.add_named_destination("Target", 1)
+    link = DictionaryObject({
+        NameObject("/Type"): NameObject("/Annot"),
+        NameObject("/Subtype"): NameObject("/Link"),
+        NameObject("/Rect"): RectangleObject([0, 0, 10, 10]),
+        NameObject("/Dest"): TextStringObject("Target"),
+    })
+    source.pages[0][NameObject("/Annots")] = ArrayObject([source._add_object(link) for _ in range(3)])
+    stream = BytesIO()
+    source.write(stream)
+    reader = PdfReader(stream)
+
+    writer = PdfWriter()
+    if catalog_dests:
+        # Takes precedence when reading the named destinations, but new ones are added to /Names.
+        writer.root_object[NameObject("/Dests")] = DictionaryObject()
+    for page in reader.pages:
+        writer.add_page(page)
+    with mock.patch.object(
+        PdfWriter, "_get_named_destinations", autospec=True, side_effect=PdfWriter._get_named_destinations
+    ) as get_named_destinations:
+        writer.write(BytesIO())
+
+    # Collecting the named destinations is expensive, thus it is done once for all links.
+    assert get_named_destinations.call_count == 1
+    # Each name is added once, even if it cannot be read back.
+    assert writer.get_named_dest_root()[::2] == ["Target"]
+    assert writer.get_named_dest_root()[1]["/D"][0] == writer.pages[1].indirect_reference
+
+
 def test_append_with_direct_dests_dictionary():
     """
     Tests for #4027.
@@ -1818,7 +1854,7 @@ def test_new_removes():
     writer.remove_images()
     b = BytesIO()
     writer.write(b)
-    bb = bytes(b.getbuffer())
+    bb = get_stream_data(b)
     assert b"/Im0 Do" not in bb
     assert b"/Fm0 Do" in bb
     assert b" TJ" in bb
@@ -1828,7 +1864,7 @@ def test_new_removes():
     writer.remove_text()
     b = BytesIO()
     writer.write(b)
-    bb = bytes(b.getbuffer())
+    bb = get_stream_data(b)
     assert b"/Im0" in bb
     assert b"Chap" not in bb
     assert b" TJ" not in bb
@@ -3627,6 +3663,25 @@ def test_encrypt__incremental():
         writer.encrypt(user_password="dummy")
 
 
+def test_write__incremental__encrypted_source():
+    reader = PdfReader(RESOURCE_ROOT / "encryption" / "r3-user-password.pdf", password="asdfzxcv")
+    writer = PdfWriter(reader, incremental=True)
+
+    # Without modifications, the original file is written as-is.
+    output = BytesIO()
+    writer.write(output)
+    assert output.getvalue() == reader.stream.getvalue()
+
+    writer.add_metadata({"/Title": "Secret title"})
+    output = BytesIO()
+    with pytest.raises(
+        NotImplementedError,
+        match=r"^Writing incremental updates of encrypted PDF files is currently not supported\.$",
+    ):
+        writer.write(output)
+    assert output.getvalue() == b""
+
+
 @pytest.mark.timeout(5)
 def test_get_filtered_outline__first__cyclic(caplog) -> None:
     writer = PdfWriter()
@@ -3702,6 +3757,45 @@ def test_get_filtered_outline__node_is_none() -> None:
     reader = PdfReader(RESOURCE_ROOT / "crazyones.pdf")
 
     assert writer._get_filtered_outline(node=None, pages={}, reader=reader) == []
+
+
+def _create_outline_item(**entries: Any) -> DictionaryObject:
+    item = DictionaryObject({NameObject("/Title"): TextStringObject("Chapter")})
+    for key, value in entries.items():
+        item[NameObject(f"/{key}")] = value
+    return item
+
+
+@pytest.mark.parametrize(
+    ("outlines", "expected"),
+    [
+        pytest.param(NumberObject(1), "1", id="outlines-number"),
+        pytest.param(ArrayObject(), "[]", id="outlines-array"),
+        pytest.param(DictionaryObject({NameObject("/First"): NumberObject(1)}), "1", id="first-number"),
+        pytest.param(
+            DictionaryObject({NameObject("/First"): _create_outline_item(Next=TextStringObject("x"))}),
+            "x",
+            id="next-string",
+        ),
+        pytest.param(
+            DictionaryObject({NameObject("/First"): _create_outline_item(First=ArrayObject())}), "[]", id="child-array"
+        ),
+    ],
+)
+def test_append__skips_outline_nodes_that_are_not_dictionaries(caplog, outlines, expected) -> None:
+    source = PdfWriter()
+    source.add_blank_page(width=72, height=72)
+    source.root_object[NameObject("/Outlines")] = outlines
+    stream = BytesIO()
+    source.write(stream)
+    stream.seek(0)
+    reader = PdfReader(stream)
+
+    writer = PdfWriter()
+    writer.append(reader)
+
+    assert len(writer.pages) == 1
+    assert caplog.messages == [f"Outline node is not a dictionary: {expected}"]
 
 
 @pytest.mark.timeout(5)

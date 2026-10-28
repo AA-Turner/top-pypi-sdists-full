@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: archivebox
-Version: 0.9.73
+Version: 0.9.77
 Summary: Self-hosted internet archiving solution.
 Keywords: internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author-Email: Nick Sweeting <pyproject.toml@archivebox.io>
@@ -41,10 +41,12 @@ Project-URL: Community, https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiv
 Project-URL: Demo, https://demo.archivebox.io
 Project-URL: Donate, https://github.com/ArchiveBox/ArchiveBox/wiki/Donations
 Requires-Python: >=3.13
-Requires-Dist: setuptools>=74.1.0
-Requires-Dist: django>=6.1
+Requires-Dist: setuptools>=84.1.0
+Requires-Dist: django>=6.1.2
 Requires-Dist: psycopg[binary]>=3.2
+Requires-Dist: uvicorn[standard]>=0.54.0
 Requires-Dist: daphne>=4.2.1
+Requires-Dist: twisted>=26.10.0rc1
 Requires-Dist: django-ninja>=1.5.1
 Requires-Dist: django-extensions>=3.2.3
 Requires-Dist: django-signal-webhooks>=0.3.0
@@ -67,14 +69,15 @@ Requires-Dist: base32-crockford>=0.3.0
 Requires-Dist: django-stubs>=5.0.4
 Requires-Dist: requests>=2.32.3
 Requires-Dist: sonic-client>=1.0.0
+Requires-Dist: markdown>=3.7
 Requires-Dist: dateparser>=1.2.0
 Requires-Dist: croniter>=6.0.0
 Requires-Dist: tzdata>=2024.2
 Requires-Dist: w3lib>=2.2.1
-Requires-Dist: abxbus==2.5.74
-Requires-Dist: abxpkg==1.13.35
-Requires-Dist: abx-plugins[opencode]==1.13.162
-Requires-Dist: abx-dl==1.13.127
+Requires-Dist: abxbus==2.5.79
+Requires-Dist: abxpkg==1.13.73
+Requires-Dist: abx-plugins[opencode]==1.13.578
+Requires-Dist: abx-dl==1.13.277
 Requires-Dist: uuid7>=0.1.0; python_version < "3.14"
 Requires-Dist: browser-cookie3>=0.20.1
 Provides-Extra: sonic
@@ -137,6 +140,7 @@ It also detects any content featured *inside* pages & extracts it out into a fol
 - 🎥 **Social Media**/**News** ➡️ `post content TXT`, `comments`, `title`, `author`, `images`, ...
 - 🎬 **YouTube**/**SoundCloud**/etc. ➡️ `MP3/MP4`s, `subtitles`, `metadata`, `thumbnail`, ...
 - 💾 **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
+- 📑 **Google Docs**/**Dropbox**/**Scientific Papers** ➡️ `PDF`, `DOCX`, `CSV`, `PPTX`, ...
 - ✨ *and more, see [Output Formats](#output-formats) below...*
 
 You can run ArchiveBox as a Docker web app to manage these snapshots, or continue accessing the same collection using the `uv`-installed CLI, Python API, and SQLite3 APIs.
@@ -279,7 +283,9 @@ docker compose exec archivebox archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
+Docker image channels: `archivebox/archivebox:dev` advances only after full CI passes. Development servers can opt into `:dev-unstable`, which follows the newest clean `dev` image after both architectures finish the Docker build and checks, without waiting for the rest of CI. The existing universal `:sha-<12-character-commit>` tag is published at the same time. Both channels include amd64 and arm64, and are also available at `ghcr.io/archivebox/archivebox`. The early `dev-unstable` and SHA images can contain changes that fail later checks; ordinary installations should keep using the fully tested release channels.
+
+See <a href="#cli-usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
 <br/><br/>
 </details>
 
@@ -303,7 +309,7 @@ docker exec archivebox archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
 <br/><br/>
 </details>
 
@@ -317,7 +323,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 See <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/setup.sh"><code>setup.sh</code></a> for the source code of the <code>uv</code> install shortcut.<br/>
 See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as an install method"</a> blog post for my thoughts on the shortcomings of this install method.
 <br/><br/>
@@ -357,7 +363,7 @@ archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 <br/>
 <sub>See the <a href="https://docs.astral.sh/uv/guides/tools/"><code>uv tool</code> documentation</a> for more details about this installation method.</sub>
 <br/><br/>
@@ -379,7 +385,7 @@ sudo apt install archivebox
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data
 cd ~/archivebox/data
 archivebox init
-sudo archivebox install
+sudo "$(command -v archivebox)" install
 archivebox add 'https://example.com'
 </code></pre>
 <br/>
@@ -392,8 +398,8 @@ archivebox help
 </code></pre>
 </li>
 </ol>
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
-<sub>The apt package is a thin dev-channel wrapper around the normal Python install flow. <code>sudo archivebox install</code> uses apt for missing system dependencies while preserving ownership of the user-owned collection. See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for details.</sub>
+See <a href="#cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+<sub>The apt package is a thin dev-channel wrapper around the normal Python install flow. <code>sudo "$(command -v archivebox)" install</code> uses apt for missing system dependencies while preserving ownership of the user-owned collection. See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for details.</sub>
 <br/><br/>
 </details>
 
@@ -426,7 +432,7 @@ archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 <sub>See the <a href="https://github.com/ArchiveBox/homebrew-archivebox"><code>homebrew-archivebox</code></a> repo for more details about this distribution.</sub>
 <br/><br/>
 </details>
@@ -444,7 +450,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Guix: <a href="https://packages.guix.gnu.org/packages/archivebox/"><code>guix install archivebox</code></a> (contributed by <a href="https://github.com/rakino"><code>@rakino</code></a>)</li>
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
 </ul>
-See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
 <br/><br/>
 </details>
 
@@ -486,7 +492,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
 </ul>
-See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
 <br/><br/>
 </details>
 
@@ -497,6 +503,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 <li><a href="https://elest.io/open-source/archivebox"><img src="https://img.shields.io/badge/Managed_Hosting-Elest.io-%23193f7e.svg?style=flat" height="22px"/></a></li>
 <li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
 <li><a href="https://www.pikapods.com/pods?run=archivebox"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-PikaPods.com-%2343a047.svg?style=flat" height="22px"/></a> (from USD $2.6/mo)</li>
+<li><a href="https://pethost.dev/templates/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-Pethost.dev-%230e0e0e.svg?style=flat" height="22px"/></a> (from EUR €9.99/mo)</li>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
  <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean.com-%232f7cf7.svg?style=flat" height="22px"/>
 </a> (USD $5-50+/mo, <a href="https://m.do.co/c/cbc4c0c17840">🎗&nbsp; referral link</a>, <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-compose-on-ubuntu-20-04">instructions</a>)</li>
@@ -511,6 +518,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 </a> (USD $0-5+/mo)</li>
 <li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
 <li><a href="https://azuremarketplace.microsoft.com/en-us/marketplace/apps/meanio.archivebox?ocid=gtmrewards_whatsnewblog_archivebox_vol118"><img src="https://img.shields.io/badge/Unmanaged_VPS-Azure-%237cb300.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
+<li><a href="https://repocloud.io/details/ArchiveBox/"><img src="https://d16t0pc4846x52.cloudfront.net/deploylobe.svg" alt="Deploy on RepoCloud" height="22px"/></a> (USD $3-50+/mo)</li>
 <br/>
 <sub><i>Referral links marked 🎗 provide $5-10 of free credit for new users and help pay for our <a href="https://demo.archivebox.io">demo server</a> hosting costs.</i></sub>
 </ul>
@@ -532,6 +540,8 @@ For more discussion on third-party hosting options see here: <a href="https://gi
 <br/>
 
 ### Usage
+
+<a id="cli-usage"></a>
 
 #### ⚡️&nbsp; <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage">CLI Usage</a>
 
@@ -728,10 +738,13 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev add --depth=1 'https://ex
 
 
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="28px"/> <b>From the official <a href="https://github.com/ArchiveBox/archivebox-extension">ArchiveBox Browser Extension</a></b>  
-  <i>Provides realtime archiving of browsing history or selected pages from Chrome/Chromium/Firefox/Safari browsers.</i>
+  <i>Provides realtime archiving of browsing history or selected pages from Chrome/Brave/Firefox/Safari/Edge browsers.</i>
 
-- <img src="https://app.archivebox.io/App/AppIcon.icon/Assets/ArchiveBox.png" alt="ArchiveBox app icon" height="28px"/> <b>From the official <a href="https://app.archivebox.io/">ArchiveBox macOS Desktop App or iOS Mobile App</a></b><br/>
+- <img src="https://app.archivebox.io/App/AppIcon.icon/Assets/ArchiveBox.png" alt="ArchiveBox app icon" height="28px"/> <b>From the official ArchiveBox <a href="https://app.archivebox.io/">macOS Desktop App</a>, <a href="https://app.archivebox.io/">iOS App</a>, or <a href="https://android.archivebox.io">Android App</a></b><br/>
   <i>Save directly from the Share menu or Siri/Shortcuts to your server.</i>
+
+- 💬 <b>From <a href="https://github.com/ArchiveBox/archivebox-chat-bot">ArchiveBox Bot</a> in your chat apps</b><br/>
+  <i>Save links from DMs, @mentions, and groups; use ArchiveBox AI Bot for multi-step archive tasks. <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Integrating-with-Slack">Setup & screenshots →</a></i>
 
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> From manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown, etc. files  
   <i>ArchiveBox supports injesting URLs in [any text-based format](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#import-a-list-of-urls-from-a-text-file).</i>
@@ -766,6 +779,10 @@ echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox a
 See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage) page for documentation and examples.
 
 It also includes a built-in scheduled import feature with `archivebox schedule`, handled by the same orchestrator that powers `archivebox server`, so you can pull in URLs from RSS feeds and websites regularly without a separate cron container.
+
+Recursive schedules (`--depth=1` or greater) refresh their explicit seed URLs on each run so they can discover new links. With `ONLY_NEW=True`, previously archived discovered URLs are still skipped. Nonrecursive schedules and ordinary `add --only-new` calls continue to skip existing URLs. Schedules preserve explicitly submitted filters, plugin selection, limits, and custom config; each new run resolves current defaults for settings left unspecified.
+
+`CRAWL_DISCOVERY_PLUGINS=parse_html_urls` restricts child URL discovery to the named plugin's saved `urls.jsonl`; comma-separated names select multiple sources, and the default empty value accepts every source. Other plugins still run and preserve their outputs. This setting leaves explicit seeds unchanged and combines with `URL_ALLOWLIST`, `URL_DENYLIST`, depth limits, and `ONLY_NEW` when admitting children.
 
 <br/>
 
@@ -828,6 +845,16 @@ env CHROME_BINARY=chromium archivebox version   # run with a one-off config
 
 The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded from: [`archivebox/config/`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/).
 
+Title extraction prefers Open Graph or Twitter title metadata, then falls back
+to the rendered page title, including JavaScript changes. This preserves post
+captions on sites such as Instagram that use a generic document title.
+By default, HTTP downloads reuse Chrome's detected identity after browser setup.
+yt-dlp keeps its native identity and its own argument overrides.
+Set <code>USER_AGENT</code> to override the shared request identity, or
+<code>CHROME_USER_AGENT</code> for an explicit browser override, before creating a
+new crawl. The historical curl-only <code>CURL_USER_AGENT</code> option does not
+configure browser title extraction. Existing crawls retain their frozen config.
+
 <a name="most-common-options-to-tweak"></a>
 <details>
 <summary><i>Expand to see the most common options to tweak...</i></summary>
@@ -867,7 +894,7 @@ ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.c
 <li>Language: Python <code>&gt;=3.13</code></li>
 <li>Backend: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://django-ninja.dev/">Django-Ninja</a> for REST API</li>
 <li>Frontend: <a href="https://docs.djangoproject.com/en/6.0/ref/contrib/admin/">Django Admin</a> + Vanilla HTML, CSS, JS</li>
-<li>Web Server: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://github.com/django/daphne/"><code>daphne</code></a> (ASGI)</li>
+<li>Web Server: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://uvicorn.dev/"><code>uvicorn</code></a> (ASGI; Daphne for <code>--debug</code>)</li>
 <li>Database: <a href="https://docs.djangoproject.com/en/6.0/ref/databases/#sqlite-notes">Django ORM</a> saving to <a href="https://www.sqlite.org/mostdeployed.html">SQLite3</a> <code>./data/index.sqlite3</code></li>
 <li>Job Queue: Custom orchestrator using <code>supervisord</code> for worker management</li>
 <li>Build/test/lint: <a href="https://github.com/astral-sh/uv"><code>uv</code></a> / <code>pyright</code>+<code>ty</code>+<code>pytest</code> / <code>ruff</code></li>
@@ -937,7 +964,7 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
     index.sqlite3
     ArchiveBox.conf
     archive/
-        1617687755 -> users/admin/snapshots/20210406/example.com/SNAPSHOT_UUID/
+        1617687755 -> users/admin/snapshots/20210406/example.com/SNAPSHOT_UUID/   # legacy style dirs have been moved to a new layout
         users/
             admin/
                 snapshots/
@@ -954,6 +981,28 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 </code></pre>
 
 Each snapshot subfolder includes static metadata and plain extractor output files. Current releases do not create top-level <code>data/archive/TIMESTAMP</code> projections; legacy timestamp directories are migrated into the user-scoped tree by <code>archivebox update --migrate-only</code>.
+
+To import saved captures into another collection, initialize the destination with
+<code>archivebox init</code>, then copy completed snapshot directories into its
+<code>archive/</code> tree, preserving their relative paths and
+<code>index.jsonl</code> (or legacy <code>index.json</code>) files. From the
+destination collection, run <code>archivebox update --rescan --migrate-only</code>.
+The explicit rescan discovers directories absent from the database, restores
+snapshot/crawl identities and saved results, and can be restarted. Normal
+<code>init</code> and <code>update</code> do not scan the entire archive tree.
+Conflicting identities are reported rather than overwritten. Copying captures
+does not require importing the old database or its machine/process records.
+
+To repair only known captures, add snapshot filters, for example
+<code>archivebox update --rescan --migrate-only --filter-type timestamp TIMESTAMP</code>.
+Filtered rescans do not search other directories for orphans or recapture URLs.
+Retained files without recoverable extractor history contribute to the cached
+snapshot size without creating successful extractor results.
+
+Tags are restored on the first import. Later rescans preserve tag removals and
+renames made in the destination database and update the on-disk metadata.
+Crawl tags are copied to new snapshots at creation time. Changing crawl tags
+does not change earlier snapshots; use the admin bulk tag actions to edit those.
 
 <h4>Learn More</h4>
 <ul>
@@ -1125,6 +1174,9 @@ archivebox add --no-only-new 'https://example.com'
 
 The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI performs the same explicit re-archive.
 
+<code>Archive Now</code> creates a new capture and preserves the selected historical
+snapshot. <code>Redo</code> reruns extraction on the selected snapshot in place.
+
 <h4>Learn More</h4>
 
 <ul>
@@ -1220,6 +1272,8 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ca85432e-a2df-40c6-968f-51a1ef99b24e" width="100%" alt="paisley graphic">
 </div>
 
+
+<a id="background--motivation"></a>
 
 # Background & Motivation
 

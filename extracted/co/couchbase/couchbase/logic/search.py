@@ -1012,14 +1012,9 @@ class SearchQueryBuilder:
 
         if self.sort:
             sort_specs = []
-            if all(map(lambda s: isinstance(s, str), self.sort)):
-                for s in self.sort:
-                    encoded = json.dumps(s)
-                    sort_specs.append(encoded)
-            else:
-                for s in self.sort:
-                    encoded = json.dumps(s.as_encodable())
-                    sort_specs.append(encoded)
+            for s in self.sort:
+                encoded = json.dumps(s if isinstance(s, str) else s.as_encodable())
+                sort_specs.append(encoded)
 
             params['sort_specs'] = sort_specs
 
@@ -1031,11 +1026,10 @@ class SearchQueryBuilder:
 
     @property
     def timeout(self) -> Optional[float]:
-        value = self._params.get('timeout', None)
-        if not value:
+        total_ms = self._params.get('timeout', None)
+        if not total_ms:
             return None
-        value = value[:-1]
-        return float(value)
+        return total_ms / 1000
 
     @timeout.setter
     def timeout(self, value  # type: Union[timedelta,float,int]
@@ -1128,7 +1122,7 @@ class SearchQueryBuilder:
             if value in [HighlightStyle.Html.value, HighlightStyle.Ansi.value]:
                 self.set_option('highlight_style', value)
         else:
-            raise InvalidArgumentException(message=("Excepted highlight_style to be either of type "
+            raise InvalidArgumentException(message=("Expected highlight_style to be either of type "
                                                     "HighlightStyle or str representation "
                                                     "of HighlightStyle"))
 
@@ -1171,7 +1165,7 @@ class SearchQueryBuilder:
                 else:
                     self.set_option('scan_consistency', value)
             else:
-                raise InvalidArgumentException(message=("Excepted consistency to be either of type "
+                raise InvalidArgumentException(message=("Expected consistency to be either of type "
                                                         "SearchScanConsistency or str representation "
                                                         "of SearchScanConsistency"))
 
@@ -1253,7 +1247,8 @@ class SearchQueryBuilder:
         elif all(map(lambda s: isinstance(s, (Sort, str)), value)):
             self._sort = value
         else:
-            InvalidArgumentException(message='sort option must be either List[str] | List[Sort] | List[Sort | str]')
+            raise InvalidArgumentException(
+                message='sort option must be either List[str] | List[Sort] | List[Sort | str]')
 
     @property
     def raw(self) -> Optional[Dict[str, Any]]:
@@ -1309,7 +1304,7 @@ class SearchQueryBuilder:
 
     @property
     def vector_query_combination(self) -> Optional[VectorQueryCombination]:
-        value = self._params.get('highlight_style', None)
+        value = self._params.get('vector_query_combination', None)
         if isinstance(value, VectorQueryCombination):
             return value
         if isinstance(value, str):
@@ -1325,7 +1320,7 @@ class SearchQueryBuilder:
             if value.lower() in [VectorQueryCombination.AND.value, VectorQueryCombination.OR.value]:
                 self.set_option('vector_query_combination', value.lower())
         else:
-            raise InvalidArgumentException(message=("Excepted vector_query_combination to be either of type "
+            raise InvalidArgumentException(message=("Expected vector_query_combination to be either of type "
                                                     "VectorQueryCombination or str representation "
                                                     "of VectorQueryCombination"))
 

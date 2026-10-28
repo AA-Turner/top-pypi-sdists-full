@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Iterable
 from typing_extensions import Literal, Required, Annotated, TypedDict
 
+from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
 
-__all__ = ["BoxCreateSnapshotParams", "RunConfig"]
+__all__ = ["BoxCreateSnapshotParams", "ImageConfig", "RunConfig"]
 
 
 class BoxCreateSnapshotParams(TypedDict, total=False):
@@ -35,6 +36,15 @@ class BoxCreateSnapshotParams(TypedDict, total=False):
 
     fs_capacity_bytes: int
     """required for Docker image export unless the sandbox has a capacity"""
+
+    image_config: ImageConfig
+    """
+    ImageConfig sets the command and ports the snapshot records, as a Docker image's
+    ENTRYPOINT, CMD and EXPOSE do. By default a capture keeps those of the snapshot
+    the sandbox was created from; each field given here replaces that one, and an
+    empty list clears it. A function serving the snapshot runs this command and
+    listens on its one exposed port.
+    """
 
     include: List[Literal["all", "mounts", "proxy_config", "env_vars", "resources", "lifecycle", "labels"]]
     """Sandbox settings to carry into the snapshot.
@@ -69,6 +79,26 @@ class BoxCreateSnapshotParams(TypedDict, total=False):
 
     tag: str
     """mutable Docker-style tag; defaults to "latest" """
+
+
+class ImageConfig(TypedDict, total=False):
+    """
+    ImageConfig sets the command and ports the snapshot records, as a Docker image's ENTRYPOINT, CMD and EXPOSE do. By default a capture keeps
+    those of the snapshot the sandbox was created from; each field given here replaces that one, and an empty list clears it. A function
+    serving the snapshot runs this command and listens on its one exposed port.
+    """
+
+    cmd: SequenceNotStr[str]
+    """
+    Cmd follows Entrypoint, as CMD: its arguments, or the whole command when
+    Entrypoint is empty.
+    """
+
+    entrypoint: SequenceNotStr[str]
+    """Entrypoint is the program the command starts with, as ENTRYPOINT."""
+
+    exposed_ports: Iterable[int]
+    """ExposedPorts are the TCP ports the command listens on, as EXPOSE."""
 
 
 class RunConfig(TypedDict, total=False):

@@ -208,6 +208,7 @@ from koyeb.api_async.models.digital_ocean_registry_configuration import (
 from koyeb.api_async.models.discourse_auth_reply import DiscourseAuthReply
 from koyeb.api_async.models.discourse_auth_request import DiscourseAuthRequest
 from koyeb.api_async.models.docker_builder import DockerBuilder
+from koyeb.api_async.models.docker_deployment_metadata import DockerDeploymentMetadata
 from koyeb.api_async.models.docker_hub_registry_configuration import (
     DockerHubRegistryConfiguration,
 )
@@ -234,6 +235,7 @@ from koyeb.api_async.models.exec_command_request_terminal_size import (
 from koyeb.api_async.models.gcp_container_registry_configuration import (
     GCPContainerRegistryConfiguration,
 )
+from koyeb.api_async.models.grpc_health_check import GRPCHealthCheck
 from koyeb.api_async.models.get_app_reply import GetAppReply
 from koyeb.api_async.models.get_budget_reply import GetBudgetReply
 from koyeb.api_async.models.get_catalog_instance_reply import GetCatalogInstanceReply
@@ -517,6 +519,9 @@ from koyeb.api_async.models.regional_deployment_list_item import (
     RegionalDeploymentListItem,
 )
 from koyeb.api_async.models.regional_deployment_mesh import RegionalDeploymentMesh
+from koyeb.api_async.models.regional_deployment_metadata import (
+    RegionalDeploymentMetadata,
+)
 from koyeb.api_async.models.regional_deployment_role import RegionalDeploymentRole
 from koyeb.api_async.models.regional_deployment_status import RegionalDeploymentStatus
 from koyeb.api_async.models.regional_deployment_volume import RegionalDeploymentVolume

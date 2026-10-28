@@ -1,4 +1,3 @@
-from types import MappingProxyType
 from typing import ClassVar, Final, final
 
 from mypy.nodes import (
@@ -22,19 +21,23 @@ from mypy.types import (
 from mypy.types import Type as MypyType
 
 from returns.contrib.mypy._structures.args import FuncArg
+from returns.primitives.compat import make_immutable
 
-#: Kinds of arguments that consume the leftover positional or keyword
-#: arguments (``*args`` and ``**kwargs``) and therefore cannot be applied.
 _VARIADIC_KINDS: Final = frozenset((ARG_STAR, ARG_STAR2))
+"""Kinds of arguments that consume leftover arguments.
 
-#: Kinds of arguments that can be passed positionally.
+These are ``*args`` and ``**kwargs``, which consume the leftover
+positional or keyword arguments and therefore cannot be applied.
+"""
+
 _POSITIONAL_KINDS: Final = frozenset((ARG_POS, ARG_OPT))
+"""Kinds of arguments that can be passed positionally."""
 
-#: Maps a positional argument kind onto its keyword-only counterpart.
-_KEYWORD_ONLY_KINDS: Final = MappingProxyType({
+_KEYWORD_ONLY_KINDS: Final = make_immutable({
     ARG_POS: ARG_NAMED,
     ARG_OPT: ARG_NAMED_OPT,
 })
+"""Maps a positional argument kind onto its keyword-only counterpart."""
 
 
 def proper_type(
@@ -55,12 +58,12 @@ class Intermediate:
     was already provided in caller.
     """
 
-    #: Positional arguments can be of this kind.
     _positional_kinds: ClassVar[frozenset[ArgKind]] = frozenset((
         ARG_POS,
         ARG_OPT,
         ARG_STAR,
     ))
+    """Positional arguments can be of this kind."""
 
     def __init__(self, case_function: CallableType) -> None:
         """We only need a callable to work on."""
@@ -96,9 +99,7 @@ class Intermediate:
     ) -> list[FuncArg]:
         callee_args = list(
             filter(
-                lambda name: (
-                    name.name is None
-                ),  # TODO: maybe use `kind` instead?
+                lambda name: name.kind in self._positional_kinds,
                 applied_args,
             )
         )
@@ -160,7 +161,8 @@ class Functions:
         # longer be filled positionally, so every remaining positional
         # parameter after it must become keyword-only. Otherwise the partial
         # would accept positional arguments that raise a ``TypeError`` at
-        # runtime. See issue #2191.
+        # runtime. Variadic positional parameters become unreachable too.
+        # See issue #2191.
         keyword_hole_at = self._keyword_hole_at(
             original_args,
             applied_args,
@@ -170,6 +172,7 @@ class Functions:
             self._remaining_arg(arg, keyword_only=index > keyword_hole_at)
             for index, arg in enumerate(original_args)
             if not self._was_applied(arg, index, intermediate_names)
+            and (arg.kind != ARG_STAR or index < keyword_hole_at)
         ])
 
     def _keyword_hole_at(

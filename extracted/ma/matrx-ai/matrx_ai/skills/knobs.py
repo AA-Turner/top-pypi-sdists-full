@@ -16,6 +16,8 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+from matrx_utils.knob_fallback import knob_or_declared_default_sync
+
 FEATURE = "agents.context"
 
 _reader: Callable[[str], Any] | None = None
@@ -44,7 +46,13 @@ def skill_knob_int(key: str, mirror: int) -> int:
             )
         return mirror
     try:
-        return int(_reader(key))
+        return int(knob_or_declared_default_sync(
+            lambda: _reader(key),
+            feature=FEATURE,
+            key=key,
+            declared_default=mirror,
+            consequence=f"Skill reading uses its built-in value {mirror!r} for {key}, and an admin cannot change it.",
+        ))
     except Exception as exc:  # noqa: BLE001 — announced once per key, never a crashed turn
         if key not in _failed:
             _failed.add(key)

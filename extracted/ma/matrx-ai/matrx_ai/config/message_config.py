@@ -64,6 +64,10 @@ TURN_CONTEXT_NOTE = (
     "simply knew what this contains."
 )
 TURN_CONTEXT_CLOSE = "</turn_context>"
+#: The same note without the platform naming itself — used while a caller's request firewall
+#: lists terms that must not reach the model (``request_firewall.self_description_withheld``):
+#: a blind run about a brand that shares words with our platform must be able to run.
+TURN_CONTEXT_NOTE_NEUTRAL = TURN_CONTEXT_NOTE.replace("the AI Matrx platform", "the platform")
 
 #: Slots whose material the model MAY speak about: each renders in its OWN
 #: ``<turn_context source="platform" slot="...">`` frame with its own note, never
@@ -75,6 +79,14 @@ TURN_CONTEXT_CLOSE = "</turn_context>"
 #: (``room_view``) is the case: the model must be able to name and quote the
 #: other speakers in the group.
 TURN_CONTEXT_SLOT_NOTES: dict[str, str] = {}
+
+
+def _turn_context_note() -> str:
+    """The shared frame's note — without the platform's self-description while a request
+    firewall term list is open (the send boundary still scans everything that is sent)."""
+    from matrx_ai.config.request_firewall import self_description_withheld
+
+    return TURN_CONTEXT_NOTE_NEUTRAL if self_description_withheld() else TURN_CONTEXT_NOTE
 
 
 def register_turn_context_slot_note(slot: str, note: str) -> None:
@@ -1367,7 +1379,7 @@ class MessageList:
         frames: list[str] = []
         if body:
             frames.append(
-                "\n".join((TURN_CONTEXT_OPEN, TURN_CONTEXT_NOTE, "", body, TURN_CONTEXT_CLOSE))
+                "\n".join((TURN_CONTEXT_OPEN, _turn_context_note(), "", body, TURN_CONTEXT_CLOSE))
             )
         # A slot with its own note gets its own frame (see TURN_CONTEXT_SLOT_NOTES).
         for slot, block in self._turn_context_blocks.items():

@@ -574,7 +574,6 @@ mod_patch(PyObject *module, PyObject *args)
 {
     char *origData, *newData, *controlBlock, *diffBlock, *extraBlock;
     Py_ssize_t origDataLength, newDataLength, controlBlockLength;
-    Py_ssize_t diffBlockLength, extraBlockLength;
     Py_ssize_t diffRemaining, extraRemaining;
     PyObject *result;
     Py_ssize_t newpos = 0, i;
@@ -583,8 +582,8 @@ mod_patch(PyObject *module, PyObject *args)
     if (!PyArg_ParseTuple(args, "s#ns#s#s#",
                           &origData, &origDataLength, &newDataLength,
                           &controlBlock, &controlBlockLength,
-                          &diffBlock, &diffBlockLength,
-                          &extraBlock, &extraBlockLength))
+                          &diffBlock, &diffRemaining,
+                          &extraBlock, &extraRemaining))
         return NULL;
 
     if (newDataLength < 0) {
@@ -601,8 +600,6 @@ mod_patch(PyObject *module, PyObject *args)
         return NULL;
     newData = PyBytes_AS_STRING(result);
 
-    diffRemaining = diffBlockLength;
-    extraRemaining = extraBlockLength;
     for (i = 0; i < controlBlockLength; i += 24) {
         int64_t x, y, z, j;
 
@@ -619,8 +616,6 @@ mod_patch(PyObject *module, PyObject *args)
             if (oldpos >= -j && oldpos < origDataLength - j)
                 newData[newpos + j] += origData[oldpos + j];
         newpos += x;
-        if (update_oldpos(&oldpos, x) < 0)
-            goto error;
         if (y < 0 || y > newDataLength - newpos || y > extraRemaining) {
             PyErr_SetString(PyExc_ValueError, "corrupt patch (overflow)");
             goto error;
@@ -629,7 +624,8 @@ mod_patch(PyObject *module, PyObject *args)
         extraBlock += y;
         extraRemaining -= y;
         newpos += y;
-        if (update_oldpos(&oldpos, z) < 0)
+        if (update_oldpos(&oldpos, x) < 0 ||
+            update_oldpos(&oldpos, z) < 0)
             goto error;
     }
 
@@ -737,6 +733,10 @@ PyInit_core(void)
     m = PyModule_Create(&moduledef);
     if (m == NULL)
         return NULL;
+
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
 
     return m;
 }

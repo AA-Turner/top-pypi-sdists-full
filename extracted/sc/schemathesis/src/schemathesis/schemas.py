@@ -135,9 +135,13 @@ class BaseSchema(Mapping):
     def title(self) -> str | None:
         return None
 
+    def get_transport(self, app: object) -> transport.BaseTransport:
+        """Transport that sends this schema's cases to `app`, or over the network when `app` is `None`."""
+        return transport.get(app)
+
     @property
     def transport(self) -> transport.BaseTransport:
-        return transport.get(self.app)
+        return self.get_transport(self.app)
 
     def is_security_param_negated(self, case: Case) -> bool:
         return False
@@ -941,6 +945,8 @@ class APIOperation(Generic[P, R, S, SchemaT]):
     filter_case_tracker: FilterCaseTracker | None = field(default=None, repr=False, compare=False)
     # Optional parameters left out because their schemas could not be parsed.
     skipped_parameters: list[SkippedParameter] = field(default_factory=list, repr=False, compare=False)
+    # Schema errors in parts left out of an otherwise testable operation, reported while the rest is tested.
+    schema_errors: list[InvalidSchema] = field(default_factory=list, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not self.label:
@@ -1201,13 +1207,11 @@ class APIOperation(Generic[P, R, S, SchemaT]):
             multipart_content_types: Selected content types for multipart form properties.
 
         """
-        from requests.structures import CaseInsensitiveDict
-
         return self.schema.make_case(
             operation=self,
             method=method,
             path_parameters=path_parameters or {},
-            headers=CaseInsensitiveDict() if headers is None else CaseInsensitiveDict(headers),
+            headers=headers,
             cookies=cookies or {},
             query=query or {},
             body=body,

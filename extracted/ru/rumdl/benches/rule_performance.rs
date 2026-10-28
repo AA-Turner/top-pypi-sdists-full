@@ -3,13 +3,39 @@ use rumdl_lib::config::MarkdownFlavor;
 use rumdl_lib::lint_context::LintContext;
 use rumdl_lib::rule::Rule;
 use rumdl_lib::rules::{
-    MD013LineLength, MD033NoInlineHtml, MD037NoSpaceInEmphasis, MD044ProperNames, MD051LinkFragments,
-    MD053LinkImageReferenceDefinitions,
+    MD013LineLength, MD033NoInlineHtml, MD034NoBareUrls, MD037NoSpaceInEmphasis, MD044ProperNames, MD050StrongStyle,
+    MD051LinkFragments, MD053LinkImageReferenceDefinitions, MD054LinkImageStyle,
 };
 use std::hint::black_box;
 
 fn make_ctx(content: &str) -> LintContext<'_> {
     LintContext::new(content, MarkdownFlavor::Standard, None)
+}
+
+/// Long generated paragraphs exercise construct lookups and diagnostic columns.
+/// Keep the context warm to measure the rule; CLI comparisons include parsing.
+fn bench_md034_scaling(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md034_scaling");
+    let rule = MD034NoBareUrls;
+    for count in [16, 256, 4096, 16384] {
+        for (name, unit, warnings_per_unit) in [
+            ("formatted", "[link](https://example.com) <hello@example.com> ", 0),
+            ("bare", "https://example.com hello@example.com ", 2),
+            (
+                "mixed_unicode",
+                "é🦀 [link](https://example.com) https://bare.example hello@example.com ",
+                2,
+            ),
+        ] {
+            let content = format!("{}\n", unit.repeat(count));
+            let ctx = make_ctx(&content);
+            assert_eq!(rule.check(&ctx).unwrap().len(), count * warnings_per_unit);
+            group.bench_function(format!("{name}/{count}"), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
 }
 
 /// Benchmark MD013 rule on a large content with long lines
@@ -42,6 +68,52 @@ fn bench_md033(c: &mut Criterion) {
     let ctx = make_ctx(&content);
 
     c.bench_function("MD033 check 500 HTML tags", |b| b.iter(|| rule.check(black_box(&ctx))));
+}
+
+/// Repeated tags on one line exercise diagnostic end-column calculation.
+fn bench_md033_scaling(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md033_scaling");
+    group.sample_size(10);
+    let rule = MD033NoInlineHtml::default();
+    for count in [128, 2048, 8192, 32768] {
+        for (name, unit) in [
+            ("ascii", "text <span>x</span> "),
+            ("unicode", "é日本🙂 <span>x</span> "),
+        ] {
+            let content = unit.repeat(count);
+            let ctx = make_ctx(&content);
+            assert_eq!(rule.check(&ctx).unwrap().len(), count);
+            group.bench_function(format!("{name}/{count}"), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+/// Many permitted regions exercise lookups both inside and outside each region.
+fn bench_md033_allowed_inside(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md033_allowed_inside");
+    group.sample_size(10);
+    let config = toml::from_str("allowed-inside = ['details', 'section']").unwrap();
+    let rule = MD033NoInlineHtml::from_config_struct(config);
+    for count in [128, 2048, 8192, 32768] {
+        for (name, unit) in [
+            ("siblings", "<details><b>inside</b></details><i>outside</i>\n"),
+            (
+                "nested",
+                "<details><section><b>inside</b></section><i>inside</i></details><b>outside</b>\n",
+            ),
+        ] {
+            let content = unit.repeat(count);
+            let ctx = make_ctx(&content);
+            assert_eq!(rule.check(&ctx).unwrap().len(), count);
+            group.bench_function(format!("{name}/{count}"), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
 }
 
 /// Benchmark MD037 rule on a large content with emphasis
@@ -180,10 +252,96 @@ fn bench_md053(c: &mut Criterion) {
     c.bench_function("MD053 fix unused references", |b| b.iter(|| rule.fix(black_box(&ctx))));
 }
 
+/// Separate lines keep column calculation cheap while exercising fix conflicts.
+fn bench_md054_fix_planning(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md054_fix_planning");
+    group.sample_size(10);
+    let rule = MD054LinkImageStyle::new(true, true, true, false, true, true);
+    for count in [128, 1024, 4096] {
+        for (name, unit, warnings_per_unit) in [
+            ("links", "[label](https://example.com)\n", 1),
+            (
+                "nested",
+                "[![alt](image.png)](https://example.com) [plain](https://example.com)\n",
+                3,
+            ),
+        ] {
+            let content = unit.repeat(count);
+            let ctx = make_ctx(&content);
+            let warnings = rule.check(&ctx).unwrap();
+            assert_eq!(warnings.len(), count * warnings_per_unit);
+            assert_eq!(warnings.iter().filter(|warning| warning.fix.is_some()).count(), count);
+            group.bench_function(format!("{name}/{count}"), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+/// Repeated diagnostics on one line must reuse the parser's character columns.
+fn bench_md054_long_lines(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md054_long_lines");
+    group.sample_size(10);
+    let rule = MD054LinkImageStyle::new(true, true, true, false, true, true);
+    for count in [128, 1024, 4096, 16384] {
+        for (name, unit) in [
+            ("ascii", "[label](target) ![alt](image.png) "),
+            ("unicode", "é日本🙂 [标签](target) ![图](image.png) "),
+        ] {
+            let content = format!("{}\n", unit.repeat(count));
+            let ctx = make_ctx(&content);
+            assert_eq!(rule.check(&ctx).unwrap().len(), count * 2);
+            group.bench_function(format!("{name}/{count}"), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
+/// Consistency detection and diagnostics share indexed skip/position facts.
+fn bench_md050_long_lines(c: &mut Criterion) {
+    let mut group = c.benchmark_group("md050_long_lines");
+    group.sample_size(10);
+    let rule = MD050StrongStyle::default();
+    for count in [128, 1024, 4096] {
+        for (name, unit, flavor) in [
+            ("ascii", "**good** __other__ ", MarkdownFlavor::Standard),
+            ("unicode", "é日本🙂 **good** __other__ ", MarkdownFlavor::Standard),
+            (
+                "code_markup",
+                "`**code**` :smile: **good** __other__ ",
+                MarkdownFlavor::Standard,
+            ),
+            (
+                "mkdocs",
+                "++ctrl+alt++ ^^insert^^ ~sub~ ==mark== :smile: `**code**` **good** __other__ ",
+                MarkdownFlavor::MkDocs,
+            ),
+            ("math", "$x$ **good** __other__ ", MarkdownFlavor::Standard),
+        ] {
+            let content = format!("{}\n", unit.repeat(count));
+            let ctx = LintContext::new(&content, flavor, None);
+            assert_eq!(rule.check(&ctx).unwrap().len(), count);
+            group.bench_function(format!("{name}/{count}"), |b| {
+                b.iter(|| rule.check(black_box(&ctx)).unwrap());
+            });
+        }
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
+    bench_md034_scaling,
     bench_md013,
     bench_md033,
+    bench_md033_scaling,
+    bench_md033_allowed_inside,
+    bench_md054_fix_planning,
+    bench_md054_long_lines,
+    bench_md050_long_lines,
     bench_md037,
     bench_md044,
     bench_md051,

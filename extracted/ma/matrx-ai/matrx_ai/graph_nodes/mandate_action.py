@@ -41,6 +41,13 @@ from matrx_graph.types.result import NodeResult, success
 from pydantic import ConfigDict, Field
 
 from matrx_ai._ext import get_ext, has_ext
+from matrx_ai.config.request_firewall import (
+    FirewallMatch,
+    FirewallScope,
+    FirewallTerm,
+    firewall_from_step_fields,
+    request_firewall_scope,
+)
 from matrx_ai.graph_nodes.agent_action import (
     _AGENT_RESULT_BOOKKEEPING,
     _AGENT_RESULT_QUORUM,
@@ -54,8 +61,8 @@ from matrx_ai.graph_nodes.agent_action import (
     mandate_key_field,
     require_agent_host,
     resolve_step_agent_full,
-    step_result_version,
     run_step_agent,
+    step_result_version,
 )
 from matrx_ai.graph_nodes.iteration_limit import resolve_step_iteration_limit
 from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed_result
@@ -85,6 +92,31 @@ class MandateStartStrictInput(AgentRunCommonInput):
         default=None,
         description=("Every value the mandate's provision offers at this point, by offered name. The "
                      "mandate's binding picks and joins them into the doer's inputs."),
+    )
+    #: THE REQUEST FIREWALL (2026-10-27, ``matrx_ai.config.request_firewall``): checked at the send
+    #: boundary on the exact outgoing request of EVERY provider call (prompt, every message, every
+    #: context block, tool results of earlier turns) and by the host's doors; a hit refuses before
+    #: anything is spent and names the class, never the term. An unmatchable term refuses at start.
+    must_not_contain: list[str | FirewallTerm] | None = Field(
+        default=None,
+        title="Must not contain",
+        description=("Words the request sent to the AI must never contain — often fed from another step. "
+                     "A word, or {term, class}. Any hit stops the step before it is paid for."),
+    )
+    must_not_contain_match: FirewallMatch = Field(
+        default="folded",
+        title="Match",
+        description="folded: ignore case, accents and punctuation. exact: the same characters.",
+    )
+    no_tools: bool = Field(
+        default=False,
+        title="No tools",
+        description="Stop the step if the agent doing the job carries any tool.",
+    )
+    no_auto_context: bool = Field(
+        default=False,
+        title="No automatic context",
+        description="Stop the step if automatic context is on for the agent doing the job.",
     )
 
 
@@ -230,6 +262,7 @@ async def _bind_provision_values(inputs: MandateStartInput, resolved: Any) -> Ma
     icon="target",
     tags=("ai", "mandate", "agent"),
     result_version=step_result_version,
+    sample_preflight=lambda ctx, inputs, config: mandate_sample_preflight(ctx, inputs, config),
 )
 async def mandate_start(
     ctx: NodeExecutionContext,
@@ -293,12 +326,63 @@ async def _record_step_failure(ctx: NodeExecutionContext, mandate_key: str, exc:
         logger.exception("[mandate step] %s: the failure record could not be written", mandate_key)
 
 
+async def mandate_sample_preflight(
+    ctx: NodeExecutionContext,
+    inputs: MandateStartInput,
+    config: AgentStartConfig | None = None,
+) -> dict[str, Any] | None:
+    """THE FIREWALL ON A SAMPLED STEP. A TEST run answers this step from its declared sample, but
+    its request firewall must still be provable without spending: the step's normal body runs in
+    capture mode (``capturing_provider_request``, ``store=False``, a muted emitter) — every door
+    check, the send boundary's ``check_at_send`` and the dispatch check run on the request it
+    WOULD send, and the transport stops it, so nothing is sent, spent or stored. A refusal raises
+    exactly as the live call would; a clean scan returns ``{"request_firewall": [...]}`` for the
+    sampled outcome. A step with no firewall checks nothing here (None)."""
+    firewall = firewall_from_step_fields(
+        inputs.must_not_contain,
+        match=inputs.must_not_contain_match,
+        no_tools=inputs.no_tools,
+        no_auto_context=inputs.no_auto_context,
+    )
+    if firewall is None:
+        return None
+    import copy
+
+    from matrx_connect.emitters.silent_emitter import SilentEmitter
+
+    from matrx_ai.providers.request_capture import (
+        PaidSendBlockedInCapture,
+        capturing_provider_request,
+    )
+
+    capture_ctx = copy.copy(ctx)
+    override = getattr(ctx.app, "with_overrides", None)
+    if callable(override):
+        capture_ctx.app = override(emitter=SilentEmitter(), store=False)
+    node_id = getattr(ctx, "node_id", None) or "?"
+    with capturing_provider_request():
+        try:
+            records = await _mandate_start_body(capture_ctx, inputs.model_copy(deep=True), config, capture=True)
+        except PaidSendBlockedInCapture as blocked:
+            raise ValueError(
+                f"{_NODE_TYPE}:{node_id} (mandate {inputs.mandate_key!r}) is answered from its sample, "
+                f"but its request firewall could not be checked: the run makes a paid call "
+                f"({blocked.method} {blocked.url}) before its request, which a check never makes."
+            ) from None
+    return {"request_firewall": records}
+
+
 async def _mandate_start_body(
     ctx: NodeExecutionContext,
     inputs: MandateStartInput,
     config: AgentStartConfig | None,
     progress: dict[str, bool] | None = None,
-) -> NodeResult[AiExecutionResult]:
+    *,
+    capture: bool = False,
+) -> Any:
+    """The step's body. ``capture`` (``mandate_sample_preflight`` only): the request is built and
+    run to the transport inside the firewall scope, never answered from a replay and never sent;
+    returns the scan records instead of a result."""
     progress = progress if progress is not None else {}
     node_id = getattr(ctx, "node_id", None) or "?"
     inputs = drop_state_echoes(inputs)
@@ -311,7 +395,21 @@ async def _mandate_start_body(
         allow_workflow_holder=has_ext("workflow_mandate_runner"),
     )
     declared_variables = list(getattr(config, "exposed_variables", None) or [])
+    firewall = firewall_from_step_fields(
+        inputs.must_not_contain,
+        match=inputs.must_not_contain_match,
+        no_tools=inputs.no_tools,
+        no_auto_context=inputs.no_auto_context,
+    )
     if isinstance(resolved, StepWorkflowMandate):
+        if firewall is not None:
+            raise ValueError(
+                f"{_NODE_TYPE}:{node_id} (mandate {inputs.mandate_key!r}) has a request firewall, but "
+                "this job is done by a whole workflow, whose many AI calls this step cannot check. "
+                "Give the job to an agent, or put the firewall on the AI steps inside that workflow."
+            )
+        if capture:
+            return None
         progress["holder_started"] = True
         return await _run_workflow_held_mandate(
             ctx, _state_as_extras(inputs), resolved, declared_variables=declared_variables
@@ -326,6 +424,10 @@ async def _mandate_start_body(
         node_type=_NODE_TYPE,
         declared_variables=declared_variables,
         variable_sources=dict(getattr(config, "variable_sources", None) or {}),
+        # The step's declared opt-out of the ~5k-token ``<org_catalog>`` intro (and the
+        # ``scope_system`` reader it brings). Dropped here until 2026-10-27, so every Run Mandate
+        # step carried the catalog even with ``include_org_catalog: false``.
+        include_org_catalog=getattr(config, "include_org_catalog", True),
     )
     # AI TEST MODE — the host may answer this exact step from a recorded test baseline (opt-in per
     # test session only; ``mandate_taps.MandateReplay``). Not installed / real mode → None → real run.
@@ -340,32 +442,73 @@ async def _mandate_start_body(
         "declared_variables": declared_variables,
         "variable_sources": dict(getattr(config, "variable_sources", None) or {}),
     }
-    replayed = await replay_lookup("workflow_step", inputs.mandate_key, run_id, fingerprint)
+    replayed = None if capture else await replay_lookup("workflow_step", inputs.mandate_key, run_id, fingerprint)
     if replayed is not None:
         return success(AiExecutionResult.model_validate(replayed))
 
     progress["holder_started"] = True
-    completed = await run_step_agent(
-        ctx,
-        resolved.agent_id,
-        request,
-        mandate_key=inputs.mandate_key,
-        run_stamp=resolved.run_stamp,
-    )
+    if capture and hasattr(request, "store"):
+        request.store = False
+    from matrx_ai.providers.request_capture import ProviderRequestCaptured
+
+    with request_firewall_scope(firewall, mandate_key=inputs.mandate_key) as scope:
+        try:
+            completed = await run_step_agent(
+                ctx,
+                resolved.agent_id,
+                request,
+                mandate_key=inputs.mandate_key,
+                run_stamp=resolved.run_stamp,
+            )
+        except ProviderRequestCaptured:
+            if not capture:
+                raise
+            completed = None
+        except Exception as exc:
+            if scope is not None and scope.refusals:
+                raise scope.refusals[-1] from exc
+            raise
+    firewall_records = _firewall_outcome(scope, inputs.mandate_key, node_id)
+    if capture:
+        return firewall_records
 
     # A host agent_runner may return an ALREADY-normalized AiExecutionResult
     # (a compiled Orchestra whose final step IS the result). Pass it through.
     if isinstance(completed, AiExecutionResult):
         completed.metadata.setdefault("agent_id", resolved.agent_id)
+        if firewall_records is not None:
+            completed.metadata["request_firewall"] = firewall_records
         await replay_store("workflow_step", inputs.mandate_key, run_id, fingerprint,
                            completed.model_dump(mode="json"))
         return success(completed)
-    result = await asyncio.to_thread(normalize_completed_result, completed)
+    # ``config`` carries the author's ``allow_empty_structured_output`` into the all-zero refusal,
+    # exactly as Run Agent passes it (the field is on the shared AgentStartConfig).
+    result = await asyncio.to_thread(normalize_completed_result, completed, step_config=config)
     # WHO did the job: the doer the database resolved for this run (a research
     # row records it as agent_id, exactly as the research code path does).
     payload = getattr(result, "result", None)
     if isinstance(payload, AiExecutionResult):
         payload.metadata["agent_id"] = resolved.agent_id
+        if firewall_records is not None:
+            payload.metadata["request_firewall"] = firewall_records
         await replay_store("workflow_step", inputs.mandate_key, run_id, fingerprint,
                            payload.model_dump(mode="json"))
     return limit.name_on(result)
+
+
+def _firewall_outcome(scope: FirewallScope | None, mandate_key: str, node_id: str) -> list[dict[str, Any]] | None:
+    """What the request firewall scanned (door records first, then one per provider call the send
+    boundary cleared), for the step outcome — or a refusal the host turned into a failed result,
+    raised as itself. BACKSTOP: the send boundary refuses before any unscanned call, so a run with
+    neither a door record nor a cleared send reached no provider through it — never trusted."""
+    if scope is None:
+        return None
+    if scope.refusals:
+        raise scope.refusals[-1]
+    if not scope.records and not scope.sends:
+        raise ValueError(
+            f"{_NODE_TYPE}:{node_id} (mandate {mandate_key!r}) ran, but no dispatch door checked its "
+            "request firewall, so nothing proves the request was clean. Its answer is not used. This "
+            "host's agent runner does not run the firewall; report it."
+        )
+    return [record.to_dict() for record in (*scope.records, *scope.sends)]

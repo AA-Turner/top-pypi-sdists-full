@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: langsmith
-Version: 0.14.12
+Version: 0.14.14
 Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://github.com/langchain-ai/langsmith-python
 Project-URL: Repository, https://github.com/langchain-ai/langsmith-python
@@ -637,6 +637,32 @@ async def main() -> None:
 
 
 asyncio.run(main())
+```
+
+## Streaming responses
+
+We provide support for streaming responses using Server Side Events (SSE).
+
+```python
+from langsmith import Langsmith
+
+client = Langsmith()
+
+stream = client.runs.streaming.query_v2()
+for streaming in stream:
+    print(streaming.items)
+```
+
+The async client uses the exact same interface.
+
+```python
+from langsmith import AsyncLangsmith
+
+client = AsyncLangsmith()
+
+stream = await client.runs.streaming.query_v2()
+async for streaming in stream:
+    print(streaming.items)
 ```
 
 ## Using types

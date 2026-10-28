@@ -418,6 +418,14 @@ def test_suffix_ambiguous_must_be_subset_of_acronyms() -> None:
         Lexicon(suffix_acronyms_ambiguous=frozenset({"ma"}))
 
 
+def test_an_ambiguous_suffix_word_may_not_be_an_unambiguous_acronym() -> None:
+    # the mirror of the gate-bypass raise: the unambiguous acronym
+    # branch claims a word outright, so a gated suffix word listed there
+    # loses its count ('Ana Neto' would read suffix 'Neto', rules/S11)
+    with pytest.raises(ValueError, match="bypasses the count"):
+        Lexicon.default().add(suffix_acronyms={"neto"})
+
+
 def test_the_shipped_suffix_sets_are_disjoint() -> None:
     # the vocabulary build refuses the overlap (tools/vocab/build.py,
     # run over the shipped files by tests/v2/test_vocab.py), but over the
@@ -550,7 +558,10 @@ def test_given_name_titles_is_not_constrained_against_titles() -> None:
      "suffix_acronyms_ambiguous", "suffix_acronyms"),
     (lambda w: Lexicon(honorific_tails=w),
      "honorific_tails", "suffix_words"),
-], ids=["particles_ambiguous", "suffix_acronyms_ambiguous", "honorific_tails"])
+    (lambda w: Lexicon(suffix_words_ambiguous=w),
+     "suffix_words_ambiguous", "suffix_words"),
+], ids=["particles_ambiguous", "suffix_acronyms_ambiguous", "honorific_tails",
+        "suffix_words_ambiguous"])
 def test_subset_error_names_the_fix(
     make: Callable[[frozenset[str]], Lexicon], marker: str, base: str
 ) -> None:
@@ -794,9 +805,10 @@ _PER_WORD_FIELDS = [f for f in _VOCAB_FIELDS if f not in _PHRASE_FIELDS]
 def test_only_the_phrase_fields_are_exempt_from_the_warning() -> None:
     # The exemption is exactly the kind of edit that silently widens:
     # one more field in _PHRASE_FIELDS costs nothing at construction and
-    # turns a dead entry back into a silent no-op. Two fields, named.
-    assert _PHRASE_FIELDS == ("given_name_titles", "maiden_markers")
-    assert len(_PER_WORD_FIELDS) == len(_VOCAB_FIELDS) - 2
+    # turns a dead entry back into a silent no-op. Three fields, named.
+    assert _PHRASE_FIELDS == ("given_name_titles", "maiden_markers",
+                              "title_phrases")
+    assert len(_PER_WORD_FIELDS) == len(_VOCAB_FIELDS) - 3
 
 
 @pytest.mark.parametrize("field", _PER_WORD_FIELDS)
@@ -804,11 +816,12 @@ def test_multiword_entry_warns_per_field(field: str) -> None:
     # Guard the whole family: every per-word field warns, not one.
     with pytest.warns(UserWarning, match="matched one word at a time"):
         if field in ("particles_ambiguous", "suffix_acronyms_ambiguous",
-                     "honorific_tails"):
+                     "honorific_tails", "suffix_words_ambiguous"):
             # subset fields need their base populated to construct
             base = {"particles_ambiguous": "particles",
                     "suffix_acronyms_ambiguous": "suffix_acronyms",
-                    "honorific_tails": "suffix_words"}[field]
+                    "honorific_tails": "suffix_words",
+                    "suffix_words_ambiguous": "suffix_words"}[field]
             Lexicon.empty().add(**{base: ["zqx zqy"], field: ["zqx zqy"]})
         else:
             Lexicon.empty().add(**{field: ["zqx zqy"]})
@@ -1051,9 +1064,10 @@ def test_a_shipped_phrase_entry_is_stored_as_written(field: str) -> None:
     Over _PHRASE_FIELDS rather than over maiden_markers, so a third
     phrase field arrives already pinned."""
     from nameparser.config.maiden_markers import MAIDEN_MARKERS
-    from nameparser.config.titles import GIVEN_NAME_TITLES
+    from nameparser.config.titles import GIVEN_NAME_TITLES, TITLE_PHRASES
     shipped = {"maiden_markers": MAIDEN_MARKERS,
-               "given_name_titles": GIVEN_NAME_TITLES}[field]
+               "given_name_titles": GIVEN_NAME_TITLES,
+               "title_phrases": TITLE_PHRASES}[field]
     assert getattr(Lexicon.default(), field) == frozenset(shipped), (
         f"{field}: Lexicon rewrote the shipped constant, so the entries "
         f"it stores are not the ones the data module wrote -- "

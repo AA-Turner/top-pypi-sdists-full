@@ -73,6 +73,15 @@ jobs:
             uv build --package "${package}"
           done
 
+      # `uvx --from=airbyte-internal-ops` resolves the newest allowed dependencies
+      # instead of `uv.lock`, so check the published wheel still imports that way.
+      - name: Smoke-test airbyte-internal-ops wheel without the lockfile
+        if: github.event_name == 'push' || steps.package-changes.outputs.airbyte-internal-ops == 'true'
+        run: >-
+          uv run --isolated --no-project --python 3.12
+          --with dist/airbyte_internal_ops-*.whl
+          python -c "import airbyte_ops_mcp.mcp.server, airbyte_ops_mcp.cli.app"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:

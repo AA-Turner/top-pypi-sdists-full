@@ -68,12 +68,15 @@ from click_extra.version import (
     archival_field,
     colors_reach_output,
     default_facts,
+    direct_url_field,
     find_archival_file,
     is_main_module,
     read_archival,
+    read_direct_url,
     resolve_build_time,
     resolve_git_dirty,
     resolve_git_distance,
+    run_git,
 )
 
 from .conftest import skip_windows_colors
@@ -1408,6 +1411,50 @@ def test_resolve_git_dirty(monkeypatch, status_output, expected):
     assert resolve_git_dirty() == expected
 
 
+@pytest.mark.parametrize(
+    ("branch", "expected"),
+    (
+        # The `Á` holds a `0x81` byte, which cp1252, the encoding of Windows,
+        # cannot decode.
+        pytest.param("Ávila".encode(), "Ávila", id="utf-8"),
+        # typos splits the literal at the escape and reads the fragment before it
+        # as a misspelling of `calf`, so the word here is "creme".
+        pytest.param(b"cr\xe8me", "cr\ufffdme", id="latin-1"),
+    ),
+)
+def test_run_git_decodes_a_branch_name(tmp_path, branch, expected):
+    """A branch name decodes as UTF-8, and a byte that is not becomes a replacement
+    character.
+
+    The branch goes in `packed-refs`: a loose ref is a file, and APFS refuses a
+    file name that is no UTF-8.
+    """
+    git = (
+        "git",
+        "-C",
+        str(tmp_path),
+        "-c",
+        "user.name=Ada",
+        "-c",
+        "user.email=ada@example.org",
+        "-c",
+        "commit.gpgsign=false",
+    )
+    subprocess.run((*git, "init", "--quiet"), check=True)
+    subprocess.run(
+        (*git, "commit", "--quiet", "--allow-empty", "--message", "Bake bread"),
+        check=True,
+    )
+    sha = subprocess.run(
+        (*git, "rev-parse", "HEAD"), capture_output=True, check=True
+    ).stdout.strip()
+    (tmp_path / ".git" / "packed-refs").write_bytes(
+        sha + b" refs/heads/" + branch + b"\n"
+    )
+    (tmp_path / ".git" / "HEAD").write_bytes(b"ref: refs/heads/" + branch + b"\n")
+    assert run_git("rev-parse", "--abbrev-ref", "HEAD", cwd=tmp_path) == expected
+
+
 # --- .git_archival.json fallback tests ---
 
 
@@ -1514,6 +1561,99 @@ def test_archival_resolves_git_fields(tmp_path):
     assert opt.git_distance == "4"
     # No work tree in an archive, so dirtiness is unknowable.
     assert opt.git_dirty is None
+
+
+# --- direct_url.json fallback tests ---
+
+
+GIT_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+
+GIT_DIRECT_URL = {
+    "url": "https://github.com/orchard/apricot",
+    "vcs_info": {"vcs": "git", "requested_revision": "main", "commit_id": GIT_COMMIT},
+}
+
+
+def install_distribution(tmp_path, monkeypatch, direct_url: str | None) -> None:
+    """Install a fake `apricot` distribution, with a `direct_url.json` holding
+    *direct_url* unless it is `None`."""
+    dist_info = tmp_path / "apricot-1.2.3.dev0.dist-info"
+    dist_info.mkdir()
+    (dist_info / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: apricot\nVersion: 1.2.3.dev0\n",
+        encoding="utf-8",
+    )
+    if direct_url is not None:
+        (dist_info / "direct_url.json").write_text(direct_url, encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+
+@pytest.mark.parametrize(
+    ("data", "field_id", "expected"),
+    (
+        (GIT_DIRECT_URL, "git_long_hash", GIT_COMMIT),
+        (GIT_DIRECT_URL, "git_short_hash", "0123456"),
+        # A requested revision names a branch, a tag or a commit: none is guessed.
+        (GIT_DIRECT_URL, "git_branch", None),
+        (GIT_DIRECT_URL, "git_tag", None),
+        # Another VCS records a commit that is no Git hash.
+        (
+            {
+                "url": "https://hg.example/apricot",
+                "vcs_info": {"vcs": "hg", "commit_id": "a1b2"},
+            },
+            "git_long_hash",
+            None,
+        ),
+        # A local directory, editable or not, records no commit.
+        (
+            {"url": "file:///orchard", "dir_info": {"editable": True}},
+            "git_long_hash",
+            None,
+        ),
+        ({}, "git_short_hash", None),
+    ),
+)
+def test_direct_url_field(data, field_id, expected):
+    assert direct_url_field(data, field_id) == expected
+
+
+@pytest.mark.parametrize(
+    ("direct_url", "expected"),
+    (
+        (json.dumps(GIT_DIRECT_URL), GIT_DIRECT_URL),
+        (None, {}),
+        ("{not json", {}),
+        ("[]", {}),
+    ),
+)
+def test_read_direct_url(tmp_path, monkeypatch, direct_url, expected):
+    install_distribution(tmp_path, monkeypatch, direct_url)
+    assert read_direct_url("apricot") == expected
+
+
+@pytest.mark.parametrize("distribution", (None, "", "no-such-distribution"))
+def test_read_direct_url_unknown_distribution(distribution):
+    assert read_direct_url(distribution) == {}
+
+
+def test_direct_url_resolves_git_hashes(tmp_path, monkeypatch):
+    """A CLI installed from a Git URL names its commit, with no live git and no
+    archive."""
+    install_distribution(tmp_path, monkeypatch, json.dumps(GIT_DIRECT_URL))
+    mod = types.ModuleType("apricot.cli")
+    mod.__file__ = str(tmp_path / "apricot" / "cli.py")
+    mod.__package__ = "apricot"
+
+    opt = VersionOption()
+    opt.__dict__["module"] = mod
+    opt.__dict__["git_repo_path"] = None
+    opt.__dict__["_archival_data"] = {}
+
+    assert opt.git_long_hash == GIT_COMMIT
+    assert opt.git_short_hash == "0123456"
+    assert opt.version == "1.2.3.dev0+0123456"
+    assert opt.git_branch is None
 
 
 # --- dev-version hash assembly ---

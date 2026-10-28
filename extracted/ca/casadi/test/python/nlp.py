@@ -32,6 +32,7 @@ from types import *
 from numpy import array
 from helpers import args, casadiTestCase, codegen_check_digits, memory_heavy, requires_conic, requires_nlpsol
 import itertools
+from typing import Any
 import copy
 from casadi.tools import capture_stdout
 
@@ -353,6 +354,25 @@ class NLPtests(casadiTestCase):
       with self.assertRaises(Exception):
         sol = opti.solve()
 
+
+  @requires_nlpsol("ipopt")
+  def test_eval_interrupt_stops_ipopt(self):
+    # A KeyboardInterrupt in a Callback must abort the solve, not count as a failed evaluation
+    class Counter(ca.Callback):
+      def __init__(self):
+        ca.Callback.__init__(self)
+        self.n = 0
+        self.construct("counter", {"enable_fd":True})
+      def eval(self, arg):
+        self.n += 1
+        if self.n>=3: raise KeyboardInterrupt()
+        return [(arg[0]-1)**2]
+    f = Counter()
+    x = ca.MX.sym("x")
+    solver = ca.nlpsol("solver","ipopt",{"x":x,"f":f(x)},{"print_time":False,"ipopt.print_level":0,"ipopt.sb":"yes","ipopt.hessian_approximation":"limited-memory"})
+    solver(x0=5)
+    self.assertEqual(solver.stats()["return_status"], "NonIpopt_Exception_Thrown")
+    self.assertEqual(f.n, 3)
 
   def test_discrete(self):
     self.message("rosenbrock, limited-memory hessian approx")
@@ -1840,6 +1860,24 @@ class NLPtests(casadiTestCase):
       self.checkfunction_light(f,f2,[0,0.5],digits=6)
 
   @requires_conic("qrqp")
+  def test_nlp_sensitivity_equality_zero_multiplier(self):
+    # Equality constraint and fixed variable with zero multipliers
+    x = ca.MX.sym("x",3)
+    p = ca.MX.sym("p")
+    nlp = {"x":x,"p":p,"f":(x[0]-p)**2,"g":x[1]-x[0]}
+    solver = ca.nlpsol("solver","sqpmethod",nlp,{"qpsol":"qrqp","qpsol_options":{"print_iter":False,"print_header":False},
+                                                 "print_iteration":False,"print_header":False,"print_status":False,
+                                                 "sens_force_equality":True})
+    r = solver(p=p,lbg=0,ubg=0,lbx=ca.vertcat(-inf,-inf,p),ubx=ca.vertcat(inf,inf,p))
+    lam = ca.Function("lam",[p],[ca.vertcat(r["lam_g"],r["lam_x"])])(0)
+    self.assertTrue(ca.norm_inf(lam)==0)
+    z = r["x"]
+    z2 = ca.vertcat(p,p,p)
+    f = ca.Function("f",[p],[z,ca.jacobian(z,p)])
+    f2 = ca.Function("f",[p],[z2,ca.jacobian(z2,p)])
+    self.checkfunction_light(f,f2,inputs=[0],digits=8)
+
+  @requires_conic("qrqp")
   def test_regularize_sqpmethod(self):
 
     # Test problem that is indefinite in direction of the constraint Jacobian
@@ -2771,6 +2809,11 @@ class NLPtests(casadiTestCase):
     self.assertTrue(solver.stats()["success"])
     self.checkfunction_light(ref_solver.get_function("nlp_jac_g"),solver.get_function("nlp_jac_g"),inputs=[ca.vertcat(0.11,0.3,0.7),0])
     
+  def test_nlp_signature(self):
+    x = ca.MX.sym("x")
+    with self.assertInException("must have inputs (x, p) and outputs (f, g)"):
+      ca.nlpsol("solver", "ipopt", ca.Function("nlp", [x], [x**2], ["a"], ["b"]))
+
   @requires_nlpsol("ipopt")
   def test_option_propagation(self):
     x = ca.MX.sym('x')
@@ -2813,6 +2856,30 @@ class NLPtests(casadiTestCase):
     self.assertTrue(spread>0)
     self.assertTrue(spread<1e-4)
     """
+
+  def test_thread_map_reuses_solver_memory(self):
+    # The ipopt journal held a pointer to the thread_local casadi::uout() of the thread that
+    # created the solver memory. map(..., "thread") starts new threads on every call, so the
+    # second call wrote to a destroyed stream and crashed, even with printing off.
+    # (bonmin builds its journal per solve, so it was safe; it is covered as a guard.)
+    cases: list[tuple[str, dict[str, Any]]] = [
+      ("ipopt", {}),
+      ("ipopt", {"ipopt.print_level": 0, "ipopt.sb": "yes", "print_time": False}),
+      ("bonmin", {}),
+    ]
+    if not any(ca.has_nlpsol(plugin) for plugin, _ in cases): self.skipTest("needs ipopt or bonmin")
+    for plugin, opts in cases:
+      if not ca.has_nlpsol(plugin): continue
+      print("test_thread_map_reuses_solver_memory", plugin, opts)
+      x = ca.MX.sym("x", 2)
+      p = ca.MX.sym("p")
+      solver = ca.nlpsol("solver", plugin, {"x": x, "p": p, "f": ca.sumsqr(x - p)}, opts)
+      P = ca.MX.sym("P")
+      par = ca.Function("par", [P], [solver(x0=0, p=P)["x"][0]])
+      m = par.map(8, "thread", 4)
+      ps = ca.DM(list(range(8))).T
+      for k in range(5):
+        self.checkarray(m(ps), ps, digits=6)
 
 if __name__ == '__main__':
     unittest.main()

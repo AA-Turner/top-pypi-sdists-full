@@ -6,12 +6,14 @@ Type-safe data interchange for Python data classes.
 
 import sys
 import typing
+from collections.abc import Callable
 from types import ModuleType
-from typing import Any, Callable, Literal, Optional
+from typing import Any, ForwardRef, Literal
+
+from typing_extensions import TypeForm
 
 from .auxiliary import ParamSpec, _auxiliary_types  # pyright: ignore[reportPrivateUsage]
 from .inspection import (
-    TypeLike,
     evaluate_type,
     is_type_optional,
     is_type_union,
@@ -39,17 +41,17 @@ class TypeFormatter:
     :param use_union_operator: Whether to emit union types as `X | Y` as per PEP 604.
     """
 
-    context: Optional[ModuleType]
-    type_transform: Optional[Callable[[type], str]]
-    value_transform: Optional[Callable[[Any], str]]
+    context: ModuleType | None
+    type_transform: Callable[[type], str] | None
+    value_transform: Callable[[Any], str] | None
     use_union_operator: bool
 
     def __init__(
         self,
         *,
-        context: Optional[ModuleType] = None,
-        type_transform: Optional[Callable[[type], str]] = None,
-        value_transform: Optional[Callable[[Any], str]] = None,
+        context: ModuleType | None = None,
+        type_transform: Callable[[type], str] | None = None,
+        value_transform: Callable[[Any], str] | None = None,
         use_union_operator: bool = False,
     ) -> None:
         self.context = context
@@ -69,7 +71,7 @@ class TypeFormatter:
         else:
             return repr(value)
 
-    def union_to_str(self, data_type_args: tuple[TypeLike, ...]) -> str:
+    def union_to_str(self, data_type_args: tuple[TypeForm[Any], ...]) -> str:
         """
         Emits a union of types as a string.
 
@@ -89,17 +91,17 @@ class TypeFormatter:
             args = ", ".join(self.python_type_to_str(t) for t in data_type_args)
             return f"{origin_name}[{args}]"
 
-    def plain_type_to_str(self, data_type: TypeLike) -> str:
+    def plain_type_to_str(self, data_type: TypeForm[Any] | ForwardRef | str) -> str:
         "Returns the string representation of a Python type without metadata."
 
-        if data_type is Self:
-            return "Self"
+        if data_type is Self:  # type: ignore[comparison-overlap]
+            return "Self"  # type: ignore[unreachable]
         elif data_type is LiteralString:
             return "LiteralString"
-        elif isinstance(data_type, typing.ForwardRef):
+        elif isinstance(data_type, ForwardRef):
             # return forward references as the annotation string
 
-            fwd: typing.ForwardRef = data_type
+            fwd: ForwardRef = data_type
             fwd_arg = fwd.__forward_arg__
 
             if self.context is None:
@@ -126,10 +128,8 @@ class TypeFormatter:
                 return data_type
 
             return self.python_type_to_str(evaluate_type(data_type, self.context))
-        elif isinstance(data_type, ParamSpec):
-            return data_type.__name__
-        elif isinstance(data_type, typing.TypeVar):
-            return data_type.__name__
+        elif isinstance(data_type, ParamSpec) or isinstance(data_type, typing.TypeVar):
+            return data_type.__name__  # type: ignore[unreachable]
 
         origin = typing.get_origin(data_type)
         if origin is not None:
@@ -167,17 +167,17 @@ class TypeFormatter:
         else:
             return data_type.__name__
 
-    def python_type_to_str(self, data_type: TypeLike) -> str:
+    def python_type_to_str(self, data_type: TypeForm[Any] | str | None) -> str:
         "Returns the string representation of a Python type."
 
         if data_type is None or data_type is type(None):
             return "None"
-        elif data_type is Ellipsis or data_type is type(Ellipsis):
+        elif data_type is Ellipsis or data_type is type(Ellipsis):  # type: ignore[comparison-overlap]  # pyright: ignore[reportUnnecessaryComparison]
             return "..."
         elif data_type is Any:
             return "Any"
         elif isinstance(data_type, list):  # e.g. in `Callable[[bool, int], str]`
-            callable_args = typing.cast(list[TypeLike], data_type)
+            callable_args = typing.cast(list[TypeForm[Any]], data_type)  # type: ignore[unreachable]
             items = ", ".join(self.python_type_to_str(item) for item in callable_args)
             return f"[{items}]"
 
@@ -186,37 +186,37 @@ class TypeFormatter:
         if name is not None:
             return name
 
-        metadata = getattr(data_type, "__metadata__", None)
-        if metadata is not None:
+        meta_data = getattr(data_type, "__metadata__", None)
+        if meta_data is not None:
             # type is Annotated[T, ...]
-            metatuple: tuple[Any, ...] = metadata
+            meta_tuple: tuple[Any, ...] = meta_data
             arg = typing.get_args(data_type)[0]
 
             # check for auxiliary types with user-defined annotations
-            metaset = set(metatuple)
+            meta_set = set(meta_tuple)
             for auxiliary_type, auxiliary_name in _auxiliary_types.items():
                 auxiliary_arg = typing.get_args(auxiliary_type)[0]
                 if arg is not auxiliary_arg:
                     continue
 
-                auxiliary_metatuple: Optional[tuple[Any, ...]] = getattr(auxiliary_type, "__metadata__", None)
-                if auxiliary_metatuple is None:
+                auxiliary_meta_tuple: tuple[Any, ...] | None = getattr(auxiliary_type, "__metadata__", None)
+                if auxiliary_meta_tuple is None:
                     continue
 
-                if metaset.issuperset(auxiliary_metatuple):
+                if meta_set.issuperset(auxiliary_meta_tuple):
                     # type is an auxiliary type with extra annotations
-                    auxiliary_args = ", ".join(repr(m) for m in metatuple if m not in auxiliary_metatuple)
+                    auxiliary_args = ", ".join(repr(m) for m in meta_tuple if m not in auxiliary_meta_tuple)
                     return f"Annotated[{auxiliary_name}, {auxiliary_args}]"
 
             # type is an annotated type
-            args = ", ".join(repr(m) for m in metatuple)
+            args = ", ".join(repr(m) for m in meta_tuple)
             return f"Annotated[{self.plain_type_to_str(arg)}, {args}]"
         else:
             # type is a regular type
             return self.plain_type_to_str(data_type)
 
 
-def python_type_to_str(data_type: TypeLike, *, use_union_operator: bool = False) -> str:
+def python_type_to_str(data_type: TypeForm[Any] | str | None, *, use_union_operator: bool = False) -> str:
     """
     Returns the string representation of a Python type.
 
@@ -228,12 +228,15 @@ def python_type_to_str(data_type: TypeLike, *, use_union_operator: bool = False)
     return fmt.python_type_to_str(data_type)
 
 
-def python_type_to_name(data_type: TypeLike, *, force: bool = False) -> str:
+def python_type_to_name(data_type: TypeForm[Any] | None, *, force: bool = False) -> str:
     """
     Returns the short name of a Python type.
 
     :param force: Whether to produce a name for composite types such as generics.
     """
+
+    if data_type is None:
+        return "None"
 
     # use compact name for alias types
     name = _auxiliary_types.get(data_type)

@@ -5,14 +5,16 @@ __package__ = "archivebox.machine"
 import os
 import signal
 import sys
+import time
 import uuid
 import socket
 from pathlib import Path
 from archivebox.uuid_compat import CompactUUIDField, uuid7
 from datetime import timedelta, datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.db import IntegrityError, transaction
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.models import Q, QuerySet
 from django.utils import timezone
@@ -42,16 +44,16 @@ else:
 
 _CURRENT_MACHINE: Machine | None = None
 _CURRENT_INTERFACE: NetworkInterface | None = None
-_CURRENT_BINARIES: dict[str, Binary] = {}
 _CURRENT_PROCESS: Process | None = None
 
 MACHINE_RECHECK_INTERVAL = 7 * 24 * 60 * 60
 NETWORK_INTERFACE_RECHECK_INTERVAL = 1 * 60 * 60
-BINARY_RECHECK_INTERVAL = 1 * 30 * 60
 PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match valid
 PROCESS_TIMEOUT_GRACE = timedelta(seconds=30)  # Extra margin before force-cleaning timed-out RUNNING rows
 START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
 PROCESS_PID_NAMESPACE_KEY = "_ARCHIVEBOX_PID_NAMESPACE"
+PROCESS_STDOUT_FILE_KEY = "_ARCHIVEBOX_STDOUT_FILE"
+PROCESS_STDERR_FILE_KEY = "_ARCHIVEBOX_STDERR_FILE"
 
 
 def get_current_pid_namespace() -> str:
@@ -221,9 +223,12 @@ class Machine(ModelWithHealthStats):
 
     @classmethod
     def current_readonly(cls) -> Machine | None:
-        """Read the current machine without registration, refresh, or config writes."""
-        if _CURRENT_MACHINE is not None:
-            return _CURRENT_MACHINE
+        """Read the current machine without registration, refresh, or config writes.
+
+        Web requests must see committed DB edits even if mirroring them to
+        ArchiveBox.conf fails. Use the indexed lookup rather than another global
+        cache whose freshness depends on a different store's modification time.
+        """
         return cls.objects.filter(guid=get_host_guid()).first()
 
     @classmethod
@@ -260,8 +265,10 @@ class Machine(ModelWithHealthStats):
             from archivebox.config.collection import sync_machine_and_file
 
             sync_machine_and_file(machine)
-        except Exception:
-            pass
+        except Exception as err:
+            import logging
+
+            logging.getLogger(__name__).warning("Unable to reconcile collection config; keeping file (%s)", type(err).__name__)
         if needs_recheck:
             for key, value in {
                 "hostname": socket.gethostname(),
@@ -352,6 +359,10 @@ class Machine(ModelWithHealthStats):
         return None
 
     def save(self, *args, **kwargs):
+        if kwargs.get("update_fields") is None or "config" in kwargs["update_fields"]:
+            from archivebox.config.collection import preserve_db_secret
+
+            preserve_db_secret(self)
         normalized_config = normalize_config_json_values(self.config)
         if normalized_config != self.config:
             self.config = normalized_config
@@ -472,22 +483,7 @@ class NetworkInterface(ModelWithHealthStats):
         return _CURRENT_INTERFACE
 
 
-class BinaryManager(models.Manager.from_queryset(PagedQuerySet)):
-    def get_from_db_or_cache(self, name: str, abspath: str = "", version: str = "", sha256: str = "", binprovider: str = "env") -> Binary:
-        """Get or create an Binary record from the database or cache."""
-        cached = _CURRENT_BINARIES.get(name)
-        if cached and timezone.now() < cached.modified_at + timedelta(seconds=BINARY_RECHECK_INTERVAL):
-            return cached
-        _CURRENT_BINARIES[name], _ = self.update_or_create(
-            machine=Machine.current(),
-            name=name,
-            binprovider=binprovider,
-            version=version,
-            abspath=abspath,
-            sha256=sha256,
-        )
-        return _CURRENT_BINARIES[name]
-
+class BinaryManager(models.Manager.from_queryset(PagedQuerySet)):  # ty: ignore[unsupported-base]
     def get_valid_binary(self, name: str, machine: Machine | None = None) -> Binary | None:
         """Get a valid Binary for the given name on the current machine, or None if not found."""
         machine = machine or Machine.current()
@@ -519,6 +515,9 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
     The database row is the only lifecycle state; there is intentionally no
     second in-memory state machine to reconcile after a worker interruption.
     """
+
+    if TYPE_CHECKING:
+        process_set: models.Manager[Process]
 
     class StatusChoices(models.TextChoices):
         QUEUED = "queued", "Queued"
@@ -576,7 +575,7 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
     active_state: str = StatusChoices.QUEUED
     warn_on_save_outside_runner = False
 
-    objects = BinaryManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: ClassVar[BinaryManager] = BinaryManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
     class Meta(ModelWithHealthStats.Meta, ModelWithQueue.Meta):
         app_label = "machine"
@@ -621,9 +620,8 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
         """
         from archivebox.config import VERSION
 
-        is_installed = bool(self.abspath and self.version)
         return {
-            "type": "Binary" if is_installed else "BinaryRequest",
+            "type": "Binary" if self.is_valid else "BinaryRequest",
             "schema_version": VERSION,
             "id": str(self.id),
             "machine_id": str(self.machine_id),
@@ -659,71 +657,38 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
         if not name:
             return None
 
-        machine = Machine.current()
-        overrides = overrides or {}
-        binary_overrides = record.get("overrides", {})
-        normalized_overrides = binary_overrides if isinstance(binary_overrides, dict) else {}
+        abspath = record.get("abspath") or ""
+        if not abspath and "binproviders" not in record and "overrides" not in record:
+            return None
 
-        # Case 1: Already installed (from on_Crawl hooks) - has abspath AND binproviders
-        # This happens when on_Crawl hooks detect already-installed binaries
-        abspath = record.get("abspath")
-        version = record.get("version")
-        binproviders = record.get("binproviders")
+        defaults = {
+            "binprovider": record.get("binprovider", "env"),
+            "status": Binary.StatusChoices.INSTALLED if abspath else Binary.StatusChoices.QUEUED,
+            "retry_at": None if abspath else timezone.now(),
+        }
+        if "binproviders" in record:
+            defaults["binproviders"] = record["binproviders"]
+        if "overrides" in record:
+            defaults["overrides"] = record["overrides"] if isinstance(record["overrides"], dict) else {}
 
-        if abspath and version and binproviders:
-            # Binary is already installed, create INSTALLED record with binproviders filter
-            binary, _ = Binary.objects.update_or_create(
-                machine=machine,
-                name=name,
-                defaults={
-                    "abspath": abspath,
-                    "version": version,
-                    "sha256": record.get("sha256", ""),
-                    "binprovider": record.get("binprovider", "env"),
-                    "binproviders": binproviders,  # Preserve the filter
-                    "status": Binary.StatusChoices.INSTALLED,
-                    "retry_at": None,
-                },
-            )
+        # A name is not an installation identity: migrations and multiple
+        # providers legitimately keep several paths/versions of the same tool.
+        # Match the model's unique key so registration cannot overwrite binary
+        # metadata referenced by historical Processes or raise MultipleObjectsReturned.
+        # A resolved path is sufficient; the CLI deliberately permits no version.
+        binary, _ = Binary.objects.update_or_create(
+            machine=Machine.current(),
+            name=name,
+            abspath=abspath,
+            version=record.get("version") or "",
+            sha256=record.get("sha256") or "",
+            defaults=defaults,
+        )
+        if abspath:
             from archivebox.config.common import get_config
 
             binary.symlink_to_lib_bin_after_commit(get_config().ABXPKG_LIB_DIR / "bin")
-            return binary
-
-        # Case 2: From binaries.json - create queued binary (needs installation)
-        if "binproviders" in record or ("overrides" in record and not abspath):
-            binary, _ = Binary.objects.update_or_create(
-                machine=machine,
-                name=name,
-                defaults={
-                    "binproviders": record.get("binproviders", "env"),
-                    "overrides": normalized_overrides,
-                    "status": Binary.StatusChoices.QUEUED,
-                    "retry_at": timezone.now(),
-                },
-            )
-            return binary
-
-        # Case 3: From Binary output - update with installation results
-        if abspath and version:
-            binary, _ = Binary.objects.update_or_create(
-                machine=machine,
-                name=name,
-                defaults={
-                    "abspath": abspath,
-                    "version": version,
-                    "sha256": record.get("sha256", ""),
-                    "binprovider": record.get("binprovider", "env"),
-                    "status": Binary.StatusChoices.INSTALLED,
-                    "retry_at": None,
-                },
-            )
-            from archivebox.config.common import get_config
-
-            binary.symlink_to_lib_bin_after_commit(get_config().ABXPKG_LIB_DIR / "bin")
-            return binary
-
-        return None
+        return binary
 
     def _allowed_binproviders(self) -> set[str] | None:
         """Return the allowed binproviders for this binary, or None for wildcard."""
@@ -889,7 +854,7 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
 # =============================================================================
 
 
-class ProcessManager(models.Manager.from_queryset(PagedQuerySet)):
+class ProcessManager(models.Manager.from_queryset(PagedQuerySet)):  # ty: ignore[unsupported-base]
     """Manager for Process model."""
 
     def current(self) -> Process:
@@ -1161,6 +1126,7 @@ class Process(ModelWithDeleteAfter, models.Model):
     machine_id: uuid.UUID
     parent_id: uuid.UUID | None
     binary_id: uuid.UUID | None
+    iface_id: uuid.UUID | None
     children: models.Manager[Process]
     archiveresult: ArchiveResult
 
@@ -1231,7 +1197,7 @@ class Process(ModelWithDeleteAfter, models.Model):
         """Get plugin name from associated ArchiveResult (if any)."""
         try:
             return self.archiveresult.plugin
-        except Process.archiveresult.RelatedObjectDoesNotExist:
+        except ObjectDoesNotExist:
             return ""
 
     @property
@@ -1239,7 +1205,7 @@ class Process(ModelWithDeleteAfter, models.Model):
         """Get hook name from associated ArchiveResult (if any)."""
         try:
             return self.archiveresult.hook_name
-        except Process.archiveresult.RelatedObjectDoesNotExist:
+        except ObjectDoesNotExist:
             return ""
 
     def to_json(self) -> dict:
@@ -1629,7 +1595,7 @@ class Process(ModelWithDeleteAfter, models.Model):
             stale = stale.filter(machine=machine)
 
         # Close each bounded read before inspecting processes or writing their state.
-        for proc in stale.order_by("pk").paged_iterator(chunk_size=100):
+        for proc in cast(PagedQuerySet, stale.order_by("pk")).paged_iterator(chunk_size=100):
             shares_pid_namespace = proc.shares_pid_namespace
             if shares_pid_namespace and proc.poll() is not None:
                 cleaned += 1
@@ -1844,13 +1810,19 @@ class Process(ModelWithDeleteAfter, models.Model):
 
     @property
     def stdout_file(self) -> Path | None:
-        """Path to stdout log."""
+        """Path to the exact hook log, or the legacy process runtime log."""
+        recorded = self.env.get(PROCESS_STDOUT_FILE_KEY)
+        if isinstance(recorded, str) and recorded:
+            return Path(recorded)
         runtime_dir = self.runtime_dir
         return runtime_dir / "stdout.log" if runtime_dir else None
 
     @property
     def stderr_file(self) -> Path | None:
-        """Path to stderr log."""
+        """Path to the exact hook log, or the legacy process runtime log."""
+        recorded = self.env.get(PROCESS_STDERR_FILE_KEY)
+        if isinstance(recorded, str) and recorded:
+            return Path(recorded)
         runtime_dir = self.runtime_dir
         return runtime_dir / "stderr.log" if runtime_dir else None
 
@@ -2225,7 +2197,6 @@ class Process(ModelWithDeleteAfter, models.Model):
         Raises:
             TimeoutError if process doesn't exit in time
         """
-        import time
         from archivebox.config.constants import CONSTANTS
 
         timeout = timeout or self.timeout
@@ -2322,7 +2293,6 @@ class Process(ModelWithDeleteAfter, models.Model):
             Number of processes killed (including self)
         """
         import signal
-        import time
         import os
 
         if not self.shares_pid_namespace:
@@ -2515,10 +2485,10 @@ class Process(ModelWithDeleteAfter, models.Model):
         from importlib.resources import files
 
         chrome_utils = files("abx_plugins.plugins.chrome").joinpath("chrome_utils.js")
-        if not chrome_utils.exists():
+        if not chrome_utils.is_file():
             return 0
 
-        node_binary = cast(BinaryManager, Binary.objects).get_valid_binary("node")
+        node_binary = Binary.objects.get_valid_binary("node")
         if node_binary is None or not node_binary.is_valid:
             return 0
         from archivebox.config.common import get_config
@@ -2579,11 +2549,19 @@ class Process(ModelWithDeleteAfter, models.Model):
         )
 
         # Close each bounded read before inspecting processes or writing their state.
-        for proc in running_children.order_by("pk").paged_iterator(chunk_size=100):
+        for proc in cast(PagedQuerySet, running_children.order_by("pk")).paged_iterator(chunk_size=100):
             if not proc.is_running:
                 proc.mark_exited(
                     exit_code=proc.exit_code if proc.exit_code is not None else _default_exit_code_for_unowned_process(proc.process_type),
                 )
+                cleaned += 1
+                continue
+
+            # A supervised server can outlive a killed runner. Its surviving
+            # hooks still own output files, so the live server root alone must
+            # not preserve them or let a replacement capture write concurrently.
+            if any(ancestor.process_type == cls.TypeChoices.ORCHESTRATOR and not ancestor.is_running for ancestor in proc.ancestors):
+                proc.kill_tree()
                 cleaned += 1
                 continue
 

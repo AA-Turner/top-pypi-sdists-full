@@ -1,7 +1,8 @@
 # mypy: disable-error-code="override"
 
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 import os
+import threading
 from pathlib import Path
 from typing_extensions import override
 
@@ -10,25 +11,40 @@ from istari_digital_client.legacy.key_management import KeyManagementMixin
 from istari_digital_client.legacy.api_client import ApiClient
 from istari_digital_client.sdk._auth_deprecation import AuthDeprecationResult
 from istari_digital_client.legacy.storage.api.storage_api import StorageApi
+from istari_digital_client.legacy.storage.models.temporary_url import TemporaryURL
 from istari_digital_client.legacy.v2.models.token import Token
+from istari_digital_client._transfer.events import TransferEvent
 from istari_digital_client.legacy.v3.api.v3_api import V3Api
 from istari_digital_client.legacy.v3.models.comment_dto import CommentDto
-from istari_digital_client.legacy.v3.models.new_comment_create_dto import NewCommentCreateDto
+from istari_digital_client.legacy.v3.models.new_comment_create_dto import (
+    NewCommentCreateDto,
+)
 from istari_digital_client.legacy.v3.models.resource_dto import ResourceDto
 from istari_digital_client.legacy.v3.models.resource_type_dto import ResourceTypeDto
 from istari_digital_client.legacy.v3.models.resource_create_dto import ResourceCreateDto
 from istari_digital_client.legacy.v3.models.token_create_dto import TokenCreateDto
 from istari_digital_client.legacy.v3.models.token_dto import TokenDto
-from istari_digital_client.legacy.v3.models.resource_revision_create_dto import ResourceRevisionCreateDto
-from istari_digital_client.legacy.v3.models.resource_revision_dto import ResourceRevisionDto
+from istari_digital_client.legacy.v3.models.resource_revision_create_dto import (
+    ResourceRevisionCreateDto,
+)
+from istari_digital_client.legacy.v3.models.resource_revision_dto import (
+    ResourceRevisionDto,
+)
 from istari_digital_client.legacy.v3.models.update_comment_dto import UpdateCommentDto
-from istari_digital_client.legacy.v3.models.upstream_info_create_dto import UpstreamInfoCreateDto
-from istari_digital_client.legacy.v3.models.upstream_revision_info_create_dto import UpstreamRevisionInfoCreateDto
-from istari_digital_client.legacy.v3.models.workflow_output_create_dto import WorkflowOutputCreateDto
+from istari_digital_client.legacy.v3.models.upstream_info_create_dto import (
+    UpstreamInfoCreateDto,
+)
+from istari_digital_client.legacy.v3.models.upstream_revision_info_create_dto import (
+    UpstreamRevisionInfoCreateDto,
+)
+from istari_digital_client.legacy.v3.models.workflow_output_create_dto import (
+    WorkflowOutputCreateDto,
+)
 from istari_digital_client.legacy.v3.models.workflow_output_dto import WorkflowOutputDto
 
 
 PathLike = Union[str, os.PathLike, Path]
+ProgressCallback = Callable[[TransferEvent], None]
 
 
 def _token_dto_to_token(token_dto: TokenDto) -> Token:
@@ -40,9 +56,12 @@ def _token_dto_to_token(token_dto: TokenDto) -> Token:
         created=token_dto.created,
     )
 
+
 class V3Client(KeyManagementMixin, V3Api):
     def __init__(self, config: Configuration) -> None:
-        self._api_client = ApiClient(config, spec_ids=(V3Api._SPEC_ID, StorageApi._SPEC_ID))
+        self._api_client = ApiClient(
+            config, spec_ids=(V3Api._SPEC_ID, StorageApi._SPEC_ID)
+        )
         self._storage_api = StorageApi(config=config, api_client=self._api_client)
         super().__init__(config=config, api_client=self._api_client)
 
@@ -59,7 +78,6 @@ class V3Client(KeyManagementMixin, V3Api):
         """
         return self._api_client.auth_deprecation_checker.last_result
 
-
     @override
     def create_resource(
         self,
@@ -71,6 +89,8 @@ class V3Client(KeyManagementMixin, V3Api):
         external_identifier: str | None = None,
         display_name: str | None = None,
         upstream_remote_info: UpstreamInfoCreateDto | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> ResourceDto:
         file_revision = self._storage_api.create_revision(
             file_path=path,
@@ -78,11 +98,13 @@ class V3Client(KeyManagementMixin, V3Api):
             description=description,
             version_name=version_name,
             external_identifier=external_identifier,
+            progress=progress,
+            cancel=cancel,
         )
 
         return super().create_resource(
             resource_create_dto=ResourceCreateDto(
-                name=file_revision.name, # type: ignore[arg-type]
+                name=file_revision.name,  # type: ignore[arg-type]
                 extension=file_revision.extension,
                 size=file_revision.size,
                 mime=file_revision.mime,
@@ -114,6 +136,8 @@ class V3Client(KeyManagementMixin, V3Api):
         external_identifier: str | None = None,
         display_name: str | None = None,
         upstream_revision_info: UpstreamRevisionInfoCreateDto | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> ResourceRevisionDto:
         file_revision = self._storage_api.create_revision(
             file_path=path,
@@ -121,12 +145,14 @@ class V3Client(KeyManagementMixin, V3Api):
             description=description,
             version_name=version_name,
             external_identifier=external_identifier,
+            progress=progress,
+            cancel=cancel,
         )
 
         return super().create_resource_revision(
             resource_id=resource_id,
             resource_revision_create_dto=ResourceRevisionCreateDto(
-                name=file_revision.name, # type: ignore[arg-type]
+                name=file_revision.name,  # type: ignore[arg-type]
                 extension=file_revision.extension,
                 size=file_revision.size,
                 mime=file_revision.mime,
@@ -143,9 +169,8 @@ class V3Client(KeyManagementMixin, V3Api):
                     salt=file_revision.properties_token.salt,
                 ),
                 upstream_revision_info=upstream_revision_info,
-            )
+            ),
         )
-
 
     @override
     def create_comment(
@@ -153,9 +178,14 @@ class V3Client(KeyManagementMixin, V3Api):
         resource_id: str,
         path: PathLike,
         parent_comment_id: str | None = None,
+        *,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> CommentDto:
         file_revision = self._storage_api.create_revision(
             file_path=path,
+            progress=progress,
+            cancel=cancel,
         )
         return super().create_comment(
             resource_id=resource_id,
@@ -178,9 +208,14 @@ class V3Client(KeyManagementMixin, V3Api):
         resource_id: str,
         comment_id: str,
         path: PathLike,
+        *,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> CommentDto:
         file_revision = self._storage_api.create_revision(
             file_path=path,
+            progress=progress,
+            cancel=cancel,
         )
         return super().update_comment(
             resource_id=resource_id,
@@ -206,12 +241,16 @@ class V3Client(KeyManagementMixin, V3Api):
         description: str | None = None,
         display_name: str | None = None,
         external_identifier: str | None = None,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
     ) -> WorkflowOutputDto:
         file_revision = self._storage_api.create_revision(
             file_path=path,
             display_name=display_name,
             description=description,
             external_identifier=external_identifier,
+            progress=progress,
+            cancel=cancel,
         )
 
         return super().create_workflow_output(
@@ -252,3 +291,40 @@ class V3Client(KeyManagementMixin, V3Api):
                 f"`content_token` is not set for instance of {type(resource).__name__}"
             )
         return self._storage_api.read_contents(token=_token_dto_to_token(content_token))
+
+    def read_package_version_file(self, file_id: str) -> bytes:
+        """Read one authorized package-version file without exposing its temporary URL."""
+        download = self.download_package_version_file(file_id)
+        return self._storage_api._download(  # noqa: SLF001
+            TemporaryURL(url=download.url, expires=download.expires)
+        )
+
+    def download_content(
+        self,
+        resource: ResourceDto | ResourceRevisionDto | CommentDto,
+        dest: PathLike,
+        *,
+        progress: ProgressCallback | None = None,
+        cancel: threading.Event | None = None,
+    ) -> Path:
+        """
+        Download the content of a resource, resource revision, or comment to ``dest`` and return the path.
+
+        The bytes stream to a temp file beside ``dest`` and are renamed into place only after
+        the salted digest verifies; large content is fetched as parallel ranges.
+
+        :param resource: A ResourceDto, ResourceRevisionDto, or CommentDto instance with a content_token.
+        :param dest: Destination path.
+        :param progress: Optional callback receiving ``TransferEvent`` notifications.
+        :param cancel: Optional ``threading.Event``; setting it aborts the transfer.
+        :return: The destination path.
+        :raises ValueError: If the resource has no content_token.
+        """
+        content_token = getattr(resource, "content_token", None)
+        if content_token is None:
+            raise ValueError(
+                f"`content_token` is not set for instance of {type(resource).__name__}"
+            )
+        return self._storage_api.download_to(
+            _token_dto_to_token(content_token), dest, progress=progress, cancel=cancel
+        )

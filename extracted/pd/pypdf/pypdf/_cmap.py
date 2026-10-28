@@ -100,8 +100,8 @@ def _parse_encoding(
             elif "-UCS2-" in enc:
                 encoding = "utf-16-be"
             else:
-                raise Exception("not found")
-        except Exception:
+                raise KeyError("not found")
+        except KeyError:
             encoding = (
                 "utf-16-be" if ft.get("/Subtype", "") == "/Type0" else charset_encoding["/StandardEncoding"].copy()
             )
@@ -114,7 +114,7 @@ def _parse_encoding(
     elif isinstance(enc, DictionaryObject) and "/BaseEncoding" in enc:
         try:
             encoding = charset_encoding[cast(str, enc["/BaseEncoding"])].copy()
-        except Exception:
+        except KeyError:
             logger_error(
                 "Advanced encoding %(encoding)s not implemented yet",
                 source=__name__, encoding=encoding
@@ -139,7 +139,9 @@ def _parse_encoding(
             else:  # isinstance(o, str):
                 try:
                     if x < len(encoding):
-                        encoding[x] = adobe_glyphs[o]  # type: ignore[index]
+                        encoding[x] = _glyph_name_to_unicode(o) or o  # type: ignore[index]
+                except MemoryError:  # pragma: no cover  # TODO: BLE001
+                    raise
                 except Exception:
                     encoding[x] = o  # type: ignore[index]
                 x += 1
@@ -463,10 +465,14 @@ def _glyph_name_to_unicode(glyph_name: str) -> Union[str, None]:
     try:
         return adobe_glyphs[glyph_name]
     except KeyError:
-        if not glyph_name.startswith("/uni"):
+        if glyph_name.startswith("/uni"):
+            code_point = glyph_name[4:]
+        elif glyph_name.startswith("/u"):
+            code_point = glyph_name[2:]
+        else:
             return None
         try:
-            return chr(int(glyph_name[4:], 16))
+            return chr(int(code_point, 16))
         except ValueError:  # pragma: no cover
             return None
 
@@ -518,6 +524,8 @@ def _derive_character_map_from_cff_type1_font_file(
             if unipoint := _glyph_name_to_unicode(f"/{glyph_name}"):
                 map_dict[chr(i)] = unipoint
                 int_entry.append(i)
+    except MemoryError:  # pragma: no cover  # TODO: BLE001
+        raise
     except Exception:
         return map_dict, int_entry
     else:

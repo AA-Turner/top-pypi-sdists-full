@@ -7,6 +7,10 @@
 
 #include <setupapi.h>
 
+#include <initguid.h>
+
+#include <devpkey.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -19,6 +23,8 @@
 #include <string_view>
 #include <system_error>
 #include <vector>
+
+#include <simpleble/Exceptions.h>
 
 #include "LoggingInternal.h"
 
@@ -48,6 +54,23 @@ class ScopedDeviceInfoSet {
 
   private:
     HDEVINFO handle_;
+};
+
+class ScopedEvent {
+  public:
+    ScopedEvent() : handle_(CreateEventW(nullptr, TRUE, FALSE, nullptr)) {}
+    ScopedEvent(const ScopedEvent&) = delete;
+    ScopedEvent& operator=(const ScopedEvent&) = delete;
+    ~ScopedEvent() {
+        if (handle_ != nullptr) {
+            CloseHandle(handle_);
+        }
+    }
+
+    HANDLE get() const { return handle_; }
+
+  private:
+    HANDLE handle_;
 };
 
 class ScopedRegistryKey {
@@ -146,6 +169,50 @@ bool is_dongl_device(HDEVINFO device_info_set, SP_DEVINFO_DATA& device_info) {
     return false;
 }
 
+std::wstring get_string_property(HDEVINFO device_info_set, SP_DEVINFO_DATA& device_info, const DEVPROPKEY& key) {
+    DEVPROPTYPE property_type = 0;
+    DWORD required_size = 0;
+    SetupDiGetDevicePropertyW(device_info_set, &device_info, &key, &property_type, nullptr, 0, &required_size, 0);
+    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || required_size == 0) {
+        return {};
+    }
+
+    std::vector<BYTE> buffer(required_size);
+    if (!SetupDiGetDevicePropertyW(device_info_set, &device_info, &key, &property_type, buffer.data(),
+                                   static_cast<DWORD>(buffer.size()), nullptr, 0) ||
+        property_type != DEVPROP_TYPE_STRING) {
+        return {};
+    }
+    return reinterpret_cast<const wchar_t*>(buffer.data());
+}
+
+std::string to_utf8(std::wstring_view text) {
+    if (text.empty()) {
+        return {};
+    }
+
+    const int size = WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0,
+                                         nullptr, nullptr);
+    std::string result(static_cast<size_t>(size), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), result.data(), size, nullptr,
+                        nullptr);
+    return result;
+}
+
+// Describes an error code returned by GetLastError().
+std::string error_message(DWORD error) { return std::system_category().message(static_cast<int>(error)); }
+
+// The serial port is a function of the Dongl's USB device, whose instance ID ends with the USB serial number,
+// as in USB\VID_3918&PID_0001\F994D61716DB.
+std::string get_usb_serial(HDEVINFO device_info_set, SP_DEVINFO_DATA& device_info) {
+    const std::wstring parent = get_string_property(device_info_set, device_info, DEVPKEY_Device_Parent);
+    const size_t separator = parent.find_last_of(L'\\');
+    if (separator == std::wstring::npos) {
+        return {};
+    }
+    return to_utf8(std::wstring_view(parent).substr(separator + 1));
+}
+
 std::wstring get_port_name(HDEVINFO device_info_set, SP_DEVINFO_DATA& device_info) {
     ScopedRegistryKey key(
         SetupDiOpenDevRegKey(device_info_set, &device_info, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_QUERY_VALUE));
@@ -175,8 +242,11 @@ std::wstring get_port_name(HDEVINFO device_info_set, SP_DEVINFO_DATA& device_inf
 UsbHelperWindows::UsbHelperWindows(const std::string& device_path) : UsbHelperImpl(device_path) {
     if (!_open_serial_port()) {
         const DWORD error = GetLastError();
-        throw std::system_error(static_cast<int>(error), std::system_category(),
-                                "Failed to open serial port " + _device_path);
+        // NOTE: Windows reports a port opened by another process as access denied.
+        if (error == ERROR_ACCESS_DENIED || error == ERROR_SHARING_VIOLATION) {
+            throw Exception::AdapterInUse(_device_path);
+        }
+        throw Exception::OperationFailed("Failed to open serial port " + _device_path + ": " + error_message(error));
     }
 
     try {
@@ -203,7 +273,7 @@ void UsbHelperWindows::tx(const kvn::bytearray& data) {
     std::scoped_lock tx_lock(_tx_mutex);
 
     if (!_running || _serial_handle == nullptr) {
-        throw std::runtime_error("Serial port is not available: " + _device_path);
+        throw Exception::OperationFailed("Serial port is not available: " + _device_path);
     }
     HANDLE serial_handle = static_cast<HANDLE>(_serial_handle);
 
@@ -214,14 +284,21 @@ void UsbHelperWindows::tx(const kvn::bytearray& data) {
         const DWORD requested = static_cast<DWORD>(
             std::min(remaining, static_cast<size_t>(std::numeric_limits<DWORD>::max())));
 
+        ScopedEvent write_event;
+        OVERLAPPED overlapped{};
+        overlapped.hEvent = write_event.get();
         DWORD bytes_written = 0;
-        if (!WriteFile(serial_handle, data.data() + offset, requested, &bytes_written, nullptr)) {
+        if (write_event.get() == nullptr ||
+            (!WriteFile(serial_handle, data.data() + offset, requested, nullptr, &overlapped) &&
+             GetLastError() != ERROR_IO_PENDING) ||
+            !GetOverlappedResult(serial_handle, &overlapped, &bytes_written, TRUE)) {
             const DWORD error = GetLastError();
-            throw std::system_error(static_cast<int>(error), std::system_category(),
-                                    "Failed to write to serial port " + _device_path);
+            throw Exception::OperationFailed("Failed to write to serial port " + _device_path + ": " +
+                                             error_message(error));
         }
         if (bytes_written == 0) {
-            throw std::runtime_error("Failed to write to serial port " + _device_path + ": no bytes were written");
+            throw Exception::OperationFailed("Failed to write to serial port " + _device_path +
+                                             ": no bytes were written");
         }
         offset += bytes_written;
     }
@@ -231,8 +308,8 @@ void UsbHelperWindows::set_rx_callback(std::function<void(const kvn::bytearray&)
     _rx_callback.load(callback);
 }
 
-std::vector<std::string> UsbHelperWindows::get_dongl_devices() {
-    std::vector<std::string> dongl_devices;
+std::vector<DonglDevice> UsbHelperWindows::get_dongl_devices() {
+    std::vector<DonglDevice> dongl_devices;
     ScopedDeviceInfoSet device_info_set(SetupDiGetClassDevsW(&PORTS_DEVICE_CLASS, nullptr, nullptr, DIGCF_PRESENT));
     if (device_info_set.get() == INVALID_HANDLE_VALUE) {
         return dongl_devices;
@@ -252,17 +329,24 @@ std::vector<std::string> UsbHelperWindows::get_dongl_devices() {
         if (!device_path.has_value()) {
             continue;
         }
-        dongl_devices.push_back(*device_path);
+        dongl_devices.push_back(
+            {*device_path, get_usb_serial(device_info_set.get(), device_info),
+             to_utf8(get_string_property(device_info_set.get(), device_info, DEVPKEY_Device_BusReportedDeviceDesc))});
     }
 
-    std::sort(dongl_devices.begin(), dongl_devices.end());
-    dongl_devices.erase(std::unique(dongl_devices.begin(), dongl_devices.end()), dongl_devices.end());
+    std::sort(dongl_devices.begin(), dongl_devices.end(),
+              [](const DonglDevice& a, const DonglDevice& b) { return a.path < b.path; });
+    dongl_devices.erase(std::unique(dongl_devices.begin(), dongl_devices.end(),
+                                    [](const DonglDevice& a, const DonglDevice& b) { return a.path == b.path; }),
+                        dongl_devices.end());
     return dongl_devices;
 }
 
 bool UsbHelperWindows::_open_serial_port() {
+    // NOTE: Windows makes synchronous reads and writes on the same handle wait for each other, which kept
+    // every command waiting behind the reader thread for up to seconds. With overlapped I/O they run independently.
     HANDLE serial_handle = CreateFileA(_device_path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
-                                       FILE_ATTRIBUTE_NORMAL, nullptr);
+                                       FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, nullptr);
     if (serial_handle == INVALID_HANDLE_VALUE) {
         return false;
     }
@@ -290,8 +374,8 @@ void UsbHelperWindows::_configure_serial_port() {
     config.DCBlength = sizeof(config);
     if (!GetCommState(serial_handle, &config)) {
         const DWORD error = GetLastError();
-        throw std::system_error(static_cast<int>(error), std::system_category(),
-                                "Failed to get serial port attributes for " + _device_path);
+        throw Exception::OperationFailed("Failed to get serial port attributes for " + _device_path + ": " +
+                                         error_message(error));
     }
 
     config.BaudRate = 1000000;
@@ -315,8 +399,8 @@ void UsbHelperWindows::_configure_serial_port() {
 
     if (!SetCommState(serial_handle, &config)) {
         const DWORD error = GetLastError();
-        throw std::system_error(static_cast<int>(error), std::system_category(),
-                                "Failed to set serial port attributes for " + _device_path);
+        throw Exception::OperationFailed("Failed to set serial port attributes for " + _device_path + ": " +
+                                         error_message(error));
     }
 
     COMMTIMEOUTS timeouts{};
@@ -326,19 +410,26 @@ void UsbHelperWindows::_configure_serial_port() {
     timeouts.WriteTotalTimeoutConstant = WRITE_TIMEOUT_MS;
     if (!SetCommTimeouts(serial_handle, &timeouts)) {
         const DWORD error = GetLastError();
-        throw std::system_error(static_cast<int>(error), std::system_category(),
-                                "Failed to set serial port timeouts for " + _device_path);
+        throw Exception::OperationFailed("Failed to set serial port timeouts for " + _device_path + ": " +
+                                         error_message(error));
     }
 
     if (!PurgeComm(serial_handle, PURGE_RXCLEAR | PURGE_TXCLEAR)) {
         const DWORD error = GetLastError();
-        throw std::system_error(static_cast<int>(error), std::system_category(),
-                                "Failed to flush serial port " + _device_path);
+        throw Exception::OperationFailed("Failed to flush serial port " + _device_path + ": " + error_message(error));
     }
 }
 
 void UsbHelperWindows::_run() {
     char buffer[256];
+
+    ScopedEvent read_event;
+    if (read_event.get() == nullptr) {
+        _running = false;
+        SIMPLEBLE_LOG_ERROR(fmt::format("Failed to create a read event for serial port {}", _device_path));
+        _lost_callback();
+        return;
+    }
 
     while (_running) {
         if (!_running || _serial_handle == nullptr) {
@@ -346,12 +437,18 @@ void UsbHelperWindows::_run() {
         }
         HANDLE serial_handle = static_cast<HANDLE>(_serial_handle);
 
+        // The serial timeouts end each read after at most READ_TIMEOUT_MS, so the loop can notice it should stop.
+        OVERLAPPED overlapped{};
+        overlapped.hEvent = read_event.get();
         DWORD bytes_read = 0;
-        if (!ReadFile(serial_handle, buffer, sizeof(buffer), &bytes_read, nullptr)) {
+        if ((!ReadFile(serial_handle, buffer, sizeof(buffer), nullptr, &overlapped) &&
+             GetLastError() != ERROR_IO_PENDING) ||
+            !GetOverlappedResult(serial_handle, &overlapped, &bytes_read, TRUE)) {
             const DWORD read_error = GetLastError();
             _running = false;
             const std::error_code error(static_cast<int>(read_error), std::system_category());
             SIMPLEBLE_LOG_ERROR(fmt::format("Error reading from serial port {}: {}", _device_path, error.message()));
+            _lost_callback();
             break;
         }
         if (bytes_read > 0) {

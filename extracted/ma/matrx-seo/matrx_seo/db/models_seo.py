@@ -3140,13 +3140,14 @@ class AiVisibilityDesignArtifact(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     test_run_id = UUIDField()
     test_expires_at = DateTimeField()
+    deleted_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "ai_visibility_design_artifact"
     _db_schema = "seo"
     _entity_token = "seo_ai_visibility_design_artifact"
     _is_versioned = False
-    _has_soft_delete = False
+    _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "component"
 
@@ -3187,6 +3188,8 @@ class AiVisibilityPanel(MatrxEntity):
     repeats = IntegerField(null=False, default=1)
     lanes = TextArrayField(null=False, default=['retrieval'])
     brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'ai_visibility_design_artifact': {'from_model': 'AiVisibilityDesignArtifact', 'from_field': 'panel_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_design_artifact', 'from_schema': 'seo'}, 'ai_visibility_panel_version': {'from_model': 'AiVisibilityPanelVersion', 'from_field': 'panel_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_panel_version', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "ai_visibility_panel"
@@ -3222,13 +3225,14 @@ class AiVisibilityPanelVersion(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     test_run_id = UUIDField()
     test_expires_at = DateTimeField()
+    deleted_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'ai_visibility_panel': {'from_model': 'AiVisibilityPanel', 'from_field': 'current_version_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_panel', 'from_schema': 'seo'}, 'ai_visibility_response': {'from_model': 'AiVisibilityResponse', 'from_field': 'panel_version_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_response', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "ai_visibility_panel_version"
     _db_schema = "seo"
     _entity_token = "seo_ai_visibility_panel_version"
     _is_versioned = False
-    _has_soft_delete = False
+    _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "component"
 

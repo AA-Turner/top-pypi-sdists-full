@@ -1,0 +1,117 @@
+# Ruff configuration. Every rule is enabled (including preview rules) and the
+# exceptions below each carry the reason they exist.
+
+target-version = 'py310'
+line-length = 79
+preview = true
+src = ['mt940', 'mt940_tests', 'examples', 'docs']
+exclude = ['.tox', 'test.py', '*_old.py']
+
+[lint]
+select = ['ALL']
+ignore = [
+    # Trailing commas and implicit string concatenation are managed by the
+    # formatter.
+    'missing-trailing-comma',
+    'single-line-implicit-string-concatenation',
+    # One blank line before a class docstring and the summary on the first
+    # docstring line (D211 and D212) are the chosen sides of two pydocstyle
+    # conflicts.
+    'incorrect-blank-line-before-class',
+    'multi-line-summary-second-line',
+    # No per-file copyright headers, the LICENSE file covers it.
+    'missing-copyright-notice',
+    # Exception messages live at the raise site, not in exception subclasses.
+    'raise-vanilla-args',
+    # `noqa` stays readable by other tools, `ruff: ignore` is not.
+    'noqa-comments',
+    # Keyword-only booleans would break positional callers of the public API
+    # (add_currency_pre_processor and friends).
+    'boolean-type-hint-positional-argument',
+    'boolean-default-value-positional-argument',
+    # mt940.json shadows the stdlib json module: it is a public module name.
+    'stdlib-module-shadowing',
+]
+
+[lint.per-file-ignores]
+# The tzinfo methods on FixedOffset take `dt` by keyword, pinned by a test, so
+# models.py keeps the full `datetime` name instead of the `dt` alias.
+'mt940/models.py' = ['unconventional-import-alias']
+# These modules document exceptions propagated by Python's file, date,
+# decimal and regular-expression APIs. DOC501 only sees explicit raises.
+'mt940/{json,models,options,parser,processors,tags}.py' = [
+    'docstring-extraneous-exception',
+]
+'mt940_tests/**' = [
+    # Tests assert, compare against literal expected values, are documented
+    # by their names, poke at private helpers on purpose and may carry bank
+    # names such as mBank.
+    'assert',
+    'magic-value-comparison',
+    'D1',
+    'private-member-access',
+    'import-private-name',    # documentation checks exercise docs._tools
+    'invalid-function-name',
+    'invalid-argument-name',
+]
+'mt940_tests/test_parse.py' = [
+    # The pickle round-trip test deserialises its own output.
+    'suspicious-pickle-usage',
+    'suspicious-pickle-import',
+]
+'mt940/processors.py' = [
+    # mBank_* processor names are public API.
+    'invalid-function-name',
+    'invalid-argument-name',
+    # Every processor shares one signature, so most of them ignore at least
+    # one of the positional arguments.
+    'unused-function-argument',
+]
+'docs/conf.py' = [
+    # Sphinx loads conf.py as a script, not as a package module.
+    'implicit-namespace-package',
+    'import-private-name',        # build configuration owns docs._tools
+]
+'docs/_tools/{inventory,links}.py' = [
+    'print', # command-line validation results are intentional output
+]
+
+'examples/**' = [
+    'print', # runnable guides intentionally display their results
+]
+
+[lint.flake8-annotations]
+# `*args: Any` / `**kwargs: Any` pass-through signatures are allowed. Every
+# other Any is flagged.
+allow-star-arg-any = true
+
+[lint.flake8-quotes]
+docstring-quotes = 'double'
+inline-quotes = 'single'
+multiline-quotes = 'double'
+
+[lint.flake8-pytest-style]
+mark-parentheses = true
+
+[lint.isort]
+case-sensitive = true
+combine-as-imports = true
+force-wrap-aliases = true
+
+[lint.pydocstyle]
+convention = 'google'
+ignore-decorators = ['typing.overload', 'typing.override']
+
+[lint.pycodestyle]
+max-line-length = 79
+
+[lint.pylint]
+# parse() takes the source plus five documented knobs.
+max-args = 6
+
+[format]
+line-ending = 'lf'
+indent-style = 'space'
+quote-style = 'single'
+docstring-code-format = true
+skip-magic-trailing-comma = false

@@ -32,6 +32,7 @@ from .models import (
     OperationResponse,
     OperationStatus,
     OperationSummary,
+    ProcessResourcesLimits,
     WhoAmIResponse,
 )
 from .runtime import (
@@ -376,6 +377,7 @@ def build_operation_subprocess_create(
     operation_id: str,
     command: str,
     *,
+    resources_limits: ProcessResourcesLimits | EllipsisType = ...,
     args: list[str] | EllipsisType = ...,
     shell: bool | EllipsisType = ...,
     env: dict[str, str] | None | EllipsisType = ...,
@@ -388,6 +390,7 @@ def build_operation_subprocess_create(
     """Build the request for `POST /operations/{operationId}/subprocesses`."""
     payload = ExecSpec(
         command=command,
+        resources_limits=resources_limits,
         args=args,
         shell=shell,
         env=env,
@@ -490,6 +493,128 @@ def parse_operation_subprocess_stdin(response: ResponseData) -> None:
     raise ValueError(f"unexpected HTTP status {response.status}")
 
 
+def build_apply_instance_file(
+    operation_uuid: str,
+    file_uuid: str,
+    path: str,
+    *,
+    unpack: bool | EllipsisType = ...,
+    replace: bool | EllipsisType = ...,
+    merge: bool | EllipsisType = ...,
+) -> RequestSpec:
+    """Build the request for `POST /operations/{operation_uuid}/files`."""
+    payload: dict[str, Any] = {}
+    payload["file_uuid"] = file_uuid
+    payload["path"] = path
+    if unpack is not ...:
+        payload["unpack"] = unpack
+    if replace is not ...:
+        payload["replace"] = replace
+    if merge is not ...:
+        payload["merge"] = merge
+    request_path = f"/operations/{quote_path(operation_uuid)}/files"
+    return RequestSpec(
+        method="POST",
+        path=request_path,
+        idempotent=False,
+        body=json.dumps(payload).encode(),
+        content_type="application/json",
+    )
+
+
+def parse_apply_instance_file(response: ResponseData) -> None:
+    """Parse the response of `POST /operations/{operation_uuid}/files`."""
+    if 200 <= response.status < 300:
+        return
+    raise ValueError(f"unexpected HTTP status {response.status}")
+
+
+def build_inspect_instance_download(operation_uuid: str, path: str) -> RequestSpec:
+    """Build the request for `GET
+    /operations/{operation_uuid}/inspect/download`.
+    """
+    query: dict[str, str] = {}
+    query["path"] = path
+    request_path = f"/operations/{quote_path(operation_uuid)}/inspect/download"
+    return RequestSpec(method="GET", path=request_path, idempotent=True, query=query)
+
+
+def parse_inspect_instance_download(response: ResponseData) -> bytes:
+    """Parse the response of `GET
+    /operations/{operation_uuid}/inspect/download`.
+    """
+    if 200 <= response.status < 300:
+        return response.body
+    raise ValueError(f"unexpected HTTP status {response.status}")
+
+
+def build_check_instance_file(operation_uuid: str, path: str) -> RequestSpec:
+    """Build the request for `HEAD
+    /operations/{operation_uuid}/inspect/download`.
+    """
+    query: dict[str, str] = {}
+    query["path"] = path
+    request_path = f"/operations/{quote_path(operation_uuid)}/inspect/download"
+    return RequestSpec(method="HEAD", path=request_path, idempotent=True, query=query)
+
+
+def parse_check_instance_file(response: ResponseData) -> bool:
+    """Parse the response of `HEAD
+    /operations/{operation_uuid}/inspect/download`.
+    """
+    if 200 <= response.status < 300:
+        return True
+    if response.status == 404:
+        return False
+    raise ValueError(f"unexpected HTTP status {response.status}")
+
+
+def build_inspect_instance_list(operation_uuid: str, path: str) -> RequestSpec:
+    """Build the request for `GET /operations/{operation_uuid}/inspect/list`."""
+    query: dict[str, str] = {}
+    query["path"] = path
+    request_path = f"/operations/{quote_path(operation_uuid)}/inspect/list"
+    return RequestSpec(method="GET", path=request_path, idempotent=True, query=query)
+
+
+def parse_inspect_instance_list(response: ResponseData) -> DirectoryList:
+    """Parse the response of `GET /operations/{operation_uuid}/inspect/list`."""
+    if 200 <= response.status < 300:
+        return DirectoryList.from_dict(json_object(response))
+    raise ValueError(f"unexpected HTTP status {response.status}")
+
+
+def build_inspect_instance_archive(operation_uuid: str, path: str) -> RequestSpec:
+    """Build the request for `GET
+    /operations/{operation_uuid}/inspect/archive`.
+    """
+    query: dict[str, str] = {}
+    query["path"] = path
+    request_path = f"/operations/{quote_path(operation_uuid)}/inspect/archive"
+    return RequestSpec(method="GET", path=request_path, idempotent=True, query=query)
+
+
+def build_check_instance_archive(operation_uuid: str, path: str) -> RequestSpec:
+    """Build the request for `HEAD
+    /operations/{operation_uuid}/inspect/archive`.
+    """
+    query: dict[str, str] = {}
+    query["path"] = path
+    request_path = f"/operations/{quote_path(operation_uuid)}/inspect/archive"
+    return RequestSpec(method="HEAD", path=request_path, idempotent=True, query=query)
+
+
+def parse_check_instance_archive(response: ResponseData) -> bool:
+    """Parse the response of `HEAD
+    /operations/{operation_uuid}/inspect/archive`.
+    """
+    if 200 <= response.status < 300:
+        return True
+    if response.status == 404:
+        return False
+    raise ValueError(f"unexpected HTTP status {response.status}")
+
+
 def build_inspect_find_image_by_tag(tag: str) -> RequestSpec:
     """Build the request for `GET /inspect/`."""
     query: dict[str, str] = {}
@@ -588,6 +713,46 @@ def parse_inspect_image_list(response: ResponseData) -> DirectoryList:
     """Parse the response of `GET /inspect/{image_uuid}/list`."""
     if 200 <= response.status < 300:
         return DirectoryList.from_dict(json_object(response))
+    raise ValueError(f"unexpected HTTP status {response.status}")
+
+
+def build_inspect_instance_grep(
+    operation_uuid: str,
+    pattern: str | Sequence[str],
+    *,
+    path: str | Sequence[str] | None = None,
+    glob: str | Sequence[str] | None = None,
+    max_count: int | None = None,
+    max_total: int | None = None,
+    case: Literal["sensitive", "insensitive", "smart"] | None = None,
+    before: int | None = None,
+    after: int | None = None,
+) -> RequestSpec:
+    """Build the request for `GET /operations/{operation_uuid}/inspect/grep`."""
+    query: dict[str, str | Sequence[str]] = {}
+    query["pattern"] = pattern
+    if path is not None:
+        query["path"] = path
+    if glob is not None:
+        query["glob"] = glob
+    if max_count is not None:
+        query["max_count"] = str(max_count)
+    if max_total is not None:
+        query["max_total"] = str(max_total)
+    if case is not None:
+        query["case"] = case
+    if before is not None:
+        query["before"] = str(before)
+    if after is not None:
+        query["after"] = str(after)
+    request_path = f"/operations/{quote_path(operation_uuid)}/inspect/grep"
+    return RequestSpec(method="GET", path=request_path, idempotent=True, query=query)
+
+
+def parse_inspect_instance_grep(response: ResponseData) -> GrepResult:
+    """Parse the response of `GET /operations/{operation_uuid}/inspect/grep`."""
+    if 200 <= response.status < 300:
+        return GrepResult.from_dict(json_object(response))
     raise ValueError(f"unexpected HTTP status {response.status}")
 
 

@@ -1,11 +1,12 @@
 import datetime
 import ipaddress
-import typing
 import unittest
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, Union
+
+from typing_extensions import TypeForm
 
 from strong_typing.auxiliary import MaxLength, Precision, float64, int16, int32, int64
 from strong_typing.classdef import (
@@ -17,30 +18,40 @@ from strong_typing.classdef import (
     schema_to_type,
 )
 from strong_typing.core import JsonType, Schema
-from strong_typing.inspection import TypeLike, create_module, dataclass_fields, is_dataclass_type, is_type_enum
+from strong_typing.inspection import create_module, dataclass_fields, is_dataclass_type, is_type_enum
 from strong_typing.schema import classdef_to_schema
-from strong_typing.serialization import json_to_generic
+from strong_typing.serialization import json_to_object
 
 empty = create_module("empty")
 
 
 def as_typedef(schema: Schema) -> TypeDef:
-    node = typing.cast(JsonSchemaAny, json_to_generic(JsonSchemaAny, schema, context=empty))
+    node = json_to_object(JsonSchemaAny, schema, context=empty)
     return node_to_typedef(empty, "", node)
 
 
-def as_type(schema: Schema) -> TypeLike:
+def as_type(schema: Schema) -> TypeForm[Any]:
     return as_typedef(schema).type
 
 
 @dataclass
 class UnionOfValues:
-    value: Union[None, str, int]
+    value: Union[None, str, int]  # noqa: UP007
+
+
+@dataclass
+class UnionTypeOfValues:
+    value: None | str | int
 
 
 @dataclass
 class UnionOfAddresses:
-    address: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+    address: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]  # noqa: UP007
+
+
+@dataclass
+class UnionTypeOfAddresses:
+    address: ipaddress.IPv4Address | ipaddress.IPv6Address
 
 
 @dataclass
@@ -58,10 +69,10 @@ class Person:
 
 
 class TestClassDef(unittest.TestCase):
-    def assertTypeEquivalent(self, left: TypeLike, right: TypeLike) -> None:
+    def assertTypeEquivalent(self, left: TypeForm[Any], right: TypeForm[Any]) -> None:
         if is_dataclass_type(left) and is_dataclass_type(right):
             self.assertEqual(left.__name__, right.__name__)
-            for left_field, right_field in zip(dataclass_fields(left), dataclass_fields(right)):
+            for left_field, right_field in zip(dataclass_fields(left), dataclass_fields(right), strict=True):
                 self.assertEqual(left_field.name, right_field.name)
                 self.assertTypeEquivalent(left_field.type, right_field.type)
         else:
@@ -188,53 +199,55 @@ class TestClassDef(unittest.TestCase):
 
     def test_oneOf(self) -> None:
         self.assertEqual(str, as_type({"oneOf": [{"type": "string"}]}))
-        self.assertEqual(
-            Union[str, int],
-            as_type({"oneOf": [{"type": "string"}, {"type": "integer"}]}),
-        )
 
+        union_type = as_type({"oneOf": [{"type": "string"}, {"type": "integer"}]})
+        self.assertEqual(Union[str, int], union_type)  # noqa: UP007
+        self.assertEqual(str | int, union_type)
+
+        union_of_values_schema: Schema = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [{"type": "string"}, {"type": "integer"}],
+                }
+            },
+            "additionalProperties": False,
+        }
         self.assertTypeEquivalent(
             UnionOfValues,
-            schema_to_type(
-                {
-                    "$schema": "https://json-schema.org/draft/2020-12/schema",
-                    "type": "object",
-                    "properties": {
-                        "value": {
-                            "oneOf": [{"type": "string"}, {"type": "integer"}],
-                        }
-                    },
-                    "additionalProperties": False,
-                },
-                module=empty,
-                class_name=UnionOfValues.__name__,
-            ),
+            schema_to_type(union_of_values_schema, module=empty, class_name=UnionOfValues.__name__),
+        )
+        self.assertTypeEquivalent(
+            UnionTypeOfValues,
+            schema_to_type(union_of_values_schema, module=empty, class_name=UnionTypeOfValues.__name__),
         )
 
+        union_of_addresses_schema: Schema = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "definitions": {
+                "IPv4Addr": {"type": "string", "format": "ipv4"},
+                "IPv6Addr": {"type": "string", "format": "ipv6"},
+            },
+            "type": "object",
+            "properties": {
+                "address": {
+                    "oneOf": [
+                        {"$ref": "#/definitions/IPv4Addr"},
+                        {"$ref": "#/definitions/IPv6Addr"},
+                    ],
+                }
+            },
+            "additionalProperties": False,
+            "required": ["address"],
+        }
         self.assertTypeEquivalent(
             UnionOfAddresses,
-            schema_to_type(
-                {
-                    "$schema": "https://json-schema.org/draft/2020-12/schema",
-                    "definitions": {
-                        "IPv4Addr": {"type": "string", "format": "ipv4"},
-                        "IPv6Addr": {"type": "string", "format": "ipv6"},
-                    },
-                    "type": "object",
-                    "properties": {
-                        "address": {
-                            "oneOf": [
-                                {"$ref": "#/definitions/IPv4Addr"},
-                                {"$ref": "#/definitions/IPv6Addr"},
-                            ],
-                        }
-                    },
-                    "additionalProperties": False,
-                    "required": ["address"],
-                },
-                module=empty,
-                class_name=UnionOfAddresses.__name__,
-            ),
+            schema_to_type(union_of_addresses_schema, module=empty, class_name=UnionOfAddresses.__name__),
+        )
+        self.assertTypeEquivalent(
+            UnionTypeOfAddresses,
+            schema_to_type(union_of_addresses_schema, module=empty, class_name=UnionTypeOfAddresses.__name__),
         )
         self.assertIsNotNone(getattr(empty, "IPv4Addr", None))
         self.assertIsNotNone(getattr(empty, "IPv6Addr", None))

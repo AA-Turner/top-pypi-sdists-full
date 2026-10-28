@@ -1,6 +1,7 @@
 import asyncio
 import json as json_lib
 import pickle
+import time
 from time import perf_counter
 from typing import Any
 
@@ -39,6 +40,8 @@ from arraylake.exceptions import (
 from arraylake.metastore.http_metastore import HttpMetastoreConfig
 from arraylake.token import AuthException
 from arraylake.types import OauthTokens
+
+from . import fake_jwt
 
 
 def _get_test_tokens(fname) -> dict:
@@ -1217,3 +1220,55 @@ async def test_config_proxy_end_to_end_integration(respx_mock, monkeypatch) -> N
 
     # Clean up
     config.clear()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["env", "config", "explicit"])
+async def test_401_names_the_token_source(respx_mock, monkeypatch, source) -> None:
+    api_url = "https://foo.com"
+    token = fake_jwt(time.time() - 60) if source == "env" else "ema_abc123"
+    monkeypatch.delenv("ARRAYLAKE_TOKEN", raising=False)
+    if source == "env":
+        monkeypatch.setenv("ARRAYLAKE_TOKEN", token)
+    respx_mock.get(f"{api_url}/user").respond(401, json={"detail": "Invalid token"})
+
+    with config.set({"token": None if source == "explicit" else token}):
+        client = ArraylakeHttpClient(api_url, token=token)
+        with pytest.raises(ArraylakeClientError) as exc_info:
+            handle_response(await client._request("GET", "user"))
+
+    message = str(exc_info.value)
+    assert token not in message
+    if source == "env":
+        assert "using ARRAYLAKE_TOKEN (JWT, expired " in message
+        assert "`unset ARRAYLAKE_TOKEN`" in message
+    elif source == "config":
+        assert "using the `token` set in your arraylake config (API token)" in message
+    else:
+        assert "using the token passed to Client(token=...) (API token)" in message
+
+
+@pytest.mark.asyncio
+async def test_401_after_refresh_names_the_cached_login(test_token_file, respx_mock, mock_auth_provider_config) -> None:
+    api_url = "https://foo.com"
+    refreshed = {"access_token": "a", "id_token": fake_jwt(time.time() + 3600), "refresh_token": "r", "expires_in": 3600}
+    respx_mock.post(f"https://{mock_auth_provider_config.domain}/oauth/token").respond(200, json=refreshed)
+    respx_mock.get(f"{api_url}/user").respond(401, json={"detail": "Invalid token"})
+
+    client = ArraylakeHttpClient(api_url, token=None)
+    with pytest.raises(ArraylakeClientError) as exc_info:
+        handle_response(await client._request("GET", "user"))
+
+    message = str(exc_info.value)
+    assert f"using your cached login for {api_url} (JWT, expires " in message
+    assert "run `al auth login`" in message
+    assert refreshed["id_token"] not in message
+
+
+@pytest.mark.asyncio
+async def test_non_401_errors_do_not_name_the_credential(respx_mock) -> None:
+    respx_mock.get("https://foo.com/user").respond(403, json={"detail": "Forbidden"})
+    client = ArraylakeHttpClient("https://foo.com", token="ema_abc123")
+    with pytest.raises(ArraylakeClientError) as exc_info:
+        handle_response(await client._request("GET", "user"))
+    assert "Authenticated" not in str(exc_info.value)

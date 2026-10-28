@@ -29,7 +29,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-ARCHIVE_EXTENSIONS = (".whl", ".tar.gz", ".zip")
 _LOCAL_FILE_SCHEMES: Final[frozenset[str]] = frozenset({"file", "git+file", "hg+file"})
 _PIP_PATH_OPTIONS: Final[frozenset[str]] = frozenset({"-c", "--constraint", "-f", "--find-links"})
 _PIP_ATTACHED_PATH_OPTIONS: Final[frozenset[str]] = frozenset({"-c", "-f"})
@@ -84,12 +83,16 @@ def _parse_specifier(package_spec: str) -> ParsedPackage:
     valid_url = None
     valid_local_path = None
 
-    if valid_pep508 and valid_pep508.name.endswith(ARCHIVE_EXTENSIONS):
+    if valid_pep508 and _is_archive_name(valid_pep508.name):
         # It might be a local archive
         (package_path, package_path_exists) = _check_package_path(valid_pep508.name)
 
         if package_path_exists:
-            valid_local_path = str(package_path.resolve())
+            if valid_pep508.specifier or valid_pep508.url or valid_pep508.marker:
+                msg = f"Only extras can follow the local archive {package_path}"
+                raise PipxError(msg)
+            # keep the extras as typed so the bare and ./ spellings store the same spec
+            valid_local_path = f"{package_path.resolve()}{_split_path_extras(package_spec.strip())[1]}"
         else:
             msg = f"{package_path} does not exist"
             raise PipxError(msg)
@@ -134,6 +137,24 @@ def _requirement(package_spec: str) -> Requirement | None:
         return Requirement(package_spec)
     except InvalidRequirement:
         return None
+
+
+def _is_archive_name(name: str) -> bool:
+    # same extensions and case folding as pip's is_archive_file (pip._internal.utils.filetypes)
+    return name.lower().endswith((
+        ".whl",
+        ".zip",
+        ".tar.bz2",
+        ".tbz",
+        ".tar.gz",
+        ".tgz",
+        ".tar",
+        ".tar.xz",
+        ".txz",
+        ".tlz",
+        ".tar.lz",
+        ".tar.lzma",
+    ))
 
 
 def package_or_url_from_pep508(requirement: Requirement, *, remove_version_specifiers: bool = False) -> str:
@@ -263,7 +284,7 @@ def valid_pypi_name(package_spec: str) -> str | None:
     if (package_req := _requirement(package_spec)) is None:
         return None
 
-    if package_req.url or package_req.name.endswith(ARCHIVE_EXTENSIONS):
+    if package_req.url or _is_archive_name(package_req.name):
         # package name supplied by user might not match package found in URL,
         # also if package name ends with archive extension, it might be a local archive file,
         #   so force package name determination the long way
@@ -389,7 +410,11 @@ def extract_index_options(pip_args: list[str]) -> list[str]:
             continue
         option, separator = argument.partition("=")[:2]
         if option in _PIP_INDEX_VALUE_OPTIONS:
-            index_args.extend([argument] if separator else [argument, next(iterator)])
+            try:
+                index_args.extend([argument] if separator else [argument, next(iterator)])
+            except StopIteration as error:
+                msg = f"Missing value for {option!r} in --pip-args."
+                raise PipxError(msg) from error
         elif len(argument) > _SHORT_OPTION_LEN and argument[:2] in {"-f", "-i"}:
             index_args.append(argument)
     return index_args
@@ -399,7 +424,7 @@ def fix_package_name(package_or_url: str, package_name: str) -> str:
     if (package_req := _requirement(package_or_url)) is None:
         return package_or_url
 
-    if package_req.name.endswith(ARCHIVE_EXTENSIONS):
+    if _is_archive_name(package_req.name):
         return str(package_req)
 
     if canonicalize_name(package_req.name) != canonicalize_name(package_name):

@@ -17,6 +17,8 @@
 # under the License.
 #
 
+from __future__ import annotations
+
 import atexit
 import os
 import sys
@@ -42,7 +44,6 @@ _trace_key = proton.symbol('x-opt-qpid-tracestate')
 
 
 def get_tracer():
-    global _tracer
     if _tracer is not None:
         return _tracer
     exe = sys.argv[0] if sys.argv[0] else 'interactive-session'

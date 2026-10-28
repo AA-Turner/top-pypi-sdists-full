@@ -1,3 +1,9 @@
+"""Deprecated team orchestration retained for compatibility.
+
+All classes in this module are deprecated. Coordinate individual agents with
+Python calls or task dependencies instead.
+"""
+
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -5,8 +11,8 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import pydantic_ai
 from pydantic_ai.agent import AgentRunResult
-from pydantic_ai.mcp import MCPServer
 
+from marvin._internal.pydantic_ai import MCPServer
 from marvin.agents.actor import Actor
 from marvin.agents.names import TEAM_NAMES
 from marvin.memory.memory import Memory

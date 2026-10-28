@@ -110,6 +110,9 @@ _CORE_ONLY_IDS = frozenset({
     # #864: the dotted switch turned off, which the v1 shim does not
     # translate (decisions/S9)
     "paired_initials_under_the_switch_off_read_the_same",
+    # #789: a given name written short under a declared family-first
+    # order, which v1 cannot express
+    "chas_dotted_under_family_first_is_placed_by_the_order",
     # #718: S10's count under a declared family-first order, which v1
     # cannot express
     "a_lone_numeral_counts_in_units_under_family_first",
@@ -128,6 +131,9 @@ _CORE_ONLY_IDS = frozenset({
     # #700: P6's family-first site for the elided particle, under a
     # declared order v1 has no spelling for
     "an_elided_particle_ending_a_family_first_name",
+    # #892: P6's attachment behind an empty head under a declared
+    # family-first order, which v1 cannot express
+    "empty_head_attaches_the_particle_family_first",
     "family_comma_no_name_word_family_first_given_last",
     "family_comma_no_name_word_family_first_plain",
     "leading_never_given_particle_two_leftovers_family_first",
@@ -219,6 +225,7 @@ _CORE_ONLY_IDS = frozenset({
     "strict_comma_reports_a_one_case_numeral_in_a_third_part",
     "the_comma_flip_is_read_under_the_declared_order",
     "two_caps_credentials_peel_as_a_run",
+    "a_shape_admitted_numeral_keeps_its_run_under_the_caps_switch",
     "the_caps_shape_is_script_agnostic_cyrillic",
     "the_caps_shape_is_script_agnostic_accented",
     "the_dotted_switch_off_still_reports_the_post_comma_fork",

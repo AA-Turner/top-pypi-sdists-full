@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: easypost
-Version: 10.7.0
+Version: 10.8.0
 Summary: EasyPost Shipping API Client Library for Python
 Author-email: EasyPost <support@easypost.com>
 License: The MIT License
@@ -46,7 +46,6 @@ License-File: LICENSE
 Requires-Dist: requests>=2.4.3
 Provides-Extra: dev
 Requires-Dist: bandit==1.8.*; extra == "dev"
-Requires-Dist: build==1.2.*; extra == "dev"
 Requires-Dist: mypy==1.15.*; extra == "dev"
 Requires-Dist: pdoc==15.*; extra == "dev"
 Requires-Dist: pytest==8.*; extra == "dev"

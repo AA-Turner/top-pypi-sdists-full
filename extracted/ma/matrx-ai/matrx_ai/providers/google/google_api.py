@@ -172,6 +172,35 @@ def _required_speaker_labels(config: Any) -> list[str]:
     return [s.speaker for s in svcs if getattr(s, "speaker", None)]
 
 
+def _speaker_tagged_parts(text: str, labels: list[str]) -> list[dict[str, Any]]:
+    """One part per spoken line, each naming its speaker in ``speech_metadata``.
+
+    The Gemini 3 speech models refuse a multi-speaker request whose text parts do not each
+    say who speaks ("must specify speech_metadata.speaker for each text part", live
+    2026-10-27); the label is carried in the metadata, not repeated in the text. A line that
+    starts with no declared label continues the previous speaker's turn."""
+    import re
+
+    pattern = re.compile(r"^\s*(" + "|".join(re.escape(lbl) for lbl in labels) + r")\s*:\s*(.*)$")
+    tag_only = re.compile(r"^\s*</?[A-Za-z_][\w-]*>\s*$")
+    parts: list[dict[str, Any]] = []
+    lead: list[str] = []  # lines before the first label: a title / "read aloud in ..." direction
+    for line in text.splitlines():
+        if not line.strip() or tag_only.match(line):
+            continue
+        hit = pattern.match(line)
+        if hit:
+            parts.append({"text": hit.group(2), "speech_metadata": {"speaker": hit.group(1)}})
+        elif parts:
+            parts[-1]["text"] += "\n" + line.strip()
+        else:
+            lead.append(line.strip())
+    if parts and lead:
+        # Direction for the delivery, not words to be spoken.
+        parts[0]["speech_metadata"]["style"] = " ".join(lead)
+    return parts
+
+
 def _split_tts_text(full_text: str, required_labels: list[str], *, max_chars: int) -> list[str]:
     """Split a transcript into ``<= max_chars`` windows on line boundaries.
 
@@ -759,7 +788,16 @@ class GoogleChat:
         for idx, seg_text in enumerate(segments):
             seg_config_data = {
                 "model": model,
-                "contents": [{"role": "user", "parts": [{"text": seg_text}]}],
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": (
+                            _speaker_tagged_parts(seg_text, required)
+                            if required and str(model).startswith("gemini-3")
+                            else [{"text": seg_text}]
+                        ),
+                    }
+                ],
                 "config": cfg,
             }
             attempt = 0

@@ -77,6 +77,7 @@ dev = [
     "yaxmldiff",
     "yamllint",
     "wheel",
+    "zizmor~=1.31.1"
 ]
 
 [project.scripts]
@@ -120,7 +121,10 @@ __version__ = {version!r}
 """
 
 [tool.pylint]
-ignore-paths = ["tests/*"]
+ignore-paths = [
+    "tests/*",
+    "admin/cspell/node_modules",
+]
 fail-under = 9.98
 disable = [
     "unknown-option-value",          # This is because we are testing with several versions
@@ -204,6 +208,12 @@ task-tags = [
 max-line-length = 150
 
 [tool.ruff.lint.per-file-ignores]
+"doc/source/conf.py" = [
+    "INP001" # File `...` is part of an implicit namespace package. Add an `__init__.py`.
+]
+"scripts/pyinstaller_entrypoint.py" = [
+    "INP001" # File `...` is part of an implicit namespace package. Add an `__init__.py`.
+]
 "src/gcovr/options.py" = [
     "A001",    # Variable `help` is shadowing a Python builtin
     "A002",    # Function argument `help` is shadowing a Python builtin
@@ -231,7 +241,7 @@ env = [
     "D:CC=gcc",
     "GCOVR_TEST_SUITE=1",
     "GCOVR_TEST_SUITE_NO_GIT_COMMAND=1",
-    "SOURCE_DATE_EPOCH=1792183400",
+    "SOURCE_DATE_EPOCH=1793099975",
 ]
 markers = [
     "csv",

@@ -1,20 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: opentimestamps-client
-Version: 0.7.2
+Version: 0.8.0
 Summary: Command-line tool to create and verify OpenTimestamps proofs
-Home-page: https://github.com/opentimestamps/opentimestamps-client
-Author: Peter Todd
-Author-email: pete@petertodd.org
-License: LGPL3
-Keywords: cryptography timestamping bitcoin
+Author-email: Peter Todd <pete@petertodd.org>
+License-Expression: LGPL-3.0-or-later
+Project-URL: Homepage, https://github.com/opentimestamps/opentimestamps-client
+Keywords: cryptography,timestamping,bitcoin
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Topic :: Security :: Cryptography
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: opentimestamps<0.6.0,>=0.5.0
+Requires-Dist: platformdirs>=3.0.0
+Requires-Dist: GitPython>=2.0.8
+Requires-Dist: PySocks>=1.5.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Dynamic: license-file
 
 # OpenTimestamps Client
 
@@ -40,7 +52,7 @@ Either via PyPi:
 
 or from source:
 
-    $ python3 setup.py install
+    $ python3 -m pip install -e .
 
 On Debian (Stretch) you can install the necessary system dependencies with:
 
@@ -174,7 +186,7 @@ tool from the [OpenTimestamps Server](https://github.com/opentimestamps/opentime
 
 Use the setuptools development mode:
 
-    python3 setup.py develop --user
+    python3 -m pip install -e ".[dev]" --user
 
 
 ## Known Issues

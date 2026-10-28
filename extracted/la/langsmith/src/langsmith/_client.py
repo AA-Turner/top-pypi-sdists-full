@@ -55,11 +55,11 @@ if TYPE_CHECKING:
     from .resources.info import InfoResource, AsyncInfoResource
     from .resources.agents import AgentsResource, AsyncAgentsResource
     from .resources.issues import IssuesResource, AsyncIssuesResource
-    from .resources.traces import TracesResource, AsyncTracesResource
     from .resources.sessions import SessionsResource, AsyncSessionsResource
     from .resources.runs.runs import RunsResource, AsyncRunsResource
     from .resources.fleet.fleet import FleetResource, AsyncFleetResource
     from .resources.public.public import PublicResource, AsyncPublicResource
+    from .resources.traces.traces import TracesResource, AsyncTracesResource
     from .resources.prompt_webhooks import PromptWebhooksResource, AsyncPromptWebhooksResource
     from .resources.threads.threads import ThreadsResource, AsyncThreadsResource
     from .resources.product_feedback import ProductFeedbackResource, AsyncProductFeedbackResource
@@ -147,6 +147,8 @@ class Langsmith(SyncAPIClient):
             custom_query=default_query,
             _strict_response_validation=_strict_response_validation,
         )
+
+        self._default_stream_cls = Stream
 
     @cached_property
     def product_feedback(self) -> ProductFeedbackResource:
@@ -445,6 +447,8 @@ class AsyncLangsmith(AsyncAPIClient):
             custom_query=default_query,
             _strict_response_validation=_strict_response_validation,
         )
+
+        self._default_stream_cls = AsyncStream
 
     @cached_property
     def product_feedback(self) -> AsyncProductFeedbackResource:

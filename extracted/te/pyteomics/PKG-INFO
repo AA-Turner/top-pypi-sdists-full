@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyteomics
-Version: 5.0.1
+Version: 5.0.2
 Summary: A framework for proteomics data analysis.
 Author: Anton Goloborodko, Joshua Klein
 Author-email: Lev Levitsky <pyteomics@googlegroups.com>
@@ -33,20 +33,22 @@ Provides-Extra: unimod
 Requires-Dist: lxml; extra == "unimod"
 Requires-Dist: sqlalchemy>=1.4; extra == "unimod"
 Provides-Extra: numpress
-Requires-Dist: pynumpress; extra == "numpress"
+Requires-Dist: pynumpress<0.1.2; python_version < "3.11" and extra == "numpress"
+Requires-Dist: pynumpress; python_version >= "3.11" and extra == "numpress"
 Provides-Extra: mzmlb
 Requires-Dist: h5py; extra == "mzmlb"
 Requires-Dist: hdf5plugin; extra == "mzmlb"
 Provides-Extra: proforma
-Requires-Dist: psims>0.1.42; extra == "proforma"
+Requires-Dist: psims>=1.4.0; extra == "proforma"
 Provides-Extra: all
 Requires-Dist: lxml; extra == "all"
 Requires-Dist: numpy; extra == "all"
-Requires-Dist: psims>0.1.42; extra == "all"
+Requires-Dist: psims>=1.4.0; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
 Requires-Dist: pandas>=0.17; extra == "all"
 Requires-Dist: sqlalchemy>=1.4; extra == "all"
-Requires-Dist: pynumpress; extra == "all"
+Requires-Dist: pynumpress<0.1.2; python_version < "3.11" and extra == "all"
+Requires-Dist: pynumpress; python_version >= "3.11" and extra == "all"
 Requires-Dist: h5py; extra == "all"
 Requires-Dist: hdf5plugin; extra == "all"
 Requires-Dist: spectrum_utils>=0.4; extra == "all"

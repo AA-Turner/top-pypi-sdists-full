@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-mcp
-Version: 2.8.0
+Version: 2.9.0
 Summary: A MCP (Model Context Protocol) server for interacting with dbt resources.
 Project-URL: Documentation, https://docs.getdbt.com/docs/dbt-ai/about-mcp
 Project-URL: Issues, https://github.com/dbt-labs/dbt-mcp/issues
@@ -219,7 +219,9 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Typing :: Typed
-Requires-Python: <3.14,>=3.12
+Requires-Python: <3.15,>=3.12
+Requires-Dist: adbc-driver-flightsql>=1.8.0
+Requires-Dist: adbc-driver-manager>=1.8.0
 Requires-Dist: anyio>=4.14.2
 Requires-Dist: authlib~=1.6.7
 Requires-Dist: cachetools<8,>=5
@@ -307,6 +309,7 @@ To learn more about the dbt Discovery API, click [here](https://docs.getdbt.com/
 - `get_source_details`: *(deprecated — use `get_node_details` instead)*
 - `get_test_details`: *(deprecated — use `get_node_details` instead)*
 - `search`: [Alpha] Searches for resources across the dbt project (not generally available).
+- `search_public_mesh_models`: Finds public dbt Mesh models across projects and confirms producer identity so you can build a verified cross-project ref (multi-project configurations only).
 
 ### dbt CLI
 

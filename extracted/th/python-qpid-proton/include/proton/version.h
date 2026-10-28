@@ -23,7 +23,7 @@
  */
 
 #define PN_VERSION_MAJOR 0
-#define PN_VERSION_MINOR 40
-#define PN_VERSION_POINT 0
+#define PN_VERSION_MINOR 41
+#define PN_VERSION_POINT 1
 
 #endif /* version.h */

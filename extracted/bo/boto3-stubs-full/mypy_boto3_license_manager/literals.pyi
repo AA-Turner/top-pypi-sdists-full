@@ -29,6 +29,7 @@ __all__ = (
     "EntitlementDataUnitType",
     "EntitlementUnitType",
     "GrantStatusType",
+    "GrantTypeType",
     "InventoryFilterConditionType",
     "LicenseAssetGroupStatusType",
     "LicenseConfigurationStatusType",
@@ -66,6 +67,7 @@ AllowedOperationType = Literal[
     "CreateToken",
     "ExtendConsumptionLicense",
     "ListPurchasedLicenses",
+    "ListReceivedLicenses",
 ]
 CheckoutTypeType = Literal["PERPETUAL", "PROVISIONAL"]
 DigitalSignatureMethodType = Literal["JWT_PS384"]
@@ -138,6 +140,7 @@ GrantStatusType = Literal[
     "REJECTED",
     "WORKFLOW_COMPLETED",
 ]
+GrantTypeType = Literal["BuyerGrant", "DelegateGrant"]
 InventoryFilterConditionType = Literal["BEGINS_WITH", "CONTAINS", "EQUALS", "NOT_EQUALS"]
 LicenseAssetGroupStatusType = Literal["ACTIVE", "DELETED", "DISABLED"]
 LicenseConfigurationStatusType = Literal["AVAILABLE", "DISABLED"]

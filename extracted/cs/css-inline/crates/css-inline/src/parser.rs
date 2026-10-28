@@ -14,6 +14,89 @@ pub(crate) struct Rule<'i> {
     pub(crate) layer: LayerId,
 }
 
+/// Split a selector list on its top-level commas, leaving commas inside `()`, `[]`, strings,
+/// comments and escapes intact.
+pub(crate) fn split_selector_list(list: &str) -> impl Iterator<Item = &str> {
+    let mut rest = Some(list);
+    std::iter::from_fn(move || {
+        let current = rest?;
+        if let Some(comma) = top_level_comma(current) {
+            let (selector, tail) = current.split_at(comma);
+            rest = tail.strip_prefix(',');
+            Some(selector)
+        } else {
+            rest = None;
+            Some(current)
+        }
+    })
+}
+
+#[derive(Clone, Copy)]
+enum Scan {
+    Code,
+    String(u8),
+    Comment,
+}
+
+fn top_level_comma(list: &str) -> Option<usize> {
+    let bytes = list.as_bytes();
+    let comma = memchr::memchr(b',', bytes)?;
+    // Without these bytes nothing before the comma can nest, quote, comment or escape it
+    let prefix = &bytes[..comma];
+    if memchr::memchr3(b'(', b'[', b'\\', prefix).is_none()
+        && memchr::memchr3(b'"', b'\'', b'/', prefix).is_none()
+    {
+        return Some(comma);
+    }
+    top_level_comma_scan(list)
+}
+
+fn top_level_comma_scan(list: &str) -> Option<usize> {
+    let mut scan = Scan::Code;
+    let mut depth = 0usize;
+    let mut escaped = false;
+    let mut previous = 0u8;
+    for (idx, &byte) in list.as_bytes().iter().enumerate() {
+        // Every special byte is ASCII, so an escape never hides one inside a multibyte char
+        if escaped {
+            escaped = false;
+            previous = 0;
+            continue;
+        }
+        match scan {
+            Scan::Comment => {
+                if previous == b'*' && byte == b'/' {
+                    scan = Scan::Code;
+                    previous = 0;
+                    continue;
+                }
+            }
+            Scan::String(quote) => {
+                if byte == b'\\' {
+                    escaped = true;
+                } else if byte == quote {
+                    scan = Scan::Code;
+                }
+            }
+            Scan::Code => match byte {
+                b'\\' => escaped = true,
+                b'"' | b'\'' => scan = Scan::String(byte),
+                b'*' if previous == b'/' => {
+                    scan = Scan::Comment;
+                    previous = 0;
+                    continue;
+                }
+                b'(' | b'[' => depth = depth.saturating_add(1),
+                b')' | b']' => depth = depth.saturating_sub(1),
+                b',' if depth == 0 => return Some(idx),
+                _ => {}
+            },
+        }
+        previous = byte;
+    }
+    None
+}
+
 /// Index into [`Layers`]; `0` is the implicit layer of unlayered rules.
 pub(crate) type LayerId = usize;
 
@@ -214,6 +297,55 @@ pub(crate) fn collect_rules<'i>(
             Some(Err((_, rule, _))) => rejected = Some(rule),
         }
     }
+}
+
+/// The declaration value without its `!important` flag, or `None` if it has no such flag.
+///
+/// The flag is `!` and `important` (any ASCII case) as the last tokens, with optional
+/// whitespace and comments around and between them.
+pub(crate) fn strip_important(value: &str) -> Option<&str> {
+    // Common spelling, with the flag at the top level
+    if let Some(rest) = value.trim_ascii_end().strip_suffix("!important") {
+        if is_closed_plain(rest) {
+            return Some(rest.trim_ascii_end());
+        }
+    }
+    // Most values have no `!`, skip tokenizing them
+    if !value.as_bytes().contains(&b'!') {
+        return None;
+    }
+    let mut parser = cssparser::Parser::new(value);
+    loop {
+        if let Token::Delim('!') = parser.next().ok()? {
+            // `!` is one byte, so it starts right before the current position
+            let bang = parser.position().byte_index().saturating_sub(1);
+            let state = parser.state();
+            if parser.expect_ident_matching("important").is_ok() && parser.is_exhausted() {
+                return Some(value[..bang].trim_ascii_end());
+            }
+            parser.reset(&state);
+        }
+    }
+}
+
+/// Whether `value` has no strings, comments, escapes or brackets other than balanced
+/// parentheses, so what follows it is at the top level.
+fn is_closed_plain(value: &str) -> bool {
+    let mut depth = 0usize;
+    for byte in value.bytes() {
+        match byte {
+            b'"' | b'\'' | b'\\' | b'/' | b'[' | b']' | b'{' | b'}' => return false,
+            b'(' => depth = depth.saturating_add(1),
+            b')' => {
+                let Some(outer) = depth.checked_sub(1) else {
+                    return false;
+                };
+                depth = outer;
+            }
+            _ => {}
+        }
+    }
+    depth == 0
 }
 
 fn exhaust<'i>(input: &mut cssparser::Parser<'i>) -> &'i str {
@@ -437,4 +569,75 @@ fn parse_declarations_into<'i>(
         declarations.push(item);
     }
     (start, declarations.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{split_selector_list, top_level_comma, top_level_comma_scan};
+    use test_case::test_case;
+
+    #[test_case("a, b", Some(1); "plain")]
+    #[test_case("a/b, c", Some(3); "slash without comment")]
+    #[test_case("a/, b", Some(2); "slash before comma")]
+    #[test_case("a*/, b", Some(3); "comment end without start")]
+    #[test_case(r"a\,b, c", Some(4); "escaped comma")]
+    #[test_case(r#"[x=","], p"#, Some(7); "comma in attribute")]
+    #[test_case(":not(a, b), c", Some(10); "comma in parentheses")]
+    #[test_case("a), b", Some(2); "unbalanced closing")]
+    #[test_case(r#""a,b", c"#, Some(5); "comma in string")]
+    #[test_case("'a,b', c", Some(5); "comma in single-quoted string")]
+    #[test_case("/* , */ a, b", Some(9); "comma in comment")]
+    #[test_case("a,", Some(1); "trailing")]
+    #[test_case(",a", Some(0); "leading")]
+    #[test_case("", None; "empty")]
+    #[test_case("a b", None; "no comma")]
+    #[test_case("(a, b", None; "unclosed parenthesis")]
+    #[test_case("é, b", Some(2); "unicode before comma")]
+    #[test_case("é(, b", None; "unicode before parenthesis")]
+    fn comma(list: &str, expected: Option<usize>) {
+        assert_eq!(top_level_comma_scan(list), expected);
+        assert_eq!(top_level_comma(list), expected);
+    }
+
+    #[test_case("h1, h2", &["h1", " h2"]; "plain list")]
+    #[test_case("h1", &["h1"]; "single")]
+    #[test_case("", &[""]; "empty")]
+    #[test_case("h1,", &["h1", ""]; "trailing comma")]
+    #[test_case(".x:not(.a, .b), p", &[".x:not(.a, .b)", " p"]; "inside parentheses")]
+    #[test_case(":is(a, :not(b, c)), d", &[":is(a, :not(b, c))", " d"]; "nested parentheses")]
+    #[test_case(r#"[title="a,b"], p"#, &[r#"[title="a,b"]"#, " p"]; "double-quoted string")]
+    #[test_case("[title='a,b'], p", &["[title='a,b']", " p"]; "single-quoted string")]
+    #[test_case(r#"[title="a'b,c"], p"#, &[r#"[title="a'b,c"]"#, " p"]; "other quote in string")]
+    #[test_case(r#"[title="("], p"#, &[r#"[title="("]"#, " p"]; "parenthesis in string")]
+    #[test_case(r#"[title="a\",b"], p"#, &[r#"[title="a\",b"]"#, " p"]; "escaped quote")]
+    #[test_case(r".a\,b, p", &[r".a\,b", " p"]; "escaped comma")]
+    #[test_case(r".a\(, p", &[r".a\(", " p"]; "escaped parenthesis")]
+    #[test_case(".é\\é, p", &[".é\\é", " p"]; "escaped non-ASCII")]
+    #[test_case("h1 /* a, b */, h2", &["h1 /* a, b */", " h2"]; "comment")]
+    #[test_case("h1, /* a, b", &["h1", " /* a, b"]; "unterminated comment")]
+    fn split(list: &str, expected: &[&str]) {
+        assert_eq!(split_selector_list(list).collect::<Vec<_>>(), expected);
+    }
+
+    #[test_case("red !important", Some("red"); "plain")]
+    #[test_case("red!important  ", Some("red"); "no spaces")]
+    #[test_case("!important", Some(""); "flag only")]
+    #[test_case("red !IMPORTANT", Some("red"); "uppercase")]
+    #[test_case("red ! /* c */ Important /* d */", Some("red"); "comments")]
+    #[test_case("rgb(0, 0, 0) !important", Some("rgb(0, 0, 0)"); "after function")]
+    #[test_case(r#""a" !important"#, Some(r#""a""#); "after string")]
+    #[test_case("red", None; "no flag")]
+    #[test_case("important", None; "no bang")]
+    #[test_case("red !important blue", None; "not last")]
+    #[test_case(r"red \!important", None; "escaped bang")]
+    #[test_case(r#""a !important""#, None; "inside string")]
+    #[test_case("red /* !important */", None; "inside comment")]
+    #[test_case("rgb(0 !important", None; "inside unclosed function")]
+    #[test_case("var(--a, rgb(0 0 0)) !important", Some("var(--a, rgb(0 0 0))"); "after nested functions")]
+    #[test_case("a) (b !important", None; "inside block after stray parenthesis")]
+    #[test_case("[a !important", None; "inside unclosed bracket")]
+    #[test_case("red !importantx", None; "longer ident")]
+    fn strip_important(value: &str, expected: Option<&str>) {
+        assert_eq!(super::strip_important(value), expected);
+    }
 }

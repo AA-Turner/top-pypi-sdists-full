@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.agentic_apps_first_dashboard import AgenticAppsFirstDashboard
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,7 +28,8 @@ class PatchOrganization(BaseModel):
     PatchOrganization
     """ # noqa: E501
     name: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["name"]
+    agentic_apps_first_dashboard: Optional[AgenticAppsFirstDashboard] = None
+    __properties: ClassVar[List[str]] = ["name", "agentic_apps_first_dashboard"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -73,6 +75,11 @@ class PatchOrganization(BaseModel):
         if self.name is None and "name" in self.model_fields_set:
             _dict['name'] = None
 
+        # set to None if agentic_apps_first_dashboard (nullable) is None
+        # and model_fields_set contains the field
+        if self.agentic_apps_first_dashboard is None and "agentic_apps_first_dashboard" in self.model_fields_set:
+            _dict['agentic_apps_first_dashboard'] = None
+
         return _dict
 
     @classmethod
@@ -85,7 +92,8 @@ class PatchOrganization(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "name": obj.get("name")
+            "name": obj.get("name"),
+            "agentic_apps_first_dashboard": obj.get("agentic_apps_first_dashboard")
         })
         return _obj
 

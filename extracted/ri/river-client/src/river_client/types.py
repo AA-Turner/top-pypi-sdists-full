@@ -243,6 +243,10 @@ class Sample:
     # set ``logprobs=K`` on the request. ``None`` when unused or unavailable.
     top_logprobs: TopLogprobs | None = None
     prompt_top_logprobs: TopLogprobs | None = None
+    # Read-only float64 log masses aligned with ``logprobs`` when the caller
+    # set ``return_sampling_log_mass=True``; ``exp(logprob - log_mass)`` is
+    # the token's probability under the sampled (filtered) distribution.
+    sampling_log_masses: np.ndarray | None = None
     expert_routing: ExpertRouting | None = None
     # Per-result scalar metrics (see class docstring). Empty dict when the
     # request carried no recognized ``metrics_type`` token.

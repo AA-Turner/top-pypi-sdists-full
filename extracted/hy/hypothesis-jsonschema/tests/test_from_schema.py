@@ -21,6 +21,7 @@ from hypothesis import (
 from hypothesis.errors import FailedHealthCheck, HypothesisWarning, InvalidArgument
 from hypothesis.internal.compat import PYPY
 from hypothesis.internal.reflection import proxies
+from hypothesis.strategies._internal.regex import IncompatibleWithAlphabet
 
 from hypothesis_jsonschema._canonicalise import (
     HypothesisRefResolutionError,
@@ -249,6 +250,12 @@ def test_invalid_ref_schemas_are_invalid(name):
         resolve_all_refs(catalog[name])
 
 
+# Known issues with $ref/$id resolution - generates valid data for wrong schema
+KNOWN_REF_BUGS = {
+    "draft7/$ref prevents a sibling $id from changing the base uri",
+    "Meta-validation schema for JSON Schema Draft 8",
+}
+
 RECURSIVE_REFS = {
     # From upstream validation test suite
     "draft4/valid definition",
@@ -308,17 +315,30 @@ def xfail_on_reference_resolve_error(f):
     def inner(*args, **kwargs):
         _, name = args
         assert isinstance(name, str)
+        if name in KNOWN_REF_BUGS:
+            pytest.xfail(reason="Known $ref/$id resolution bug")
         try:
             f(*args, **kwargs)
             assert name not in RECURSIVE_REFS
-        except jsonschema.exceptions._RefResolutionError as err:
+        except (
+            jsonschema.exceptions._RefResolutionError,
+            W := getattr(jsonschema.exceptions, "_WrappedReferencingError", ()),  # noqa
+        ) as err:
+            if isinstance(err, W) and isinstance(
+                err._wrapped, jsonschema.exceptions._Unresolvable
+            ):
+                pytest.xfail()
             if (
                 isinstance(err, HypothesisRefResolutionError)
-                or isinstance(err._cause, HypothesisRefResolutionError)
+                or isinstance(
+                    getattr(err, "_cause", None), HypothesisRefResolutionError
+                )
             ) and (
                 "does not fetch remote references" in str(err)
-                or name in RECURSIVE_REFS
-                and "Could not resolve recursive references" in str(err)
+                or (
+                    name in RECURSIVE_REFS
+                    and "Could not resolve recursive references" in str(err)
+                )
             ):
                 pytest.xfail()
             raise
@@ -326,7 +346,7 @@ def xfail_on_reference_resolve_error(f):
     return inner
 
 
-@pytest.mark.parametrize("name", to_name_params(catalog))
+@pytest.mark.parametrize("name", list(to_name_params(catalog)))
 @settings(deadline=None, max_examples=5, suppress_health_check=list(HealthCheck))
 @given(data=st.data())
 @xfail_on_reference_resolve_error
@@ -336,7 +356,7 @@ def test_can_generate_for_real_large_schema(data, name):
     jsonschema.validate(value, catalog[name])
 
 
-@pytest.mark.parametrize("name", to_name_params(suite))
+@pytest.mark.parametrize("name", list(to_name_params(suite)))
 @settings(
     suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large],
     deadline=None,
@@ -353,11 +373,33 @@ def test_can_generate_for_test_suite_schema(data, name):
         jsonschema.Draft4Validator(suite[name]).validate(value)
 
 
-@pytest.mark.parametrize("name", to_name_params(invalid_suite))
+@pytest.mark.parametrize("name", list(to_name_params(invalid_suite)))
 def test_cannot_generate_for_empty_test_suite_schema(name):
     strat = from_schema(invalid_suite[name])
     with pytest.raises(Exception):
         strat.example()
+
+
+@pytest.mark.parametrize("name", list(to_name_params(suite)))
+@settings(
+    suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large],
+    deadline=None,
+    max_examples=20,
+)
+@given(data=st.data())
+@xfail_on_reference_resolve_error
+def test_constrained_alphabet_generation(data, name):
+    note(f"{suite[name]=}")
+    try:
+        value = data.draw(from_schema(suite[name], codec="ascii"))
+    except IncompatibleWithAlphabet:
+        pytest.skip()
+    note(f"{value=}")
+    try:
+        jsonschema.validate(value, suite[name])
+    except jsonschema.exceptions.SchemaError:
+        jsonschema.Draft4Validator(suite[name]).validate(value)
+    json.dumps(value).encode("ascii")
 
 
 # This schema has overlapping patternProperties - this is OK, so long as they're
@@ -405,6 +447,9 @@ UNIQUE_NUMERIC_ARRAY_SCHEMA = {
 }
 
 
+@pytest.mark.skipif(
+    PYPY, reason="PyPy treats 0 and 0.0 as different for set operations"
+)
 @given(from_schema(UNIQUE_NUMERIC_ARRAY_SCHEMA))
 def test_numeric_uniqueness(value):
     # NOTE: this kind of test should usually be embedded in corpus-reported.json,
@@ -432,6 +477,16 @@ def test_impossible_multiplier(type_):
     strategy = from_schema(schema)
     strategy.validate()
     assert strategy.is_empty
+
+
+@pytest.mark.parametrize("type_", ["integer", "number"])
+@pytest.mark.parametrize("bounds", [{}, {"minimum": 0}, {"maximum": 0}])
+@given(data=st.data())
+def test_integer_valued_float_multiplier(type_, bounds, data):
+    # jsonschema checks float multipleOf with float division, so we must not
+    # generate multiples beyond 2**53 which it would wrongly reject.
+    schema = {"type": type_, "multipleOf": 99.0, **bounds}
+    jsonschema.validate(data.draw(from_schema(schema)), schema)
 
 
 def test_unsatisfiable_array_returns_nothing():

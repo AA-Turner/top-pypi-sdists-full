@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import platform
 import sys
 from setuptools.command.build_ext import build_ext
 from sysconfig import get_path
@@ -14,16 +13,16 @@ from Cython.Compiler import Options
 # http://docs.cython.org/en/latest/src/userguide/source_files_and_compilation.html#compiler-options
 Options.docstrings = True
 
-ACCELERATE = "thinc.backends._accelerate"
-APPLE_OPS = ["thinc.backends.apple_ops", ACCELERATE]
 
 PACKAGES = find_packages()
 MOD_NAMES = [
     "thinc.backends.cblas",
+    "thinc.backends.linalg",
     "thinc.backends.numpy_ops",
+    "thinc.extra.search",
     "thinc.layers.sparselinear",
     "thinc.layers.premap_ids",
-] + (APPLE_OPS if platform.system() == "Darwin" else [])
+]
 COMPILE_OPTIONS = {
     "msvc": ["/Ox", "/EHsc"],
     "other": ["-O3", "-Wno-strict-prototypes", "-Wno-unused-function", "-std=c++11"],
@@ -81,16 +80,7 @@ def setup_package():
     ext_modules = []
     for name in MOD_NAMES:
         mod_path = name.replace(".", "/") + ".pyx"
-        if name == ACCELERATE:
-            ext = Extension(
-                name,
-                [mod_path],
-                language="c++",
-                include_dirs=include_dirs,
-                libraries=["blas"],
-            )
-        else:
-            ext = Extension(name, [mod_path], language="c++", include_dirs=include_dirs)
+        ext = Extension(name, [mod_path], language="c++", include_dirs=include_dirs)
         ext_modules.append(ext)
     print("Cythonizing sources")
     ext_modules = cythonize(

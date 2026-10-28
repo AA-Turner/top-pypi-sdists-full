@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.32.5"
+version = "4.32.7"
 description = "Adaptive API testing for OpenAPI and GraphQL"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing", "fuzzing", "adaptive"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
@@ -37,7 +37,7 @@ dependencies = [
   "harfile>=0.6.0,<1.0",
   "hypothesis>=6.130.12,<7",
   "hypothesis_graphql>=0.13.5,<1",
-  "jsonschema_rs>=0.60.1,<0.61.0",
+  "jsonschema_rs>=0.60.3,<0.61.0",
   "pyrate-limiter>=4.0,<5.0",
   "pytest>=8.4,<10",
   "PyYAML>=5.1,<7.0",
@@ -74,7 +74,7 @@ allure = ["allure-python-commons>=2.13.0"]
 # coverage 7.13.3+ can drop modules other threads are importing: coveragepy#2247
 cov = ["coverage-enable-subprocess", "coverage[toml]>=5.3,<7.13.3"]
 bench = ["pytest-asyncio>=1.0,<2.0", "pytest-codspeed==5.0.3", "pytest-timeout>=2.3,<3.0"]
-docs = ["mkdocs-material", "mkdocstrings[python]", "pymdown-extensions<12.2"]
+docs = ["zensical>=0.0.73,<0.1", "mkdocstrings[python]", "pymdown-extensions<12.2"]
 profiling = ["pyinstrument>=5.1"]
 scripts = ["tracecov>=0.21", "seaborn>=0.13"]
 dev = ["schemathesis[tests,cov,bench,docs,scripts]"]

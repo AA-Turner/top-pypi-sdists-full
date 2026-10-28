@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_okta
-Version: 7.0.1
+Version: 7.0.2
 Summary: A Pulumi package for creating and managing okta resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

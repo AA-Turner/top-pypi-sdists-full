@@ -40,6 +40,8 @@ from ._utils.blob_utils import MAX_OBJECT_SIZE_BYTES
 from ._utils.docker_utils import (
     extract_copy_command_patterns,
     find_dockerignore_file,
+    is_multi_stage_dockerfile,
+    splittable_from_line_index,
 )
 from ._utils.function_utils import FunctionSourceInfo, parse_gpu_config
 from ._utils.mount_utils import validate_only_modal_volumes, validate_volumes_by_object_id
@@ -57,7 +59,7 @@ from .exception import (
     VersionError,
 )
 from .file_pattern_matcher import NON_PYTHON_FILES, FilePatternMatcher, _ignore_fn
-from .mount import _Mount, python_standalone_mount_name
+from .mount import PYTHON_STANDALONE_VERSIONS, _Mount, python_standalone_mount_name
 from .network_file_system import _NetworkFileSystem
 from .output import OutputManager
 from .secret import _Secret
@@ -69,14 +71,16 @@ if typing.TYPE_CHECKING:
     import modal.client
 
 # This is used for both type checking and runtime validation
-ImageBuilderVersion = Literal["2023.12", "2024.04", "2024.10", "2025.06", "PREVIEW"]
+ImageBuilderVersion = Literal["2023.12", "2024.04", "2024.10", "2025.06", "2026.10", "PREVIEW"]
+LATEST_IMAGE_BUILDER_VERSION: ImageBuilderVersion = "2026.10"
 
 # Note: we also define supported Python versions via logic at the top of the package __init__.py
 # so that we fail fast / clearly in unsupported containers. Additionally, we enumerate the supported
 # Python versions in mount.py where we specify the "standalone Python versions" we create mounts for.
 # Consider consolidating these multiple sources of truth?
 SUPPORTED_PYTHON_SERIES: dict[ImageBuilderVersion, list[str]] = {
-    "PREVIEW": ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t"],
+    "PREVIEW": ["3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t"],
+    "2026.10": ["3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t"],
     "2025.06": ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t"],
     "2024.10": ["3.10", "3.11", "3.12", "3.13"],
     "2024.04": ["3.10", "3.11", "3.12"],
@@ -173,6 +177,7 @@ def _validate_python_version(
     allow_free_threading: bool = False,
     caller_name: str = "",
 ) -> str:
+    python_version_unspecified = python_version is None
     if python_version is None:
         # If Python version is unspecified, match the local version, up to the minor component
         python_version = series_version = "{}.{}".format(*sys.version_info)
@@ -195,6 +200,12 @@ def _validate_python_version(
 
     supported_series = SUPPORTED_PYTHON_SERIES[builder_version]
     if series_version not in supported_series:
+        if python_version_unspecified:
+            raise InvalidError(
+                f"Python {series_version} is not supported by the {builder_version!r} Image builder."
+                f" Since `python_version` was not set, Modal tried to match your local Python ({series_version})."
+                f" Set `python_version` to one of the supported series: {supported_series!r}."
+            )
         raise InvalidError(
             f"Unsupported Python version: {python_version!r}."
             f" When using the {builder_version!r} Image builder, Modal supports the following series:"
@@ -212,23 +223,32 @@ def _dockerhub_python_version(
     python_version = _validate_python_version(
         python_version, builder_version, allow_free_threading=allow_free_threading, caller_name=caller_name
     )
+
     version_components = python_version.split(".")
 
-    # When user specifies a full Python version, use that
-    if len(version_components) > 2:
+    # - Users that want a specific patch version for reproducibility guarantees can specify that up
+    #   front
+    # - Users on the newest builder can force-rebuild to get the latest patch versions, allowing
+    #   quick responses to upstream bug fixes / CVEs.
+    if builder_version > "2025.06" or len(version_components) > 2:
         return python_version
 
     # Otherwise, use the same series, but a specific micro version, corresponding to the latest
     # available from https://hub.docker.com/_/python at the time of each image builder release.
     # This allows us to publish one pre-built debian-slim image per Python series.
     python_versions = _base_image_config("python", builder_version)
-    series_to_micro_version = dict(tuple(v.rsplit(".", 1)) for v in python_versions)
+    series_to_micro_version: dict[str, str] = {}
+    for v in python_versions:
+        series, micro = v.rsplit(".", 1)
+        series_to_micro_version[series] = micro
     python_series_requested = "{}.{}".format(*version_components)
     micro_version = series_to_micro_version[python_series_requested]
     return f"{python_series_requested}.{micro_version}"
 
 
 def _base_image_config(group: str, builder_version: ImageBuilderVersion) -> Any:
+    # data["python"] does not include image builder versions more recent than `2025.06`, as those do
+    # not rely on hardcoded patch versions.
     with open(LOCAL_REQUIREMENTS_DIR / "base-images.json") as f:
         data = json.load(f)
     return data[group][builder_version]
@@ -339,6 +359,13 @@ def _get_image_builder_version(server_version: ImageBuilderVersion) -> ImageBuil
     return version
 
 
+async def _resolve_image_builder_version(load_context: LoadContext) -> ImageBuilderVersion:
+    environment = await _get_environment_cached(load_context.environment_name or "", load_context.client)
+    # A bit hacky,but assume that the environment provides a valid builder version
+    image_builder_version = cast(ImageBuilderVersion, environment._settings.image_builder_version)
+    return _get_image_builder_version(image_builder_version)
+
+
 def _create_context_mount(
     docker_commands: Sequence[str],
     ignore_fn: Callable[[Path], bool],
@@ -393,7 +420,7 @@ def _create_context_mount_function(
 
     if ignore is AUTO_DOCKERIGNORE:
 
-        def auto_created_context_mount_fn() -> _Mount | None:
+        def auto_created_context_mount_fn(builder_version: ImageBuilderVersion) -> _Mount | None:
             nonlocal context_dir
             context_dir = Path.cwd() if context_dir is None else Path(context_dir).absolute()
             dockerignore_file = find_dockerignore_file(context_dir, dockerfile_path)
@@ -410,7 +437,7 @@ def _create_context_mount_function(
 
     else:
 
-        def auto_created_context_mount_fn() -> _Mount | None:
+        def auto_created_context_mount_fn(builder_version: ImageBuilderVersion) -> _Mount | None:
             # use COPY commands and ignore patterns to construct implicit context mount
             nonlocal context_dir
             context_dir = Path.cwd() if context_dir is None else Path(context_dir).absolute()
@@ -418,6 +445,40 @@ def _create_context_mount_function(
             return _create_context_mount(cmds, ignore_fn=_ignore_fn(ignore), context_dir=context_dir)
 
         return auto_created_context_mount_fn
+
+
+_REGISTRY_AUTH_KEY_SETS: dict["api_pb2.RegistryAuthType.ValueType", list[set[str]]] = {
+    api_pb2.REGISTRY_AUTH_TYPE_AWS: [
+        {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION"},
+        {"AWS_ROLE_ARN", "AWS_REGION"},
+    ],
+    api_pb2.REGISTRY_AUTH_TYPE_GCP: [{"SERVICE_ACCOUNT_JSON"}],
+    api_pb2.REGISTRY_AUTH_TYPE_STATIC_CREDS: [{"REGISTRY_USERNAME", "REGISTRY_PASSWORD"}],
+}
+
+_REGISTRY_AUTH_NAMES = {
+    api_pb2.REGISTRY_AUTH_TYPE_AWS: "AWS",
+    api_pb2.REGISTRY_AUTH_TYPE_GCP: "GCP",
+    api_pb2.REGISTRY_AUTH_TYPE_STATIC_CREDS: "username and password",
+}
+
+_REGISTRY_SECRET_KEYS_HELP = (
+    "Registry Secret must include exactly one of: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_REGION "
+    "(or AWS_ROLE_ARN and AWS_REGION) for AWS ECR; SERVICE_ACCOUNT_JSON for GCP Artifact Registry; "
+    "or REGISTRY_USERNAME and REGISTRY_PASSWORD for other registries."
+)
+
+
+def _infer_registry_auth_type(keys: set[str]) -> "api_pb2.RegistryAuthType.ValueType":
+    matches = [auth for auth, key_sets in _REGISTRY_AUTH_KEY_SETS.items() if any(ks <= keys for ks in key_sets)]
+    if not matches:
+        raise InvalidError(f"{_REGISTRY_SECRET_KEYS_HELP} Found keys: {', '.join(sorted(keys)) or 'none'}.")
+    if len(matches) > 1:
+        names = ", ".join(_REGISTRY_AUTH_NAMES[auth] for auth in matches)
+        raise InvalidError(
+            f"Registry Secret has keys for more than one kind of authentication ({names}). {_REGISTRY_SECRET_KEYS_HELP}"
+        )
+    return matches[0]
 
 
 class _ImageRegistryConfig:
@@ -428,13 +489,21 @@ class _ImageRegistryConfig:
         # TODO: change to _PUBLIC after worker starts handling it.
         registry_auth_type: "api_pb2.RegistryAuthType.ValueType" = api_pb2.REGISTRY_AUTH_TYPE_UNSPECIFIED,
         secret: _Secret | None = None,
+        *,
+        infer_auth_type: bool = False,
     ):
         self.registry_auth_type = registry_auth_type
         self.secret = secret
+        self.infer_auth_type = infer_auth_type
 
-    def get_proto(self) -> api_pb2.ImageRegistryConfig:
+    async def get_proto(self) -> api_pb2.ImageRegistryConfig:
+        registry_auth_type = self.registry_auth_type
+        if self.infer_auth_type and self.secret:
+            # The Secret is an Image dependency, so it's hydrated by now and its keys are cached
+            keys = await self.secret._get_keys()
+            registry_auth_type = _infer_registry_auth_type(keys)
         return api_pb2.ImageRegistryConfig(
-            registry_auth_type=self.registry_auth_type,
+            registry_auth_type=registry_auth_type,
             secret_id=(self.secret.object_id if self.secret else ""),
         )
 
@@ -613,7 +682,7 @@ class _Image(_Object, type_prefix="im"):
         build_function: "modal._functions._Function | None" = None,
         build_function_input: api_pb2.FunctionInput | None = None,
         image_registry_config: _ImageRegistryConfig | None = None,
-        context_mount_function: Callable[[], _Mount | None] | None = None,
+        context_mount_function: Callable[[ImageBuilderVersion], _Mount | None] | None = None,
         force_build: bool = False,
         build_args: dict[str, str] = {},
         validated_volumes: Sequence[tuple[str, _Volume]] | None = None,
@@ -652,7 +721,10 @@ class _Image(_Object, type_prefix="im"):
             return deps
 
         async def _load(self: _Image, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
-            context_mount = context_mount_function() if context_mount_function else None
+            assert load_context.app_id  # type narrowing
+            builder_version = await _resolve_image_builder_version(load_context)
+
+            context_mount = context_mount_function(builder_version) if context_mount_function else None
             if context_mount:
                 await resolver.load(context_mount, load_context)
 
@@ -660,12 +732,6 @@ class _Image(_Object, type_prefix="im"):
                 for image in base_images.values():
                     # base images can't have
                     image._assert_no_mount_layers()
-
-            assert load_context.app_id  # type narrowing
-            environment = await _get_environment_cached(load_context.environment_name or "", load_context.client)
-            # A bit hacky,but assume that the environment provides a valid builder version
-            image_builder_version = cast(ImageBuilderVersion, environment._settings.image_builder_version)
-            builder_version = _get_image_builder_version(image_builder_version)
 
             if dockerfile_function is None:
                 dockerfile = DockerfileSpec(commands=[], context_files={})
@@ -740,7 +806,7 @@ class _Image(_Object, type_prefix="im"):
                 secret_ids=[secret.object_id for secret in secrets],
                 context_mount_id=(context_mount.object_id if context_mount else ""),
                 gpu_config=gpu_config,
-                image_registry_config=image_registry_config.get_proto(),
+                image_registry_config=await image_registry_config.get_proto(),
                 runtime=config.get("function_runtime"),
                 runtime_debug=config.get("function_runtime_debug"),
                 build_function=_build_function,
@@ -838,7 +904,7 @@ class _Image(_Object, type_prefix="im"):
         return _Image._from_args(
             base_images={"base": self},
             dockerfile_function=build_dockerfile,
-            context_mount_function=lambda: mount,
+            context_mount_function=lambda builder_version: mount,
         )
 
     @_requires_image_instance
@@ -2182,12 +2248,9 @@ class _Image(_Object, type_prefix="im"):
                 "COPY /python/. /usr/local",
                 "ENV TERMINFO_DIRS=/etc/terminfo:/lib/terminfo:/usr/share/terminfo:/usr/lib/terminfo",
             ]
-            python_minor = add_python.split(".")[1]
-            if python_minor.endswith("t"):
-                python_minor = python_minor[:-1]
-            if int(python_minor) < 13:
-                # Previous versions did not include the `python` binary, but later ones do.
-                # (The important factor is not the Python version itself, but the standalone dist version.)
+            release, _ = PYTHON_STANDALONE_VERSIONS[builder_version][add_python]
+            if release < "20241008":
+                # Older standalone releases do not include the `python` binary.
                 # We insert the command in the list at the position it was previously always added
                 # for backwards compatibility with existing images.
                 add_python_commands.insert(1, "RUN ln -s /usr/local/bin/python3 /usr/local/bin/python")
@@ -2236,16 +2299,21 @@ class _Image(_Object, type_prefix="im"):
         remaining commands run. This might be useful if you want a custom Python installation or to
         set a `SHELL`. Prefer `run_commands()` when possible though.
 
-        To authenticate against a private registry with static credentials, you must set the `secret` parameter to
-        a `modal.Secret` containing a username (`REGISTRY_USERNAME`) and
-        an access token or password (`REGISTRY_PASSWORD`).
+        To pull from a private registry, set the `secret` parameter to a `modal.Secret` holding
+        registry credentials. The kind of authentication follows from the keys in the Secret:
 
-        To authenticate against private registries with credentials from a cloud provider,
-        use `Image.from_gcp_artifact_registry()` or `Image.from_aws_ecr()`.
+        - AWS ECR: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_REGION` (optionally `AWS_SESSION_TOKEN`),
+          or `AWS_ROLE_ARN` and `AWS_REGION` to assume a role with [OIDC](https://modal.com/docs/guide/oidc-integration).
+          See `Image.from_aws_ecr()` for details.
+        - GCP Artifact Registry: `SERVICE_ACCOUNT_JSON`, holding the service account key's JSON.
+          See `Image.from_gcp_artifact_registry()` for details.
+        - Other registries: a username (`REGISTRY_USERNAME`) and an access token or password (`REGISTRY_PASSWORD`).
+
+        The Secret must have the keys for exactly one of these; otherwise an error is raised.
 
         Args:
             tag: Registry image reference (e.g. ``python:3.11-slim``).
-            secret: Optional secret for static registry credentials.
+            secret: Optional Secret with registry credentials; its keys determine the kind of authentication.
             setup_dockerfile_commands: Extra Dockerfile lines run after ``FROM`` during base setup.
             force_build: If True, skip cached image builds.
             add_python: Optional standalone Python series to inject when the base image lacks Python.
@@ -2259,13 +2327,17 @@ class _Image(_Object, type_prefix="im"):
             modal.Image.from_registry("python:3.11-slim-bookworm")
             modal.Image.from_registry("ubuntu:22.04", add_python="3.11")
             modal.Image.from_registry("nvcr.io/nvidia/pytorch:22.12-py3")
+            modal.Image.from_registry(
+                "ghcr.io/my-org/my-image:latest",
+                secret=modal.Secret.from_name("my-registry-secret"),
+            )
             ```
         """
 
-        def context_mount_function() -> _Mount | None:
+        def context_mount_function(builder_version: ImageBuilderVersion) -> _Mount | None:
             return (
                 _Mount.from_name(
-                    python_standalone_mount_name(add_python),
+                    python_standalone_mount_name(add_python, builder_version),
                     namespace=api_pb2.DEPLOYMENT_NAMESPACE_GLOBAL,
                 )
                 if add_python
@@ -2273,7 +2345,7 @@ class _Image(_Object, type_prefix="im"):
             )
 
         if "image_registry_config" not in kwargs and secret is not None:
-            kwargs["image_registry_config"] = _ImageRegistryConfig(api_pb2.REGISTRY_AUTH_TYPE_STATIC_CREDS, secret)
+            kwargs["image_registry_config"] = _ImageRegistryConfig(secret=secret, infer_auth_type=True)
 
         def build_dockerfile(version: ImageBuilderVersion) -> DockerfileSpec:
             commands = _Image._registry_setup_commands(tag, version, setup_dockerfile_commands, add_python)
@@ -2282,12 +2354,48 @@ class _Image(_Object, type_prefix="im"):
                 context_files = {CONTAINER_REQUIREMENTS_PATH: _get_modal_requirements_path(version, add_python)}
             return DockerfileSpec(commands=commands, context_files=context_files)
 
-        return _Image._from_args(
+        single_layer_image = _Image._from_args(
             dockerfile_function=build_dockerfile,
             context_mount_function=context_mount_function,
             force_build=force_build,
             **kwargs,
         )
+        if not add_python:
+            return single_layer_image
+
+        # Builder versions after 2025.06 put the registry image and the standalone Python in separate layers.
+        registry_image = _Image._from_args(
+            dockerfile_function=lambda version: DockerfileSpec(commands=[f"FROM {tag}"], context_files={}),
+            image_registry_config=kwargs.get("image_registry_config"),
+            force_build=force_build,
+        )
+
+        def build_python_dockerfile(version: ImageBuilderVersion) -> DockerfileSpec:
+            commands = _Image._registry_setup_commands("base", version, setup_dockerfile_commands, add_python)
+            return DockerfileSpec(commands=commands, context_files={})
+
+        split_image = _Image._from_args(
+            base_images={"base": registry_image},
+            dockerfile_function=build_python_dockerfile,
+            context_mount_function=context_mount_function,
+            force_build=force_build,
+            **kwargs,
+        )
+
+        async def _load(self: _Image, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
+            builder_version = await _resolve_image_builder_version(load_context)
+            # Validate before the registry base image of split_image is built.
+            _validate_python_version(
+                add_python, builder_version, allow_micro_granularity=False, allow_free_threading=True
+            )
+            image = split_image if builder_version > "2025.06" else single_layer_image
+            await resolver.load(image, load_context)
+            self._hydrate_from_other(image)
+            self._serve_mounts = image._serve_mounts
+
+        obj = _Image._from_loader(_load, f"Image.from_registry({tag!r})", load_context_overrides=LoadContext.empty())
+        obj.force_build = force_build
+        return obj
 
     @staticmethod
     def from_gcp_artifact_registry(
@@ -2299,7 +2407,11 @@ class _Image(_Object, type_prefix="im"):
         add_python: str | None = None,
         **kwargs,
     ) -> "_Image":
-        """Build a Modal image from a private image in Google Cloud Platform (GCP) Artifact Registry.
+        """mdmd:hidden
+        Build a Modal image from a private image in Google Cloud Platform (GCP) Artifact Registry.
+
+        **Note:** This constructor is superseded by `Image.from_registry()`, which can also authenticate
+        to private repositories when provided with the appropriate keys in a `modal.Secret`.
 
         You will need to pass a `modal.Secret` containing [your GCP service account key data](https://cloud.google.com/iam/docs/keys-create-delete#creating)
         as `SERVICE_ACCOUNT_JSON`. This can be done from the [Secrets](https://modal.com/secrets) page.
@@ -2360,10 +2472,14 @@ class _Image(_Object, type_prefix="im"):
         add_python: str | None = None,
         **kwargs,
     ) -> "_Image":
-        """Build a Modal image from a private image in AWS Elastic Container Registry (ECR).
+        """mdmd:hidden
+        Build a Modal image from a private image in AWS Elastic Container Registry (ECR).
 
         You will need to pass a `modal.Secret` containing either IAM user credentials or OIDC
         configuration to access the target ECR registry.
+
+        **Note:** This constructor is superseded by `Image.from_registry()`, which can also authenticate
+        to private repositories when provided with the appropriate keys in a `modal.Secret`.
 
         For IAM user authentication, set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION`.
 
@@ -2417,28 +2533,33 @@ class _Image(_Object, type_prefix="im"):
         *,
         force_build: bool = False,
         context_dir: Path | str | None = None,
-        env: dict[str, str | None] | None = None,
+        ignore: Sequence[str] | Callable[[Path], bool] = AUTO_DOCKERIGNORE,
+        build_args: dict[str, str] = {},
+        registry_secret: _Secret | None = None,
         secrets: Collection[_Secret] | None = None,
+        env: dict[str, str | None] | None = None,
         gpu: str | None = None,
         add_python: str | None = None,
-        build_args: dict[str, str] = {},
-        ignore: Sequence[str] | Callable[[Path], bool] = AUTO_DOCKERIGNORE,
     ) -> "_Image":
         """Build a Modal image from a local Dockerfile.
 
         If your Dockerfile does not have Python installed, you can use the `add_python` parameter
         to specify a version of Python to add to the image.
 
+        A `registry_secret` can be provided to pull the base image from a private registry.
+        Currently this is supported only for single-stage Dockerfiles.
+
         Args:
             path: Path to the Dockerfile on the local machine.
             force_build: If True, skip cached image builds.
             context_dir: Build context directory for resolving relative COPY paths.
-            env: Environment variables set in the build container.
-            secrets: Secrets injected as environment variables during the build.
-            gpu: GPU type to attach to the builder container.
-            add_python: Standalone Python version to add when the Dockerfile does not install Python.
-            build_args: Dockerfile ``ARG`` values forwarded to the build.
             ignore: Ignore rules for the implicit context mount (defaults to auto ``.dockerignore`` behavior).
+            build_args: Dockerfile ``ARG`` values forwarded to the build.
+            registry_secret: Optional Secret with credentials for pulling the base image from a private registry.
+            secrets: Secrets injected as environment variables in the build container.
+            env: Environment variables set in the build container.
+            gpu: GPU type to attach to the build container.
+            add_python: Standalone Python version to add when the Dockerfile does not install Python.
 
         Returns:
             An `Image` built from the Dockerfile plus Modal runtime dependencies.
@@ -2484,6 +2605,12 @@ class _Image(_Object, type_prefix="im"):
                 add_python="3.12",
                 ignore=FilePatternMatcher.from_file("/path/to/dockerignore"),
             )
+
+            # Pull the Dockerfile's base image from a private registry.
+            image = modal.Image.from_dockerfile(
+                "./Dockerfile",
+                registry_secret=modal.Secret.from_name("my-registry-secret"),
+            )
             ```
         """
 
@@ -2491,32 +2618,35 @@ class _Image(_Object, type_prefix="im"):
         if env:
             secrets = [*secrets, _Secret.from_dict(env)]
 
-        # --- Build the base dockerfile
-
-        def build_dockerfile_base(version: ImageBuilderVersion) -> DockerfileSpec:
-            with open(os.path.expanduser(path)) as f:
-                commands = f.read().split("\n")
-            return DockerfileSpec(commands=commands, context_files={})
-
         gpu_config = parse_gpu_config(gpu)
-        base_image = _Image._from_args(
-            dockerfile_function=build_dockerfile_base,
-            context_mount_function=_create_context_mount_function(
-                ignore=ignore, dockerfile_path=Path(path), context_dir=context_dir
-            ),
-            gpu_config=gpu_config,
-            secrets=secrets,
-            build_args=build_args,
+        context_mount_function = _create_context_mount_function(
+            ignore=ignore, dockerfile_path=Path(path), context_dir=context_dir
         )
 
-        # --- Now add in the modal dependencies, and, optionally a Python distribution
-        # This happening in two steps is probably a vestigial consequence of previous limitations,
-        # but it will be difficult to merge them without forcing rebuilds of images.
+        registry_config = (
+            _ImageRegistryConfig(secret=registry_secret, infer_auth_type=True) if registry_secret is not None else None
+        )
 
-        def add_python_mount():
+        def dockerfile_image(
+            commands: list[str],
+            base_images: dict[str, _Image] | None = None,
+            image_registry_config: _ImageRegistryConfig | None = None,
+        ) -> _Image:
+            return _Image._from_args(
+                base_images=base_images,
+                dockerfile_function=lambda version: DockerfileSpec(commands=commands, context_files={}),
+                context_mount_function=context_mount_function,
+                gpu_config=gpu_config,
+                secrets=secrets,
+                build_args=build_args,
+                image_registry_config=image_registry_config,
+                force_build=force_build,
+            )
+
+        def add_python_mount(builder_version: ImageBuilderVersion) -> _Mount | None:
             return (
                 _Mount.from_name(
-                    python_standalone_mount_name(add_python),
+                    python_standalone_mount_name(add_python, builder_version),
                     namespace=api_pb2.DEPLOYMENT_NAMESPACE_GLOBAL,
                 )
                 if add_python
@@ -2531,12 +2661,61 @@ class _Image(_Object, type_prefix="im"):
                 context_files = {CONTAINER_REQUIREMENTS_PATH: requirements_path}
             return DockerfileSpec(commands=commands, context_files=context_files)
 
-        return _Image._from_args(
-            base_images={"base": base_image},
-            dockerfile_function=build_dockerfile_python,
-            context_mount_function=add_python_mount,
-            force_build=force_build,
-        )
+        def python_image(base_image: _Image) -> _Image:
+            return _Image._from_args(
+                base_images={"base": base_image},
+                dockerfile_function=build_dockerfile_python,
+                context_mount_function=add_python_mount,
+                force_build=force_build,
+            )
+
+        async def _load(self: _Image, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
+            builder_version = await _resolve_image_builder_version(load_context)
+            if add_python:
+                # Validate before any Dockerfile layer is built.
+                _validate_python_version(
+                    add_python, builder_version, allow_micro_granularity=False, allow_free_threading=True
+                )
+            with open(os.path.expanduser(path)) as f:
+                dockerfile_lines = f.read().split("\n")
+            if registry_secret is not None and is_multi_stage_dockerfile(dockerfile_lines):
+                raise InvalidError("`registry_secret` is not supported with multi-stage Dockerfiles.")
+
+            # Builder versions after 2025.06 put the FROM line of a single-stage Dockerfile in its own image.
+            # Dockerfiles the split could change (see splittable_from_line_index) stay in one layer.
+            from_index = splittable_from_line_index(dockerfile_lines) if builder_version > "2025.06" else None
+            if from_index is None:
+                image = dockerfile_image(dockerfile_lines, image_registry_config=registry_config)
+            else:
+                # Drop the lines above FROM so Dockerfiles that differ only in header comments or blank lines
+                # share the cached image. Those lines can only be comments or blank lines, since
+                # splittable_from_line_index rejects parser directives.
+                from_lines = [dockerfile_lines[from_index]]
+                # Only this layer pulls from the registry; the layers above it build on top of it.
+                from_image = _Image._from_args(
+                    dockerfile_function=lambda version: DockerfileSpec(commands=from_lines, context_files={}),
+                    image_registry_config=registry_config,
+                    force_build=force_build,
+                )
+                rest = dockerfile_lines[from_index + 1 :]
+                rest_is_empty = all(not line.strip() or line.strip().startswith("#") for line in rest)
+                if rest_is_empty:
+                    image = from_image
+                else:
+                    image = dockerfile_image(["FROM base", *rest], base_images={"base": from_image})
+            if add_python or builder_version <= "2025.06":
+                # Before 2025.06 we always created a python_image() layer because it's where we installed the
+                # client dependencies. From 2025.06, we no longer install client dependencies in base layers,
+                # so this was a no-op layer when add_python= is not used. Skip it on later image builders.
+                image = python_image(image)
+            await resolver.load(image, load_context)
+            self._hydrate_from_other(image)
+            self._serve_mounts = image._serve_mounts
+
+        rep = f"Image.from_dockerfile({str(path)!r})"
+        obj = _Image._from_loader(_load, rep, load_context_overrides=LoadContext.empty())
+        obj.force_build = force_build
+        return obj
 
     @staticmethod
     def from_scratch(force_build: bool = False) -> "_Image":

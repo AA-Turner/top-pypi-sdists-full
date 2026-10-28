@@ -129,7 +129,7 @@ def test_action_flag_is_clamped_never_verbatim(captured, monkeypatch):
 def test_invoked_fires_before_a_dying_bootstrap(captured, monkeypatch):
     """The D7 point: a broken npx→persistent install still enters the funnel."""
 
-    def broken():
+    def broken(**_kwargs):
         raise RuntimeError("bootstrap died")
 
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", broken)

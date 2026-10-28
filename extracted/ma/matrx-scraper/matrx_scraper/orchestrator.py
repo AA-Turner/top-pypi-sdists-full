@@ -479,6 +479,25 @@ def _resolve_browser_pool(browser_pool: Any) -> Any:
     return None
 
 
+def _resolve_domain_config(domain_config: Any) -> Any:
+    """The site rules a caller injected, else the host-registered ``domain_config`` ext.
+
+    The host's per-site scrape rules (do-not-scrape, proxy type, selectors — the
+    domain-rules UI) were honored only by callers that remembered to pass them: the
+    quick-scrape route and the site crawler did, the workflow steps and a dozen host
+    services did not, so a workflow read a site a person had blocked. Resolving it
+    here, like ``_resolve_browser_pool``, makes every caller honor them.
+    """
+    if domain_config is not None:
+        return domain_config
+    if has_ext("domain_config"):
+        try:
+            return get_ext("domain_config")
+        except Exception:  # noqa: BLE001 — absent rules are never fatal here
+            return None
+    return None
+
+
 async def _fetch_and_parse(
     url: str,
     *,
@@ -1341,6 +1360,7 @@ async def scrape(
     """
     ladder_policy = ladder_policy or LadderPolicy()
     user_agent = normalize_user_agent(user_agent)
+    domain_config = _resolve_domain_config(domain_config)
     if domain_config is not None:
         if not domain_config.is_scrape_allowed(url):
             # WE refused this, not the site. No rung of the ladder changes that,

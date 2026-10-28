@@ -111,6 +111,8 @@ OperationEventType = Literal[
     "size_cap",
     "network",
     "shutdown",
+    "inspect",
+    "file_upload",
     "completion",
 ]
 
@@ -650,12 +652,78 @@ class ClosableStreamRepr(ContreeModel):
 
 @dataclass
 class InstanceResourcesLimits(ContreeModel):
+    """Launch-time limits. CPU sets the VM's vCPU count. memory_mib limits.
+
+    each process's address space (RLIMIT_AS, soft and hard) and the
+    whole process tree's memory (cgroup memory.max). A request for
+    1 MiB is valid and enforces that limit on the workload. The backend
+    independently selects a minimum VM RAM allocation for guest boot,
+    networking and runtime services, for example 128 or 256 MiB.
+    This minimum is an implementation detail and can change. It does
+    not increase the requested workload limit.
+    A small address-space limit can prevent the executable or runtime
+    from loading. It includes stacks, libraries and reserved mappings;
+    allocations can fail with ENOMEM even with overcommit enabled.
+    Guest kernel and runtime consume part of VM RAM.
+    Limits are maxima, not reservations.
+    Guest root retains permission to modify cgroups.
+    """
+
+    cpu: int | EllipsisType = field(
+        default=..., metadata={"description": "Number of guest vCPUs.", "default": 4}
+    )
+    memory_mib: int | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "Per-process address-space and process-tree memory limit in MiB "
+                "(1048576 bytes)."
+            ),
+            "default": 4096,
+        },
+    )
     max_layer_bytes: int | EllipsisType = field(
         default=...,
         metadata={
             "description": "Maximum writable layer size in bytes.",
             "example": 1073741824,
             "default": 12884901888,
+        },
+    )
+
+
+@dataclass
+class ProcessResourcesLimits(ContreeModel):
+    """Launch-time limits for a subprocess and its descendants. Each omitted.
+
+    or null field inherits the requested operation limit, not the VM's
+    minimum boot memory. CPU/RAM cannot exceed the parent operation.
+    Limits are maxima, not reservations. Concurrent processes share VM
+    resources and can exhaust the aggregate budget. memory_mib sets
+    RLIMIT_AS (soft and hard) before exec and memory.max for the tree.
+    RLIMIT_AS includes reserved mappings, stacks and libraries; allocation
+    or executable loading can fail with ENOMEM. Descendants inherit it.
+    A local cgroup OOM
+    kills this process tree. A VM-wide OOM can affect other processes.
+    Guest root retains permission to modify cgroups.
+    """
+
+    cpu: int | None | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "Number of guest vCPUs available to the process tree. The runtime "
+                "selects CPU affinity; CPU sets can overlap between subprocesses."
+            )
+        },
+    )
+    memory_mib: int | None | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "Per-process RLIMIT_AS and tree memory.max in MiB. Swap is disabled "
+                "for this group."
+            )
         },
     )
 
@@ -681,7 +749,7 @@ class ExecSpec(ContreeModel):
     (the main process) and
     ``POST /operations/{operationId}/subprocesses`` (additional
     subprocesses).  VM-level concerns (image, hostname,
-    resources_limits, files, timeout, disposable, preserve_env)
+    disk limits, files, timeout, disposable, preserve_env)
     live on ``InstanceSpawnRequest`` only.
     """
 
@@ -695,6 +763,7 @@ class ExecSpec(ContreeModel):
             "example": "/bin/app",
         }
     )
+    resources_limits: ProcessResourcesLimits | EllipsisType = ...
     args: list[str] | EllipsisType = field(
         default=...,
         metadata={
@@ -762,6 +831,11 @@ class ExecSpec(ContreeModel):
     def parse_fields(cls, data: dict[str, Any]) -> dict[str, Any]:
         return {
             "command": data["command"],
+            "resources_limits": (
+                ProcessResourcesLimits.from_dict(data["resources_limits"])
+            )
+            if data.get("resources_limits") is not None
+            else data.get("resources_limits", ...),
             "args": data.get("args", ...),
             "shell": data.get("shell", ...),
             "env": data.get("env", ...),
@@ -1083,6 +1157,15 @@ class InstanceResultState(ContreeModel):
             )
         },
     )
+    oom_killed: bool | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "Whether an OOM kill was observed in the process tree's cgroup."
+            ),
+            "default": False,
+        },
+    )
 
 
 @dataclass
@@ -1218,8 +1301,8 @@ class OperationSummary(ContreeModel):
         default=...,
         metadata={
             "description": (
-                "CPU seconds (user_cpu_time + system_cpu_time) reported by the in-VM "
-                "init.\n`null` when not measured."
+                "Total CPU time consumed by the operation, in seconds.\n`null` when "
+                "not measured."
             )
         },
     )
@@ -1227,8 +1310,8 @@ class OperationSummary(ContreeModel):
         default=...,
         metadata={
             "description": (
-                "Peak memory (max_rss) reported by the in-VM init; units preserved as "
-                "reported\nby getrusage. `null` when not measured."
+                "Peak resident memory used by the operation's execution environment, "
+                "in KiB.\n`null` when not measured. Shared resident pages are included."
             )
         },
     )
@@ -1525,8 +1608,8 @@ class OperationResponse(ContreeModel):
         default=...,
         metadata={
             "description": (
-                "CPU seconds (user_cpu_time + system_cpu_time) reported by the in-VM "
-                "init.\n`null` when not measured."
+                "Total CPU time consumed by the operation, in seconds.\n`null` when "
+                "not measured."
             )
         },
     )
@@ -1534,8 +1617,8 @@ class OperationResponse(ContreeModel):
         default=...,
         metadata={
             "description": (
-                "Peak memory (max_rss) reported by the in-VM init; units preserved as "
-                "reported\nby getrusage. `null` when not measured."
+                "Peak resident memory used by the operation's execution environment, "
+                "in KiB.\n`null` when not measured. Shared resident pages are included."
             )
         },
     )
@@ -1762,8 +1845,9 @@ class OperationEvent(ContreeModel):
             "description": (
                 "Spawned Process ID — present on process-scoped events\n(`init`, "
                 "`spawn`, `stdin`, `stdout`, `stderr`, `exit`,\n`truncated`, "
-                "`size_cap`, `network`, `shutdown`).\nAbsent on operation-scoped "
-                "system events\n(`completion`), which don't tie to a specific child."
+                "`size_cap`, `network`, `shutdown`, `inspect`, `file_upload`).\nAbsent "
+                "on operation-scoped system events\n(`completion`), which don't tie to "
+                "a specific child."
             ),
             "example": 1,
         },
@@ -1778,6 +1862,172 @@ class OperationEvent(ContreeModel):
             "data": parse_event_data(data["type"], data["data"]),
             "spid": data.get("spid", ...),
         }
+
+
+@dataclass
+class EventInspectParametersOptions(ContreeModel):
+    patterns: list[str] | None
+    globs: list[str] | None
+    case: str
+    max_count: int
+    max_total: int
+    before: int
+    after: int
+
+
+@dataclass
+class EventInspectParameters(ContreeModel):
+    """Parameters for the method named in EventDataInspect. Path methods.
+
+    (stat/list/open/archive/grep/upload) record path. Grep also records
+    options.
+    Upload records file_uuid, unpack, replace, and merge. Read/write record
+    handle, offset, and size; write size is the input chunk length, not an
+    acknowledgement. Close/finish record handle. Binary payloads are
+    excluded.
+    """
+
+    path: str | EllipsisType = ...
+    file_uuid: str | EllipsisType = ...
+    unpack: bool | EllipsisType = ...
+    replace: bool | EllipsisType = ...
+    merge: bool | EllipsisType = ...
+    handle: str | EllipsisType = ...
+    offset: int | EllipsisType = ...
+    size: int | EllipsisType = ...
+    options: EventInspectParametersOptions | EllipsisType = ...
+
+    @classmethod
+    def parse_fields(cls, data: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "path": data.get("path", ...),
+            "file_uuid": data.get("file_uuid", ...),
+            "unpack": data.get("unpack", ...),
+            "replace": data.get("replace", ...),
+            "merge": data.get("merge", ...),
+            "handle": data.get("handle", ...),
+            "offset": data.get("offset", ...),
+            "size": data.get("size", ...),
+            "options": (EventInspectParametersOptions.from_dict(data["options"]))
+            if data.get("options") is not None
+            else data.get("options", ...),
+        }
+
+
+@dataclass
+class EventDataInspect(ContreeModel):
+    """Metadata for a guest inspect RPC. Init emits a started/completed pair.
+
+    with the same request_id. Event IDs order the starts independently of
+    completion order. A returned handle links subsequent reads, writes,
+    finish, close, and file_upload events. All events use spid=0.
+    Request parameters are recorded even when the method rejects them.
+    A successful open/upload only allocates a handle; it does not complete
+    the transfer. Read events report RPC bytes, not HTTP client receipt.
+    File contents, directory listings, and grep matches are never recorded.
+    Events are flushed to the journal and bypass the stream size cap.
+    A missing completion can indicate an interrupted or lost event.
+    These records support a future replay implementation; replay is not
+    automatic.
+    """
+
+    request_id: str = field(
+        metadata={
+            "description": "Opaque identifier shared by the request and result events."
+        }
+    )
+    method: Literal[
+        "stat",
+        "list",
+        "open",
+        "archive",
+        "grep",
+        "read",
+        "close",
+        "upload",
+        "write",
+        "finish",
+    ]
+    phase: Literal["started", "completed"]
+    params: EventInspectParameters | EllipsisType = ...
+    status: Literal["success", "error", "cancelled", "timeout"] | EllipsisType = ...
+    error: str | None | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "Error category only; null on success. No exception text or file "
+                "contents."
+            )
+        },
+    )
+    handle: str | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": "Present after a successful open, archive, grep, or upload."
+        },
+    )
+    bytes: int | EllipsisType = field(
+        default=..., metadata={"description": "Bytes returned by a successful read."}
+    )
+    eof: bool | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "Present after a successful read; true at the end of its stream."
+            )
+        },
+    )
+
+    @classmethod
+    def parse_fields(cls, data: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "request_id": data["request_id"],
+            "method": data["method"],
+            "phase": data["phase"],
+            "params": (EventInspectParameters.from_dict(data["params"]))
+            if data.get("params") is not None
+            else data.get("params", ...),
+            "status": data.get("status", ...),
+            "error": data.get("error", ...),
+            "handle": data.get("handle", ...),
+            "bytes": data.get("bytes", ...),
+            "eof": data.get("eof", ...),
+        }
+
+
+@dataclass
+class EventDataFileUpload(ContreeModel):
+    """Init emits this event once after publication or cleanup of an accepted.
+
+    upload. It is emitted even if the host disconnects or Finish loses its
+    response. A rejected upload has only its inspect request/result pair.
+    Success means publication finished. Error or cancellation can leave a
+    partially applied merge, as specified by the upload endpoint.
+    The event contains metadata only, uses spid=0, bypasses the stream size
+    cap, and is flushed before shutdown. Recording does not extend the
+    source file's TTL or guarantee its availability for future replay.
+    """
+
+    handle: str
+    file_uuid: str
+    path: str = field(metadata={"description": "Clean absolute destination path."})
+    unpack: bool
+    replace: bool
+    merge: bool
+    bytes: int = field(
+        metadata={
+            "description": (
+                "Source bytes consumed from the upload pipe, including on "
+                "failure.\nFor an archive, counts compressed/source bytes, not "
+                "extracted bytes.\nThis is not a count of bytes successfully published "
+                "to the destination."
+            )
+        }
+    )
+    status: Literal["success", "error", "cancelled", "timeout"]
+    error: str | None = field(
+        metadata={"description": "Error category only; null on success."}
+    )
 
 
 @dataclass
@@ -1870,6 +2120,13 @@ class EventDataSpawn(ContreeModel):
             "example": 1048576,
         }
     )
+    resources_limits: ProcessResourcesLimits | EllipsisType = ...
+    cpu_affinity: list[int] | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": "Effective guest vCPU IDs available to this process tree."
+        },
+    )
     env: dict[str, str] | EllipsisType = field(
         default=...,
         metadata={
@@ -1880,6 +2137,27 @@ class EventDataSpawn(ContreeModel):
             "example": {"PATH": "/usr/bin:/bin", "DATABASE_PASSWORD": "<MASKED>"},
         },
     )
+
+    @classmethod
+    def parse_fields(cls, data: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "pid": data["pid"],
+            "command": data["command"],
+            "args": data["args"],
+            "shell": data["shell"],
+            "cwd": data["cwd"],
+            "uid": data["uid"],
+            "gid": data["gid"],
+            "timeout": data["timeout"],
+            "truncate_at": data["truncate_at"],
+            "resources_limits": (
+                ProcessResourcesLimits.from_dict(data["resources_limits"])
+            )
+            if data.get("resources_limits") is not None
+            else data.get("resources_limits", ...),
+            "cpu_affinity": data.get("cpu_affinity", ...),
+            "env": data.get("env", ...),
+        }
 
 
 @dataclass
@@ -2020,6 +2298,16 @@ class EventDataExit(ContreeModel):
         metadata={"description": "Wall-clock time from spawn to exit.", "example": 1234}
     )
     resources: EventResources
+    oom_killed: bool | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "An OOM kill was observed in this process tree. Missing in older "
+                "events."
+            ),
+            "default": False,
+        },
+    )
     core_dump: bool | EllipsisType = field(
         default=...,
         metadata={
@@ -2040,6 +2328,7 @@ class EventDataExit(ContreeModel):
             "timed_out": data["timed_out"],
             "duration_ms": data["duration_ms"],
             "resources": EventResources.from_dict(data["resources"]),
+            "oom_killed": data.get("oom_killed", ...),
             "core_dump": data.get("core_dump", ...),
         }
 
@@ -2256,6 +2545,24 @@ class EventDataCompletion(ContreeModel):
             "example": 134217728,
         },
     )
+    consumed_cpu: float | None | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "Total CPU time consumed by the operation, in seconds; null when "
+                "unmeasured."
+            )
+        },
+    )
+    consumed_memory: int | None | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "Peak resident memory used by the operation's execution environment, "
+                "in KiB; null when unmeasured."
+            )
+        },
+    )
 
     @classmethod
     def parse_fields(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -2265,6 +2572,8 @@ class EventDataCompletion(ContreeModel):
             "result_image_uuid": data.get("result_image_uuid", ...),
             "error": data.get("error", ...),
             "image_size_bytes": data.get("image_size_bytes", ...),
+            "consumed_cpu": data.get("consumed_cpu", ...),
+            "consumed_memory": data.get("consumed_memory", ...),
         }
 
 
@@ -2277,6 +2586,8 @@ EventData = (
     | EventDataSizeCap
     | EventDataNetwork
     | EventDataShutdown
+    | EventDataInspect
+    | EventDataFileUpload
     | EventDataCompletion
 )
 
@@ -2291,6 +2602,8 @@ EVENT_DATA_PARSERS: dict[str, Callable[[dict[str, Any]], EventData]] = {
     "size_cap": EventDataSizeCap.from_dict,
     "network": EventDataNetwork.from_dict,
     "shutdown": EventDataShutdown.from_dict,
+    "inspect": EventDataInspect.from_dict,
+    "file_upload": EventDataFileUpload.from_dict,
     "completion": EventDataCompletion.from_dict,
 }
 

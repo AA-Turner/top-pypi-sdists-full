@@ -23,11 +23,11 @@ class BoxGenerateServiceURLParams(TypedDict, total=False):
 
     embed_origins: SequenceNotStr[str]
     """
-    EmbedOrigins are the pages allowed to show a LangSmith login service URL in an
-    iframe, besides LangSmith itself: at most 5 origins such as
-    https://app.example.com (http only for localhost). Valid only with access
-    "restricted" or "workspace". Each call sets the URL's whole list, so omitting
-    the field removes any origins set before.
+    EmbedOrigins are the pages allowed to show the service URL in an iframe, besides
+    LangSmith itself: at most 5 origins such as https://app.example.com (http only
+    for localhost). In token mode they are bound into the minted token, so they last
+    as long as it does. With access "restricted" or "workspace" each call sets the
+    grant's whole list, so omitting the field removes any origins set before.
     """
 
     expires_in_seconds: int

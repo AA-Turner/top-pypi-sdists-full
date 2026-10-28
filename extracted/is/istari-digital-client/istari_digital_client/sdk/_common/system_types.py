@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from istari_digital_client.sdk._base import Archivable, Classifiable, ClientHaving, Page, Shareable
+from istari_digital_client.sdk._base import (
+    Archivable,
+    Classifiable,
+    ClientHaving,
+    Page,
+    Shareable,
+)
+from istari_digital_client.sdk._common.libraries import Libraries
 from istari_digital_client.sdk._exceptions import NotFoundError
 from istari_digital_client.sdk._generated.v2.models.open_change_request_response import (
     OpenChangeRequestResponse as _GenOpenCR,
@@ -16,12 +23,32 @@ from istari_digital_client.sdk._generated.v2.models.snapshot_tag import Snapshot
 from istari_digital_client.sdk._generated.v2.models.system import System as _GenSystem
 
 if TYPE_CHECKING:
+    import os
+
     from istari_digital_client.sdk._base import _Manager
     from istari_digital_client.sdk._common.branches import Branches
+    from istari_digital_client.sdk._common.dependency_types import (
+        FolderUpdates,
+        Preview,
+        Publications,
+        PublishPreview,
+        Requirements,
+    )
+    from istari_digital_client.sdk._common.library_types import PackageVersion
+    from istari_digital_client.materialization import MaterializationResult
     from istari_digital_client.sdk._common.change_requests import ChangeRequests
     from istari_digital_client.sdk._common.systems import Systems
     from istari_digital_client.sdk._common.resource_types import TrackedResource
     from istari_digital_client.sdk._common.workflow_types import WorkflowLogEntry
+    from istari_digital_client.sdk._generated.v2.models.dependencies_manifest import (
+        DependenciesManifest,
+    )
+    from istari_digital_client.sdk._generated.v2.models.resolved_folder_dto import (
+        ResolvedFolderDto,
+    )
+    from istari_digital_client.sdk._generated.v2.models.publications_manifest import (
+        PublicationsManifest,
+    )
 
 
 class System(_GenSystem, ClientHaving, Archivable, Shareable, Classifiable):
@@ -148,11 +175,14 @@ class System(_GenSystem, ClientHaving, Archivable, Shareable, Classifiable):
         read in full — when handing the result to an LLM or when files may be large, so
         it fits one context window; for one file's full content, read it directly.
 
-        Set ``include_extracted=True`` to also read what is inside every connected-file
-        pointer (DOORS/Confluence/SharePoint/Teamwork Cloud/Jira), whose extracted
-        records a listing never shows — the complete survey to run BEFORE concluding a
-        fact is absent. Let the reader judge each row rather than keyword-filtering it.
-        Extracted rows carry ``extracted_from``.
+        Set ``include_extracted=True`` to also read every resource's extracted
+        children: the records behind a connected-file pointer
+        (DOORS/Confluence/SharePoint/Teamwork Cloud/Jira) and the artifacts an
+        extraction job produced from an uploaded model (SysML ``.mdzip``, CAD archive,
+        PDF) — neither of which a listing shows. This is the complete survey to run
+        BEFORE concluding a fact is absent or a binary has nothing inside. Let the
+        reader judge each row rather than keyword-filtering it. Extracted rows carry
+        ``extracted_from``; every row carries ``has_children``.
 
         Aliases: summarize summary overview describe tell-me-about whats-in read-all
         contents search find where-is locate full-text sweep
@@ -448,15 +478,20 @@ class Branch(_GenSnapshotTag, ClientHaving, Archivable):
         read in full — when handing the result to an LLM or when files may be large, so
         it fits one context window; for one file's full content, read it directly.
 
-        Set ``include_extracted=True`` to also read what is inside every connected-file
-        pointer (DOORS/Confluence/SharePoint/Teamwork Cloud/Jira) — those extracted
-        records are otherwise invisible to a branch listing. This is the complete survey
-        to run BEFORE concluding a fact is not in the system; let the reader judge each
-        row rather than keyword-filtering it. Extracted rows carry ``extracted_from``.
+        Set ``include_extracted=True`` to also read every resource's extracted
+        children: the records behind a connected-file pointer
+        (DOORS/Confluence/SharePoint/Teamwork Cloud/Jira) and the artifacts an
+        extraction job produced from an uploaded model (SysML ``.mdzip``, CAD archive,
+        PDF) — neither of which a branch listing shows. This is the complete survey to
+        run BEFORE concluding a fact is not in the system or a binary has nothing
+        inside; let the reader judge each row rather than keyword-filtering it.
+        Extracted rows carry ``extracted_from``.
 
         Each row: ``{resource_id, name, resource_type, description, path, mime,
-        size, content}`` (extracted rows add ``extracted_from``). Use :meth:`resources`
-        when you only need the listing.
+        size, content, has_children}`` (extracted rows add ``extracted_from``). A row
+        with ``content=None`` and ``has_children=True`` is a binary whose extracted
+        artifacts exist and were not read — never report it as empty or offer to
+        extract it. Use :meth:`resources` when you only need the listing.
 
         Aliases: summarize summary overview describe tell-me-about whats-in read-all
         contents search find where-is locate full-text sweep
@@ -507,25 +542,92 @@ class Branch(_GenSnapshotTag, ClientHaving, Archivable):
         *,
         add: list[Any] | None = None,
         remove: list[Any] | None = None,
+        folders: dict[str, str | None] | None = None,
+        publications: "str | PublicationsManifest | Publications | None" = None,
+        dependencies: "str | DependenciesManifest | Requirements | None" = None,
+        resolve: bool = False,
+        update: "FolderUpdates | None" = None,
+        preview_id: str | None = None,
+        message: str | None = None,
     ) -> "Branch":
-        """Commit file revisions onto this branch (add/remove tracked files), creating a new snapshot.
+        """Commit files, manifests, and the packages to install against this reviewed snapshot.
 
         Mutates: true
 
         Aliases: commit add-file stage update
 
-
-        ``add`` is a list of revision-like objects (identified by ``.id``, the
-        revision id) to include in the new snapshot as LOCKED tracked files.
-        ``remove`` is a list of revision-like objects whose ``.id`` will be
-        dropped from the tracked file list. Both are optional.
-
-        Returns the updated Branch with its snapshot_id pointing at the new
-        snapshot. Fields: id (str), tag (str), snapshot_id (str),
-        is_baseline (bool), archive_status (str: "ACTIVE" | "ARCHIVED"),
-        created (datetime).
+        See :meth:`Branches.commit` for each argument. The returned branch carries the
+        committed snapshot; this object remains the reviewed parent.
         """
-        return self._mgr.commit(self, add=add, remove=remove)
+        return self._mgr.commit(
+            self,
+            add=add,
+            remove=remove,
+            folders=folders,
+            publications=publications,
+            dependencies=dependencies,
+            resolve=resolve,
+            update=update,
+            preview_id=preview_id,
+            message=message,
+        )
+
+    def preview(
+        self,
+        dependencies: "Requirements | str | DependenciesManifest | None" = None,
+        *,
+        update: "FolderUpdates | None" = None,
+    ) -> "Preview":
+        """Plan what a commit would install; commit it with ``preview.commit()``.
+
+        Pass :class:`Requirements` (or manifest text) to change what the branch requires.
+        A ``1.x`` folder stays at the version it holds unless a requirement needs a newer
+        one or ``update`` asks: ``update="all"`` moves every ``1.x`` folder to the newest
+        release of its line, and ``update=u`` (or a list) moves the folders from :meth:`updates`.
+        """
+        return self._mgr.preview(self, dependencies=dependencies, update=update)
+
+    # ---- packaging (one-line delegates to istari.systems.dependencies and istari.libraries) ----
+
+    def requirements(self) -> "Requirements":
+        """Editable copy of this branch's package requirements (dependencies.yaml)."""
+        return self._systems_mgr.dependencies.requirements(self)
+
+    def publications(self) -> "Publications":
+        """Editable copy of the packages this branch publishes (publications.yaml)."""
+        return self._systems_mgr.dependencies.publications(self)
+
+    def updates(self) -> "Page[ResolvedFolderDto]":
+        """The ``1.x`` folders of this snapshot whose line has a newer release."""
+        return self._systems_mgr.dependencies.updates(self)
+
+    def publish(
+        self,
+        package: str,
+        *,
+        version: str | None = None,
+        release_notes: str | None = None,
+    ) -> "PackageVersion":
+        """Publish ``package`` (``library/package``) from this branch's head, at ``version`` or the suggested one."""
+        return Libraries(self._mgr._engine).publish(
+            self, package, version=version, release_notes=release_notes
+        )
+
+    def preview_publish(
+        self, package: str, *, version: str | None = None
+    ) -> "PublishPreview":
+        """What publishing ``package`` would do: suggested version, latest version, changes; ``.publish()`` it."""
+        return Libraries(self._mgr._engine).preview_publish(
+            self, package, version=version
+        )
+
+    def checkout(
+        self, destination: "str | os.PathLike[str]", *, overwrite: bool = False
+    ) -> "MaterializationResult":
+        """Download this snapshot's files, package folders and the lock included, under ``destination``."""
+        return self._systems_mgr.dependencies.checkout(
+            self, destination, overwrite=overwrite
+        )
 
     def create_change_request(
         self,
