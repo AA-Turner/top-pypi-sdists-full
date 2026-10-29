@@ -1,10 +1,10 @@
+__lazy_modules__ = ["celery", "django.db.models.query"]
+
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from celery import chain, shared_task
 from requests.exceptions import HTTPError
-
-from django.db.models.query import QuerySet
 
 from allianceauth.authentication.models import User
 from allianceauth.services.tasks import QueueOnce
@@ -17,6 +17,19 @@ from .discord_client import DiscordApiBackoff
 from .models import DiscordUser
 from .utils import LoggerAddTag
 
+if TYPE_CHECKING:
+    from celery import Task
+
+    from django.db.models.query import QuerySet
+
+    # https://github.com/sbdchd/celery-types
+    classes = [
+        Task,
+    ]
+
+    for cls in classes:
+        setattr(cls, "__class_getitem__", classmethod(lambda cls, *args, **kwargs: cls))
+
 logger = LoggerAddTag(logging.getLogger(__name__), __title__)
 
 # task priority of bulk tasks
@@ -26,7 +39,7 @@ BULK_TASK_PRIORITY = 6
 @shared_task(
     bind=True, name='discord.update_groups', base=QueueOnce, max_retries=None
 )
-def update_groups(self, user_pk: int, state_name: str = None) -> None:
+def update_groups(self: "Task", user_pk: int, state_name: str = None) -> None:
     """Update roles on Discord for given user according to his current groups
 
     Params:
@@ -39,7 +52,7 @@ def update_groups(self, user_pk: int, state_name: str = None) -> None:
 @shared_task(
     bind=True, name='discord.update_nickname', base=QueueOnce, max_retries=None
 )
-def update_nickname(self, user_pk: int, nickname: str = None) -> None:
+def update_nickname(self: "Task", user_pk: int, nickname: str = None) -> None:
     """Set nickname on Discord for given user to his main character name
 
     Params:
@@ -52,7 +65,7 @@ def update_nickname(self, user_pk: int, nickname: str = None) -> None:
 @shared_task(
     bind=True, name='discord.update_username', base=QueueOnce, max_retries=None
 )
-def update_username(self, user_pk: int) -> None:
+def update_username(self: "Task", user_pk: int) -> None:
     """Update locally stored Discord username from Discord server for given user
 
     Params:
@@ -64,7 +77,7 @@ def update_username(self, user_pk: int) -> None:
 @shared_task(
     bind=True, name='discord.delete_user', base=QueueOnce, max_retries=None
 )
-def delete_user(self, user_pk: int, notify_user: bool = False) -> None:
+def delete_user(self: "Task", user_pk: int, notify_user: bool = False) -> None:
     """Delete Discord user
 
     Params:
@@ -147,7 +160,7 @@ def update_groups_bulk(user_pks: list) -> None:
     _bulk_update_groups_for_users(discord_users_qs)
 
 
-def _bulk_update_groups_for_users(discord_users_qs: QuerySet) -> None:
+def _bulk_update_groups_for_users(discord_users_qs: "QuerySet[DiscordUser]") -> None:
     logger.info(
         "Starting to bulk update discord roles for %d users", discord_users_qs.count()
     )
@@ -174,7 +187,7 @@ def update_nicknames_bulk(user_pks: list) -> None:
     _bulk_update_nicknames_for_users(discord_users_qs)
 
 
-def _bulk_update_nicknames_for_users(discord_users_qs: QuerySet) -> None:
+def _bulk_update_nicknames_for_users(discord_users_qs: "QuerySet[DiscordUser]") -> None:
     logger.info(
         "Starting to bulk update discord nicknames for %d users",
         discord_users_qs.count()
@@ -227,7 +240,7 @@ def _task_perform_users_action(self, method: str, **kwargs) -> Any:
 @shared_task(
     bind=True, name='discord.update_servername', base=QueueOnce, max_retries=None
 )
-def update_servername(self) -> None:
+def update_servername(self: "Task") -> None:
     """Updates the Discord server name"""
     _task_perform_users_action(self, method="server_name", use_cache=False)
 
@@ -251,7 +264,7 @@ def update_usernames_bulk(user_pks: list) -> None:
     _bulk_update_usernames_for_users(discord_users_qs)
 
 
-def _bulk_update_usernames_for_users(discord_users_qs: QuerySet) -> None:
+def _bulk_update_usernames_for_users(discord_users_qs: "QuerySet[DiscordUser]") -> None:
     logger.info(
         "Starting to bulk update discord usernames for %d users",
         discord_users_qs.count()

@@ -140,6 +140,10 @@ impl WFStream {
                             LocalInputs::HeartbeatTimeout(hbt) => {
                                 state.process_heartbeat_timeout(hbt)
                             }
+                            LocalInputs::LocalActivityCancelProcessed(run_id) => state
+                                .runs
+                                .get_mut(&run_id)
+                                .and_then(|rh| rh.check_more_activations()),
                             LocalInputs::RequestEviction(evict) => {
                                 state.request_eviction(evict).into_run_update_resp()
                             }
@@ -559,10 +563,14 @@ impl WFStream {
     /// Makes sure we have enough pending evictions to fulfill the needs of buffered WFTs who are
     /// waiting on a cache slot
     fn reconcile_buffered(&mut self) -> Vec<ActivationOrAuto> {
+        let num_in_buff = self.buffered_polls_need_cache_slot.len();
+        if num_in_buff == 0 {
+            return vec![];
+        }
+
         // We must ensure that there are at least as many pending evictions as there are tasks
         // that we might need to un-buffer (skipping runs which already have buffered tasks for
         // themselves)
-        let num_in_buff = self.buffered_polls_need_cache_slot.len();
         let mut evict_these = vec![];
         let num_existing_evictions = self
             .runs
@@ -657,11 +665,17 @@ pub(super) struct LocalInput {
     pub(super) input: LocalInputs,
     pub(super) span: Span,
 }
-impl From<HeartbeatTimeoutMsg> for LocalInput {
-    fn from(hb: HeartbeatTimeoutMsg) -> Self {
-        Self {
-            input: LocalInputs::HeartbeatTimeout(hb.run_id),
-            span: hb.span,
+impl From<LocalActivityNotification> for LocalInput {
+    fn from(notification: LocalActivityNotification) -> Self {
+        match notification {
+            LocalActivityNotification::HeartbeatTimeout(hb) => Self {
+                input: LocalInputs::HeartbeatTimeout(hb.run_id),
+                span: hb.span,
+            },
+            LocalActivityNotification::CancelProcessed { run_id, span } => Self {
+                input: LocalInputs::LocalActivityCancelProcessed(run_id),
+                span,
+            },
         }
     }
 }
@@ -678,6 +692,9 @@ pub(super) enum LocalInputs {
     PostActivation(Box<PostActivationMsg>),
     RequestEviction(RequestEvictMsg),
     HeartbeatTimeout(String),
+    /// A queued cancel was handed to lang, so the run may be ready to evict
+    #[from(ignore)]
+    LocalActivityCancelProcessed(String),
     GetStateInfo(GetStateInfoMsg),
     BumpStream,
 }
@@ -689,7 +706,8 @@ impl LocalInputs {
             LocalInputs::LocalResolution(lr) => &lr.run_id,
             LocalInputs::PostActivation(pa) => &pa.run_id,
             LocalInputs::RequestEviction(re) => &re.run_id,
-            LocalInputs::HeartbeatTimeout(hb) => hb,
+            LocalInputs::HeartbeatTimeout(run_id)
+            | LocalInputs::LocalActivityCancelProcessed(run_id) => run_id,
             LocalInputs::GetStateInfo(_) | LocalInputs::BumpStream => return None,
         })
     }

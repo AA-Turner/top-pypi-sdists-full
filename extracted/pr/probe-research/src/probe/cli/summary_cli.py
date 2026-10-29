@@ -64,7 +64,8 @@ from typing import Any
 
 import typer
 
-from ..sdk import errors
+from ..sdk import errors, session_marker
+from . import owed
 
 summary_app = typer.Typer(
     no_args_is_help=True,
@@ -91,8 +92,10 @@ ERASED_SINCE_CHECKOUT = "erased_since_checkout"
 SESSION_ERASED = "session_erased"
 VERSION_MOVED = "version_moved"
 WRITER_OFF = "summary_writer_off"
-#: What `mode` says while the overview lane still writes the team's pages.
+#: What `mode` says while the overview lane still writes the team's pages, and
+#: once the recorders write them.
 MODE_LANE = "lane"
+MODE_RECORDER = "recorder"
 #: The mark a lane-mode refusal or note carries, which the daemon reads
 #: (`tools.note_summary_marks`).
 LANE_MARK = "(mode lane)"
@@ -100,9 +103,9 @@ LANE_MARK = "(mode lane)"
 #: Where this machine keeps the team's summaries mode as a checkout or a push
 #: last saw it (`{"mode", "at", "server"}`): the reminder stays quiet while it
 #: reads lane, so agents are not sent to summaries the server would refuse.
-MODE_FILE = "mode.json"
+MODE_FILE = session_marker.SUMMARIES_MODE_FILE[-1]
 #: How long a seen mode stands for the reminder: the flip moves it once.
-MODE_TTL_S = 24 * 3600
+MODE_TTL_S = session_marker.SUMMARIES_MODE_TTL_S
 
 #: The reminder (plan §3.5). `{label}` is the ref as the command named it.
 REMINDER = "Summary of {label} not loaded this session - probe summary checkout --{kind} {label}"
@@ -323,7 +326,7 @@ def _server() -> str:
 
 def record_mode(mode: str | None) -> None:
     """Remember the mode a checkout or a push just saw (never raises)."""
-    if mode not in (MODE_LANE, "recorder"):
+    if mode not in (MODE_LANE, MODE_RECORDER):
         return
     try:
         from ..sdk.durable import write_text_atomic
@@ -335,13 +338,21 @@ def record_mode(mode: str | None) -> None:
         pass
 
 
-def _seen_lane() -> bool:
+def seen_mode() -> str | None:
+    """The mode this machine's last checkout or push saw on this server, within
+    MODE_TTL_S; None when unknown."""
     try:
         seen = json.loads(_mode_file().read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return False
-    return (isinstance(seen, dict) and seen.get("mode") == MODE_LANE and seen.get("server") == _server()
-            and time.time() - float(seen.get("at") or 0) < MODE_TTL_S)
+        return None
+    if not (isinstance(seen, dict) and seen.get("server") == _server()
+            and time.time() - float(seen.get("at") or 0) < MODE_TTL_S):
+        return None
+    return seen.get("mode") if seen.get("mode") in (MODE_LANE, MODE_RECORDER) else None
+
+
+def _seen_lane() -> bool:
+    return seen_mode() == MODE_LANE
 
 
 def _fail(message: str, code: int = 1) -> None:
@@ -636,7 +647,8 @@ def summary_push(
         _adopt_canonical(where, sent.get("text"), sent.get("canonical"), report.version)
         _visuals_follow_push(target, sid, sent.get("base"), report.version)
         record_loaded(sid, target)
-        record_mode("recorder")
+        record_mode(MODE_RECORDER)
+        owed.settle(owed.SUMMARY, target.keys())
     _print_json(
         {
             "target": target.kind,
@@ -912,6 +924,7 @@ def _report(target: Target, row: dict, payload: dict, done: str) -> None:
     _print_json({"target": target.kind, "label": target.label, **payload, "changed": changed,
                  "version": row.get("version")})
     if changed:
+        owed.settle(owed.SUMMARY, target.keys())
         print(f"{done} {target.kind} summary ({target.label}) v{row.get('version')}", file=sys.stderr)
     else:
         print(f"{target.kind} summary ({target.label}): {UNCHANGED}", file=sys.stderr)
@@ -1165,16 +1178,19 @@ def _loaded_file(sid: str) -> Path:
     return state_dir() / "summaries" / _LOADED_DIR / f"{sid}.json"
 
 
+#: What `_loaded_file` keeps: summaries checked out, reminders given, and the
+#: entities whose note the first write printed (`first_touch`, key `writer:kind:ref`).
+_LOADED_KEYS = ("loaded", "reminded", "noted")
+
+
 def _read_loaded(sid: str) -> dict[str, list[str]]:
     try:
         data = json.loads(_loaded_file(sid).read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return {"loaded": [], "reminded": []}
+        data = {}
     if not isinstance(data, dict):
-        return {"loaded": [], "reminded": []}
-    return {
-        k: [str(x) for x in data.get(k) or [] if isinstance(x, str)] for k in ("loaded", "reminded")
-    }
+        data = {}
+    return {k: [str(x) for x in data.get(k) or [] if isinstance(x, str)] for k in _LOADED_KEYS}
 
 
 def _write_loaded(sid: str, update) -> None:

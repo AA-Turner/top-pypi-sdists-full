@@ -6,6 +6,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from jsonschema import Draft202012Validator
 from pydantic import TypeAdapter, ValidationError
 from pydantic_core import PydanticSerializationError
 
@@ -19,6 +20,7 @@ from tests.main.conftest import (
     JSON_SCHEMA_DATA_PATH,
     _assert_model_json_invalid,
     _generated_model,
+    _model_json_validator,
     assert_generated_model_json_validation,
     run_generate_and_assert,
     run_generate_file_and_assert,
@@ -27,7 +29,12 @@ from tests.main.conftest import (
 from tests.main.jsonschema.conftest import EXPECTED_JSON_SCHEMA_PATH, assert_file_content
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
+
+BEYOND_FLOAT_RANGE = JSON_SCHEMA_DATA_PATH / "numeric_constraint_precision" / "beyond_float_range.json"
+BEYOND_FLOAT_RANGE_PAYLOADS = JSON_DATA_PATH / "numeric_constraint_precision" / "beyond_float_range_payloads.json"
+NON_FINITE_MULTIPLE_OF = JSON_SCHEMA_DATA_PATH / "numeric_constraint_precision" / "non_finite_multiple_of.json"
 
 
 @pytest.mark.parametrize("entry_point", ["api", "cli"])
@@ -156,3 +163,87 @@ def test_numeric_constraint_serialization(fixture: str, serialization: str, cons
         disable_timestamp=True,
         formatters=[Formatter.BUILTIN],
     )
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param((), id="constrained"),
+        pytest.param(("--field-constraints",), id="field"),
+        pytest.param(("--use-annotated",), id="annotated"),
+        pytest.param(("--output-model-type", "pydantic_v2.dataclass", "--strict-types", "float"), id="dataclass"),
+    ],
+)
+def test_number_bounds_beyond_float_range(output_file: Path, extra_args: tuple[str, ...]) -> None:
+    """Write a number bound beyond the float range as the infinity of its sign, as the same number written 1e400."""
+    run_main_and_assert(
+        input_path=BEYOND_FLOAT_RANGE,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--disable-timestamp", "--formatters", "builtin", *extra_args],
+    )
+    payloads = json.loads(BEYOND_FLOAT_RANGE_PAYLOADS.read_text(encoding="utf-8"))
+    documents = [
+        *payloads["valid"],
+        *({**payloads["valid"][0], **change} for change in payloads["invalid"]),
+    ]
+    validator = Draft202012Validator(json.loads(BEYOND_FLOAT_RANGE.read_text(encoding="utf-8")))
+    with _generated_model(output_file, "number_bounds_beyond_float_range", "Model") as model:
+        validate_json = _model_json_validator(model)
+        verdicts = "".join(
+            f"{json.dumps(document)}: schema {'accepts' if validator.is_valid(document) else 'rejects'}, "
+            f"model {_model_verdict(validate_json, document)}\n"
+            for document in documents
+        )
+    assert_output(verdicts, name="payloads")
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param((), id="constrained"),
+        pytest.param(("--field-constraints",), id="field"),
+        pytest.param(("--use-annotated",), id="annotated"),
+        pytest.param(("--use-decimal-for-multiple-of",), id="decimal"),
+        pytest.param(("--output-model-type", "pydantic_v2.dataclass"), id="dataclass"),
+    ],
+)
+def test_non_finite_multiple_of_left_out_accepts_non_multiples(
+    output_file: Path, recwarn: pytest.WarningsRecorder, extra_args: tuple[str, ...]
+) -> None:
+    """Leave out a multipleOf Pydantic would take as an infinity, which it refuses, and warn, so 1.5 is accepted.
+
+    A multipleOf of 1e400, or of 10**400 on a float, has no finite value in the written type; the module imports
+    without it and accepts numbers that are no multiples, such as 1.5, which the schema rejects. A ``Decimal`` from
+    ``--use-decimal-for-multiple-of`` keeps 10**400 and rejects 1.5.
+    """
+    run_main_and_assert(
+        input_path=NON_FINITE_MULTIPLE_OF,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--disable-timestamp", "--formatters", "builtin", *extra_args],
+    )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(warning.message) for warning in recwarn if warning.category is UserWarning)
+        ),
+        name="warnings",
+    )
+    with _generated_model(output_file, "non_finite_multiple_of", "Model") as model:
+        validate_json = _model_json_validator(model)
+        verdicts = "".join(
+            f"{json.dumps(document)}: model {_model_verdict(validate_json, document)}\n"
+            for name in ("infinite", "beyond", "bounded", "count", "amount", "either")
+            for document in ({name: 0}, {name: 3 if name == "count" else 1.5})
+        )
+    assert_output(verdicts, name="payloads")
+
+
+def _model_verdict(validate_json: Callable[[str], Any], document: object) -> str:
+    """Return whether a generated model accepts or rejects a JSON document."""
+    try:
+        validate_json(json.dumps(document))
+    except ValidationError:
+        return "rejects"
+    return "accepts"

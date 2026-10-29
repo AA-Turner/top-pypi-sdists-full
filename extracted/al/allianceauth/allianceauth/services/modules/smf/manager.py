@@ -1,19 +1,22 @@
+__lazy_modules__ = ["allianceauth.authentication.models"]
+
 import calendar
 import datetime as dt
 import hashlib
 import logging
-import random
 import re
-import string
-from datetime import datetime
 
+from django.utils.crypto import get_random_string
 from packaging import version
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.db import connections
 
-from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveCharacter
+
+if TYPE_CHECKING:
+    from allianceauth.authentication.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +25,7 @@ TABLE_PREFIX = getattr(settings, 'SMF_TABLE_PREFIX', 'smf_')
 
 
 class SmfManager:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     # For SMF < 2.1
@@ -85,32 +88,28 @@ class SmfManager:
 
 
     @staticmethod
-    def _sanitize_groupname(name):
+    def _sanitize_groupname(name: str) -> str:
         name = name.strip(' _')
         return re.sub(r'[^\w.-]', '', name)
 
     @staticmethod
-    def generate_random_pass():
-        return ''.join([random.choice(string.ascii_letters + string.digits) for n in range(16)])
-
-    @staticmethod
-    def gen_hash(username_clean, passwd):
+    def gen_hash(username_clean: str, passwd: str) -> str:
         return hashlib.sha1((username_clean + passwd).encode('utf-8')).hexdigest()
 
     @staticmethod
-    def santatize_username(username):
+    def santatize_username(username: str) -> str:
         sanatized = username.replace(" ", "_")
         sanatized = sanatized.replace("'", "_")
         return sanatized.lower()
 
     @staticmethod
-    def get_current_utc_date():
+    def get_current_utc_date() -> int:
         d = dt.datetime.now(dt.timezone.utc)
         unixtime = calendar.timegm(d.utctimetuple())
         return unixtime
 
     @classmethod
-    def create_group(cls, groupname):
+    def create_group(cls, groupname: str) -> int:
         logger.debug(f"Creating smf group {groupname}")
         cursor = connections['smf'].cursor()
         cursor.execute(cls.SQL_ADD_GROUP, [groupname, groupname])
@@ -118,7 +117,7 @@ class SmfManager:
         return cls.get_group_id(groupname)
 
     @classmethod
-    def get_group_id(cls, groupname):
+    def get_group_id(cls, groupname: str) -> int:
         logger.debug(f"Getting smf group id for groupname {groupname}")
         cursor = connections['smf'].cursor()
         cursor.execute(cls.SQL_GET_GROUP_ID, [groupname])
@@ -127,7 +126,7 @@ class SmfManager:
         return row[0]
 
     @classmethod
-    def check_user(cls, username):
+    def check_user(cls, username: str) -> bool:
         logger.debug(f"Checking smf username {username}")
         cursor = connections['smf'].cursor()
         cursor.execute(cls.SQL_USER_ID_FROM_USERNAME, [cls.santatize_username(username)])
@@ -139,7 +138,7 @@ class SmfManager:
         return False
 
     @classmethod
-    def add_avatar(cls, member_name, characterid):
+    def add_avatar(cls, member_name: str, characterid: int) -> None:
         logger.debug(f"Adding EVE character id {characterid} portrait as smf avatar for user {member_name}")
         avatar_url = EveCharacter.generic_portrait_url(characterid, 64)
         cursor = connections['smf'].cursor()
@@ -147,7 +146,7 @@ class SmfManager:
         cursor.execute(cls.SQL_ADD_USER_AVATAR, [avatar_url, id_member])
 
     @classmethod
-    def get_user_id(cls, username):
+    def get_user_id(cls, username: str) -> int | None:
         logger.debug(f"Getting smf user id for username {username}")
         cursor = connections['smf'].cursor()
         cursor.execute(cls.SQL_USER_ID_FROM_USERNAME, [username])
@@ -160,7 +159,7 @@ class SmfManager:
             return None
 
     @classmethod
-    def get_all_groups(cls):
+    def get_all_groups(cls) -> dict[str, int]:
         logger.debug("Getting all smf groups.")
         cursor = connections['smf'].cursor()
         cursor.execute(cls.SQL_GET_ALL_GROUPS)
@@ -172,7 +171,7 @@ class SmfManager:
         return out
 
     @classmethod
-    def get_user_groups(cls, userid):
+    def get_user_groups(cls, userid: int) -> list[int]:
         logger.debug(f"Getting smf user id {userid} groups")
         cursor = connections['smf'].cursor()
         cursor.execute(cls.SQL_GET_USER_GROUPS, [userid])
@@ -181,7 +180,7 @@ class SmfManager:
         return out
 
     @classmethod
-    def add_user(cls, username, email_address, groups, main_character: EveCharacter) -> tuple:
+    def add_user(cls, username: str, email_address: str, groups: list[str], main_character: EveCharacter) -> tuple:
         """
         Add a user to SMF
         :param username:
@@ -203,7 +202,7 @@ class SmfManager:
 
         cursor = connections['smf'].cursor()
         username_clean = cls.santatize_username(username)
-        passwd = cls.generate_random_pass()
+        passwd = get_random_string(length=20)
         pwhash = cls.gen_hash(username_clean, passwd)
         register_date = cls.get_current_utc_date()
 
@@ -249,7 +248,7 @@ class SmfManager:
         return username_clean, passwd
 
     @classmethod
-    def __update_user_info(cls, username, email_address, passwd, main_character_name):
+    def __update_user_info(cls, username: str, email_address: str, passwd: str, main_character_name: str) -> None:
         logger.debug(
             f"Updating smf user {username} info: "
             f"username {email_address} "
@@ -266,7 +265,7 @@ class SmfManager:
             pass
 
     @classmethod
-    def delete_user(cls, username):
+    def delete_user(cls, username: str) -> bool:
         logger.debug(f"Deleting smf user {username}")
         cursor = connections['smf'].cursor()
 
@@ -278,7 +277,7 @@ class SmfManager:
         return False
 
     @classmethod
-    def update_display_name(cls, user: User):
+    def update_display_name(cls, user: "User") -> bool:
         logger.debug(f"Updating SMF displayed name for user {user}")
         cursor = connections['smf'].cursor()
         smf_username = user.smf.username
@@ -299,7 +298,7 @@ class SmfManager:
         return False
 
     @classmethod
-    def update_groups(cls, username, groups):
+    def update_groups(cls, username: str, groups: list[str]) -> None:
         userid = cls.get_user_id(username)
         logger.debug(f"Updating smf user {username} with id {userid} groups {groups}")
         if userid is not None:
@@ -318,7 +317,7 @@ class SmfManager:
             cls.add_user_to_group(userid, string_groups)
 
     @classmethod
-    def add_user_to_group(cls, userid, groupid):
+    def add_user_to_group(cls, userid: int, groupid: int) -> None:
         logger.debug(f"Adding smf user id {userid} to group id {groupid}")
         try:
             cursor = connections['smf'].cursor()
@@ -329,7 +328,7 @@ class SmfManager:
             pass
 
     @classmethod
-    def remove_user_from_group(cls, userid, groupid):
+    def remove_user_from_group(cls, userid: int, groupid: int) -> None:
         logger.debug(f"Removing smf user id {userid} from group id {groupid}")
         try:
             cursor = connections['smf'].cursor()
@@ -340,11 +339,11 @@ class SmfManager:
             pass
 
     @classmethod
-    def disable_user(cls, username):
+    def disable_user(cls, username: str) -> bool:
         logger.debug(f"Disabling smf user {username}")
         cursor = connections['smf'].cursor()
 
-        password = cls.generate_random_pass()
+        password = get_random_string(length=20)
         revoke_email = "revoked@localhost"
         try:
             pwhash = cls.gen_hash(username, password)
@@ -358,11 +357,11 @@ class SmfManager:
             return False
 
     @classmethod
-    def update_user_password(cls, username, characterid, password=None):
+    def update_user_password(cls, username: str, characterid: int, password: str | None = None) -> str:
         logger.debug(f"Updating smf user {username} password")
         cursor = connections['smf'].cursor()
         if not password:
-            password = cls.generate_random_pass()
+            password = get_random_string(length=20)
         if cls.check_user(username):
             username_clean = cls.santatize_username(username)
             pwhash = cls.gen_hash(username_clean, password)

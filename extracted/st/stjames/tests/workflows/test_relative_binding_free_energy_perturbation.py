@@ -281,3 +281,12 @@ def test_solvent_trajectory_outputs_round_trip_independently() -> None:
     assert restored.solvent_trajectories is not None
     assert set(restored.solvent_trajectories) == {0.0, 1.0}
     assert restored.solvent_protein_uuid != restored.complex_protein_uuid
+
+
+def test_cofactor_indices_survive_json_round_trip() -> None:
+    """Restore SDK integer keys and frontend string keys before backend selection."""
+    workflow = _workflow_with_small_molecules({100: "OCCO", "EDO": "OCCO", "ZN": None})
+    payload = workflow.model_dump(mode="json")
+    assert payload["small_molecules"]["100"] == "OCCO"
+    assert RelativeBindingFreeEnergyPerturbationWorkflow.model_validate(payload).small_molecules == workflow.small_molecules
+    assert RelativeBindingFreeEnergyPerturbationWorkflow.model_validate_json(workflow.model_dump_json()).small_molecules == workflow.small_molecules

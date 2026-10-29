@@ -9,14 +9,13 @@ import signal
 import socket
 import sys
 import time
-import traceback
 import warnings
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 from enum import Enum
 from random import shuffle
-from types import FrameType
-from typing import TYPE_CHECKING
+from types import FrameType, TracebackType
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -27,11 +26,10 @@ if TYPE_CHECKING:
     from redis import Redis
     from redis.client import Pipeline, PubSub, PubSubWorkerThread
 
-from contextlib import suppress
-
 import redis.exceptions
 
 from .. import worker_registration
+from ..callbacks import execute_failure_callback, execute_success_callback
 from ..command import PUBSUB_CHANNEL_TEMPLATE, handle_command, parse_payload
 from ..defaults import (
     DEFAULT_JOB_MONITORING_INTERVAL,
@@ -40,13 +38,16 @@ from ..defaults import (
     DEFAULT_MAINTENANCE_TASK_INTERVAL,
     DEFAULT_RESULT_TTL,
     DEFAULT_WORKER_TTL,
+    RQ_KEY_PREFIX,
 )
 from ..exceptions import DequeueTimeout, DeserializationError, StopRequested
-from ..executions import Execution, cleanup_execution, prepare_execution
+from ..executions import WORKER_EXECUTIONS_KEY_TEMPLATE, Execution, cleanup_execution, prepare_execution
 from ..group import Group
 from ..job import Job, JobStatus, Retry
-from ..logutils import blue, green, setup_loghandlers, yellow
+from ..job_lifecycle import call_exception_handlers, format_exc_info
+from ..logutils import blue, green, setup_loghandlers
 from ..queue import Queue
+from ..rate_limit import release_slot
 from ..registry import StartedJobRegistry, clean_registries
 from ..results import Result
 from ..scheduler import RQScheduler
@@ -114,7 +115,7 @@ class WorkerStatus(str, Enum):
 
 
 class BaseWorker:
-    redis_worker_namespace_prefix = 'rq:worker:'
+    redis_worker_namespace_prefix = RQ_KEY_PREFIX + ':worker:'
     redis_workers_keys = worker_registration.REDIS_WORKER_KEYS
     death_penalty_class = get_default_death_penalty_class()
     queue_class = Queue
@@ -185,7 +186,8 @@ class BaseWorker:
         else:
             self._serializer_arg = f'{serializer.__module__}.{serializer.__qualname__}'  # type: ignore[attr-defined]
         self.serializer = resolve_serializer(serializer)
-        self.execution: Execution | None = None
+        self.executions: dict[str, Execution] = {}
+        self._executions: list[Execution] = []  # cached result of get_current_executions()
 
         queues = [
             (
@@ -222,7 +224,6 @@ class BaseWorker:
         self.successful_job_count: int = 0
         self.failed_job_count: int = 0
         self.total_working_time: float = 0
-        self.current_job_working_time: float = 0
         self.birth_date: datetime | None = None
         self.last_heartbeat: datetime | None = None
         self.scheduler: RQScheduler | None = None
@@ -256,19 +257,24 @@ class BaseWorker:
             return
 
         try:
+            self.ip_address = str(connection.client_info()['addr'])
+        except redis.exceptions.ResponseError:
+            # CLIENT INFO needs Redis 6.2. CLIENT LIST works on older servers but returns every connection.
+            self.ip_address = self._ip_address_from_client_list(connection)
+
+    def _ip_address_from_client_list(self, connection: Redis) -> str:
+        try:
             client_addresses = [
                 client['addr'] for client in connection.client_list() if client.get('name') == self.name
             ]
         except redis.exceptions.ResponseError:
             warnings.warn('CLIENT LIST command not supported, setting ip_address to unknown', Warning)
-            self.ip_address = 'unknown'
-            return
+            return 'unknown'
 
-        if client_addresses:
-            self.ip_address = client_addresses[0]
-        else:
+        if not client_addresses:
             warnings.warn('CLIENT LIST command not supported, setting ip_address to unknown', Warning)
-            self.ip_address = 'unknown'
+            return 'unknown'
+        return client_addresses[0]
 
     @classmethod
     def find_by_key(
@@ -387,7 +393,6 @@ class BaseWorker:
         self.version = data.get('version') or VERSION
         self.python_version = data.get('python_version') or sys.version
         self._state = data.get('state', '?')
-        self._job_id = data.get('current_job')
 
         if data.get('last_heartbeat'):
             self.last_heartbeat = utcparse(data['last_heartbeat'])
@@ -402,9 +407,6 @@ class BaseWorker:
         self.failed_job_count = int(data['failed_job_count']) if data.get('failed_job_count') else 0
         self.successful_job_count = int(data['successful_job_count']) if data.get('successful_job_count') else 0
         self.total_working_time = float(data['total_working_time']) if data.get('total_working_time') else 0
-        self.current_job_working_time = (
-            float(data['current_job_working_time']) if data.get('current_job_working_time') else 0
-        )
 
         if data.get('queues'):
             self.queues = [
@@ -439,6 +441,32 @@ class BaseWorker:
         return connection
 
     @property
+    def execution(self) -> Execution | None:
+        """One of the worker's active executions, `None` when idle. Falls back to the
+        persisted execution index so hydrated workers (`Worker.all()`) also see it."""
+        if self.executions:
+            return next(iter(self.executions.values()))
+        executions = self.get_current_executions()
+        return executions[0] if executions else None
+
+    @execution.setter
+    def execution(self, execution: Execution | None):
+        if execution is None:
+            if len(self.executions) > 1:
+                raise ValueError(
+                    'Cannot clear worker.execution when multiple executions are active, '
+                    'remove the entry from worker.executions instead'
+                )
+            self.executions.clear()
+        else:
+            self.executions[execution.id] = execution
+
+    @property
+    def executions_key(self) -> str:
+        """Redis key of the set holding this worker's active execution composite keys."""
+        return WORKER_EXECUTIONS_KEY_TEMPLATE.format(self.name)
+
+    @property
     def dequeue_timeout(self) -> int:
         return max(1, self.worker_ttl - 15)
 
@@ -458,6 +486,17 @@ class BaseWorker:
                 queue.intermediate_queue.cleanup(self, queue)
                 queue.release_maintenance_lock()
         self.last_cleaned_at = now()
+
+    def clean_group_registries(self):
+        """Runs maintenance on group registries. Groups are shared by every
+        queue, so one lock covers all workers. The lock expires just before
+        the next maintenance tick so that tick can take it."""
+        # If there are multiple workers running, we only want 1 worker
+        # to run clean_registries().
+        lock_timeout = max(int(self.maintenance_interval) - 1, 1)
+        if Group.acquire_maintenance_lock(self.connection, lock_timeout):
+            self.log.info('Worker %s: cleaning group registries', self.name)
+            Group.clean_registries(connection=self.connection)
 
     def get_redis_server_version(self):
         """Return Redis server version of connection"""
@@ -529,8 +568,6 @@ class BaseWorker:
             if self.scheduler:
                 self.stop_scheduler()
         else:
-            if self.scheduler:
-                self.stop_scheduler()
             raise StopRequested()
 
     def request_force_stop(self, signum: int, frame: FrameType | None):
@@ -660,11 +697,11 @@ class BaseWorker:
             self.teardown()
         return bool(completed_jobs)
 
-    def cleanup_execution(self, job: Job, pipeline: Pipeline):
+    def cleanup_execution(self, job: Job, pipeline: Pipeline, execution: Execution | None = None):
         """Cleans up the execution of a job.
         It will remove the job execution record from the `StartedJobRegistry` and delete the Execution object.
         """
-        cleanup_execution(self, job, pipeline)
+        cleanup_execution(self, job, pipeline, execution)
 
     def handle_warm_shutdown_request(self):
         self.log.info('Worker %s [PID %d]: warm shut down requested', self.name, self.pid)
@@ -694,14 +731,13 @@ class BaseWorker:
             shuffle(self._ordered_queues)
             return
 
-    def handle_job_failure(self, job: Job, queue: Queue, started_job_registry=None, exc_string=''):
-        """
-        Handles the failure or an executing job by:
-            1. Setting the job status to failed
-            2. Removing the job from StartedJobRegistry
-            3. Setting the workers current job to None
-            4. Add the job to FailedJobRegistry
-        `save_exc_to_job` should only be used for testing purposes
+    def handle_job_failure(
+        self, job: Job, queue: Queue, started_job_registry=None, exc_string='', execution: Execution | None = None
+    ):
+        """Handles the failure of an executing job.
+
+        Retries the job if it has retries left; otherwise marks it stopped or failed and enqueues
+        its dependents. Frees its rate limit slot unless the job was requeued.
         """
         self.log.debug('Worker %s: handling failed execution of job %s', self.name, job.id)
         with self.connection.pipeline() as pipeline:
@@ -710,8 +746,7 @@ class BaseWorker:
                     job.origin, self.connection, job_class=self.job_class, serializer=self.serializer
                 )
 
-            # check whether a job was stopped intentionally and set the job
-            # status appropriately if it was this job.
+            # A job stopped on request is marked STOPPED rather than FAILED and is never retried.
             job_is_stopped = self._stopped_job_id == job.id
             retry = job.should_retry and not job_is_stopped
 
@@ -719,16 +754,15 @@ class BaseWorker:
                 job.set_status(JobStatus.STOPPED, pipeline=pipeline)
                 self._stopped_job_id = None
             else:
-                # Requeue/reschedule if retry is configured, otherwise
+                # A retried job gets its status from job.retry() below.
                 if not retry:
                     job.set_status(JobStatus.FAILED, pipeline=pipeline)
 
-            # Capture execution metadata before cleanup_execution() clears self.execution.
-            execution_id = self.execution.id if self.execution else None
-            execution_started_at = self.execution.created_at if self.execution else None
+            execution_id = execution.id if execution else None
+            execution_started_at = execution.created_at if execution else None
             execution_ended_at = job.ended_at
 
-            self.cleanup_execution(job, pipeline=pipeline)
+            self.cleanup_execution(job, pipeline=pipeline, execution=execution)
 
             if not self.disable_default_exception_handler and not retry:
                 job._handle_failure(
@@ -739,8 +773,6 @@ class BaseWorker:
                     execution_started_at=execution_started_at,
                     execution_ended_at=execution_ended_at,
                 )
-                with suppress(redis.exceptions.ConnectionError):
-                    pipeline.execute()
 
             self.increment_failed_job_count(pipeline)
             if job.started_at and job.ended_at:
@@ -748,80 +780,97 @@ class BaseWorker:
 
             if retry:
                 job.retry(queue, pipeline)
-                enqueue_dependents = False
+                should_enqueue_dependents = False
             else:
-                enqueue_dependents = True
+                should_enqueue_dependents = True
 
             try:
                 pipeline.execute()
-                # Fire failed webhooks only after the terminal failure is persisted, and
-                # skip retried/stopped jobs. Placed before enqueue_dependents (which can raise)
-                # so dispatch isn't lost if dependent enqueueing fails; send_webhooks never raises.
+            except Exception:
+                # Log instead of raising; the failure may not be persisted, so skip follow-up actions.
+                self.log.exception('Worker %s: failed to persist failure of job %s', self.name, job.id)
+            else:
+                # Send webhooks once the failure is persisted. send_webhooks never raises.
                 if not retry and not job_is_stopped:
                     job.send_webhooks(JobStatus.FAILED, exc_string=exc_string)
-                if enqueue_dependents:
-                    queue.enqueue_dependents(job)
-            except Exception as e:
-                # Ensure that custom exception handlers are called
-                # even if Redis is down
-                self.log.error(
-                    'Worker %s: exception during pipeline execute or enqueue_dependents for job %s: %s',
-                    self.name,
-                    job.id,
-                    e,
-                )
-                pass
+                if should_enqueue_dependents:
+                    self._enqueue_dependents_safely(queue, job)
+                self._release_slot_safely(job)
 
-    def set_current_job_working_time(self, current_job_working_time: float, pipeline: Pipeline | None = None):
-        """Sets the current job working time in seconds
+    def _enqueue_dependents_safely(self, queue: Queue, job: Job) -> None:
+        """Enqueue dependents after the failure commits, logging errors so slot release still runs."""
+        try:
+            queue.enqueue_dependents(job)
+        except Exception:
+            self.log.exception('Worker %s: failed to enqueue dependents of job %s', self.name, job.id)
 
-        Args:
-            current_job_working_time (float): The current job working time in seconds
-            pipeline (Optional[Pipeline], optional): Pipeline to use. Defaults to None.
-        """
-        self.current_job_working_time = current_job_working_time
-        connection = pipeline if pipeline is not None else self.connection
-        connection.hset(self.key, 'current_job_working_time', current_job_working_time)
+    def _release_slot_safely(self, job: Job) -> None:
+        """Release the job's rate limit slot, logging errors; maintenance frees any leaked slot."""
+        try:
+            release_slot(job)
+        except Exception:
+            self.log.exception('Worker %s: failed to release rate limit slot of job %s', self.name, job.id)
 
-    def set_current_job_id(self, job_id: str | None = None, pipeline: Pipeline | None = None):
-        """Sets the current job id.
-        If `None` is used it will delete the current job key.
-
-        Args:
-            job_id (Optional[str], optional): The job id. Defaults to None.
-            pipeline (Optional[Pipeline], optional): The pipeline to use. Defaults to None.
-        """
-        connection = pipeline if pipeline is not None else self.connection
-        if job_id is None:
-            connection.hdel(self.key, 'current_job')
-        else:
-            connection.hset(self.key, 'current_job', job_id)
-
-    def get_current_job_id(self, pipeline: Pipeline | None = None) -> str | None:
-        """Retrieves the current job id.
-
-        Args:
-            pipeline (Optional[&#39;Pipeline&#39;], optional): The pipeline to use. Defaults to None.
+    def get_current_job_id(self) -> str | None:
+        """Job id of one of this worker's active executions, `None` when idle.
 
         Returns:
-            job_id (Optional[str): The job id
+            job_id (Optional[str]): The job id
         """
-        connection = pipeline if pipeline is not None else self.connection
-        result = connection.hget(self.key, 'current_job')
-        if result is None:
-            return None
-        return as_text(result)
+        execution = self.execution
+        return execution.job_id if execution else None
 
     def get_current_job(self) -> Job | None:
-        """Returns the currently executing job instance.
+        """The job one of this worker's active executions is running, `None` when idle.
 
         Returns:
-            job (Job): The job instance.
+            job (Optional[Job]): The job instance.
         """
-        job_id = self.get_current_job_id()
-        if job_id is None:
+        execution = self.execution
+        if not execution:
             return None
-        return self.job_class.fetch(job_id, self.connection, self.serializer)
+        if not execution._job:
+            execution._job = self.job_class.fetch(execution.job_id, self.connection, self.serializer)
+        return execution._job
+
+    @property
+    def current_execution_count(self) -> int:
+        """Number of executions this worker is currently handling"""
+        return self.connection.scard(self.executions_key)
+
+    def get_current_executions(self, refresh: bool = False) -> list[Execution]:
+        """The worker's active executions, read from its execution index in Redis.
+        Works on hydrated workers (e.g. `Worker.all()`), so other processes can
+        monitor what a worker is running. Stale index members whose execution hash
+        has expired are filtered out and removed. The result is cached on the
+        instance; pass `refresh=True` to refetch from Redis.
+
+        Args:
+            refresh (bool): Whether to refetch from Redis instead of using the cache.
+
+        Returns:
+            executions (list[Execution]): The active executions.
+        """
+        if not refresh and self._executions:
+            return self._executions
+        active_executions: list[Execution] = []
+        composite_keys = [as_text(member) for member in self.connection.smembers(self.executions_key)]
+        if composite_keys:
+            executions = [Execution.from_composite_key(key, connection=self.connection) for key in composite_keys]
+            with self.connection.pipeline() as pipeline:
+                for execution in executions:
+                    pipeline.hgetall(execution.key)
+                results = pipeline.execute()
+
+                for execution, data in zip(executions, results):
+                    if not data:
+                        pipeline.srem(self.executions_key, execution.composite_key)
+                        continue
+                    execution.restore(data)
+                    active_executions.append(execution)
+                pipeline.execute()
+        self._executions = active_executions
+        return active_executions
 
     def set_state(self, state: str, pipeline: Pipeline | None = None):
         """Sets the worker's state.
@@ -927,6 +976,7 @@ class BaseWorker:
             worker_registration.unregister(self, p)
             p.hset(self.key, 'death', utcformat(now()))
             p.expire(self.key, 60)
+            p.delete(self.executions_key)
             p.execute()
 
     @property
@@ -1022,7 +1072,7 @@ class BaseWorker:
             if self.scheduler and (not self.scheduler._process or not self.scheduler._process.is_alive()):
                 self.scheduler.acquire_locks(auto_start=True)
         self.clean_registries()
-        Group.clean_registries(connection=self.connection)
+        self.clean_group_registries()
 
     def _pubsub_exception_handler(self, exc: Exception, pubsub: PubSub, pubsub_thread: PubSubWorkerThread) -> None:
         """
@@ -1059,17 +1109,18 @@ class BaseWorker:
             sleep_time=60, daemon=True, exception_handler=self._pubsub_exception_handler
         )
 
-    def get_heartbeat_ttl(self, job: Job) -> int:
+    def get_heartbeat_ttl(self, job: Job, working_time: float = 0.0) -> int:
         """Get's the TTL for the next heartbeat.
 
         Args:
             job (Job): The Job
+            working_time (float): Seconds the job has been running. Defaults to 0.0.
 
         Returns:
             int: The heartbeat TTL.
         """
         if job.timeout and job.timeout > 0:
-            remaining_execution_time = job.timeout - self.current_job_working_time
+            remaining_execution_time = job.timeout - working_time
             return int(min(remaining_execution_time, self.job_monitoring_interval)) + 60
         else:
             return self.job_monitoring_interval + 60
@@ -1146,7 +1197,7 @@ class BaseWorker:
                     idle_time_left = math.ceil(max_idle_time - idle_for)
                     if idle_time_left <= 0:
                         break
-            except redis.exceptions.ConnectionError as conn_err:
+            except (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError) as conn_err:
                 self.log.error(
                     'Worker %s: could not connect to Redis instance: %s retrying in %d seconds...',
                     self.name,
@@ -1180,20 +1231,23 @@ class BaseWorker:
         self.last_heartbeat = now()
         connection.hset(self.key, 'last_heartbeat', utcformat(self.last_heartbeat))
         connection.expire(self.key, timeout)
+        connection.expire(self.executions_key, timeout)
         self.log.debug(
             'Worker %s: sent heartbeat to prevent worker timeout. Next one should arrive in %s seconds.',
             self.name,
             timeout,
         )
 
-    def maintain_heartbeats(self, job: Job):
+    def maintain_heartbeats(self, job: Job, execution: Execution):
         """Updates worker, execution and job's last heartbeat fields."""
+        worker_ttl = self.job_monitoring_interval + 60
         with self.connection.pipeline() as pipeline:
-            self.heartbeat(self.job_monitoring_interval + 60, pipeline=pipeline)
-            ttl = int(self.get_heartbeat_ttl(job))
+            self.heartbeat(worker_ttl, pipeline=pipeline)
+            working_time = (now() - job.started_at).total_seconds() if job.started_at else 0.0
+            ttl = int(self.get_heartbeat_ttl(job, working_time=working_time))
 
             # Also need to update execution's heartbeat
-            self.execution.heartbeat(job.started_job_registry, ttl, pipeline=pipeline)  # type: ignore
+            execution.heartbeat(job.started_job_registry, ttl, pipeline=pipeline)
 
             # After transition to job execution is complete, `job.heartbeat()` is no longer needed
             job_heartbeat_index = len(pipeline)
@@ -1213,9 +1267,11 @@ class BaseWorker:
                 pipeline.delete(job.key)
 
             # like above, check if the worker's hash expired before `self.heartbeat` was able to
-            # update the expiration
+            # update the expiration. The hash can expire again before this pipeline runs, so the
+            # recreated hash needs its own TTL or it never expires.
             if results[0] == 1:
                 pipeline.hset(self.key, mapping=self.serialize())
+                pipeline.expire(self.key, worker_ttl)
 
             pipeline.execute()
 
@@ -1276,7 +1332,7 @@ class BaseWorker:
         being properly logged, so we guard against it here.
         """
         self.log.debug('Worker %s: handling exception for %s.', self.name, job.id)
-        exc_string = ''.join(traceback.format_exception(*exc_info))
+        exc_string = format_exc_info(exc_info)
         try:
             extra = {'func': job.func_name, 'arguments': job.args, 'kwargs': job.kwargs}
             func_name = job.func_name
@@ -1297,17 +1353,7 @@ class BaseWorker:
             extra=extra,
         )
 
-        for handler in self._exc_handlers:
-            self.log.debug('Worker %s: invoking exception handler %s', self.name, handler)
-            fallthrough = handler(job, *exc_info)
-
-            # Only handlers with explicit return values should disable further
-            # exc handling, so interpret a None return value as True.
-            if fallthrough is None:
-                fallthrough = True
-
-            if not fallthrough:
-                break
+        call_exception_handlers(self._exc_handlers, job, *exc_info)
 
     def push_exc_handler(self, handler_func):
         """Pushes an exception handler onto the exc handler stack."""
@@ -1336,14 +1382,12 @@ class BaseWorker:
         """
         self.log.debug('Worker %s: preparing for execution of job ID %s', self.name, job.id)
         with self.connection.pipeline() as pipeline:
-            self.set_current_job_id(job.id, pipeline=pipeline)
-            self.set_current_job_working_time(0, pipeline=pipeline)
-
             heartbeat_ttl = self.get_heartbeat_ttl(job)
             self.heartbeat(heartbeat_ttl, pipeline=pipeline)
             job.heartbeat(now(), heartbeat_ttl, pipeline=pipeline)
 
             job.prepare_for_execution(self.name, pipeline=pipeline)
+            pipeline.persist(job.key)
             if remove_from_intermediate_queue:
                 from ..queue import Queue
 
@@ -1363,8 +1407,10 @@ class BaseWorker:
         started_job_registry: StartedJobRegistry,
         execution: Execution,
     ):
-        """Handles the retry of certain job.
-        It will remove the job from the `StartedJobRegistry` and requeue or reschedule the job.
+        """Handles a job that returned a `Retry`.
+
+        Requeues or reschedules the job, or fails it once `retry.max` is reached. Frees its
+        rate limit slot unless the job was requeued.
 
         Args:
             job (Job): The job that will be retried.
@@ -1380,14 +1426,12 @@ class BaseWorker:
         execution_started_at = execution.created_at
         execution_ended_at = job.ended_at
 
-        # Check if job has exceeded max retries
         if job.number_of_retries and job.number_of_retries >= retry.max:
-            # If max retries exceeded, treat as a terminal failed job but persist
-            # a distinct result type so callers can differentiate it from errors.
+            # Fail the job, but record a distinct result type so callers can tell it apart from a raised error.
             self.log.warning('Worker %s: job %s has exceeded maximum retry attempts (%d)', self.name, job.id, retry.max)
             with self.connection.pipeline() as pipeline:
                 job.set_status(JobStatus.FAILED, pipeline=pipeline)
-                self.cleanup_execution(job, pipeline=pipeline)
+                self.cleanup_execution(job, pipeline=pipeline, execution=execution)
                 job.failed_job_registry.add(job, ttl=job.failure_ttl, exc_string='', pipeline=pipeline)
 
                 Result.create_max_retries_exceeded(
@@ -1406,17 +1450,13 @@ class BaseWorker:
 
                 try:
                     pipeline.execute()
-                    # Terminal failure (retries exhausted): fire failed webhooks after the failure is
-                    # persisted, before enqueue_dependents. No exception here, so exc_string is empty.
+                except Exception:
+                    self.log.exception('Worker %s: failed to persist failure of job %s', self.name, job.id)
+                else:
+                    # The job returned Retry, so there is no exception traceback.
                     job.send_webhooks(JobStatus.FAILED, exc_string='')
-                    queue.enqueue_dependents(job)
-                except Exception as e:
-                    self.log.error(
-                        'Worker %s: exception during pipeline execute or enqueue_dependents for job %s: %s',
-                        self.name,
-                        job.id,
-                        e,
-                    )
+                    self._enqueue_dependents_safely(queue, job)
+                    self._release_slot_safely(job)
             return
 
         with self.connection.pipeline() as pipeline:
@@ -1431,44 +1471,48 @@ class BaseWorker:
                 execution_started_at=execution_started_at,
                 execution_ended_at=execution_ended_at,
             )
-            self.cleanup_execution(job, pipeline=pipeline)
+            self.cleanup_execution(job, pipeline=pipeline, execution=execution)
             pipeline.execute()
+
+            release_slot(job)
 
             self.log.debug('Worker %s: finished handling retry of job %s', self.name, job.id)
 
-    def handle_job_success(self, job: Job, queue: Queue, started_job_registry: StartedJobRegistry):
-        """Handles the successful execution of certain job.
-        It will remove the job from the `StartedJobRegistry`, adding it to the `SuccessfulJobRegistry`,
-        and run a few maintenance tasks including:
-            - Resting the current job ID
-            - Enqueue dependents
-            - Incrementing the job count and working time
-            - Handling of the job successful execution
-            - If job.repeats_left > 0, it will be scheduled for the next execution.
+    def handle_job_success(
+        self,
+        job: Job,
+        queue: Queue,
+        started_job_registry: StartedJobRegistry,
+        execution: Execution,
+    ):
+        """Handles the successful execution of a job.
 
-        Runs within a loop with the `watch` method so that protects interactions
-        with dependents keys.
+        Saves the result unless `result_ttl` is 0, schedules the next repeat if any, enqueues
+        ready dependents and frees the rate limit slot unless the job was requeued. The
+        transaction is retried on `WatchError` when the job's dependents change.
 
         Args:
             job (Job): The job that was successful.
             queue (Queue): The queue
             started_job_registry (StartedJobRegistry): The started registry
+            execution (Execution): The execution that ran the job.
         """
         self.log.debug('Worker %s: handling successful execution of job %s', self.name, job.id)
 
         with self.connection.pipeline() as pipeline:
+            repeats_left = job.repeats_left
+            repeat_intervals = job.repeat_intervals
             while True:
                 try:
-                    # if dependencies are inserted after enqueue_dependents
-                    # a WatchError is thrown by execute()
+                    # execute() raises WatchError if a dependent is added after
+                    # move_dependents_to_ready reads them; the loop then retries.
                     pipeline.watch(job.dependents_key)
-                    # enqueue_dependents might call multi() on the pipeline
-                    self.log.debug('Worker %s: enqueueing dependents of job %s', self.name, job.id)
-                    queue.enqueue_dependents(job, pipeline=pipeline)
+                    self.log.debug('Worker %s: moving dependents of job %s to ready', self.name, job.id)
+                    dependent_job_ids_by_queue = queue.move_dependents_to_ready(job, pipeline=pipeline)
 
                     if not pipeline.explicit_transaction:
-                        # enqueue_dependents didn't call multi after all!
-                        # We have to do it ourselves to make sure everything runs in a transaction
+                        # move_dependents_to_ready starts the transaction only when it has
+                        # dependents to move; start it here otherwise.
                         self.log.debug('Worker %s: calling multi() on pipeline for job %s', self.name, job.id)
                         pipeline.multi()
 
@@ -1478,14 +1522,12 @@ class BaseWorker:
                     result_ttl = job.get_result_ttl(self.default_result_ttl)
                     if result_ttl != 0:
                         self.log.debug("Worker %s: saving job %s's successful execution result", self.name, job.id)
-                        execution_id = self.execution.id if self.execution else None
-                        execution_started_at = self.execution.created_at if self.execution else None
                         job._handle_success(
                             result_ttl,
                             pipeline=pipeline,
                             worker_name=self.name,
-                            execution_id=execution_id,
-                            execution_started_at=execution_started_at,
+                            execution_id=execution.id,
+                            execution_started_at=execution.created_at,
                             execution_ended_at=job.ended_at,
                         )
 
@@ -1498,11 +1540,19 @@ class BaseWorker:
                         Repeat.schedule(job, queue, pipeline=pipeline)
                     else:
                         job.cleanup(result_ttl, pipeline=pipeline, remove_from_queue=False)
+                        # An aborted immediate repeat may have left the cached status QUEUED.
+                        job._status = JobStatus.FINISHED
 
                     self.log.debug('Cleaning up execution of job %s', job.id)
-                    self.cleanup_execution(job, pipeline=pipeline)
+                    self.cleanup_execution(job, pipeline=pipeline, execution=execution)
 
                     pipeline.execute()
+
+                    # Enqueue the dependents that the commit moved to ready. Per-queue failures
+                    # are logged and left for ReadyJobRegistry.cleanup() to recover.
+                    queue.enqueue_ready_jobs_by_queue(dependent_job_ids_by_queue)
+
+                    release_slot(job)
 
                     assert job.started_at
                     assert job.ended_at
@@ -1520,6 +1570,8 @@ class BaseWorker:
                     self.log.debug('Worker %s: finished handling successful execution of job %s', self.name, job.id)
                     break
                 except redis.exceptions.WatchError:
+                    job.repeats_left = repeats_left
+                    job.repeat_intervals = repeat_intervals
                     continue
 
     def handle_execution_ended(self, job: Job, queue: Queue, heartbeat_ttl: int):
@@ -1527,80 +1579,34 @@ class BaseWorker:
         job.ended_at = now()
         job.heartbeat(now(), heartbeat_ttl)
 
-    def perform_job(self, job: Job, queue: Queue) -> bool:
-        """Performs the actual work of a job.  Will/should only be called
-        inside the work horse's process.
+    def _finalize_success(self, job: Job, queue: Queue, execution: Execution, return_value: Any) -> None:
+        """Finalize a job that returned, re-enqueuing it when the result is a `Retry`."""
+        self.handle_execution_ended(job, queue, job.success_callback_timeout)
+        # Pickle the result in the same try-except block since we need
+        # to use the same exc handling when pickling fails
+        job._result = return_value
 
-        Args:
-            job (Job): The Job
-            queue (Queue): The Queue
-
-        Returns:
-            bool: True after finished.
-        """
-        started_job_registry = queue.started_job_registry
-        self.log.debug('Worker %s: started job registry set.', self.name)
-
-        try:
-            remove_from_intermediate_queue = len(self.queues) == 1
-            self.prepare_job_execution(job, remove_from_intermediate_queue)
-
-            job.started_at = now()
-            timeout = job.timeout or self.queue_class.DEFAULT_TIMEOUT
-            with self.death_penalty_class(timeout, JobTimeoutException, job_id=job.id):
-                self.log.debug('Worker %s: performing job %s ...', self.name, job.id)
-                return_value = job.perform()
-                self.log.debug('Worker %s: finished performing job %s', self.name, job.id)
-
-            self.handle_execution_ended(job, queue, job.success_callback_timeout)
-            # Pickle the result in the same try-except block since we need
-            # to use the same exc handling when pickling fails
-            job._result = return_value
-
-            if isinstance(return_value, Retry):
-                # Retry the job
-                self.log.debug('Worker %s: job %s returns a Retry object', self.name, job.id)
-                assert self.execution
-                self.handle_job_retry(
-                    job=job,
-                    queue=queue,
-                    retry=return_value,
-                    started_job_registry=started_job_registry,
-                    execution=self.execution,
-                )
-                return True
-            else:
-                job._status = JobStatus.FINISHED
-                job.execute_success_callback(self.death_penalty_class, return_value)
-                self.handle_job_success(job=job, queue=queue, started_job_registry=started_job_registry)
-                job.send_webhooks(JobStatus.FINISHED)
-
-        except:  # NOQA
-            self.log.debug('Worker %s: job %s raised an exception.', self.name, job.id)
-            job._status = JobStatus.FAILED
-
-            self.handle_execution_ended(job, queue, job.failure_callback_timeout)
-            exc_info = sys.exc_info()
-            exc_string = ''.join(traceback.format_exception(*exc_info))
-
-            try:
-                job.execute_failure_callback(self.death_penalty_class, *exc_info)
-            except:  # noqa
-                exc_info = sys.exc_info()
-                exc_string = ''.join(traceback.format_exception(*exc_info))
-
-            # TODO: reversing the order of handle_job_failure() and handle_exception()
-            # causes Sentry test to fail
-            self.handle_exception(job, *exc_info)
-            self.handle_job_failure(
-                job=job, exc_string=exc_string, queue=queue, started_job_registry=started_job_registry
+        if isinstance(return_value, Retry):
+            self.log.debug('Worker %s: job %s returns a Retry object', self.name, job.id)
+            self.handle_job_retry(
+                job=job,
+                queue=queue,
+                retry=return_value,
+                started_job_registry=queue.started_job_registry,
+                execution=execution,
             )
+            return
 
-            return False
+        job._status = JobStatus.FINISHED
+        execute_success_callback(job, self.death_penalty_class, return_value)
+        self.handle_job_success(
+            job=job, queue=queue, started_job_registry=queue.started_job_registry, execution=execution
+        )
+        job.send_webhooks(JobStatus.FINISHED)
 
         self.log.info('Worker %s: %s: %s (%s)', self.name, green(job.origin), blue('Job OK'), job.id)
         if return_value is not None:
-            self.log.debug('Worker %s: result: %r', self.name, yellow(str(return_value)))
+            self.log.debug('Worker %s: result: %r', self.name, return_value)
 
         if self.log_result_lifespan:
             result_ttl = job.get_result_ttl(self.default_result_ttl)
@@ -1612,6 +1618,63 @@ class BaseWorker:
                 self.log.info(
                     'Worker %s: job %s result will never expire, clean up result key manually', self.name, job.id
                 )
+
+    def _finalize_failure(
+        self,
+        job: Job,
+        queue: Queue,
+        execution: Execution,
+        exc_info: tuple[type[BaseException] | None, BaseException | None, TracebackType | None],
+    ) -> None:
+        """Terminal handling for a job that raised, including its failure callback."""
+        self.log.debug('Worker %s: job %s raised an exception.', self.name, job.id)
+        job._status = JobStatus.FAILED
+        self.handle_execution_ended(job, queue, job.failure_callback_timeout)
+
+        try:
+            execute_failure_callback(job, self.death_penalty_class, *exc_info)
+        except:  # noqa
+            # A failing callback replaces the job's exception as the recorded failure.
+            exc_info = sys.exc_info()
+
+        # TODO: reversing the order of handle_job_failure() and handle_exception()
+        # causes Sentry test to fail
+        self.handle_exception(job, *exc_info)
+        self.handle_job_failure(
+            job=job,
+            exc_string=format_exc_info(exc_info),
+            queue=queue,
+            started_job_registry=queue.started_job_registry,
+            execution=execution,
+        )
+
+    def perform_job(self, job: Job, queue: Queue, execution: Execution) -> bool:
+        """Performs the actual work of a job.  Will/should only be called
+        inside the work horse's process.
+
+        Args:
+            job (Job): The Job
+            queue (Queue): The Queue
+            execution (Execution): The execution running the job
+
+        Returns:
+            bool: True after finished.
+        """
+        try:
+            remove_from_intermediate_queue = len(self.queues) == 1
+            self.prepare_job_execution(job, remove_from_intermediate_queue)
+
+            job.started_at = now()
+            timeout = job.timeout or self.queue_class.DEFAULT_TIMEOUT
+            with self.death_penalty_class(timeout, JobTimeoutException, job_id=job.id):
+                self.log.debug('Worker %s: performing job %s ...', self.name, job.id)
+                return_value = job.perform()
+                self.log.debug('Worker %s: finished performing job %s', self.name, job.id)
+
+            self._finalize_success(job, queue, execution, return_value)
+        except:  # NOQA
+            self._finalize_failure(job, queue, execution, sys.exc_info())
+            return False
 
         return True
 
@@ -1628,7 +1691,9 @@ class BaseWorker:
         self._is_horse = True
         self.log = logger
         try:
-            self.perform_job(job, queue)
+            # The fork/spawn child boundary: the execution re-enters the child via
+            # fork memory copy or the SpawnWorker re-fetch.
+            self.perform_job(job, queue, self.execution)  # type: ignore[arg-type]
         except:  # noqa
             os._exit(1)
         os._exit(0)
@@ -1649,6 +1714,19 @@ class BaseWorker:
     def kill_horse(self, sig: signal.Signals = SHUTDOWN_SIGNAL):
         """Kill the work horse process. No-op for workers without child processes."""
         pass
+
+    def request_stop_execution(self, execution_id: str):
+        """Stop one of this worker's active executions. Called from the pubsub thread.
+
+        Marks the job as intentionally stopped (so `handle_job_failure` sets it to
+        STOPPED instead of FAILED) and kills the horse running it.
+        """
+        execution = self.executions.get(execution_id)
+        if not execution:
+            self.log.warning('Not running execution %s, command ignored.', execution_id)
+            return
+        self._stopped_job_id = execution.job_id
+        self.kill_horse()
 
     def wait_for_horse(self) -> tuple[int | None, int | None, struct_rusage | None]:
         """Wait for the work horse process to complete. No-op for workers without child processes."""

@@ -43,7 +43,6 @@ from aiokafka.partitioner import DefaultPartitioner, murmur2
 from aiokafka.protocol.admin import CreateTopicsRequest
 from aiokafka.protocol.metadata import MetadataRequest, MetadataRequest_v1
 from aiokafka.structs import OffsetAndMetadata, TopicPartition as _TopicPartition
-from aiokafka.util import parse_kafka_version
 from mode import Service, get_logger
 from mode.threads import ServiceThread, WorkerThread
 from mode.utils import text
@@ -1183,8 +1182,7 @@ class Producer(base.Producer):
         if self.partitioner is None:
             self.partitioner = DefaultPartitioner()
         if self._api_version != "auto":
-            wanted_api_version = parse_kafka_version(self._api_version)
-            if wanted_api_version < (0, 11):
+            if Version(self._api_version) < Version("0.11"):
                 self.allow_headers = False
 
     def _settings_default(self) -> Mapping[str, Any]:
@@ -1702,6 +1700,15 @@ def credentials_to_aiokafka_auth(
                 "ssl_context": credentials.ssl_context,
             }
         elif isinstance(credentials, SASLCredentials):
+            if credentials.mechanism.value == "PLAIN" and (
+                credentials.username is None or credentials.password is None
+            ):
+                raise ImproperlyConfigured(
+                    "SASL/PLAIN requires both username and password in "
+                    "broker_credentials=SASLCredentials(...). "
+                    "Check the credentials configured on the App that owns "
+                    "the topic before creating its producer or consumer."
+                )
             return {
                 "security_protocol": credentials.protocol.value,
                 "sasl_mechanism": credentials.mechanism.value,

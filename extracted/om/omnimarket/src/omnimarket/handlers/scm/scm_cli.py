@@ -16,10 +16,10 @@ A lane does GitHub work through this command and no ``gh`` verb:
   no node operation: they are answered from the canonical clone and the watcher
   state, and a read they cannot answer exits 3 with the reason, never reaching
   the bus or GitHub.
-- **Other reads** (pr-review, pr-ticket, branch-protection, run-list, run-view,
-  job-log, run-download, release-list) publish the gateway's typed request.
+- **Other reads** (pr-review, pr-ticket, pr-threads, branch-protection, run-list,
+  run-view, job-log, run-download, release-list) publish the gateway's typed request.
 - **PR authoring writes** (pr-create, pr-edit, pr-ready, pr-close, pr-comment,
-  workflow-run, check-run-create) publish node_github_repo_write_effect's typed
+  pr-thread-reply, workflow-run, check-run-create) publish node_github_repo_write_effect's typed
   request. Its guards apply: quota floor, expected head, idempotency, and the claim pr-close
   needs. pr-edit, pr-ready and pr-close take the expected head from the
   watcher state when ``--head-sha`` is not given. pr-close reads the claim the
@@ -34,6 +34,10 @@ answered failed, 2 usage or a refused verb, 3 ``--source local`` could not
 answer, 69 the bus could not be opened, 75 no terminal event in time (the
 outcome is unknown: read before retrying; a write retried with the same
 idempotency key is not written twice).
+Gateway reads retry on no terminal or bus unavailability for up to three total
+attempts, pausing 20 seconds between attempts; writes make one attempt (OMN-21396).
+With ``--bus inmemory``, the selected contract is hosted in this process by
+the runtime dispatcher before the command is published.
 
 Registered in ``[project.entry-points."onex.cli"]``; the CLI discovers it over
 installed distributions.
@@ -48,8 +52,9 @@ import inspect
 import json
 import re
 import sys
+import time
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, cast
@@ -64,6 +69,7 @@ from omnimarket.delegated_test_loop.lane_bus import (
     LabRunBusError,
     open_lab_run_bus,
 )
+from omnimarket.handlers.scm.handler_scm_consumer_diagnostics import ScmNoTerminalError
 from omnimarket.handlers.scm.handler_scm_dispatch import (
     SCM_LOCAL_VERBS,
     SCM_REFUSED_VERBS,
@@ -89,6 +95,7 @@ from omnimarket.models.scm import (
     ModelScmLocalAnswer,
     ModelScmLocalReadRequest,
     ModelScmLocalVerb,
+    ModelScmTerminal,
     ModelScmVerb,
 )
 from omnimarket.nodes.node_github_repo_write_effect.handlers.handler_pr_claim_lookup import (
@@ -105,6 +112,7 @@ EXIT_USAGE: Final[int] = 2
 EXIT_LOCAL_UNANSWERED: Final[int] = 3
 EXIT_BUS_UNAVAILABLE: Final[int] = 69
 EXIT_NO_TERMINAL: Final[int] = 75
+READ_RETRY_PAUSE_S: Final[float] = 20.0
 
 _TARGET = re.compile(
     r"^(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)(?:#(?P<number>[1-9][0-9]*))?$"
@@ -125,8 +133,11 @@ def _target(text: str, *, pr: bool) -> tuple[str, int | None]:
     return match["repo"], int(number) if number is not None else None
 
 
-def _emit(answer: ModelScmAnswer) -> int:
-    click.echo(answer.model_dump_json())
+def _emit(answer: ModelScmAnswer, *, attempts: int | None = None) -> int:
+    payload = answer.model_dump(mode="json")
+    if attempts is not None:
+        payload["attempts"] = attempts
+    click.echo(json.dumps(payload, separators=(",", ":")))
     return EXIT_FAILED if answer.outcome == "failed" else 0
 
 
@@ -138,16 +149,22 @@ def _call_bus(
     bus_opts: dict[str, object],
     timeout_s: float,
 ) -> int:
-    async def main() -> int:
-        async with _open_bus(bus_opts) as opened:
-            try:
-                terminal = await ScmBusCaller(opened).call(
-                    node=spec.node,
-                    request=request,
-                    correlation_id=correlation_id,
-                    timeout_s=timeout_s,
-                )
-            except TimeoutError:
+    async def main() -> ModelScmTerminal:
+        async with _open_bus({**bus_opts, "scm_node": spec.node}) as opened:
+            return await ScmBusCaller(opened).call(
+                node=spec.node,
+                request=request,
+                correlation_id=correlation_id,
+                timeout_s=timeout_s,
+            )
+
+    max_attempts = 3 if spec.node is EnumScmNode.GATEWAY else 1
+    attempt = 1
+    while True:
+        try:
+            terminal = asyncio.run(main())
+        except TimeoutError as exc:
+            if attempt == max_attempts:
                 click.echo(
                     json.dumps(
                         {
@@ -155,31 +172,45 @@ def _call_bus(
                             "status": "no_terminal",
                             "correlation_id": str(correlation_id),
                             "timeout_s": timeout_s,
+                            "attempts": attempt,
+                            **(
+                                exc.evidence.model_dump(mode="json")
+                                if isinstance(exc, ScmNoTerminalError)
+                                else {}
+                            ),
                         }
                     )
                 )
                 return EXIT_NO_TERMINAL
-        failed = terminal.failed or terminal.payload.get("outcome") == "failed"
-        result = terminal.payload.get("result", terminal.payload)
-        return _emit(
-            ModelScmAnswer(
-                verb=spec.verb,
-                node=spec.node,
-                operation=spec.operation,
-                repo=repo,
-                source="bus",
-                outcome="failed" if failed else "completed",
-                bus=terminal.receipt,
-                result=result if isinstance(result, dict) else terminal.payload,
+        except (LabRunBusError, InfraConnectionError) as exc:
+            # A broker that refuses this principal a topic (an ACL) lands here too.
+            click.echo(f"bus: {exc}", err=True)
+            if attempt == max_attempts:
+                return EXIT_BUS_UNAVAILABLE
+        else:
+            failed = (
+                terminal.failed
+                or terminal.payload.get("outcome") == "failed"
+                or terminal.payload.get("status") == "failed"
             )
-        )
-
-    try:
-        return asyncio.run(main())
-    except (LabRunBusError, InfraConnectionError) as exc:
-        # A broker that refuses this principal a topic (an ACL) lands here too.
-        click.echo(f"bus: {exc}", err=True)
-        return EXIT_BUS_UNAVAILABLE
+            result = terminal.payload.get("result", terminal.payload)
+            return _emit(
+                ModelScmAnswer(
+                    verb=spec.verb,
+                    node=spec.node,
+                    operation=spec.operation,
+                    repo=repo,
+                    source="bus",
+                    outcome="failed" if failed else "completed",
+                    bus=terminal.receipt,
+                    result=result if isinstance(result, dict) else terminal.payload,
+                ),
+                attempts=attempt,
+            )
+        time.sleep(READ_RETRY_PAUSE_S)
+        attempt += 1
+        correlation_id = uuid.uuid4()
+        request = request.model_copy(update={"correlation_id": correlation_id})
 
 
 def _open_bus(
@@ -205,7 +236,64 @@ def _open_bus(
         Callable[..., contextlib.AbstractAsyncContextManager[ProtocolLabRunBus]],
         open_lab_run_bus,
     )
-    return opener(**dict(zip(names, values, strict=True)))
+    node = bus_opts.get("scm_node")
+    opened = opener(**dict(zip(names, values, strict=True)))
+    if values[0] == "inmemory":
+        from omnimarket.handlers.scm.scm_inprocess import open_scm_inprocess
+
+        if not isinstance(node, EnumScmNode):
+            raise LabRunBusError("the in-memory SCM bus requires a node")
+        return open_scm_inprocess(opened, node)
+    return _open_scm_bound(
+        opened,
+        opener,
+        values,
+        node if isinstance(node, EnumScmNode) else None,
+    )
+
+
+@contextlib.asynccontextmanager
+async def _open_scm_bound(
+    durable: contextlib.AbstractAsyncContextManager[ProtocolLabRunBus],
+    opener: Callable[..., contextlib.AbstractAsyncContextManager[ProtocolLabRunBus]],
+    values: tuple[object, ...],
+    node: EnumScmNode | None,
+) -> AsyncIterator[ProtocolLabRunBus]:
+    """The durable bus, or the in-memory bus hosting this node when the lane overlay orders a fallback
+    and the durable bus fails its bounded health read (OMN-20275)."""
+    from omnimarket.handlers.bus_binding.select import open_bound_bus, positional_opener
+    from omnimarket.handlers.scm.scm_inprocess import open_scm_inprocess
+
+    elsewhere = positional_opener(opener)
+    used: list[bool] = []
+
+    def adapter(
+        bus: str, lane: str | None, bootstrap: str | None, root: Path | None
+    ) -> contextlib.AbstractAsyncContextManager[ProtocolLabRunBus]:
+        if bus == "kafka" and not used:
+            used.append(True)
+            return durable
+        return elsewhere(bus, lane, bootstrap, root)
+
+    async with open_bound_bus(
+        open_bus=adapter,
+        bus=_bus_kind(values[0]),
+        lane=_optional_str(values[1]),
+        kafka_bootstrap=_optional_str(values[2]),
+        workspace_root=_optional_path(values[3]),
+    ) as bound:
+        if not bound.decision.degraded:
+            yield bound.bus
+            return
+        if node is None:
+            raise LabRunBusError("the in-memory SCM fallback requires a node")
+
+        @contextlib.asynccontextmanager
+        async def borrowed() -> AsyncIterator[ProtocolLabRunBus]:
+            yield bound.bus
+
+        async with open_scm_inprocess(borrowed(), node) as hosted:
+            yield hosted
 
 
 def _bus_kind(value: object) -> BusKind:
@@ -273,6 +361,7 @@ _PR_SCOPED_READS: Final[frozenset[str]] = frozenset(
         "ci_checks",
         "merge_commit_sha",
         "merged_pr",
+        "pr_review_threads",
         "review_gate",
         "ticket_ref",
     }
@@ -303,6 +392,13 @@ def _read_command(spec: ModelScmVerb) -> click.Command:
     @click.option("--status", default=None, help="run-list: the run status.")
     @click.option("--limit", type=int, default=None)
     @click.option("--tail-bytes", type=int, default=None, help="job-log.")
+    @click.option(
+        "--offset-bytes", type=int, default=None, help="job-log: window start."
+    )
+    @click.option(
+        "--length-bytes", type=int, default=None, help="job-log: window size."
+    )
+    @click.option("--step", default=None, help="job-log: one step's lines, by name.")
     @click.option("--max-bytes", type=int, default=None, help="run-download.")
     @click.option(
         "--source",
@@ -489,6 +585,7 @@ _WRITE_OPTIONS: Final[dict[str, tuple[str, ...]]] = {
     "pr_ready": (),
     "pr_close": ("run", "claims_dir"),
     "pr_comment": ("body", "body_file"),
+    "pr_thread_reply": ("thread", "body", "body_file"),
     "workflow_dispatch": ("workflow", "ref", "input"),
     "check_run_create": (
         "name",
@@ -552,6 +649,14 @@ _OPTION_DECORATORS: Final[
         help="Where this host's claim registry keeps the claim you took "
         "($ONEX_PR_CLAIMS_DIR, else $ONEX_STATE_DIR/pr-queue/claims). The claim "
         "is read here and sent on the command; the directory itself is not.",
+    ),
+    "thread": click.option(
+        "--thread",
+        "thread_comment_id",
+        required=True,
+        type=click.IntRange(min=1),
+        help="The id of the review comment that starts the thread "
+        "(`onex scm pr-threads` lists them).",
     ),
     "workflow": click.option("--workflow", required=True),
     "ref": click.option("--ref", required=True),
@@ -642,7 +747,7 @@ def _write_command(spec: ModelScmVerb) -> click.Command:
         given: dict[str, JsonValue] = {
             name: value
             for name, value in fields.items()
-            if value is not None and isinstance(value, (str, bool))
+            if value is not None and isinstance(value, (str, bool, int))
         }
         if spec.operation == EnumRepoWriteOperation.CHECK_RUN_CREATE:
             given["head_sha"] = head_sha

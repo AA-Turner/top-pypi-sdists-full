@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import threading
 from collections.abc import Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -66,6 +65,13 @@ _COLUMNS = (
     "hook_source",
     "emitted_at",
     "source_topic",
+    "content_record_id",
+    "stream",
+    "producer_seq",
+    "record_type",
+    "barrier_id",
+    "high_water",
+    "content_capture",
 )
 _JSONB = frozenset({"command", "producer_redaction"})
 
@@ -75,14 +81,21 @@ _PLACEHOLDERS = ", ".join(
 )
 
 # The content is immutable for a key (the key content-addresses it), so the
-# conflict arm only restamps redaction_state. It exists so a replay reports
-# one row to the runtime's write-path guard instead of zero, which that guard
-# would log as a failed write.
+# conflict arm restamps redaction_state and fills producer stamps that the
+# pre-OMN-21334 fold discarded. Populated stamps never change on replay. A
+# replay reports one row to the runtime's write-path guard rather than zero.
 _UPSERT = f"""
-    INSERT INTO {TABLE} ({", ".join(_COLUMNS)})
+    INSERT INTO {TABLE} AS existing ({", ".join(_COLUMNS)})
     VALUES ({_PLACEHOLDERS})
     ON CONFLICT (event_id) DO UPDATE SET
-        redaction_state = EXCLUDED.redaction_state
+        redaction_state = EXCLUDED.redaction_state,
+        content_record_id = COALESCE(existing.content_record_id, EXCLUDED.content_record_id),
+        stream = COALESCE(existing.stream, EXCLUDED.stream),
+        producer_seq = COALESCE(existing.producer_seq, EXCLUDED.producer_seq),
+        record_type = COALESCE(existing.record_type, EXCLUDED.record_type),
+        barrier_id = COALESCE(existing.barrier_id, EXCLUDED.barrier_id),
+        high_water = COALESCE(existing.high_water, EXCLUDED.high_water),
+        content_capture = COALESCE(existing.content_capture, EXCLUDED.content_capture)
 """
 
 _T = TypeVar("_T")
@@ -117,7 +130,6 @@ class SessionContentProjectionWriter(BaseProjectionRunner):
         path = contract_path or Path(__file__).resolve().parent.parent / "contract.yaml"
         with open(path, encoding="utf-8") as handle:
             self._contract: dict[str, Any] = yaml.safe_load(handle)
-        self._dispatch_lock = threading.Lock()
 
     @property
     def topics(self) -> list[str]:
@@ -144,22 +156,42 @@ class SessionContentProjectionWriter(BaseProjectionRunner):
         )
         for injected in [k for k in input_data if k.startswith("_")]:
             input_data.pop(injected)
-        with self._dispatch_lock:
-            result = self._run(self._project_one_message(topic, input_data, meta))
+        result = self._run(self._project_one_message(topic, input_data, meta))
         return result.model_dump()
 
     async def _project_one_message(
         self, topic: str, data: dict[str, Any], meta: MessageMeta
     ) -> ModelSessionContentWriteResult:
         """Own the pool for exactly the loop this message is projected on."""
+        db = self._message_db()
+        await db.connect()
         try:
-            await self.db.connect()
-            return await self._write(topic, data)
+            return await self._write(db, topic, data)
         finally:
-            await self.db.close()
+            await db.close()
+
+    def _message_db(self) -> Any:
+        """The adapter that one runtime-dispatched message writes through.
+
+        The contract declares ``consume_concurrency``, so the runtime may run
+        several messages at once, each in its own thread and event loop. A
+        pool belongs to the loop that opened it. Sharing the writer's adapter
+        would let concurrent messages close each other's pool mid-statement.
+        Each message therefore gets its own adapter on the DSN the runtime
+        bound (OMN-21091). It has one connection, because the message writes
+        one row. A test double is not an ``AsyncpgAdapter`` and is used as
+        given.
+        """
+        # Lazy import, as in BaseProjectionRunner (OMN-15800 AC6).
+        from omnimarket.adapters.asyncpg_adapter import AsyncpgAdapter
+
+        db = self.db
+        if isinstance(db, AsyncpgAdapter):
+            return AsyncpgAdapter(dsn=db.dsn, min_size=1, max_size=1)
+        return db
 
     async def _write(
-        self, topic: str, data: dict[str, Any]
+        self, db: Any, topic: str, data: dict[str, Any]
     ) -> ModelSessionContentWriteResult:
         if topic != SUBSCRIBE_TOPIC:
             raise SessionContentFoldError(
@@ -168,14 +200,14 @@ class SessionContentProjectionWriter(BaseProjectionRunner):
         row = fold_session_content(
             ModelSessionContentRecord.model_validate(data), source_topic=topic
         )
-        await self.db.execute(_UPSERT, *_parameters(row))
+        await db.execute(_UPSERT, *_parameters(row))
         return ModelSessionContentWriteResult(rows_upserted=1, event_id=row.event_id)
 
     async def project_event(
         self, topic: str, data: dict[str, Any], meta: MessageMeta
     ) -> bool:
         """The base runner's standalone entry. Same write as :meth:`handle`."""
-        await self._write(topic, data)
+        await self._write(self.db, topic, data)
         return True
 
     @staticmethod

@@ -159,6 +159,13 @@ from omnimarket.models.delegation.delegation_attempt_lineage import endpoint_hos
 from omnimarket.models.delegation.llm_cost_routing.model_llm_delegation_escalation_triggered_event import (
     ModelLlmDelegationEscalationTriggeredEvent,
 )
+from omnimarket.models.delegation.model_escalation_transitions import (
+    EnumEscalationCause,
+    EnumTransitionKind,
+)
+from omnimarket.models.delegation.model_transition_decision import (
+    ModelTransitionDecisionRequest,
+)
 from omnimarket.models.delegation.quality_bar_evidence import (
     format_quality_bar_labels,
 )
@@ -240,6 +247,7 @@ from omnimarket.nodes.node_delegation_routing_reducer.handlers.handler_delegatio
     quota_blocked_backend_refs,
     resolve_task_class_max_escalations,
     resolve_task_class_response_contract,
+    resolve_task_class_transitions,
     sibling_backend_available_in_tier,
     tier_max_retries,
     tiers_declaring_backend,
@@ -284,24 +292,10 @@ _HTTP_429_TOKEN_PATTERN = re.compile(r"(?<![\w.-])429(?![\w-]|\.\d)")
 # the ceiling (claude) — now executes through the canonical HTTP inference path, so
 # no tier is excluded from inference-error escalation.
 _INFERENCE_ERROR_EXCLUDED_TIERS: frozenset[str] = frozenset()
-# OMN-13140 GATE 1 classification. Inference effects (node_llm_delegation_call_effect)
-# raise three terminal-shaped errors for an otherwise-reachable provider:
-#   * "finish_reason=length"     — response TRUNCATED at the tier's max_tokens.
-#   * "empty message content"    — provider returned a blank message body.
-#   * "API returned empty choices array" — provider returned no choices.
-# `finish_reason=length` is a CONTEXT/output-budget limit, not a hard refusal:
-# a longer-context successor (the cheap_cloud Gemini route declares a 1M-token
-# window) can complete what a quantized local model truncated, so it is now
-# RETRYABLE and escalates. The original (truncated) and escalated models are both
-# recorded in escalation_history (one ModelDelegationEscalationAttempt per tier).
-# An empty body / empty choices is left NON-retryable: re-issuing the same prompt
-# to a higher tier is unlikely to turn a blank completion into content and would
-# burn cloud budget on a probable repeat — the minimal-safe classification.
-_NON_RETRYABLE_INFERENCE_ERROR_MARKERS: frozenset[str] = frozenset(
-    {
-        "empty message content",
-        "empty choices array",
-    }
+# No-answer markers identify a provider failure in the final receipt. They do
+# not veto escalation: a later responder may still produce an answer.
+_EMPTY_INFERENCE_RESPONSE_MARKERS: frozenset[str] = frozenset(
+    {"empty message content", "empty choices array", "empty content array"}
 )
 
 # OMN-18278 (bus half). The truncation marker is now BOUND to the constant the
@@ -754,14 +748,46 @@ def _stale_response_rejection(
     )
 
 
+def inference_error_cause(
+    failure_class: EnumDelegationFailureClass | None, *, error_retryable: bool
+) -> EnumEscalationCause:
+    """Classify a failed provider call on the bus path (OMN-21213).
+
+    The bus has no same-rung retry at this point, so a transient error spends a
+    retry budget of zero and the declared lists decide its move.
+    """
+    if not error_retryable:
+        return EnumEscalationCause.NON_RETRYABLE_FAILURE
+    if failure_class is EnumDelegationFailureClass.TIMEOUT:
+        return EnumEscalationCause.RUNG_TIMEOUT
+    if failure_class is EnumDelegationFailureClass.RATE_LIMITED:
+        return EnumEscalationCause.RATE_LIMITED
+    return EnumEscalationCause.TRANSIENT_PROVIDER_ERROR
+
+
+def quality_result_cause(
+    *, no_rung_can_satisfy: bool, fail_category: str | None
+) -> EnumEscalationCause:
+    """Classify a refused answer on the bus path (OMN-21213).
+
+    ``no_rung_can_satisfy`` includes the repeated deterministic-floor failure,
+    which the lists declare as the terminal ``quality_veto``.
+    """
+    if no_rung_can_satisfy:
+        return EnumEscalationCause.QUALITY_VETO
+    if fail_category == "rubric_failed":
+        return EnumEscalationCause.RUBRIC_FAILED
+    return EnumEscalationCause.QUALITY_GATE_REFUSED
+
+
 def _should_escalate_inference_error(error_message: str) -> bool:
-    """Return whether an inference error should retry on a higher tier."""
-    if provider_failure_class_from_error_message(error_message) is not None:
-        return True
-    normalized = error_message.lower()
-    return not any(
-        marker in normalized for marker in _NON_RETRYABLE_INFERENCE_ERROR_MARKERS
-    )
+    """A reported inference failure can move to another eligible responder.
+
+    Empty content and empty choices are no-answer failures, just like a
+    timeout. The decision node still enforces pins, the class's attempt budget
+    and ladder exhaustion; customer routes retain their own retry budget.
+    """
+    return bool(error_message.strip())
 
 
 def _finish_reason_of_failed_call(
@@ -1918,7 +1944,7 @@ def _inference_failure_cause(
     if workflow.escalation_history and any(
         marker in reason.lower()
         for reason in workflow.escalation_history[-1].failure_reasons
-        for marker in _NON_RETRYABLE_INFERENCE_ERROR_MARKERS
+        for marker in _EMPTY_INFERENCE_RESPONSE_MARKERS
     ):
         return EnumDelegationTerminalFailureCause.PROVIDER_ERROR
     return None
@@ -2572,8 +2598,13 @@ class HandlerDelegationWorkflow:
         non_retryable_reason: str,
         task_type: str | None,
         excluded_backend_refs: frozenset[str] = frozenset(),
+        cause: EnumEscalationCause | None = None,
     ) -> ModelEscalationDecisionResult:
         """Delegate the escalate-or-terminate verdict to the COMPUTE (OMN-13476).
+
+        OMN-21213: with a ``cause`` and a known ``task_type`` the COMPUTE reads
+        the verdict from the class's declared transition lists, the same lists
+        the local port's moves are decided by.
 
         The config-dependent inputs are resolved here — the orchestrator owns the
         routing-contract I/O. ``next_eligible_tier`` /
@@ -2594,6 +2625,19 @@ class HandlerDelegationWorkflow:
         # OMN-20844: a caller pin holds for the whole run. The COMPUTE refuses
         # to escalate a pinned run, so no next tier is resolved for one.
         pinned_backend_ref = _pinned_backend_ref(workflow)
+        transitions = (
+            resolve_task_class_transitions(task_type)
+            if cause is not None and task_type is not None
+            else None
+        )
+        if transitions is not None:
+            assert cause is not None
+            error_retryable = (
+                self._escalation_decider.decide_transition(
+                    ModelTransitionDecisionRequest(cause=cause, transitions=transitions)
+                ).kind
+                is EnumTransitionKind.MOVE
+            )
 
         # Only resolve a next tier when the cheap pure preconditions allow it; the
         # COMPUTE re-checks them, but resolving the tier here would be wasted I/O
@@ -2637,6 +2681,8 @@ class HandlerDelegationWorkflow:
                 non_retryable_reason=non_retryable_reason,
                 no_higher_tier_reason=no_higher_tier_reason,
                 pinned_backend_ref=pinned_backend_ref,
+                cause=cause if transitions is not None else None,
+                transitions=transitions,
             )
         )
 
@@ -3480,12 +3526,8 @@ class HandlerDelegationWorkflow:
             # the SAME class the next branch treats as escalatable) gets one
             # attempt per untried sibling backend in the CURRENT tier before
             # ``next_eligible_tier`` walks to the next (possibly paid/cloud)
-            # tier below. A non-retryable error (empty content/choices) is
-            # unchanged — the existing minimal-safe classification still
-            # applies unmodified; a different local model is not assumed to
-            # fix a genuinely empty/malformed provider response either, so
-            # this stays scoped to the transport-failure class the ticket
-            # names.
+            # tier below. A no-answer response can also move to a different
+            # responder; it says nothing about whether that responder can answer.
             if error_retryable and not typed_account_or_model_refusal:
                 sibling_retry_intents = self._maybe_retry_sibling_backend(
                     workflow,
@@ -3500,7 +3542,7 @@ class HandlerDelegationWorkflow:
             # OMN-13476: the escalate-or-terminate decision is owned by the
             # node_delegation_escalation_decision_compute COMPUTE. Infra errors
             # (auth failure, connection refused, timeout) are retryable at the
-            # next tier; empty body / empty choices are not. The orchestrator
+            # next tier, including empty body / empty choices. The orchestrator
             # resolves the routing-contract inputs inside ``_decide_escalation``
             # and delegates the verdict — behavior identical to the prior inline
             # branch (retryability → budget → current-tier → ladder precedence).
@@ -3517,6 +3559,9 @@ class HandlerDelegationWorkflow:
                 non_retryable_reason="non_retryable_inference_response",
                 task_type=error_task_type,
                 excluded_backend_refs=_escalation_excluded_refs(workflow),
+                cause=inference_error_cause(
+                    failure_class, error_retryable=error_retryable
+                ),
             )
             terminal_failure_reason = decision.terminal_failure_reason
             next_tier = decision.next_tier_name
@@ -4049,10 +4094,23 @@ class HandlerDelegationWorkflow:
         # entirely rather than spending the budget on three more copies of the
         # same answer — measured on ``f037b9be``, where the three free re-draws
         # returned byte-identical text, score and refusal.
+        # OMN-21213: whether a refusal re-drafts is read from the class's
+        # declared lists: a veto terminates and a rubric failure moves, so
+        # neither re-drafts.
+        refusal_cause = quality_result_cause(
+            no_rung_can_satisfy=no_rung_can_satisfy,
+            fail_category=result.fail_category,
+        )
         retry_local_intents = (
-            None
-            if no_rung_can_satisfy or result.fail_category == "rubric_failed"
-            else self._maybe_retry_local(workflow, rejected_attempt_cost_usd)
+            self._maybe_retry_local(
+                workflow, rejected_attempt_cost_usd, cause=refusal_cause
+            )
+            if workflow.request is None
+            or resolve_task_class_transitions(workflow.request.task_type).kind_of(
+                refusal_cause
+            )
+            is EnumTransitionKind.RETRY
+            else None
         )
         if retry_local_intents is not None:
             return retry_local_intents
@@ -4089,6 +4147,10 @@ class HandlerDelegationWorkflow:
             task_type=workflow.request.task_type,
             excluded_backend_refs=_escalation_excluded_refs(
                 workflow, rejected_ref=rejected_backend_ref
+            ),
+            cause=quality_result_cause(
+                no_rung_can_satisfy=no_rung_can_satisfy,
+                fail_category=result.fail_category,
             ),
         )
         terminal_failure_reason = decision.terminal_failure_reason
@@ -4348,9 +4410,8 @@ class HandlerDelegationWorkflow:
         a ref the catalogue does not declare gets ``None`` and no retry at all,
         so this can never widen to a route the contract does not describe.
 
-        Only a RETRYABLE failure reaches here — the caller has already applied
-        ``_should_escalate_inference_error``, so a genuinely blank completion
-        still terminalises and this budget is not spent on it.
+        A no-answer failure can also spend this route's declared retry budget.
+        Exhaustion still cannot move customer work onto a house credential.
 
         Returns ``None`` (no retry) for a platform tier, an unidentified or
         undeclared backend, or an exhausted budget, so the caller falls through
@@ -4402,8 +4463,14 @@ class HandlerDelegationWorkflow:
         self,
         workflow: DelegationWorkflowState,
         attempt_cost_usd: float,
+        *,
+        cause: EnumEscalationCause = EnumEscalationCause.QUALITY_GATE_REFUSED,
     ) -> list[BaseModel] | None:
         """Retry the SAME free tier before escalating off it (OMN-14234, best-of-N).
+
+        OMN-21213: the escalation decision node reads whether ``cause`` retries
+        from the class's declared lists, with the free tier's ``max_retries`` as
+        the rung's retry budget.
 
         The local coder is non-deterministic: a single trivial refactor scored
         0.8 / 0.64 / 1.0 across three runs at the 0.85 bar (OMN-14234 live
@@ -4432,7 +4499,24 @@ class HandlerDelegationWorkflow:
         if workflow.local_retry_tier != tier:
             workflow.local_retry_tier = tier
             workflow.local_retry_count = 0
-        if workflow.local_retry_count >= tier_max_retries(tier):
+        task_type = workflow.request.task_type if workflow.request is not None else None
+        if task_type is None:
+            if (
+                cause is not EnumEscalationCause.QUALITY_GATE_REFUSED
+                or workflow.local_retry_count >= tier_max_retries(tier)
+            ):
+                return None
+        elif (
+            self._escalation_decider.decide_transition(
+                ModelTransitionDecisionRequest(
+                    cause=cause,
+                    transitions=resolve_task_class_transitions(task_type),
+                    retries_on_rung=workflow.local_retry_count,
+                    rung_retry_budget=tier_max_retries(tier),
+                )
+            ).kind
+            is not EnumTransitionKind.RETRY
+        ):
             return None
         workflow.local_retry_count += 1
 

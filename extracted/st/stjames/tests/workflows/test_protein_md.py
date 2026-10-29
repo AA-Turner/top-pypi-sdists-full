@@ -5,6 +5,7 @@ import re
 import pytest
 from pytest import fixture
 
+from stjames import REST2Settings
 from stjames.pdb import PDB, read_pdb
 from stjames.workflows import ProteinMolecularDynamicsWorkflow
 from stjames.workflows.protein_md import Binder, BindingPoseTrajectory, HydrationSite
@@ -81,3 +82,32 @@ def test_frame_save_interval_not_multiple_of_timestep(multichain: PDB) -> None:
     """Verify frame save interval not multiple of timestep."""
     with pytest.raises(ValueError, match="integer multiple of timestep_fs"):
         ProteinMolecularDynamicsWorkflow(protein=multichain, timestep_fs=6, frame_save_interval_ps=1.0)
+
+
+@pytest.mark.parametrize(
+    ("settings", "temperature", "timestep_fs"),
+    [
+        (REST2Settings(), 300, 4),
+        (REST2Settings(effective_temperatures=[310, 350, 400], exchange_interval_ps=0.0075), 310, 2.5),
+    ],
+)
+def test_rest2_round_trip(settings: REST2Settings, temperature: float, timestep_fs: float) -> None:
+    """Preserve default and custom REST2 settings through workflow JSON."""
+    workflow = ProteinMolecularDynamicsWorkflow(protein="test-uuid", temperature=temperature, timestep_fs=timestep_fs, enhanced_sampling=settings)
+    restored = ProteinMolecularDynamicsWorkflow.model_validate_json(workflow.model_dump_json())
+    assert restored.enhanced_sampling == settings
+    assert restored.model_dump()["enhanced_sampling"]["type"] == "rest2"
+
+
+@pytest.mark.parametrize("temperatures", [[300, 300], [400, 300]])
+def test_rest2_ladder_order(temperatures: list[float]) -> None:
+    """Reject duplicate and descending temperatures."""
+    with pytest.raises(ValueError):
+        REST2Settings(effective_temperatures=temperatures)
+
+
+@pytest.mark.parametrize(("temperature", "interval"), [(310, 1), (300, 1.001)])
+def test_rest2_workflow_mismatch(temperature: float, interval: float) -> None:
+    """Reject ladders or exchange intervals incompatible with workflow settings."""
+    with pytest.raises(ValueError):
+        ProteinMolecularDynamicsWorkflow(protein="test-uuid", temperature=temperature, enhanced_sampling=REST2Settings(exchange_interval_ps=interval))

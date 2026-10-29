@@ -37,6 +37,8 @@ import dataclasses
 import datetime
 import decimal
 import functools
+import os
+import sys
 import threading
 import warnings
 from typing import Any, Callable, Iterator
@@ -47,10 +49,23 @@ from .. import errors
 from .. import types
 from ..suggestions import suggest_symbol
 from ..types import DataType, _DataTypeDef
+from ..types.definitions import _original_undefined
 
 from ._attribute_resolver import _AttributeResolver
 
 import dateutil.tz
+
+_PACKAGE_DIRECTORY = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+
+def _external_stacklevel() -> int:
+    # the stacklevel for a warnings.warn() call made by the caller of this function that attributes the warning to the
+    # first frame outside of this package, i.e. the code that evaluated the rule
+    frame = sys._getframe(1)
+    stacklevel = 1
+    while frame.f_back is not None and frame.f_code.co_filename.startswith(_PACKAGE_DIRECTORY):
+        frame = frame.f_back
+        stacklevel += 1
+    return stacklevel
 
 def _tls_getter(thread_local: threading.local, key: str, _builtins: Any) -> Any:
     # a function stub to be used with functools.partial for retrieving thread-local values
@@ -151,8 +166,10 @@ def type_resolver_from_dataclass(cls: type, *, strict: bool = True) -> Callable[
 
     :param type cls: A class decorated with :py:func:`~dataclasses.dataclass`.
     :param bool strict: Forwarded to :py:meth:`~rule_engine.types.DataType.OBJECT.from_dataclass`. When ``True``
-            (the default), a field annotated with a type that cannot be mapped to a Rule Engine data type raises
-            :py:exc:`ValueError`. When ``False``, such fields fall back to
+            (the default), a field annotated with a type that cannot be mapped to a Rule Engine data type raises an
+            exception, usually a :py:exc:`ValueError` (see
+            :py:meth:`~rule_engine.types.DataType.OBJECT.from_dataclass` for the others). When ``False``, such fields
+            fall back to
             :py:attr:`~rule_engine.types.DataType.UNDEFINED`.
     :return: The callback function.
     :rtype: function
@@ -208,7 +225,7 @@ class _ThreadLocalStorage(object):
     """
     __slots__ = ('assignment_scopes', 'regex_groups')
     assignment_scopes: 'collections.deque[dict[str, ast.Assignment]]'
-    regex_groups: tuple[str, ...] | None
+    regex_groups: tuple[str | None, ...] | None
     def __init__(self) -> None:
         self.assignment_scopes = collections.deque()
         self.regex_groups = None
@@ -231,7 +248,8 @@ class Context(object):
                     default_timezone: str | datetime.tzinfo = 'local',
                     default_value: Any = errors.UNDEFINED,
                     decimal_context: decimal.Context | None = None,
-                    mapping_attribute_lookup: bool = True
+                    mapping_attribute_lookup: bool = True,
+                    int_max_digits: int | None = None
     ) -> None:
         """
         :param int regex_flags: The flags to provide to functions in the :py:mod:`re` module when calling either the
@@ -254,6 +272,15 @@ class Context(object):
                 back to ``mapping['key']`` and emits a :py:exc:`~rule_engine.errors.MappingAttributeLookupDeprecation`
                 once per context. When ``False``, attribute access on a :py:attr:`.MAPPING` raises a parse-time error.
                 This fallback is scheduled for removal in v6.0.
+        :param int int_max_digits: The maximum number of digits that an integer can have to be converted to a ``FLOAT``
+                value, such as an integer resolved from a symbol or the result of a left shift. Converting an integer
+                takes time that grows quadratically with its size, so one with more digits raises an
+                :py:exc:`~rule_engine.errors.ArithmeticError` instead. ``0`` disables the limit and ``None`` (the
+                default) uses the interpreter's limit from :py:func:`sys.get_int_max_str_digits` each time a value is
+                converted, including while a rule is being parsed. The limit applies wherever an integer is converted,
+                including the results of functions and attributes such as ``floor`` and ``length``, binary, octal and
+                hexadecimal literals and integers in ``SET`` values, so a very small limit can reject ordinary values.
+                Values that are already ``FLOAT`` values, such as the literal ``1e25``, are not checked.
 
         .. versionchanged:: 2.0.0
                 Added the *default_value* parameter.
@@ -267,6 +294,9 @@ class Context(object):
 
         .. versionchanged:: 5.0.0
                 Added the *mapping_attribute_lookup* parameter.
+
+        .. versionchanged:: 5.2.0
+                Added the *int_max_digits* parameter.
         """
         self.regex_flags = regex_flags
         """The *regex_flags* parameter from :py:meth:`~__init__`"""
@@ -293,7 +323,7 @@ class Context(object):
         """The *default_value* parameter from :py:meth:`~__init__`"""
         self.builtins = builtins.Builtins.from_defaults(
                 values={'re_groups': builtins.BuiltinValueGenerator(functools.partial(_tls_getter, self._thread_local, 'regex_groups'))},
-                value_types={'re_groups': types.DataType.ARRAY(types.DataType.STRING)},
+                value_types={'re_groups': builtins._RE_GROUPS_TYPE},
                 timezone=default_timezone
         )
         """An instance of :py:class:`~rule_engine.builtins.Builtins` to provided a default set of builtin symbol values."""
@@ -305,8 +335,17 @@ class Context(object):
         self.__resolver = resolver or resolve_item
         self.mapping_attribute_lookup = mapping_attribute_lookup
         """The *mapping_attribute_lookup* parameter from :py:meth:`~__init__`."""
+        if int_max_digits is not None:
+            if isinstance(int_max_digits, bool) or not isinstance(int_max_digits, int):
+                raise TypeError('invalid int_max_digits type')
+            if int_max_digits < 0:
+                raise ValueError('invalid int_max_digits value (must be 0 or greater)')
+        self.int_max_digits = int_max_digits
+        """The *int_max_digits* parameter from :py:meth:`~__init__`."""
         self._mapping_fallback_lock = threading.Lock()
         self._mapping_fallback_warned = False
+        self._null_member_lock = threading.Lock()
+        self._null_member_warned: set[tuple[str | None, str]] = set()
 
     def __getstate__(self) -> dict[str, Any]:
         return {
@@ -316,7 +355,9 @@ class Context(object):
                 'default_value': self.default_value,
                 'decimal_context': self.decimal_context,
                 'mapping_attribute_lookup': self.mapping_attribute_lookup,
+                'int_max_digits': self.int_max_digits,
                 '_mapping_fallback_warned': self._mapping_fallback_warned,
+                '_null_member_warned': self._null_member_warned,
                 '_Context__type_resolver': self.__type_resolver,
                 '_Context__resolver': self.__resolver,
         }
@@ -331,15 +372,31 @@ class Context(object):
             self.default_value = errors.UNDEFINED
         self.decimal_context = state['decimal_context']
         self.mapping_attribute_lookup = state['mapping_attribute_lookup']
+        # pickles created before 5.2.0 don't include int_max_digits
+        self.int_max_digits = state.get('int_max_digits')
         self._mapping_fallback_warned = state['_mapping_fallback_warned']
-        self.__type_resolver = state['_Context__type_resolver']
+        # pickles created before 5.2.0 don't include _null_member_warned
+        self._null_member_warned = set(state.get('_null_member_warned', ()))
+        type_resolver = state['_Context__type_resolver']
+        if isinstance(type_resolver, functools.partial) and type_resolver.func is _type_resolver and type_resolver.args:
+            # pickles created before the UNDEFINED data type preserved its identity restore copies of it in the type map
+            type_map = _original_undefined(type_resolver.args[0])
+            if type_map is not type_resolver.args[0]:
+                type_resolver = functools.partial(
+                        _type_resolver,
+                        type_map,
+                        *type_resolver.args[1:],
+                        **type_resolver.keywords
+                )
+        self.__type_resolver = type_resolver
         self.__resolver = state['_Context__resolver']
         # recreate transient objects that can not be pickled
         self._thread_local = threading.local()
         self._mapping_fallback_lock = threading.Lock()
+        self._null_member_lock = threading.Lock()
         self.builtins = builtins.Builtins.from_defaults(
                 values={'re_groups': builtins.BuiltinValueGenerator(functools.partial(_tls_getter, self._thread_local, 'regex_groups'))},
-                value_types={'re_groups': types.DataType.ARRAY(types.DataType.STRING)},
+                value_types={'re_groups': builtins._RE_GROUPS_TYPE},
                 timezone=self.default_timezone
         )
 
@@ -405,7 +462,7 @@ class Context(object):
         :param str name: The attribute name that is being resolved.
         :return: The value for the corresponding attribute *name*.
         """
-        return self.__resolve_attribute(thing, object_, name)
+        return self.__resolve_attribute(thing, object_, name, context=self)
     resolve_attribute_type = __resolve_attribute.resolve_type
 
     def _warn_mapping_fallback(self, attribute_name: str) -> None:
@@ -420,6 +477,31 @@ class Context(object):
                 "rule_engine.errors.MappingAttributeLookupDeprecation to silence this warning."
         ).format(attribute_name)
         warnings.warn(errors.MappingAttributeLookupDeprecation(message), stacklevel=2)
+
+    def _is_assigned(self, name: str) -> bool:
+        # whether resolve() would return *name* from an assignment scope, i.e. it's a variable assigned by an expression
+        return any(name in assignments for assignments in self._tls.assignment_scopes)
+
+    def _warn_null_member(self, symbol_name: str, scope: str | None, kind: str, member_type: _DataTypeDef) -> None:
+        with self._null_member_lock:
+            if (scope, symbol_name) in self._null_member_warned:
+                return
+            self._null_member_warned.add((scope, symbol_name))
+        if kind == 'key':
+            remedy = 'MAPPING keys can not be NULLABLE, so use a key type of UNDEFINED to allow null keys'
+        else:
+            remedy = 'wrap the {0} type in DataType.NULLABLE(...) to allow null {0}s'.format(kind)
+        message = (
+                "symbol {0!r} resolved to a value with a null {1} where the {1} type ({2}) does not allow null; this is "
+                "deprecated and will raise SymbolTypeError in v6.0, {3}"
+        ).format(symbol_name, kind, member_type.name, remedy)
+        try:
+            warnings.warn(message, DeprecationWarning, stacklevel=_external_stacklevel())
+        except BaseException:
+            # the warning was turned into an error (e.g. with -W error), so raise it again the next time too
+            with self._null_member_lock:
+                self._null_member_warned.discard((scope, symbol_name))
+            raise
 
     def resolve_type(self, name: str, scope: str | None = None) -> _DataTypeDef:
         """

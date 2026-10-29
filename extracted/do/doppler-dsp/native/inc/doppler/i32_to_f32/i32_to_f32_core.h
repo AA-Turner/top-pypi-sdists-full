@@ -41,19 +41,21 @@ extern "C" {
  * Allocate with dp_i32_to_f32_create().
  */
 typedef struct {
-    float iscale; /* 1.0f / scale, pre-computed for single-multiply step */
+    float iscale; /**< Config: 1.0f / scale, set once by create so step is
+                       a single multiply. */
 } dp_i32_to_f32_state_t;
 
 /**
  * @brief Create a i32_to_f32 instance.
  *
- * Pre-computes @c iscale = 1.0f / @p scale.  Any non-zero finite float is a
- * valid scale.
+ * Pre-computes @c iscale = 1.0f / @p scale.  Any positive, finite float is a
+ * valid scale; zero, a negative value, NaN or an infinity is refused.
  *
  * @param scale  Denominator scale; 1/scale is applied to each sample
  *               (default: 2147483648.0f).  Use 2^31 to recover normalised
  *               floats from a full-range int32 stream.
- * @return Heap-allocated state, or NULL on allocation failure.
+ * @return Heap-allocated state, or NULL if @p scale is not positive and
+ *         finite, or on allocation failure.
  * @note Caller must call dp_i32_to_f32_destroy() when done.
  */
 dp_i32_to_f32_state_t *dp_i32_to_f32_create(float scale);
@@ -115,8 +117,10 @@ dp_i32_to_f32_step(const dp_i32_to_f32_state_t *state, int32_t x)
 /**
  * @brief Process a block of int32 samples to float32.
  *
- * Applies step() to every element.  Accepts an optional pre-allocated output
- * array; allocates a fresh one when @p output is NULL.
+ * Applies step() to every element.
+ * In C, @p output must be a caller-owned array of at least @p n elements
+ * (NULL is not accepted).  From Python it is the optional `out=` array;
+ * the binding allocates a fresh one when omitted.
  *
  * @param state   Must be non-NULL.
  * @param input   Input int32 array; must contain at least @p n elements.

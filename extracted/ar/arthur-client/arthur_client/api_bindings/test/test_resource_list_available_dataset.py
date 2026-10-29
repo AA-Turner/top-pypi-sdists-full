@@ -76,7 +76,10 @@ class TestResourceListAvailableDataset(unittest.TestCase):
                                 column_id = '', 
                                 column_name = '', ), 
                             join_type = 'inner', ), 
-                        is_static = True, )
+                        is_static = True, 
+                        trace_count = 56, 
+                        inference_count = 56, 
+                        last_activity_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 
@@ -127,7 +130,10 @@ class TestResourceListAvailableDataset(unittest.TestCase):
                                 column_id = '', 
                                 column_name = '', ), 
                             join_type = 'inner', ), 
-                        is_static = True, )
+                        is_static = True, 
+                        trace_count = 56, 
+                        inference_count = 56, 
+                        last_activity_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 

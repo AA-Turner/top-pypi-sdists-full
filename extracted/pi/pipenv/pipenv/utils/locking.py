@@ -211,15 +211,7 @@ def atomic_open_for_write(
         raise
     else:
         f.close()
-        try:
-            # This is needed on Windows
-            target_path.unlink(missing_ok=True)
-        except OSError:
-            pass  # The following rename reports any unrecoverable target conflict.
-
-        # Rename the temporary file to the target
-        # Note: Path.rename() is equivalent to os.rename()
-        temp_path.rename(target_path)
+        temp_path.replace(target_path)
 
 
 @dataclass
@@ -347,7 +339,7 @@ class Lockfile:
         else:
             if data:
                 raise ValueError("Cannot pass data when loading existing lockfile")
-            with open(lockfile_path.as_posix()) as f:
+            with open(lockfile_path.as_posix(), encoding="utf-8-sig") as f:
                 projectfile.model = lockfiles.Lockfile.load(f)
         return projectfile
 

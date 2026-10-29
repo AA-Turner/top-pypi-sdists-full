@@ -19,7 +19,7 @@ from contextlib import suppress
 
 import structlog
 
-from langgraph_api.asyncio import run_main_loop
+from langgraph_api.asyncio import NoSignalServer, run_main_loop
 from langgraph_api.utils.errors import GraphLoadError, HealthServerStartupError
 from langgraph_api.utils.network import format_hostport, normalize_host
 from langgraph_runtime import lifespan
@@ -138,15 +138,13 @@ async def health_and_metrics_server():
         access_log=False,
     )
     # Server will run indefinitely until the process is terminated
-    server = uvicorn.Server(config)
+    server = NoSignalServer(config)
 
     logger.info(
         f"Health and metrics server started at http://{format_hostport(host, port)}"
     )
     try:
-        # Use the internal serve to skip capturing signals, otherwise there's a race condition
-        # where uvicorn captures the signal and will exit early before the queue can gracefully shutdown
-        await server._serve()
+        await server.serve()
     except SystemExit as exc:
         if exc.code == 0:
             return
@@ -172,9 +170,7 @@ async def health_and_metrics_server():
         )
         raise error from exc
     except asyncio.CancelledError:
-        # Close the health server cleanly once we've exited the lifespan to make sure we respect graceful shutdown
         logger.info("Shutting down health and metrics server")
-        await server.shutdown()
 
 
 async def entrypoint(

@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .domain_registration_method import DomainRegistrationMethod
 from .domain_registration_phase import DomainRegistrationPhase
 from .domain_registration_state import DomainRegistrationState
 from .money import Money
@@ -25,6 +26,11 @@ class DomainRegistration(UniversalBaseModel):
     When the registration expires unless renewed, as an ISO 8601 timestamp. `null` until it's registered.
     """
 
+    method: DomainRegistrationMethod = pydantic.Field()
+    """
+    How the domain came to Whop: `registration` when it was bought through Whop, `transfer` when it was moved from another registrar.
+    """
+
     payment_method_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     ID of the saved card charged for the domain, prefixed `payt_`. `null` when none is set.
@@ -32,12 +38,17 @@ class DomainRegistration(UniversalBaseModel):
 
     phase: DomainRegistrationPhase = pydantic.Field()
     """
-    Where the registration is: awaiting payment, ordering at the registrar, delegating DNS to Whop, held, expired, or releasing.
+    Where the registration is: awaiting payment, ordering at the registrar, transferring from another registrar, delegating DNS to Whop, held, expired, or releasing.
     """
 
     purchase_url: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Link to pay what the domain owes now: its registration, or a yearly renewal. `null` when nothing is owed.
+    Link to pay what the domain owes now: its registration or transfer, or a yearly renewal. `null` when nothing is owed.
+    """
+
+    renewal_price: typing.Optional[Money] = pydantic.Field(default=None)
+    """
+    What each yearly renewal costs at the registrar's current price. Set when the response is a single domain; `null` in lists, while the domain is being released, or when the price can't be read right now.
     """
 
     state: DomainRegistrationState = pydantic.Field()

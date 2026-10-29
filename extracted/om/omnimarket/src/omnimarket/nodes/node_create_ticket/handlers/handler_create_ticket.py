@@ -40,9 +40,8 @@ import os
 import re
 import subprocess
 import sys
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -50,16 +49,27 @@ import yaml
 from omnibase_infra.adapters.project_tracker.linear_graphql_project_tracker_adapter import (
     AdapterLinearGraphQLProjectTracker,
 )
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
+from omnimarket.config.service_endpoints import service_endpoint_url
 from omnimarket.handlers.handler_lane_intake import (
     ModelLaneIntakePolicy,
     declared_lane,
+    lane_caller,
     read_lane_intake_policy,
     resolve_label_id,
     stamp_description,
 )
+from omnimarket.handlers.handler_lane_write_identity import (
+    ModelLaneWriteIdentity,
+    assert_linear_principal_is_actor,
+)
 from omnimarket.inference.secret_store_resolver import resolve_api_key_loop_safe
+from omnimarket.models.model_ticket_io import (
+    EnumTicketOperation,
+    ModelCreateTicketRequest,
+    ModelCreateTicketResult,
+)
 from omnimarket.nodes.contract_topics import contract_secret_ref
 
 # Seam signal keyword sets
@@ -69,7 +79,6 @@ _SEAM_DB = {"database", "postgres", "migration", "schema", "table", "sql"}
 _SEAM_INFRA = {"docker", "deploy", "k8s", "kubernetes", "infra", "compose"}
 
 _PARENT_RE = re.compile(r"^OMN-\d+$")
-_TICKET_ID_RE = re.compile(r"^[A-Z][A-Z0-9]*-\d+$")
 
 _CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contract.yaml"
 
@@ -90,10 +99,12 @@ def _contract_linear_graphql_url(contract_path: Path) -> str:
     linear = integrations.get("linear")
     if not isinstance(linear, dict):
         raise ValueError(f"{contract_path} missing integrations.linear mapping")
-    graphql_url = linear.get("graphql_url")
+    graphql_url = linear.get("graphql_url_ref")
     if not isinstance(graphql_url, str) or not graphql_url.strip():
-        raise ValueError(f"{contract_path} integrations.linear.graphql_url must be set")
-    return graphql_url
+        raise ValueError(
+            f"{contract_path} integrations.linear.graphql_url_ref must be set"
+        )
+    return service_endpoint_url(graphql_url)
 
 
 _LINEAR_GRAPHQL_URL = _contract_linear_graphql_url(_CONTRACT_PATH)
@@ -177,6 +188,22 @@ def _pillar_owners_path() -> Path:
     return Path(home).parent / _PILLAR_OWNERS_RELPATH
 
 
+def _pillar_entry(pillar: str, path: Path) -> dict[str, Any]:
+    """The pillar's entry in the owner map; a map or pillar that cannot be read raises."""
+    try:
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise RuntimeError(f"pillar_owners map unreadable at {path}: {exc}") from exc
+    if not isinstance(document, dict):
+        raise RuntimeError(f"pillar_owners map at {path} must be a mapping")
+    pillars = document.get("pillars")
+    entry = pillars.get(pillar) if isinstance(pillars, dict) else None
+    owner = entry.get("owner_linear_user_id") if isinstance(entry, dict) else None
+    if not isinstance(entry, dict) or not isinstance(owner, str) or not owner.strip():
+        raise RuntimeError(f"pillar {pillar!r} has no owner_linear_user_id in {path}")
+    return dict(entry)
+
+
 def _resolve_pillar_owner(pillar: str | None, path: Path) -> str | None:
     """Return the Linear user id for the ticket's pillar, or None for the creator default.
 
@@ -188,137 +215,32 @@ def _resolve_pillar_owner(pillar: str | None, path: Path) -> str | None:
     """
     if not pillar:
         return None
-    try:
-        document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise RuntimeError(f"pillar_owners map unreadable at {path}: {exc}") from exc
-    if not isinstance(document, dict):
-        raise RuntimeError(f"pillar_owners map at {path} must be a mapping")
-    pillars = document.get("pillars")
-    entry = pillars.get(pillar) if isinstance(pillars, dict) else None
-    owner = entry.get("owner_linear_user_id") if isinstance(entry, dict) else None
-    if not isinstance(owner, str) or not owner.strip():
-        raise RuntimeError(f"pillar {pillar!r} has no owner_linear_user_id in {path}")
-    return owner.strip()
+    return str(_pillar_entry(pillar, path)["owner_linear_user_id"]).strip()
 
 
-class EnumTicketOperation(StrEnum):
-    """What one ``node_create_ticket`` request does (OMN-20595)."""
+def _refuse_lane_assignment(
+    pillar: str | None, path: Path, environ: Mapping[str, str] | None = None
+) -> None:
+    """Refuse a lane's assignment of a pillar whose map entry says lanes may not assign its owner.
 
-    CREATE = "create"
-    READ = "read"
-    COMMENT = "comment"
-    TRANSITION = "transition"
-
-
-class ModelCreateTicketRequest(BaseModel):
-    """Request to create, read or comment on a Linear ticket.
-
-    The contract's ``handler.input_model``: the payload the runtime validates is
-    this model, the one ``handle()`` takes (OMN-20595 fixed the drift).
+    The pillar map declares ``assignable_by_lanes: false`` for such an owner (OMN-17427). This
+    node, run by a lane (a declared lane, a subagent or a headless session), then neither assigns
+    that owner nor files the ticket for them; the operator or the owner files it. New tickets
+    carry no project, so there is no project of the owner's to file into
+    (``ModelCreateTicketRequest.project`` is refused).
     """
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    operation: EnumTicketOperation = Field(
-        default=EnumTicketOperation.CREATE,
-        description="create (the default), read, comment or transition.",
-    )
-    title: str = Field(default="", description="Ticket title (create).")
-    description: str = Field(
-        default="",
-        description="Ticket description (create), sent to Linear unchanged.",
-    )
-    ticket_id: str | None = Field(
-        default=None, description="Ticket identifier, e.g. OMN-1234 (read, comment)."
-    )
-    body: str = Field(default="", description="Comment body (comment).")
-    state: str = Field(
-        default="",
-        description="Target workflow state name, e.g. Canceled (transition).",
-    )
-    repo: str | None = Field(default=None, description="Primary repo for scoping.")
-    parent: str | None = Field(default=None, description="Parent ticket ID (OMN-XXXX).")
-    blocked_by: list[str] = Field(
-        default_factory=list, description="Blocking ticket IDs."
-    )
-    dry_run: bool = Field(default=False)
-    team: str = Field(default="Omninode")
-    allow_arch_violation: bool = Field(
-        default=False,
-        description="Bypass architecture dependency validation (contract input).",
-    )
-    pillar: str | None = Field(
-        default=None,
-        description=(
-            "Ticket pillar (dashboard, onboarding) that sets the assignee from the shared "
-            "pillar owner map; none means the creator."
-        ),
-    )
-    project: str = Field(
-        default="",
-        description="Refused when non-empty: new tickets go to the Backlog with no project.",
-    )
-
-    @field_validator("project")
-    @classmethod
-    def _refuse_project(cls, value: str) -> str:
-        """Operator ruling 2026-09-30T14:30:05Z (OMN-17427): a new ticket is
-        created in the Backlog with NO project. Fail loud, never drop it."""
-        if value.strip():
-            raise ValueError(
-                f"project={value!r} refused: every new ticket is created in the "
-                "Backlog with no project (operator ruling 2026-09-30T14:30:05Z, "
-                "OMN-17427). Moving a ticket into a sprint is the operator's call."
-            )
-        return value
-
-    @model_validator(mode="after")
-    def _fields_for_operation(self) -> ModelCreateTicketRequest:
-        op = self.operation
-        if self.state.strip() and op is not EnumTicketOperation.TRANSITION:
-            raise ValueError("state is only valid with operation=transition")
-        if op is EnumTicketOperation.CREATE:
-            if not self.title.strip():
-                raise ValueError("operation=create requires a title")
-            return self
-        if not self.ticket_id or not _TICKET_ID_RE.match(self.ticket_id):
-            raise ValueError(
-                f"operation={op.value} requires ticket_id like OMN-1234, "
-                f"got {self.ticket_id!r}"
-            )
-        if op is EnumTicketOperation.COMMENT and not self.body.strip():
-            raise ValueError("operation=comment requires a non-empty body")
-        if op is EnumTicketOperation.TRANSITION and not self.state.strip():
-            raise ValueError("operation=transition requires a non-empty state")
-        return self
-
-
-class ModelCreateTicketResult(BaseModel):
-    """Result of a ticket create, read or comment request."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    status: str = Field(default="created")
-    operation: EnumTicketOperation = Field(default=EnumTicketOperation.CREATE)
-    ticket_id: str = Field(default="")
-    ticket_url: str = Field(default="")
-    title: str = Field(default="")
-    team: str = Field(default="Omninode")
-    ticket_status: str = Field(default="", description="Workflow state name (read).")
-    comment_id: str = Field(default="", description="Created comment id (comment).")
-    guard_path: str = Field(
-        default="", description="The ticket-creation guard that admitted a create."
-    )
-    is_seam_ticket: bool = Field(default=False)
-    interfaces_touched: list[str] = Field(default_factory=list)
-    contract_completeness: str = Field(default="stub")
-    validation_errors: list[str] = Field(default_factory=list)
-    description_body: str = Field(
-        default="",
-        description="The description sent to Linear (create) or read from it (read).",
-    )
-    dry_run: bool = Field(default=False)
+    if not pillar:
+        return
+    entry = _pillar_entry(pillar, path)
+    if entry.get("assignable_by_lanes") is not False:
+        return
+    caller = lane_caller(environ)
+    if caller:
+        raise RuntimeError(
+            f"pillar {pillar!r} is refused for a lane ({caller}): lanes may not create tickets "
+            "for that pillar's owner or assign them work. Leave --pillar off to file the ticket "
+            "under the creator and name the owner's area in the description (OMN-17427)."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -336,7 +258,15 @@ class TicketGuardUnavailableError(RuntimeError):
 
 
 class TicketGuardRefusedError(RuntimeError):
-    """The ticket-creation guard refused the create, or could not decide."""
+    """The ticket-creation guard refused the create, or could not decide.
+
+    ``finding_codes`` are the guard's own finding codes (``project_set``,
+    ``missing_gate_line``, ...), in the order the guard reported them.
+    """
+
+    def __init__(self, message: str, finding_codes: Sequence[str] = ()) -> None:
+        super().__init__(message)
+        self.finding_codes = list(finding_codes)
 
 
 class ModelTicketGuardDecision(BaseModel):
@@ -347,6 +277,19 @@ class ModelTicketGuardDecision(BaseModel):
     admitted: bool
     reason: str = ""
     guard_path: str = ""
+    finding_codes: list[str] = Field(
+        default_factory=list,
+        description="The guard's own finding codes, as it reported them on a refusal.",
+    )
+
+
+# The guard prints one "  * [<code>] <field>: ..." line per finding in its reason.
+_FINDING_CODE_RE = re.compile(r"^\s*\*\s+\[([a-z][a-z0-9_]*)\]", re.MULTILINE)
+
+
+def guard_finding_codes(reason: str) -> list[str]:
+    """The finding codes the guard named in a refusal ``reason``, in order."""
+    return _FINDING_CODE_RE.findall(reason)
 
 
 @runtime_checkable
@@ -461,7 +404,10 @@ class InstalledPluginTicketGuard:
             except (ValueError, AttributeError):
                 reason = done.stdout
             return ModelTicketGuardDecision(
-                admitted=False, reason=reason, guard_path=path
+                admitted=False,
+                reason=reason,
+                guard_path=path,
+                finding_codes=guard_finding_codes(reason),
             )
         return ModelTicketGuardDecision(
             admitted=False,
@@ -608,6 +554,11 @@ class LinearTicketHttpGateway:
             raise RuntimeError(f"Linear GraphQL error: {data['errors']}")
         return data
 
+    def viewer_id(self) -> str:
+        """The Linear user id this credential writes as (OMN-20355)."""
+        viewer = self._post(_VIEWER_QUERY, {}).get("data", {}).get("viewer", {})
+        return str(viewer.get("id", ""))
+
     def create_ticket(
         self,
         *,
@@ -707,8 +658,15 @@ class HandlerCreateTicket:
         ticket_guard: TicketGuardProtocol | None = None,
         state_resolver: TicketStateResolverProtocol | None = None,
         lane_intake_policy: ModelLaneIntakePolicy | None = None,
+        principal_resolver: Callable[[], str] | None = None,
+        *,
+        lane_id: str | None = None,
+        require_description_stamp: bool = False,
     ) -> None:
+        self._lane_id = lane_id
+        self._require_description_stamp = require_description_stamp
         self._injectable_lane_intake_policy = lane_intake_policy
+        self._injectable_principal_resolver = principal_resolver
         self._injectable_client = linear_client
         self._pillar_owners_path = pillar_owners_path
         self._injectable_tracker = tracker
@@ -752,6 +710,21 @@ class HandlerCreateTicket:
             return self._injectable_lane_intake_policy
         return read_lane_intake_policy(locate_ticket_guard())
 
+    def _assert_lane_actor(self, surface: str) -> None:
+        """Refuse a write whose credential is not the declared lane actor (OMN-20355).
+
+        Silent when ``ONEX_AUTOMATION_ACTOR_ID`` is not configured, and the
+        principal is then not resolved. Called after dry_run returns, before the
+        first Linear write.
+        """
+        identity = ModelLaneWriteIdentity.from_env(os.environ)
+        if identity is None:
+            return
+        resolve = self._injectable_principal_resolver or (
+            LinearTicketHttpGateway(self._linear_api_key()).viewer_id
+        )
+        assert_linear_principal_is_actor(identity, surface=surface, principal=resolve())
+
     def handle(self, request: ModelCreateTicketRequest) -> ModelCreateTicketResult:
         """Process one create, read or comment request."""
         if request.operation is EnumTicketOperation.READ:
@@ -767,11 +740,14 @@ class HandlerCreateTicket:
         state = request.state.strip()
         # The guard judges the exact update payload filed: the ticket id and the
         # target state, nothing else.
-        decision = self._get_guard().check({"id": ticket_id, "state": state})
+        decision = self._get_guard(self._lane_id or "").check(
+            {"id": ticket_id, "state": state}
+        )
         if not decision.admitted:
             raise TicketGuardRefusedError(
                 "node_create_ticket: the ticket-creation guard refused this "
-                f"transition ({decision.guard_path}):\n{decision.reason}"
+                f"transition ({decision.guard_path}):\n{decision.reason}",
+                decision.finding_codes,
             )
         if request.dry_run:
             return ModelCreateTicketResult(
@@ -783,6 +759,7 @@ class HandlerCreateTicket:
                 guard_path=decision.guard_path,
                 dry_run=True,
             )
+        self._assert_lane_actor("transition")
         state_id = self._get_state_resolver().resolve_state_id(ticket_id, state)
         tracker = self._get_tracker()
 
@@ -841,6 +818,7 @@ class HandlerCreateTicket:
                 team=request.team,
                 dry_run=True,
             )
+        self._assert_lane_actor("comment")
         tracker = self._get_tracker()
 
         async def _post() -> Any:
@@ -889,18 +867,32 @@ class HandlerCreateTicket:
                 dry_run=request.dry_run,
             )
 
+        # A lane may not assign a pillar whose owner the map keeps out of lanes' hands (OMN-17427),
+        # and the refusal comes before the guard so it spends none of the day's intake budget.
+        if request.pillar:
+            _refuse_lane_assignment(
+                request.pillar,
+                self._pillar_owners_path or _pillar_owners_path(),
+                {"ONEX_LANE": self._lane_id} if self._lane_id is not None else None,
+            )
+
         # The ticket-creation guard (OMN-17942) judges the exact payload this
         # node files: Backlog, no project, the caller's description unchanged.
         # Every item this node opens is lane-created (OMN-17942): it carries the
         # lane-intake label and a first-line stamp naming its lane, and the guard
         # refuses a create with no lane identity or past the day's intake budget.
-        lane = declared_lane()
+        lane = self._lane_id if self._lane_id is not None else declared_lane()
         intake = self._get_lane_intake_policy()
         description = (
             stamp_description(request.description, intake, lane)
             if lane
             else request.description
         )
+        if self._require_description_stamp and description != request.description:
+            raise TicketGuardRefusedError(
+                "bus create requires the caller first-line lane stamp; description is never rewritten",
+                ["lane_stamp_missing"],
+            )
         tool_input: dict[str, object] = {
             "team": request.team,
             "title": request.title,
@@ -910,11 +902,23 @@ class HandlerCreateTicket:
         }
         if request.parent:
             tool_input["parentId"] = request.parent
+        if request.project.strip():
+            # Judged by the guard, which refuses it with its own project_set finding.
+            tool_input["project"] = request.project
         decision = self._get_guard(lane, record=not request.dry_run).check(tool_input)
         if not decision.admitted:
             raise TicketGuardRefusedError(
                 "node_create_ticket: the ticket-creation guard refused this create "
-                f"({decision.guard_path}):\n{decision.reason}"
+                f"({decision.guard_path}):\n{decision.reason}",
+                decision.finding_codes,
+            )
+        if request.project.strip():
+            # A guard that admits a project is not this node's guard (OMN-17427): never file it.
+            raise TicketGuardRefusedError(
+                f"node_create_ticket: project={request.project!r} refused: every new "
+                "ticket is created in the Backlog with no project (operator ruling "
+                "2026-09-30T14:30:05Z, OMN-17427).",
+                ["project_set"],
             )
 
         if request.dry_run:
@@ -937,6 +941,7 @@ class HandlerCreateTicket:
             if request.pillar
             else None
         )
+        self._assert_lane_actor("create")
         client = self._get_client()
         ticket_id, ticket_url = client.create_ticket(
             title=request.title,
@@ -986,5 +991,6 @@ __all__: list[str] = [
     "TicketGuardUnavailableError",
     "TicketStateResolverProtocol",
     "TicketTrackerProtocol",
+    "guard_finding_codes",
     "locate_ticket_guard",
 ]

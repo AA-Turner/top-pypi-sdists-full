@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bx-python
-Version: 0.15.1
+Version: 0.16.0
 Summary: Tools for manipulating biological data, particularly multiple sequence alignments
 Author: Bob Harris, David King, Brent Pedersen, Kanwei Li
 Author-email: James Taylor <james@jamestaylor.org>, Nicola Soranzo <nicola.soranzo@earlham.ac.uk>
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -21,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy

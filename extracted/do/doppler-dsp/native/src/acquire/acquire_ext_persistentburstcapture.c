@@ -1371,9 +1371,11 @@ static PyGetSetDef PersistentBurstCapture_getset[] = {
   { "preamble_start", (getter)PersistentBurstCapture_getprop_preamble_start,
     NULL,
     "Stream-absolute sample index the most recent window's preamble starts "
-    "at. NEVER LATE: a window that began after the preamble has destroyed the "
-    "burst, so the refine stage's obligation is to be early-or-exact and to "
-    "say how early.\n",
+    "at; 0 before the first window and after reset(). Never late is refine's "
+    "design goal, not a guarantee (a window that began after the preamble has "
+    "destroyed the burst): refine takes the strongest whole-period position "
+    "over a range reaching both sides of the anchor, so at low C/N0 it can "
+    "pick a wrong repetition, early or late.\n",
     NULL },
   { "doppler_hz_est", (getter)PersistentBurstCapture_getprop_doppler_hz_est,
     NULL,
@@ -1706,12 +1708,12 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "Parameters\n"
     "----------\n"
     "x_len : int\n"
-    "    Input.\n"
+    "    Samples the next push() will be given.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    `(x_len/burst_len + 1 + queue capacity) * burst_len` samples.\n" },
   { "detections", (PyCFunction)(void *)PersistentBurstCaptureObj_detections,
     METH_VARARGS | METH_KEYWORDS,
     "detections(count=1, out=None) -> ndarray\n"
@@ -1739,14 +1741,14 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "    an `out=` buffer with the matching `_max_out()` when you need the\n"
     "    worst case.\n"
     "out : npt.NDArray[Any] | None\n"
-    "    Optional pre-allocated output buffer. When given, the result is\n"
-    "    written into it and the returned array is a view of exactly the\n"
-    "    samples produced; when omitted, a fresh array is allocated.\n"
+    "    Destination rows; may be NULL to copy nothing (the count is still\n"
+    "    returned).\n"
     "\n"
     "Returns\n"
     "-------\n"
     "NDArray[Any]\n"
-    "    Output.\n"
+    "    min(detections held, max_out): the rows copied, or with a NULL out\n"
+    "    the rows that would have been.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -1767,7 +1769,7 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "doppler_hz : float\n"
     "    Signed coarse Doppler, folded, Hz.\n"
     "cn0_dbhz : float\n"
-    "    C/N0 lower bound from the hit, dB-Hz.\n"
+    "    C/N0 estimate from the hit, dB-Hz.\n"
     "test_stat : float\n"
     "    The CFAR gating statistic, peak over noise.\n"
     "peak_mag : float\n"
@@ -1781,12 +1783,12 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "Parameters\n"
     "----------\n"
     "n : int\n"
-    "    Input.\n"
+    "    Ignored: the count is the last push's, not a request.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    Rows detections() can copy out now (0 before any push).\n" },
   { "events", (PyCFunction)(void *)PersistentBurstCaptureObj_events,
     METH_VARARGS | METH_KEYWORDS,
     "events(count=1, out=None) -> ndarray\n"
@@ -1805,14 +1807,14 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "    an `out=` buffer with the matching `_max_out()` when you need the\n"
     "    worst case.\n"
     "out : npt.NDArray[Any] | None\n"
-    "    Optional pre-allocated output buffer. When given, the result is\n"
-    "    written into it and the returned array is a view of exactly the\n"
-    "    samples produced; when omitted, a fresh array is allocated.\n"
+    "    Destination rows; may be NULL to copy nothing (the count is still\n"
+    "    returned).\n"
     "\n"
     "Returns\n"
     "-------\n"
     "NDArray[Any]\n"
-    "    Output.\n"
+    "    min(windows of the last push, max_out): the rows copied, or with a\n"
+    "    NULL out the rows that would have been.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -1828,13 +1830,13 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "Fields\n"
     "------\n"
     "preamble_start : int\n"
-    "    Exact stream position of the preamble.\n"
+    "    Refined stream position of the preamble.\n"
     "doppler_hz_est : float\n"
     "    Signed coarse Doppler, Hz.\n"
     "doppler_res_hz : float\n"
     "    Acquisition's native bin width, Hz.\n"
     "cn0_dbhz_est : float\n"
-    "    C/N0 lower bound from the hit, dB-Hz.\n"
+    "    C/N0 estimate from the hit, dB-Hz.\n"
     "doppler_rate_hz_s : float\n"
     "    Refine's winning rate hypothesis, Hz/s: the rate whose de-chirp made "
     "the whole preamble's coherent sum largest at preamble_start. One of "
@@ -1859,12 +1861,12 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "Parameters\n"
     "----------\n"
     "n : int\n"
-    "    Input.\n"
+    "    Ignored: the count is the last push's, not a request.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    Event rows events() can copy out now: one per window returned.\n" },
   { "configure_search_raw",
     (PyCFunction)(void *)PersistentBurstCaptureObj_configure_search_raw,
     METH_VARARGS | METH_KEYWORDS,
@@ -1887,9 +1889,10 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "Parameters\n"
     "----------\n"
     "doppler_bins : int\n"
-    "    Input.\n"
+    "    Coherent depth to pin (see dp_burst_acq_configure_search_raw()).\n"
     "n_noncoh : int\n"
-    "    Input.\n"
+    "    Non-coherent looks to pin; `n_noncoh * doppler_bins` must not\n"
+    "    exceed the refine reach.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -1939,7 +1942,7 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "Parameters\n"
     "----------\n"
     "i : int\n"
-    "    Input.\n"
+    "    Window index from the last push().\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -1969,8 +1972,8 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "\n"
     "Resets the embedded acquisition, rewinds the history ring, clears every\n"
     "queued detection and every read-back. Construction parameters are\n"
-    "untouched; `dropped` deliberately survives, because a lost burst stays\n"
-    "lost.\n"
+    "untouched; `dropped` and `n_bursts` deliberately survive, because a\n"
+    "lost burst stays lost and a lifetime count is a lifetime count.\n"
     "\n"
     "Examples\n"
     "--------\n"

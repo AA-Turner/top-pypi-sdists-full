@@ -1,4 +1,7 @@
+__lazy_modules__ = ["celery"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from celery import shared_task
 from celery_once import AlreadyQueued, QueueOnce as BaseTask
@@ -9,6 +12,17 @@ from allianceauth.authentication.models import User
 
 from .hooks import ServicesHook
 
+if TYPE_CHECKING:
+    from celery import Task
+
+    # https://github.com/sbdchd/celery-types
+    classes = [
+        Task,
+    ]
+
+    for cls in classes:
+        setattr(cls, "__class_getitem__", classmethod(lambda cls, *args, **kwargs: cls))
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,22 +32,22 @@ class QueueOnce(BaseTask):
 
 
 class DjangoBackend:
-    def __init__(self, settings):
+    def __init__(self, settings) -> None:
         pass
 
     @staticmethod
-    def raise_or_lock(key, timeout):
+    def raise_or_lock(key: str, timeout: int) -> None:
         acquired = cache.add(key=key, value="lock", timeout=timeout)
         if not acquired:
             raise AlreadyQueued(int(cache.ttl(key)))
 
     @staticmethod
-    def clear_lock(key):
+    def clear_lock(key: str) -> bool:
         return cache.delete(key)
 
 
 @shared_task(bind=True)
-def validate_services(self, pk):
+def validate_services(self: "Task", pk: int) -> None:
     user = User.objects.get(pk=pk)
     logger.debug(f'Ensuring user {user} has permissions for active services')
     # Iterate through services hooks and have them check the validity of the user
@@ -44,7 +58,7 @@ def validate_services(self, pk):
             logger.exception(f'Exception running validate_user for services module {svc} on user {user}')
 
 
-def disable_user(user):
+def disable_user(user: User) -> None:
     logger.debug(f'Disabling all services for user {user}')
     for svc in ServicesHook.get_services():
         if svc.service_active_for_user(user):

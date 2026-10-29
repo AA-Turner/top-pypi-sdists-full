@@ -989,7 +989,7 @@ where
                             let update_id = options
                                 .update_id
                                 .unwrap_or_else(|| Uuid::new_v4().to_string());
-                            let mut request = build_update_workflow_request(
+                            let request = build_update_workflow_request(
                                 client.namespace(),
                                 client.identity(),
                                 workflow_id.clone(),
@@ -998,14 +998,23 @@ where
                                 update_name,
                                 options.header,
                                 payloads,
-                            )
-                            .into_request();
-                            options.rpc_options.apply_to(&mut request);
-                            let response =
-                                WorkflowService::update_workflow_execution(&mut client, request)
-                                    .await
-                                    .map_err(WorkflowUpdateError::from_status)?
-                                    .into_inner();
+                            );
+                            let response = loop {
+                                let mut rpc_request = request.clone().into_request();
+                                options.rpc_options.apply_to(&mut rpc_request);
+                                let response = WorkflowService::update_workflow_execution(
+                                    &mut client,
+                                    rpc_request,
+                                )
+                                .await
+                                .map_err(WorkflowUpdateError::from_status)?
+                                .into_inner();
+                                if response.stage
+                                    >= UpdateWorkflowExecutionLifecycleStage::Accepted as i32
+                                {
+                                    break response;
+                                }
+                            };
                             let run_id = response
                                 .update_ref
                                 .as_ref()
@@ -1477,15 +1486,21 @@ mod tests {
     use temporalio_common::{
         data_converters::DefaultFailureConverter,
         protos::temporal::api::{
-            common::v1::{Memo, SearchAttributes},
-            enums::v1::WorkflowExecutionStatus as ProtoWorkflowExecutionStatus,
+            common::v1::{Memo, SearchAttributes, WorkflowExecution},
+            enums::v1::{
+                UpdateWorkflowExecutionLifecycleStage as UpdateStage,
+                WorkflowExecutionStatus as ProtoWorkflowExecutionStatus,
+            },
             history::v1::WorkflowExecutionStartedEventAttributes,
             sdk::v1::UserMetadata,
+            update::v1::UpdateRef,
             workflow::v1::WorkflowExecutionConfig,
-            workflowservice::v1::GetWorkflowExecutionHistoryResponse,
+            workflowservice::v1::{
+                GetWorkflowExecutionHistoryResponse, UpdateWorkflowExecutionResponse,
+            },
         },
     };
-    use tonic::{Request, Response};
+    use tonic::{Request, Response, Status};
 
     #[tokio::test]
     async fn workflow_history_workflow_id_roundtrips() {
@@ -1854,5 +1869,126 @@ mod tests {
             err.to_string(),
             "Encoding error: workflow history_length must be non-negative, got -1"
         );
+    }
+
+    #[derive(Default)]
+    struct MockUpdateState {
+        responses: VecDeque<Result<UpdateWorkflowExecutionResponse, Status>>,
+        requests: Vec<UpdateWorkflowExecutionRequest>,
+    }
+
+    #[derive(Clone)]
+    struct MockUpdateClient(Arc<Mutex<MockUpdateState>>);
+
+    impl NamespacedClient for MockUpdateClient {
+        fn namespace(&self) -> String {
+            "ns".into()
+        }
+        fn identity(&self) -> String {
+            "identity".into()
+        }
+    }
+
+    impl WorkflowService for MockUpdateClient {
+        fn update_workflow_execution(
+            &mut self,
+            request: Request<UpdateWorkflowExecutionRequest>,
+        ) -> BoxFuture<'_, Result<Response<UpdateWorkflowExecutionResponse>, Status>> {
+            let mut state = self.0.lock().unwrap();
+            state.requests.push(request.into_inner());
+            let response = state.responses.pop_front().expect("unexpected submission");
+            Box::pin(async { response.map(Response::new) })
+        }
+    }
+
+    #[rstest::rstest]
+    #[case::retries_until_accepted(
+    vec![UpdateStage::Unspecified, UpdateStage::Admitted, UpdateStage::Admitted, UpdateStage::Accepted],
+    None
+)]
+    #[case::already_accepted(vec![UpdateStage::Accepted], None)]
+    #[case::already_completed(vec![UpdateStage::Completed], None)]
+    #[case::rpc_error(vec![UpdateStage::Admitted], Some(Status::unavailable("transport failure")))]
+    #[tokio::test]
+    async fn update_waits_for_acceptance(
+        #[case] stages: Vec<UpdateStage>,
+        #[case] error: Option<Status>,
+    ) {
+        use std::time::Duration;
+
+        let mut responses: VecDeque<_> = stages
+            .iter()
+            .map(|stage| {
+                Ok(UpdateWorkflowExecutionResponse {
+                    stage: *stage as i32,
+                    update_ref: Some(UpdateRef {
+                        workflow_execution: Some(WorkflowExecution {
+                            workflow_id: "wf".into(),
+                            run_id: "run".into(),
+                        }),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                })
+            })
+            .collect();
+        // Only successful responses below Accepted should trigger another submission.
+        if let Some(error) = error.clone() {
+            responses.push_back(Err(error));
+        }
+        let expected_requests = responses.len();
+        let state = Arc::new(Mutex::new(MockUpdateState {
+            responses,
+            ..Default::default()
+        }));
+        let handle = WorkflowHandle::<_, UntypedWorkflow>::new(
+            MockUpdateClient(state.clone()),
+            WorkflowExecutionInfo::builder()
+                .namespace("ns")
+                .workflow_id("wf")
+                .build(),
+        );
+        let result = handle
+            .start_update(
+                UntypedUpdate::new("handler"),
+                RawValue::new(vec![Payload {
+                    data: vec![1, 2, 3],
+                    ..Default::default()
+                }]),
+                WorkflowStartUpdateOptions::builder()
+                    .rpc_options(
+                        RpcOptions::builder()
+                            .timeout(Duration::from_secs(30))
+                            .build(),
+                    )
+                    .build(),
+            )
+            .await;
+        let state = state.lock().unwrap();
+        assert_eq!(state.requests.len(), expected_requests);
+        let first = &state.requests[0];
+        // A retry must remain the same logical update
+        assert!(state.requests.iter().all(|request| request == first));
+        assert!(first.workflow_execution.as_ref().unwrap().run_id.is_empty());
+        let update_id = &first
+            .request
+            .as_ref()
+            .unwrap()
+            .meta
+            .as_ref()
+            .unwrap()
+            .update_id;
+        assert!(!update_id.is_empty());
+        match (error, result) {
+            (None, Ok(handle)) => {
+                assert_eq!(handle.id(), update_id);
+                assert_eq!(handle.workflow_run_id(), Some("run"));
+            }
+            (Some(expected), Err(WorkflowUpdateError::Rpc(actual))) => {
+                assert_eq!(actual.code(), expected.code());
+                assert_eq!(actual.message(), expected.message());
+            }
+            _ => panic!("unexpected update result"),
+        }
     }
 }

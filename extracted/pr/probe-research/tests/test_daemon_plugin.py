@@ -173,7 +173,9 @@ def test_what_the_daemon_profile_keeps_and_drops():
         "PostToolUse": {"telemetry.py", "tracking_guard.py", "statusline_refresh.py", "approvals_hook.py",
                         "reads_hook.py"},
         "SessionEnd": {"telemetry.py", "team-note-sync.sh"},
-        "Stop": {"statusline_notify.py", "team-note-sync.sh"},
+        # owed_hook.py: an inline agent that leaves a summary or a note owed is
+        # sent back at the end of its turn (notes parity N3).
+        "Stop": {"statusline_notify.py", "team-note-sync.sh", "owed_hook.py"},
         "TurnStarted": {"tracking_guard.py"},
     }
 

@@ -23,17 +23,24 @@ The rendered menu items are finally collected in a list of RenderedMenuItem obje
 which is used to render the complete menu.
 """
 
+__lazy_modules__ = ["allianceauth.services.auth_hooks", "django.db.models", "django.http"]
+
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from django import template
-from django.db.models import Prefetch, QuerySet
-from django.http import HttpRequest
+from django.db.models import Prefetch
 
 from allianceauth.authentication.models import Permission
 from allianceauth.hooks import get_hooks
 from allianceauth.menu.core import menu_item_hooks, smart_sync
 from allianceauth.menu.models import MenuItem
-from allianceauth.services.auth_hooks import MenuItemHook
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+    from django.http import HttpRequest
+
+    from allianceauth.services.auth_hooks import MenuItemHook
 
 register = template.Library()
 
@@ -66,7 +73,7 @@ class RenderedMenuItem:
         """Return True if this item is a folder."""
         return self.menu_item.is_folder
 
-    def update_html(self, request: HttpRequest, template: str):
+    def update_html(self, request: "HttpRequest", template: str) -> None:
         """Render this menu item with defaults and set HTML ID."""
         hook_obj = self.menu_item.to_hook_obj()
         hook_obj.template = template
@@ -78,7 +85,7 @@ class RenderedMenuItem:
         self.html_id = hook_obj.html_id
 
 
-def render_menu(request: HttpRequest) -> list[RenderedMenuItem]:
+def render_menu(request: "HttpRequest") -> list[RenderedMenuItem]:
     """Return the rendered side menu for including in a template.
 
     This function is creating BS5 style menus.
@@ -135,7 +142,7 @@ def render_menu(request: HttpRequest) -> list[RenderedMenuItem]:
     return list(rendered_items.values())
 
 
-def _gather_menu_items_from_hooks() -> dict[str, MenuItemHook]:
+def _gather_menu_items_from_hooks() -> "dict[str, MenuItemHook]":
     hook_items = {}
     for hook in get_hooks("menu_item_hook"):
         f = hook()
@@ -144,7 +151,7 @@ def _gather_menu_items_from_hooks() -> dict[str, MenuItemHook]:
 
 
 def _render_app_item(
-    request: HttpRequest, hook_items: dict, item: MenuItem, new_template: str
+    request: "HttpRequest", hook_items: dict, item: MenuItem, new_template: str
 ) -> RenderedMenuItem:
     # This is a module hook, so we need to render it as the developer intended
     # TODO add a new attribute for apps that want to override it in the new theme
@@ -157,7 +164,7 @@ def _render_app_item(
 
 
 def _render_link_item(
-    request: HttpRequest, item: MenuItem, new_template: str
+    request: "HttpRequest", item: MenuItem, new_template: str
 ) -> RenderedMenuItem:
     rendered_item = RenderedMenuItem(menu_item=item)
     rendered_item.update_html(request, template=new_template)
@@ -165,14 +172,14 @@ def _render_link_item(
 
 
 def _render_folder_items(
-    request: HttpRequest, rendered_items: dict[int, RenderedMenuItem], new_template: str
-):
+    request: "HttpRequest", rendered_items: dict[int, RenderedMenuItem], new_template: str
+) -> None:
     for item in rendered_items.values():
         if item.menu_item.is_folder:
             item.update_html(request=request, template=new_template)
 
 
-def _remove_empty_folders(rendered_items: dict[int, RenderedMenuItem]):
+def _remove_empty_folders(rendered_items: dict[int, RenderedMenuItem]) -> None:
     ids_to_remove = []
     for item_id, item in rendered_items.items():
         if item.is_folder and not item.children:

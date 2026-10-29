@@ -49,7 +49,8 @@ def test_no_workdir_means_no_confinement_flags():
     but still run without the researcher's hooks (see below)."""
     argv = _claude()
     assert "--add-dir" not in argv
-    assert json.loads(argv[argv.index("--settings") + 1]) == {"disableAllHooks": True}
+    assert json.loads(argv[argv.index("--settings") + 1]) == {"disableAllHooks": True,
+                                                             "autoMemoryEnabled": False}
 
 
 @pytest.mark.parametrize("workdir", [None, Path("/state/work")])
@@ -61,6 +62,16 @@ def test_every_claude_the_import_launches_runs_without_hooks(workdir):
     5 SessionStart hooks ran without it, none with it)."""
     argv = _claude(workdir=workdir)
     assert json.loads(argv[argv.index("--settings") + 1])["disableAllHooks"] is True
+
+
+@pytest.mark.parametrize("workdir", [None, Path("/state/work")])
+def test_every_claude_the_import_launches_saves_no_auto_memory(workdir):
+    """Claude Code's auto memory wrote a classifier session's notes into the
+    researcher's own `~/.claude/projects/<work dir>/memory/` (2026-10-28). Headless
+    flags do not turn it off; the setting and the variable each do, and both are set."""
+    argv = _claude(workdir=workdir)
+    assert json.loads(argv[argv.index("--settings") + 1])["autoMemoryEnabled"] is False
+    assert backfill._backfill_agent_env()["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
 
 
 def test_codex_runs_without_hooks_only_when_it_has_the_feature(monkeypatch):

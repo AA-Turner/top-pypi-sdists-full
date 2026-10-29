@@ -7,8 +7,9 @@ rule — the part that has to be right for all 279 tools:
 * the CURATED kind is the payload's own ``__kind``, exactly as everywhere else
   in the platform (discriminator-as-data);
 * the GENERATED contract (``tool_io_<name>_<digest>_output``, derived from the
-  row's hand-written ``output_schema``) is an ABI fingerprint for drift, and it
-  must NOT win the identity when the payload declared one;
+  row's hand-written ``output_schema``) is an ABI fingerprint for drift and is
+  NEVER the result's kind — it names no registered kind (content-ir rule 28);
+* a payload ``__kind`` that is not registered is not stamped either;
 * ``json`` is a format word and is never adopted as an identity — the same
   refusal the workflow scheduler makes when propagating a payload's kind;
 * a payload that declares nothing changes nothing.
@@ -145,23 +146,39 @@ class TestResultKindSelection:
         payload look declared — the exact lie the sweep exists to remove."""
         result = await _run(executor, {"__kind": "json", "bundle": "supabase"})
 
-        assert result.output_kind is not None
-        assert result.output_kind.startswith("tool_io_"), (
-            "a payload calling itself 'json' must fall through to the generated "
-            f"contract, not be adopted as a kind (got {result.output_kind!r})"
-        )
+        assert result.output_kind is None
+        assert result.output_kind_checked is False
 
-    async def test_undeclared_payload_leaves_the_contract_in_charge(
+    async def test_undeclared_payload_carries_no_kind(
         self, executor, kindful_tool, app_ctx_set
     ) -> None:
-        """The untouched path: 208 tools still return anonymous dicts, and
-        their behavior must be exactly what it was."""
+        """208 tools return anonymous dicts. Their generated contract is still
+        checked for drift, but its minted slug is never stamped as the result's
+        kind, and no kind check is claimed (content-ir rule 28)."""
         result = await _run(executor, {"bundle": "supabase"})
 
-        assert result.output_kind is not None
-        assert result.output_kind.startswith("tool_io_")
-        assert result.output_kind_checked is True
+        assert result.success is True
+        assert result.output_kind is None
+        assert result.output_kind_checked is False
         assert result.output_kind_errors == []
+        assert result.input_kind is None, "the generated input contract is not a kind"
+        assert result.input_kind_checked is False
+
+    async def test_an_unregistered_payload_kind_is_not_stamped(
+        self, executor, kindful_tool, app_ctx_set, monkeypatch
+    ) -> None:
+        import matrx_graph.kinds
+        from matrx_graph.kinds import KindCheck, KindDegradedReason
+
+        async def not_registered(_value: Any, _slug: str) -> KindCheck:
+            return KindCheck(checked=False, degraded_reason=KindDegradedReason.KIND_NOT_REGISTERED)
+
+        monkeypatch.setattr(matrx_graph.kinds, "check_against_kind", not_registered)
+        result = await _run(executor, {"__kind": "never_designed", "bundle": "supabase"})
+
+        assert result.success is True
+        assert result.output_kind is None
+        assert result.output_kind_checked is False
 
 
 class TestDeclarationEnforcement:

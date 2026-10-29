@@ -137,7 +137,9 @@ Corr2DObj_init (Corr2DObject *self, PyObject *args, PyObject *kwds)
   Py_DECREF (ref_arr);
   if (!self->handle)
     {
-      PyErr_SetString (PyExc_MemoryError, "dp_corr2d_create returned NULL");
+      PyErr_SetString (PyExc_ValueError,
+                       "Corr2D: invalid parameter (need dwell >= 1, and "
+                       "ny_out and nx_out each 0 or at least the ref extent)");
       return -1;
     }
   return 0;
@@ -573,16 +575,16 @@ static PyMethodDef Corr2DObj_methods[] = {
     "x : npt.NDArray[np.complex64]\n"
     "    Input.\n"
     "out : npt.NDArray[np.complex64] | None\n"
-    "    Output buffer for the correlation map (CF32, length ny*nx); written\n"
-    "    only on a dump call.\n"
+    "    Output buffer for the correlation map (CF32, length n_out:\n"
+    "    ny_out*nx_out, or ny with col_out); written only on a dump call.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "NDArray[np.complex64] | None\n"
-    "    ny*nx on a dump (or max_out if smaller), 0 otherwise If n_in is not\n"
-    "    the required length the call is REFUSED with nothing read, written\n"
-    "    or counted: SIZE_MAX in C, ValueError in Python (#1925). (None in\n"
-    "    Python). None when the C call writes no output.\n"
+    "    n_out on a dump (or max_out if smaller), 0 otherwise (None in\n"
+    "    Python). If n_in is not the required length the call is REFUSED\n"
+    "    with nothing read, written or counted: SIZE_MAX in C, ValueError in\n"
+    "    Python (#1925). None when the C call writes no output.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -606,13 +608,13 @@ static PyMethodDef Corr2DObj_methods[] = {
     "execute_max_out() -> int\n"
     "\n"
     "Maximum output samples per execute call (dp_corr2d_state_t::n_out --\n"
-    "ny*nx_out normally, or ny when a single dp_corr2d_state_t::col_out was\n"
-    "selected).\n"
+    "ny_out*nx_out normally, or ny when a single dp_corr2d_state_t::col_out\n"
+    "was selected).\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    n_out, fixed at create().\n" },
   { "state_bytes", (PyCFunction)Corr2DObj_state_bytes, METH_NOARGS,
     "Size in bytes of this object's serialized state.\n"
     "\n"
@@ -725,7 +727,14 @@ static PyTypeObject Corr2DObjType = {
     "dwell : int, default 1\n"
     "    Integration depth; must be >= 1.\n"
     "nthreads : int, default 1\n"
-    "    Accepted for API compatibility; ignored.\n"
+    "    Workers for the single-row-reference fast path's per-row stage: 1 "
+    "runs\n"
+    "    serially (no threads), N runs N workers (the caller included), <= 0\n"
+    "    uses every online core. The count is capped at ny, one row per "
+    "worker\n"
+    "    at most. The output is bit-identical whatever the count. The "
+    "general\n"
+    "    2-D path and the col_out path run serially and ignore it.\n"
     "ny_out : int, default 0\n"
     "    Inverse/output rows; 0 => native (ny). Must be >= ny. A larger "
     "output\n"
@@ -754,6 +763,14 @@ static PyTypeObject Corr2DObjType = {
     "    fractional lag, which no time-domain sum produces. create() returns\n"
     "    NULL if col_out >= 0 with a reference the fast path rejects, with\n"
     "    ny_out or nx_out decoupled, or with a lag outside 0 .. nx-1.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If construction fails. The exception message is ``Corr2D: invalid\n"
+    "    parameter (need dwell >= 1, and ny_out and nx_out each 0 or at "
+    "least\n"
+    "    the ref extent)``.\n"
     "\n"
     "Examples\n"
     "--------\n"

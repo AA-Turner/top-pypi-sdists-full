@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.client.identifiers import DataModelId, ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.agent import Agent, AgentRequest, AgentResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
+    AgentExternalIdScope,
     AgentsAcl,
     AllScope,
     ScopeDefinition,
@@ -55,7 +56,7 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
         }
     )
     _doc_base_url = ""
-    _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents#operation/main_ai_agents_post"
+    _doc_url = "https://api-docs.cognite.com/20230101-beta/tag/Agents/operation/main_ai_agents_post/"
 
     @classmethod
     def get_id(cls, item: AgentRequest | AgentResponse | ExternalId | dict) -> ExternalId:
@@ -297,11 +298,11 @@ class AgentIO(ResourceIO[ExternalId, AgentRequest, AgentResponse, AgentYAML]):
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[AgentRequest]) -> ScopeDefinition:
-        return AllScope()
+        return AgentExternalIdScope(external_ids=sorted({item.external_id for item in items}))
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope):
+        if isinstance(scope, AllScope | AgentExternalIdScope):
             yield AgentsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod

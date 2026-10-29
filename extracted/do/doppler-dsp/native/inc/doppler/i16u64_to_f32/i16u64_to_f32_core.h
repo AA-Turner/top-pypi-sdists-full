@@ -39,24 +39,26 @@ extern "C" {
 #endif
 
 /**
- * @brief I16U64ToF32 state.
+ * @brief I16U64ToF32 state: the precomputed reciprocal scale.
  *
  * Allocate with dp_i16u64_to_f32_create().
  */
 typedef struct {
-    float iscale; /* 1.0f / scale, pre-computed for single-multiply step */
+    float iscale; /**< 1.0f / scale, set at create(); the step is one
+                       multiply of the sign-extended low 16 bits.     */
 } dp_i16u64_to_f32_state_t;
 
 /**
- * @brief Create a i16u64_to_f32 instance.
+ * @brief Create an I16U64ToF32 converter (Q15-in-uint64 to float).
  *
  * Pre-computes @c iscale = 1.0f / @p scale so the hot step path is a
  * single multiply after the lower-16-bit extraction.
  *
  * @param scale  Denominator scale; 1/scale is applied after sign-extension
  *               (default: 32768.0f).  Use 32768.0 to match F32ToI16U64 at
- *               its default scale.
- * @return Heap-allocated state, or NULL on allocation failure.
+ *               its default scale.  Must be positive and finite.
+ * @return Heap-allocated state, or NULL when @p scale is not positive
+ *         and finite, or the allocation fails.
  * @note Caller must call dp_i16u64_to_f32_destroy() when done.
  */
 dp_i16u64_to_f32_state_t *dp_i16u64_to_f32_create(float scale);
@@ -120,8 +122,10 @@ dp_i16u64_to_f32_step(const dp_i16u64_to_f32_state_t *state, uint64_t x)
 /**
  * @brief Process a block of Q15-in-uint64 samples to float32.
  *
- * Applies step() to every element.  Accepts an optional pre-allocated output
- * array; allocates a fresh one when @p output is NULL.
+ * Applies step() to every element.
+ * In C, @p output must be a caller-owned array of at least @p n elements
+ * (NULL is not accepted).  From Python it is the optional `out=` array;
+ * the binding allocates a fresh one when omitted.
  *
  * @param state   Must be non-NULL.
  * @param input   Input uint64 array (Q15 packed in lower 16 bits);

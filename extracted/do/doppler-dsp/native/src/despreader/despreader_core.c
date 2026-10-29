@@ -1,4 +1,5 @@
 #include "doppler/despreader/despreader_core.h"
+#include "doppler/mpsk/mpsk_core.h" /* mpsk_bpsk_bit -- the ONE polarity */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,10 +50,12 @@ dp_despreader_create (const uint8_t *code, size_t code_len, size_t sps,
      arguments meet each one's own domain here (doppler#2103): the code
      loop's Dll (a NaN spacing read code[2^62] on the first sample), and the
      carrier loop's filter, which Costas runs at one update a symbol (a NaN
-     bn_carrier gave NaN gains). */
+     bn_carrier gave NaN gains), and its FLL assist, which Costas and
+     CarrierMpsk refuse through the same predicate (#2112, #2646). */
   if (!code
       || !dp_dll_params_ok (code_len, init_chip, bn_code, zeta, spacing, 1)
-      || !dp_loop_filter_params_ok (bn_carrier, zeta, 1.0))
+      || !dp_loop_filter_params_ok (bn_carrier, zeta, 1.0)
+      || !dp_loop_filter_fll_bn_ok (bn_fll))
     return NULL;
   dp_despreader_state_t *ch = calloc (1, sizeof (*ch));
   if (!ch)
@@ -257,7 +260,7 @@ bit_sync (dp_despreader_state_t *ch, float _Complex P, uint8_t *bit)
   double re = (double)crealf (P);
   if (N <= 1)
     {
-      *bit = (re >= 0.0) ? 1u : 0u;
+      *bit = mpsk_bpsk_bit (re);
       ch->epoch_count++;
       return 1;
     }
@@ -282,7 +285,7 @@ bit_sync (dp_despreader_state_t *ch, float _Complex P, uint8_t *bit)
       /* boundary: emit the just-completed bit if it spanned a full period */
       if (ch->epochs_in_bit == N)
         {
-          *bit    = (ch->bit_acc >= 0.0) ? 1u : 0u;
+          *bit    = mpsk_bpsk_bit (ch->bit_acc);
           emitted = 1;
         }
       ch->bit_acc       = 0.0;

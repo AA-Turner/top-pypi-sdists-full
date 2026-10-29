@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
+from matrx_orm import db_sqlstate
 from matrx_orm.session.dag import tier_ops
 from matrx_orm.session.fallback import (
     DIRECT_WRITE_PRESERVED_MARKER,
@@ -1082,7 +1083,7 @@ async def replay_pending(
                 color="green",
             )
         except Exception as exc:
-            if "UniqueViolation" in type(exc).__name__ or "23505" in str(exc):
+            if db_sqlstate(exc) == "23505":
                 try:
                     if all([
                         await _op_already_satisfied(op, verify_exact=True) for op in pending_ops

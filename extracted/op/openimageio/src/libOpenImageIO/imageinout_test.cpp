@@ -24,6 +24,7 @@ using namespace OIIO;
 
 
 static std::string onlyformat = Sysutil::getenv("IMAGEINOUTTEST_ONLY_FORMAT");
+static std::string skipformat = Sysutil::getenv("IMAGEINOUTTEST_SKIP_FORMAT");
 static bool nodelete          = false;  // Don't delete the test files
 static bool enable_fpe        = false;  // Throw exceptions on FP errors.
 
@@ -47,6 +48,8 @@ getargs(int argc, char* argv[])
       .help("Enable floating point exceptions.");
     ap.arg("--onlyformat %s:FORMAT", &onlyformat)
       .help("Test only one format");
+    ap.arg("--skipformat %s:FORMAT", &skipformat)
+      .help("Skip test of one format");
     ap.arg("--iterations %d", &iterations)
       .help(Strutil::format("Number of benchmark iterations per trial (default: {})", iterations));
     ap.arg("--trials %d", &ntrials).help("Number of benchmark trials");
@@ -383,6 +386,8 @@ test_all_formats()
 
         if (onlyformat.size() && formatname != onlyformat)
             continue;
+        if (formatname == skipformat)
+            continue;
 
         auto extensions = Strutil::splitsv(fmtexts[1], ",");
         bool ok         = true;
@@ -516,6 +521,105 @@ test_thumbnail_attribs()
 
 
 
+// JPEG XL encodes and writes the whole file in close(), so close() must
+// report a failed write or encode.
+void
+test_jxl_close_write_error()
+{
+    if (!is_imageio_format_name("jpegxl")
+        || (onlyformat.size() && onlyformat != "jpegxl"))
+        return;
+    print("Testing that jpegxl close() reports write and encode errors\n");
+    // An output proxy that can't write anything, like a full disk.
+    struct IOFailWrite final : public Filesystem::IOVecOutput {
+        size_t write(const void*, size_t) override { return 0; }
+    } proxy;
+    ImageBuf buf = make_test_image("jpegxl");
+    std::string errmsg;
+    bool ok = checked_write(nullptr, "fail.jxl", buf.spec(), buf.spec().format,
+                            buf.localpixels_as_byte_image_span(),
+                            /*do_asserts=*/false, &errmsg, &proxy);
+    print("    {}\n", errmsg);
+    OIIO_CHECK_ASSERT(!ok && errmsg.size());
+
+    // libjxl can't parse this ICC profile, which leaves the encoder with an
+    // invalid color encoding, so JxlEncoderProcessOutput fails.
+    ImageSpec spec                = buf.spec();
+    const unsigned char junk[128] = {};
+    spec.attribute("ICCProfile", TypeDesc(TypeDesc::UINT8, 128), junk);
+    Filesystem::IOVecOutput memproxy;
+    ok = checked_write(nullptr, "fail.jxl", spec, spec.format,
+                       buf.localpixels_as_byte_image_span(),
+                       /*do_asserts=*/false, &errmsg, &memproxy);
+    print("    {}\n", errmsg);
+    OIIO_CHECK_ASSERT(!ok
+                      && Strutil::contains(errmsg, "JxlEncoderProcessOutput"));
+
+    // close() must report, not encode, when fewer pixels were written than
+    // the spec declares: it hands libjxl the whole image either way, so an
+    // empty buffer aborts libjxl 0.10.1 and a partial one is read past its
+    // end. ~JxlOutput() calls close(), so abandoning the writer must also be
+    // survivable.
+    const ImageSpec& spec2 = buf.spec();
+    auto open_short        = [&](Filesystem::IOProxy* p) {
+        auto out = ImageOutput::create("short.jxl", p);
+        OIIO_CHECK_ASSERT(out && out->open("short.jxl", spec2));
+        return out;
+    };
+    Filesystem::IOVecOutput emptyproxy;
+    if (auto out = open_short(&emptyproxy)) {
+        OIIO_CHECK_ASSERT(!out->close());
+        errmsg = out->geterror();
+        print("    {}\n", errmsg);
+        OIIO_CHECK_ASSERT(errmsg.size());
+    }
+    Filesystem::IOVecOutput abandonproxy;
+    open_short(&abandonproxy);  // destroyed without close(): must not crash
+    Filesystem::IOVecOutput partialproxy;
+    if (auto out = open_short(&partialproxy)) {
+        int yhalf = spec2.height / 2;
+        auto half = image_span<const float>((const float*)buf.localpixels(),
+                                            spec2.nchannels, spec2.width,
+                                            yhalf);
+        OIIO_CHECK_ASSERT(out->write_scanlines(0, yhalf, spec2.format,
+                                               as_image_span_bytes(half)));
+        OIIO_CHECK_ASSERT(!out->close());
+        errmsg = out->geterror();
+        print("    {}\n", errmsg);
+        OIIO_CHECK_ASSERT(errmsg.size());
+    }
+
+    // The same goes for a reused ImageOutput: after one whole file, a next
+    // file left unwritten or half written must fail too, and must not come
+    // out holding the previous file's image.
+    if (auto out = ImageOutput::create("reuse.jxl")) {
+        for (int rows : { 0, spec2.height / 2 }) {
+            Filesystem::IOVecOutput wholeproxy, nextproxy;
+            out->set_ioproxy(&wholeproxy);
+            OIIO_CHECK_ASSERT(
+                checked_write(out.get(), "reuse.jxl", spec2, spec2.format,
+                              buf.localpixels_as_byte_image_span()));
+            out->set_ioproxy(&nextproxy);
+            OIIO_CHECK_ASSERT(out->open("reuse.jxl", spec2));
+            if (rows) {
+                auto part
+                    = image_span<const float>((const float*)buf.localpixels(),
+                                              spec2.nchannels, spec2.width,
+                                              rows);
+                OIIO_CHECK_ASSERT(
+                    out->write_scanlines(0, rows, spec2.format,
+                                         as_image_span_bytes(part)));
+            }
+            OIIO_CHECK_ASSERT(!out->close());
+            errmsg = out->geterror();
+            print("    {}\n", errmsg);
+            OIIO_CHECK_ASSERT(errmsg.size() && nextproxy.buffer().empty());
+        }
+    }
+}
+
+
+
 // This tests a particular troublesome case where we got the logic wrong.
 // Read 1-channel float exr into 4-channel uint8 buffer with 4-byte xstride.
 // The correct behavior is to translate the one channel from float to uint8
@@ -614,6 +718,129 @@ test_read_tricky_sizes()
 
     // Clean up
     Filesystem::remove(srcfilename);
+}
+
+
+
+// In-memory 2-channel uint8 reader whose data window ends exactly at
+// INT_MAX, to exercise the generic read_scanlines/read_tiles loops near the
+// int limit. Requests outside the data window are counted as bad.
+class LimitInput final : public ImageInput {
+public:
+    LimitInput(bool tiled) : m_tiled(tiled) {}
+    const char* format_name() const override { return "limit"; }
+    int supports(string_view feature) const override
+    {
+        return feature == "origin";
+    }
+    bool open(const std::string& /*name*/, ImageSpec& newspec) override
+    {
+        m_spec = ImageSpec(3, 3, 2, TypeUInt8);
+        if (m_tiled)
+            m_spec.tile_width = m_spec.tile_height = 2;
+        m_spec.x = std::numeric_limits<int>::max() - m_spec.width;
+        m_spec.y = std::numeric_limits<int>::max() - m_spec.height;
+        newspec  = m_spec;
+        return check_open(m_spec);
+    }
+    bool close() override { return true; }
+    bool read_native_scanline(int /*subimage*/, int /*miplevel*/, int y,
+                              int /*z*/, void* data) override
+    {
+        if (y < m_spec.y || y - m_spec.y >= m_spec.height) {
+            ++nbad;
+            return false;
+        }
+        auto p = (unsigned char*)data;
+        for (int x = 0; x < m_spec.width; ++x)
+            for (int c = 0; c < 2; ++c)
+                *p++ = value(x, y - m_spec.y, c);
+        return true;
+    }
+    bool read_native_tile(int /*subimage*/, int /*miplevel*/, int x, int y,
+                          int /*z*/, void* data) override
+    {
+        if (x < m_spec.x || x - m_spec.x >= m_spec.width || y < m_spec.y
+            || y - m_spec.y >= m_spec.height) {
+            ++nbad;
+            return false;
+        }
+        auto p = (unsigned char*)data;
+        for (int j = 0; j < m_spec.tile_height; ++j)
+            for (int i = 0; i < m_spec.tile_width; ++i)
+                for (int c = 0; c < 2; ++c)
+                    *p++ = value(x - m_spec.x + i, y - m_spec.y + j, c);
+        return true;
+    }
+    static unsigned char value(int xo, int yo, int c)
+    {
+        return (unsigned char)(1 + xo + 4 * yo + 16 * c);
+    }
+    int nbad = 0;
+
+private:
+    bool m_tiled;
+};
+
+
+
+void
+test_read_near_int_limit()
+{
+    print("Testing reads of a data window ending at INT_MAX\n");
+    for (bool tiled : { false, true }) {
+        LimitInput in(tiled);
+        ImageSpec spec;
+        OIIO_ASSERT(in.open("limit", spec));
+        const int w = spec.width, h = spec.height;
+        // Native, converted, and channel subset reads
+        std::vector<unsigned char> u8(w * h * 2), sub(w * h);
+        std::vector<float> f(w * h * 2);
+        OIIO_CHECK_ASSERT(in.read_image(0, 0, 0, 2, TypeUInt8, u8.data()));
+        OIIO_CHECK_ASSERT(in.read_image(0, 0, 0, 2, TypeFloat, f.data()));
+        OIIO_CHECK_ASSERT(in.read_image(0, 0, 1, 2, TypeUInt8, sub.data()));
+        // A scanline range starting before the data window must fail
+        // cleanly rather than overflow computing its length.
+        // Same for the image_span overloads, and for tile ranges.
+        const int imin = std::numeric_limits<int>::min();
+        image_span<std::byte> fspan(reinterpret_cast<std::byte*>(f.data()), 2,
+                                    w, h, 1, sizeof(float));
+        OIIO_CHECK_ASSERT(!in.read_scanlines(0, 0, imin, spec.y + h, 0, 0, 2,
+                                             TypeFloat, f.data()));
+        OIIO_CHECK_ASSERT(
+            !in.read_scanlines(0, 0, imin, spec.y + h, 0, 2, TypeFloat, fspan));
+        OIIO_CHECK_ASSERT(!in.read_tiles(0, 0, imin, spec.x + w, spec.y,
+                                         spec.y + h, 0, 1, 0, 2, TypeFloat,
+                                         fspan));
+        OIIO_CHECK_ASSERT(!in.read_tiles(0, 0, imin, spec.x + w, spec.y,
+                                         spec.y + h, 0, 1, 0, 2, TypeFloat,
+                                         f.data()));
+        (void)in.geterror();
+        if (tiled) {
+            // Base class read_native_tiles with a partial edge tile
+            std::vector<unsigned char> nt(w * h * 2, 0), ntsub(w * h, 0);
+            OIIO_CHECK_ASSERT(in.read_native_tiles(0, 0, spec.x, spec.x + w,
+                                                   spec.y, spec.y + h, 0, 1,
+                                                   nt.data()));
+            OIIO_CHECK_ASSERT(in.read_native_tiles(0, 0, spec.x, spec.x + w,
+                                                   spec.y, spec.y + h, 0, 1, 1,
+                                                   2, ntsub.data()));
+            OIIO_CHECK_ASSERT(nt == u8);
+            OIIO_CHECK_ASSERT(ntsub == sub);
+        }
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x)
+                for (int c = 0; c < 2; ++c) {
+                    int i = (y * w + x) * 2 + c;
+                    OIIO_CHECK_EQUAL(u8[i], LimitInput::value(x, y, c));
+                    OIIO_CHECK_EQUAL_THRESH(f[i],
+                                            LimitInput::value(x, y, c) / 255.0f,
+                                            1.0e-6f);
+                }
+        for (int i = 0; i < w * h; ++i)
+            OIIO_CHECK_EQUAL(sub[i], u8[i * 2 + 1]);
+        OIIO_CHECK_EQUAL(in.nbad, 0);
+    }
 }
 
 
@@ -772,6 +999,65 @@ test_span_nonzero_origin()
 
 
 
+// Reads of a TIFF with unassociated alpha must premultiply each value
+// exactly once: for channel subsets that include alpha, and for tiled
+// images whose size is not a multiple of the tile size.
+static void
+test_tiff_unassoc_reads()
+{
+    std::cout << "Testing TIFF unassociated alpha reads\n";
+    const int W = 16, NC = 4;
+    const float pixel[NC] = { 0.5f, 0.25f, 0.75f, 0.5f };
+    for (bool tiled : { false, true }) {
+        for (int H : { 16, 4 }) {
+            std::string filename = Strutil::format("unassoc_{}_{}.tif",
+                                                   tiled ? "tiled" : "scan", H);
+            ImageSpec spec(W, H, NC, TypeFloat);
+            spec.attribute("oiio:UnassociatedAlpha", 1);
+            if (tiled) {
+                spec.tile_width  = 16;
+                spec.tile_height = 16;
+            }
+            std::vector<float> pixels(size_t(W) * H * NC);
+            for (size_t i = 0; i < pixels.size(); ++i)
+                pixels[i] = pixel[i % NC];
+            {
+                auto out = ImageOutput::create(filename);
+                OIIO_CHECK_ASSERT(out && out->open(filename, spec));
+                OIIO_CHECK_ASSERT(out->write_image(TypeFloat, pixels.data()));
+                OIIO_CHECK_ASSERT(out->close());
+            }
+            auto in = ImageInput::open(filename);
+            OIIO_CHECK_ASSERT(in);
+            if (!in)
+                continue;
+            // Read all channels, and just B and A
+            for (int chbegin : { 0, 2 }) {
+                int nch = NC - chbegin;
+                std::vector<float> buf(size_t(W) * H * nch, -1.0f);
+                bool ok = tiled
+                              ? in->read_tiles(0, 0, 0, W, 0, H, 0, 1, chbegin,
+                                               NC, TypeFloat, buf.data())
+                              : in->read_scanlines(0, 0, 0, H, 0, chbegin, NC,
+                                                   TypeFloat, buf.data());
+                OIIO_CHECK_ASSERT(ok);
+                bool match = true;
+                for (size_t i = 0; i < buf.size(); ++i) {
+                    int c = chbegin + int(i % nch);
+                    match &= buf[i]
+                             == (c == 3 ? pixel[3] : pixel[c] * pixel[3]);
+                }
+                OIIO_CHECK_ASSERT(match);
+            }
+            in->close();
+            if (!nodelete)
+                Filesystem::remove(filename);
+        }
+    }
+}
+
+
+
 int
 main(int argc, char* argv[])
 {
@@ -803,8 +1089,11 @@ main(int argc, char* argv[])
 
     test_all_formats();
     test_thumbnail_attribs();
+    test_jxl_close_write_error();
     test_read_tricky_sizes();
     test_span_nonzero_origin();
+    test_tiff_unassoc_reads();
+    test_read_near_int_limit();
     benchmark_tile_sizes("exr", TypeHalf, 4);
     benchmark_tile_sizes("tif", TypeUInt16, 16);
 

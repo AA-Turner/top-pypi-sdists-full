@@ -1,11 +1,11 @@
+__lazy_modules__ = ["allianceauth.eveonline.models", "django.db.models", "esi.stubs", "httpx2"]
+
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, cast
 
-from httpx2 import Response
-
 from django.apps import apps
 from django.db import transaction
-from django.db.models import Manager, QuerySet
+from django.db.models import Manager
 from django.db.utils import IntegrityError
 
 from esi.exceptions import HTTPNotModified
@@ -13,14 +13,22 @@ from esi.exceptions import HTTPNotModified
 from allianceauth.eveonline.providers import open_api_provider
 
 if TYPE_CHECKING:
+    from httpx2 import Response
+
+    from django.db.models import QuerySet
+
     from esi.stubs import (
-        AllianceDetail, AllianceID, CharacterID, CharactersDetail,
-        CorporationID, CorporationsDetail, FactionID, UniverseFactionsGetItem,
+        AllianceDetail,
+        AllianceID,
+        CharacterID,
+        CharactersDetail,
+        CorporationID,
+        CorporationsDetail,
+        FactionID,
+        UniverseFactionsGetItem,
     )
 
-    from allianceauth.eveonline.models import (
-        EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
-    )
+    from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo
 
 
 def _eve_alliance_model() -> "type[EveAllianceInfo]":
@@ -40,7 +48,7 @@ _DOOMHEIM_CORPORATION_ID = 1000001
 
 class EveCharacterManager(Manager["EveCharacter"]):
 
-    def exclude_biomassed(self) -> QuerySet["EveCharacter"]:
+    def exclude_biomassed(self) -> "QuerySet[EveCharacter]":
         """
         Get a queryset of EveCharacter objects, excluding the "Doomheim" corporation (1000001).
 
@@ -50,14 +58,14 @@ class EveCharacterManager(Manager["EveCharacter"]):
 
         return self.exclude(corporation_id=_DOOMHEIM_CORPORATION_ID)
 
-    def create_character(self, character_id) -> "EveCharacter":
+    def create_character(self, character_id: int) -> "EveCharacter":
         character, character_response = open_api_provider.get_character(character_id=character_id, use_etag=False)  # ETAG False, We need response data to create a character object.
         affiliation, affiliation_response = open_api_provider.get_affiliations(character_ids=[character_id], use_etag=False)  # ETAG False, We need response data to create a character object.
         affiliation = affiliation[0]
 
         return self.create_character_obj(character_id, character, affiliation, character_response, affiliation_response)  # ETAG False, We need response data to create a character object.
 
-    def create_character_obj(self, character_id: "CharacterID", character: "CharactersDetail", affiliation: dict, character_response: Response, affilation_response: Response) -> "EveCharacter":
+    def create_character_obj(self, character_id: "CharacterID", character: "CharactersDetail", affiliation: dict, character_response: "Response", affilation_response: "Response") -> "EveCharacter":
         corporation_model = _eve_corporation_model()
         alliance_model = _eve_alliance_model()
         faction_model = _eve_faction_model()
@@ -107,10 +115,10 @@ class EveCharacterManager(Manager["EveCharacter"]):
             except IntegrityError:
                 return self.get(character_id=character_id)
 
-    def update_character(self, character_id) -> "EveCharacter":
+    def update_character(self, character_id: int) -> "EveCharacter":
         return self.get(character_id=character_id).update_character()
 
-    def update_character_other(self, character_id, force_refresh: bool = False) -> "EveCharacter":
+    def update_character_other(self, character_id: int, force_refresh: bool = False) -> "EveCharacter":
         return self.get(character_id=character_id).update_character_other(force_refresh=force_refresh)
 
     def get_character_by_id(self, character_id: "CharacterID") -> "EveCharacter | None":
@@ -128,7 +136,7 @@ class EveAllianceManager(Manager["EveAllianceInfo"]):
         return self.create_alliance_obj(alliance_id, alliance, response)
         # do not populate corporations here, let a scheduled task handle that.
 
-    def create_alliance_obj(self, alliance_id: "AllianceID", alliance: "AllianceDetail", response: Response) -> "EveAllianceInfo":
+    def create_alliance_obj(self, alliance_id: "AllianceID", alliance: "AllianceDetail", response: "Response") -> "EveAllianceInfo":
         faction_model = _eve_faction_model()
 
         if alliance.faction_id:
@@ -158,12 +166,12 @@ class EveAllianceManager(Manager["EveAllianceInfo"]):
             except IntegrityError:
                 return self.get(alliance_id=alliance_id)
 
-    def update_alliance(self, alliance_id) -> "EveAllianceInfo":
+    def update_alliance(self, alliance_id: int) -> "EveAllianceInfo":
         return self.get(alliance_id=alliance_id).update_alliance()
 
 
 class EveCorporationManager(Manager["EveCorporationInfo"]):
-    def exclude_closed(self) -> QuerySet["EveCorporationInfo"]:
+    def exclude_closed(self) -> "QuerySet[EveCorporationInfo]":
         """
         Get a queryset of EveCorporationInfo objects, excluding those with a CEO ID of 1.
 
@@ -177,7 +185,7 @@ class EveCorporationManager(Manager["EveCorporationInfo"]):
         corporation, response = open_api_provider.get_corporation(corporation_id=corporation_id, use_etag=False)  # ETAG False, We need response data to create a corporation object.
         return self.create_corporation_obj(corporation_id=corporation_id, corporation=corporation, response=response,)
 
-    def create_corporation_obj(self, corporation_id: "CorporationID", corporation: "CorporationsDetail", response: Response,) -> "EveCorporationInfo":
+    def create_corporation_obj(self, corporation_id: "CorporationID", corporation: "CorporationsDetail", response: "Response",) -> "EveCorporationInfo":
         alliance_model = _eve_alliance_model()
         faction_model = _eve_faction_model()
 
@@ -230,7 +238,7 @@ class EveFactionManager(Manager["EveFactionInfo"]):
         faction, response = open_api_provider.get_faction(faction_id=faction_id, use_etag=False)  # ETAG False, We need response data to create a faction object.
         return self.create_faction_obj(faction=faction, response=response)
 
-    def create_faction_obj(self, faction: "UniverseFactionsGetItem", response: Response) -> "EveFactionInfo":
+    def create_faction_obj(self, faction: "UniverseFactionsGetItem", response: "Response") -> "EveFactionInfo":
 
         return self.create(
             faction_id=faction.faction_id,

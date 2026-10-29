@@ -11,12 +11,16 @@ from _pytest.doctest import (
     _is_main_py,
     _is_setup_py,
 )
-from _pytest.python import CallSpec2
 from _pytest.scope import Scope
 from pytest import Collector
 
 from . import run_in_pyodide
 from .hook import ORIGINAL_MODULE_ASTS, pytest_wrapper
+
+try:
+    from _pytest.python import CallSpec
+except ImportError:  # pytest < 9.2
+    from _pytest.python import CallSpec2 as CallSpec
 
 __all__ = ["patch_doctest_runner", "collect_doctests"]
 
@@ -55,7 +59,7 @@ def runtime_parametrize(item):
         # value. Normally this would be done by metafunc.parametrize but it is
         # hard to get access to that from here.
         newitem.fixturenames = list(getattr(item, "fixturenames", [])) + ["runtime"]
-        newitem.callspec = CallSpec2(
+        newitem.callspec = CallSpec(
             params={"runtime": name},
             indices={"runtime": idx},
             _idlist=[name],
@@ -69,7 +73,7 @@ class PyodideDoctestMixin:
         """Call super and then if test includes the RUN_IN_PYODIDE option on the
         first line, make one copy for each Pyodide runtime environment
         """
-        for item in super().collect():  # type:ignore[misc]
+        for item in super().collect():  # type: ignore[misc]
             pyodide_test = RUN_IN_PYODIDE in item.dtest.examples[0].options
             item.dtest.pyodide_test = pyodide_test
             if not pyodide_test:
@@ -140,7 +144,7 @@ def run_doctest_in_pyodide_outer(
     # So we just take the DocTestRunner apart and put it back together inside
     # Pyodide.
     optionflags = self.optionflags
-    continue_on_failure = self.continue_on_failure  # type:ignore[attr-defined]
+    continue_on_failure = self.continue_on_failure  # type: ignore[attr-defined]
 
     return run_doctest_in_pyodide_inner(
         selenium, optionflags, continue_on_failure, test, compileflags, out, clear_globs

@@ -1,6 +1,6 @@
 [project]
 name = "e2b-code-interpreter"
-version = "2.11.5"
+version = "2.11.6"
 description = "E2B Code Interpreter - Stateful code execution"
 license = "MIT"
 readme = "README.md"

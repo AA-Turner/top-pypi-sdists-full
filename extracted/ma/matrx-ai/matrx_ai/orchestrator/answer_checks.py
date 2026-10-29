@@ -27,7 +27,16 @@ ANSWER_CHECK_UNMET_CODE = "answer_check_unmet"
 #: Problems quoted into one notice (each is one sentence naming the text).
 MAX_PROBLEMS_IN_NOTICE = 20
 #: The longest answer text parsed (a structured answer, not a document).
-ANSWER_TEXT_LIMIT = 400_000
+ANSWER_TEXT_KEY = "answer_text_max_chars"
+#: KNOB MIRROR of platform.feature_knob "agents.answer_checks" "answer_text_max_chars"
+ANSWER_TEXT_MIRROR = 400_000
+
+
+def answer_text_max_chars() -> int:
+    """The longest answer parsed as structured, live (``agents.answer_checks.answer_text_max_chars``)."""
+    from matrx_ai.knobs import package_knob_number
+
+    return package_knob_number("agents.answer_checks", ANSWER_TEXT_KEY, ANSWER_TEXT_MIRROR, low=1_000, high=5_000_000)
 
 
 @dataclass
@@ -57,7 +66,7 @@ class AnswerCheckReport:
 def structured_answer(text: str) -> dict[str, Any] | None:
     """The turn's answer as a kind instance (a JSON object with ``__kind``), or None. Never raises."""
     t = (text or "").strip()
-    if not t.startswith("{") or len(t) > ANSWER_TEXT_LIMIT:
+    if not t.startswith("{") or len(t) > answer_text_max_chars():
         return None
     try:
         obj = json.loads(t)

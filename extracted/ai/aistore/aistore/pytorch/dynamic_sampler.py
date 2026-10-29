@@ -6,7 +6,7 @@ can be used to generate mini-batches that fit within a memory constraint
 so that there is a guarantee that each batch fits within memory
 while attempting to fit the maximum number of samples in each batch.
 
-Copyright (c) 2024-2025, NVIDIA CORPORATION. All rights reserved.
+Copyright (c) 2024-2026, NVIDIA CORPORATION. All rights reserved.
 """
 
 from logging import getLogger
@@ -24,6 +24,10 @@ class DynamicBatchSampler(torch.utils.data.Sampler):
     """
 
     Dynamically adds samples to mini-batch up to a maximum batch size.
+
+    This sampler does not implement ``__len__``; calling ``len(sampler)``
+    or ``len(DataLoader(..., batch_sampler=sampler))`` raises ``TypeError``.
+    Use ``num_samples()`` to get the total number of samples in the source list.
 
     NOTE: Using this sampler with AISBaseMapDatasets that use ObjectGroups
     in their ais_source_lists will be slower than using it with Buckets as
@@ -70,7 +74,7 @@ class DynamicBatchSampler(torch.utils.data.Sampler):
         batch = []
 
         if self._shuffle:
-            self._indices = torch.randperm(len(self)).tolist()
+            self._indices = torch.randperm(len(self._samples_list)).tolist()
 
         # Get sample size for each index, check if there is space in the batch, and yield batches whenever full
         # Calculate spaces in batch non-preemptively
@@ -106,7 +110,6 @@ class DynamicBatchSampler(torch.utils.data.Sampler):
                 index = self._get_next_index(index)
                 total_mem += sample_size
             else:
-
                 if total_mem + sample_size == self._max_batch_size:
                     batch.append(index)
                     index = self._get_next_index(index)
@@ -123,9 +126,10 @@ class DynamicBatchSampler(torch.utils.data.Sampler):
         ):
             yield batch
 
-    def __len__(self) -> int:
+    def num_samples(self) -> int:
         """
-        Returns the total number of samples.
+        Returns the total number of samples in the source list, including samples
+        that may be skipped or dropped during batching.
         """
         return len(self._samples_list)
 

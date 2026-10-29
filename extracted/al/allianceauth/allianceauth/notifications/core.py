@@ -1,7 +1,7 @@
 class NotifyApiWrapper:
     """Wrapper to create notify API."""
 
-    def __call__(self, *args, **kwargs):  # provide old API for backwards compatibility
+    def __call__(self, *args, **kwargs) -> None:  # provide old API for backwards compatibility
         return self._add_notification(*args, **kwargs)
 
     def danger(self, user: object, title: str, message: str = None) -> None:

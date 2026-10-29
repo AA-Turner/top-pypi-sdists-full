@@ -191,6 +191,7 @@ class _InMemoryHookTables:
             "cache_creation_input_tokens",
             "cache_read_input_tokens",
             "assistant_message_count",
+            "producer_seq",
         )
         assert len(params) == len(columns)
         row = dict(zip(columns, params, strict=True))
@@ -665,6 +666,27 @@ def test_the_producers_item_identity_stamp_is_accepted_and_stored_as_the_same_ro
     assert list(tables.events) == [str(plain.event_id)]
 
 
+@pytest.mark.parametrize("actor", ["claude", "codex", "unknown"])
+def test_every_producer_actor_is_accepted_and_stored_as_the_same_row(
+    actor: str,
+) -> None:
+    event = _pre_tool_use()
+    event["actor"] = actor
+    wire = ModelClaudeHookEventWire.model_validate(event)
+
+    assert wire.actor == actor
+    tables = _InMemoryHookTables()
+    _deliver(_writer(tables), event)
+    assert list(tables.events) == [str(wire.event_id)]
+
+
+def test_an_actor_outside_the_producer_set_is_refused() -> None:
+    event = _pre_tool_use()
+    event["actor"] = "gemini"
+    with pytest.raises(ValidationError, match="actor"):
+        ModelClaudeHookEventWire.model_validate(event)
+
+
 @pytest.mark.parametrize(
     ("stream", "producer_seq"),
     [("content", 1), ("lineage", 0), ("lineage", "7"), ("lineage", True)],
@@ -1001,3 +1023,87 @@ def test_an_exit_code_that_is_not_an_integer_is_refused() -> None:
 def test_an_empty_host_is_refused() -> None:
     with pytest.raises(ValidationError, match="host"):
         ModelClaudeHookEventWire.model_validate(_bash_post_tool_use(host=""))
+
+
+# --------------------------------------------------------------------------
+# Consume concurrency: events complete out of partition order (OMN-19513)
+# --------------------------------------------------------------------------
+
+_HOOK_CONTRACT = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "omnimarket"
+    / "nodes"
+    / "node_projection_claude_hook_events"
+    / "contract.yaml"
+)
+
+
+def test_the_writer_declares_four_records_in_flight() -> None:
+    """Serial consumption fell 48k events behind producers on the dev lane."""
+    import yaml
+
+    contract = yaml.safe_load(_HOOK_CONTRACT.read_text("utf-8"))
+    assert contract["consume_concurrency"] == {"max_in_flight_records": 4}
+
+
+@pytest.mark.parametrize("name", SCENARIOS)
+def test_a_scenario_delivered_in_reverse_folds_to_the_same_rows(name: str) -> None:
+    """The writer may see events in any order once four are in flight."""
+    events = _scenario_events(name)
+
+    in_order = _InMemoryHookTables()
+    writer = _writer(in_order)
+    for event in events:
+        _deliver(writer, event)
+
+    reversed_order = _InMemoryHookTables()
+    writer = _writer(reversed_order)
+    for event in reversed(events):
+        _deliver(writer, event)
+
+    assert (
+        reversed_order.event_rows_as_contract_json()
+        == in_order.event_rows_as_contract_json()
+    )
+    assert (
+        reversed_order.span_rows_as_contract_json()
+        == in_order.span_rows_as_contract_json()
+    )
+
+
+def test_each_runtime_message_gets_its_own_single_connection_adapter() -> None:
+    """Four messages in flight must never share the writer's pool."""
+    from omnimarket.adapters.asyncpg_adapter import AsyncpgAdapter
+
+    writer = ClaudeHookEventsProjectionWriter()
+    bound = AsyncpgAdapter(dsn="postgresql://hook_writer@db.invalid/omnidash")
+    writer._db = bound
+
+    first = writer._message_db()
+    second = writer._message_db()
+
+    assert isinstance(first, AsyncpgAdapter)
+    assert first is not bound
+    assert first is not second
+    assert first.dsn == bound.dsn == second.dsn
+    assert (first._min_size, first._max_size) == (1, 1)
+    assert not bound.is_connected
+
+
+def test_compaction_pack_build_barrier_retains_applied_lineage_sequence() -> None:
+    event = _pre_tool_use()
+    event["stream"] = "lineage"
+    event["producer_seq"] = 69
+    tables = _InMemoryHookTables()
+    _deliver(_writer(tables), event)
+    row = tables.events[str(event["event_id"])]
+    assert row["producer_seq"] == 69
+    assert row["session_id"] == event["lineage"]["session_id"]
+
+
+def test_compaction_pack_build_barrier_accepts_unstamped_lineage_event() -> None:
+    event = _pre_tool_use()
+    tables = _InMemoryHookTables()
+    _deliver(_writer(tables), event)
+    assert tables.events[str(event["event_id"])]["producer_seq"] is None

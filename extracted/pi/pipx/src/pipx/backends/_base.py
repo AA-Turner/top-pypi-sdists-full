@@ -44,7 +44,7 @@ class Backend(ABC):
         requirements: list[str],
         pip_args: list[str],
         no_deps: bool = False,
-        upgrade: bool = False,
+        upgrade_package: str | None = None,
         log_pip_errors: bool = True,
         verbose: bool = False,
     ) -> CompletedProcess[str]: ...
@@ -109,6 +109,7 @@ class Backend(ABC):
         capture_stdout: bool = True,
         capture_stderr: bool = True,
         verbose: bool = False,
+        in_working_dir: bool = False,
     ) -> CompletedProcess[str]: ...
 
     @abstractmethod

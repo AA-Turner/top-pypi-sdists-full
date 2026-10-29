@@ -1,5 +1,7 @@
 """Test types behavior and validation."""
 
+import json
+
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
@@ -42,4 +44,32 @@ def test_non_polymer_residue_mapping_rejects_missing_parameterization(
 ) -> None:
     """Unknown residues and indexed residues require non-empty SMILES."""
     with pytest.raises(ValidationError, match="non-polymer residue entry"):
+        TypeAdapter(NonPolymerResidueMapping).validate_python(mapping)
+
+
+@pytest.mark.parametrize("mapping", [{0: "CCO", 100: "OCCO", "EDO": "OCCO", "ZN": None}, {}])
+def test_non_polymer_residue_mapping_json_round_trip(mapping: dict[str | int, str | None]) -> None:
+    """Preserve residue indices through SDK and HTTP JSON serialization."""
+    adapter = TypeAdapter(NonPolymerResidueMapping)
+    assert adapter.validate_json(adapter.dump_json(mapping)) == mapping
+    assert adapter.validate_python(json.loads(json.dumps(mapping))) == mapping
+
+
+def test_non_polymer_residue_mapping_frontend_keys() -> None:
+    """Normalize frontend decimal keys while preserving alphanumeric residue names."""
+    mapping = {"000": "CCO", "100": "OCCO", "1PE": "CCO", "EDO": "OCCO", "ZN": None}
+    assert TypeAdapter(NonPolymerResidueMapping).validate_python(mapping) == {
+        0: "CCO",
+        100: "OCCO",
+        "1PE": "CCO",
+        "EDO": "OCCO",
+        "ZN": None,
+    }
+    assert "000" in mapping
+
+
+@pytest.mark.parametrize("mapping", [{-1: "CCO"}, {"-1": "CCO"}, {"100": None}, {100: "CCO", "100": "CO"}, {"0": "CCO", "00": "CO"}])
+def test_non_polymer_residue_mapping_rejects_invalid_indices(mapping: dict[str | int, str | None]) -> None:
+    """Reject negative indices, missing SMILES, and ambiguous duplicate selectors."""
+    with pytest.raises(ValidationError):
         TypeAdapter(NonPolymerResidueMapping).validate_python(mapping)

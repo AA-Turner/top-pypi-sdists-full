@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @receiver(m2m_changed, sender=User.groups.through)
-def m2m_changed_user_groups(sender, instance, action, *args, **kwargs):
+def m2m_changed_user_groups(sender: type, instance: User, action: str, *args, **kwargs) -> None:
     logger.debug(
         "%s: Received m2m_changed from groups with action %s", instance, action
     )
@@ -45,7 +45,7 @@ def m2m_changed_user_groups(sender, instance, action, *args, **kwargs):
 
 
 @receiver(m2m_changed, sender=User.user_permissions.through)
-def m2m_changed_user_permissions(sender, instance, action, *args, **kwargs):
+def m2m_changed_user_permissions(sender: type, instance: User, action: str, *args, **kwargs) -> None:
     logger.debug(f"Received m2m_changed from user {instance} permissions with action {action}")
     logger.debug(f'sender: {sender}')
     if instance.pk and (action == "post_remove" or action == "post_clear"):
@@ -53,7 +53,7 @@ def m2m_changed_user_permissions(sender, instance, action, *args, **kwargs):
         # Checking permissions for a single user is quite fast, so we don't need to validate
         # That the permissions is a service permission, unlike groups.
 
-        def validate_all_services():
+        def validate_all_services() -> None:
             logger.debug(f"Validating all services for user {instance}")
             for svc in ServicesHook.get_services():
                 try:
@@ -66,7 +66,9 @@ def m2m_changed_user_permissions(sender, instance, action, *args, **kwargs):
 
 
 @receiver(m2m_changed, sender=Group.permissions.through)
-def m2m_changed_group_permissions(sender, instance, action, pk_set, *args, **kwargs):
+def m2m_changed_group_permissions(
+    sender: type, instance: Group, action: str, pk_set: set[int] | None, *args, **kwargs
+) -> None:
     logger.debug(f"Received m2m_changed from group {instance} permissions with action {action}")
     if instance.pk and (action == "post_remove" or action == "post_clear"):
         logger.debug(f"Checking if service permission changed for group {instance}")
@@ -85,7 +87,7 @@ def m2m_changed_group_permissions(sender, instance, action, pk_set, *args, **kwa
                 if svc.access_perm == path_perm:
                     logger.debug(f"Permissions changed for group {instance} on service {svc}, re-validating services for group users")
 
-                    def validate_all_groups_users_for_service(service):
+                    def validate_all_groups_users_for_service(service: ServicesHook) -> None:
                         logger.debug(f"Performing validation for service {service}")
                         for user in instance.user_set.all():
                             service.validate_user(user)
@@ -99,7 +101,9 @@ def m2m_changed_group_permissions(sender, instance, action, pk_set, *args, **kwa
 
 
 @receiver(m2m_changed, sender=State.permissions.through)
-def m2m_changed_state_permissions(sender, instance, action, pk_set, *args, **kwargs):
+def m2m_changed_state_permissions(
+    sender: type, instance: State, action: str, pk_set: set[int] | None, *args, **kwargs
+) -> None:
     logger.debug(f"Received m2m_changed from state {instance} permissions with action {action}")
     if instance.pk and (action == "post_remove" or action == "post_clear"):
         logger.debug(f"Checking if service permission changed for state {instance}")
@@ -118,7 +122,7 @@ def m2m_changed_state_permissions(sender, instance, action, pk_set, *args, **kwa
                 if svc.access_perm == path_perm:
                     logger.debug(f"Permissions changed for state {instance} on service {svc}, re-validating services for state users")
 
-                    def validate_all_state_users_for_service(service):
+                    def validate_all_state_users_for_service(service: ServicesHook) -> None:
                         logger.debug(f"Performing validation for service {service}")
                         for profile in instance.userprofile_set.all():
                             service.validate_user(profile.user)
@@ -131,7 +135,7 @@ def m2m_changed_state_permissions(sender, instance, action, pk_set, *args, **kwa
 
 
 @receiver(state_changed)
-def check_service_accounts_state_changed(sender, user, state, **kwargs):
+def check_service_accounts_state_changed(sender, user: User, state: State, **kwargs) -> None:
     logger.debug(f"Received state_changed from {user} to state {state}")
     for svc in ServicesHook.get_services():
         # One broken service hook must not abort the state change (and the
@@ -149,13 +153,13 @@ def check_service_accounts_state_changed(sender, user, state, **kwargs):
 
 
 @receiver(pre_delete, sender=User)
-def pre_delete_user(sender, instance, *args, **kwargs):
+def pre_delete_user(sender: type[User], instance: User, *args, **kwargs) -> None:
     logger.debug(f"Received pre_delete from {instance}")
     disable_user(instance)
 
 
 @receiver(pre_save, sender=User)
-def disable_services_on_inactive(sender, instance, *args, **kwargs):
+def disable_services_on_inactive(sender: type[User], instance: User, *args, **kwargs) -> None:
     logger.debug(f"Received pre_save from {instance}")
     # check if user is being marked active/inactive
     if not instance.pk:
@@ -171,7 +175,7 @@ def disable_services_on_inactive(sender, instance, *args, **kwargs):
 
 
 @receiver(pre_save, sender=UserProfile)
-def process_main_character_change(sender, instance, *args, **kwargs):
+def process_main_character_change(sender: type[UserProfile], instance: UserProfile, *args, **kwargs) -> None:
     if not instance.pk:
         # ignore new model being created
         return
@@ -208,7 +212,9 @@ def process_main_character_change(sender, instance, *args, **kwargs):
 
 
 @receiver(pre_save, sender=EveCharacter)
-def process_main_character_update(sender, instance, *args, **kwargs):
+def process_main_character_update(
+    sender: type[EveCharacter], instance: EveCharacter, *args, **kwargs
+) -> None:
     try:
         if instance.userprofile:
             logger.debug(

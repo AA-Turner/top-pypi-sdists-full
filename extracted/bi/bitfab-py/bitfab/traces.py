@@ -58,6 +58,30 @@ class SpanTarget(TypedDict):
 TraceTarget = OutputTarget | SpanTarget
 
 
+AssertionKind = Literal["judge", "code", "hybrid"]
+
+
+class AssertionCode(TypedDict):
+    """Code that decides an assertion's verdict from a run's spans instead of the LLM judge.
+
+    ``source`` is the body of an async TypeScript function (plain JavaScript
+    also works) called with ``spans`` (each ``{name, index, hasData}``, in
+    start order, without its data), ``input``, and ``output``. It reads span
+    data with ``await named("span name")``, which returns
+    ``{name, index, input, output, metadata}`` for each span with that name,
+    or ``await span.data()``. It returns ``"pass"``, ``"fail"``, or
+    ``"defer"`` (hybrid assertions only: hand the rest to the LLM judge), or
+    ``{result, reason}``. It gets one second of compute and may load the data
+    of at most 50 spans within ten seconds. ``spanNames`` lists
+    every span name the code expects a correct run to produce; a name missing
+    from a replay and from the function's other sampled replays marks the code
+    broken instead of failing the replay.
+    """
+
+    source: str
+    spanNames: list[str]
+
+
 class TraceAssertion(ApprovalFields):
     """A saved assertion. ``category_assertion_id`` is a deprecated alias carrying the same value as ``category_id``."""
 
@@ -71,6 +95,9 @@ class TraceAssertion(ApprovalFields):
     passCriteria: str | None
     failCriteria: str | None
     targetOnEvaluatedTrace: TraceTarget | None
+    kind: AssertionKind
+    code: AssertionCode | None
+    codeBrokenReason: str | None
     source: TraceAssertionSource
     justification: Justification | None
     categoryJustification: Justification | None
@@ -366,21 +393,36 @@ class _ActualOutcomeUnset:
 _ACTUAL_OUTCOME_UNSET = _ActualOutcomeUnset()
 
 
+ScenarioCreationStatus = Literal["empty", "generating", "created", "error"]
+
+
 class ScenarioGeneration(TypedDict):
     """What ``generate_scenario`` started.
 
     ``status`` is ``"started"`` when Bitfab is building the scenario in the
     background, and ``"already_generated"`` when the trace already has one, so
     nothing was started and ``scenarioId`` names it. ``scenarioId`` is ``None``
-    while the trace has no scenario yet.
+    while the trace has no scenario yet. ``creationStatus`` is the scenario's
+    creation status right after the call, the same one ``get_scenario`` reads.
     """
 
     status: Literal["started", "already_generated"]
     traceId: str
     scenarioId: str | None
+    creationStatus: ScenarioCreationStatus
 
 
 class Scenario(TypedDict):
+    """The scenario built from a trace, in any creation state.
+
+    ``creationStatus`` is ``"empty"`` when nothing has started building it,
+    ``"generating"`` while Bitfab builds it or waits for the scenario callback
+    to save it, ``"created"`` once it is built, and ``"error"`` when building
+    failed, with ``creationError`` saying why. ``trigger``, ``data``,
+    ``triggerSummary``, and ``dataSummary`` are ``None`` until the scenario is
+    built.
+    """
+
     id: str
     createdAt: str
     updatedAt: str
@@ -390,12 +432,14 @@ class Scenario(TypedDict):
     extractor: Literal["noah"]
     name: str
     description: str
-    trigger: ScenarioTrigger
-    data: ScenarioData
+    trigger: ScenarioTrigger | None
+    data: ScenarioData | None
     actualOutcome: ScenarioActualOutcome | None
     categories: list[CategorySummary]
-    triggerSummary: str
-    dataSummary: str
+    triggerSummary: str | None
+    dataSummary: str | None
+    creationStatus: ScenarioCreationStatus
+    creationError: str | None
 
 
 AssertionGenerationStatus = Literal["running", "completed", "failed"]
@@ -420,7 +464,13 @@ class SaveAssertion(TypedDict):
 
     Omit ``category_id`` to preserve the existing category, or pass ``None`` to
     clear it. ``category_assertion_id`` is a deprecated alias for ``category_id``;
-    when both are set, ``category_id`` wins.
+    when both are set, ``category_id`` wins. ``kind`` says who decides the
+    assertion: ``"judge"`` (the LLM judge), ``"code"`` (``code`` decides every
+    replay), or ``"hybrid"`` (``code`` decides what it can and returns
+    ``"defer"`` for the rest). Send ``"code"`` or ``"hybrid"`` together with
+    ``code``. Omit both to keep them, or pass ``kind="judge"`` to remove the
+    code. Code that cannot run on this trace, or that returns ``"defer"`` for a
+    ``"code"`` assertion, is refused.
     """
 
     category_id: NotRequired[str | None]
@@ -431,6 +481,8 @@ class SaveAssertion(TypedDict):
     passCriteria: NotRequired[str | None]
     failCriteria: NotRequired[str | None]
     targetOnEvaluatedTrace: NotRequired[TraceTarget | None]
+    kind: NotRequired[AssertionKind]
+    code: NotRequired[AssertionCode | None]
     justification: NotRequired[Justification | None]
     categoryJustification: NotRequired[Justification | None]
     assigneeEmail: NotRequired[str | None]
@@ -790,9 +842,11 @@ class TracesClient:
         return result["archived"]
 
     def get_scenario(self, trace_id: str) -> Scenario:
-        """Read the scenario built from a trace.
+        """Read the scenario built from a trace, in any creation state.
 
-        Raises ``requests.HTTPError`` with a 404 when the trace has no scenario.
+        After ``generate_scenario``, poll this until ``creationStatus`` is
+        ``"created"`` or ``"error"``. Raises ``requests.HTTPError`` with a 404
+        when the trace has no scenario at all.
         """
         result = self._http_client.get(_trace_scenario_path(trace_id))
         return result["scenario"]
@@ -800,8 +854,10 @@ class TracesClient:
     def generate_scenario(self, trace_id: str) -> ScenarioGeneration:
         """Start building the scenario for a trace and return at once.
 
-        Does not wait for the scenario: read it later with ``get_scenario``. A
-        trace that already has a scenario is left as it is. A replay, a trace
+        Does not wait for the scenario: poll ``get_scenario`` until its
+        ``creationStatus`` is ``"created"`` or ``"error"``. A trace that already
+        has a scenario is left as it is, unless building it failed, which
+        starts it again. A replay, a trace
         outside the organization, or a trace Bitfab cannot build a scenario for
         (not ``noah-agent-turn`` and no scenario callback) raises
         ``requests.HTTPError``. Adding a trace to a dataset starts the same

@@ -5,6 +5,7 @@ from __future__ import annotations
 import codecs
 import json
 import warnings
+from contextlib import nullcontext
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -1098,23 +1099,32 @@ def test_xmlschema_compiled_pattern_alias_without_regex_engine(
     engine. Combined XSD patterns are compiled for every target, ``2`` included, so they need Pydantic 2.8, from which
     they validate without a config. ``--field-constraints`` keeps the compiled pattern in ``Field()``.
     """
-    run_main_and_assert(
-        input_path=XML_SCHEMA_DATA_PATH / "pattern_alternatives_simple.xsd",
-        output_path=output_file,
-        input_file_type="xmlschema",
-        extra_args=[
-            "--output-model-type",
-            "pydantic_v2.BaseModel",
-            "--use-type-alias",
-            "--target-pydantic-version",
-            "2",
-            "--target-python-version",
-            "3.10",
-            "--disable-timestamp",
-            *extra_args,
-        ],
-        assert_func=assert_file_content,
-        expected_file=expected_file,
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=XML_SCHEMA_DATA_PATH / "pattern_alternatives_simple.xsd",
+            output_path=output_file,
+            input_file_type="xmlschema",
+            extra_args=[
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--use-type-alias",
+                "--target-pydantic-version",
+                "2",
+                "--target-python-version",
+                "3.10",
+                "--disable-timestamp",
+                *extra_args,
+            ],
+            assert_func=assert_file_content,
+            expected_file=expected_file,
+        )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
+        ),
+        name="warnings",
     )
     assert_generated_model_json_validation(
         output_file,
@@ -1161,24 +1171,32 @@ def test_xmlschema_compiled_pattern_alias_without_regex_engine(
 )
 @pytest.mark.filterwarnings("ignore:Possible set symmetric difference:FutureWarning")
 def test_xmlschema_compiled_patterns(output_file: Path, name: str, backend: str, extra_args: list[str]) -> None:
-    """Keep Python pattern semantics across import aliases, inheritance and root model transformations."""
-    run_main_and_assert(
-        input_path=XML_SCHEMA_DATA_PATH / "pattern_runtime.xsd",
-        output_path=output_file,
-        input_file_type="xmlschema",
-        extra_args=[
-            "--output-model-type",
-            backend,
-            "--disable-timestamp",
-            "--target-python-version",
-            "3.10",
-            "--formatters",
-            "builtin",
-            *extra_args,
-        ],
-        assert_func=assert_file_content,
-        expected_file=f"pattern_runtime_{name}.py",
-    )
+    """Keep Python pattern semantics across import aliases, inheritance and root model transformations.
+
+    An ``anyURI`` takes no pattern, so ``Field()`` arguments leave its pattern out with a warning.
+    """
+    with (
+        pytest.warns(UserWarning, match=r"Pydantic does not take pattern on AnyUrl; Parent\.uri ")
+        if "--field-constraints" in extra_args
+        else nullcontext()
+    ):
+        run_main_and_assert(
+            input_path=XML_SCHEMA_DATA_PATH / "pattern_runtime.xsd",
+            output_path=output_file,
+            input_file_type="xmlschema",
+            extra_args=[
+                "--output-model-type",
+                backend,
+                "--disable-timestamp",
+                "--target-python-version",
+                "3.10",
+                "--formatters",
+                "builtin",
+                *extra_args,
+            ],
+            assert_func=assert_file_content,
+            expected_file=f"pattern_runtime_{name}.py",
+        )
     cases = json.loads((XML_SCHEMA_DATA_PATH / "pattern_runtime.cases.json").read_text(encoding="utf-8"))
     for case in cases["cases"]:
         assert_generated_model_json_validation(

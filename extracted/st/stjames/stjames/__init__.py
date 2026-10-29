@@ -20,6 +20,7 @@ from .excited_state_settings import *
 from .scf_settings import *
 from .opt_settings import *
 from .compute_settings import *
+from .enhanced_sampling import REST2Settings
 from .thermochem_settings import *
 from .restraint import MDRestraints, RestraintType
 from .settings import *

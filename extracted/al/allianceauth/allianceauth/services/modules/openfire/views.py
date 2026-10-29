@@ -1,5 +1,8 @@
+__lazy_modules__ = ["django.http"]
+
 import datetime
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -14,6 +17,9 @@ from .manager import OpenfireManager, PingBotException
 from .models import OpenfireUser
 from .tasks import OpenfireTasks
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 ACCESS_PERM = 'openfire.access_openfire'
@@ -21,7 +27,7 @@ ACCESS_PERM = 'openfire.access_openfire'
 
 @login_required
 @permission_required(ACCESS_PERM)
-def activate_jabber(request):
+def activate_jabber(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"activate_jabber called by user {request.user}")
     character = request.user.profile.main_character
     logger.debug(f"Adding Jabber user for user {request.user} with main character {character}")
@@ -46,7 +52,7 @@ def activate_jabber(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def deactivate_jabber(request):
+def deactivate_jabber(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"deactivate_jabber called by user {request.user}")
     if OpenfireTasks.has_account(request.user) and OpenfireTasks.delete_user(request.user):
         logger.info(f"Successfully deactivated Jabber for user {request.user}")
@@ -59,7 +65,7 @@ def deactivate_jabber(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def reset_jabber_password(request):
+def reset_jabber_password(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"reset_jabber_password called by user {request.user}")
     if OpenfireTasks.has_account(request.user):
         result = OpenfireManager.update_user_pass(request.user.openfire.username)
@@ -79,7 +85,7 @@ def reset_jabber_password(request):
 
 @login_required
 @permission_required('auth.jabber_broadcast')
-def jabber_broadcast_view(request):
+def jabber_broadcast_view(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"jabber_broadcast_view called by user {request.user}")
     allchoices = []
     if request.user.has_perm('auth.jabber_broadcast_all'):
@@ -129,7 +135,7 @@ def jabber_broadcast_view(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def set_jabber_password(request):
+def set_jabber_password(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"set_jabber_password called by user {request.user}")
     if request.method == 'POST':
         logger.debug("Received POST request with form.")

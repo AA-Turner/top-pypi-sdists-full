@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyflakes
-Version: 4.0.3
+Version: 4.1.0
 Summary: passive checker of Python programs
 Home-page: https://github.com/PyCQA/pyflakes
 Author: A lot of people
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 License-File: LICENSE
 Dynamic: author
 Dynamic: author-email
@@ -56,7 +56,7 @@ Useful tips:
 
 * Be sure to install it for a version of Python which is compatible
   with your codebase: ``python#.# -m pip install pyflakes`` (for example,
-  ``python3.10 -m pip install pyflakes``)
+  ``python3.15 -m pip install pyflakes``)
 
 * You can also invoke Pyflakes with ``python#.# -m pyflakes .`` if you want
   to run it for a specific python version.

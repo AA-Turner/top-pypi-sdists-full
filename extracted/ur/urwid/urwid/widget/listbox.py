@@ -22,17 +22,20 @@
 
 from __future__ import annotations
 
+import itertools
 import operator
 import typing
-import warnings
 from collections.abc import Container, Iterable, Sized
 from contextlib import suppress
 
-from urwid import signals
+from urwid import _deprecation, signals
 from urwid.canvas import CanvasCombine, SolidCanvas
 
 from .constants import Sizing, VAlign, WHSettings, normalize_valign
-from .container import WidgetContainerMixin
+from .container import (
+    _SELECT_COMMANDS,
+    SelectNavigationMixin,
+)
 from .deque_walker import SimpleDequeWalker, SimpleFocusDequeWalker
 from .filler import calculate_top_bottom_filler
 from .list_walker import (
@@ -43,12 +46,11 @@ from .list_walker import (
     SimpleFocusListWalker,
     SimpleListWalker,
 )
-from .widget import Widget, nocache_widget_render_instance
+from .widget import Widget, _select_enter_child, nocache_widget_render_instance
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Hashable, Iterator
-
-    from typing_extensions import Literal, Self
+    from typing import Literal, Self
 
     from urwid.canvas import Canvas, CompositeCanvas
 
@@ -77,6 +79,33 @@ __all__ = (
 
 class ListBoxError(Exception):
     """ListBox related errors."""
+
+
+def _snap_offset_inset(
+    offset_inset: int,
+    target_rows: int,
+    maxrow: int,
+    coming_from: Literal["above", "below"] | None,
+    snap_rows: int,
+) -> int:
+    """Snap a selectable target into view without changing its cursor."""
+    align_top = 0
+    align_bottom = maxrow - target_rows
+    if coming_from == "above" and offset_inset > align_bottom:
+        if snap_rows >= offset_inset - align_bottom:
+            offset_inset = align_bottom
+        elif snap_rows >= offset_inset - align_top:
+            offset_inset = align_top
+        else:
+            offset_inset -= snap_rows
+    if coming_from == "below" and offset_inset < align_top:
+        if snap_rows >= align_top - offset_inset:
+            offset_inset = align_top
+        elif snap_rows >= align_bottom - offset_inset:
+            offset_inset = align_bottom
+        else:
+            offset_inset += snap_rows
+    return offset_inset
 
 
 class VisibleInfoMiddle(typing.NamedTuple):
@@ -177,7 +206,7 @@ class _SeenPositions(Container[typing.Any]):
         self._listed.append(position)
 
 
-class ListBox(Widget, WidgetContainerMixin[_K]):
+class ListBox(Widget, SelectNavigationMixin[_K]):
     """Vertically stacked list of widgets."""
 
     _selectable = True
@@ -185,37 +214,54 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
     @typing.overload
     def __init__(
-        self: ListBox[_K],
+        self,
         body: ListWalker[_K, AbstractFlowWidget],
+        *,
+        select_navigation: bool = False,
+        focus_when_empty: bool = True,
     ) -> None: ...
 
     @typing.overload
     def __init__(
         self: ListBox[int],
         body: Iterable[AbstractFlowWidget],
+        *,
+        select_navigation: bool = False,
+        focus_when_empty: bool = True,
     ) -> None: ...
 
     def __init__(
         self,
         body: ListWalker[_K, AbstractFlowWidget] | Iterable[AbstractFlowWidget],
+        *,
+        select_navigation: bool = False,
+        focus_when_empty: bool = True,
     ) -> None:
         """Create the ListBox widget.
 
         :param body: a ListWalker subclass such as :class:`SimpleFocusListWalker`
             that contains widgets to be displayed inside the list box
+        :param select_navigation: handle the ``'next selectable'`` and ``'prev selectable'`` commands,
+            see :ref:`select-navigation`.
+        :param focus_when_empty: whether the ListBox accepts the input focus while its body is empty;
+            ``False`` lets a container move the focus past an empty ListBox.
+
+        .. deprecated:: 4.0.2
+            Passing a *body* that is not a :class:`ListWalker` but has a ``get_focus`` method is deprecated.
+            Support will be removed in version 7.0.
         """
         super().__init__()
         if isinstance(body, ListWalker):
             self._body: ListWalker[typing.Any, AbstractFlowWidget] = body
         elif getattr(body, "get_focus", None):
             self._body = typing.cast("ListWalker[typing.Any, AbstractFlowWidget]", body)
-            warnings.warn(
-                f"ListWalker or Iterable[Widget] argument expected, got: {type(body)}",
-                DeprecationWarning,
-                stacklevel=2,
+            _deprecation.warn(
+                f"ListWalker or Iterable[Widget] argument expected, got: {type(body)}.",
+                since="4.0.2",
+                removed_in="7.0",
             )
         else:
-            self._body = SimpleListWalker["AbstractFlowWidget"](body)
+            self._body = SimpleListWalker(body)
 
         self.body = self._body  # Initialization hack
 
@@ -243,11 +289,31 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         self._rows_max_cached = 0
         self._rendered_size = 0, 0
 
+        self.select_navigation = select_navigation
+        # whether selectable() reports True while the body has no focus widget
+        self.focus_when_empty = focus_when_empty
+
+    def selectable(self) -> bool:
+        """Return whether the ListBox accepts the input focus.
+
+        With :attr:`focus_when_empty` ``False`` it does not while its body is empty.
+        """
+        return self._selectable and (self.focus_when_empty or self._body.get_focus()[0] is not None)
+
+    def _invalidate(self) -> None:
+        """Drop the cached canvases and the cached :meth:`rows_max` result."""
+        self._rows_max_cached = 0
+        super()._invalidate()
+
     @property
     def body(self) -> ListWalker[_K, AbstractFlowWidget]:
         """A ListWalker subclass such as :class:`SimpleFocusListWalker` that contains widgets.
 
         The widgets are to be displayed inside the list box.
+
+        .. deprecated:: 4.0.2
+            Assigning a body that is not a :class:`ListWalker` but has a ``get_focus`` method is deprecated.
+            Support will be removed in version 7.0.
         """
         return typing.cast("ListWalker[_K, AbstractFlowWidget]", self._body)
 
@@ -261,10 +327,10 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             self._body = body
         elif getattr(body, "get_focus", None):
             self._body = typing.cast("ListWalker[typing.Any, AbstractFlowWidget]", body)
-            warnings.warn(
-                f"ListWalker or Iterable[Widget] argument expected, got: {type(body)}",
-                DeprecationWarning,
-                stacklevel=2,
+            _deprecation.warn(
+                f"ListWalker or Iterable[Widget] argument expected, got: {type(body)}.",
+                since="4.0.2",
+                removed_in="7.0",
             )
         else:
             self._body = SimpleListWalker(body)
@@ -459,6 +525,20 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         if getattr(self._body, "wrap_around", False):
             raise ListBoxError("Body is wrapped around. Scroll position calculation is undefined.")
 
+    def _walk_body(self, position: typing.Any, forward: bool) -> Iterator[tuple[AbstractFlowWidget, typing.Any]]:
+        """Yield the widgets and positions after *position*, or before it when *forward* is false.
+
+        :raises ListBoxError: the walk comes back to *position*: the body wraps around without saying so.
+        """
+        start = position
+        while True:
+            widget, position = self._body.get_next(position) if forward else self._body.get_prev(position)
+            if widget is None:
+                return
+            if position == start:
+                raise ListBoxError("Body is wrapped around. Scroll position calculation is undefined.")
+            yield widget, position
+
     def get_scrollpos(self, size: tuple[int, int] | None = None, focus: bool = False) -> int:
         """Return the current scrolling position."""
         self._check_support_scrolling()
@@ -479,12 +559,39 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         else:
             pos = visible.middle.focus_pos
 
-        prev, pos = self._body.get_prev(pos)
-        while prev is not None:
+        for prev, _pos in self._walk_body(pos, forward=False):
             start_row += prev.rows((maxcol,))
-            prev, pos = self._body.get_prev(pos)
 
         return start_row
+
+    def rows(self, size: tuple[int], focus: bool = False) -> int:
+        """Return the rows of all widgets in the body at the width in *size*.
+
+        The focus widget is measured in focus and the others out of focus, as a render measures them,
+        whatever *focus* is.
+        A child whose row count depends on its focus breaks the box layout as well,
+        which a render reports as a :exc:`ListBoxError`.
+
+        >>> from urwid import Text
+        >>> ListBox([Text("one two"), Text("three")]).rows((5,))
+        3
+
+        :raises ListBoxError: the body does not support the scrolling protocol, or it wraps around.
+        """
+        self._check_support_scrolling()
+        return self._body_rows(size[0])
+
+    def _body_rows(self, maxcol: int) -> int:
+        """Return the rows of all widgets in the body at width *maxcol*, the focus widget measured in focus."""
+        focus_widget, focus_pos = self._body.get_focus()
+        if focus_widget is None:
+            return 0
+
+        rows = focus_widget.rows((maxcol,), True)
+        for forward in (False, True):
+            for widget, _pos in self._walk_body(focus_pos, forward=forward):
+                rows += widget.rows((maxcol,))
+        return rows
 
     def rows_max(self, size: tuple[int, int] | None = None, focus: bool = False) -> int:
         """Scrollable protocol for sized iterable and not wrapped around contents."""
@@ -494,26 +601,15 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             self._rendered_size = size
 
         if size or not self._rows_max_cached:
-            cols = self._rendered_size[0]
-            rows = 0
-
-            focused_w, idx = self._body.get_focus()
-            if focused_w:
-                rows += focused_w.rows((cols,), focus)
-
-                prev, pos = self._body.get_prev(idx)
-                while prev is not None:
-                    rows += prev.rows((cols,), False)
-                    prev, pos = self._body.get_prev(pos)
-
-                next_, pos = self._body.get_next(idx)
-                while next_ is not None:
-                    rows += next_.rows((cols,), True)
-                    next_, pos = self._body.get_next(pos)
-
-            self._rows_max_cached = rows
+            self._rows_max_cached = self._body_rows(self._rendered_size[0])
 
         return self._rows_max_cached
+
+    def _box_size(self, size: tuple[int] | tuple[int, int], focus: bool) -> tuple[int, int]:
+        """Return *size* as a box size, measuring the body for a flow size."""
+        if len(size) == 1:
+            return (size[0], self.rows((size[0],), focus))
+        return size
 
     def require_relative_scroll(self, size: tuple[int, int], focus: bool = False) -> bool:
         """Widget require relative scroll due to performance limitations of real lines count calculation."""
@@ -532,13 +628,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         else:
             first_pos = self.focus_position
 
-        over = 0
-        _widget, first_pos = self._body.get_prev(first_pos)
-        while first_pos is not None:
-            over += 1
-            _widget, first_pos = self._body.get_prev(first_pos)
-
-        return over
+        return sum(1 for _ in self._walk_body(first_pos, forward=False))
 
     def get_visible_amount(self, size: tuple[int, int], focus: bool = False) -> int:
         """Return the number of items currently visible."""
@@ -552,7 +642,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
     def render(
         self,
-        size: tuple[int, int],  # type: ignore[override]
+        size: tuple[int] | tuple[int, int],  # type: ignore[override]
         focus: bool = False,
     ) -> CompositeCanvas | SolidCanvas:
         """
@@ -560,13 +650,13 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
         see :meth:`Widget.render` for details
 
+        A flow *size* renders every widget of the body, with the rows :meth:`rows` reports.
+
         :raises ListBoxError: the rendered contents do not fit the reported rows, a child widget renders a different
             number of rows or cursor coordinates than it calculated, or the list walker returns a next position pointing
             at itself.
         """
-        (maxcol, maxrow) = size
-
-        self._rendered_size = size
+        (maxcol, maxrow) = self._rendered_size = self._box_size(size, focus)
 
         middle, top, bottom = self.calculate_visible((maxcol, maxrow), focus=focus)
         if middle is None:
@@ -669,9 +759,9 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
         return final_canvas
 
-    def get_cursor_coords(self, size: tuple[int, int]) -> tuple[int, int] | None:
+    def get_cursor_coords(self, size: tuple[int] | tuple[int, int]) -> tuple[int, int] | None:
         """See :meth:`Widget.get_cursor_coords` for details."""
-        (maxcol, maxrow) = size
+        (maxcol, maxrow) = self._box_size(size, True)
 
         middle, _top, _bottom = self.calculate_visible((maxcol, maxrow), True)
         if middle is None:
@@ -702,6 +792,9 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         """
         Set the focus position and try to keep the old focus in view.
 
+        Without *coming_from*, preserve the target widget's cursor and nested focus.
+        With *coming_from*, move its cursor from the indicated edge.
+
         :param position: a position compatible with :meth:`self._body.set_focus`
         :param coming_from: set to 'above' or 'below' if you know that
                             old position is above or below the new position.
@@ -721,24 +814,6 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
         self.set_focus_pending = coming_from, focus_widget, focus_pos
         self._body.set_focus(position)
-
-    def get_focus(self) -> tuple[AbstractFlowWidget, _K] | tuple[None, None]:
-        """
-        Return a `(focus widget, focus position)` tuple.
-
-        .. deprecated:: 2.2.0
-            Use the standard container properties :attr:`focus` and :attr:`focus_position` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. "
-            "You may also use the new standard container property `focus` to get the focus "
-            "and property `focus_position` to read these values. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._body.get_focus()
 
     @property
     def focus(self) -> AbstractFlowWidget | None:
@@ -762,16 +837,23 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         # the walker reports position `None` only together with the widget
         return typing.cast("_K", pos)
 
-    focus_position = property(
-        _get_focus_position,
-        set_focus,
-        doc="""
-        the position of child widget in focus. The valid values for this
-        position depend on the list walker in use.
-        :exc:`IndexError` will be raised by reading this property when the
-        ListBox is empty or setting this property to an invalid position.
-        """,
-    )
+    @property  # type: ignore[override]  # walker positions are not limited to int | str
+    def focus_position(self) -> _K:
+        """Return the position of the child widget in focus.
+
+        The valid values for this position depend on the list walker in use.
+
+        :raises IndexError: the ListBox is empty.
+        """
+        return self._get_focus_position()
+
+    @focus_position.setter
+    def focus_position(self, position: _K) -> None:
+        """Set the focus to *position* through :meth:`set_focus`, so an override in a subclass applies.
+
+        :raises IndexError: *position* is not valid for the list walker.
+        """
+        self.set_focus(position)
 
     def _contents(self) -> ListBoxContentsProto[_K]:
         # noinspection PyMethodParameters
@@ -783,26 +865,10 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             __getitem__ = self._contents__getitem__
 
             def __len__(inner_self) -> int:
-                return len(self)
+                return self.__len__()
 
             def __repr__(inner_self) -> str:
                 return f"<{inner_self.__class__.__name__} for {self!r} at 0x{id(inner_self):X}>"
-
-            def __call__(inner_self) -> Self:
-                """
-                Return the contents object itself.
-
-                .. deprecated:: 2.4.3
-                    :attr:`ListBox.contents` is a property, not a method: use it without calling it.
-                    This API will be removed in version 5.0.
-                """
-                warnings.warn(
-                    "ListBox.contents is a property, not a method: use it without calling it. "
-                    "API will be removed in version 5.0.",
-                    DeprecationWarning,
-                    stacklevel=3,
-                )
-                return inner_self
 
         return ListBoxContents()
 
@@ -816,6 +882,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         """
         if hasattr(self._body, "__getitem__"):
             try:
+                # pyrefly: ignore[bad-index]  # pyrefly does not narrow on hasattr(..., "__getitem__")
                 return (self._body[key], None)
             except (IndexError, KeyError) as exc:
                 raise KeyError(f"ListBox.contents key not found: {key!r}").with_traceback(exc.__traceback__) from exc
@@ -827,12 +894,14 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
         try:
             self._body.set_focus(key)
-            # protocol v1 walkers produce the widget only, without the options placeholder
-            return self._body.get_focus()[0]  # type: ignore[return-value]
+            widget, _pos = self._body.get_focus()
         except (IndexError, KeyError) as exc:
             raise KeyError(f"ListBox.contents key not found: {key!r}").with_traceback(exc.__traceback__) from exc
         finally:
             self._body.set_focus(old_focus)
+        if widget is None:
+            raise KeyError(f"ListBox.contents key not found: {key!r}")
+        return (widget, None)
 
     @property
     def contents(self) -> ListBoxContentsProto[_K]:
@@ -965,13 +1034,18 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         for _widget, pos, rows in fill_above:
             offset -= rows
             if pos == position:
-                self.change_focus((maxcol, maxrow), pos, offset, "below")
+                # An undirected focus change must preserve the target's cursor and nested focus.
+                if coming_from is None and _widget.selectable():
+                    offset = _snap_offset_inset(offset, _widget.rows((maxcol,), True), maxrow, "below", maxrow - 1)
+                self.change_focus((maxcol, maxrow), pos, offset, "below" if coming_from is not None else None)
                 return None
 
         offset = focus_offset + focus_rows
         for _widget, pos, rows in fill_below:
             if pos == position:
-                self.change_focus((maxcol, maxrow), pos, offset, "above")
+                if coming_from is None and _widget.selectable():
+                    offset = _snap_offset_inset(offset, _widget.rows((maxcol,), True), maxrow, "above", maxrow - 1)
+                self.change_focus((maxcol, maxrow), pos, offset, "above" if coming_from is not None else None)
                 return None
             offset += rows
 
@@ -1095,25 +1169,8 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         if snap_rows is None:
             snap_rows = maxrow - 1
 
-        # "snap" to selectable widgets
-        align_top = 0
-        align_bottom = maxrow - tgt_rows
-
-        if coming_from == "above" and target.selectable() and offset_inset > align_bottom:
-            if snap_rows >= offset_inset - align_bottom:
-                offset_inset = align_bottom
-            elif snap_rows >= offset_inset - align_top:
-                offset_inset = align_top
-            else:
-                offset_inset -= snap_rows
-
-        if coming_from == "below" and target.selectable() and offset_inset < align_top:
-            if snap_rows >= align_top - offset_inset:
-                offset_inset = align_top
-            elif snap_rows >= align_bottom - offset_inset:
-                offset_inset = align_bottom
-            else:
-                offset_inset += snap_rows
+        if target.selectable():
+            offset_inset = _snap_offset_inset(offset_inset, tgt_rows, maxrow, coming_from, snap_rows)
 
         # convert offset_inset to offset_rows or inset_fraction
         if offset_inset >= 0:
@@ -1159,7 +1216,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             elif coming_from == "below":
                 attempt_rows = range(pref_row, tgt_rows)
             else:
-                attempt_rows = [pref_row]
+                attempt_rows = range(pref_row, pref_row + 1)
 
         for row in attempt_rows:
             if target.move_cursor_to_coords((maxcol,), pref_col, row):
@@ -1211,7 +1268,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
     def keypress(
         self,
-        size: tuple[int, int],  # type: ignore[override]
+        size: tuple[int] | tuple[int, int],  # type: ignore[override]
         key: str,
     ) -> str | None:
         """Move selection through the list elements scrolling when necessary.
@@ -1228,10 +1285,13 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             move cursor up one listbox length (or widget)
         :kbd:`page down`
             move cursor down one listbox length (or widget)
+
+        With :attr:`select_navigation`, unhandled ``'next selectable'`` and ``'prev selectable'`` commands
+        move the focus to the next or previous selectable widget.
         """
         from urwid.command_map import Command
 
-        (maxcol, maxrow) = size
+        (maxcol, maxrow) = self._box_size(size, True)
 
         if self.set_focus_pending or self.set_focus_valign_pending:
             self._set_focus_complete((maxcol, maxrow), focus=True)
@@ -1246,6 +1306,9 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             else:
                 self.make_cursor_visible((maxcol, maxrow))
                 return None
+
+        if self.select_navigation and self._command_map[key] in _SELECT_COMMANDS:
+            return self._select_keypress_unhandled(key)
 
         def actual_key(unhandled: str | bool | None) -> str | None:
             if unhandled:
@@ -1273,29 +1336,173 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
         return key
 
-    def _keypress_max_left(self, size: tuple[int, int]) -> None:
+    def _select_walk(
+        self,
+        position: typing.Any,
+        *,
+        forward: bool,
+        seen: _SeenPositions,
+        edges: tuple[typing.Any, typing.Any] | None,
+    ) -> Iterator[tuple[AbstractFlowWidget, typing.Any]]:
+        """Yield the widgets and positions after *position*, or before it when *forward* is false.
+
+        The walk ends at the end of the body or at a position already in *seen*, which a cyclic walker repeats.
+
+        :param edges: the first and last positions of a wrapping body, where the walk ends as well;
+            ``None`` for a body that ends on its own.
         """
-        Move the focus to the first position of the body.
+        edge = None if edges is None else edges[1] if forward else edges[0]
+        while True:
+            if edges is not None and position == edge:
+                return
+            widget, position = self._body.get_next(position) if forward else self._body.get_prev(position)
+            if widget is None or position in seen:
+                return
+            seen.add(position)
+            yield widget, position
+
+    def _select_wrap_edges(self) -> tuple[typing.Any, typing.Any] | None:
+        """Return the first and last positions of a body created with ``wrap_around``.
+
+        Such a walker steps from its last position to its first one, so its edges are where a walk stops.
+
+        :returns: ``None`` for a body that does not wrap, has no ``positions()``, or yields no position.
+        """
+        body = self._body
+        if not getattr(body, "wrap_around", False) or not hasattr(body, "positions"):
+            return None
+        missing = object()
+        first = next(iter(body.positions()), missing)
+        last = next(iter(body.positions(reverse=True)), missing)
+        if first is missing or last is missing:
+            return None
+        return first, last
+
+    def _select_candidates(self, *, reverse: bool, from_edge: bool) -> Iterator[_K]:
+        """Yield the positions of the selectable widgets in the traversal order.
+
+        The body is walked lazily from the focus, so a step reads only up to the next selectable widget.
+
+        :param reverse: yield them from the bottom to the top.
+        :param from_edge: start at the top (bottom when *reverse*) of the body instead of after the focus.
+        """
+        focus_widget, focus_pos = self._body.get_focus()
+        if focus_widget is None:
+            return
+        edges = self._select_wrap_edges()
+        seen = _SeenPositions()
+        seen.add(focus_pos)
+        if from_edge:
+            # Selectable positions between the focus and the edge, nearest to the focus first.
+            before_focus = [
+                position
+                for widget, position in self._select_walk(focus_pos, forward=reverse, seen=seen, edges=edges)
+                if widget.selectable()
+            ]
+            yield from reversed(before_focus)
+            if focus_widget.selectable():
+                yield typing.cast("_K", focus_pos)
+        for widget, position in self._select_walk(focus_pos, forward=not reverse, seen=seen, edges=edges):
+            if widget.selectable():
+                yield position
+
+    def _select_enter_focus(self, *, reverse: bool) -> None:
+        """Call the entry hook of the widget in focus."""
+        _select_enter_child(self.focus, reverse=reverse)
+
+    def scroll_to_top(self) -> None:
+        """Move the focus to the first position of the body and show it at the top, as :kbd:`home` does.
+
+        The first position gets the focus whether its widget is selectable or not,
+        unlike :meth:`focus_first_selectable`.
+        An empty body is left as it is.
 
         :raises TypeError: the body does not implement ``positions``.
         """
         if not hasattr(self.body, "positions"):
             raise TypeError(f"{type(self.body)}.positions is not implemented.")
 
-        self.focus_position = next(iter(self.body.positions()))
-        self.set_focus_valign(VAlign.TOP)
+        for position in self.body.positions():
+            self.focus_position = position
+            self.set_focus_valign(VAlign.TOP)
+            return
+
+    def scroll_to_bottom(self) -> None:
+        """Move the focus to the last position of the body and show it at the bottom, as :kbd:`end` does.
+
+        The last position gets the focus whether its widget is selectable or not,
+        unlike :meth:`focus_last_selectable`.
+        An empty body is left as it is.
+
+        :raises TypeError: the body does not implement ``positions``.
+        """
+        if not hasattr(self.body, "positions"):
+            raise TypeError(f"{type(self.body)}.positions is not implemented.")
+
+        for position in self.body.positions(reverse=True):
+            self.focus_position = position
+            self.set_focus_valign(VAlign.BOTTOM)
+            return
+
+    def focus_next_match(
+        self,
+        predicate: Callable[[AbstractFlowWidget], bool],
+        *,
+        reverse: bool = False,
+        wrap: bool = True,
+    ) -> _K | None:
+        """Move the focus to the next widget for which *predicate* returns true.
+
+        The body is walked lazily from the position next to the focus in the search direction, so a match before the
+        end of the body is found without reading the rest of it.
+        A wrapped search reads the other side of the focus whole, and checks the widget in focus last,
+        so a single match is found again.
+
+        >>> import urwid
+        >>> listbox = urwid.ListBox([urwid.Text(word) for word in ("apple", "pear", "plum", "peach")])
+        >>> listbox.focus_next_match(lambda widget: widget.text.startswith("p"))
+        1
+        >>> listbox.focus_next_match(lambda widget: widget.text.startswith("p"), reverse=True)
+        3
+        >>> listbox.focus_next_match(lambda widget: widget.text == "apple", wrap=False) is None
+        True
+        >>> listbox.focus_position
+        3
+
+        :param predicate: called with each candidate widget.
+        :param reverse: search towards the top of the body.
+        :param wrap: continue from the other end of the body once this end is reached.
+            Only a body that ends, or declares ``wrap_around``, has an end to stop at; one that cycles without
+            declaring it is searched once round from the focus either way.
+        :returns: the new focus position, or ``None`` when nothing matches and the focus stays where it was.
+        """
+        focus_widget, focus_pos = self._body.get_focus()
+        if focus_widget is None:
+            return None
+        edges = self._select_wrap_edges()
+        seen = _SeenPositions()
+        seen.add(focus_pos)
+
+        def wrapped() -> Iterator[tuple[AbstractFlowWidget, typing.Any]]:
+            # Walked only once the first side is exhausted, since both walks share `seen`.
+            # The walk goes from the focus outwards, so it is read whole and searched from its far end.
+            yield from reversed(list(self._select_walk(focus_pos, forward=reverse, seen=seen, edges=edges)))
+            yield focus_widget, focus_pos
+
+        candidates = self._select_walk(focus_pos, forward=not reverse, seen=seen, edges=edges)
+        for widget, position in itertools.chain(candidates, wrapped()) if wrap else candidates:
+            if predicate(widget):
+                self.focus_position = position
+                return typing.cast("_K", position)
+        return None
+
+    def _keypress_max_left(self, size: tuple[int, int]) -> None:
+        """Move the focus to the first position of the body, through :meth:`scroll_to_top`."""
+        self.scroll_to_top()
 
     def _keypress_max_right(self, size: tuple[int, int]) -> None:
-        """
-        Move the focus to the last position of the body.
-
-        :raises TypeError: the body does not implement ``positions``.
-        """
-        if not hasattr(self.body, "positions"):
-            raise TypeError(f"{type(self.body)}.positions is not implemented.")
-
-        self.focus_position = next(iter(self.body.positions(reverse=True)))
-        self.set_focus_valign(VAlign.BOTTOM)
+        """Move the focus to the last position of the body, through :meth:`scroll_to_bottom`."""
+        self.scroll_to_bottom()
 
     def _keypress_up(self, size: tuple[int, int]) -> bool | None:
         (maxcol, maxrow) = size
@@ -1345,6 +1552,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             if widget is None:
                 self.shift_focus((maxcol, maxrow), row_offset)
                 return None
+            # pyrefly: ignore[bad-argument-type]  # pos is not None when widget is not None
             self.change_focus((maxcol, maxrow), pos, row_offset, "below")
             return None
 
@@ -1366,6 +1574,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
                     # must scroll further than 1 line
                     row_offset = -(rows - 1)
 
+                # pyrefly: ignore[bad-argument-type]  # pos is not None when widget is not None
                 self.change_focus((maxcol, maxrow), pos, row_offset, "below")
                 return None
 
@@ -1422,6 +1631,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             if widget is None:
                 self.shift_focus((maxcol, maxrow), row_offset - rows)
                 return None
+            # pyrefly: ignore[bad-argument-type]  # pos is not None when widget is not None
             self.change_focus((maxcol, maxrow), pos, row_offset - rows, "above")
             return None
 
@@ -1445,6 +1655,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
                 self.change_focus(
                     (maxcol, maxrow),
+                    # pyrefly: ignore[bad-argument-type]  # pos is not None when widget is not None
                     pos,
                     row_offset,
                     "above",
@@ -1860,7 +2071,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
 
     def mouse_event(
         self,
-        size: tuple[int, int],  # type: ignore[override]
+        size: tuple[int] | tuple[int, int],  # type: ignore[override]
         event: str,
         button: int,
         col: int,
@@ -1870,10 +2081,14 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         """Pass the event to the contained widgets.
 
         May change focus on button 1 press.
+
+        .. deprecated:: 2.4.0
+            Support for a contained widget that does not implement ``mouse_event`` is deprecated.
+            Support will be removed in version 7.0.
         """
         from urwid.util import is_mouse_press
 
-        (maxcol, maxrow) = size
+        (maxcol, maxrow) = self._box_size(size, focus)
         middle, top, bottom = self.calculate_visible((maxcol, maxrow), focus=True)
         if middle is None or top is None or bottom is None:
             return False
@@ -1898,10 +2113,10 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             self.change_focus((maxcol, maxrow), w_pos, wrow)
 
         if not hasattr(w, "mouse_event"):
-            warnings.warn(
-                f"{w.__class__.__module__}.{w.__class__.__name__} is  not implementing Widget API",
-                DeprecationWarning,
-                stacklevel=2,
+            _deprecation.warn(
+                f"{w.__class__.__module__}.{w.__class__.__name__} is not implementing Widget API.",
+                since="2.4.0",
+                removed_in="7.0",
             )
             return False
 
@@ -1928,7 +2143,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
         of the list are visible
         """
         (maxcol, maxrow) = size
-        result = []
+        result: list[Literal["top", "bottom"]] = []
         middle, top, bottom = self.calculate_visible((maxcol, maxrow), focus=focus)
         if middle is None or top is None or bottom is None:  # empty listbox
             return ["top", "bottom"]
@@ -1950,7 +2165,7 @@ class ListBox(Widget, WidgetContainerMixin[_K]):
             if self._body.get_prev(pos) == (None, None):
                 result.insert(0, "top")
 
-        return result  # type: ignore[return-value]
+        return result
 
     def __iter__(self) -> Iterator[_K]:
         """

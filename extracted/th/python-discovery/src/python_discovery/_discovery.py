@@ -389,8 +389,9 @@ def _uv_sort_key(install: _UvInstall) -> tuple[int, ...]:
     version = key.version
     return (
         impl_order.index(key.implementation) if key.implementation in impl_order else len(impl_order),
-        # uv's minor version links point at a concrete install that moves on upgrade, so report the target instead
-        int(install.path.is_symlink()),
+        # uv's minor version links point at a concrete install that moves on upgrade, so report the target instead;
+        # spot them by the name they resolve to, as on Windows they are junctions, which is_symlink() does not report
+        int(install.path.resolve().name != install.path.name),
         -version.major,
         -version.minor,
         -version.micro,

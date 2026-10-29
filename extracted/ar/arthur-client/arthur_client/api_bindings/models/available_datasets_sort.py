@@ -29,6 +29,9 @@ class AvailableDatasetsSort(str, Enum):
     CREATED_AT = 'created_at'
     UPDATED_AT = 'updated_at'
     NAME = 'name'
+    TRACE_COUNT = 'trace_count'
+    INFERENCE_COUNT = 'inference_count'
+    LAST_ACTIVITY_AT = 'last_activity_at'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

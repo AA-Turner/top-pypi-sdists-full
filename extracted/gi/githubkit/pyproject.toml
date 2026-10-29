@@ -1,6 +1,6 @@
 [project]
 name = "GitHubKit"
-version = "0.16.1"
+version = "0.17.0"
 description = "GitHub SDK for Python"
 license = "MIT"
 readme = "README.md"
@@ -12,8 +12,8 @@ requires-python = ">=3.10, <4.0"
 dependencies = [
     "anyio >=3.6.1, <5.0.0",
     "httpx >=0.23.0, <1.0.0",
-    "hishel[async,httpx] >=1.3.0, <=2.0.0",
-    "typing-extensions >=4.11.0, <5.0.0",
+    "hishel[async,httpx] >=1.4.0, <=2.0.0",
+    "typing-extensions >=4.13.0, <5.0.0",
     "pydantic >=1.9.1, <3.0.0, !=2.5.0, !=2.5.1",
     "githubkit-schemas >=26.5.7",
 ]
@@ -46,7 +46,7 @@ dev = [
     { include-group = "codegen" },
     { include-group = "test" },
     { include-group = "docs" },
-    "ruff >=0.16.0, <0.17.0",
+    "ruff >=0.17.0, <0.18.0",
     "nonemoji >=0.1.2, <0.2.0",
     "pre-commit >=4.0.0, <5.0.0",
 ]
@@ -55,9 +55,11 @@ codegen = [
     "tomlkit >=0.13.3, <0.16.0",
     "jsonpointer >=3.0.0, <4.0.0",
     "openapi-pydantic >=0.5.0, <0.6.0",
+    "httpx2 >=2.13.1, <3.0.0",
 ]
 test = [
     { include-group = "thirdparty" },
+    "httpx2 >=2.13.1, <3.0.0",
     "pytest >=8.1.0, <10.0.0",
     "pytest-cov >=7.0.0, <8.0.0",
     "pytest-xdist >=3.5.0, <4.0.0",
@@ -177,9 +179,9 @@ keep-runtime-typing = true
 [tool.pyright]
 typeCheckingMode = "standard"
 reportPrivateImportUsage = false
-reportShadowedImports = false
 disableBytesTypePromotions = true
 pythonPlatform = "All"
+pythonVersion = "3.10"
 
 [tool.pyright.defineConstant]
 PYDANTIC_V2 = true
@@ -188,6 +190,7 @@ PYDANTIC_V2 = true
 root = "packages/**/githubkit_schemas/"
 pythonVersion = "3.10"
 reportOverlappingOverload = false
+reportIncompatibleMethodOverride = false
 
 [[tool.pyright.executionEnvironments]]
 root = "codegen"
@@ -401,6 +404,12 @@ type = [
     "null",
 ]
 
+[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request-stack/properties/base/properties/sha"]
+type = [
+    "string",
+    "null",
+]
+
 [tool.codegen.overrides.schema_overrides."/components/schemas/repository/properties/temp_clone_token"]
 type = [
     "string",
@@ -560,23 +569,24 @@ type = [
 [tool.codegen.overrides.schema_overrides."/components/schemas/app-permissions/properties/organization_copilot_seat_management/enum"]
 "<add>" = ["read"]
 
+[[tool.codegen.overrides.schema_overrides."/components/schemas/budget/properties/budget_type/oneOf"."<add>"]]
+type = "string"
+enum = ["BundlePricing"]
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/create-budget/properties/budget/properties/budget_type/oneOf"."<add>"]]
+type = "string"
+enum = ["BundlePricing"]
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/get-budget/properties/budget_type/oneOf"."<add>"]]
+type = "string"
+enum = ["BundlePricing"]
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/update-budget/properties/budget/properties/budget_type/oneOf"."<add>"]]
+type = "string"
+enum = ["BundlePricing"]
+
 [tool.codegen.overrides.schema_overrides."/components/parameters/created/schema"]
 format = "<unset>"
-
-[tool.codegen.overrides.schema_overrides."/components/schemas/simple-classroom-assignment/properties/editor"]
-type = [
-    "string",
-    "null",
-]
-
-[tool.codegen.overrides.schema_overrides."/components/schemas/simple-classroom-assignment/properties/language"]
-type = [
-    "string",
-    "null",
-]
-
-[tool.codegen.overrides.schema_overrides."/components/schemas/simple-classroom-assignment/required"]
-"<remove>" = ["submitted"]
 
 [tool.codegen.overrides.schema_overrides."/paths/~1repos~1{owner}~1{repo}~1check-runs/post/requestBody/content/application~1json/schema"]
 discriminator = "<unset>"
@@ -601,6 +611,9 @@ discriminator = "<unset>"
 discriminator = "<unset>"
 
 [tool.codegen.overrides.schema_overrides."/paths/~1users~1{username}/get/responses/200/content/application~1json/schema"]
+discriminator = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/rule-suite/properties/rule_evaluations/items/properties/metadata"]
 discriminator = "<unset>"
 
 [tool.codegen.overrides.schema_overrides."/components/schemas/webhook-check-run-completed/required"]
@@ -697,6 +710,30 @@ type = "string"
 [[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-deployment-created/properties/deployment/properties/payload".oneOf]]
 type = "object"
 additionalProperties = true
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhooks_label/properties/archived_by"]
+type = [
+    "null",
+    "object",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhooks_label_unarchived/allOf/1/properties/archived_by"]
+type = [
+    "null",
+    "object",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-labeled/properties/issue/properties/labels/items/properties/archived_by"]
+type = [
+    "null",
+    "object",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-pull-request-labeled/properties/pull_request/properties/labels/items/properties/archived_by"]
+type = [
+    "null",
+    "object",
+]
 
 [tool.codegen.overrides.schema_overrides."/components/schemas/webhook-deployment-protection-rule-requested"]
 required = ["action"]

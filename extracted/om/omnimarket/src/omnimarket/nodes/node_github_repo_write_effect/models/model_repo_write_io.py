@@ -10,6 +10,9 @@ or one failed result. Each operation replaces one ``gh`` verb a lane ran:
 - pr_ready replaces ``gh pr ready`` with GraphQL markPullRequestReadyForReview.
 - pr_close replaces ``gh pr close`` with PATCH /pulls/{n} state=closed.
 - pr_comment replaces ``gh pr comment`` with POST /issues/{n}/comments.
+- pr_thread_reply replaces ``gh api --method POST
+  /repos/{o}/{r}/pulls/{n}/comments/{id}/replies`` with the same POST: one reply
+  on a pull request's review-comment thread.
 - check_run_create posts a check result to /check-runs.
 - workflow_dispatch replaces ``gh workflow run`` with
   POST /actions/workflows/{w}/dispatches.
@@ -37,6 +40,9 @@ from omnimarket.events.pr_landing_github.model_github_quota_reading import (
 from omnimarket.github_landing.model_github_http_exchange import (
     ModelGithubHttpRequest,
 )
+from omnimarket.nodes.node_github_repo_write_effect.models.model_repo_write_lease import (
+    ModelRepoWriteLease,
+)
 
 # GitHub's own limits: a PR or comment body holds at most 65536 characters and
 # a workflow_dispatch carries at most 10 inputs.
@@ -55,6 +61,7 @@ class EnumRepoWriteOperation(StrEnum):
     PR_READY = "pr_ready"
     PR_CLOSE = "pr_close"
     PR_COMMENT = "pr_comment"
+    PR_THREAD_REPLY = "pr_thread_reply"
     WORKFLOW_DISPATCH = "workflow_dispatch"
     CHECK_RUN_CREATE = "check_run_create"
 
@@ -71,6 +78,7 @@ _OPERATION_ONLY_FIELDS: Final[dict[EnumRepoWriteOperation, tuple[str, ...]]] = {
         "conclusion",
         "output",
     ),
+    EnumRepoWriteOperation.PR_THREAD_REPLY: ("thread_comment_id",),
 }
 
 
@@ -87,9 +95,13 @@ class EnumRepoWriteRefusal(StrEnum):
     QUOTA_FLOOR = "quota_floor"
     HEAD_MOVED = "head_moved"
     CLAIM_NOT_HELD = "claim_not_held"
+    LEASE_FENCE_STALE = "lease_fence_stale"
+    LEASE_EXPIRED = "lease_expired"
+    LEASE_UNREADABLE = "lease_unreadable"
     CONTRACT_REQUIRED = "contract_required"
     NOT_FOUND = "not_found"
     GITHUB_REFUSED = "github_refused"
+    CREDENTIAL_UNAVAILABLE = "credential_unavailable"
     TRANSPORT_ERROR = "transport_error"
 
 
@@ -99,6 +111,7 @@ _PR_SCOPED = frozenset(
         EnumRepoWriteOperation.PR_READY,
         EnumRepoWriteOperation.PR_CLOSE,
         EnumRepoWriteOperation.PR_COMMENT,
+        EnumRepoWriteOperation.PR_THREAD_REPLY,
     }
 )
 # Operations that change a PR's state name the head they expect to act on.
@@ -197,6 +210,12 @@ class ModelRepoWriteRequest(BaseModel):
         "own registry and carried here because the effect cannot read that "
         "directory. Without one, the effect's own registry must hold the claim.",
     )
+    lease: ModelRepoWriteLease | None = Field(
+        default=None,
+        description="The lease the command acts under; the effect refuses the "
+        "write unless the fence port answers ok and the lease outlives the "
+        "effect's deadline.",
+    )
     pr_number: int | None = Field(default=None, gt=0)
     expected_head_sha: str | None = Field(
         default=None,
@@ -240,6 +259,12 @@ class ModelRepoWriteRequest(BaseModel):
         | None
     ) = None
     output: ModelCheckRunOutput | None = None
+    thread_comment_id: int | None = Field(
+        default=None,
+        gt=0,
+        description="pr_thread_reply: the id of the review comment that starts "
+        "the thread, the first comment of the thread.",
+    )
     claims_dir: str | None = Field(
         default=None,
         min_length=1,
@@ -269,8 +294,20 @@ class ModelRepoWriteRequest(BaseModel):
                 )
                 if v is None
             ]
-        if op is EnumRepoWriteOperation.PR_COMMENT and not self.body:
+        if (
+            op
+            in (
+                EnumRepoWriteOperation.PR_COMMENT,
+                EnumRepoWriteOperation.PR_THREAD_REPLY,
+            )
+            and not self.body
+        ):
             missing.append("body")
+        if (
+            op is EnumRepoWriteOperation.PR_THREAD_REPLY
+            and self.thread_comment_id is None
+        ):
+            missing.append("thread_comment_id")
         if op is EnumRepoWriteOperation.PR_CLOSE and self.requested_by_run is None:
             missing.append("requested_by_run")
         if op is EnumRepoWriteOperation.WORKFLOW_DISPATCH:
@@ -318,6 +355,8 @@ class ModelRepoWriteRequest(BaseModel):
     ) -> dict[str, Any]:
         """Serialize only the fields this request's operation can carry."""
         data: dict[str, Any] = handler(self)
+        if self.lease is None:
+            data.pop("lease", None)
         for owner, names in _OPERATION_ONLY_FIELDS.items():
             if owner is not self.operation:
                 for name in names:

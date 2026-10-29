@@ -38,7 +38,11 @@ from ..options import (
     default_url_resolver,
     MAX_EXPANSION_DEPTH,
 )
-from ..schema._input_parameter import input_parameter_class
+from ..schema._input_parameter import (
+    input_parameter_class,
+    INPUT_TYPES,
+    input_types_declaring,
+)
 from ..schema.gxformat2 import (
     BaseInputParameter,
     CreatorOrganization,
@@ -55,6 +59,8 @@ from ..schema.gxformat2 import (
 )
 from ..schema.gxformat2 import ToolShedRepository as Format2ToolShedRepository
 from ..schema.gxformat2 import (
+    WorkflowCollectionParameter,
+    WorkflowDataParameter,
     WorkflowInputParameter,
     WorkflowOutputParameter,
     WorkflowStepInput,
@@ -517,6 +523,9 @@ def _build_format2_workflow(
     )
 
 
+_REGEX_VALIDATOR_TYPES = input_types_declaring("validators")
+
+
 def _native_text_validator_to_format2(validator: dict[str, Any]) -> dict[str, Any] | None:
     if validator.get("type") != "regex":
         return None
@@ -560,7 +569,7 @@ def _build_input_param(step: NormalizedNativeStep) -> BaseInputParameter:
                     if validator.get(bound) is not None:
                         kwargs[bound] = validator[bound]
                 break
-    elif input_type in ("string", ["string"]):
+    elif input_type == ["string"] or (isinstance(input_type, str) and input_type in _REGEX_VALIDATOR_TYPES):
         text_validators = [_native_text_validator_to_format2(v) for v in tool_state.get("validators") or []]
         text_validators = [v for v in text_validators if v is not None]
         if text_validators:
@@ -1180,13 +1189,39 @@ def _build_native_workflow(
     )
 
 
+_CLASS_STEP_TYPES: dict[type[BaseInputParameter], NativeStepType] = {
+    WorkflowDataParameter: NativeStepType.data_input,
+    WorkflowCollectionParameter: NativeStepType.data_collection_input,
+}
+_INPUT_TYPE_STEP_TYPES: dict[str, NativeStepType] = {
+    t: _CLASS_STEP_TYPES.get(input_parameter_class(t), NativeStepType.parameter_input) for t in INPUT_TYPES
+}
+
+
+def _input_type_str(input_type: Any) -> str:
+    if input_type is not None and hasattr(input_type, "value"):
+        return input_type.value
+    return str(input_type) if input_type else "data"
+
+
+def format2_input_step_type(inp: BaseInputParameter) -> NativeStepType | None:
+    """Native step type a Format2 input converts to, or None if unsupported."""
+    # type_ lives on concrete subclasses, not BaseInputParameter
+    input_type = getattr(inp, "type_", None)
+    if isinstance(input_type, list):
+        if len(input_type) != 1:
+            return None
+        input_type = input_type[0]
+    return _INPUT_TYPE_STEP_TYPES.get(_input_type_str(input_type))
+
+
 def _build_input_step(
     inp: BaseInputParameter,
     order_index: int,
     ctx: _ConversionContext,
 ) -> NormalizedNativeStep:
     raw_label = inp.id or f"Input {order_index}"
-    label = None if Labels.is_unlabeled(raw_label) else raw_label
+    label = native_input_label(inp, order_index)
     # type_ lives on concrete subclasses, not BaseInputParameter
     input_type = getattr(inp, "type_", None)
     if isinstance(input_type, list):
@@ -1197,18 +1232,9 @@ def _build_input_step(
     else:
         multiple = False
 
-    type_str = (
-        input_type.value
-        if input_type is not None and hasattr(input_type, "value")
-        else str(input_type) if input_type else "data"
-    )
-    if type_str in ("File", "data", "data_input"):
-        step_type = NativeStepType.data_input
-    elif type_str in ("collection", "data_collection", "data_collection_input"):
-        step_type = NativeStepType.data_collection_input
-    elif type_str in ("text", "string", "integer", "int", "float", "color", "boolean"):
-        step_type = NativeStepType.parameter_input
-    else:
+    type_str = _input_type_str(input_type)
+    step_type = format2_input_step_type(inp)
+    if step_type is None:
         raise Exception(f"Unknown input type [{type_str}] encountered.")
 
     tool_state: dict[str, Any] = {"name": raw_label}
@@ -1240,7 +1266,7 @@ def _build_input_step(
         maximum = getattr(inp, "max", None)
         if minimum is not None or maximum is not None:
             tool_state["validators"] = [{"type": "in_range", "min": minimum, "max": maximum, "negate": False}]
-    elif step_type == NativeStepType.parameter_input and type_str in ("text", "string"):
+    elif step_type == NativeStepType.parameter_input and type_str in _REGEX_VALIDATOR_TYPES:
         text_validators = getattr(inp, "validators", None)
         if text_validators:
             tool_state["validators"] = [
@@ -1382,7 +1408,7 @@ def _build_tool_step(
     return NormalizedNativeStep(
         id=order_index,
         type_=NativeStepType.tool,
-        label=_step_label(step),
+        label=native_step_label(step),
         name=tool_id or (tool_representation or {}).get("name", "User Defined Tool"),
         annotation=step.doc or "",
         tool_id=tool_id,
@@ -1435,7 +1461,7 @@ def _build_subworkflow_step(
     return NormalizedNativeStep(
         id=order_index,
         type_=NativeStepType.subworkflow,
-        label=_step_label(step),
+        label=native_step_label(step),
         annotation=step.doc or "",
         tool_state={},
         subworkflow=subworkflow,
@@ -1462,7 +1488,7 @@ def _build_pause_step(
     return NormalizedNativeStep(
         id=order_index,
         type_=NativeStepType.pause,
-        label=_step_label(step),
+        label=native_step_label(step),
         name=name,
         annotation=step.doc or "",
         tool_state={"name": name},
@@ -1495,7 +1521,7 @@ def _build_pick_value_step(
     return NormalizedNativeStep(
         id=order_index,
         type_=NativeStepType.pick_value,
-        label=_step_label(step),
+        label=native_step_label(step),
         name=name,
         annotation=step.doc or "",
         tool_state=tool_state,
@@ -1694,12 +1720,22 @@ def _register_subworkflow_labels(sub_wf: NormalizedFormat2, child_ctx: _Conversi
             child_ctx.labels[sub_label] = len(sub_wf.inputs) + j
 
 
-def _step_label(step: NormalizedWorkflowStep) -> str | None:
-    """Extract the user label from a Format2 step.
+def native_input_label(inp: BaseInputParameter, order_index: int) -> str | None:
+    """Native step label for a Format2 input at ``order_index``.
 
-    For dict-keyed steps, the key is stored in ``id`` and ``label`` is None.
-    Non-numeric ids are user labels; numeric ids are auto-assigned indices.
+    Inputs are labeled by ``id``, falling back to ``Input <order_index>``.
     Sentinel labels (``_unlabeled_*``) are cleared to None.
+    """
+    raw_label = inp.id or f"Input {order_index}"
+    return None if Labels.is_unlabeled(raw_label) else raw_label
+
+
+def native_step_label(step: NormalizedWorkflowStep) -> str | None:
+    """Native step label for a Format2 step.
+
+    An explicit ``label`` wins (normalization also stores dict keys there);
+    otherwise a non-numeric ``id`` is a user label and numeric ids are
+    auto-assigned indices. Sentinel labels (``_unlabeled_*``) are cleared to None.
     """
     if step.label is not None:
         if Labels.is_unlabeled(step.label):

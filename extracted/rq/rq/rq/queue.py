@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import logging
 import sys
-import traceback
 import uuid
 import warnings
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime, timedelta
 from functools import total_ordering
@@ -26,12 +25,15 @@ if TYPE_CHECKING:
 
     from .job import Retry
 
-from .defaults import DEFAULT_RESULT_TTL
+from .callbacks import Callback, execute_failure_callback, execute_success_callback
+from .defaults import DEFAULT_RESULT_TTL, RQ_KEY_PREFIX
 from .dependency import Dependency
 from .exceptions import DequeueTimeout, NoSuchJobError
 from .intermediate_queue import IntermediateQueue
-from .job import Callback, Job, JobStatus
+from .job import Job, JobStatus
+from .job_lifecycle import format_exc_info, record_job_failure
 from .logutils import blue, green
+from .rate_limit import RateLimit, RateLimitRegistry
 from .repeat import Repeat
 from .scripts import save_unique_job, schedule_unique_job
 from .serializers import Serializer, resolve_serializer
@@ -92,6 +94,7 @@ class EnqueueArgs(NamedTuple):
     on_success: Callback | Callable | None
     on_failure: Callback | Callable | None
     on_stopped: Callback | Callable | None
+    rate_limit: RateLimit | None
     pipeline: Pipeline | None
     unique: bool
     args: tuple | list | None
@@ -104,8 +107,8 @@ class Queue:
     job_class: type[Job] = Job
     death_penalty_class: type[BaseDeathPenalty] = UnixSignalDeathPenalty
     DEFAULT_TIMEOUT: int = 180  # Default timeout seconds.
-    redis_queue_namespace_prefix: str = 'rq:queue:'
-    redis_queues_keys: str = 'rq:queues'
+    redis_queue_namespace_prefix: str = RQ_KEY_PREFIX + ':queue:'
+    redis_queues_keys: str = RQ_KEY_PREFIX + ':queues'
 
     @classmethod
     def all(
@@ -265,7 +268,7 @@ class Queue:
     @property
     def registry_cleaning_key(self):
         """Redis key used to indicate this queue has been cleaned."""
-        return f'rq:clean_registries:{self.name}'
+        return f'{RQ_KEY_PREFIX}:clean_registries:{self.name}'
 
     @property
     def scheduler_pid(self) -> int | None:
@@ -303,8 +306,11 @@ class Queue:
         Returns:
             script (...): The Lua Script is called.
         """
+        from .results import Result
+
         script = f"""
             local prefix = "{self.job_class.redis_job_namespace_prefix}"
+            local result_prefix = "{Result.get_key('')}"
             local q = KEYS[1]
             local count = 0
             while true do
@@ -314,7 +320,7 @@ class Queue:
                 end
 
                 -- Delete the relevant keys
-                redis.call("del", prefix..job_id)
+                redis.call("del", prefix..job_id, result_prefix..job_id)
                 redis.call("del", prefix..job_id..":dependents")
                 count = count + 1
             end
@@ -401,6 +407,8 @@ class Queue:
     def get_job_ids(self, offset: int = 0, length: int = -1) -> list[str]:
         """Returns a slice of job IDs in the queue.
 
+        A length of 0 returns an empty list.
+
         Args:
             offset (int, optional): The offset. Defaults to 0.
             length (int, optional): The slice length. Defaults to -1 (last element).
@@ -408,6 +416,9 @@ class Queue:
         Returns:
             _type_: _description_
         """
+        if length == 0:
+            return []
+
         start = offset
         if length >= 0:
             end = offset + (length - 1)
@@ -473,6 +484,13 @@ class Queue:
         from rq.registry import DeferredJobRegistry
 
         return DeferredJobRegistry(queue=self, job_class=self.job_class, serializer=self.serializer)
+
+    @property
+    def ready_job_registry(self):
+        """Returns this queue's ReadyJobRegistry."""
+        from rq.registry import ReadyJobRegistry
+
+        return ReadyJobRegistry(queue=self, job_class=self.job_class, serializer=self.serializer)
 
     @property
     def scheduled_job_registry(self):
@@ -559,6 +577,7 @@ class Queue:
         on_stopped: Callback | Callable | None = None,
         webhooks: Sequence[Webhook] | None = None,
         group_id: str | None = None,
+        rate_limit: RateLimit | None = None,
     ) -> Job:
         """Creates a job based on parameters given
 
@@ -585,7 +604,6 @@ class Queue:
                 None. Callable is deprecated.
             webhooks (Optional[Sequence[Webhook]], optional): Webhooks to send on matching terminal job statuses.
                 Defaults to None.
-            pipeline (Optional[Pipeline], optional): The Redis Pipeline. Defaults to None.
             group_id (Optional[str], optional): A group ID that the job is being added to. Defaults to None.
 
         Raises:
@@ -641,6 +659,10 @@ class Queue:
             job.repeats_left = repeat.times
             job.repeat_intervals = repeat.intervals
 
+        if rate_limit:
+            job.rate_limit_key = rate_limit.key
+            job.rate_limit_concurrency = rate_limit.concurrency
+
         return job
 
     def setup_dependencies(self, job: Job, pipeline: Pipeline | None = None) -> Job:
@@ -673,8 +695,13 @@ class Queue:
 
                     pipe.multi()
 
+                    # As in Job.dependencies_are_met(), a failed dependency is met if the job allows failures
+                    met_statuses = [JobStatus.FINISHED]
+                    if job.allow_dependency_failures:
+                        met_statuses.append(JobStatus.FAILED)
+
                     for dependency in dependencies:
-                        if dependency.get_status(refresh=False) != JobStatus.FINISHED:
+                        if dependency.get_status(refresh=False) not in met_statuses:
                             # NOTE: If the following code changes local variables, those values probably have
                             # to be set back to their original values in the handling of WatchError below!
                             job.set_status(JobStatus.DEFERRED, pipeline=pipe)
@@ -721,6 +748,7 @@ class Queue:
         on_success: Callback | Callable[..., Any] | None = None,
         on_failure: Callback | Callable[..., Any] | None = None,
         on_stopped: Callback | Callable[..., Any] | None = None,
+        rate_limit: RateLimit | None = None,
         pipeline: Pipeline | None = None,
         unique: bool = False,
         webhooks: Sequence[Webhook] | None = None,
@@ -781,6 +809,7 @@ class Queue:
             on_success=on_success,
             on_failure=on_failure,
             on_stopped=on_stopped,
+            rate_limit=rate_limit,
             webhooks=webhooks,
         )
         return self.enqueue_job(job, pipeline=pipeline, at_front=at_front, unique=unique)
@@ -864,16 +893,12 @@ class Queue:
         to represent the delayed function calls and enqueues them.
 
         Args:
-            job_datas (List['EnqueueData']): A List of job data
+            job_datas (Iterable[EnqueueData]): An iterable of job data
             pipeline (Optional[Pipeline], optional): The Redis Pipeline. Defaults to None.
 
         Returns:
             List[Job]: A list of enqueued jobs
         """
-        pipe = pipeline if pipeline is not None else self.connection.pipeline()
-
-        # Add Queue key set
-        pipe.sadd(self.redis_queues_keys, self.key)
 
         jobs_without_dependencies = []
         jobs_with_unmet_dependencies = []
@@ -902,8 +927,27 @@ class Queue:
                 'repeat': job_data.repeat,
             }
 
+        # Partition in one pass so that job_datas can be a one-shot iterable.
+        job_datas_without_dependencies = []
+        job_datas_with_dependencies = []
+        job_ids = set()
+        for job_data in job_datas:
+            # Two entries with the same job_id would be saved to the same key, losing one of them
+            if job_data.job_id is not None:
+                if job_data.job_id in job_ids:
+                    raise ValueError(f"Job ID '{job_data.job_id}' appears more than once in enqueue_many()")
+                job_ids.add(job_data.job_id)
+            if job_data.depends_on:
+                job_datas_with_dependencies.append(job_data)
+            else:
+                job_datas_without_dependencies.append(job_data)
+
+        pipe = pipeline if pipeline is not None else self.connection.pipeline()
+
+        # Add Queue key set
+        pipe.sadd(self.redis_queues_keys, self.key)
+
         # Enqueue jobs without dependencies
-        job_datas_without_dependencies = [job_data for job_data in job_datas if not job_data.depends_on]
         if job_datas_without_dependencies:
             jobs_without_dependencies = [
                 self._enqueue_job(
@@ -916,7 +960,6 @@ class Queue:
             if pipeline is None:
                 pipe.execute()
 
-        job_datas_with_dependencies = [job_data for job_data in job_datas if job_data.depends_on]
         if job_datas_with_dependencies:
             # Save all jobs with dependencies as deferred
             jobs_with_dependencies = [
@@ -929,13 +972,21 @@ class Queue:
                 pipe.execute()
 
             # Enqueue the jobs whose dependencies have been met
+            at_front_job_ids = {
+                job.id
+                for job, job_data in zip(jobs_with_dependencies, job_datas_with_dependencies)
+                if job_data.at_front
+            }
             jobs_with_met_dependencies, jobs_with_unmet_dependencies = Dependency.get_jobs_with_met_dependencies(
                 jobs_with_dependencies, pipeline=pipe
             )
             jobs_with_met_dependencies = [
-                self._enqueue_job(job, pipeline=pipe, at_front=job.enqueue_at_front)
+                self._enqueue_job(job, pipeline=pipe, at_front=job.enqueue_at_front or job.id in at_front_job_ids)
                 for job in jobs_with_met_dependencies
             ]
+            # As in setup_dependencies(), deferred jobs expire after their ttl
+            for job in jobs_with_unmet_dependencies:
+                job.cleanup(ttl=job.ttl, pipeline=pipe)
             if pipeline is None:
                 pipe.execute()
 
@@ -995,6 +1046,7 @@ class Queue:
         on_success = kwargs.pop('on_success', None)
         on_failure = kwargs.pop('on_failure', None)
         on_stopped = kwargs.pop('on_stopped', None)
+        rate_limit = kwargs.pop('rate_limit', None)
         webhooks = kwargs.pop('webhooks', None)
         pipeline = kwargs.pop('pipeline', None)
         unique = kwargs.pop('unique', False)
@@ -1020,6 +1072,7 @@ class Queue:
             on_success,
             on_failure,
             on_stopped,
+            rate_limit,
             pipeline,
             unique,
             args,
@@ -1055,6 +1108,7 @@ class Queue:
             on_success,
             on_failure,
             on_stopped,
+            rate_limit,
             pipeline,
             unique,
             args,
@@ -1080,6 +1134,7 @@ class Queue:
             on_success=on_success,
             on_failure=on_failure,
             on_stopped=on_stopped,
+            rate_limit=rate_limit,
             webhooks=webhooks,
             pipeline=pipeline,
             unique=unique,
@@ -1111,8 +1166,9 @@ class Queue:
             on_success,
             on_failure,
             on_stopped,
+            rate_limit,
             pipeline,
-            unique,  # Not used for scheduled jobs, but parsed for consistency
+            unique,
             args,
             kwargs,
             webhooks,
@@ -1135,11 +1191,12 @@ class Queue:
             on_success=on_success,
             on_failure=on_failure,
             on_stopped=on_stopped,
+            rate_limit=rate_limit,
             webhooks=webhooks,
         )
         if at_front:
             job.enqueue_at_front = True
-        return self.schedule_job(job, datetime, pipeline=pipeline)
+        return self.schedule_job(job, datetime, pipeline=pipeline, unique=unique)
 
     def schedule_job(self, job: Job, datetime: datetime, pipeline: Pipeline | None = None, unique: bool = False) -> Job:
         """Puts job on ScheduledJobRegistry
@@ -1153,9 +1210,14 @@ class Queue:
 
         Returns:
             Job: The scheduled job
+
+        Raises:
+            ValueError: If the job is rate limited and its class or this queue's class overrides
+                the default key prefix
         """
         from .registry import ScheduledJobRegistry
 
+        self._check_rate_limit_namespace(job)
         registry = ScheduledJobRegistry(queue=self)
 
         if unique and not job._id:
@@ -1206,11 +1268,23 @@ class Queue:
 
         Raises:
             ValueError: If unique=True and job has dependencies
+            ValueError: If the job is rate limited and its class or this queue's class overrides
+                the default key prefix
+            ValueError: If the job is rate limited and a pipeline is given
         """
+        self._check_rate_limit_namespace(job)
         if unique and not job._id:
             raise ValueError('unique=True requires an explicit job_id')
         if unique and job._dependency_ids:
             raise ValueError('unique=True is not supported with job dependencies')
+        if unique and job.has_rate_limit:
+            raise ValueError('unique=True is not supported with rate-limited jobs')
+        if job.has_rate_limit and not self._is_async:
+            raise ValueError('rate_limit is not supported on synchronous queues (is_async=False)')
+        # Promotion would run inside the caller's pipeline, so a later save of the returned
+        # job on that pipeline would overwrite the promoted status.
+        if job.has_rate_limit and pipeline is not None:
+            raise ValueError('rate-limited jobs cannot be enqueued with a pipeline')
 
         job.origin = self.name
         job = self.setup_dependencies(job, pipeline=pipeline)
@@ -1221,7 +1295,65 @@ class Queue:
             pipe.execute()
         # If we do not depend on an unfinished job, enqueue the job.
         if job.get_status(refresh=False) != JobStatus.DEFERRED:
+            if job.has_rate_limit:
+                return self._enqueue_rate_limited_job(job, pipeline=pipeline, at_front=at_front)
             return self._enqueue_job(job, pipeline=pipeline, at_front=at_front, unique=unique)
+        return job
+
+    def _check_rate_limit_namespace(self, job: Job) -> None:
+        """Rejects a rate-limited job whose class or this queue's class overrides the default
+        key prefix, since the rate limiter builds keys from the base `Job` and `Queue` prefixes."""
+        if job.has_rate_limit and (
+            job.redis_job_namespace_prefix != Job.redis_job_namespace_prefix
+            or self.redis_queue_namespace_prefix != Queue.redis_queue_namespace_prefix
+        ):
+            raise ValueError('rate_limit is not supported with custom job or queue key prefixes')
+
+    def _enqueue_rate_limited_job(self, job: Job, pipeline: Pipeline | None = None, at_front: bool = False) -> Job:
+        """Enqueue a job through the rate limit registry.
+
+        Saves the job as rate_limited and adds it to the waiting set atomically, then fills
+        free slots with waiting jobs, oldest first. Without a free slot, the job keeps waiting.
+
+        Args:
+            job (Job): The job to enqueue (must have rate_limit_key and rate_limit_concurrency set)
+            pipeline (Optional[Pipeline]): If given, the job's writes and promotion are queued on it
+                and run when it executes. Don't save the job on it afterwards; that would overwrite
+                the promoted status.
+            at_front (bool): Whether the job should be pushed to the front of its queue when
+                promoted. Persisted on the job so the (possibly later, cross-worker) promotion
+                can honor it.
+
+        Returns:
+            Job: The job
+        """
+        job.redis_server_version = self.get_redis_server_version()
+        job.origin = self.name
+        if job.timeout is None:
+            job.timeout = self._default_timeout
+
+        assert job.rate_limit_concurrency
+
+        registry = RateLimitRegistry.from_job(job)
+        job._status = JobStatus.RATE_LIMITED
+        if at_front:
+            job.enqueue_at_front = True
+        pipe = pipeline if pipeline is not None else self.connection.pipeline()
+        registry.register(job.rate_limit_concurrency, pipe)
+        job.save(pipeline=pipe)
+        job.cleanup(ttl=job.ttl, pipeline=pipe)
+        registry.add_to_rate_limited(job.id, pipe)
+
+        if pipeline is not None:
+            registry.acquire_and_enqueue(job.rate_limit_concurrency, pipeline=pipe)
+            return job
+
+        pipe.execute()
+        enqueued_at = now()
+        promoted_job_ids = registry.acquire_and_enqueue(job.rate_limit_concurrency, enqueued_at=enqueued_at)
+        if job.id in promoted_job_ids:
+            job._status = JobStatus.QUEUED
+            job.enqueued_at = enqueued_at
         return job
 
     def _enqueue_job(
@@ -1363,44 +1495,53 @@ class Queue:
             job = self.run_job(job)
         except:  # noqa
             with self.connection.pipeline() as pipeline:
-                job.set_status(JobStatus.FAILED, pipeline=pipeline)
-                exc_string = ''.join(traceback.format_exception(*sys.exc_info()))
-                job._handle_failure(exc_string, pipeline, worker_name='')
+                exc_string = format_exc_info(sys.exc_info())
+                record_job_failure(job, exc_string, pipeline)
                 pipeline.execute()
 
-            if job.failure_callback:
-                job.failure_callback(job, self.connection, *sys.exc_info())
+            execute_failure_callback(job, self.death_penalty_class, *sys.exc_info())
             job.send_webhooks(JobStatus.FAILED, exc_string=exc_string)
         else:
-            if job.success_callback:
-                job.success_callback(job, self.connection, job.return_value())
+            execute_success_callback(job, self.death_penalty_class, job._result)
             job.send_webhooks(JobStatus.FINISHED)
 
         return job
 
-    def enqueue_dependents(
+    def move_dependents_to_ready(
         self,
         job: Job,
         pipeline: Pipeline | None = None,
         exclude_job_id: str | None = None,
         refresh_job_status: bool = True,
-    ):
-        """Enqueues all jobs in the given job's dependents set and clears it.
+    ) -> dict[str, list[str]]:
+        """Move the given job's eligible dependents from deferred to ready.
 
-        When called without a pipeline, this method uses WATCH/MULTI/EXEC.
-        If you pass a pipeline, only MULTI is called. The rest is up to the
-        caller.
+        Move dependents whose dependencies are met (and which aren't canceled) to
+        `ReadyJobRegistry` via `register_jobs`. Usually followed up by
+        `enqueue_ready_jobs_by_queue` to enqueue the dependents.
+
+        When `pipeline` is `None` this method runs its own WATCH/MULTI/EXEC. A passed
+        pipeline must already be in WATCH mode (this method reads before appending its
+        writes); the caller is responsible for EXEC.
 
         Args:
-            job (Job): The Job to enqueue the dependents
-            pipeline (Optional[Pipeline], optional): The Redis Pipeline. Defaults to None.
-            exclude_job_id (Optional[str], optional): Whether to exclude the job id. Defaults to None.
-            refresh_job_status (bool): whether to refresh job status when checking for dependencies. Defaults to True.
+            job: The job whose dependents to process.
+            pipeline: Optional caller-owned pipeline.
+            exclude_job_id: Skip a specific dependent id.
+            refresh_job_status: Whether to refresh dependent status during dependency check.
+
+        Returns:
+            Map of origin queue name → list of dependent job ids that were moved to ready.
         """
-        from .registry import DeferredJobRegistry
+        from .registry import ReadyJobRegistry
 
         pipe = pipeline if pipeline is not None else self.connection.pipeline()
+        if pipeline is not None and not pipeline.watching:
+            raise ValueError('move_dependents_to_ready() requires a watched pipeline when pipeline is provided')
+
         dependents_key = job.dependents_key
+
+        job_ids_by_queue_name: dict[str, list[str]] = {}
 
         while True:
             try:
@@ -1415,7 +1556,7 @@ class Queue:
                 if not dependent_job_ids:
                     break
 
-                jobs_to_enqueue = [
+                jobs_to_mark_ready = [
                     dependent_job
                     for dependent_job in self.job_class.fetch_many(
                         dependent_job_ids, connection=self.connection, serializer=self.serializer
@@ -1432,61 +1573,98 @@ class Queue:
 
                 pipe.multi()
 
-                if not jobs_to_enqueue:
+                if not jobs_to_mark_ready:
                     break
 
                 self.log.debug(
-                    'Enqueueing %d dependent jobs for job %s: %s',
-                    len(jobs_to_enqueue),
+                    'Moving %d dependent jobs to ready for job %s: %s',
+                    len(jobs_to_mark_ready),
                     job.id,
-                    [j.id for j in jobs_to_enqueue],
+                    [j.id for j in jobs_to_mark_ready],
                 )
 
-                for dependent in jobs_to_enqueue:
-                    enqueue_at_front = dependent.enqueue_at_front or False
+                # Group dependents by their origin queue so each lands in the correct
+                # ReadyJobRegistry. Reset accumulator on each loop iteration so a
+                # WatchError-induced retry doesn't double-count.
+                job_ids_by_queue_name = {}
+                grouped: dict[str, list[Job]] = defaultdict(list)
+                for dependent in jobs_to_mark_ready:
+                    grouped[dependent.origin].append(dependent)
 
-                    registry = DeferredJobRegistry(
-                        dependent.origin, self.connection, job_class=self.job_class, serializer=self.serializer
+                for queue_name, group in grouped.items():
+                    target_registry = ReadyJobRegistry(
+                        name=queue_name,
+                        connection=self.connection,
+                        job_class=self.job_class,
+                        serializer=self.serializer,
                     )
-                    registry.remove(dependent, pipeline=pipe)
-                    self.log.debug('Removed job %s from DeferredJobRegistry', dependent.id)
+                    target_registry.register_jobs(group, pipeline=pipe)
+                    job_ids_by_queue_name[queue_name] = [j.id for j in group]
 
-                    if dependent.origin == self.name:
-                        self.log.debug(
-                            'Enqueueing job %s to current queue %s (at_front=%s)',
-                            dependent.id,
-                            self.name,
-                            enqueue_at_front,
-                        )
-                        self._enqueue_job(dependent, pipeline=pipe, at_front=enqueue_at_front)
-                    else:
-                        self.log.debug(
-                            'Enqueueing job %s to different queue %s (at_front=%s)',
-                            dependent.id,
-                            dependent.origin,
-                            enqueue_at_front,
-                        )
-                        queue = self.__class__(name=dependent.origin, connection=self.connection)
-                        queue._enqueue_job(dependent, pipeline=pipe, at_front=enqueue_at_front)
-
-                # Only delete dependents_key if all dependents have been enqueued
-                if len(jobs_to_enqueue) == len(dependent_job_ids):
+                # Only delete dependents_key if all dependents have been moved to ready
+                if len(jobs_to_mark_ready) == len(dependent_job_ids):
                     pipe.delete(dependents_key)
                 else:
-                    enqueued_job_ids = [job.id for job in jobs_to_enqueue]
-                    pipe.srem(dependents_key, *enqueued_job_ids)
+                    ready_job_ids = [j.id for j in jobs_to_mark_ready]
+                    pipe.srem(dependents_key, *ready_job_ids)
 
                 if pipeline is None:
                     pipe.execute()
                 break
             except WatchError:
                 if pipeline is None:
+                    job_ids_by_queue_name = {}
                     continue
                 else:
                     # if the pipeline comes from the caller, we re-raise the
                     # exception as it it the responsibility of the caller to
                     # handle it
                     raise
+
+        return job_ids_by_queue_name
+
+    def enqueue_ready_jobs_by_queue(self, job_ids_by_queue_name: dict[str, list[str]]) -> None:
+        """Enqueue ready dependents onto their origin queues.
+
+        Args:
+            job_ids_by_queue_name: Map of origin queue name → list of ready job ids.
+        """
+        for queue_name, ids in job_ids_by_queue_name.items():
+            try:
+                target_queue = self.__class__(
+                    name=queue_name,
+                    connection=self.connection,
+                    job_class=self.job_class,
+                    serializer=self.serializer,
+                )
+                target_queue.ready_job_registry.enqueue_jobs(ids)
+            except Exception:
+                self.log.exception(
+                    'Failed to drain ready dependents for queue %s; leaving for ReadyJobRegistry.cleanup()',
+                    queue_name,
+                )
+
+    def enqueue_dependents(
+        self,
+        job: Job,
+        exclude_job_id: str | None = None,
+        refresh_job_status: bool = True,
+    ) -> dict[str, list[str]]:
+        """Move the given job's eligible dependents to ready and enqueue them.
+
+        Args:
+            job: The job whose dependents to process.
+            exclude_job_id: Skip a specific dependent id.
+            refresh_job_status: Whether to refresh dependent status during dependency check.
+
+        Returns:
+            Map of origin queue name → list of dependent job ids that were moved to ready.
+        """
+        job_ids_by_queue_name = self.move_dependents_to_ready(
+            job, exclude_job_id=exclude_job_id, refresh_job_status=refresh_job_status
+        )
+        self.enqueue_ready_jobs_by_queue(job_ids_by_queue_name)
+        return job_ids_by_queue_name
 
     def pop_job_id(self) -> str | None:
         """Pops a given job ID from this Redis queue.
@@ -1600,10 +1778,8 @@ class Queue:
         Returns:
             job, queue (Tuple[Job, Queue]): A tuple of Job, Queue
         """
-        job_cls: type[Job] = backend_class(cls, 'job_class', override=job_class)
-
+        queue_keys = [queue.key for queue in queues]
         while True:
-            queue_keys = [q.key for q in queues]
             if len(queue_keys) == 1 and get_version(connection) >= (6, 2, 0):
                 result = cls.lmove(connection, queue_keys[0], timeout)
             else:
@@ -1611,26 +1787,53 @@ class Queue:
             if result is None:
                 return None
             queue_key, job_id = map(as_text, result)
-            queue = cls.from_queue_key(
+            job_fetch_result = cls._fetch_dequeued_job(
+                connection,
                 queue_key,
-                connection=connection,
-                job_class=job_cls,
+                job_id,
+                job_class=job_class,
                 serializer=serializer,
                 death_penalty_class=death_penalty_class,
             )
-            try:
-                job = job_cls.fetch(job_id, connection=connection, serializer=serializer)
-            except NoSuchJobError:
-                # Silently pass on jobs that don't exist (anymore),
-                # and continue in the look
+            if job_fetch_result is None:
                 continue
-            except Exception as e:
-                # Attach queue information on the exception for improved error
-                # reporting
-                e.job_id = job_id  # type: ignore[attr-defined]
-                e.queue = queue  # type: ignore[attr-defined]
-                raise e
-            return job, queue
+            return job_fetch_result
+
+    @classmethod
+    def _fetch_dequeued_job(
+        cls,
+        connection: Redis,
+        queue_key: str,
+        job_id: str,
+        job_class: type[Job] | None = None,
+        serializer: Serializer | str | None = None,
+        death_penalty_class: type[BaseDeathPenalty] | None = None,
+    ) -> tuple[Job, Queue] | None:
+        """Post-pop processing shared by `dequeue_any` and the async worker:
+        rebuild the Queue from its key and fetch the Job. Returns None when the
+        job hash no longer exists (caller should dequeue again); attaches
+        job_id/queue metadata to other fetch errors.
+        """
+        job_cls: type[Job] = backend_class(cls, 'job_class', override=job_class)
+        queue = cls.from_queue_key(
+            queue_key,
+            connection=connection,
+            job_class=job_cls,
+            serializer=serializer,
+            death_penalty_class=death_penalty_class,
+        )
+        try:
+            job = job_cls.fetch(job_id, connection=connection, serializer=serializer)
+        except NoSuchJobError:
+            # Silently pass on jobs that don't exist (anymore)
+            return None
+        except Exception as e:
+            # Attach queue information on the exception for improved error
+            # reporting
+            e.job_id = job_id  # type: ignore[attr-defined]
+            e.queue = queue  # type: ignore[attr-defined]
+            raise e
+        return job, queue
 
     # Total ordering definition (the rest of the required Python methods are
     # auto-generated by the @total_ordering decorator)

@@ -18,11 +18,28 @@ if TYPE_CHECKING:
 resource = None if sys.platform == "win32" else importlib.import_module("resource")
 
 
-def normalize_peak_rss_bytes(ru_maxrss: int, platform: str) -> int:
-    """Normalize ``resource.ru_maxrss`` to bytes on Linux and macOS."""
-    if platform == "darwin":
-        return ru_maxrss
-    return ru_maxrss * 1024
+def reset_peak_rss() -> bool:
+    """Reset this process's resident-set high-water mark where the kernel allows it (Linux with ``clear_refs``).
+
+    Return whether it was reset: a forked child otherwise inherits its parent's high-water mark on Linux.
+    """
+    clear_refs = Path("/proc/self/clear_refs")
+    if sys.platform != "linux" or not clear_refs.exists():
+        return False
+    try:
+        clear_refs.write_text("5", encoding="ascii")
+    except OSError:
+        return False
+    return True
+
+
+def read_peak_rss_bytes(*, reset: bool) -> int:
+    """Return this process's peak resident memory in bytes (``ru_maxrss`` is bytes on macOS, KiB elsewhere)."""
+    if reset:
+        status = Path("/proc/self/status").read_text(encoding="ascii")
+        return int(next(line for line in status.splitlines() if line.startswith("VmHWM:")).split()[1]) * 1024
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return peak if sys.platform == "darwin" else peak * 1024
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -44,6 +61,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if resource is None:  # pragma: no cover
         parser.error("peak RSS measurement is supported only on Unix")
 
+    reset = reset_peak_rss()
     started_at = time.perf_counter()
     generate(
         input_=args.input,
@@ -53,10 +71,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         formatters=[],
     )
     elapsed_seconds = time.perf_counter() - started_at
-    peak_rss_bytes = normalize_peak_rss_bytes(
-        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
-        sys.platform,
-    )
+    peak_rss_bytes = read_peak_rss_bytes(reset=reset)
     print(
         json.dumps(
             {

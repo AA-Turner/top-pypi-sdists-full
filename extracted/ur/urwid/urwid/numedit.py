@@ -26,9 +26,8 @@ from __future__ import annotations
 import decimal
 import re
 import typing
-import warnings
 
-from urwid import Edit
+from urwid import Edit, _deprecation
 
 if typing.TYPE_CHECKING:
     from collections.abc import Container
@@ -58,7 +57,7 @@ class NumEdit(Edit):
         *,
         trim_leading_zeros: bool = True,
         allow_negative: bool = False,
-    ):
+    ) -> None:
         """Initialize a numeric edit widget restricted to the given set of characters.
 
         :param allowed: characters accepted by this widget
@@ -70,7 +69,7 @@ class NumEdit(Edit):
 
         .. deprecated:: 2.2.3
             The ``trimLeadingZeros`` argument is deprecated, use the ``trim_leading_zeros``
-            keyword argument instead.
+            keyword argument instead. The argument will be removed in version 7.0.
         """
         super().__init__(caption, default)
         self._allowed = allowed
@@ -78,10 +77,10 @@ class NumEdit(Edit):
         self._allow_negative = allow_negative
 
         if trimLeadingZeros is not None:
-            warnings.warn(
-                "'trimLeadingZeros' argument is deprecated. Use 'trim_leading_zeros' keyword argument",
-                DeprecationWarning,
-                stacklevel=3,
+            _deprecation.warn(
+                "'trimLeadingZeros' argument is deprecated. Use 'trim_leading_zeros' keyword argument.",
+                since="2.2.3",
+                removed_in="7.0",
             )
             self._trim_leading_zeros = trimLeadingZeros
 
@@ -96,7 +95,7 @@ class NumEdit(Edit):
 
     def keypress(
         self,
-        size: tuple[int],
+        size: tuple[int],  # type: ignore[override]
         key: str,
     ) -> str | None:
         """
@@ -133,10 +132,15 @@ class NumEdit(Edit):
         unhandled = super().keypress(size, key)
 
         if not unhandled and self._trim_leading_zeros:
-            # trim leading zeros
-            while self.edit_pos > 0 and self.edit_text[:1] == "0":
+            # trim leading zeros after the sign, but keep the zero of "0" and "0.5"
+            sign = int(self.edit_text.startswith("-"))
+            while (
+                self.edit_pos > sign
+                and self.edit_text[sign : sign + 1] == "0"
+                and self.edit_text[sign + 1 : sign + 2].isalnum()
+            ):
                 self.set_edit_pos(self.edit_pos - 1)
-                self.set_edit_text(self.edit_text[1:])
+                self.set_edit_text(self.edit_text[:sign] + self.edit_text[sign + 1 :])
 
         return unhandled
 
@@ -156,6 +160,8 @@ class IntegerEdit(NumEdit):
 
         :param caption: caption markup
         :param default: default edit value
+        :param base: the numeric base of the value, from 2 to 36
+        :param allow_negative: accept a leading minus sign in string defaults and input
         :raises ValueError: *default* is not an ``int``, ``str`` or integral :class:`decimal.Decimal`, or does not
             consist of digits valid for *base*.
 
@@ -221,7 +227,8 @@ class IntegerEdit(NumEdit):
             if isinstance(default, str) and len(default):
                 # check if it is a valid initial value
                 validation_re = f"^[{allowed_chars}]+$"
-                if not re.match(validation_re, str(default), re.IGNORECASE):
+                digits = default[1:] if allow_negative and default.startswith("-") else default
+                if not re.match(validation_re, digits, re.IGNORECASE):
                     raise ValueError(f"invalid value: {default} for base {base}")
 
             elif isinstance(default, decimal.Decimal) and default.as_tuple()[2] != 0:
@@ -285,15 +292,20 @@ class FloatEdit(NumEdit):
         """Initialize a decimal edit widget.
 
         :param caption: caption markup
-        :param default: default edit value
+        :param default: default edit value. Strings must use the configured decimal separator.
+        :param preserveSignificance: deprecated positional form of *preserve_significance*
+        :param decimalSeparator: deprecated positional form of *decimal_separator*
         :param preserve_significance: return value has the same signif. as default
         :param decimal_separator: use '.' as separator by default, optionally a ','
-        :raises ValueError: *default* is not an ``int``, ``str`` or :class:`decimal.Decimal`, or *decimal_separator* is
-            neither ``'.'`` nor ``','``.
+        :param allow_negative: accept a leading minus sign in string defaults and input
+        :raises ValueError: *default* is not an ``int``, ``str`` or :class:`decimal.Decimal`.
+            *default* is a string with the other decimal separator, is not a number, or is not a finite value.
+            *decimal_separator* is neither ``'.'`` nor ``','``.
 
         .. deprecated:: 2.2.3
             The ``preserveSignificance`` and ``decimalSeparator`` arguments are deprecated,
             use the ``preserve_significance`` and ``decimal_separator`` keyword arguments instead.
+            The arguments will be removed in version 7.0.
 
         >>> FloatEdit("", "1.065434")
         <FloatEdit selectable flow widget '1.065434' edit_pos=8>
@@ -339,13 +351,13 @@ class FloatEdit(NumEdit):
             ...
         ValueError: default: Only 'str', 'int', 'long' or Decimal input allowed
         """
-        self.significance = None
+        self.significance: decimal.Decimal | None = None
         self._decimal_separator = decimal_separator
         if decimalSeparator is not None:
-            warnings.warn(
-                "'decimalSeparator' argument is deprecated. Use 'decimal_separator' keyword argument",
-                DeprecationWarning,
-                stacklevel=3,
+            _deprecation.warn(
+                "'decimalSeparator' argument is deprecated. Use 'decimal_separator' keyword argument.",
+                since="2.2.3",
+                removed_in="7.0",
             )
             self._decimal_separator = decimalSeparator
 
@@ -353,10 +365,10 @@ class FloatEdit(NumEdit):
             raise ValueError(f"invalid decimal separator: {self._decimal_separator}")
 
         if preserveSignificance is not None:
-            warnings.warn(
-                "'preserveSignificance' argument is deprecated. Use 'preserve_significance' keyword argument",
-                DeprecationWarning,
-                stacklevel=3,
+            _deprecation.warn(
+                "'preserveSignificance' argument is deprecated. Use 'preserve_significance' keyword argument.",
+                since="2.2.3",
+                removed_in="7.0",
             )
             preserve_significance = preserveSignificance
 
@@ -367,22 +379,49 @@ class FloatEdit(NumEdit):
 
             if isinstance(default, str) and default:
                 # check if it is a float, raises a ValueError otherwise
+                invalid_separator = "," if self._decimal_separator == "." else "."
+                if invalid_separator in default:
+                    raise ValueError(f"invalid decimal separator in default value: {invalid_separator}")
+                default = default.replace(self._decimal_separator, ".")
                 float(default)
                 default = decimal.Decimal(default)
+
+            if isinstance(default, decimal.Decimal) and not default.is_finite():
+                raise ValueError("default: must be a finite decimal value")
 
             if preserve_significance and isinstance(default, decimal.Decimal):
                 self.significance = default
 
-            val = str(default)
+            val = format(default, "f") if isinstance(default, decimal.Decimal) else str(default)
+            val = val.replace(".", self._decimal_separator)
 
         super().__init__(self.ALLOWED[0:10] + self._decimal_separator, caption, val, allow_negative=allow_negative)
+
+    def valid_char(self, ch: str) -> bool:
+        """Return true for allowed characters, refusing a second decimal separator."""
+        if ch == self._decimal_separator and ch in self.edit_text:
+            return False
+        return super().valid_char(ch)
 
     def value(self) -> decimal.Decimal | None:
         """Return the numeric value of self.edit_text."""
         if self.edit_text:
             normalized = decimal.Decimal(self.edit_text.replace(self._decimal_separator, "."))
             if self.significance is not None:
-                return normalized.quantize(self.significance)
+                normalized_tuple = normalized.as_tuple()
+                significance_tuple = self.significance.as_tuple()
+                # as_tuple().exponent is typed as a union with the non-finite
+                # markers; derive both exponents from adjusted() instead, which
+                # is always a plain int: exponent == adjusted() - len(digits) + 1.
+                normalized_exponent = normalized.adjusted() - len(normalized_tuple.digits) + 1
+                significance_exponent = self.significance.adjusted() - len(significance_tuple.digits) + 1
+                precision = max(
+                    len(normalized_tuple.digits) + max(0, normalized_exponent - significance_exponent),
+                    len(significance_tuple.digits),
+                )
+                with decimal.localcontext() as context:
+                    context.prec = max(context.prec, precision)
+                    return normalized.quantize(self.significance)
             return normalized
 
         return None

@@ -2,7 +2,16 @@
 Alliance Auth Middleware
 """
 
+__lazy_modules__ = ["collections.abc", "django.http"]
+
+from typing import TYPE_CHECKING
+
 from user_agents import parse
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from django.http import HttpRequest, HttpResponse
 
 
 class DeviceDetectionMiddleware:
@@ -19,7 +28,7 @@ class DeviceDetectionMiddleware:
     - is_bot: True if the device is identified as a bot or crawler.
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: "Callable[[HttpRequest], HttpResponse]") -> None:
         """
         Initialize the middleware with the get_response callable.
 
@@ -29,7 +38,7 @@ class DeviceDetectionMiddleware:
 
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: "HttpRequest") -> "HttpResponse":
         """
         Process the incoming request to determine if it's from a mobile device.
 

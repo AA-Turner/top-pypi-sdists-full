@@ -37,6 +37,8 @@ if typing.TYPE_CHECKING:
     from .account_company_formation_signatures import AccountCompanyFormationSignatures
     from .account_company_formation_status import AccountCompanyFormationStatus
     from .account_covered_payout_fees import AccountCoveredPayoutFees
+    from .account_customer_tracking import AccountCustomerTracking
+    from .account_customer_tracking_button_text_color import AccountCustomerTrackingButtonTextColor
     from .account_dispute_alert_auto_refund_control import AccountDisputeAlertAutoRefundControl
     from .account_economic_intelligence_offer import AccountEconomicIntelligenceOffer
     from .account_economic_intelligence_offer_duration_unit import AccountEconomicIntelligenceOfferDurationUnit
@@ -219,6 +221,7 @@ if typing.TYPE_CHECKING:
     from .ad_platform_issue_resource_type import AdPlatformIssueResourceType
     from .ad_post_source import AdPostSource
     from .ad_result_event import AdResultEvent
+    from .ad_stat import AdStat
     from .ad_status import AdStatus
     from .ad_text import AdText
     from .ad_translations import AdTranslations
@@ -267,6 +270,7 @@ if typing.TYPE_CHECKING:
     from .app_domain_status import AppDomainStatus
     from .app_elements_used_item import AppElementsUsedItem
     from .app_icon import AppIcon
+    from .app_installation import AppInstallation
     from .app_list_item import AppListItem
     from .app_list_item_app_type import AppListItemAppType
     from .app_list_item_status import AppListItemStatus
@@ -281,6 +285,7 @@ if typing.TYPE_CHECKING:
     from .app_required_scopes_item import AppRequiredScopesItem
     from .app_status import AppStatus
     from .app_statuses import AppStatuses
+    from .app_summary import AppSummary
     from .app_types import AppTypes
     from .app_usage_stats import AppUsageStats
     from .app_valid_scopes import AppValidScopes
@@ -371,12 +376,12 @@ if typing.TYPE_CHECKING:
     )
     from .checkout_configuration_list_item_plan import CheckoutConfigurationListItemPlan
     from .checkout_configuration_mode import CheckoutConfigurationMode
-    from .checkout_configuration_plan import CheckoutConfigurationPlan
-    from .checkout_configuration_plan_plan_type import CheckoutConfigurationPlanPlanType
-    from .checkout_configuration_plan_release_method import CheckoutConfigurationPlanReleaseMethod
-    from .checkout_configuration_plan_three_ds_level import CheckoutConfigurationPlanThreeDsLevel
-    from .checkout_configuration_plan_visibility import CheckoutConfigurationPlanVisibility
     from .checkout_configuration_three_ds_level import CheckoutConfigurationThreeDsLevel
+    from .checkout_configuration_variant import CheckoutConfigurationVariant
+    from .checkout_configuration_variant_billing_type import CheckoutConfigurationVariantBillingType
+    from .checkout_configuration_variant_release_method import CheckoutConfigurationVariantReleaseMethod
+    from .checkout_configuration_variant_three_ds_level import CheckoutConfigurationVariantThreeDsLevel
+    from .checkout_configuration_variant_visibility import CheckoutConfigurationVariantVisibility
     from .checkout_fonts import CheckoutFonts
     from .checkout_modes import CheckoutModes
     from .checkout_session_payment_method_configuration import CheckoutSessionPaymentMethodConfiguration
@@ -438,6 +443,7 @@ if typing.TYPE_CHECKING:
     from .currencies import Currencies
     from .custom_ctas import CustomCtas
     from .custom_field_types import CustomFieldTypes
+    from .customer_tracking_preferences import CustomerTrackingPreferences
     from .detailed_targeting_option import DetailedTargetingOption
     from .detailed_targeting_option_behavior_type import DetailedTargetingOptionBehaviorType
     from .direction import Direction
@@ -452,6 +458,7 @@ if typing.TYPE_CHECKING:
     from .dispute_alert_list_item import DisputeAlertListItem
     from .dispute_alert_list_item_dispute import DisputeAlertListItemDispute
     from .dispute_alert_list_item_payment import DisputeAlertListItemPayment
+    from .dispute_alert_source import DisputeAlertSource
     from .dispute_alert_type import DisputeAlertType
     from .dispute_alert_types import DisputeAlertTypes
     from .dispute_attachment import DisputeAttachment
@@ -518,6 +525,8 @@ if typing.TYPE_CHECKING:
     from .domain_availability import DomainAvailability
     from .domain_dns_record import DomainDnsRecord
     from .domain_dns_record_type import DomainDnsRecordType
+    from .domain_email import DomainEmail
+    from .domain_email_state import DomainEmailState
     from .domain_issue import DomainIssue
     from .domain_issue_capability import DomainIssueCapability
     from .domain_issue_code import DomainIssueCode
@@ -532,10 +541,14 @@ if typing.TYPE_CHECKING:
     from .domain_registrant import DomainRegistrant
     from .domain_registrar import DomainRegistrar
     from .domain_registration import DomainRegistration
+    from .domain_registration_method import DomainRegistrationMethod
     from .domain_registration_phase import DomainRegistrationPhase
     from .domain_registration_state import DomainRegistrationState
     from .domain_stats import DomainStats
     from .domain_status import DomainStatus
+    from .domain_transfer import DomainTransfer
+    from .domain_transfer_destination import DomainTransferDestination
+    from .domain_transfer_state import DomainTransferState
     from .domain_verification import DomainVerification
     from .domain_verification_state import DomainVerificationState
     from .domain_website import DomainWebsite
@@ -546,6 +559,7 @@ if typing.TYPE_CHECKING:
     from .economic_intelligence_operation import EconomicIntelligenceOperation
     from .economic_intelligence_sentiment import EconomicIntelligenceSentiment
     from .economic_intelligence_status import EconomicIntelligenceStatus
+    from .email_address import EmailAddress
     from .embed_types import EmbedTypes
     from .entry import Entry
     from .entry_custom_field_responses_item import EntryCustomFieldResponsesItem
@@ -614,6 +628,15 @@ if typing.TYPE_CHECKING:
     from .financing_access_change_reason import FinancingAccessChangeReason
     from .financing_application import FinancingApplication
     from .financing_application_status import FinancingApplicationStatus
+    from .financing_provider import FinancingProvider
+    from .financing_provider_action import FinancingProviderAction
+    from .financing_provider_currency import FinancingProviderCurrency
+    from .financing_provider_currency_currency import FinancingProviderCurrencyCurrency
+    from .financing_provider_details import FinancingProviderDetails
+    from .financing_provider_details_source_provider import FinancingProviderDetailsSourceProvider
+    from .financing_provider_provider import FinancingProviderProvider
+    from .financing_provider_reason import FinancingProviderReason
+    from .financing_provider_status import FinancingProviderStatus
     from .financing_requirement import FinancingRequirement
     from .financing_requirement_file_collection_type import FinancingRequirementFileCollectionType
     from .financing_requirement_text_collection_type import FinancingRequirementTextCollectionType
@@ -659,19 +682,22 @@ if typing.TYPE_CHECKING:
     from .internal_server_error_body_error import InternalServerErrorBodyError
     from .invoice import Invoice
     from .invoice_collection_methods import InvoiceCollectionMethods
-    from .invoice_company import InvoiceCompany
-    from .invoice_current_plan import InvoiceCurrentPlan
-    from .invoice_line_items_item import InvoiceLineItemsItem
-    from .invoice_list_item import InvoiceListItem
-    from .invoice_list_item_current_plan import InvoiceListItemCurrentPlan
-    from .invoice_list_item_line_items_item import InvoiceListItemLineItemsItem
-    from .invoice_list_item_user import InvoiceListItemUser
-    from .invoice_mailing_address import InvoiceMailingAddress
-    from .invoice_member import InvoiceMember
-    from .invoice_payment import InvoicePayment
-    from .invoice_product import InvoiceProduct
+    from .invoice_legacy import InvoiceLegacy
+    from .invoice_legacy_company import InvoiceLegacyCompany
+    from .invoice_legacy_company_logo import InvoiceLegacyCompanyLogo
+    from .invoice_legacy_current_plan import InvoiceLegacyCurrentPlan
+    from .invoice_legacy_line_items_item import InvoiceLegacyLineItemsItem
+    from .invoice_legacy_mailing_address import InvoiceLegacyMailingAddress
+    from .invoice_legacy_member import InvoiceLegacyMember
+    from .invoice_legacy_payment import InvoiceLegacyPayment
+    from .invoice_legacy_product import InvoiceLegacyProduct
+    from .invoice_legacy_user import InvoiceLegacyUser
+    from .invoice_line_item import InvoiceLineItem
+    from .invoice_object import InvoiceObject
+    from .invoice_pdf import InvoicePdf
+    from .invoice_status import InvoiceStatus
     from .invoice_statuses import InvoiceStatuses
-    from .invoice_user import InvoiceUser
+    from .invoice_totals_status import InvoiceTotalsStatus
     from .invoices_sortable_columns import InvoicesSortableColumns
     from .language_targeting_option import LanguageTargetingOption
     from .languages import Languages
@@ -740,14 +766,32 @@ if typing.TYPE_CHECKING:
     from .ledger_activity_source_fee_type import LedgerActivitySourceFeeType
     from .ledger_activity_source_payout_destination import LedgerActivitySourcePayoutDestination
     from .ledger_types import LedgerTypes
+    from .legacy_invoice import LegacyInvoice
+    from .legacy_invoice_company import LegacyInvoiceCompany
+    from .legacy_invoice_company_logo import LegacyInvoiceCompanyLogo
+    from .legacy_invoice_current_plan import LegacyInvoiceCurrentPlan
+    from .legacy_invoice_line_items_item import LegacyInvoiceLineItemsItem
+    from .legacy_invoice_list_item import LegacyInvoiceListItem
+    from .legacy_invoice_list_item_current_plan import LegacyInvoiceListItemCurrentPlan
+    from .legacy_invoice_list_item_line_items_item import LegacyInvoiceListItemLineItemsItem
+    from .legacy_invoice_list_item_user import LegacyInvoiceListItemUser
+    from .legacy_invoice_mailing_address import LegacyInvoiceMailingAddress
+    from .legacy_invoice_member import LegacyInvoiceMember
+    from .legacy_invoice_payment import LegacyInvoicePayment
+    from .legacy_invoice_product import LegacyInvoiceProduct
+    from .legacy_invoice_user import LegacyInvoiceUser
     from .lesson_types import LessonTypes
     from .lesson_visibilities import LessonVisibilities
     from .list_api_keys_request_created_after import ListApiKeysRequestCreatedAfter
     from .list_api_keys_request_created_before import ListApiKeysRequestCreatedBefore
     from .list_app_builds_request_created_after import ListAppBuildsRequestCreatedAfter
     from .list_app_builds_request_created_before import ListAppBuildsRequestCreatedBefore
+    from .livestream import Livestream
+    from .livestream_recording_status import LivestreamRecordingStatus
     from .location_targeting_option import LocationTargetingOption
     from .location_targeting_option_location_type import LocationTargetingOptionLocationType
+    from .market import Market
+    from .market_instrument_type import MarketInstrumentType
     from .marketplace_statuses import MarketplaceStatuses
     from .media_asset import MediaAsset
     from .media_asset_file import MediaAssetFile
@@ -772,6 +816,7 @@ if typing.TYPE_CHECKING:
     from .membership import Membership
     from .membership_affiliate import MembershipAffiliate
     from .membership_affiliate_applies_to_payments import MembershipAffiliateAppliesToPayments
+    from .membership_affiliate_commission_source import MembershipAffiliateCommissionSource
     from .membership_affiliate_commission_type import MembershipAffiliateCommissionType
     from .membership_cancel_option import MembershipCancelOption
     from .membership_cancellation_modes import MembershipCancellationModes
@@ -853,6 +898,22 @@ if typing.TYPE_CHECKING:
     from .partner_referral_reward_bot_qualification_type import PartnerReferralRewardBotQualificationType
     from .partner_referral_reward_recipient import PartnerReferralRewardRecipient
     from .passkey import Passkey
+    from .passkey_authenticator_selection import PasskeyAuthenticatorSelection
+    from .passkey_authenticator_selection_resident_key import PasskeyAuthenticatorSelectionResidentKey
+    from .passkey_authenticator_selection_user_verification import PasskeyAuthenticatorSelectionUserVerification
+    from .passkey_challenge import PasskeyChallenge
+    from .passkey_creation_extensions import PasskeyCreationExtensions
+    from .passkey_creation_options import PasskeyCreationOptions
+    from .passkey_creation_options_attestation import PasskeyCreationOptionsAttestation
+    from .passkey_credential_descriptor import PasskeyCredentialDescriptor
+    from .passkey_credential_descriptor_transports_item import PasskeyCredentialDescriptorTransportsItem
+    from .passkey_credential_descriptor_type import PasskeyCredentialDescriptorType
+    from .passkey_credential_parameter import PasskeyCredentialParameter
+    from .passkey_credential_parameter_type import PasskeyCredentialParameterType
+    from .passkey_relying_party import PasskeyRelyingParty
+    from .passkey_request_options import PasskeyRequestOptions
+    from .passkey_request_options_user_verification import PasskeyRequestOptionsUserVerification
+    from .passkey_user_entity import PasskeyUserEntity
     from .payment import Payment
     from .payment_address import PaymentAddress
     from .payment_bank_transfer import PaymentBankTransfer
@@ -865,14 +926,14 @@ if typing.TYPE_CHECKING:
     from .payment_hold import PaymentHold
     from .payment_hold_type import PaymentHoldType
     from .payment_input import PaymentInput
-    from .payment_input_plan import PaymentInputPlan
-    from .payment_input_plan_currency import PaymentInputPlanCurrency
-    from .payment_input_plan_override_tax_type import PaymentInputPlanOverrideTaxType
-    from .payment_input_plan_plan_type import PaymentInputPlanPlanType
-    from .payment_input_plan_product import PaymentInputPlanProduct
-    from .payment_input_plan_product_global_affiliate_status import PaymentInputPlanProductGlobalAffiliateStatus
-    from .payment_input_plan_product_visibility import PaymentInputPlanProductVisibility
-    from .payment_input_plan_visibility import PaymentInputPlanVisibility
+    from .payment_input_variant import PaymentInputVariant
+    from .payment_input_variant_billing_type import PaymentInputVariantBillingType
+    from .payment_input_variant_currency import PaymentInputVariantCurrency
+    from .payment_input_variant_override_tax_type import PaymentInputVariantOverrideTaxType
+    from .payment_input_variant_product import PaymentInputVariantProduct
+    from .payment_input_variant_product_global_affiliate_status import PaymentInputVariantProductGlobalAffiliateStatus
+    from .payment_input_variant_product_visibility import PaymentInputVariantProductVisibility
+    from .payment_input_variant_visibility import PaymentInputVariantVisibility
     from .payment_instructions import (
         PaymentInstructions,
         PaymentInstructions_BankTransfer,
@@ -1245,15 +1306,15 @@ if typing.TYPE_CHECKING:
     from .permission_granted_to_system_roles_item import PermissionGrantedToSystemRolesItem
     from .pixel_validation import PixelValidation
     from .plan import Plan
+    from .plan_billing_type import PlanBillingType
     from .plan_currency import PlanCurrency
     from .plan_custom_field import PlanCustomField
     from .plan_custom_field_field_type import PlanCustomFieldFieldType
     from .plan_list_item import PlanListItem
-    from .plan_list_item_plan_type import PlanListItemPlanType
+    from .plan_list_item_billing_type import PlanListItemBillingType
     from .plan_list_item_release_method import PlanListItemReleaseMethod
     from .plan_list_item_three_ds_level import PlanListItemThreeDsLevel
     from .plan_list_item_visibility import PlanListItemVisibility
-    from .plan_plan_type import PlanPlanType
     from .plan_release_method import PlanReleaseMethod
     from .plan_tax_type import PlanTaxType
     from .plan_three_ds_level import PlanThreeDsLevel
@@ -1275,11 +1336,13 @@ if typing.TYPE_CHECKING:
     from .product_list_item import ProductListItem
     from .product_marketplace_status import ProductMarketplaceStatus
     from .product_member_affiliate_status import ProductMemberAffiliateStatus
-    from .product_public_plan import ProductPublicPlan
-    from .product_public_plan_plan_type import ProductPublicPlanPlanType
-    from .product_public_plan_visibility import ProductPublicPlanVisibility
+    from .product_public_variant import ProductPublicVariant
+    from .product_public_variant_billing_type import ProductPublicVariantBillingType
+    from .product_public_variant_visibility import ProductPublicVariantVisibility
     from .product_tax_code_product_types import ProductTaxCodeProductTypes
     from .promo_code import PromoCode
+    from .promo_code_affiliate import PromoCodeAffiliate
+    from .promo_code_affiliate_user import PromoCodeAffiliateUser
     from .promo_code_currency import PromoCodeCurrency
     from .promo_code_duration import PromoCodeDuration
     from .promo_code_list_item import PromoCodeListItem
@@ -1393,6 +1456,7 @@ if typing.TYPE_CHECKING:
     from .shipment_legacy_payment import ShipmentLegacyPayment
     from .shipment_list_item import ShipmentListItem
     from .shipment_list_item_payment import ShipmentListItemPayment
+    from .shipment_lookup import ShipmentLookup
     from .shipment_status import ShipmentStatus
     from .shipment_statuses import ShipmentStatuses
     from .shipment_substatuses import ShipmentSubstatuses
@@ -1515,12 +1579,12 @@ if typing.TYPE_CHECKING:
     from .v1error_response import V1ErrorResponse
     from .v1error_response_error import V1ErrorResponseError
     from .variant import Variant
+    from .variant_billing_type import VariantBillingType
     from .variant_list_item import VariantListItem
-    from .variant_list_item_plan_type import VariantListItemPlanType
+    from .variant_list_item_billing_type import VariantListItemBillingType
     from .variant_list_item_release_method import VariantListItemReleaseMethod
     from .variant_list_item_three_ds_level import VariantListItemThreeDsLevel
     from .variant_list_item_visibility import VariantListItemVisibility
-    from .variant_plan_type import VariantPlanType
     from .variant_release_method import VariantReleaseMethod
     from .variant_tax_type import VariantTaxType
     from .variant_three_ds_level import VariantThreeDsLevel
@@ -1534,10 +1598,14 @@ if typing.TYPE_CHECKING:
     from .waitlist_entry import WaitlistEntry
     from .waitlist_entry_approval_failure_reason import WaitlistEntryApprovalFailureReason
     from .waitlist_entry_custom_field_response import WaitlistEntryCustomFieldResponse
+    from .waitlist_entry_product import WaitlistEntryProduct
     from .waitlist_entry_status import WaitlistEntryStatus
+    from .waitlist_entry_variant import WaitlistEntryVariant
+    from .waitlist_entry_variant_billing_type import WaitlistEntryVariantBillingType
     from .webhook import Webhook
     from .webhook_api_version import WebhookApiVersion
     from .webhook_delivery import WebhookDelivery
+    from .webhook_delivery_status import WebhookDeliveryStatus
     from .webhook_disabled_reason import WebhookDisabledReason
     from .webhook_event import WebhookEvent
     from .webhook_events_item import WebhookEventsItem
@@ -1582,6 +1650,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountCompanyFormationSignatures": ".account_company_formation_signatures",
     "AccountCompanyFormationStatus": ".account_company_formation_status",
     "AccountCoveredPayoutFees": ".account_covered_payout_fees",
+    "AccountCustomerTracking": ".account_customer_tracking",
+    "AccountCustomerTrackingButtonTextColor": ".account_customer_tracking_button_text_color",
     "AccountDisputeAlertAutoRefundControl": ".account_dispute_alert_auto_refund_control",
     "AccountEconomicIntelligenceOffer": ".account_economic_intelligence_offer",
     "AccountEconomicIntelligenceOfferDurationUnit": ".account_economic_intelligence_offer_duration_unit",
@@ -1756,6 +1826,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdPlatformIssueResourceType": ".ad_platform_issue_resource_type",
     "AdPostSource": ".ad_post_source",
     "AdResultEvent": ".ad_result_event",
+    "AdStat": ".ad_stat",
     "AdStatus": ".ad_status",
     "AdText": ".ad_text",
     "AdTranslations": ".ad_translations",
@@ -1804,6 +1875,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AppDomainStatus": ".app_domain_status",
     "AppElementsUsedItem": ".app_elements_used_item",
     "AppIcon": ".app_icon",
+    "AppInstallation": ".app_installation",
     "AppListItem": ".app_list_item",
     "AppListItemAppType": ".app_list_item_app_type",
     "AppListItemStatus": ".app_list_item_status",
@@ -1818,6 +1890,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AppRequiredScopesItem": ".app_required_scopes_item",
     "AppStatus": ".app_status",
     "AppStatuses": ".app_statuses",
+    "AppSummary": ".app_summary",
     "AppTypes": ".app_types",
     "AppUsageStats": ".app_usage_stats",
     "AppValidScopes": ".app_valid_scopes",
@@ -1904,12 +1977,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CheckoutConfigurationListItemPaymentMethodConfiguration": ".checkout_configuration_list_item_payment_method_configuration",
     "CheckoutConfigurationListItemPlan": ".checkout_configuration_list_item_plan",
     "CheckoutConfigurationMode": ".checkout_configuration_mode",
-    "CheckoutConfigurationPlan": ".checkout_configuration_plan",
-    "CheckoutConfigurationPlanPlanType": ".checkout_configuration_plan_plan_type",
-    "CheckoutConfigurationPlanReleaseMethod": ".checkout_configuration_plan_release_method",
-    "CheckoutConfigurationPlanThreeDsLevel": ".checkout_configuration_plan_three_ds_level",
-    "CheckoutConfigurationPlanVisibility": ".checkout_configuration_plan_visibility",
     "CheckoutConfigurationThreeDsLevel": ".checkout_configuration_three_ds_level",
+    "CheckoutConfigurationVariant": ".checkout_configuration_variant",
+    "CheckoutConfigurationVariantBillingType": ".checkout_configuration_variant_billing_type",
+    "CheckoutConfigurationVariantReleaseMethod": ".checkout_configuration_variant_release_method",
+    "CheckoutConfigurationVariantThreeDsLevel": ".checkout_configuration_variant_three_ds_level",
+    "CheckoutConfigurationVariantVisibility": ".checkout_configuration_variant_visibility",
     "CheckoutFonts": ".checkout_fonts",
     "CheckoutModes": ".checkout_modes",
     "CheckoutSessionPaymentMethodConfiguration": ".checkout_session_payment_method_configuration",
@@ -1971,6 +2044,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Currencies": ".currencies",
     "CustomCtas": ".custom_ctas",
     "CustomFieldTypes": ".custom_field_types",
+    "CustomerTrackingPreferences": ".customer_tracking_preferences",
     "DetailedTargetingOption": ".detailed_targeting_option",
     "DetailedTargetingOptionBehaviorType": ".detailed_targeting_option_behavior_type",
     "Direction": ".direction",
@@ -1985,6 +2059,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DisputeAlertListItem": ".dispute_alert_list_item",
     "DisputeAlertListItemDispute": ".dispute_alert_list_item_dispute",
     "DisputeAlertListItemPayment": ".dispute_alert_list_item_payment",
+    "DisputeAlertSource": ".dispute_alert_source",
     "DisputeAlertType": ".dispute_alert_type",
     "DisputeAlertTypes": ".dispute_alert_types",
     "DisputeAttachment": ".dispute_attachment",
@@ -2041,6 +2116,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DomainAvailability": ".domain_availability",
     "DomainDnsRecord": ".domain_dns_record",
     "DomainDnsRecordType": ".domain_dns_record_type",
+    "DomainEmail": ".domain_email",
+    "DomainEmailState": ".domain_email_state",
     "DomainIssue": ".domain_issue",
     "DomainIssueCapability": ".domain_issue_capability",
     "DomainIssueCode": ".domain_issue_code",
@@ -2055,10 +2132,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DomainRegistrant": ".domain_registrant",
     "DomainRegistrar": ".domain_registrar",
     "DomainRegistration": ".domain_registration",
+    "DomainRegistrationMethod": ".domain_registration_method",
     "DomainRegistrationPhase": ".domain_registration_phase",
     "DomainRegistrationState": ".domain_registration_state",
     "DomainStats": ".domain_stats",
     "DomainStatus": ".domain_status",
+    "DomainTransfer": ".domain_transfer",
+    "DomainTransferDestination": ".domain_transfer_destination",
+    "DomainTransferState": ".domain_transfer_state",
     "DomainVerification": ".domain_verification",
     "DomainVerificationState": ".domain_verification_state",
     "DomainWebsite": ".domain_website",
@@ -2069,6 +2150,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EconomicIntelligenceOperation": ".economic_intelligence_operation",
     "EconomicIntelligenceSentiment": ".economic_intelligence_sentiment",
     "EconomicIntelligenceStatus": ".economic_intelligence_status",
+    "EmailAddress": ".email_address",
     "EmbedTypes": ".embed_types",
     "Entry": ".entry",
     "EntryCustomFieldResponsesItem": ".entry_custom_field_responses_item",
@@ -2135,6 +2217,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FinancingAccessChangeReason": ".financing_access_change_reason",
     "FinancingApplication": ".financing_application",
     "FinancingApplicationStatus": ".financing_application_status",
+    "FinancingProvider": ".financing_provider",
+    "FinancingProviderAction": ".financing_provider_action",
+    "FinancingProviderCurrency": ".financing_provider_currency",
+    "FinancingProviderCurrencyCurrency": ".financing_provider_currency_currency",
+    "FinancingProviderDetails": ".financing_provider_details",
+    "FinancingProviderDetailsSourceProvider": ".financing_provider_details_source_provider",
+    "FinancingProviderProvider": ".financing_provider_provider",
+    "FinancingProviderReason": ".financing_provider_reason",
+    "FinancingProviderStatus": ".financing_provider_status",
     "FinancingRequirement": ".financing_requirement",
     "FinancingRequirementFileCollectionType": ".financing_requirement_file_collection_type",
     "FinancingRequirementTextCollectionType": ".financing_requirement_text_collection_type",
@@ -2180,19 +2271,22 @@ _dynamic_imports: typing.Dict[str, str] = {
     "InternalServerErrorBodyError": ".internal_server_error_body_error",
     "Invoice": ".invoice",
     "InvoiceCollectionMethods": ".invoice_collection_methods",
-    "InvoiceCompany": ".invoice_company",
-    "InvoiceCurrentPlan": ".invoice_current_plan",
-    "InvoiceLineItemsItem": ".invoice_line_items_item",
-    "InvoiceListItem": ".invoice_list_item",
-    "InvoiceListItemCurrentPlan": ".invoice_list_item_current_plan",
-    "InvoiceListItemLineItemsItem": ".invoice_list_item_line_items_item",
-    "InvoiceListItemUser": ".invoice_list_item_user",
-    "InvoiceMailingAddress": ".invoice_mailing_address",
-    "InvoiceMember": ".invoice_member",
-    "InvoicePayment": ".invoice_payment",
-    "InvoiceProduct": ".invoice_product",
+    "InvoiceLegacy": ".invoice_legacy",
+    "InvoiceLegacyCompany": ".invoice_legacy_company",
+    "InvoiceLegacyCompanyLogo": ".invoice_legacy_company_logo",
+    "InvoiceLegacyCurrentPlan": ".invoice_legacy_current_plan",
+    "InvoiceLegacyLineItemsItem": ".invoice_legacy_line_items_item",
+    "InvoiceLegacyMailingAddress": ".invoice_legacy_mailing_address",
+    "InvoiceLegacyMember": ".invoice_legacy_member",
+    "InvoiceLegacyPayment": ".invoice_legacy_payment",
+    "InvoiceLegacyProduct": ".invoice_legacy_product",
+    "InvoiceLegacyUser": ".invoice_legacy_user",
+    "InvoiceLineItem": ".invoice_line_item",
+    "InvoiceObject": ".invoice_object",
+    "InvoicePdf": ".invoice_pdf",
+    "InvoiceStatus": ".invoice_status",
     "InvoiceStatuses": ".invoice_statuses",
-    "InvoiceUser": ".invoice_user",
+    "InvoiceTotalsStatus": ".invoice_totals_status",
     "InvoicesSortableColumns": ".invoices_sortable_columns",
     "LanguageTargetingOption": ".language_targeting_option",
     "Languages": ".languages",
@@ -2257,14 +2351,32 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LedgerActivitySourceFeeType": ".ledger_activity_source_fee_type",
     "LedgerActivitySourcePayoutDestination": ".ledger_activity_source_payout_destination",
     "LedgerTypes": ".ledger_types",
+    "LegacyInvoice": ".legacy_invoice",
+    "LegacyInvoiceCompany": ".legacy_invoice_company",
+    "LegacyInvoiceCompanyLogo": ".legacy_invoice_company_logo",
+    "LegacyInvoiceCurrentPlan": ".legacy_invoice_current_plan",
+    "LegacyInvoiceLineItemsItem": ".legacy_invoice_line_items_item",
+    "LegacyInvoiceListItem": ".legacy_invoice_list_item",
+    "LegacyInvoiceListItemCurrentPlan": ".legacy_invoice_list_item_current_plan",
+    "LegacyInvoiceListItemLineItemsItem": ".legacy_invoice_list_item_line_items_item",
+    "LegacyInvoiceListItemUser": ".legacy_invoice_list_item_user",
+    "LegacyInvoiceMailingAddress": ".legacy_invoice_mailing_address",
+    "LegacyInvoiceMember": ".legacy_invoice_member",
+    "LegacyInvoicePayment": ".legacy_invoice_payment",
+    "LegacyInvoiceProduct": ".legacy_invoice_product",
+    "LegacyInvoiceUser": ".legacy_invoice_user",
     "LessonTypes": ".lesson_types",
     "LessonVisibilities": ".lesson_visibilities",
     "ListApiKeysRequestCreatedAfter": ".list_api_keys_request_created_after",
     "ListApiKeysRequestCreatedBefore": ".list_api_keys_request_created_before",
     "ListAppBuildsRequestCreatedAfter": ".list_app_builds_request_created_after",
     "ListAppBuildsRequestCreatedBefore": ".list_app_builds_request_created_before",
+    "Livestream": ".livestream",
+    "LivestreamRecordingStatus": ".livestream_recording_status",
     "LocationTargetingOption": ".location_targeting_option",
     "LocationTargetingOptionLocationType": ".location_targeting_option_location_type",
+    "Market": ".market",
+    "MarketInstrumentType": ".market_instrument_type",
     "MarketplaceStatuses": ".marketplace_statuses",
     "MediaAsset": ".media_asset",
     "MediaAssetFile": ".media_asset_file",
@@ -2289,6 +2401,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Membership": ".membership",
     "MembershipAffiliate": ".membership_affiliate",
     "MembershipAffiliateAppliesToPayments": ".membership_affiliate_applies_to_payments",
+    "MembershipAffiliateCommissionSource": ".membership_affiliate_commission_source",
     "MembershipAffiliateCommissionType": ".membership_affiliate_commission_type",
     "MembershipCancelOption": ".membership_cancel_option",
     "MembershipCancellationModes": ".membership_cancellation_modes",
@@ -2370,6 +2483,22 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PartnerReferralRewardBotQualificationType": ".partner_referral_reward_bot_qualification_type",
     "PartnerReferralRewardRecipient": ".partner_referral_reward_recipient",
     "Passkey": ".passkey",
+    "PasskeyAuthenticatorSelection": ".passkey_authenticator_selection",
+    "PasskeyAuthenticatorSelectionResidentKey": ".passkey_authenticator_selection_resident_key",
+    "PasskeyAuthenticatorSelectionUserVerification": ".passkey_authenticator_selection_user_verification",
+    "PasskeyChallenge": ".passkey_challenge",
+    "PasskeyCreationExtensions": ".passkey_creation_extensions",
+    "PasskeyCreationOptions": ".passkey_creation_options",
+    "PasskeyCreationOptionsAttestation": ".passkey_creation_options_attestation",
+    "PasskeyCredentialDescriptor": ".passkey_credential_descriptor",
+    "PasskeyCredentialDescriptorTransportsItem": ".passkey_credential_descriptor_transports_item",
+    "PasskeyCredentialDescriptorType": ".passkey_credential_descriptor_type",
+    "PasskeyCredentialParameter": ".passkey_credential_parameter",
+    "PasskeyCredentialParameterType": ".passkey_credential_parameter_type",
+    "PasskeyRelyingParty": ".passkey_relying_party",
+    "PasskeyRequestOptions": ".passkey_request_options",
+    "PasskeyRequestOptionsUserVerification": ".passkey_request_options_user_verification",
+    "PasskeyUserEntity": ".passkey_user_entity",
     "Payment": ".payment",
     "PaymentAddress": ".payment_address",
     "PaymentBankTransfer": ".payment_bank_transfer",
@@ -2382,14 +2511,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentHold": ".payment_hold",
     "PaymentHoldType": ".payment_hold_type",
     "PaymentInput": ".payment_input",
-    "PaymentInputPlan": ".payment_input_plan",
-    "PaymentInputPlanCurrency": ".payment_input_plan_currency",
-    "PaymentInputPlanOverrideTaxType": ".payment_input_plan_override_tax_type",
-    "PaymentInputPlanPlanType": ".payment_input_plan_plan_type",
-    "PaymentInputPlanProduct": ".payment_input_plan_product",
-    "PaymentInputPlanProductGlobalAffiliateStatus": ".payment_input_plan_product_global_affiliate_status",
-    "PaymentInputPlanProductVisibility": ".payment_input_plan_product_visibility",
-    "PaymentInputPlanVisibility": ".payment_input_plan_visibility",
+    "PaymentInputVariant": ".payment_input_variant",
+    "PaymentInputVariantBillingType": ".payment_input_variant_billing_type",
+    "PaymentInputVariantCurrency": ".payment_input_variant_currency",
+    "PaymentInputVariantOverrideTaxType": ".payment_input_variant_override_tax_type",
+    "PaymentInputVariantProduct": ".payment_input_variant_product",
+    "PaymentInputVariantProductGlobalAffiliateStatus": ".payment_input_variant_product_global_affiliate_status",
+    "PaymentInputVariantProductVisibility": ".payment_input_variant_product_visibility",
+    "PaymentInputVariantVisibility": ".payment_input_variant_visibility",
     "PaymentInstructions": ".payment_instructions",
     "PaymentInstructions_BankTransfer": ".payment_instructions",
     "PaymentInstructions_Qr": ".payment_instructions",
@@ -2648,15 +2777,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PermissionGrantedToSystemRolesItem": ".permission_granted_to_system_roles_item",
     "PixelValidation": ".pixel_validation",
     "Plan": ".plan",
+    "PlanBillingType": ".plan_billing_type",
     "PlanCurrency": ".plan_currency",
     "PlanCustomField": ".plan_custom_field",
     "PlanCustomFieldFieldType": ".plan_custom_field_field_type",
     "PlanListItem": ".plan_list_item",
-    "PlanListItemPlanType": ".plan_list_item_plan_type",
+    "PlanListItemBillingType": ".plan_list_item_billing_type",
     "PlanListItemReleaseMethod": ".plan_list_item_release_method",
     "PlanListItemThreeDsLevel": ".plan_list_item_three_ds_level",
     "PlanListItemVisibility": ".plan_list_item_visibility",
-    "PlanPlanType": ".plan_plan_type",
     "PlanReleaseMethod": ".plan_release_method",
     "PlanTaxType": ".plan_tax_type",
     "PlanThreeDsLevel": ".plan_three_ds_level",
@@ -2678,11 +2807,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProductListItem": ".product_list_item",
     "ProductMarketplaceStatus": ".product_marketplace_status",
     "ProductMemberAffiliateStatus": ".product_member_affiliate_status",
-    "ProductPublicPlan": ".product_public_plan",
-    "ProductPublicPlanPlanType": ".product_public_plan_plan_type",
-    "ProductPublicPlanVisibility": ".product_public_plan_visibility",
+    "ProductPublicVariant": ".product_public_variant",
+    "ProductPublicVariantBillingType": ".product_public_variant_billing_type",
+    "ProductPublicVariantVisibility": ".product_public_variant_visibility",
     "ProductTaxCodeProductTypes": ".product_tax_code_product_types",
     "PromoCode": ".promo_code",
+    "PromoCodeAffiliate": ".promo_code_affiliate",
+    "PromoCodeAffiliateUser": ".promo_code_affiliate_user",
     "PromoCodeCurrency": ".promo_code_currency",
     "PromoCodeDuration": ".promo_code_duration",
     "PromoCodeListItem": ".promo_code_list_item",
@@ -2796,6 +2927,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ShipmentLegacyPayment": ".shipment_legacy_payment",
     "ShipmentListItem": ".shipment_list_item",
     "ShipmentListItemPayment": ".shipment_list_item_payment",
+    "ShipmentLookup": ".shipment_lookup",
     "ShipmentStatus": ".shipment_status",
     "ShipmentStatuses": ".shipment_statuses",
     "ShipmentSubstatuses": ".shipment_substatuses",
@@ -2912,12 +3044,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "V1ErrorResponse": ".v1error_response",
     "V1ErrorResponseError": ".v1error_response_error",
     "Variant": ".variant",
+    "VariantBillingType": ".variant_billing_type",
     "VariantListItem": ".variant_list_item",
-    "VariantListItemPlanType": ".variant_list_item_plan_type",
+    "VariantListItemBillingType": ".variant_list_item_billing_type",
     "VariantListItemReleaseMethod": ".variant_list_item_release_method",
     "VariantListItemThreeDsLevel": ".variant_list_item_three_ds_level",
     "VariantListItemVisibility": ".variant_list_item_visibility",
-    "VariantPlanType": ".variant_plan_type",
     "VariantReleaseMethod": ".variant_release_method",
     "VariantTaxType": ".variant_tax_type",
     "VariantThreeDsLevel": ".variant_three_ds_level",
@@ -2931,10 +3063,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WaitlistEntry": ".waitlist_entry",
     "WaitlistEntryApprovalFailureReason": ".waitlist_entry_approval_failure_reason",
     "WaitlistEntryCustomFieldResponse": ".waitlist_entry_custom_field_response",
+    "WaitlistEntryProduct": ".waitlist_entry_product",
     "WaitlistEntryStatus": ".waitlist_entry_status",
+    "WaitlistEntryVariant": ".waitlist_entry_variant",
+    "WaitlistEntryVariantBillingType": ".waitlist_entry_variant_billing_type",
     "Webhook": ".webhook",
     "WebhookApiVersion": ".webhook_api_version",
     "WebhookDelivery": ".webhook_delivery",
+    "WebhookDeliveryStatus": ".webhook_delivery_status",
     "WebhookDisabledReason": ".webhook_disabled_reason",
     "WebhookEvent": ".webhook_event",
     "WebhookEventsItem": ".webhook_events_item",
@@ -3003,6 +3139,8 @@ __all__ = [
     "AccountCompanyFormationSignatures",
     "AccountCompanyFormationStatus",
     "AccountCoveredPayoutFees",
+    "AccountCustomerTracking",
+    "AccountCustomerTrackingButtonTextColor",
     "AccountDisputeAlertAutoRefundControl",
     "AccountEconomicIntelligenceOffer",
     "AccountEconomicIntelligenceOfferDurationUnit",
@@ -3177,6 +3315,7 @@ __all__ = [
     "AdPlatformIssueResourceType",
     "AdPostSource",
     "AdResultEvent",
+    "AdStat",
     "AdStatus",
     "AdText",
     "AdTranslations",
@@ -3225,6 +3364,7 @@ __all__ = [
     "AppDomainStatus",
     "AppElementsUsedItem",
     "AppIcon",
+    "AppInstallation",
     "AppListItem",
     "AppListItemAppType",
     "AppListItemStatus",
@@ -3239,6 +3379,7 @@ __all__ = [
     "AppRequiredScopesItem",
     "AppStatus",
     "AppStatuses",
+    "AppSummary",
     "AppTypes",
     "AppUsageStats",
     "AppValidScopes",
@@ -3325,12 +3466,12 @@ __all__ = [
     "CheckoutConfigurationListItemPaymentMethodConfiguration",
     "CheckoutConfigurationListItemPlan",
     "CheckoutConfigurationMode",
-    "CheckoutConfigurationPlan",
-    "CheckoutConfigurationPlanPlanType",
-    "CheckoutConfigurationPlanReleaseMethod",
-    "CheckoutConfigurationPlanThreeDsLevel",
-    "CheckoutConfigurationPlanVisibility",
     "CheckoutConfigurationThreeDsLevel",
+    "CheckoutConfigurationVariant",
+    "CheckoutConfigurationVariantBillingType",
+    "CheckoutConfigurationVariantReleaseMethod",
+    "CheckoutConfigurationVariantThreeDsLevel",
+    "CheckoutConfigurationVariantVisibility",
     "CheckoutFonts",
     "CheckoutModes",
     "CheckoutSessionPaymentMethodConfiguration",
@@ -3392,6 +3533,7 @@ __all__ = [
     "Currencies",
     "CustomCtas",
     "CustomFieldTypes",
+    "CustomerTrackingPreferences",
     "DetailedTargetingOption",
     "DetailedTargetingOptionBehaviorType",
     "Direction",
@@ -3406,6 +3548,7 @@ __all__ = [
     "DisputeAlertListItem",
     "DisputeAlertListItemDispute",
     "DisputeAlertListItemPayment",
+    "DisputeAlertSource",
     "DisputeAlertType",
     "DisputeAlertTypes",
     "DisputeAttachment",
@@ -3462,6 +3605,8 @@ __all__ = [
     "DomainAvailability",
     "DomainDnsRecord",
     "DomainDnsRecordType",
+    "DomainEmail",
+    "DomainEmailState",
     "DomainIssue",
     "DomainIssueCapability",
     "DomainIssueCode",
@@ -3476,10 +3621,14 @@ __all__ = [
     "DomainRegistrant",
     "DomainRegistrar",
     "DomainRegistration",
+    "DomainRegistrationMethod",
     "DomainRegistrationPhase",
     "DomainRegistrationState",
     "DomainStats",
     "DomainStatus",
+    "DomainTransfer",
+    "DomainTransferDestination",
+    "DomainTransferState",
     "DomainVerification",
     "DomainVerificationState",
     "DomainWebsite",
@@ -3490,6 +3639,7 @@ __all__ = [
     "EconomicIntelligenceOperation",
     "EconomicIntelligenceSentiment",
     "EconomicIntelligenceStatus",
+    "EmailAddress",
     "EmbedTypes",
     "Entry",
     "EntryCustomFieldResponsesItem",
@@ -3556,6 +3706,15 @@ __all__ = [
     "FinancingAccessChangeReason",
     "FinancingApplication",
     "FinancingApplicationStatus",
+    "FinancingProvider",
+    "FinancingProviderAction",
+    "FinancingProviderCurrency",
+    "FinancingProviderCurrencyCurrency",
+    "FinancingProviderDetails",
+    "FinancingProviderDetailsSourceProvider",
+    "FinancingProviderProvider",
+    "FinancingProviderReason",
+    "FinancingProviderStatus",
     "FinancingRequirement",
     "FinancingRequirementFileCollectionType",
     "FinancingRequirementTextCollectionType",
@@ -3601,19 +3760,22 @@ __all__ = [
     "InternalServerErrorBodyError",
     "Invoice",
     "InvoiceCollectionMethods",
-    "InvoiceCompany",
-    "InvoiceCurrentPlan",
-    "InvoiceLineItemsItem",
-    "InvoiceListItem",
-    "InvoiceListItemCurrentPlan",
-    "InvoiceListItemLineItemsItem",
-    "InvoiceListItemUser",
-    "InvoiceMailingAddress",
-    "InvoiceMember",
-    "InvoicePayment",
-    "InvoiceProduct",
+    "InvoiceLegacy",
+    "InvoiceLegacyCompany",
+    "InvoiceLegacyCompanyLogo",
+    "InvoiceLegacyCurrentPlan",
+    "InvoiceLegacyLineItemsItem",
+    "InvoiceLegacyMailingAddress",
+    "InvoiceLegacyMember",
+    "InvoiceLegacyPayment",
+    "InvoiceLegacyProduct",
+    "InvoiceLegacyUser",
+    "InvoiceLineItem",
+    "InvoiceObject",
+    "InvoicePdf",
+    "InvoiceStatus",
     "InvoiceStatuses",
-    "InvoiceUser",
+    "InvoiceTotalsStatus",
     "InvoicesSortableColumns",
     "LanguageTargetingOption",
     "Languages",
@@ -3678,14 +3840,32 @@ __all__ = [
     "LedgerActivitySourceFeeType",
     "LedgerActivitySourcePayoutDestination",
     "LedgerTypes",
+    "LegacyInvoice",
+    "LegacyInvoiceCompany",
+    "LegacyInvoiceCompanyLogo",
+    "LegacyInvoiceCurrentPlan",
+    "LegacyInvoiceLineItemsItem",
+    "LegacyInvoiceListItem",
+    "LegacyInvoiceListItemCurrentPlan",
+    "LegacyInvoiceListItemLineItemsItem",
+    "LegacyInvoiceListItemUser",
+    "LegacyInvoiceMailingAddress",
+    "LegacyInvoiceMember",
+    "LegacyInvoicePayment",
+    "LegacyInvoiceProduct",
+    "LegacyInvoiceUser",
     "LessonTypes",
     "LessonVisibilities",
     "ListApiKeysRequestCreatedAfter",
     "ListApiKeysRequestCreatedBefore",
     "ListAppBuildsRequestCreatedAfter",
     "ListAppBuildsRequestCreatedBefore",
+    "Livestream",
+    "LivestreamRecordingStatus",
     "LocationTargetingOption",
     "LocationTargetingOptionLocationType",
+    "Market",
+    "MarketInstrumentType",
     "MarketplaceStatuses",
     "MediaAsset",
     "MediaAssetFile",
@@ -3710,6 +3890,7 @@ __all__ = [
     "Membership",
     "MembershipAffiliate",
     "MembershipAffiliateAppliesToPayments",
+    "MembershipAffiliateCommissionSource",
     "MembershipAffiliateCommissionType",
     "MembershipCancelOption",
     "MembershipCancellationModes",
@@ -3791,6 +3972,22 @@ __all__ = [
     "PartnerReferralRewardBotQualificationType",
     "PartnerReferralRewardRecipient",
     "Passkey",
+    "PasskeyAuthenticatorSelection",
+    "PasskeyAuthenticatorSelectionResidentKey",
+    "PasskeyAuthenticatorSelectionUserVerification",
+    "PasskeyChallenge",
+    "PasskeyCreationExtensions",
+    "PasskeyCreationOptions",
+    "PasskeyCreationOptionsAttestation",
+    "PasskeyCredentialDescriptor",
+    "PasskeyCredentialDescriptorTransportsItem",
+    "PasskeyCredentialDescriptorType",
+    "PasskeyCredentialParameter",
+    "PasskeyCredentialParameterType",
+    "PasskeyRelyingParty",
+    "PasskeyRequestOptions",
+    "PasskeyRequestOptionsUserVerification",
+    "PasskeyUserEntity",
     "Payment",
     "PaymentAddress",
     "PaymentBankTransfer",
@@ -3803,14 +4000,14 @@ __all__ = [
     "PaymentHold",
     "PaymentHoldType",
     "PaymentInput",
-    "PaymentInputPlan",
-    "PaymentInputPlanCurrency",
-    "PaymentInputPlanOverrideTaxType",
-    "PaymentInputPlanPlanType",
-    "PaymentInputPlanProduct",
-    "PaymentInputPlanProductGlobalAffiliateStatus",
-    "PaymentInputPlanProductVisibility",
-    "PaymentInputPlanVisibility",
+    "PaymentInputVariant",
+    "PaymentInputVariantBillingType",
+    "PaymentInputVariantCurrency",
+    "PaymentInputVariantOverrideTaxType",
+    "PaymentInputVariantProduct",
+    "PaymentInputVariantProductGlobalAffiliateStatus",
+    "PaymentInputVariantProductVisibility",
+    "PaymentInputVariantVisibility",
     "PaymentInstructions",
     "PaymentInstructions_BankTransfer",
     "PaymentInstructions_Qr",
@@ -4069,15 +4266,15 @@ __all__ = [
     "PermissionGrantedToSystemRolesItem",
     "PixelValidation",
     "Plan",
+    "PlanBillingType",
     "PlanCurrency",
     "PlanCustomField",
     "PlanCustomFieldFieldType",
     "PlanListItem",
-    "PlanListItemPlanType",
+    "PlanListItemBillingType",
     "PlanListItemReleaseMethod",
     "PlanListItemThreeDsLevel",
     "PlanListItemVisibility",
-    "PlanPlanType",
     "PlanReleaseMethod",
     "PlanTaxType",
     "PlanThreeDsLevel",
@@ -4099,11 +4296,13 @@ __all__ = [
     "ProductListItem",
     "ProductMarketplaceStatus",
     "ProductMemberAffiliateStatus",
-    "ProductPublicPlan",
-    "ProductPublicPlanPlanType",
-    "ProductPublicPlanVisibility",
+    "ProductPublicVariant",
+    "ProductPublicVariantBillingType",
+    "ProductPublicVariantVisibility",
     "ProductTaxCodeProductTypes",
     "PromoCode",
+    "PromoCodeAffiliate",
+    "PromoCodeAffiliateUser",
     "PromoCodeCurrency",
     "PromoCodeDuration",
     "PromoCodeListItem",
@@ -4217,6 +4416,7 @@ __all__ = [
     "ShipmentLegacyPayment",
     "ShipmentListItem",
     "ShipmentListItemPayment",
+    "ShipmentLookup",
     "ShipmentStatus",
     "ShipmentStatuses",
     "ShipmentSubstatuses",
@@ -4333,12 +4533,12 @@ __all__ = [
     "V1ErrorResponse",
     "V1ErrorResponseError",
     "Variant",
+    "VariantBillingType",
     "VariantListItem",
-    "VariantListItemPlanType",
+    "VariantListItemBillingType",
     "VariantListItemReleaseMethod",
     "VariantListItemThreeDsLevel",
     "VariantListItemVisibility",
-    "VariantPlanType",
     "VariantReleaseMethod",
     "VariantTaxType",
     "VariantThreeDsLevel",
@@ -4352,10 +4552,14 @@ __all__ = [
     "WaitlistEntry",
     "WaitlistEntryApprovalFailureReason",
     "WaitlistEntryCustomFieldResponse",
+    "WaitlistEntryProduct",
     "WaitlistEntryStatus",
+    "WaitlistEntryVariant",
+    "WaitlistEntryVariantBillingType",
     "Webhook",
     "WebhookApiVersion",
     "WebhookDelivery",
+    "WebhookDeliveryStatus",
     "WebhookDisabledReason",
     "WebhookEvent",
     "WebhookEventsItem",

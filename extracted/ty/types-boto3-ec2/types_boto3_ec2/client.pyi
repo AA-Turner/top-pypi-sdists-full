@@ -1286,6 +1286,8 @@ from .type_defs import (
     GetCapacityManagerMetricDimensionsResultTypeDef,
     GetCapacityManagerMonitoredTagKeysRequestTypeDef,
     GetCapacityManagerMonitoredTagKeysResultTypeDef,
+    GetCapacityManagerSupportabilityScoresRequestTypeDef,
+    GetCapacityManagerSupportabilityScoresResultTypeDef,
     GetCapacityReservationUsageRequestTypeDef,
     GetCapacityReservationUsageResultTypeDef,
     GetClientVpnEndpointAuthorizationPolicyRequestTypeDef,
@@ -7628,6 +7630,17 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_capacity_manager_monitored_tag_keys.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_capacity_manager_monitored_tag_keys)
+        """
+
+    def get_capacity_manager_supportability_scores(
+        self, **kwargs: Unpack[GetCapacityManagerSupportabilityScoresRequestTypeDef]
+    ) -> GetCapacityManagerSupportabilityScoresResultTypeDef:
+        """
+        Scores how well each instance type and Availability Zone combination can
+        support a capacity request, based on current Amazon EC2 capacity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_capacity_manager_supportability_scores.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_capacity_manager_supportability_scores)
         """
 
     def get_capacity_reservation_usage(

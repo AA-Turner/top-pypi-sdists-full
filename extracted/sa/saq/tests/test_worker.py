@@ -1,33 +1,36 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable
 import contextvars
 import logging
 import time
 import typing as t
 import unittest
-from datetime import datetime, timedelta, timezone
+from collections.abc import Awaitable
+from datetime import UTC, datetime, timedelta, timezone
 from unittest import mock
 
 from aiohttp import web
 from aiohttp.test_utils import AioHTTPTestCase
 from time_machine import travel
 
-from saq.job import CronJob, Job, Status, ACTIVE_STATUSES
+from saq.job import ACTIVE_STATUSES, CronJob, Job, Status
 from saq.queue import Queue
 from saq.queue.http import HttpProxy
 from saq.queue.redis import RedisQueue
+from saq.types import Context
 from saq.utils import uuid1
 from saq.worker import Worker
 from tests.helpers import (
     cleanup_queue,
-    create_redis_queue,
     create_postgres_queue,
+    create_redis_queue,
     setup_postgres,
     teardown_postgres,
+    wait_for_count,
+    wait_for_job,
+    wait_for_status,
 )
-from saq.types import Context
 
 if t.TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -102,33 +105,32 @@ class TestWorker(unittest.IsolatedAsyncioTestCase):
         await job.refresh(0)
         self.assertEqual(job.result, 1)
         job = await self.enqueue("error")
-        await asyncio.sleep(0.05)
-        await job.refresh()
+        await job.refresh(0)
         self.assertEqual(job.status, Status.FAILED)
         assert job.error is not None and "oops" in job.error
-        job = await self.enqueue("sleeper")
+        job = await self.enqueue("sleeper", sleep=10)
         self.assertEqual(job.status, Status.QUEUED)
-        await asyncio.sleep(0.05)
-        await job.refresh()
+        await wait_for_status(job, Status.ACTIVE)
         self.assertEqual(job.status, Status.ACTIVE)
         task.cancel()
         await task
-        await job.refresh()
+        # the in-flight job is re-queued in the worker's CancelledError
+        # handler, which may land a little after the worker task returns
+        await wait_for_status(job, Status.QUEUED)
         self.assertEqual(job.status, Status.QUEUED)
 
         task = asyncio.create_task(self.worker.start())
         job = await self.enqueue("noop")
         await job.refresh(0)
         self.assertEqual(job.result, 1)
-        job = await self.enqueue("sleeper")
+        job = await self.enqueue("sleeper", sleep=10)
         self.assertEqual(job.status, Status.QUEUED)
-        await asyncio.sleep(0.05)
-        await job.refresh()
+        await wait_for_status(job, Status.ACTIVE)
         self.assertEqual(job.status, Status.ACTIVE)
         await self.worker.stop()
         await asyncio.sleep(0.01)
         assert task.done()
-        await job.refresh()
+        await wait_for_status(job, Status.QUEUED)
         self.assertEqual(job.status, Status.QUEUED)
 
     async def test_noop(self) -> None:
@@ -357,9 +359,8 @@ class TestWorker(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(x["shutdown_b"], 0)
         self.assertEqual(worker.context["dependency"], DEPENDENCY_VALUE)
 
-        job = await self.enqueue(dependent_task.__name__, sleep=0.1)
-        await asyncio.sleep(0.05)
-        await job.refresh()
+        job = await self.enqueue(dependent_task.__name__, sleep=2)
+        await wait_for_status(job, Status.ACTIVE)
         self.assertEqual(job.status, Status.ACTIVE)
         stop_called_at = time.monotonic()
         await worker.stop()
@@ -419,6 +420,18 @@ class TestWorker(unittest.IsolatedAsyncioTestCase):
         await job.refresh()
         self.assertEqual(job.result, 1)
 
+    async def test_cron_unset_fields_use_the_job_defaults(self) -> None:
+        worker = Worker(
+            self.queue, functions=FUNCTIONS, cron_jobs=[CronJob(sleeper, cron="* * * * *")]
+        )
+        await worker.schedule()
+        job = await self.queue.job("cron:sleeper")
+        assert job is not None
+        self.assertEqual(job.timeout, 10)
+        self.assertEqual(job.retries, 1)
+        self.assertEqual(job.ttl, 600)
+        self.assertIsNone(job.kwargs)
+
     @mock.patch("saq.worker.logger")
     async def test_cron(self, mock_logger: MagicMock) -> None:
         with self.assertRaises(ValueError):
@@ -428,7 +441,7 @@ class TestWorker(unittest.IsolatedAsyncioTestCase):
                 cron_jobs=[CronJob(sleeper, cron="x")],
             )
 
-        with travel(datetime(2025, 1, 1, 0, 0, 1, tzinfo=timezone.utc), tick=True) as traveller:
+        with travel(datetime(2025, 1, 1, 0, 0, 1, tzinfo=UTC), tick=True) as traveller:
             worker = Worker(
                 self.queue,
                 functions=FUNCTIONS,
@@ -443,15 +456,16 @@ class TestWorker(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await self.queue.count("incomplete"), 1)
             self.assertEqual(await self.queue.count("queued"), 0)
 
-            traveller.move_to(datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc))  # noon UTC
+            traveller.move_to(datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC))  # noon UTC
             await asyncio.sleep(2)
             self.assertEqual(await self.queue.count("active"), 0)
 
-            traveller.move_to(datetime(2025, 1, 1, 15, 0, 0, tzinfo=timezone.utc))  # noon in tz
-            await asyncio.sleep(2)
+            traveller.move_to(datetime(2025, 1, 1, 15, 0, 0, tzinfo=UTC))  # noon in tz
+            await wait_for_count(self.queue, "active", 1)
             self.assertEqual(await self.queue.count("active"), 1)
 
-            # Remove if statement when schedule is implemented for Postgres queue
+            # Redis only: on Postgres, schedule() surfaces a job only while a consumer is
+            # waiting, so this log races the dequeue poll (return value covered by test_schedule)
             if isinstance(self.queue, RedisQueue):
                 mock_logger.info.assert_any_call("Scheduled %s", ["saq:job:default:cron:sleeper"])
 
@@ -740,21 +754,27 @@ class TestWorker(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
+        async def abort_active_job(job: Job) -> None:
+            # wait for pickup, then abort until the worker has actually
+            # registered and cancelled the job: worker.abort is a no-op for
+            # jobs it hasn't started processing yet
+            await wait_for_status(job, Status.ACTIVE)
+            await job.update(status=Status.ABORTING)
+            deadline = time.monotonic() + 10
+            while job.status != Status.ABORTED and time.monotonic() < deadline:
+                await worker.abort(0)
+                await asyncio.sleep(0.05)
+                await job.refresh()
+
         job = await self.enqueue("yes_cancel")
         asyncio.create_task(worker.process())
-        await asyncio.sleep(0.1)
-        await job.update(status=Status.ABORTING)
-        await worker.abort(0)
-        await job.refresh()
+        await abort_active_job(job)
         self.assertEqual(job.status, Status.ABORTED)
         self.assertEqual(state["counter"], 0)
 
         job = await self.enqueue("no_cancel")
         asyncio.create_task(worker.process())
-        await asyncio.sleep(0.1)
-        await job.update(status=Status.ABORTING)
-        await worker.abort(0)
-        await job.refresh()
+        await abort_active_job(job)
         self.assertEqual(job.status, Status.ABORTED)
         self.assertEqual(state["counter"], 1)
 
@@ -762,8 +782,9 @@ class TestWorker(unittest.IsolatedAsyncioTestCase):
     async def test_worker_id(self, _mock_logger: MagicMock) -> None:
         task = asyncio.create_task(self.worker.start())
         job = await self.enqueue("sleeper", sleep=60)
-        await asyncio.sleep(5)
-        await job.refresh()
+        # dequeue marks the job active queue-side before the worker's own update
+        # writes worker_id, so wait for both
+        await wait_for_job(job, lambda j: j.status == Status.ACTIVE and bool(j.worker_id))
         self.assertEqual(job.status, Status.ACTIVE)
         self.assertEqual(self.worker.id, job.worker_id)
         task.cancel()
@@ -828,7 +849,6 @@ class TestHttpRedis(AioHTTPTestCase, TestWorker):
             self.server_queue,
             functions={},
             concurrency=0,
-            timers={"sweep": 1},  # type: ignore
             **self.server_worker_kwargs,
         )
 
@@ -857,7 +877,6 @@ class TestHttpRedis(AioHTTPTestCase, TestWorker):
 
         async def startup(_app) -> None:
             await self.server_queue.connect()
-            asyncio.create_task(self.server_worker.start())
 
         async def process(request):
             result = await proxy.process(await request.text())

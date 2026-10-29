@@ -24,7 +24,9 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
     "assignee",
     "steps",
     "iterations",
-    "custom_fields"
+    "custom_fields",
+    "test_run_fields",
+    "search_jql"
 })
 @Generated("jsonschema2pojo")
 public class XrayTestExecUpdate {
@@ -70,6 +72,11 @@ public class XrayTestExecUpdate {
     @JsonProperty("custom_fields")
     @Valid
     private List<XrayCustomField> customFields = new ArrayList<XrayCustomField>();
+    @JsonProperty("test_run_fields")
+    @Valid
+    private List<XrayCustomField> testRunFields = new ArrayList<XrayCustomField>();
+    @JsonProperty("search_jql")
+    private String searchJql;
 
     /**
      * 
@@ -271,6 +278,36 @@ public class XrayTestExecUpdate {
         return this;
     }
 
+    @JsonProperty("test_run_fields")
+    public List<XrayCustomField> getTestRunFields() {
+        return testRunFields;
+    }
+
+    @JsonProperty("test_run_fields")
+    public void setTestRunFields(List<XrayCustomField> testRunFields) {
+        this.testRunFields = testRunFields;
+    }
+
+    public XrayTestExecUpdate withTestRunFields(List<XrayCustomField> testRunFields) {
+        this.testRunFields = testRunFields;
+        return this;
+    }
+
+    @JsonProperty("search_jql")
+    public String getSearchJql() {
+        return searchJql;
+    }
+
+    @JsonProperty("search_jql")
+    public void setSearchJql(String searchJql) {
+        this.searchJql = searchJql;
+    }
+
+    public XrayTestExecUpdate withSearchJql(String searchJql) {
+        this.searchJql = searchJql;
+        return this;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -323,6 +360,14 @@ public class XrayTestExecUpdate {
         sb.append('=');
         sb.append(((this.customFields == null)?"<null>":this.customFields));
         sb.append(',');
+        sb.append("testRunFields");
+        sb.append('=');
+        sb.append(((this.testRunFields == null)?"<null>":this.testRunFields));
+        sb.append(',');
+        sb.append("searchJql");
+        sb.append('=');
+        sb.append(((this.searchJql == null)?"<null>":this.searchJql));
+        sb.append(',');
         if (sb.charAt((sb.length()- 1)) == ',') {
             sb.setCharAt((sb.length()- 1), ']');
         } else {
@@ -336,15 +381,17 @@ public class XrayTestExecUpdate {
         int result = 1;
         result = ((result* 31)+((this.testInfo == null)? 0 :this.testInfo.hashCode()));
         result = ((result* 31)+((this.executedBy == null)? 0 :this.executedBy.hashCode()));
+        result = ((result* 31)+((this.searchJql == null)? 0 :this.searchJql.hashCode()));
         result = ((result* 31)+((this.customFields == null)? 0 :this.customFields.hashCode()));
         result = ((result* 31)+((this.testVersion == null)? 0 :this.testVersion.hashCode()));
         result = ((result* 31)+((this.start == null)? 0 :this.start.hashCode()));
+        result = ((result* 31)+((this.steps == null)? 0 :this.steps.hashCode()));
+        result = ((result* 31)+((this.iterations == null)? 0 :this.iterations.hashCode()));
+        result = ((result* 31)+((this.testRunFields == null)? 0 :this.testRunFields.hashCode()));
         result = ((result* 31)+((this.finish == null)? 0 :this.finish.hashCode()));
         result = ((result* 31)+((this.comment == null)? 0 :this.comment.hashCode()));
         result = ((result* 31)+((this.testKey == null)? 0 :this.testKey.hashCode()));
         result = ((result* 31)+((this.assignee == null)? 0 :this.assignee.hashCode()));
-        result = ((result* 31)+((this.steps == null)? 0 :this.steps.hashCode()));
-        result = ((result* 31)+((this.iterations == null)? 0 :this.iterations.hashCode()));
         result = ((result* 31)+((this.status == null)? 0 :this.status.hashCode()));
         return result;
     }
@@ -358,7 +405,7 @@ public class XrayTestExecUpdate {
             return false;
         }
         XrayTestExecUpdate rhs = ((XrayTestExecUpdate) other);
-        return (((((((((((((this.testInfo == rhs.testInfo)||((this.testInfo!= null)&&this.testInfo.equals(rhs.testInfo)))&&((this.executedBy == rhs.executedBy)||((this.executedBy!= null)&&this.executedBy.equals(rhs.executedBy))))&&((this.customFields == rhs.customFields)||((this.customFields!= null)&&this.customFields.equals(rhs.customFields))))&&((this.testVersion == rhs.testVersion)||((this.testVersion!= null)&&this.testVersion.equals(rhs.testVersion))))&&((this.start == rhs.start)||((this.start!= null)&&this.start.equals(rhs.start))))&&((this.finish == rhs.finish)||((this.finish!= null)&&this.finish.equals(rhs.finish))))&&((this.comment == rhs.comment)||((this.comment!= null)&&this.comment.equals(rhs.comment))))&&((this.testKey == rhs.testKey)||((this.testKey!= null)&&this.testKey.equals(rhs.testKey))))&&((this.assignee == rhs.assignee)||((this.assignee!= null)&&this.assignee.equals(rhs.assignee))))&&((this.steps == rhs.steps)||((this.steps!= null)&&this.steps.equals(rhs.steps))))&&((this.iterations == rhs.iterations)||((this.iterations!= null)&&this.iterations.equals(rhs.iterations))))&&((this.status == rhs.status)||((this.status!= null)&&this.status.equals(rhs.status))));
+        return (((((((((((((((this.testInfo == rhs.testInfo)||((this.testInfo!= null)&&this.testInfo.equals(rhs.testInfo)))&&((this.executedBy == rhs.executedBy)||((this.executedBy!= null)&&this.executedBy.equals(rhs.executedBy))))&&((this.searchJql == rhs.searchJql)||((this.searchJql!= null)&&this.searchJql.equals(rhs.searchJql))))&&((this.customFields == rhs.customFields)||((this.customFields!= null)&&this.customFields.equals(rhs.customFields))))&&((this.testVersion == rhs.testVersion)||((this.testVersion!= null)&&this.testVersion.equals(rhs.testVersion))))&&((this.start == rhs.start)||((this.start!= null)&&this.start.equals(rhs.start))))&&((this.steps == rhs.steps)||((this.steps!= null)&&this.steps.equals(rhs.steps))))&&((this.iterations == rhs.iterations)||((this.iterations!= null)&&this.iterations.equals(rhs.iterations))))&&((this.testRunFields == rhs.testRunFields)||((this.testRunFields!= null)&&this.testRunFields.equals(rhs.testRunFields))))&&((this.finish == rhs.finish)||((this.finish!= null)&&this.finish.equals(rhs.finish))))&&((this.comment == rhs.comment)||((this.comment!= null)&&this.comment.equals(rhs.comment))))&&((this.testKey == rhs.testKey)||((this.testKey!= null)&&this.testKey.equals(rhs.testKey))))&&((this.assignee == rhs.assignee)||((this.assignee!= null)&&this.assignee.equals(rhs.assignee))))&&((this.status == rhs.status)||((this.status!= null)&&this.status.equals(rhs.status))));
     }
 
 }

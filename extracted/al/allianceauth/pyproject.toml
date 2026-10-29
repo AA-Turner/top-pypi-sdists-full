@@ -47,6 +47,7 @@ dependencies = [
     "django-bootstrap5>=23.3",
     "django-celery-beat>=2.8",
     "django-esi>=10",
+    "django-hijack>=3.7,<4",
     "django-redis>=5.4",
     "django-registration>=5.2,<6",
     "django-solo",
@@ -55,9 +56,10 @@ dependencies = [
     "dnspython",
     "httpx2",
     "mysqlclient>=2.1",
-    "openfire-restapi",
+    "openfire-restapi==0.2",
     "packaging>=21",
     "passlib",
+    "pycares<=5.1; python_version<='3.10'",
     "pydiscourse",
     "python-slugify>=1.2",
     "pyyaml",
@@ -66,7 +68,7 @@ dependencies = [
     "requests-oauthlib",
     "semantic-version",
     "slixmpp<1.9",
-    "telnetlib3",
+    "soupsieve<3; python_version=='3.10'",  # See: https://gitlab.com/allianceauth/allianceauth/-/work_items/1476
     "ua-parser",
     "user-agents",
 ]
@@ -77,9 +79,6 @@ optional-dependencies.dev = [
     "isort",
 ]
 optional-dependencies.docs = [
-    # Pin docutils <0.22 due to sphinx-tabs incompatibility with docutils 0.22.4
-    # See: https://github.com/executablebooks/sphinx-tabs/issues/212
-    "docutils==0.21.2",
     "myst-parser>=4",
     "sphinx>=8",
     "sphinx-copybutton",

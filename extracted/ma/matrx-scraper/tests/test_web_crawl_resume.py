@@ -428,10 +428,7 @@ class _CollidingRepository(_RecordingRepository):
 
             raise IntegrityError(
                 constraint="unique",
-                original_error=Exception(
-                    "duplicate key value violates unique constraint "
-                    '"crawl_event_session_sequence_unique"'
-                ),
+                original_error=_unique_violation("crawl_event_session_sequence_unique"),
             )
         await super().persist_event(event, state)
 
@@ -485,15 +482,11 @@ def test_only_the_event_sequence_constraint_is_recoverable() -> None:
 
     hit = IntegrityError(
         constraint="unique",
-        original_error=Exception(
-            'duplicate key value violates unique constraint "crawl_event_session_sequence_unique"'
-        ),
+        original_error=_unique_violation("crawl_event_session_sequence_unique"),
     )
     other_unique = IntegrityError(
         constraint="unique",
-        original_error=Exception(
-            'duplicate key value violates unique constraint "crawl_url_session_sequence_unique"'
-        ),
+        original_error=_unique_violation("crawl_url_session_sequence_unique"),
     )
     fk = IntegrityError(
         constraint="foreign_key", original_error=Exception("violates foreign key constraint")
@@ -525,3 +518,12 @@ def test_graceful_shutdown_marker_is_pinned_for_boot_sweep() -> None:
     source = stable_source(WebCrawlRepository.list_crash_resumable_sessions)
     assert "WORKER_STOPPED_ERROR" in source
     assert "STALE_SESSION_ERROR" in source
+
+
+def _unique_violation(constraint: str) -> Exception:
+    """What the driver raises: SQLSTATE 23505 naming the constraint (words are irrelevant)."""
+    import asyncpg
+
+    err = asyncpg.exceptions.UniqueViolationError("any words")
+    err.constraint_name = constraint
+    return err

@@ -16,10 +16,15 @@ WORKFLOW_MESSAGE_SIGNAL = "chalk.workflow_message"
 class WorkflowMessage:
     """A message delivered to a running workflow, e.g. a reviewer's decision.
 
-    `sender_kind` and `sender_id` identify who sent it, as authenticated by the Chalk API
-    server (for example `"user"` and a user id, or `"service_token"` and a token id). They
-    cannot be set by the sender, so a workflow can use them to decide whose decisions to
-    accept.
+    `sender_kind` and `sender_id` identify who sent it. For a message sent through the Chalk
+    API server (`ChalkClient.send_workflow_message`), they are authenticated by the server
+    (for example `"user"` and a user id, or `"service_token"` and a token id) and cannot be
+    set by the sender, so a workflow can use them to decide whose decisions to accept.
+
+    A message sent by another workflow with `chalk.workflows.send_message` has `sender_kind`
+    `"workflow"` and the sending workflow's id as `sender_id`. Those are written by the
+    sending workflow itself and do not pass through the API server, so they are not
+    authenticated: do not use them to authorize a decision.
     """
 
     name: str
@@ -77,6 +82,46 @@ async def wait_for_message(name: str, *, timeout: timedelta | None = None) -> Wo
     if orchestrator is None:
         raise RuntimeError("wait_for_message can only be called inside a @workflow")
     return await orchestrator.wait_for_message(name, timeout)
+
+
+async def send_message(workflow_id: str, name: str, payload: Any) -> None:
+    """Send a message from inside a `@workflow` to another running workflow.
+
+    The receiving workflow gets it from `wait_for_message(name)`, with `sender_kind`
+    `"workflow"` and this workflow's id as `sender_id`. Use it, for example, for a child
+    started with `start_child` to report back to its parent (see `parent_workflow_id`), or to
+    reply to the `sender_id` of a message from another workflow.
+
+    The message is delivered by the workflow orchestrator directly, not through the Chalk API
+    server, and is recorded in this workflow's history, so the workflow lineage view shows it
+    as a message edge from this workflow to `workflow_id`. Because it does not pass through
+    the API server, the sender is self-declared rather than authenticated as it is for
+    `ChalkClient.send_workflow_message`; see `WorkflowMessage`.
+
+    Parameters
+    ----------
+    workflow_id
+        The id of the running workflow to message.
+    name
+        The message name the receiver waits for.
+    payload
+        The message body. Must be JSON-serializable.
+
+    Examples
+    --------
+    >>> from chalk.workflows import send_message, wait_for_message, workflow
+    >>> @workflow
+    ... async def echo() -> None:
+    ...     ping = await wait_for_message("ping")
+    ...     await send_message(ping.sender_id, "pong", ping.payload)
+    """
+    orchestrator = current_orchestrator()
+    if orchestrator is None:
+        raise RuntimeError(
+            "chalk.workflows.send_message can only be called inside a @workflow; "
+            + "use ChalkClient.send_workflow_message to message a workflow from outside one"
+        )
+    await orchestrator.send_message(workflow_id, name, payload)
 
 
 @contextlib.contextmanager

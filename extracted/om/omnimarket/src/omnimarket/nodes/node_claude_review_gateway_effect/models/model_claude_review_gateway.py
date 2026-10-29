@@ -12,11 +12,12 @@ host (operator ruling 2026-10-11T17:58:45Z). Nothing here holds a key value.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from omnimarket.projection.credential_publisher import LAB_HOST_NAME_PATTERN
+from omnimarket.routing.byok_provider_backends import ANTHROPIC_WORKSPACE_ID_PATTERN
 
 
 class ModelReviewGatewayKey(BaseModel):
@@ -28,6 +29,11 @@ class ModelReviewGatewayKey(BaseModel):
     name: str = Field(min_length=1)
     bound_host: str = Field(pattern=LAB_HOST_NAME_PATTERN)
     expires_at: datetime | None = None
+    workspace_id: str | None = Field(
+        default=None,
+        pattern=ANTHROPIC_WORKSPACE_ID_PATTERN,
+        description="The Anthropic workspace the key belongs to (OMN-20967), if any.",
+    )
 
 
 class ModelClaudeReviewGatewayRequest(BaseModel):
@@ -50,6 +56,10 @@ class ModelClaudeReviewGatewayRequest(BaseModel):
     )
     bind_host: str = Field(default="127.0.0.1", min_length=1)
     bind_port: int = Field(default=8140, ge=1, le=65535)
+    thinking_mode: Literal["disabled", "adaptive"] = Field(
+        default="disabled",
+        description="Native thinking protocol supported by this gateway's model, from its host overlay.",
+    )
     upstream_timeout_seconds: float = Field(default=300.0, gt=0, le=1800)
     dry_run: bool = False
 

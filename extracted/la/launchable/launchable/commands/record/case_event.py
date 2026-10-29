@@ -1,12 +1,8 @@
-import datetime
 import sys
+import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-import dateutil.parser
-from dateutil.tz import tzlocal
 from junitparser import Error, Failure, IntAttr, Skipped, TestCase, TestSuite
-
-from launchable.utils.common_tz import COMMON_TIMEZONES  # type: ignore
 
 from ...testpath import FilePathNormalizer, TestPath
 
@@ -17,6 +13,13 @@ POSSIBLE_RESULTS = (Failure, Error, Skipped)
 # read directly off the raw element.
 RERUN_TAGS = ("rerunFailure", "rerunError")
 FLAKY_TAGS = ("flakyFailure", "flakyError")
+
+# Internal-only key tagging which original <testcase> an event came from (see
+# from_case_and_suite). Used by summarize_case_events to group retry/flaky attempts of the
+# SAME testcase without relying on testPath (which can be lossy, e.g. Maven's nested-class
+# $-stripping, or missing/extra attributes from the raw runner's free-form TestPathComponent).
+# Must be stripped before a payload is uploaded (see tests.py's payload()).
+BATCH_ID_KEY = "testcaseBatchId"
 
 CaseEventType = Dict[str, Any]
 
@@ -196,17 +199,23 @@ class CaseEvent:
 
         test_path = path_canonicalizer(path_builder(case, suite, report_file))
         data = data_builder(case)
+        # One id per original <testcase>, shared by every attempt derived from it here, so
+        # summarize_case_events can group retries correctly without relying on test_path.
+        batch_id = uuid.uuid4()
 
         return [
-            CaseEvent.create(
-                test_path=test_path,
-                duration_secs=attempt_duration,
-                status=attempt_status,
-                stdout=attempt_stdout,
-                stderr=attempt_stderr,
-                timestamp=suite.timestamp,
-                data=data,
-            )
+            {
+                **CaseEvent.create(
+                    test_path=test_path,
+                    duration_secs=attempt_duration,
+                    status=attempt_status,
+                    stdout=attempt_stdout,
+                    stderr=attempt_stderr,
+                    timestamp=suite.timestamp,
+                    data=data,
+                ),
+                BATCH_ID_KEY: batch_id,
+            }
             for attempt_status, attempt_stdout, attempt_stderr, attempt_duration in attempts
         ]
 
@@ -214,22 +223,13 @@ class CaseEvent:
     def create(cls, test_path: TestPath, duration_secs: float, status,
                stdout: Optional[str] = None, stderr: Optional[str] = None,
                timestamp: Optional[str] = None, data: Optional[Dict] = None) -> Dict:
-        def _timestamp(ts: Optional[str] = None):
-            if ts is None:
-                return datetime.datetime.now(datetime.timezone.utc).isoformat()
-            try:
-                date = dateutil.parser.parse(timestr=ts, tzinfos=COMMON_TIMEZONES)
-                if date.tzinfo is None:
-                    return date.replace(tzinfo=tzlocal()).isoformat()
-                return date.isoformat()
-            except Exception:
-                return datetime.datetime.now(datetime.timezone.utc).isoformat()
-
         """
         Builds a JSON representation of CaseEvent from arbitrary set of values
 
         status:    TEST_FAILED or TEST_PASSED
-        timestamp: ISO-8601 formatted date
+        timestamp: the raw <testsuite timestamp> string, sent unresolved. The server owns timezone
+                   resolution (see mothership TestTimestampResolver); the CLI holds no framework-TZ
+                   knowledge. None when the runner emits no suite timestamp.
         data:      arbitrary data to be submitted to the server. reserved for future enhancement.
         """
         return {
@@ -239,7 +239,7 @@ class CaseEvent:
             "status": status,
             "stdout": stdout or "",
             "stderr": stderr or "",
-            "createdAt": _timestamp(timestamp),
+            "junitSuiteTimestamp": timestamp,
             "data": data
         }
 

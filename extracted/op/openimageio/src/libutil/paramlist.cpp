@@ -130,7 +130,15 @@ parse_elements(string_view value, ParamValue& p)
 ParamValue::ParamValue(string_view name, TypeDesc type, string_view value)
     : ParamValue(name, type, 1, cspan<std::byte>())
 {
-    if (type.basetype == TypeDesc::INT) {
+    if (type == TypeRational || type == TypeURational) {
+        // Accept either "x,y" or "x/y" here
+        std::string rational_values(value);
+        std::replace(rational_values.begin(), rational_values.end(), '/', ',');
+        if (type.basetype == TypeDesc::INT)
+            parse_elements<int>(rational_values, *this);
+        else if (type.basetype == TypeDesc::UINT)
+            parse_elements<unsigned int>(rational_values, *this);
+    } else if (type.basetype == TypeDesc::INT) {
         parse_elements<int>(value, *this);
     } else if (type.basetype == TypeDesc::UINT) {
         parse_elements<unsigned int>(value, *this);
@@ -528,6 +536,13 @@ bool
 ParamValueList::getattribute(string_view name, TypeDesc type,
                              span<std::byte> value, bool casesensitive) const
 {
+    if (value.size_bytes() < type.size()) {
+        OIIO::errorfmt(
+            "ParamValueList::getattribute given a {}-byte span as data for a {}-byte attribute {} {}",
+            value.size_bytes(), type.size(), type, name);
+        OIIO_DASSERT(value.size_bytes() >= type.size());
+        return false;
+    }
     auto p = find(name, TypeUnknown, casesensitive);
     if (p != cend()) {
         return convert_type(p->type(), p->data(), type, value.data());
@@ -576,6 +591,13 @@ ParamValueList::getattribute_indexed(string_view name, int index, TypeDesc type,
                                      span<std::byte> value,
                                      bool casesensitive) const
 {
+    if (value.size_bytes() < type.size()) {
+        OIIO::errorfmt(
+            "ParamValueList::getattribute_indexed given a {}-byte span as data for a {}-byte attribute {} {}",
+            value.size_bytes(), type.size(), type, name);
+        OIIO_DASSERT(value.size_bytes() >= type.size());
+        return false;
+    }
     auto p = find(name, TypeUnknown, casesensitive);
     if (p != cend()) {
         if (index >= int(p->type().basevalues()))
@@ -819,6 +841,13 @@ bool
 ParamValueSpan::getattribute(string_view name, TypeDesc type,
                              span<std::byte> value, bool casesensitive) const
 {
+    if (value.size_bytes() < type.size()) {
+        OIIO::errorfmt(
+            "ParamValueSpan::getattribute given a {}-byte span as data for a {}-byte attribute {} {}",
+            value.size_bytes(), type.size(), type, name);
+        OIIO_DASSERT(value.size_bytes() >= type.size());
+        return false;
+    }
     auto p = find(name, TypeUnknown, casesensitive);
     if (p != cend()) {
         return convert_type(p->type(), p->data(), type, value.data());
@@ -866,6 +895,13 @@ ParamValueSpan::getattribute_indexed(string_view name, int index, TypeDesc type,
                                      span<std::byte> value,
                                      bool casesensitive) const
 {
+    if (value.size_bytes() < type.size()) {
+        OIIO::errorfmt(
+            "ParamValueSpan::getattribute_indexed given a {}-byte span as data for a {}-byte attribute {} {}",
+            value.size_bytes(), type.size(), type, name);
+        OIIO_DASSERT(value.size_bytes() >= type.size());
+        return false;
+    }
     auto p = find(name, TypeUnknown, casesensitive);
     if (p != cend()) {
         if (index >= int(p->type().basevalues()))

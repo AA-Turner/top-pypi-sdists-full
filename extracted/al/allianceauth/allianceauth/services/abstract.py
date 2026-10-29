@@ -7,6 +7,8 @@ to use these views. You are free to build the internal structure
 of the service as you like.
 """
 
+__lazy_modules__ = ["django.db.models", "django.http"]
+
 import logging
 from collections import OrderedDict
 
@@ -22,6 +24,11 @@ from django.views.generic import DeleteView, UpdateView
 from django.views.generic.detail import SingleObjectMixin
 
 from .forms import ServicePasswordModelForm
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+    from django.http import HttpRequest, HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +43,15 @@ class AbstractServiceModel(models.Model):
     class Meta:
         abstract = True
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.credentials = OrderedDict()
         # Should be set with a dict of service credentials (username, password etc) when changed
 
-    def update_password(self, password=None):
+    def update_password(self, password: str | None = None) -> None:
         pass
 
-    def reset_password(self):
+    def reset_password(self) -> None:
         pass
 
 class BaseServiceView(LoginRequiredMixin, PermissionRequiredMixin, View):
@@ -63,7 +70,7 @@ class ServiceCredentialsViewMixin:
 
 
 class BaseCreatePasswordServiceAccountView(BaseServiceView, ServiceCredentialsViewMixin):
-    def get(self, request):
+    def get(self, request: "HttpRequest") -> "HttpResponse":
         logger.debug(f"{self.__class__.__name__} called by user {request.user}")
         try:
             svc_obj = self.model.objects.create(user=request.user)
@@ -75,7 +82,7 @@ class BaseCreatePasswordServiceAccountView(BaseServiceView, ServiceCredentialsVi
 
 
 class ServicesCRUDMixin(SingleObjectMixin):
-    def get_object(self, queryset=None):
+    def get_object(self, queryset: "QuerySet | None" = None) -> models.Model:
         """
         Returns the object the view is displaying.
         """
@@ -96,7 +103,7 @@ class BaseSetPasswordServiceAccountView(ServicesCRUDMixin, BaseServiceView, Upda
     template_name = 'services/service_password.html'
     form_class = ServicePasswordModelForm  # You should overload this with a subclass
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: "HttpRequest", *args, **kwargs) -> "HttpResponse":
         result = super().post(request, *args, **kwargs)
         if self.get_form().is_valid():
             messages.success(
@@ -110,7 +117,7 @@ class BaseResetPasswordServiceAccountView(ServicesCRUDMixin, BaseServiceView, Se
     """
     Set a random password
     """
-    def get(self, request):
+    def get(self, request: "HttpRequest") -> "HttpResponse":
         svc_obj = self.get_object()
         svc_obj.reset_password()
         return render(request, self.template_name, context={'credentials': svc_obj.credentials, 'service': self.service_name, 'view': self})

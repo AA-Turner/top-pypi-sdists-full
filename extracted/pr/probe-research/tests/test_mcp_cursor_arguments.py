@@ -325,6 +325,43 @@ def test_search_shares_the_path():
     assert second["top_k"] == 3
 
 
+def test_a_mixed_docs_search_carries_docs_on_page_one_only(client, app):
+    """Through the real `search` entry and the real read service: page two,
+    sent with the cursor alone, gets `search_in` back from the cursor -- docs
+    included -- and still carries no docs list. A cursor page continues the
+    team's channels; the docs were answered on page one."""
+    from probe.mcp.service import ResearchReadService
+    from probe.mcp.source import ResearchOSSource
+    from tests.conftest import search_response
+
+    def experiment(eid):
+        return {"entity_type": "experiment", "id": eid, "name": eid, "slug": eid,
+                "workspace_id": None, "project_id": "p-1", "experiment_id": None,
+                "run_id": None, "score": 0.9}
+
+    app.search_responses = [
+        search_response(exact=[experiment("e-1"), experiment("e-2")], exact_cursor="ex-2"),
+        search_response(exact=[experiment("e-3")]),
+    ]
+    app.docs_response = {"state": "ok", "sections": [{
+        "page": "Install", "heading": "Codex", "path": "install#codex",
+        "url": "https://docs.prbe.ai/install#codex", "text": "Run `probe setup codex`.", "rank": 0,
+    }]}
+    service = ResearchReadService(ResearchOSSource(client))
+    error, page = _call(
+        service, "search", {"query": "codex", "search_in": ["docs", "experiments"], "top_k": 2}
+    )
+    assert not error, page
+    assert [hit["card"]["title"] for hit in page["data"]["docs"]] == ["Install — Codex"]
+    assert [r["id"] for r in page["data"]["results"]] == ["e-1", "e-2"]
+    error, page = _call(service, "search", {"query": "codex", "cursor": page["next_cursor"]})
+    assert not error, page
+    assert [r["id"] for r in page["data"]["results"]] == ["e-3"]
+    assert "docs" not in page["data"] and "docs_note" not in page["data"]
+    assert app.search_requests[-1]["exact_cursor"] == "ex-2"
+    assert len(app.docs_requests) == 1
+
+
 def test_a_mis_copied_cursor_is_named_as_one_not_as_changed_arguments():
     # strand-ai 2026-10-17: the writer copied a 371-character cursor with one
     # character changed and two added, was told its request had changed, sent

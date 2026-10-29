@@ -1,5 +1,6 @@
 #include "doppler/resamp/resamp_core.h"
 #include "doppler/nco/nco_core.h"
+#include "doppler/resample/resample_core.h"
 #include <math.h>
 #include <string.h>
 
@@ -25,16 +26,6 @@ resamp_bessel_i0 (double x)
   return sum;
 }
 
-static double
-resamp_kaiser_beta (double atten)
-{
-  if (atten > 50.0)
-    return 0.1102 * (atten - 8.7);
-  if (atten >= 21.0)
-    return 0.5842 * pow (atten - 21.0, 0.4) + 0.07886 * (atten - 21.0);
-  return 0.0;
-}
-
 static unsigned
 resamp_log2_u (size_t v)
 {
@@ -53,7 +44,7 @@ static float *
 resamp_build_bank (size_t num_phases, size_t num_taps, double atten, double pb,
                    double sb)
 {
-  double beta  = resamp_kaiser_beta (atten);
+  double beta  = dp_kaiser_beta_eval (atten);
   double pb_ph = pb / (double)num_phases;
   double sb_ph = sb / (double)num_phases;
   double wc    = 2.0 * M_PI * (pb_ph + (sb_ph - pb_ph) * 0.5);
@@ -95,19 +86,6 @@ resamp_build_bank (size_t num_phases, size_t num_taps, double atten, double pb,
 
   free (g);
   return bank;
-}
-
-/* Compute taps-per-phase from Kaiser spec. */
-static size_t
-resamp_kaiser_num_taps (size_t num_phases, double atten, double pb, double sb)
-{
-  double pb_ph = pb / (double)num_phases;
-  double sb_ph = sb / (double)num_phases;
-  size_t proto
-      = (size_t)(1.0 + (atten - 8.0) / 2.285 / (2.0 * M_PI * (sb_ph - pb_ph)));
-  size_t halflen = proto / 2;
-  size_t htaps   = 2 * halflen + 1;
-  return htaps / num_phases + 1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -225,15 +203,29 @@ resamp_create_from_bank (size_t num_phases, size_t num_taps, float *bank_owned,
 /* Public lifecycle                                                    */
 /* ------------------------------------------------------------------ */
 
+int
+dp_resamp_rate_ok (double rate)
+{
+  /* A NaN fails the comparison; 0 and a negative rate have no resampling
+     meaning (0 emits zeros, a negative rate a negated copy), and an infinite
+     one makes the phase step meaningless. */
+  return rate > 0.0 && isfinite (rate);
+}
+
 resamp_state_t *
 dp_resamp_create (double rate)
 {
+  if (!dp_resamp_rate_ok (rate))
+    return NULL;
+
   static const size_t NUM_PHASES = 4096;
   static const double ATTEN      = 60.0;
   static const double PB         = 0.4;
   static const double SB         = 0.6;
 
-  size_t num_taps = resamp_kaiser_num_taps (NUM_PHASES, ATTEN, PB, SB);
+  /* The library's one Kaiser sizing rule and beta, header-inline in
+     resample_core.h, not a private copy of each (doppler#2652). */
+  size_t num_taps = dp_kaiser_num_taps_eval (NUM_PHASES, ATTEN, PB, SB);
   float *bank     = resamp_build_bank (NUM_PHASES, num_taps, ATTEN, PB, SB);
   if (!bank)
     return NULL;
@@ -244,7 +236,11 @@ resamp_state_t *
 dp_resamp_create_custom (size_t num_phases, size_t num_taps, const float *bank,
                          double rate)
 {
-  if (!num_phases || !num_taps || !bank || rate <= 0.0)
+  /* get_branch() selects the arm from the top log2(num_phases) bits of the
+     phase word, rounded UP, so a non-power-of-two count would address arms
+     past the end of the bank: 48 phases reach arm 63 (doppler#2640). */
+  if (!num_phases || (num_phases & (num_phases - 1u)) != 0u || !num_taps
+      || !bank || !dp_resamp_rate_ok (rate))
     return NULL;
 
   size_t len = num_phases * num_taps;
@@ -274,6 +270,7 @@ dp_resamp_reset (resamp_state_t *s)
   s->ctrl_phase = 0;
   s->ctrl_debt  = 0;
   s->ctrl_ahead = 0;
+  s->consumed   = 0;
   s->delay_head = 0;
   memset (s->delay_buf, 0, 2 * s->delay_cap * sizeof (float _Complex));
   memset (s->decim_iad, 0, s->num_taps * sizeof (float _Complex));
@@ -357,12 +354,23 @@ dp_resamp_get_rate (const resamp_state_t *s)
   return s->rate;
 }
 
-void
+int
 dp_resamp_set_rate (resamp_state_t *s, double rate)
 {
+  if (!dp_resamp_rate_ok (rate))
+    return DP_ERR_INVALID;
+  int upsample = (rate >= 1.0);
+  /* Crossing 1 hands execute() to the other path, whose running state was
+     never advanced (the interpolator's delay line and the decimator's
+     integrate-and-dump registers are filled by different loops) and whose
+     phase word meant a different step.  Start it as a fresh create would,
+     rather than from that stale state (doppler#2640). */
+  if (upsample != s->upsample)
+    dp_resamp_reset (s);
   s->rate      = rate;
-  s->upsample  = (rate >= 1.0);
+  s->upsample  = upsample;
   s->phase_inc = resamp_step_inc (rate, s->upsample);
+  return DP_OK;
 }
 
 size_t
@@ -483,7 +491,8 @@ interp_execute (resamp_state_t *s, const float _Complex *in, size_t num_in,
         dl_push (s, in[xi++]);
       ph = new_ph;
     }
-  s->phase = ph;
+  s->phase    = ph;
+  s->consumed = xi;
   return oi;
 }
 
@@ -552,7 +561,8 @@ decim_execute (resamp_state_t *s, const float _Complex *in, size_t num_in,
   float _Complex *iad   = s->decim_iad;
   float _Complex *tfd   = s->decim_tfd;
 
-  for (size_t xi = 0; xi < num_in && oi < max_out; xi++)
+  size_t xi = 0;
+  for (; xi < num_in && oi < max_out; xi++)
     {
       /* 1. Accumulate x[n] × reversed_h into integrate-and-dump */
       const float *h    = get_branch (s, ph);
@@ -578,7 +588,8 @@ decim_execute (resamp_state_t *s, const float _Complex *in, size_t num_in,
         }
       ph = new_ph;
     }
-  s->phase = ph;
+  s->phase    = ph;
+  s->consumed = xi;
   return oi;
 }
 
@@ -630,7 +641,7 @@ dp_resamp_execute (resamp_state_t *s, const float _Complex *in, size_t num_in,
 static inline size_t
 ctrl_push_impl (resamp_state_t *s, float _Complex x, double ctrl,
                 float _Complex *out, size_t max_out, double *pos,
-                size_t call_idx)
+                size_t call_idx, int *took)
 {
   /* NOTE the sample is NOT pushed here.  Nothing enters an interpolator's
      delay line without a load request: a tick emits, the accumulator fails
@@ -726,9 +737,21 @@ ctrl_push_impl (resamp_state_t *s, float _Complex x, double ctrl,
      would destroy it, and a lost output is a strobe-parity shift. */
   if (offered)
     {
+      /* A block form CAN decline: it stops here and reports the sample as
+         not consumed, so the ticks still owed before it are emitted on the
+         next call against the same delay line, exactly as one whole call
+         emits them (doppler#2643). Loading it ahead instead would put those
+         ticks one sample late. */
+      if (took)
+        {
+          *took = 0;
+          return n;
+        }
       dl_push (s, x);
       s->ctrl_ahead++;
     }
+  if (took)
+    *took = 1;
   return n;
 }
 
@@ -736,7 +759,7 @@ size_t
 dp_resamp_execute_ctrl_push (resamp_state_t *s, float _Complex x, double ctrl,
                              float _Complex *out, size_t max_out)
 {
-  return ctrl_push_impl (s, x, ctrl, out, max_out, NULL, 0);
+  return ctrl_push_impl (s, x, ctrl, out, max_out, NULL, 0, NULL);
 }
 
 /* ------------------------------------------------------------------ */
@@ -749,10 +772,17 @@ dp_resamp_execute_ctrl (resamp_state_t *s, const float _Complex *in,
                         const double *ctrl, size_t num_in, float _Complex *out,
                         size_t max_out)
 {
-  size_t oi = 0;
-  for (size_t xi = 0; xi < num_in && oi < max_out; xi++)
-    oi += dp_resamp_execute_ctrl_push (s, in[xi], ctrl[xi], out + oi,
-                                       max_out - oi);
+  size_t oi = 0, xi = 0;
+  while (xi < num_in && oi < max_out)
+    {
+      int took;
+      oi += ctrl_push_impl (s, in[xi], ctrl[xi], out + oi, max_out - oi, NULL,
+                            0, &took);
+      if (!took)
+        break; /* out filled with ticks still owed before in[xi] */
+      xi++;
+    }
+  s->consumed = xi;
   return oi;
 }
 
@@ -761,9 +791,22 @@ dp_resamp_execute_ctrl_pos (resamp_state_t *s, const float _Complex *in,
                             const double *ctrl, size_t num_in,
                             float _Complex *out, double *pos, size_t max_out)
 {
-  size_t oi = 0;
-  for (size_t xi = 0; xi < num_in && oi < max_out; xi++)
-    oi += ctrl_push_impl (s, in[xi], ctrl[xi], out + oi, max_out - oi,
-                          pos + oi, xi);
+  size_t oi = 0, xi = 0;
+  while (xi < num_in && oi < max_out)
+    {
+      int took;
+      oi += ctrl_push_impl (s, in[xi], ctrl[xi], out + oi, max_out - oi,
+                            pos + oi, xi, &took);
+      if (!took)
+        break; /* out filled with ticks still owed before in[xi] */
+      xi++;
+    }
+  s->consumed = xi;
   return oi;
+}
+
+size_t
+dp_resamp_consumed (const resamp_state_t *s)
+{
+  return s->consumed;
 }

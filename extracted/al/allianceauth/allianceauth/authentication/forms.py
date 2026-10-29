@@ -1,3 +1,5 @@
+from typing import Any
+
 from django import forms
 from django.conf import settings
 from django.contrib.auth.forms import UserChangeForm as BaseUserChangeForm
@@ -44,7 +46,7 @@ class RegistrationActivationForm(BaseActivationForm):
 class UserProfileForm(ModelForm):
     """Allows specifying FK querysets through kwarg"""
 
-    def __init__(self, querysets=None, *args, **kwargs):
+    def __init__(self, querysets: dict[str, Any] | None = None, *args, **kwargs) -> None:
         querysets = querysets or {}
         super().__init__(*args, **kwargs)
         for field, qs in querysets.items():
@@ -54,11 +56,11 @@ class UserProfileForm(ModelForm):
 class UserChangeForm(BaseUserChangeForm):
     """Add custom cleaning to UserChangeForm"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.request = kwargs.pop("request")  # Inject current request into form object
         super().__init__(*args, **kwargs)
 
-    def clean(self):
+    def clean(self) -> dict[str, Any]:
         cleaned_data = super().clean()
         if not self.request.user.is_superuser:
             if self.instance:

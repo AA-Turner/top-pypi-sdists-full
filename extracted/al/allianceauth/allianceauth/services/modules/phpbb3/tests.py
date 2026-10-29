@@ -195,12 +195,6 @@ class Phpbb3ManagerTestCase(TestCase):
         from .manager import Phpbb3Manager
         self.manager = Phpbb3Manager
 
-    def test_generate_random_password(self):
-        password = self.manager._Phpbb3Manager__generate_random_pass()
-
-        self.assertEqual(len(password), 16)
-        self.assertIsInstance(password, str)
-
     def test_gen_pwhash(self):
         pwhash = self.manager._Phpbb3Manager__gen_hash('test')
 

@@ -23,6 +23,7 @@ if typing.TYPE_CHECKING:
     from .api_keys.client import ApiKeysClient, AsyncApiKeysClient
     from .api_logs.client import ApiLogsClient, AsyncApiLogsClient
     from .app_builds.client import AppBuildsClient, AsyncAppBuildsClient
+    from .app_installations.client import AppInstallationsClient, AsyncAppInstallationsClient
     from .apps.client import AppsClient, AsyncAppsClient
     from .audiences.client import AsyncAudiencesClient, AudiencesClient
     from .authorized_users.client import AsyncAuthorizedUsersClient, AuthorizedUsersClient
@@ -48,6 +49,7 @@ if typing.TYPE_CHECKING:
     from .dm_members.client import AsyncDmMembersClient, DmMembersClient
     from .domains.client import AsyncDomainsClient, DomainsClient
     from .economic_intelligence.client import AsyncEconomicIntelligenceClient, EconomicIntelligenceClient
+    from .email_addresses.client import AsyncEmailAddressesClient, EmailAddressesClient
     from .events.client import AsyncEventsClient, EventsClient
     from .experiences.client import AsyncExperiencesClient, ExperiencesClient
     from .experiments.client import AsyncExperimentsClient, ExperimentsClient
@@ -58,12 +60,14 @@ if typing.TYPE_CHECKING:
     from .files.client import AsyncFilesClient, FilesClient
     from .financial_activity.client import AsyncFinancialActivityClient, FinancialActivityClient
     from .financial_reports.client import AsyncFinancialReportsClient, FinancialReportsClient
+    from .financing_applications.client import AsyncFinancingApplicationsClient, FinancingApplicationsClient
     from .forum_posts.client import AsyncForumPostsClient, ForumPostsClient
     from .forums.client import AsyncForumsClient, ForumsClient
     from .identity_profiles.client import AsyncIdentityProfilesClient, IdentityProfilesClient
     from .invoices.client import AsyncInvoicesClient, InvoicesClient
     from .leads.client import AsyncLeadsClient, LeadsClient
     from .ledger_accounts.client import AsyncLedgerAccountsClient, LedgerAccountsClient
+    from .livestreams.client import AsyncLivestreamsClient, LivestreamsClient
     from .media.client import AsyncMediaClient, MediaClient
     from .members.client import AsyncMembersClient, MembersClient
     from .memberships.client import AsyncMembershipsClient, MembershipsClient
@@ -152,7 +156,7 @@ class Whop:
     from whop_sdk import Whop
 
     client = Whop(
-        "2026-10-15-1",
+        "2026-10-28",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -162,7 +166,7 @@ class Whop:
         self,
         *,
         environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
-        api_version_date: typing.Optional[str] = "2026-10-15-1",
+        api_version_date: typing.Optional[str] = "2026-10-28",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -206,6 +210,7 @@ class Whop:
         self._api_keys: typing.Optional[ApiKeysClient] = None
         self._api_logs: typing.Optional[ApiLogsClient] = None
         self._app_builds: typing.Optional[AppBuildsClient] = None
+        self._app_installations: typing.Optional[AppInstallationsClient] = None
         self._apps: typing.Optional[AppsClient] = None
         self._audiences: typing.Optional[AudiencesClient] = None
         self._authorized_users: typing.Optional[AuthorizedUsersClient] = None
@@ -231,6 +236,7 @@ class Whop:
         self._dm_members: typing.Optional[DmMembersClient] = None
         self._domains: typing.Optional[DomainsClient] = None
         self._economic_intelligence: typing.Optional[EconomicIntelligenceClient] = None
+        self._email_addresses: typing.Optional[EmailAddressesClient] = None
         self._events: typing.Optional[EventsClient] = None
         self._experiences: typing.Optional[ExperiencesClient] = None
         self._experiments: typing.Optional[ExperimentsClient] = None
@@ -241,12 +247,14 @@ class Whop:
         self._files: typing.Optional[FilesClient] = None
         self._financial_activity: typing.Optional[FinancialActivityClient] = None
         self._financial_reports: typing.Optional[FinancialReportsClient] = None
+        self._financing_applications: typing.Optional[FinancingApplicationsClient] = None
         self._forum_posts: typing.Optional[ForumPostsClient] = None
         self._forums: typing.Optional[ForumsClient] = None
         self._identity_profiles: typing.Optional[IdentityProfilesClient] = None
         self._invoices: typing.Optional[InvoicesClient] = None
         self._leads: typing.Optional[LeadsClient] = None
         self._ledger_accounts: typing.Optional[LedgerAccountsClient] = None
+        self._livestreams: typing.Optional[LivestreamsClient] = None
         self._media: typing.Optional[MediaClient] = None
         self._members: typing.Optional[MembersClient] = None
         self._memberships: typing.Optional[MembershipsClient] = None
@@ -390,6 +398,14 @@ class Whop:
 
             self._app_builds = AppBuildsClient(client_wrapper=self._client_wrapper)
         return self._app_builds
+
+    @property
+    def app_installations(self):
+        if self._app_installations is None:
+            from .app_installations.client import AppInstallationsClient  # noqa: E402
+
+            self._app_installations = AppInstallationsClient(client_wrapper=self._client_wrapper)
+        return self._app_installations
 
     @property
     def apps(self):
@@ -592,6 +608,14 @@ class Whop:
         return self._economic_intelligence
 
     @property
+    def email_addresses(self):
+        if self._email_addresses is None:
+            from .email_addresses.client import EmailAddressesClient  # noqa: E402
+
+            self._email_addresses = EmailAddressesClient(client_wrapper=self._client_wrapper)
+        return self._email_addresses
+
+    @property
     def events(self):
         if self._events is None:
             from .events.client import EventsClient  # noqa: E402
@@ -672,6 +696,14 @@ class Whop:
         return self._financial_reports
 
     @property
+    def financing_applications(self):
+        if self._financing_applications is None:
+            from .financing_applications.client import FinancingApplicationsClient  # noqa: E402
+
+            self._financing_applications = FinancingApplicationsClient(client_wrapper=self._client_wrapper)
+        return self._financing_applications
+
+    @property
     def forum_posts(self):
         if self._forum_posts is None:
             from .forum_posts.client import ForumPostsClient  # noqa: E402
@@ -718,6 +750,14 @@ class Whop:
 
             self._ledger_accounts = LedgerAccountsClient(client_wrapper=self._client_wrapper)
         return self._ledger_accounts
+
+    @property
+    def livestreams(self):
+        if self._livestreams is None:
+            from .livestreams.client import LivestreamsClient  # noqa: E402
+
+            self._livestreams = LivestreamsClient(client_wrapper=self._client_wrapper)
+        return self._livestreams
 
     @property
     def media(self):
@@ -1100,7 +1140,7 @@ class AsyncWhop:
     from whop_sdk import AsyncWhop
 
     client = AsyncWhop(
-        "2026-10-15-1",
+        "2026-10-28",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -1110,7 +1150,7 @@ class AsyncWhop:
         self,
         *,
         environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
-        api_version_date: typing.Optional[str] = "2026-10-15-1",
+        api_version_date: typing.Optional[str] = "2026-10-28",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -1154,6 +1194,7 @@ class AsyncWhop:
         self._api_keys: typing.Optional[AsyncApiKeysClient] = None
         self._api_logs: typing.Optional[AsyncApiLogsClient] = None
         self._app_builds: typing.Optional[AsyncAppBuildsClient] = None
+        self._app_installations: typing.Optional[AsyncAppInstallationsClient] = None
         self._apps: typing.Optional[AsyncAppsClient] = None
         self._audiences: typing.Optional[AsyncAudiencesClient] = None
         self._authorized_users: typing.Optional[AsyncAuthorizedUsersClient] = None
@@ -1179,6 +1220,7 @@ class AsyncWhop:
         self._dm_members: typing.Optional[AsyncDmMembersClient] = None
         self._domains: typing.Optional[AsyncDomainsClient] = None
         self._economic_intelligence: typing.Optional[AsyncEconomicIntelligenceClient] = None
+        self._email_addresses: typing.Optional[AsyncEmailAddressesClient] = None
         self._events: typing.Optional[AsyncEventsClient] = None
         self._experiences: typing.Optional[AsyncExperiencesClient] = None
         self._experiments: typing.Optional[AsyncExperimentsClient] = None
@@ -1189,12 +1231,14 @@ class AsyncWhop:
         self._files: typing.Optional[AsyncFilesClient] = None
         self._financial_activity: typing.Optional[AsyncFinancialActivityClient] = None
         self._financial_reports: typing.Optional[AsyncFinancialReportsClient] = None
+        self._financing_applications: typing.Optional[AsyncFinancingApplicationsClient] = None
         self._forum_posts: typing.Optional[AsyncForumPostsClient] = None
         self._forums: typing.Optional[AsyncForumsClient] = None
         self._identity_profiles: typing.Optional[AsyncIdentityProfilesClient] = None
         self._invoices: typing.Optional[AsyncInvoicesClient] = None
         self._leads: typing.Optional[AsyncLeadsClient] = None
         self._ledger_accounts: typing.Optional[AsyncLedgerAccountsClient] = None
+        self._livestreams: typing.Optional[AsyncLivestreamsClient] = None
         self._media: typing.Optional[AsyncMediaClient] = None
         self._members: typing.Optional[AsyncMembersClient] = None
         self._memberships: typing.Optional[AsyncMembershipsClient] = None
@@ -1338,6 +1382,14 @@ class AsyncWhop:
 
             self._app_builds = AsyncAppBuildsClient(client_wrapper=self._client_wrapper)
         return self._app_builds
+
+    @property
+    def app_installations(self):
+        if self._app_installations is None:
+            from .app_installations.client import AsyncAppInstallationsClient  # noqa: E402
+
+            self._app_installations = AsyncAppInstallationsClient(client_wrapper=self._client_wrapper)
+        return self._app_installations
 
     @property
     def apps(self):
@@ -1540,6 +1592,14 @@ class AsyncWhop:
         return self._economic_intelligence
 
     @property
+    def email_addresses(self):
+        if self._email_addresses is None:
+            from .email_addresses.client import AsyncEmailAddressesClient  # noqa: E402
+
+            self._email_addresses = AsyncEmailAddressesClient(client_wrapper=self._client_wrapper)
+        return self._email_addresses
+
+    @property
     def events(self):
         if self._events is None:
             from .events.client import AsyncEventsClient  # noqa: E402
@@ -1620,6 +1680,14 @@ class AsyncWhop:
         return self._financial_reports
 
     @property
+    def financing_applications(self):
+        if self._financing_applications is None:
+            from .financing_applications.client import AsyncFinancingApplicationsClient  # noqa: E402
+
+            self._financing_applications = AsyncFinancingApplicationsClient(client_wrapper=self._client_wrapper)
+        return self._financing_applications
+
+    @property
     def forum_posts(self):
         if self._forum_posts is None:
             from .forum_posts.client import AsyncForumPostsClient  # noqa: E402
@@ -1666,6 +1734,14 @@ class AsyncWhop:
 
             self._ledger_accounts = AsyncLedgerAccountsClient(client_wrapper=self._client_wrapper)
         return self._ledger_accounts
+
+    @property
+    def livestreams(self):
+        if self._livestreams is None:
+            from .livestreams.client import AsyncLivestreamsClient  # noqa: E402
+
+            self._livestreams = AsyncLivestreamsClient(client_wrapper=self._client_wrapper)
+        return self._livestreams
 
     @property
     def media(self):

@@ -128,7 +128,7 @@ DespreaderObj_init (DespreaderObject *self, PyObject *args, PyObject *kwds)
                        ">= 0 and zeta > 0 both finite, whose loop gains come "
                        "out finite, and 0 < spacing < len(code)/2; for the "
                        "carrier loop bn_carrier >= 0, finite, whose loop "
-                       "gains come out finite)");
+                       "gains come out finite, and bn_fll >= 0 and finite)");
       return -1;
     }
   return 0;
@@ -926,9 +926,10 @@ Despreader_setprop_bn_code (DespreaderObject *self, PyObject *value,
 
 static PyGetSetDef Despreader_getset[] = {
   { "norm_freq", (getter)Despreader_getprop_norm_freq,
-    (setter)Despreader_setprop_norm_freq, "Norm freq.\n", NULL },
-  { "code_phase", (getter)Despreader_getprop_code_phase, NULL, "Code phase.\n",
-    NULL },
+    (setter)Despreader_setprop_norm_freq,
+    "The carrier loop's tracked frequency, cycles/sample.\n", NULL },
+  { "code_phase", (getter)Despreader_getprop_code_phase, NULL,
+    "The code loop's current prompt code phase, chips.\n", NULL },
   { "code_rate", (getter)Despreader_getprop_code_rate, NULL,
     "Chips the embedded DLL advances per nominal chip: ~1.0, and its "
     "departure from 1 is the code-rate (clock) offset being tracked.\n",
@@ -949,10 +950,11 @@ static PyGetSetDef Despreader_getset[] = {
     "despreader runs the same always-on detector Dll.steps does.\n",
     NULL },
   { "bit_phase", (getter)Despreader_getprop_bit_phase, NULL,
-    "detected bit boundary (argmax flip_hist).\n", NULL },
+    "The detected data-bit boundary, in code periods.\n", NULL },
   { "bn_carrier", (getter)Despreader_getprop_bn_carrier,
     (setter)Despreader_setprop_bn_carrier,
-    "Bn carrier.\n"
+    "Carrier loop noise bandwidth, normalized to the code-period (symbol)\n"
+    "rate.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -965,7 +967,7 @@ static PyGetSetDef Despreader_getset[] = {
     NULL },
   { "bn_code", (getter)Despreader_getprop_bn_code,
     (setter)Despreader_setprop_bn_code,
-    "Bn code.\n"
+    "Code loop noise bandwidth, normalized to the code-period rate.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -1070,25 +1072,21 @@ static PyMethodDef DespreaderObj_methods[] = {
     "...     [s * np.repeat(chips, 4) for s in syms]).astype(np.complex64)\n"
     ">>> d = Despreader(code=code, sps=4)\n"
     ">>> prompt = d.steps(rx)                 # one prompt per code period\n"
-    ">>> hard = (prompt.real < 0).astype(np.uint8)\n"
-    ">>> e = np.mean(hard != bits[:hard.size])   # payload recovered\n"
-    ">>> round(float(min(e, 1.0 - e)), 4)\n"
+    ">>> hard = (prompt.real < 0).astype(np.uint8)  # negative is a 1\n"
+    ">>> float(np.mean(hard != bits[:hard.size]))   # payload recovered\n"
     "0.0\n" },
   { "steps_max_out", (PyCFunction)DespreaderObj_steps_max_out, METH_NOARGS,
     "steps_max_out() -> int\n"
     "\n"
-    "Largest number of samples steps() can return in the current state.\n"
-    "\n"
-    "Size an `out=` buffer with this before calling steps(), or use it to\n"
-    "allocate one up front. The bound is this object's own: what it depends\n"
-    "on is a property of the algorithm, so a header block on steps_max_out()\n"
-    "replaces this text.\n"
+    "No fixed cap on steps() output (one prompt per code period, so never\n"
+    "more prompts than input samples).\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Upper bound on the output length; the actual call may return "
-    "fewer.\n" },
+    "    Always 0, meaning \"no fixed capacity\": size the output to the "
+    "input\n"
+    "    length.\n" },
   { "bits", (PyCFunction)(void *)DespreaderObj_bits,
     METH_VARARGS | METH_KEYWORDS,
     "bits(x, out) -> ndarray\n"
@@ -1096,15 +1094,26 @@ static PyMethodDef DespreaderObj_methods[] = {
     "Same tracking kernel as steps(), but bit-sync the per-period prompts "
     "into hard data bits: periods_per_bit prompts are coherently summed "
     "across each detected bit boundary and one 0/1 bit is emitted per data "
-    "bit.\n"
+    "bit, by the library's one polarity: bit b is sent as 1 - 2b "
+    "(mpsk_core.h), so a negative summed prompt is a 1.\n"
     "\n"
     "The same tracking kernel as dp_despreader_steps(), followed by bit\n"
     "synchronisation: the per-period prompts are coherently summed across\n"
     "each detected bit boundary (a data bit spans periods_per_bit code\n"
     "periods) and one hard 0/1 bit is emitted per data bit. The bit boundary\n"
-    "is estimated on-line from the prompt sign-flip histogram, so the phase\n"
-    "is a BPSK ambiguity — a globally inverted decision stream is equally\n"
-    "correct.\n"
+    "is estimated on-line from the prompt sign-flip histogram. The first\n"
+    "(partial) bit after create or reset is not emitted; with\n"
+    "periods_per_bit == 1 every prompt yields one bit.\n"
+    "\n"
+    "**Polarity is the library's one rule** (mpsk_core.h, mpsk_bpsk_bit()):\n"
+    "bit b is sent as `1 - 2b`, so a bit is 1 when its summed Re(prompt) is\n"
+    "NEGATIVE and 0 when it is zero or positive -- the inverse of\n"
+    "dp_bin_to_nrz(), and the same decision dp_nrz_to_bin() makes. The\n"
+    "carrier loop is a Costas loop, so the decisions are absolute relative\n"
+    "to the phase it locks at: a carrier that arrives at phase 0 decodes as\n"
+    "sent, one at pi decodes complemented, and a loop pulling in from an\n"
+    "unseeded offset may land on either. Resolving that is a sync word's job\n"
+    "(see doppler.detection.SyncFinder's `inverted`), not this object's.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1131,24 +1140,24 @@ static PyMethodDef DespreaderObj_methods[] = {
     "...     [s * np.repeat(chips, 4) for s in syms]).astype(np.complex64)\n"
     ">>> d = Despreader(code=code, sps=4)\n"
     ">>> data = d.bits(rx)                       # hard data bits\n"
-    ">>> e = np.mean(data != bits[:data.size])   # up to a BPSK sign flip\n"
-    ">>> round(float(min(e, 1.0 - e)), 4)\n"
-    "0.0\n" },
+    ">>> float(np.mean(data != bits[:data.size]))  # raw: 1 - 2b at phase 0\n"
+    "0.0\n"
+    ">>> d.reset()\n"
+    ">>> flipped = d.bits(-rx)                   # the same carrier at pi\n"
+    ">>> bool(np.all(flipped == 1 - bits[:flipped.size]))   # complemented\n"
+    "True\n" },
   { "bits_max_out", (PyCFunction)DespreaderObj_bits_max_out, METH_NOARGS,
     "bits_max_out() -> int\n"
     "\n"
-    "Largest number of samples bits() can return in the current state.\n"
-    "\n"
-    "Size an `out=` buffer with this before calling bits(), or use it to\n"
-    "allocate one up front. The bound is this object's own: what it depends\n"
-    "on is a property of the algorithm, so a header block on bits_max_out()\n"
-    "replaces this text.\n"
+    "No fixed cap on bits() output (at most one bit per code period, so\n"
+    "never more bits than input samples).\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Upper bound on the output length; the actual call may return "
-    "fewer.\n" },
+    "    Always 0, meaning \"no fixed capacity\": size the output to the "
+    "input\n"
+    "    length.\n" },
   { "set_telemetry", (PyCFunction)(void *)DespreaderObj_set_telemetry,
     METH_VARARGS | METH_KEYWORDS,
     "set_telemetry(tlm, prefix, decim) -> None\n"
@@ -1453,7 +1462,8 @@ static PyTypeObject DespreaderObjType = {
     "    bn_code >= 0 and zeta > 0 both finite, whose loop gains come out\n"
     "    finite, and 0 < spacing < len(code)/2; for the carrier loop "
     "bn_carrier\n"
-    "    >= 0, finite, whose loop gains come out finite)``.\n"
+    "    >= 0, finite, whose loop gains come out finite, and bn_fll >= 0 and\n"
+    "    finite)``.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -1468,8 +1478,7 @@ static PyTypeObject DespreaderObjType = {
     "...     [s * np.repeat(chips, 4) for s in syms]).astype(np.complex64)\n"
     ">>> d = Despreader(code, sps=4)          # seed a fresh tracking loop\n"
     ">>> data = d.bits(rx)                        # hard data bits, 1/period\n"
-    ">>> e = np.mean(data != bits[:data.size])    # up to a global BPSK flip\n"
-    ">>> round(float(min(e, 1.0 - e)), 4)\n"
+    ">>> float(np.mean(data != bits[:data.size]))  # raw: phase 0 is known\n"
     "0.0\n",
   .tp_methods = DespreaderObj_methods,
   .tp_getset  = Despreader_getset,

@@ -133,6 +133,8 @@ jobs:
               - 'infra/internal-mcp-servers/**'
             airmux-control-plane:
               - 'infra/airmux-control-plane/**'
+            connector-regression-eu:
+              - 'infra/connector-regression-eu/**'
             hydra-review-webapp:
               - 'infra/hydra-review-webapp/**'
             workflow:
@@ -163,6 +165,8 @@ jobs:
               - 'infra/internal-mcp-servers/**'
             airmux-control-plane:
               - 'infra/airmux-control-plane/**'
+            connector-regression-eu:
+              - 'infra/connector-regression-eu/**'
             hydra-review-webapp:
               - 'infra/hydra-review-webapp/**'
             workflow:
@@ -179,6 +183,7 @@ jobs:
           AGENT_CHAT_INTERNAL_CHANGED: ${{ steps['changes-push'].outputs['agent-chat-internal'] || steps['changes-pr'].outputs['agent-chat-internal'] || 'false' }}
           INTERNAL_MCP_SERVERS_CHANGED: ${{ steps['changes-push'].outputs['internal-mcp-servers'] || steps['changes-pr'].outputs['internal-mcp-servers'] || 'false' }}
           AIRMUX_CONTROL_PLANE_CHANGED: ${{ steps['changes-push'].outputs['airmux-control-plane'] || steps['changes-pr'].outputs['airmux-control-plane'] || 'false' }}
+          CONNECTOR_REGRESSION_EU_CHANGED: ${{ steps['changes-push'].outputs['connector-regression-eu'] || steps['changes-pr'].outputs['connector-regression-eu'] || 'false' }}
           HYDRA_REVIEW_WEBAPP_CHANGED: ${{ steps['changes-push'].outputs['hydra-review-webapp'] || steps['changes-pr'].outputs['hydra-review-webapp'] || 'false' }}
           WORKFLOW_CHANGED: ${{ steps['changes-push'].outputs.workflow || steps['changes-pr'].outputs.workflow || 'false' }}
         run: |
@@ -195,6 +200,7 @@ jobs:
               --arg agent_chat_internal "$AGENT_CHAT_INTERNAL_CHANGED" \
               --arg internal_mcp_servers "$INTERNAL_MCP_SERVERS_CHANGED" \
               --arg airmux_control_plane "$AIRMUX_CONTROL_PLANE_CHANGED" \
+              --arg connector_regression_eu "$CONNECTOR_REGRESSION_EU_CHANGED" \
               --arg hydra_review_webapp "$HYDRA_REVIEW_WEBAPP_CHANGED" \
               --arg workflow "$WORKFLOW_CHANGED" \
               '[
@@ -204,6 +210,7 @@ jobs:
                 {name: "agent-chat-internal", dir: "infra/agent-chat-internal", changed: ($agent_chat_internal == "true" or $workflow == "true")},
                 {name: "internal-mcp-servers", dir: "infra/internal-mcp-servers", changed: ($internal_mcp_servers == "true" or $workflow == "true")},
                 {name: "airmux-control-plane", dir: "infra/airmux-control-plane", changed: ($airmux_control_plane == "true" or $workflow == "true")},
+                {name: "connector-regression-eu", dir: "infra/connector-regression-eu", changed: ($connector_regression_eu == "true" or $workflow == "true")},
                 {name: "hydra-review-webapp", dir: "infra/hydra-review-webapp", changed: ($hydra_review_webapp == "true" or $workflow == "true")}
               ] | map(select(.changed)) | map(del(.changed))'
           )"

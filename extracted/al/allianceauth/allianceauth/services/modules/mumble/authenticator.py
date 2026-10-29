@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+__lazy_modules__ = ["collections.abc"]
+
 # Copyright (C) 2010 Stefan Hacker <dd0t@users.sourceforge.net>
 # All rights reserved.
 # Adapted by Adarnof for AllianceAuth
@@ -31,7 +33,6 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
 import importlib.util
 import logging
 import os
@@ -49,6 +50,9 @@ from allianceauth import __version__
 from allianceauth.services.modules.mumble.models import (
     MumbleServerServer, MumbleUser, TempUser,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger("mumble_authenticator")
 
@@ -228,7 +232,7 @@ def main(server_id: int = 1) -> None:
 
             return self.attachCallbacks()
 
-        def attachCallbacks(self, quiet=False) -> bool:
+        def attachCallbacks(self, quiet: bool = False) -> bool:
             """
             Attaches all callbacks for meta and authenticators
             """
@@ -377,7 +381,7 @@ def main(server_id: int = 1) -> None:
             self.watchdog = Timer(server_config_obj.watchdog, self.checkConnection)
             self.watchdog.start()
 
-    def checkSecret(func):
+    def checkSecret(func: "Callable[..., Any]") -> "Callable[..., Any]":
         """
         Decorator that checks whether the server transmitted the right secret
         if a secret is supposed to be used.
@@ -399,7 +403,9 @@ def main(server_id: int = 1) -> None:
 
         return newfunc
 
-    def fortifyIceFu(retval=None, exceptions=(Ice.Exception,)):
+    def fortifyIceFu(
+        retval=None, exceptions: tuple[type[BaseException], ...] = (Ice.Exception,)
+    ) -> "Callable[[Callable[..., Any]], Callable[..., Any]]":
         """
         Decorator that catches exceptions,logs them and returns a safe retval
         value. This helps preventing the authenticator getting stuck in
@@ -409,7 +415,7 @@ def main(server_id: int = 1) -> None:
         The default is to catch all non-Ice exceptions.
         """
 
-        def newdec(func):
+        def newdec(func: "Callable[..., Any]") -> "Callable[..., Any]":
             def newfunc(*args, **kws):
                 try:
                     return func(*args, **kws)
@@ -839,7 +845,7 @@ def main(server_id: int = 1) -> None:
     logger.info('Shutdown complete')
 
 
-def allianceauth_check_hash(password, hash, hash_type) -> bool:
+def allianceauth_check_hash(password: str, hash: str, hash_type: str) -> bool:
     """
     :param password: Password to be verified
     :param hash: Hash for the password to be checked against
@@ -858,18 +864,25 @@ def idler_handler(server: "Murmur.Server", server_config_obj: MumbleServerServer
     logger.debug("IdlerHandler: Starting")
     get_users: dict[int, "Murmur.User"] = server.getUsers()
     users: list["Murmur.User"] = list(get_users.values())
+    channel_list: list[int] = []
 
     if server_config_obj.idler_handler is None:
         logger.debug("IdleHandler: No idler handler configured, skipping")
         # Here for typehinting
         return
+
+    try:
+        channel_list = [int(x.strip()) for x in server_config_obj.idler_handler.list.split(',') if x.strip()]
+    except ValueError:  # non-int value in field
+        logger.error("IdlerHandler: Unable to parse channel list: not a comma-separated list of numbers.")
+
     logger.debug("IdleHandler: Fetched All Users")
     for user in users:
-        logger.debug(f"IdleHandler: Checking user {user.name}")
         if isinstance(user, int):
             logger.debug(f"IdleHandler: Skipping user id {user}, This happens occasionally")
             continue
 
+        logger.debug(f"IdleHandler: Checking user {user.name}")
         user_idlesecs = user.idlesecs
         if user_idlesecs > server_config_obj.idler_handler.seconds:
             logger.debug(
@@ -879,10 +892,10 @@ def idler_handler(server: "Murmur.Server", server_config_obj: MumbleServerServer
             if state:
                 # AllowList > DenyList
                 if server_config_obj.idler_handler.denylist is False:
-                    if state.channel not in server_config_obj.idler_handler.list:
+                    if state.channel not in channel_list:
                         return
                 elif server_config_obj.idler_handler.denylist is True:
-                    if state.channel in server_config_obj.idler_handler.list:
+                    if state.channel in channel_list:
                         return
 
                 if state.channel == server_config_obj.idler_handler.channel:

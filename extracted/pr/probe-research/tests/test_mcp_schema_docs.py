@@ -27,7 +27,7 @@ import anyio
 
 from probe.mcp.contract import BackendCorpus
 from probe.mcp.server import create_server
-from probe.mcp.service import _SEARCH_IN_TO_BACKEND
+from probe.mcp.service import _SEARCH_IN_TO_BACKEND, NON_BACKEND_CORPORA
 
 
 def _tool_description() -> str:
@@ -104,10 +104,25 @@ def test_every_enum_member_has_a_backend_mapping() -> None:
     """
     from probe.mcp.contract import ToolCorpus
 
-    unmapped = set(ToolCorpus) - set(_SEARCH_IN_TO_BACKEND)
+    unmapped = set(ToolCorpus) - set(_SEARCH_IN_TO_BACKEND) - NON_BACKEND_CORPORA
     assert not unmapped, f"advertised but unmapped search_in values: {sorted(unmapped)}"
     stray = set(_SEARCH_IN_TO_BACKEND) - set(ToolCorpus)
     assert not stray, f"mapped but not advertised: {sorted(stray)}"
+
+
+def test_the_one_value_with_no_backend_corpus_is_docs_and_never_reaches_the_mapping() -> None:
+    """The carve-out above is BY NAME. `docs` is Probe's own documentation, read
+    from its own route, and the service splits it off before `_map_search_in`.
+    A second value joining it must be added here deliberately, not by growing
+    the set; and a value in both would mean the backend is asked for a corpus
+    it does not have."""
+    from probe.mcp.contract import ToolCorpus
+
+    assert NON_BACKEND_CORPORA == {ToolCorpus.DOCS}
+    assert not NON_BACKEND_CORPORA & set(_SEARCH_IN_TO_BACKEND)
+    # Still a row of the agent-facing table, saying what it is instead of a corpus.
+    rows = [line.strip() for line in _tool_description().splitlines()]
+    assert all(any(r.startswith(f"{v.value} -> ") for r in rows) for v in NON_BACKEND_CORPORA)
 
 
 def test_the_schema_enum_matches_the_enum_it_is_generated_from() -> None:

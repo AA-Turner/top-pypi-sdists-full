@@ -12,6 +12,33 @@
 #   pre-commit run --all-files
 
 repos:
+  - repo: local
+    hooks:
+      - id: retired-model-references
+        name: Retired model references (including dated history)
+        entry: env -u PYTHONPATH uv run --frozen python -m omnimarket.nodes.node_retired_model_reference_check_effect
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: history-archive-safety
+        name: History removal requires verified archives
+        entry: env -u PYTHONPATH uv run --frozen pytest tests/nodes/test_file_retention_archive_safety.py -q -n 0 -p no:randomly --no-cov
+        language: system
+        files: ^(src/omnimarket/nodes/node_retention_cleanup/.*|scripts/retention/.*|tests/nodes/test_file_retention_archive_safety\.py|\.pre-commit-config\.yaml|\.github/workflows/ci\.yml)$
+        pass_filenames: false
+        stages: [pre-commit]
+  # OMN-17427: workflow action pins. omnibase_core's check-action-pins reads this
+  # repository's rule values from .action-pin-overlay.yaml: third-party refs are a
+  # full 40-hex sha, first-party refs are a dev-merge tag. rev is the dev-merge tag
+  # of the core commit that carries the hook. SYNC with the ci.yml step 'GitHub
+  # Actions pin check'.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: dev-20261028202452-b8b19b0b4bff
+    hooks:
+      - id: check-action-pins
+        files: ^\.github/workflows/[^/]+\.ya?ml$
+        require_serial: true
   # OMN-19998: public-repository runner placement (RULING 2026-10-16T07:07:09Z,
   # "Ci runners should be for private repos only"). CI twin job
   # public-runner-placement in .github/workflows/ci.yml; keep this rev equal to
@@ -154,13 +181,9 @@ repos:
           bash -c 'exec "$VIRTUAL_ENV/bin/python" -m omnibase_core.nodes.node_direct_model_call_check_effect.runtime_direct_model_call "$@" --base "$(git merge-base HEAD origin/dev)"' --
         args: [--repo, omnimarket, --baseline, .onex_ratchets/direct_model_call_baseline.yaml]
 
-  # Transport-import + node-purity gates — first purity gate in omnimarket
-  # (OMN-13283 / GAP-8a, under OMN-9048). Scoped to COMPUTE and REDUCER node code,
-  # which the architecture mandates be pure (no I/O); EFFECT/ORCHESTRATOR nodes are
-  # the designated I/O boundary and are intentionally out of scope. The compute/
-  # reducer tree is clean today (0 violations), so these gates go blocking
-  # immediately with no baseline. Pin advances to the core merge SHA once
-  # omnibase_core#1272 lands.
+  # Transport imports: retain the original static compute/reducer policy and
+  # extend dynamic resolution checks to handlers of every node kind (OMN-21372).
+  # node-purity still owns the broader compute/reducer no-I/O check.
   - repo: https://github.com/OmniNode-ai/omnibase_core
     rev: 664c42c354cb19c3a127a1564312c54bf2377127 # pragma: allowlist secret
     hooks:
@@ -170,15 +193,15 @@ repos:
       # consumer, reducer state projections); they are grandfathered here so the gate
       # goes blocking now for all other compute/reducer code, with the burn-down
       # tracked as an OMN-9048 follow-up. New violations elsewhere fail.
+      # OMN-21372: extend this owning hook through the existing import gate.
+      # Its full census retains the old static scope/exclusions in the CLI and
+      # checks dynamic calls in every node kind, including old excluded files.
       - id: validate-no-transport-imports
+        entry: uv run python scripts/ci/check_unimported_handlers.py --transport-imports
         require_serial: true
-        files: ^src/omnimarket/nodes/node_[^/]*_(compute|reducer)/
-        exclude: >-
-          (?x)(
-            /tests/|/test_[^/]*\.py$
-            |^src/omnimarket/nodes/node_merge_sweep_compute/(__main__|consumer)\.py$
-            |^src/omnimarket/nodes/node_navigation_history_reducer/handlers/handler_navigation_history_reducer\.py$
-          )
+        pass_filenames: false
+        always_run: true
+        files: ^(src/omnimarket/nodes/|scripts/ci/check_unimported_handlers\.py|scripts/validation/unimported_handler_baseline\.txt|tests/ci/|\.pre-commit-config\.yaml)
       - id: node-purity
         require_serial: true
         files: ^src/omnimarket/nodes/node_[^/]*_(compute|reducer)/
@@ -323,7 +346,7 @@ repos:
   # The private denylist is read from the file OMNI_HYGIENE_VOCAB_PATH names; a
   # commit made without it exits 2 ("THE GATE DID NOT RUN"), never a pass.
   - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 0c9f9146d8dd0446fc5c10952aa57247b3a880ae
+    rev: dev-20261023162355-3e657bae8f91
     hooks:
       # OMN-17427: .public-repo-hygiene.yaml declares enforce_scope: added-lines, so
       # the commit verdict is the findings on lines the index adds, and every such
@@ -661,46 +684,17 @@ repos:
         name: Validate dependency provenance (PyPI or sibling dev merge tag)
         entry: uv run --frozen python scripts/check_dep_provenance.py
         language: system
-        files: ^(pyproject\.toml|scripts/check_dep_provenance\.py)$
+        files: ^(pyproject\.toml|uv\.lock|scripts/check_dep_provenance\.py)$
         pass_filenames: false
         stages: [pre-commit]
 
-      # OMN-14741: OCC emitter golden gate for the LIVE companion producer.
-      # Runs the golden tests that drive the REAL OccCompanionEmitter output
-      # (placeholder-clean check_values, yamlfmt-idempotent YAML, append-only
-      # receipts, pre-existing-contract row append, closed/draft/do-not-merge
-      # suppression) whenever the live emitter/seam or their tests change, so a
-      # broken companion shape is caught locally before push. BLOCKING.
-      - id: occ-emitter-golden
-        name: OCC emitter golden gate (OMN-14741/14783) — LIVE producer + compute parity
-        entry: >-
-          uv run pytest
-          tests/unit/nodes/node_pr_lifecycle_fix_effect/test_occ_companion_emitter_friction_omn_14741.py
-          tests/unit/nodes/node_pr_lifecycle_fix_effect/test_occ_companion_emitter.py
-          tests/unit/nodes/node_pr_lifecycle_fix_effect/test_occ_evidence_stamp.py
-          tests/unit/nodes/node_occ_companion_compute/test_occ_emitter_golden_fixtures_omn_14710.py
-          tests/unit/nodes/node_occ_companion_compute/test_occ_emitter_compute_f06_f16_parity_omn_14783.py
-          tests/unit/nodes/node_pr_lifecycle_fix_effect/test_occ_autobind_contention_omn_15247.py
-          tests/unit/test_occ_contention_omn_15247.py
-          tests/unit/scripts/test_check_generated_checks_red_derivable.py
-          -q
+      # OMN-17427: exercise the replacement evidence path and retired command refusal.
+      - id: repo-evidence-retirement
+        name: Repository evidence retirement regression
+        entry: uv run --frozen pytest tests/test_omn17427_occ_retirement.py -q
         language: system
         pass_filenames: false
-        files: >-
-          (?x)^(
-            src/omnimarket/nodes/node_pr_lifecycle_fix_effect/handlers/occ_(companion_emitter|evidence_stamp)\.py
-            |src/omnimarket/nodes/node_occ_companion_compute/handlers/handler_occ_companion_compute\.py
-            |src/omnimarket/nodes/node_occ_state_effect/handlers/handler_occ_state_effect\.py
-            |src/omnimarket/events/occ_companion\.py
-            |tests/unit/nodes/node_pr_lifecycle_fix_effect/test_occ_(companion_emitter|evidence_stamp|companion_emitter_friction_omn_14741)\.py
-            |tests/unit/nodes/node_occ_companion_compute/test_occ_emitter_(golden_fixtures_omn_14710|compute_f06_f16_parity_omn_14783)\.py
-            |src/omnimarket/occ_(contention|content_probe)\.py
-            |scripts/ci/check_generated_checks_red_derivable\.py
-            |tests/unit/nodes/node_pr_lifecycle_fix_effect/test_occ_autobind_contention_omn_15247\.py
-            |tests/unit/test_occ_contention_omn_15247\.py
-            |tests/unit/scripts/test_check_generated_checks_red_derivable\.py
-            |tests/fixtures/occ_red_derivable/.*
-          )$
+        files: ^(src/omnimarket/(nodes/(node_dod_verify|node_pr_lifecycle_fix_effect|node_evidence_pipeline_orchestrator)/|events/occ_companion\.py)|tests/test_omn17427_occ_retirement\.py|pyproject\.toml)
         stages: [pre-commit]
 
       # OMN-15317: EXECUTE the RED-derivability checker locally, not just its
@@ -741,7 +735,7 @@ repos:
         language: system
         entry: uv run python scripts/ci/check_lane_job_placement.py
         pass_filenames: false
-        files: ^(\.github/workflows/delegation-regression-nightly\.yml|scripts/ci/check_lane_job_placement\.py)$
+        files: ^(\.github/workflows/delegation-(regression-nightly|terminal-join-daily|rung-eval-nightly)\.yml|scripts/ci/check_lane_job_placement\.py)$
         stages: [pre-commit]
 
       # OMN-18349. The Layer-2 golden corpus is data the nightly publishes
@@ -1003,18 +997,6 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
-      # OMN-14762 (F-19-A): GitHub Actions pin check. Every third-party `uses:`
-      # must be pinned to a 40-char SHA. OMN-20558 emptied and deleted the
-      # baseline: any unpinned ref fails. SYNC with ci.yml step 'GitHub Actions
-      # pin ratchet'. Fast, stdlib-only.
-      - id: check-action-pins
-        name: GitHub Actions pin ratchet (OMN-14762)
-        language: system
-        entry: uv run python scripts/ci/check_action_pins.py
-        files: ^(\.github/workflows/.*\.(yml|yaml)|scripts/ci/check_action_pins\.py)$
-        pass_filenames: false
-        stages: [pre-commit]
-
       # OMN-12693: contract-level producer/consumer shape gate.
       # SYNC with node-drift-gate.yml full strict check.
       - id: node-orphan-graph
@@ -1048,6 +1030,15 @@ repos:
         language: system
         entry: uv run python -m omnimarket.nodes.node_contract_projection_check_effect.runtime_projection_contract_check --rule cursor
         files: ^(src/omnimarket/nodes/node_.*/contract\.yaml|scripts/validation/projection_cursor_baseline\.txt)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-21289: SYNC with the ci.yml step 'Harness invocation gate'.
+      - id: harness-invocation-check
+        name: no harness invoked outside the delegation effect node (OMN-21289)
+        language: system
+        entry: uv run python -m omnimarket.nodes.node_harness_invocation_check_effect
+        files: \.(py|sh)$
         pass_filenames: false
         stages: [pre-commit]
 
@@ -1269,6 +1260,15 @@ repos:
       # MUST resolve through delegation_config_provenance — raw reads always block.
       # Broad env-read violations run in report mode (Wave 0); provenance-bypass
       # violations always exit 1. SYNC with ci.yml step "Delegation env-read gate".
+      - id: delegation-target-seams
+        name: Delegation target and lab-job seam gate
+        language: system
+        entry: uv run --frozen pytest tests/unit/nodes/node_llm_delegation_call_effect/test_delegation_targets.py -q --no-cov
+        files: ^(src/omnimarket/models/delegation/model_delegation_target\.py|src/omnimarket/nodes/(node_llm_delegation_call_effect|node_model_router|node_lab_job_reducer|node_lab_job_submit_effect|node_projection_lab_job)/.*|tests/unit/nodes/node_llm_delegation_call_effect/test_delegation_targets\.py)$
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-commit]
+
       - id: delegation-env-read-gate
         require_serial: true
         name: Delegation env-read gate (OMN-13295)
@@ -1297,7 +1297,8 @@ repos:
       # (replaces the deleted omnimarket-local scripts/ci/check_routing_authority.py
       # and folds in the previously-unwired core validator_delegation_profile).
       # Proves the demo path resolves provider/served_model_id/endpoint_ref/
-      # routing_source from contract + bifrost authority; no demo-path source reads
+      # routing_source from the explicit overlay + bifrost authority; the base
+      # contract is checked too. No demo-path source reads
       # env for endpoint/provider/model, hardcodes a provider literal, or reads a
       # fallback endpoint string; residue files stay within their env-authority
       # baselines (OMN-12877); every bifrost backend respects the provider-class
@@ -1306,7 +1307,7 @@ repos:
       - id: routing-authority-demo-gate
         name: Routing-authority demo gate (OMN-13285)
         language: system
-        entry: uv run python -m omnibase_core.validation.validator_routing_authority --repo omnimarket --repo-root .
+        entry: uv run python scripts/validation/validate_contract_overlay_boundary.py --routing-authority --root .
         files: >-
           ^(src/omnimarket/nodes/node_generation_consumer/|
           src/omnimarket/nodes/node_llm_delegation_call_effect/|
@@ -1811,6 +1812,19 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
+      # OMN-21442: the andon stop and lane lease model passes its design configs, each
+      # property fails on a one-knob mutation, the TLC results match the committed
+      # model, configs and outputs, the model's states, triggers and constants are its
+      # contracts', and VERDICT.txt approves the model's digest. Check-only. SYNC with
+      # the ci.yml lint step "Andon stop model and verdict (OMN-21442)".
+      - id: andon-stop-model
+        name: Andon stop model and verdict (OMN-21442)
+        language: system
+        entry: uv run pytest tests/formal/test_andon_stop_model.py -q -n 0 -p no:randomly --no-cov
+        files: ^(formal/andon_stop/|src/omnimarket/nodes/node_(andon_stop|lane_lease)_reducer/contract\.yaml$|tests/formal/(test_andon_stop_model\.py|andon_stop_tlc\.sh|fixtures/(andon_stop|lane_lease)_contract_fragment\.yaml)$)
+        pass_filenames: false
+        stages: [pre-commit]
+
       # OMN-20601: routing decisions come from overlays, never from omnimarket code.
       # Check-only. SYNC with the ci.yml lint step "Routing sources, overlay
       # precedence and routing-in-code ratchet (OMN-20601)".
@@ -2241,19 +2255,6 @@ repos:
         language: system
         entry: uv run python scripts/ci/check_workflow_module_refs.py
         files: ^(\.github/workflows/.*\.ya?ml|scripts/ci/check_workflow_module_refs\.py)$
-        pass_filenames: false
-        stages: [pre-commit]
-
-      # One-producer-per-contract guard (OMN-14285 / WI-1, S1d). Fails if a
-      # second OCC companion-authoring surface (an inline receipt/contract YAML
-      # template outside the occ_evidence_stamp seam, a duplicate
-      # OccCompanionEmitter, or a resurrected scaffold_occ_receipt.py) reappears.
-      # SYNC with ci.yml job "one-occ-producer".
-      - id: one-occ-producer
-        name: One OCC producer per contract (OMN-14285)
-        language: system
-        entry: uv run python scripts/ci/check_one_occ_producer.py
-        files: ^(src/omnimarket/.*\.py|scripts/ci/check_one_occ_producer\.py)$
         pass_filenames: false
         stages: [pre-commit]
 

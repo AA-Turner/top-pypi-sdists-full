@@ -2,12 +2,15 @@ from __future__ import annotations
 
 __lazy_modules__ = [
     "collections",
+    "contextlib",
     "packaging.requirements",
     "packaging.utils",
     "pathlib",
+    "pipx.commands.common",
     "pipx.commands.expose",
     "pipx.commands.install",
     "pipx.commands.uninstall",
+    "pipx.package_specifier",
     "pipx.pipx_metadata_file",
     "pipx.util",
     "shutil",
@@ -19,6 +22,7 @@ __lazy_modules__ = [
 import subprocess
 import tomllib
 from collections import Counter
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from pathlib import Path
@@ -29,10 +33,12 @@ from typing import TYPE_CHECKING, Final, TypeAlias, cast
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
 
+from pipx.commands.common import force_replaces_only
 from pipx.commands.expose import expose, unexpose
 from pipx.commands.install import install
 from pipx.commands.uninstall import uninstall
 from pipx.constants import EXIT_CODE_OK, ExitCode
+from pipx.package_specifier import trusted_recorded_pip_args
 from pipx.pipx_metadata_file import PipxMetadata
 from pipx.result import (
     OperationData,
@@ -42,7 +48,7 @@ from pipx.result import (
     OutputMessage,
     OutputStream,
 )
-from pipx.util import PipxError
+from pipx.util import PipxError, redact_url_credentials
 
 if TYPE_CHECKING:
     from pipx.venv import VenvContainer
@@ -68,40 +74,48 @@ def sync_manifest(  # ruff:ignore[too-many-arguments]  # manifest sync forwards 
         venv_dir = venv_container.get_venv_dir(tool.environment)
         with venv_container.venv_lock(venv_dir) as venv_lock:
             existed = venv_dir.is_dir()
-            was_exposed = existed and PipxMetadata(venv_dir).exposure_enabled
-            if was_exposed:
-                unexpose(venv_dir, local_bin_dir, local_man_dir, verbose=verbose)
+            recorded = PipxMetadata(venv_dir)
+            was_exposed = existed and recorded.exposure_enabled
             try:
-                outcome = install(
-                    venv_dir,
-                    [tool.package_name],
-                    [tool.package],
-                    local_bin_dir,
-                    local_man_dir,
-                    python,
-                    [],
-                    [],
-                    verbose=verbose,
-                    force=existed,
-                    reinstall=False,
-                    include_dependencies=tool.include_dependencies,
-                    include_resources_from=tool.include_resources_from,
-                    preinstall_packages=None,
-                    expected_apps=tool.apps,
-                    lock_file=tool.lock_file,
-                    suffix=tool.suffix,
-                    backend=backend,
-                    env_backend=env_backend,
-                    exposure_enabled=tool.expose,
-                    preserve_existing=True,
-                    replace_expected_apps=True,
-                    replace_lock=True,
-                    venv_lock=venv_lock,
-                    emit_output=False,
-                )
+                if was_exposed:
+                    unexpose(venv_dir, local_bin_dir, local_man_dir, verbose=verbose)
+                # unexpose already removed what the environment held, so nothing else is the rebuild's to replace
+                with force_replaces_only(()):
+                    outcome = install(
+                        venv_dir,
+                        [tool.package_name],
+                        [tool.package],
+                        local_bin_dir,
+                        local_man_dir,
+                        python,
+                        trusted_recorded_pip_args(recorded.main_package.pip_args, venv_dir),
+                        recorded.venv_args,
+                        verbose=verbose,
+                        force=existed,
+                        reinstall=False,
+                        include_dependencies=tool.include_dependencies,
+                        include_resources_from=tool.include_resources_from,
+                        preinstall_packages=None,
+                        expected_apps=tool.apps,
+                        lock_file=tool.lock_file,
+                        suffix=tool.suffix,
+                        backend=backend,
+                        env_backend=env_backend,
+                        exposure_enabled=tool.expose,
+                        preserve_existing=True,
+                        replace_expected_apps=True,
+                        replace_lock=True,
+                        venv_lock=venv_lock,
+                        emit_output=False,
+                    )
                 error_message = outcome.errors[0].message if outcome.errors else None
             except PipxError as error:
                 error_message = str(error)
+            except (Exception, KeyboardInterrupt):
+                # install rolls the environment back on an interrupt or a crash too, to the copy taken after unexpose
+                if was_exposed:
+                    expose(venv_dir, local_bin_dir, local_man_dir, verbose=verbose)
+                raise
             # install returns a failed result rather than raising when it does not render, so check both
             if error_message is not None:
                 failures.append(_FailedTool(tool.environment, error_message))
@@ -110,6 +124,9 @@ def sync_manifest(  # ruff:ignore[too-many-arguments]  # manifest sync forwards 
                     expose(venv_dir, local_bin_dir, local_man_dir, verbose=verbose)
             else:
                 synced.append(tool.environment)
+                # install links the main package alone, while unexpose also dropped the links of injected packages
+                if existed and tool.expose:
+                    expose(venv_dir, local_bin_dir, local_man_dir, verbose=verbose)
 
     if prune and not failures:
         messages.extend(_prune_environments(manifest, venv_container, local_bin_dir, local_man_dir, verbose=verbose))
@@ -129,6 +146,13 @@ def lock_manifest(manifest_file: Path) -> OperationResult[ManifestData]:
     manifest = _load_manifest(manifest_file, require_locks=False)
     if not any(tool.lock_file is not None for tool in manifest.tools):
         msg = "The manifest does not declare any lock files."
+        raise PipxError(msg)
+    if outside := sorted(
+        str(tool.lock_file)
+        for tool in manifest.tools
+        if tool.lock_file is not None and not tool.lock_file.is_relative_to(manifest.path.parent)
+    ):
+        msg = f"Manifest lock files must be inside the manifest directory {manifest.path.parent}: {', '.join(outside)}"
         raise PipxError(msg)
     if not (nab := which("nab")):
         msg = "The nab command is required. Install it with `pipx install nab`."
@@ -284,9 +308,10 @@ def _parse_tool(
 def _parse_package(environment: str, package: str) -> str:
     try:
         requirement = Requirement(package)
-    except InvalidRequirement as error:
-        msg = f"Manifest tool {environment} has an invalid package requirement: {package}"
-        raise PipxError(msg) from error
+    except InvalidRequirement:
+        msg = f"Manifest tool {environment} has an invalid package requirement: {redact_url_credentials(package)}"
+        # packaging quotes the requirement in its message, so chaining it would log the credentials with the traceback
+        raise PipxError(msg) from None
     if requirement.marker is not None:
         msg = f"Manifest tool {environment} cannot use an environment marker."
         raise PipxError(msg)
@@ -411,10 +436,13 @@ def _generate_locks(manifest: _Manifest, nab: str) -> list[str]:
                 locked.append(str(lock_file))
         except OSError:
             for lock_file, backup in reversed(applied):
-                if backup is not None:
-                    backup.replace(lock_file)
-                else:
-                    lock_file.unlink(missing_ok=True)
+                # what broke a swap-in (a directory at the lock path) can break its undo too, and the backups go away
+                # with the temporary directory, so one failed undo must not keep the earlier locks from being restored
+                with suppress(OSError):
+                    if backup is not None:
+                        backup.replace(lock_file)
+                    else:
+                        lock_file.unlink(missing_ok=True)
             raise
     return locked
 

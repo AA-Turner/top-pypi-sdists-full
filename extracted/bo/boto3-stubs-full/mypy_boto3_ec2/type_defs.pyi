@@ -94,6 +94,7 @@ from .literals import (
     CapacityReservationTenancyType,
     CapacityReservationTypeType,
     CapacityTenancyType,
+    CapacityUnitType,
     CarrierGatewayStateType,
     ChronologicalOrderType,
     ClientCertificateRevocationListStatusCodeType,
@@ -391,6 +392,8 @@ from .literals import (
     SubnetCidrReservationTypeType,
     SubnetStateType,
     SummaryStatusType,
+    SupportabilityMarketTypeType,
+    SupportabilityScoreType,
     SupportedAdditionalProcessorFeatureType,
     TaggableResourceTypeType,
     TargetCapacityUnitTypeType,
@@ -643,7 +646,9 @@ __all__ = (
     "BaselineEbsBandwidthMbpsRequestTypeDef",
     "BaselineEbsBandwidthMbpsTypeDef",
     "BaselinePerformanceFactorsOutputTypeDef",
+    "BaselinePerformanceFactorsRequestOutputTypeDef",
     "BaselinePerformanceFactorsRequestTypeDef",
+    "BaselinePerformanceFactorsRequestUnionTypeDef",
     "BaselinePerformanceFactorsTypeDef",
     "BaselinePerformanceFactorsUnionTypeDef",
     "BatchModifyIpamRoutingPolicyRegistrationsRequestTypeDef",
@@ -695,6 +700,7 @@ __all__ = (
     "CapacityManagerDataExportResponseTypeDef",
     "CapacityManagerDimensionTypeDef",
     "CapacityManagerMonitoredTagKeyTypeDef",
+    "CapacityManagerSupportabilityScoreTypeDef",
     "CapacityManagerTagDimensionTypeDef",
     "CapacityReservationAdjustmentDetailsTypeDef",
     "CapacityReservationBillingRequestTypeDef",
@@ -774,7 +780,9 @@ __all__ = (
     "CpuOptionsRequestTypeDef",
     "CpuOptionsTypeDef",
     "CpuPerformanceFactorOutputTypeDef",
+    "CpuPerformanceFactorRequestOutputTypeDef",
     "CpuPerformanceFactorRequestTypeDef",
+    "CpuPerformanceFactorRequestUnionTypeDef",
     "CpuPerformanceFactorTypeDef",
     "CpuPerformanceFactorUnionTypeDef",
     "CreateApplicationStatusCheckRequestTypeDef",
@@ -2122,6 +2130,8 @@ __all__ = (
     "GetCapacityManagerMonitoredTagKeysRequestPaginateTypeDef",
     "GetCapacityManagerMonitoredTagKeysRequestTypeDef",
     "GetCapacityManagerMonitoredTagKeysResultTypeDef",
+    "GetCapacityManagerSupportabilityScoresRequestTypeDef",
+    "GetCapacityManagerSupportabilityScoresResultTypeDef",
     "GetCapacityReservationUsageRequestTypeDef",
     "GetCapacityReservationUsageResultTypeDef",
     "GetClientVpnEndpointAuthorizationPolicyRequestTypeDef",
@@ -2410,7 +2420,9 @@ __all__ = (
     "InstanceNetworkPerformanceOptionsTypeDef",
     "InstancePrivateIpAddressTypeDef",
     "InstanceRequirementsOutputTypeDef",
+    "InstanceRequirementsRequestOutputTypeDef",
     "InstanceRequirementsRequestTypeDef",
+    "InstanceRequirementsRequestUnionTypeDef",
     "InstanceRequirementsTypeDef",
     "InstanceRequirementsUnionTypeDef",
     "InstanceRequirementsWithMetadataRequestTypeDef",
@@ -4192,6 +4204,11 @@ class CapacityManagerMonitoredTagKeyTypeDef(TypedDict):
     StatusMessage: NotRequired[str]
     CapacityManagerProvided: NotRequired[bool]
     EarliestDatapointTimestamp: NotRequired[datetime]
+
+class CapacityManagerSupportabilityScoreTypeDef(TypedDict):
+    InstanceType: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    Score: NotRequired[SupportabilityScoreType]
 
 class CapacityReservationAdjustmentDetailsTypeDef(TypedDict):
     StartDate: NotRequired[datetime]
@@ -11176,6 +11193,11 @@ class UpdateCapacityManagerMonitoredTagKeysResultTypeDef(TypedDict):
     CapacityManagerTagKeys: list[CapacityManagerMonitoredTagKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetCapacityManagerSupportabilityScoresResultTypeDef(TypedDict):
+    AggregateScore: SupportabilityScoreType
+    CapacityManagerSupportabilityScores: list[CapacityManagerSupportabilityScoreTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ModifyCapacityReservationResultTypeDef(TypedDict):
     Return: bool
     AdjustmentStatus: CapacityReservationAdjustmentStatusType
@@ -11199,20 +11221,6 @@ class CapacityReservationCancellationQuoteTypeDef(TypedDict):
     QuoteState: NotRequired[CapacityReservationCancellationQuoteStateType]
     CurrentConfiguration: NotRequired[CapacityReservationConfigurationTypeDef]
     CancellationTerms: NotRequired[list[CancellationTermsTypeDef]]
-    Tags: NotRequired[list[TagTypeDef]]
-
-class CapacityReservationFleetTypeDef(TypedDict):
-    CapacityReservationFleetId: NotRequired[str]
-    CapacityReservationFleetArn: NotRequired[str]
-    State: NotRequired[CapacityReservationFleetStateType]
-    TotalTargetCapacity: NotRequired[int]
-    TotalFulfilledCapacity: NotRequired[float]
-    Tenancy: NotRequired[Literal["default"]]
-    EndDate: NotRequired[datetime]
-    CreateTime: NotRequired[datetime]
-    InstanceMatchCriteria: NotRequired[Literal["open"]]
-    AllocationStrategy: NotRequired[str]
-    InstanceTypeSpecifications: NotRequired[list[FleetCapacityReservationTypeDef]]
     Tags: NotRequired[list[TagTypeDef]]
 
 class CreateCapacityReservationFleetResultTypeDef(TypedDict):
@@ -11415,6 +11423,9 @@ class CpuPerformanceFactorOutputTypeDef(TypedDict):
 
 class CpuPerformanceFactorTypeDef(TypedDict):
     References: NotRequired[Sequence[PerformanceFactorReferenceTypeDef]]
+
+class CpuPerformanceFactorRequestOutputTypeDef(TypedDict):
+    References: NotRequired[list[PerformanceFactorReferenceRequestTypeDef]]
 
 class CpuPerformanceFactorRequestTypeDef(TypedDict):
     References: NotRequired[Sequence[PerformanceFactorReferenceRequestTypeDef]]
@@ -17468,11 +17479,6 @@ class DescribeCapacityReservationCancellationQuotesResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class DescribeCapacityReservationFleetsResultTypeDef(TypedDict):
-    CapacityReservationFleets: list[CapacityReservationFleetTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class ModifyInstanceCapacityReservationAttributesRequestTypeDef(TypedDict):
     InstanceId: str
     CapacityReservationSpecification: CapacityReservationSpecificationTypeDef
@@ -17642,8 +17648,12 @@ CpuPerformanceFactorUnionTypeDef = Union[
     CpuPerformanceFactorTypeDef, CpuPerformanceFactorOutputTypeDef
 ]
 
-class BaselinePerformanceFactorsRequestTypeDef(TypedDict):
-    Cpu: NotRequired[CpuPerformanceFactorRequestTypeDef]
+class BaselinePerformanceFactorsRequestOutputTypeDef(TypedDict):
+    Cpu: NotRequired[CpuPerformanceFactorRequestOutputTypeDef]
+
+CpuPerformanceFactorRequestUnionTypeDef = Union[
+    CpuPerformanceFactorRequestTypeDef, CpuPerformanceFactorRequestOutputTypeDef
+]
 
 class IpamPrefixListResolverRuleRequestTypeDef(TypedDict):
     RuleType: IpamPrefixListResolverRuleTypeType
@@ -19513,17 +19523,6 @@ class CreateCapacityReservationDateChangeQuoteRequestTypeDef(TypedDict):
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     DryRun: NotRequired[bool]
 
-class CreateCapacityReservationFleetRequestTypeDef(TypedDict):
-    TotalTargetCapacity: int
-    AllocationStrategy: NotRequired[str]
-    ClientToken: NotRequired[str]
-    InstanceTypeSpecifications: NotRequired[Sequence[ReservationFleetInstanceSpecificationTypeDef]]
-    Tenancy: NotRequired[Literal["default"]]
-    EndDate: NotRequired[TimestampTypeDef]
-    InstanceMatchCriteria: NotRequired[Literal["open"]]
-    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
-    DryRun: NotRequired[bool]
-
 class CreateCapacityReservationRequestTypeDef(TypedDict):
     InstanceType: str
     InstancePlatform: CapacityReservationInstancePlatformType
@@ -20843,13 +20842,13 @@ class InstanceRequirementsOutputTypeDef(TypedDict):
 class BaselinePerformanceFactorsTypeDef(TypedDict):
     Cpu: NotRequired[CpuPerformanceFactorUnionTypeDef]
 
-class InstanceRequirementsRequestTypeDef(TypedDict):
+class InstanceRequirementsRequestOutputTypeDef(TypedDict):
     VCpuCount: VCpuCountRangeRequestTypeDef
     MemoryMiB: MemoryMiBRequestTypeDef
-    CpuManufacturers: NotRequired[Sequence[CpuManufacturerType]]
+    CpuManufacturers: NotRequired[list[CpuManufacturerType]]
     MemoryGiBPerVCpu: NotRequired[MemoryGiBPerVCpuRequestTypeDef]
-    ExcludedInstanceTypes: NotRequired[Sequence[str]]
-    InstanceGenerations: NotRequired[Sequence[InstanceGenerationType]]
+    ExcludedInstanceTypes: NotRequired[list[str]]
+    InstanceGenerations: NotRequired[list[InstanceGenerationType]]
     SpotMaxPricePercentageOverLowestPrice: NotRequired[int]
     OnDemandMaxPricePercentageOverLowestPrice: NotRequired[int]
     BareMetal: NotRequired[BareMetalType]
@@ -20857,19 +20856,22 @@ class InstanceRequirementsRequestTypeDef(TypedDict):
     RequireHibernateSupport: NotRequired[bool]
     NetworkInterfaceCount: NotRequired[NetworkInterfaceCountRequestTypeDef]
     LocalStorage: NotRequired[LocalStorageType]
-    LocalStorageTypes: NotRequired[Sequence[LocalStorageTypeType]]
+    LocalStorageTypes: NotRequired[list[LocalStorageTypeType]]
     TotalLocalStorageGB: NotRequired[TotalLocalStorageGBRequestTypeDef]
     BaselineEbsBandwidthMbps: NotRequired[BaselineEbsBandwidthMbpsRequestTypeDef]
-    AcceleratorTypes: NotRequired[Sequence[AcceleratorTypeType]]
+    AcceleratorTypes: NotRequired[list[AcceleratorTypeType]]
     AcceleratorCount: NotRequired[AcceleratorCountRequestTypeDef]
-    AcceleratorManufacturers: NotRequired[Sequence[AcceleratorManufacturerType]]
-    AcceleratorNames: NotRequired[Sequence[AcceleratorNameType]]
+    AcceleratorManufacturers: NotRequired[list[AcceleratorManufacturerType]]
+    AcceleratorNames: NotRequired[list[AcceleratorNameType]]
     AcceleratorTotalMemoryMiB: NotRequired[AcceleratorTotalMemoryMiBRequestTypeDef]
     NetworkBandwidthGbps: NotRequired[NetworkBandwidthGbpsRequestTypeDef]
-    AllowedInstanceTypes: NotRequired[Sequence[str]]
+    AllowedInstanceTypes: NotRequired[list[str]]
     MaxSpotPriceAsPercentageOfOptimalOnDemandPrice: NotRequired[int]
-    BaselinePerformanceFactors: NotRequired[BaselinePerformanceFactorsRequestTypeDef]
+    BaselinePerformanceFactors: NotRequired[BaselinePerformanceFactorsRequestOutputTypeDef]
     RequireEncryptionInTransit: NotRequired[bool]
+
+class BaselinePerformanceFactorsRequestTypeDef(TypedDict):
+    Cpu: NotRequired[CpuPerformanceFactorRequestUnionTypeDef]
 
 class CreateIpamPrefixListResolverRequestTypeDef(TypedDict):
     IpamId: str
@@ -21572,87 +21574,26 @@ BaselinePerformanceFactorsUnionTypeDef = Union[
     BaselinePerformanceFactorsTypeDef, BaselinePerformanceFactorsOutputTypeDef
 ]
 
-class FleetLaunchTemplateOverridesRequestTypeDef(TypedDict):
-    InstanceType: NotRequired[InstanceTypeType]
-    MaxPrice: NotRequired[str]
-    SubnetId: NotRequired[str]
+class CapacityReservationFleetTypeDef(TypedDict):
+    CapacityReservationFleetId: NotRequired[str]
+    CapacityReservationFleetArn: NotRequired[str]
+    State: NotRequired[CapacityReservationFleetStateType]
+    TotalTargetCapacity: NotRequired[int]
+    TotalFulfilledCapacity: NotRequired[float]
+    Tenancy: NotRequired[Literal["default"]]
+    EndDate: NotRequired[datetime]
+    CreateTime: NotRequired[datetime]
+    InstanceMatchCriteria: NotRequired[Literal["open"]]
+    AllocationStrategy: NotRequired[str]
+    InstanceTypeSpecifications: NotRequired[list[FleetCapacityReservationTypeDef]]
+    InstanceRequirements: NotRequired[InstanceRequirementsRequestOutputTypeDef]
     AvailabilityZone: NotRequired[str]
-    WeightedCapacity: NotRequired[float]
-    Priority: NotRequired[float]
-    Placement: NotRequired[PlacementTypeDef]
-    KeyName: NotRequired[str]
-    BlockDeviceMappings: NotRequired[Sequence[FleetBlockDeviceMappingRequestTypeDef]]
-    IamInstanceProfile: NotRequired[FleetIamInstanceProfileSpecificationRequestTypeDef]
-    MetadataOptions: NotRequired[FleetInstanceMetadataOptionsRequestTypeDef]
-    InstanceRequirements: NotRequired[InstanceRequirementsRequestTypeDef]
-    ImageId: NotRequired[str]
     AvailabilityZoneId: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
 
-class GetInstanceTypesFromInstanceRequirementsRequestPaginateTypeDef(TypedDict):
-    ArchitectureTypes: Sequence[ArchitectureTypeType]
-    VirtualizationTypes: Sequence[VirtualizationTypeType]
-    InstanceRequirements: InstanceRequirementsRequestTypeDef
-    DryRun: NotRequired[bool]
-    Context: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class GetInstanceTypesFromInstanceRequirementsRequestTypeDef(TypedDict):
-    ArchitectureTypes: Sequence[ArchitectureTypeType]
-    VirtualizationTypes: Sequence[VirtualizationTypeType]
-    InstanceRequirements: InstanceRequirementsRequestTypeDef
-    DryRun: NotRequired[bool]
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
-    Context: NotRequired[str]
-
-class InstanceRequirementsWithMetadataRequestTypeDef(TypedDict):
-    ArchitectureTypes: NotRequired[Sequence[ArchitectureTypeType]]
-    VirtualizationTypes: NotRequired[Sequence[VirtualizationTypeType]]
-    InstanceRequirements: NotRequired[InstanceRequirementsRequestTypeDef]
-
-class RequestLaunchTemplateDataTypeDef(TypedDict):
-    KernelId: NotRequired[str]
-    EbsOptimized: NotRequired[bool]
-    IamInstanceProfile: NotRequired[LaunchTemplateIamInstanceProfileSpecificationRequestTypeDef]
-    BlockDeviceMappings: NotRequired[Sequence[LaunchTemplateBlockDeviceMappingRequestTypeDef]]
-    NetworkInterfaces: NotRequired[
-        Sequence[LaunchTemplateInstanceNetworkInterfaceSpecificationRequestTypeDef]
-    ]
-    ImageId: NotRequired[str]
-    InstanceType: NotRequired[InstanceTypeType]
-    KeyName: NotRequired[str]
-    Monitoring: NotRequired[LaunchTemplatesMonitoringRequestTypeDef]
-    Placement: NotRequired[LaunchTemplatePlacementRequestTypeDef]
-    RamDiskId: NotRequired[str]
-    DisableApiTermination: NotRequired[bool]
-    InstanceInitiatedShutdownBehavior: NotRequired[ShutdownBehaviorType]
-    UserData: NotRequired[str]
-    TagSpecifications: NotRequired[Sequence[LaunchTemplateTagSpecificationRequestTypeDef]]
-    ElasticGpuSpecifications: NotRequired[Sequence[ElasticGpuSpecificationTypeDef]]
-    ElasticInferenceAccelerators: NotRequired[
-        Sequence[LaunchTemplateElasticInferenceAcceleratorTypeDef]
-    ]
-    SecurityGroupIds: NotRequired[Sequence[str]]
-    SecurityGroups: NotRequired[Sequence[str]]
-    InstanceMarketOptions: NotRequired[LaunchTemplateInstanceMarketOptionsRequestTypeDef]
-    CreditSpecification: NotRequired[CreditSpecificationRequestTypeDef]
-    CpuOptions: NotRequired[LaunchTemplateCpuOptionsRequestTypeDef]
-    CapacityReservationSpecification: NotRequired[
-        LaunchTemplateCapacityReservationSpecificationRequestTypeDef
-    ]
-    LicenseSpecifications: NotRequired[Sequence[LaunchTemplateLicenseConfigurationRequestTypeDef]]
-    HibernationOptions: NotRequired[LaunchTemplateHibernationOptionsRequestTypeDef]
-    MetadataOptions: NotRequired[LaunchTemplateInstanceMetadataOptionsRequestTypeDef]
-    EnclaveOptions: NotRequired[LaunchTemplateEnclaveOptionsRequestTypeDef]
-    InstanceRequirements: NotRequired[InstanceRequirementsRequestTypeDef]
-    PrivateDnsNameOptions: NotRequired[LaunchTemplatePrivateDnsNameOptionsRequestTypeDef]
-    MaintenanceOptions: NotRequired[LaunchTemplateInstanceMaintenanceOptionsRequestTypeDef]
-    DisableApiStop: NotRequired[bool]
-    Operator: NotRequired[OperatorRequestTypeDef]
-    NetworkPerformanceOptions: NotRequired[LaunchTemplateNetworkPerformanceOptionsRequestTypeDef]
-    SecondaryInterfaces: NotRequired[
-        Sequence[LaunchTemplateInstanceSecondaryInterfaceSpecificationRequestTypeDef]
-    ]
+BaselinePerformanceFactorsRequestUnionTypeDef = Union[
+    BaselinePerformanceFactorsRequestTypeDef, BaselinePerformanceFactorsRequestOutputTypeDef
+]
 
 class DescribeConversionTasksResultTypeDef(TypedDict):
     ConversionTasks: list[ConversionTaskTypeDef]
@@ -22054,51 +21995,38 @@ class InstanceRequirementsTypeDef(TypedDict):
     BaselinePerformanceFactors: NotRequired[BaselinePerformanceFactorsUnionTypeDef]
     RequireEncryptionInTransit: NotRequired[bool]
 
-class FleetLaunchTemplateConfigRequestTypeDef(TypedDict):
-    LaunchTemplateSpecification: NotRequired[FleetLaunchTemplateSpecificationRequestTypeDef]
-    Overrides: NotRequired[Sequence[FleetLaunchTemplateOverridesRequestTypeDef]]
-
-class GetSpotPlacementScoresRequestPaginateTypeDef(TypedDict):
-    TargetCapacity: int
-    InstanceTypes: NotRequired[Sequence[str]]
-    TargetCapacityUnitType: NotRequired[TargetCapacityUnitTypeType]
-    SingleAvailabilityZone: NotRequired[bool]
-    RegionNames: NotRequired[Sequence[str]]
-    InstanceRequirementsWithMetadata: NotRequired[InstanceRequirementsWithMetadataRequestTypeDef]
-    DryRun: NotRequired[bool]
-    IncludeLocalZones: NotRequired[bool]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class GetSpotPlacementScoresRequestTypeDef(TypedDict):
-    TargetCapacity: int
-    InstanceTypes: NotRequired[Sequence[str]]
-    TargetCapacityUnitType: NotRequired[TargetCapacityUnitTypeType]
-    SingleAvailabilityZone: NotRequired[bool]
-    RegionNames: NotRequired[Sequence[str]]
-    InstanceRequirementsWithMetadata: NotRequired[InstanceRequirementsWithMetadataRequestTypeDef]
-    DryRun: NotRequired[bool]
-    MaxResults: NotRequired[int]
+class DescribeCapacityReservationFleetsResultTypeDef(TypedDict):
+    CapacityReservationFleets: list[CapacityReservationFleetTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-    IncludeLocalZones: NotRequired[bool]
 
-class CreateLaunchTemplateRequestTypeDef(TypedDict):
-    LaunchTemplateName: str
-    LaunchTemplateData: RequestLaunchTemplateDataTypeDef
-    DryRun: NotRequired[bool]
-    ClientToken: NotRequired[str]
-    VersionDescription: NotRequired[str]
-    Operator: NotRequired[OperatorRequestTypeDef]
-    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
-
-class CreateLaunchTemplateVersionRequestTypeDef(TypedDict):
-    LaunchTemplateData: RequestLaunchTemplateDataTypeDef
-    DryRun: NotRequired[bool]
-    ClientToken: NotRequired[str]
-    LaunchTemplateId: NotRequired[str]
-    LaunchTemplateName: NotRequired[str]
-    SourceVersion: NotRequired[str]
-    VersionDescription: NotRequired[str]
-    ResolveAlias: NotRequired[bool]
+class InstanceRequirementsRequestTypeDef(TypedDict):
+    VCpuCount: VCpuCountRangeRequestTypeDef
+    MemoryMiB: MemoryMiBRequestTypeDef
+    CpuManufacturers: NotRequired[Sequence[CpuManufacturerType]]
+    MemoryGiBPerVCpu: NotRequired[MemoryGiBPerVCpuRequestTypeDef]
+    ExcludedInstanceTypes: NotRequired[Sequence[str]]
+    InstanceGenerations: NotRequired[Sequence[InstanceGenerationType]]
+    SpotMaxPricePercentageOverLowestPrice: NotRequired[int]
+    OnDemandMaxPricePercentageOverLowestPrice: NotRequired[int]
+    BareMetal: NotRequired[BareMetalType]
+    BurstablePerformance: NotRequired[BurstablePerformanceType]
+    RequireHibernateSupport: NotRequired[bool]
+    NetworkInterfaceCount: NotRequired[NetworkInterfaceCountRequestTypeDef]
+    LocalStorage: NotRequired[LocalStorageType]
+    LocalStorageTypes: NotRequired[Sequence[LocalStorageTypeType]]
+    TotalLocalStorageGB: NotRequired[TotalLocalStorageGBRequestTypeDef]
+    BaselineEbsBandwidthMbps: NotRequired[BaselineEbsBandwidthMbpsRequestTypeDef]
+    AcceleratorTypes: NotRequired[Sequence[AcceleratorTypeType]]
+    AcceleratorCount: NotRequired[AcceleratorCountRequestTypeDef]
+    AcceleratorManufacturers: NotRequired[Sequence[AcceleratorManufacturerType]]
+    AcceleratorNames: NotRequired[Sequence[AcceleratorNameType]]
+    AcceleratorTotalMemoryMiB: NotRequired[AcceleratorTotalMemoryMiBRequestTypeDef]
+    NetworkBandwidthGbps: NotRequired[NetworkBandwidthGbpsRequestTypeDef]
+    AllowedInstanceTypes: NotRequired[Sequence[str]]
+    MaxSpotPriceAsPercentageOfOptimalOnDemandPrice: NotRequired[int]
+    BaselinePerformanceFactors: NotRequired[BaselinePerformanceFactorsRequestUnionTypeDef]
+    RequireEncryptionInTransit: NotRequired[bool]
 
 class DescribeSpotInstanceRequestsResultTypeDef(TypedDict):
     SpotInstanceRequests: list[SpotInstanceRequestTypeDef]
@@ -22242,34 +22170,9 @@ class SpotFleetLaunchSpecificationTypeDef(TypedDict):
     InstanceRequirements: NotRequired[InstanceRequirementsTypeDef]
     SecurityGroups: NotRequired[Sequence[GroupIdentifierTypeDef]]
 
-CreateFleetRequestTypeDef = TypedDict(
-    "CreateFleetRequestTypeDef",
-    {
-        "LaunchTemplateConfigs": Sequence[FleetLaunchTemplateConfigRequestTypeDef],
-        "TargetCapacitySpecification": TargetCapacitySpecificationRequestTypeDef,
-        "DryRun": NotRequired[bool],
-        "ClientToken": NotRequired[str],
-        "SpotOptions": NotRequired[SpotOptionsRequestTypeDef],
-        "OnDemandOptions": NotRequired[OnDemandOptionsRequestTypeDef],
-        "ReservedCapacityOptions": NotRequired[ReservedCapacityOptionsRequestTypeDef],
-        "ExcessCapacityTerminationPolicy": NotRequired[FleetExcessCapacityTerminationPolicyType],
-        "TerminateInstancesWithExpiration": NotRequired[bool],
-        "Type": NotRequired[FleetTypeType],
-        "ValidFrom": NotRequired[TimestampTypeDef],
-        "ValidUntil": NotRequired[TimestampTypeDef],
-        "ReplaceUnhealthyInstances": NotRequired[bool],
-        "TagSpecifications": NotRequired[Sequence[TagSpecificationUnionTypeDef]],
-        "Context": NotRequired[str],
-    },
-)
-
-class ModifyFleetRequestTypeDef(TypedDict):
-    FleetId: str
-    DryRun: NotRequired[bool]
-    ExcessCapacityTerminationPolicy: NotRequired[FleetExcessCapacityTerminationPolicyType]
-    LaunchTemplateConfigs: NotRequired[Sequence[FleetLaunchTemplateConfigRequestTypeDef]]
-    TargetCapacitySpecification: NotRequired[TargetCapacitySpecificationRequestTypeDef]
-    Context: NotRequired[str]
+InstanceRequirementsRequestUnionTypeDef = Union[
+    InstanceRequirementsRequestTypeDef, InstanceRequirementsRequestOutputTypeDef
+]
 
 class DescribeInstancesResultTypeDef(TypedDict):
     Reservations: list[ReservationTypeDef]
@@ -22328,6 +22231,102 @@ class LaunchTemplateOverridesTypeDef(TypedDict):
     InstanceRequirements: NotRequired[InstanceRequirementsUnionTypeDef]
     AvailabilityZoneId: NotRequired[str]
 
+class CreateCapacityReservationFleetRequestTypeDef(TypedDict):
+    TotalTargetCapacity: int
+    AllocationStrategy: NotRequired[str]
+    ClientToken: NotRequired[str]
+    InstanceTypeSpecifications: NotRequired[Sequence[ReservationFleetInstanceSpecificationTypeDef]]
+    InstanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    Tenancy: NotRequired[Literal["default"]]
+    EndDate: NotRequired[TimestampTypeDef]
+    InstanceMatchCriteria: NotRequired[Literal["open"]]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    DryRun: NotRequired[bool]
+
+class FleetLaunchTemplateOverridesRequestTypeDef(TypedDict):
+    InstanceType: NotRequired[InstanceTypeType]
+    MaxPrice: NotRequired[str]
+    SubnetId: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    WeightedCapacity: NotRequired[float]
+    Priority: NotRequired[float]
+    Placement: NotRequired[PlacementTypeDef]
+    KeyName: NotRequired[str]
+    BlockDeviceMappings: NotRequired[Sequence[FleetBlockDeviceMappingRequestTypeDef]]
+    IamInstanceProfile: NotRequired[FleetIamInstanceProfileSpecificationRequestTypeDef]
+    MetadataOptions: NotRequired[FleetInstanceMetadataOptionsRequestTypeDef]
+    InstanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
+    ImageId: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+
+class GetInstanceTypesFromInstanceRequirementsRequestPaginateTypeDef(TypedDict):
+    ArchitectureTypes: Sequence[ArchitectureTypeType]
+    VirtualizationTypes: Sequence[VirtualizationTypeType]
+    InstanceRequirements: InstanceRequirementsRequestUnionTypeDef
+    DryRun: NotRequired[bool]
+    Context: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetInstanceTypesFromInstanceRequirementsRequestTypeDef(TypedDict):
+    ArchitectureTypes: Sequence[ArchitectureTypeType]
+    VirtualizationTypes: Sequence[VirtualizationTypeType]
+    InstanceRequirements: InstanceRequirementsRequestUnionTypeDef
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Context: NotRequired[str]
+
+class InstanceRequirementsWithMetadataRequestTypeDef(TypedDict):
+    ArchitectureTypes: NotRequired[Sequence[ArchitectureTypeType]]
+    VirtualizationTypes: NotRequired[Sequence[VirtualizationTypeType]]
+    InstanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
+
+class RequestLaunchTemplateDataTypeDef(TypedDict):
+    KernelId: NotRequired[str]
+    EbsOptimized: NotRequired[bool]
+    IamInstanceProfile: NotRequired[LaunchTemplateIamInstanceProfileSpecificationRequestTypeDef]
+    BlockDeviceMappings: NotRequired[Sequence[LaunchTemplateBlockDeviceMappingRequestTypeDef]]
+    NetworkInterfaces: NotRequired[
+        Sequence[LaunchTemplateInstanceNetworkInterfaceSpecificationRequestTypeDef]
+    ]
+    ImageId: NotRequired[str]
+    InstanceType: NotRequired[InstanceTypeType]
+    KeyName: NotRequired[str]
+    Monitoring: NotRequired[LaunchTemplatesMonitoringRequestTypeDef]
+    Placement: NotRequired[LaunchTemplatePlacementRequestTypeDef]
+    RamDiskId: NotRequired[str]
+    DisableApiTermination: NotRequired[bool]
+    InstanceInitiatedShutdownBehavior: NotRequired[ShutdownBehaviorType]
+    UserData: NotRequired[str]
+    TagSpecifications: NotRequired[Sequence[LaunchTemplateTagSpecificationRequestTypeDef]]
+    ElasticGpuSpecifications: NotRequired[Sequence[ElasticGpuSpecificationTypeDef]]
+    ElasticInferenceAccelerators: NotRequired[
+        Sequence[LaunchTemplateElasticInferenceAcceleratorTypeDef]
+    ]
+    SecurityGroupIds: NotRequired[Sequence[str]]
+    SecurityGroups: NotRequired[Sequence[str]]
+    InstanceMarketOptions: NotRequired[LaunchTemplateInstanceMarketOptionsRequestTypeDef]
+    CreditSpecification: NotRequired[CreditSpecificationRequestTypeDef]
+    CpuOptions: NotRequired[LaunchTemplateCpuOptionsRequestTypeDef]
+    CapacityReservationSpecification: NotRequired[
+        LaunchTemplateCapacityReservationSpecificationRequestTypeDef
+    ]
+    LicenseSpecifications: NotRequired[Sequence[LaunchTemplateLicenseConfigurationRequestTypeDef]]
+    HibernationOptions: NotRequired[LaunchTemplateHibernationOptionsRequestTypeDef]
+    MetadataOptions: NotRequired[LaunchTemplateInstanceMetadataOptionsRequestTypeDef]
+    EnclaveOptions: NotRequired[LaunchTemplateEnclaveOptionsRequestTypeDef]
+    InstanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
+    PrivateDnsNameOptions: NotRequired[LaunchTemplatePrivateDnsNameOptionsRequestTypeDef]
+    MaintenanceOptions: NotRequired[LaunchTemplateInstanceMaintenanceOptionsRequestTypeDef]
+    DisableApiStop: NotRequired[bool]
+    Operator: NotRequired[OperatorRequestTypeDef]
+    NetworkPerformanceOptions: NotRequired[LaunchTemplateNetworkPerformanceOptionsRequestTypeDef]
+    SecondaryInterfaces: NotRequired[
+        Sequence[LaunchTemplateInstanceSecondaryInterfaceSpecificationRequestTypeDef]
+    ]
+
 class DescribeFleetsResultTypeDef(TypedDict):
     Fleets: list[FleetDataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -22342,9 +22341,93 @@ LaunchTemplateOverridesUnionTypeDef = Union[
     LaunchTemplateOverridesTypeDef, LaunchTemplateOverridesOutputTypeDef
 ]
 
+class FleetLaunchTemplateConfigRequestTypeDef(TypedDict):
+    LaunchTemplateSpecification: NotRequired[FleetLaunchTemplateSpecificationRequestTypeDef]
+    Overrides: NotRequired[Sequence[FleetLaunchTemplateOverridesRequestTypeDef]]
+
+class GetCapacityManagerSupportabilityScoresRequestTypeDef(TypedDict):
+    MarketType: SupportabilityMarketTypeType
+    CapacityAmount: int
+    CapacityUnit: CapacityUnitType
+    CapacityAvailabilityZoneIds: Sequence[str]
+    InstanceTypes: NotRequired[Sequence[str]]
+    InstanceRequirementsWithMetadata: NotRequired[InstanceRequirementsWithMetadataRequestTypeDef]
+    DryRun: NotRequired[bool]
+
+class GetSpotPlacementScoresRequestPaginateTypeDef(TypedDict):
+    TargetCapacity: int
+    InstanceTypes: NotRequired[Sequence[str]]
+    TargetCapacityUnitType: NotRequired[TargetCapacityUnitTypeType]
+    SingleAvailabilityZone: NotRequired[bool]
+    RegionNames: NotRequired[Sequence[str]]
+    InstanceRequirementsWithMetadata: NotRequired[InstanceRequirementsWithMetadataRequestTypeDef]
+    DryRun: NotRequired[bool]
+    IncludeLocalZones: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetSpotPlacementScoresRequestTypeDef(TypedDict):
+    TargetCapacity: int
+    InstanceTypes: NotRequired[Sequence[str]]
+    TargetCapacityUnitType: NotRequired[TargetCapacityUnitTypeType]
+    SingleAvailabilityZone: NotRequired[bool]
+    RegionNames: NotRequired[Sequence[str]]
+    InstanceRequirementsWithMetadata: NotRequired[InstanceRequirementsWithMetadataRequestTypeDef]
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    IncludeLocalZones: NotRequired[bool]
+
+class CreateLaunchTemplateRequestTypeDef(TypedDict):
+    LaunchTemplateName: str
+    LaunchTemplateData: RequestLaunchTemplateDataTypeDef
+    DryRun: NotRequired[bool]
+    ClientToken: NotRequired[str]
+    VersionDescription: NotRequired[str]
+    Operator: NotRequired[OperatorRequestTypeDef]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+
+class CreateLaunchTemplateVersionRequestTypeDef(TypedDict):
+    LaunchTemplateData: RequestLaunchTemplateDataTypeDef
+    DryRun: NotRequired[bool]
+    ClientToken: NotRequired[str]
+    LaunchTemplateId: NotRequired[str]
+    LaunchTemplateName: NotRequired[str]
+    SourceVersion: NotRequired[str]
+    VersionDescription: NotRequired[str]
+    ResolveAlias: NotRequired[bool]
+
 class LaunchTemplateConfigTypeDef(TypedDict):
     LaunchTemplateSpecification: NotRequired[FleetLaunchTemplateSpecificationTypeDef]
     Overrides: NotRequired[Sequence[LaunchTemplateOverridesUnionTypeDef]]
+
+CreateFleetRequestTypeDef = TypedDict(
+    "CreateFleetRequestTypeDef",
+    {
+        "LaunchTemplateConfigs": Sequence[FleetLaunchTemplateConfigRequestTypeDef],
+        "TargetCapacitySpecification": TargetCapacitySpecificationRequestTypeDef,
+        "DryRun": NotRequired[bool],
+        "ClientToken": NotRequired[str],
+        "SpotOptions": NotRequired[SpotOptionsRequestTypeDef],
+        "OnDemandOptions": NotRequired[OnDemandOptionsRequestTypeDef],
+        "ReservedCapacityOptions": NotRequired[ReservedCapacityOptionsRequestTypeDef],
+        "ExcessCapacityTerminationPolicy": NotRequired[FleetExcessCapacityTerminationPolicyType],
+        "TerminateInstancesWithExpiration": NotRequired[bool],
+        "Type": NotRequired[FleetTypeType],
+        "ValidFrom": NotRequired[TimestampTypeDef],
+        "ValidUntil": NotRequired[TimestampTypeDef],
+        "ReplaceUnhealthyInstances": NotRequired[bool],
+        "TagSpecifications": NotRequired[Sequence[TagSpecificationUnionTypeDef]],
+        "Context": NotRequired[str],
+    },
+)
+
+class ModifyFleetRequestTypeDef(TypedDict):
+    FleetId: str
+    DryRun: NotRequired[bool]
+    ExcessCapacityTerminationPolicy: NotRequired[FleetExcessCapacityTerminationPolicyType]
+    LaunchTemplateConfigs: NotRequired[Sequence[FleetLaunchTemplateConfigRequestTypeDef]]
+    TargetCapacitySpecification: NotRequired[TargetCapacitySpecificationRequestTypeDef]
+    Context: NotRequired[str]
 
 LaunchTemplateConfigUnionTypeDef = Union[
     LaunchTemplateConfigTypeDef, LaunchTemplateConfigOutputTypeDef

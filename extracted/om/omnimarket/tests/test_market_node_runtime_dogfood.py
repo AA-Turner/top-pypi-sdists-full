@@ -361,7 +361,18 @@ def test_market_node_runtime_dogfood_inventory_classifies_all_entry_points() -> 
     # with no handler_routing: 21 -> 22.
     # node_work_ledger_landing_mirror is hosted by the same ledger serve
     # process and has no handler_routing either: 22 -> 23.
-    assert summary["skipped"] == 23
+    # node_beacon_trace_capture_effect reads host-local beacon JSONL and is run
+    # by `python -m` on the lab host, not by a runtime, so it is experimental
+    # with no handler_routing: 23 -> 24.
+    # node_lane_placement_recovery_effect is called in process by the host
+    # placement caller through its node.py, not by a bus command or a runtime,
+    # so it is experimental with no handler_routing: 24 -> 25.
+    # node_adoption_recovery_effect is called in process by the throughput tick with an
+    # injected launcher, so it is experimental with no handler_routing: 25 -> 26.
+    # node_seam_read_orchestrator is a graph contract only until its handler lands, so it is
+    # experimental with no handler_routing: 26 -> 27. node_delegation_seam_orchestrator binds
+    # a handler, so it is routable and adds nothing.
+    assert summary["skipped"] == 27
     assert summary["failed"] == 0
     assert summary["failure_buckets"] == {}
     assert {

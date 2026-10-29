@@ -42,10 +42,12 @@ class WaitlistEntriesClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
-        plan_id: typing.Optional[str] = None,
+        variant_id: typing.Optional[str] = None,
         account_id: typing.Optional[str] = None,
         product_id: typing.Optional[str] = None,
+        buyer_account_id: typing.Optional[str] = None,
         status: typing.Optional[ListWaitlistEntriesRequestStatus] = None,
+        query: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
         order: typing.Optional[ListWaitlistEntriesRequestOrder] = None,
@@ -53,7 +55,7 @@ class WaitlistEntriesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[WaitlistEntry, ListWaitlistEntriesResponse]:
         """
-        Lists the waitlist signups you can see. `waitlist_entry:read` returns the user's own signups and `plan:waitlist:read` returns signups to the seller accounts they are authorized on; with both, you get both sets. Account credentials see only their own account's signups.
+        Lists the waitlist signups you can see. `waitlist_entry:read` returns your own signups, and `plan:waitlist:read` returns signups to the seller accounts you are authorized on; with both, you get both sets. Signups submitted on behalf of an account are not in this list; pass `buyer_account_id` to list them instead, which needs `waitlist_entry:read` on that account. Account credentials see the signups submitted to their own account, and pass their own account as `buyer_account_id` to see the ones it submitted.
 
         Parameters
         ----------
@@ -69,7 +71,7 @@ class WaitlistEntriesClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
-        plan_id : typing.Optional[str]
+        variant_id : typing.Optional[str]
             Only return signups for this variant, prefixed `plan_`.
 
         account_id : typing.Optional[str]
@@ -78,8 +80,14 @@ class WaitlistEntriesClient:
         product_id : typing.Optional[str]
             Only return signups for variants on this product, prefixed `prod_`.
 
+        buyer_account_id : typing.Optional[str]
+            List the signups submitted on behalf of this account, prefixed `biz_`, instead of your own and seller signups. Requires `waitlist_entry:read` on the account. The other filters still apply.
+
         status : typing.Optional[ListWaitlistEntriesRequestStatus]
             Only return signups in this state. Canceled signups are returned only when `status` is `canceled`.
+
+        query : typing.Optional[str]
+            Search signups by the user's name or username, or the name of the account they were submitted on behalf of. An account ID, prefixed `biz_`, matches signups submitted on behalf of that account, and an exact email address matches that user's signups.
 
         created_before : typing.Optional[str]
             Only return signups submitted at or before this ISO 8601 timestamp.
@@ -106,7 +114,7 @@ class WaitlistEntriesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -122,10 +130,12 @@ class WaitlistEntriesClient:
             after=after,
             last=last,
             before=before,
-            plan_id=plan_id,
+            variant_id=variant_id,
             account_id=account_id,
             product_id=product_id,
+            buyer_account_id=buyer_account_id,
             status=status,
+            query=query,
             created_before=created_before,
             created_after=created_after,
             order=order,
@@ -136,7 +146,8 @@ class WaitlistEntriesClient:
     def create(
         self,
         *,
-        plan_id: str,
+        variant_id: str,
+        buyer_account_id: typing.Optional[str] = OMIT,
         custom_field_responses: typing.Optional[
             typing.Sequence[CreateWaitlistEntriesRequestCustomFieldResponsesItem]
         ] = OMIT,
@@ -144,12 +155,15 @@ class WaitlistEntriesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> WaitlistEntry:
         """
-        Joins a free waitlist variant as the authenticated user. Requires `waitlist_entry:create`. Joining again returns the existing pending signup, or the approved one while its membership is valid. Paid variants are rejected; joining collects no payment method and grants no membership.
+        Joins a free waitlist variant as the authenticated user, or on behalf of an account with `buyer_account_id`. Requires `waitlist_entry:create`, on that account when one is given. Joining again returns the existing pending signup, or the approved one while its membership is valid. Paid variants are rejected; joining collects no payment method and grants no membership.
 
         Parameters
         ----------
-        plan_id : str
+        variant_id : str
             The free waitlist variant to join, prefixed `plan_`.
+
+        buyer_account_id : typing.Optional[str]
+            The account to join on behalf of, prefixed `biz_`. Leave it out to join as yourself. Required with an account credential, which passes its own account and records the account's owner as the user who joined.
 
         custom_field_responses : typing.Optional[typing.Sequence[CreateWaitlistEntriesRequestCustomFieldResponsesItem]]
             Answers to the variant's checkout questions. Every required question must be answered.
@@ -170,16 +184,17 @@ class WaitlistEntriesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.waitlist_entries.create(
-            plan_id="plan_xxxxxxxxxxxxxx",
+            variant_id="plan_xxxxxxxxxxxxxx",
         )
         """
         _response = self._raw_client.create(
-            plan_id=plan_id,
+            variant_id=variant_id,
+            buyer_account_id=buyer_account_id,
             custom_field_responses=custom_field_responses,
             metadata=metadata,
             request_options=request_options,
@@ -190,7 +205,7 @@ class WaitlistEntriesClient:
         self,
         *,
         account_id: str,
-        plan_id: typing.Optional[str] = OMIT,
+        variant_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApproveAllWaitlistEntriesResponse:
         """
@@ -201,7 +216,7 @@ class WaitlistEntriesClient:
         account_id : str
             The seller account whose pending signups to approve, prefixed `biz_`.
 
-        plan_id : typing.Optional[str]
+        variant_id : typing.Optional[str]
             Only approve signups for this variant, prefixed `plan_`. Omit to include every waitlist variant on the account.
 
         request_options : typing.Optional[RequestOptions]
@@ -217,7 +232,7 @@ class WaitlistEntriesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -226,13 +241,13 @@ class WaitlistEntriesClient:
         )
         """
         _response = self._raw_client.approve_all(
-            account_id=account_id, plan_id=plan_id, request_options=request_options
+            account_id=account_id, variant_id=variant_id, request_options=request_options
         )
         return _response.data
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> WaitlistEntry:
         """
-        Retrieves a signup the caller owns, with `waitlist_entry:read`, or one submitted to an account they can read, with `plan:waitlist:read`.
+        Retrieves your own signup or one submitted on behalf of an account you hold `waitlist_entry:read` on, or one submitted to an account you can read, with `plan:waitlist:read`.
 
         Parameters
         ----------
@@ -252,7 +267,7 @@ class WaitlistEntriesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -285,7 +300,7 @@ class WaitlistEntriesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -298,7 +313,7 @@ class WaitlistEntriesClient:
 
     def cancel(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> WaitlistEntry:
         """
-        Withdraws the caller's own pending signup. Requires `waitlist_entry:cancel`. Does not cancel an approved membership.
+        Withdraws a pending signup: your own, or one submitted on behalf of an account you hold `waitlist_entry:cancel` on. Requires `waitlist_entry:cancel`, on that account for an account's signup. Does not cancel an approved membership.
 
         Parameters
         ----------
@@ -318,7 +333,7 @@ class WaitlistEntriesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -351,7 +366,7 @@ class WaitlistEntriesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -385,10 +400,12 @@ class AsyncWaitlistEntriesClient:
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
         before: typing.Optional[str] = None,
-        plan_id: typing.Optional[str] = None,
+        variant_id: typing.Optional[str] = None,
         account_id: typing.Optional[str] = None,
         product_id: typing.Optional[str] = None,
+        buyer_account_id: typing.Optional[str] = None,
         status: typing.Optional[ListWaitlistEntriesRequestStatus] = None,
+        query: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
         order: typing.Optional[ListWaitlistEntriesRequestOrder] = None,
@@ -396,7 +413,7 @@ class AsyncWaitlistEntriesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[WaitlistEntry, ListWaitlistEntriesResponse]:
         """
-        Lists the waitlist signups you can see. `waitlist_entry:read` returns the user's own signups and `plan:waitlist:read` returns signups to the seller accounts they are authorized on; with both, you get both sets. Account credentials see only their own account's signups.
+        Lists the waitlist signups you can see. `waitlist_entry:read` returns your own signups, and `plan:waitlist:read` returns signups to the seller accounts you are authorized on; with both, you get both sets. Signups submitted on behalf of an account are not in this list; pass `buyer_account_id` to list them instead, which needs `waitlist_entry:read` on that account. Account credentials see the signups submitted to their own account, and pass their own account as `buyer_account_id` to see the ones it submitted.
 
         Parameters
         ----------
@@ -412,7 +429,7 @@ class AsyncWaitlistEntriesClient:
         before : typing.Optional[str]
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
-        plan_id : typing.Optional[str]
+        variant_id : typing.Optional[str]
             Only return signups for this variant, prefixed `plan_`.
 
         account_id : typing.Optional[str]
@@ -421,8 +438,14 @@ class AsyncWaitlistEntriesClient:
         product_id : typing.Optional[str]
             Only return signups for variants on this product, prefixed `prod_`.
 
+        buyer_account_id : typing.Optional[str]
+            List the signups submitted on behalf of this account, prefixed `biz_`, instead of your own and seller signups. Requires `waitlist_entry:read` on the account. The other filters still apply.
+
         status : typing.Optional[ListWaitlistEntriesRequestStatus]
             Only return signups in this state. Canceled signups are returned only when `status` is `canceled`.
+
+        query : typing.Optional[str]
+            Search signups by the user's name or username, or the name of the account they were submitted on behalf of. An account ID, prefixed `biz_`, matches signups submitted on behalf of that account, and an exact email address matches that user's signups.
 
         created_before : typing.Optional[str]
             Only return signups submitted at or before this ISO 8601 timestamp.
@@ -451,7 +474,7 @@ class AsyncWaitlistEntriesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -474,10 +497,12 @@ class AsyncWaitlistEntriesClient:
             after=after,
             last=last,
             before=before,
-            plan_id=plan_id,
+            variant_id=variant_id,
             account_id=account_id,
             product_id=product_id,
+            buyer_account_id=buyer_account_id,
             status=status,
+            query=query,
             created_before=created_before,
             created_after=created_after,
             order=order,
@@ -488,7 +513,8 @@ class AsyncWaitlistEntriesClient:
     async def create(
         self,
         *,
-        plan_id: str,
+        variant_id: str,
+        buyer_account_id: typing.Optional[str] = OMIT,
         custom_field_responses: typing.Optional[
             typing.Sequence[CreateWaitlistEntriesRequestCustomFieldResponsesItem]
         ] = OMIT,
@@ -496,12 +522,15 @@ class AsyncWaitlistEntriesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> WaitlistEntry:
         """
-        Joins a free waitlist variant as the authenticated user. Requires `waitlist_entry:create`. Joining again returns the existing pending signup, or the approved one while its membership is valid. Paid variants are rejected; joining collects no payment method and grants no membership.
+        Joins a free waitlist variant as the authenticated user, or on behalf of an account with `buyer_account_id`. Requires `waitlist_entry:create`, on that account when one is given. Joining again returns the existing pending signup, or the approved one while its membership is valid. Paid variants are rejected; joining collects no payment method and grants no membership.
 
         Parameters
         ----------
-        plan_id : str
+        variant_id : str
             The free waitlist variant to join, prefixed `plan_`.
+
+        buyer_account_id : typing.Optional[str]
+            The account to join on behalf of, prefixed `biz_`. Leave it out to join as yourself. Required with an account credential, which passes its own account and records the account's owner as the user who joined.
 
         custom_field_responses : typing.Optional[typing.Sequence[CreateWaitlistEntriesRequestCustomFieldResponsesItem]]
             Answers to the variant's checkout questions. Every required question must be answered.
@@ -524,7 +553,7 @@ class AsyncWaitlistEntriesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -532,14 +561,15 @@ class AsyncWaitlistEntriesClient:
 
         async def main() -> None:
             await client.waitlist_entries.create(
-                plan_id="plan_xxxxxxxxxxxxxx",
+                variant_id="plan_xxxxxxxxxxxxxx",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.create(
-            plan_id=plan_id,
+            variant_id=variant_id,
+            buyer_account_id=buyer_account_id,
             custom_field_responses=custom_field_responses,
             metadata=metadata,
             request_options=request_options,
@@ -550,7 +580,7 @@ class AsyncWaitlistEntriesClient:
         self,
         *,
         account_id: str,
-        plan_id: typing.Optional[str] = OMIT,
+        variant_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApproveAllWaitlistEntriesResponse:
         """
@@ -561,7 +591,7 @@ class AsyncWaitlistEntriesClient:
         account_id : str
             The seller account whose pending signups to approve, prefixed `biz_`.
 
-        plan_id : typing.Optional[str]
+        variant_id : typing.Optional[str]
             Only approve signups for this variant, prefixed `plan_`. Omit to include every waitlist variant on the account.
 
         request_options : typing.Optional[RequestOptions]
@@ -579,7 +609,7 @@ class AsyncWaitlistEntriesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -594,13 +624,13 @@ class AsyncWaitlistEntriesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.approve_all(
-            account_id=account_id, plan_id=plan_id, request_options=request_options
+            account_id=account_id, variant_id=variant_id, request_options=request_options
         )
         return _response.data
 
     async def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> WaitlistEntry:
         """
-        Retrieves a signup the caller owns, with `waitlist_entry:read`, or one submitted to an account they can read, with `plan:waitlist:read`.
+        Retrieves your own signup or one submitted on behalf of an account you hold `waitlist_entry:read` on, or one submitted to an account you can read, with `plan:waitlist:read`.
 
         Parameters
         ----------
@@ -622,7 +652,7 @@ class AsyncWaitlistEntriesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -663,7 +693,7 @@ class AsyncWaitlistEntriesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -682,7 +712,7 @@ class AsyncWaitlistEntriesClient:
 
     async def cancel(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> WaitlistEntry:
         """
-        Withdraws the caller's own pending signup. Requires `waitlist_entry:cancel`. Does not cancel an approved membership.
+        Withdraws a pending signup: your own, or one submitted on behalf of an account you hold `waitlist_entry:cancel` on. Requires `waitlist_entry:cancel`, on that account for an account's signup. Does not cancel an approved membership.
 
         Parameters
         ----------
@@ -704,7 +734,7 @@ class AsyncWaitlistEntriesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -745,7 +775,7 @@ class AsyncWaitlistEntriesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

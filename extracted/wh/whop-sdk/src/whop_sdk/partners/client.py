@@ -58,7 +58,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -86,7 +86,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -122,7 +122,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -160,7 +160,7 @@ class PartnersClient:
             The selected referring partner's exact username. Requires user_id=global; cannot be combined with earning_partner_id.
 
         referring_account_id : typing.Optional[str]
-            List the users this business's team members referred, past members included, instead of the caller's own. Requires company:basic:read on that business, which every team member holds, and cannot be combined with user_id. earning_partner_id or earning_partner_username then narrows to one team member.
+            List the users this business's team members referred, past members included, instead of the caller's own. Requires company:basic:read on that business, which every team member holds, and cannot be combined with user_id. The owner role reads every team member's referrals; anyone else reads only their own and those of the people under them in the org chart. earning_partner_id or earning_partner_username then narrows to one team member.
 
         query : typing.Optional[str]
             Search referred users by name or username. In global mode, matches the beginning of usernames only.
@@ -202,7 +202,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -251,7 +251,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -309,7 +309,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -347,7 +347,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -391,7 +391,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -435,7 +435,7 @@ class AsyncPartnersClient:
             The selected referring partner's exact username. Requires user_id=global; cannot be combined with earning_partner_id.
 
         referring_account_id : typing.Optional[str]
-            List the users this business's team members referred, past members included, instead of the caller's own. Requires company:basic:read on that business, which every team member holds, and cannot be combined with user_id. earning_partner_id or earning_partner_username then narrows to one team member.
+            List the users this business's team members referred, past members included, instead of the caller's own. Requires company:basic:read on that business, which every team member holds, and cannot be combined with user_id. The owner role reads every team member's referrals; anyone else reads only their own and those of the people under them in the org chart. earning_partner_id or earning_partner_username then narrows to one team member.
 
         query : typing.Optional[str]
             Search referred users by name or username. In global mode, matches the beginning of usernames only.
@@ -479,7 +479,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -537,7 +537,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

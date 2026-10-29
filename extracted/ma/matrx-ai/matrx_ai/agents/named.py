@@ -171,8 +171,10 @@ class OfferedValueMapping(BaseModel):
     when_absent: Literal["skip", "use_default", "fail"] | None = None
     default: JsonValue | None = None
     #: THE BINDING NARROWS, NEVER THE PROVISION (Arman, 2026-10-14). Use this
-    #: source only when its text form is at most this many characters; a longer
-    #: value is treated as ABSENT, so ``when_absent`` decides what happens.
+    #: source only when its text form is at most this many characters. A longer
+    #: LIST (or kind ``items`` / ``claims`` envelope) is cut to fit and the cut is
+    #: announced (``provisions.fit_to_max_chars``); any other longer value is
+    #: treated as ABSENT, so ``when_absent`` decides what happens.
     max_chars: int | None = Field(default=None, ge=1)
     #: Deliver a structured value as compact JSON (no indentation) instead of
     #: the default indented document — the same content in fewer tokens.

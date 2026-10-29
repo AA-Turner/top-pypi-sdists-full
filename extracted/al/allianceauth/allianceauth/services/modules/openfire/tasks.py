@@ -1,4 +1,7 @@
+__lazy_modules__ = ["celery"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from celery import shared_task
 
@@ -12,15 +15,26 @@ from allianceauth.services.tasks import QueueOnce
 
 from .models import OpenfireUser
 
+if TYPE_CHECKING:
+    from celery import Task
+
+    # https://github.com/sbdchd/celery-types
+    classes = [
+        Task,
+    ]
+
+    for cls in classes:
+        setattr(cls, "__class_getitem__", classmethod(lambda cls, *args, **kwargs: cls))
+
 logger = logging.getLogger(__name__)
 
 
 class OpenfireTasks:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @classmethod
-    def delete_user(cls, user, notify_user=False):
+    def delete_user(cls, user: User, notify_user: bool = False) -> bool:
         if cls.has_account(user):
             logger.debug(f"User {user} has jabber account {user.openfire.username}. Deleting.")
             OpenfireManager.delete_user(user.openfire.username)
@@ -31,20 +45,20 @@ class OpenfireTasks:
         return False
 
     @staticmethod
-    def has_account(user):
+    def has_account(user: User) -> bool:
         try:
             return user.openfire.username != ''
         except ObjectDoesNotExist:
             return False
 
     @staticmethod
-    def disable_jabber():
+    def disable_jabber() -> None:
         logging.debug("Deleting all Openfire users")
         OpenfireUser.objects.all().delete()
 
     @staticmethod
     @shared_task(bind=True, name="openfire.update_groups", base=QueueOnce)
-    def update_groups(self, pk):
+    def update_groups(self: "Task", pk: int) -> None:
         user = User.objects.get(pk=pk)
         logger.debug(f"Updating jabber groups for user {user}")
         if OpenfireTasks.has_account(user):
@@ -63,12 +77,12 @@ class OpenfireTasks:
 
     @staticmethod
     @shared_task(name="openfire.update_all_groups")
-    def update_all_groups():
+    def update_all_groups() -> None:
         logger.debug("Updating ALL jabber groups")
         for openfire_user in OpenfireUser.objects.exclude(username__exact=''):
             OpenfireTasks.update_groups.delay(openfire_user.user.pk)
 
     @staticmethod
-    def get_username(user):
+    def get_username(user: User) -> str:
         from .auth_hooks import OpenfireService
         return NameFormatter(OpenfireService(), user).format_name()

@@ -1,4 +1,11 @@
+__lazy_modules__ = [
+    "allianceauth.authentication.models",
+    "allianceauth.groupmanagement.models",
+    "allianceauth.services.modules.discord.models",
+]
+
 import logging
+from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from requests.exceptions import HTTPError
@@ -7,9 +14,6 @@ from requests_oauthlib import OAuth2Session
 from django.contrib.auth.models import User as BaseUser
 from django.db import models
 from django.utils.timezone import now
-
-from allianceauth.authentication.models import User
-from allianceauth.groupmanagement.models import Group
 
 from . import __title__
 from .app_settings import (
@@ -27,10 +31,20 @@ from .discord_client import (
 )
 from .utils import LoggerAddTag
 
+if TYPE_CHECKING:
+    from allianceauth.authentication.models import User
+    from allianceauth.groupmanagement.models import Group
+
+    from .models import DiscordUser  # noqa: F401
+
 logger = LoggerAddTag(logging.getLogger(__name__), __title__)
 
 
-class DiscordUserManager(models.Manager):
+class DiscordUserAlreadyLinkedError(Exception):
+    pass
+
+
+class DiscordUserManager(models.Manager["DiscordUser"]):
     """Manager for DiscordUser"""
 
     # full server admin
@@ -44,7 +58,7 @@ class DiscordUserManager(models.Manager):
 
     def add_user(
         self,
-        user: User,
+        user: "User",
         authorization_code: str,
         is_rate_limited: bool = True
     ) -> bool:
@@ -62,6 +76,17 @@ class DiscordUserManager(models.Manager):
             access_token = self._exchange_auth_code_for_token(authorization_code)
             user_client = DiscordClient(access_token, is_rate_limited=is_rate_limited)
             discord_user = user_client.current_user()
+            # A Discord account may only be linked to one Auth account (#1408).
+            already_linked = (
+                self.filter(uid=discord_user.id).exclude(user=user).exists()
+            )
+            if already_linked:
+                logger.warning(
+                    "Discord ID %s is already linked to another Auth account; "
+                    "refusing to also link it to %s",
+                    discord_user.id, user,
+                )
+                raise DiscordUserAlreadyLinkedError()
             bot_client = create_bot_client(is_rate_limited=is_rate_limited)
             roles, changed = calculate_roles_for_user(
                 user=user, client=bot_client, discord_uid=discord_user.id
@@ -127,7 +152,7 @@ class DiscordUserManager(models.Manager):
             )
             return False
 
-    def user_has_account(self, user: User) -> bool:
+    def user_has_account(self, user: "User") -> bool:
         """Returns True if the user has an Discord account, else False
 
         only checks locally, does not hit the API
@@ -166,7 +191,7 @@ class DiscordUserManager(models.Manager):
         return token['access_token']
 
     @staticmethod
-    def group_to_role(group: Group) -> dict:
+    def group_to_role(group: "Group") -> dict:
         """Fetch the Discord role matching the given Django group by name.
 
         Returns:

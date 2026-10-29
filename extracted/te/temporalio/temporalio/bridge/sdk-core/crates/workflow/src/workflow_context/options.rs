@@ -1,6 +1,10 @@
 use std::{collections::HashMap, time::Duration};
 
-use crate::{MemoValues, WorkflowCancellationToken, runtime::types::ContinueAsNewRequest};
+#[cfg(feature = "experimental")]
+use crate::EventGroup;
+use crate::{MemoValues, WorkflowCancellationToken};
+#[cfg(feature = "experimental")]
+use temporalio_common_wasm::VersioningOverride;
 #[cfg(feature = "experimental")]
 use temporalio_common_wasm::protos::temporal::api::enums::v1::ContinueAsNewVersioningBehavior as ProtoContinueAsNewVersioningBehavior;
 use temporalio_common_wasm::{
@@ -284,13 +288,13 @@ pub struct ActivityOptions {
     /// If true, disable eager execution for this activity
     #[builder(default)]
     pub do_not_eagerly_execute: bool,
-    /// Event group markers to attach to the resulting `ScheduleActivityTask` command.
+    /// Event Groups to attach to the resulting schedule-activity command, in addition to any
+    /// groups from the enclosing Event Group scope.
     ///
-    /// **Experimental:** Event Groups are not yet fully supported by the Rust SDK. This API may
-    /// change.
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
     #[cfg(feature = "experimental")]
     #[builder(default)]
-    pub event_group_markers: Vec<EventGroupMarker>,
+    pub event_groups: Vec<EventGroup>,
 }
 
 impl ActivityOptions {
@@ -328,7 +332,7 @@ impl ActivityOptions {
         headers: HashMap<String, Payload>,
     ) -> WorkflowCommand {
         #[cfg(feature = "experimental")]
-        let event_group_markers = self.event_group_markers;
+        let event_group_markers = EventGroup::to_markers(self.event_groups);
         #[cfg(not(feature = "experimental"))]
         let event_group_markers = Vec::new();
         command_with_metadata(
@@ -416,13 +420,13 @@ pub struct LocalActivityOptions {
     pub start_to_close_timeout: Option<Duration>,
     /// Single-line summary for this activity that will appear in UI/CLI.
     pub summary: Option<String>,
-    /// Event group markers to attach to the resulting `RecordMarker` command.
+    /// Event Groups to attach to the resulting local-activity command, in addition to any groups
+    /// from the enclosing Event Group scope.
     ///
-    /// **Experimental:** Event Groups are not yet fully supported by the Rust SDK. This API may
-    /// change.
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
     #[cfg(feature = "experimental")]
     #[builder(default)]
-    pub event_group_markers: Vec<EventGroupMarker>,
+    pub event_groups: Vec<EventGroup>,
 }
 
 impl Default for LocalActivityOptions {
@@ -444,7 +448,7 @@ impl LocalActivityOptions {
         self.schedule_to_close_timeout
             .get_or_insert(Duration::from_secs(100));
         #[cfg(feature = "experimental")]
-        let event_group_markers = self.event_group_markers;
+        let event_group_markers = EventGroup::to_markers(self.event_groups);
         #[cfg(not(feature = "experimental"))]
         let event_group_markers = Vec::new();
         command_with_metadata(
@@ -519,13 +523,19 @@ pub struct ChildWorkflowOptions {
     pub search_attributes: Option<SearchAttributes>,
     /// Priority for the workflow
     pub priority: Option<Priority>,
-    /// Event group markers to attach to the resulting `StartChildWorkflowExecution` command.
+    /// Override the child's worker deployment routing independently of its parent.
     ///
-    /// **Experimental:** Event Groups are not yet fully supported by the Rust SDK. This API may
-    /// change.
+    /// When unset, the server's normal child workflow versioning rules apply.
+    /// **Experimental:** Requires Temporal Server 1.32.0 or later.
+    #[cfg(feature = "experimental")]
+    pub versioning_override: Option<VersioningOverride>,
+    /// Event Groups to attach to the resulting start-child-workflow command, in addition to any
+    /// groups from the enclosing Event Group scope.
+    ///
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
     #[cfg(feature = "experimental")]
     #[builder(default)]
-    pub event_group_markers: Vec<EventGroupMarker>,
+    pub event_groups: Vec<EventGroup>,
 }
 
 impl ChildWorkflowOptions {
@@ -545,7 +555,7 @@ impl ChildWorkflowOptions {
         workflow_id: String,
     ) -> WorkflowCommand {
         #[cfg(feature = "experimental")]
-        let event_group_markers = self.event_group_markers;
+        let event_group_markers = EventGroup::to_markers(self.event_groups);
         #[cfg(not(feature = "experimental"))]
         let event_group_markers = Vec::new();
         command_with_metadata(
@@ -579,6 +589,8 @@ impl ChildWorkflowOptions {
                 retry_policy: self.retry_policy.map(Into::into),
                 search_attributes: self.search_attributes.map(|t| t.into_proto()),
                 priority: self.priority.map(Into::into),
+                #[cfg(feature = "experimental")]
+                versioning_override: self.versioning_override.map(Into::into),
                 ..Default::default()
             }),
             self.static_summary,
@@ -599,13 +611,13 @@ pub struct TimerOptions {
     pub cancellation_token: Option<WorkflowCancellationToken>,
     /// Summary of the timer
     pub summary: Option<String>,
-    /// Event group markers to attach to the resulting `StartTimer` command.
+    /// Event Groups to attach to the resulting start-timer command, in addition to any groups from
+    /// the enclosing Event Group scope.
     ///
-    /// **Experimental:** Event Groups are not yet fully supported by the Rust SDK. This API may
-    /// change.
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
     #[cfg(feature = "experimental")]
     #[builder(default)]
-    pub event_group_markers: Vec<EventGroupMarker>,
+    pub event_groups: Vec<EventGroup>,
 }
 
 impl Default for TimerOptions {
@@ -626,7 +638,7 @@ impl From<Duration> for TimerOptions {
 impl TimerOptions {
     pub(crate) fn into_command(self, seq: u32) -> WorkflowCommand {
         #[cfg(feature = "experimental")]
-        let event_group_markers = self.event_group_markers;
+        let event_group_markers = EventGroup::to_markers(self.event_groups);
         #[cfg(not(feature = "experimental"))]
         let event_group_markers = Vec::new();
         command_with_metadata(
@@ -653,6 +665,42 @@ pub struct WaitConditionOptions {
     pub cancellation_token: Option<WorkflowCancellationToken>,
 }
 
+/// Options for requesting cancellation of an external workflow.
+///
+/// This experimental API may change without notice.
+#[cfg(feature = "experimental")]
+#[derive(Default, Debug, Clone, bon::Builder)]
+#[non_exhaustive]
+pub struct CancelExternalWorkflowOptions {
+    /// Cancellation reason sent with the request.
+    pub reason: Option<String>,
+    /// Event Groups to attach to the cancel-external-workflow command, in addition to any groups
+    /// from the enclosing Event Group scope.
+    ///
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
+    #[cfg(feature = "experimental")]
+    #[builder(default)]
+    pub event_groups: Vec<EventGroup>,
+}
+
+/// Options for requesting cancellation of a child workflow.
+///
+/// This experimental API may change without notice.
+#[cfg(feature = "experimental")]
+#[derive(Default, Debug, Clone, bon::Builder)]
+#[non_exhaustive]
+pub struct CancelChildWorkflowOptions {
+    /// Cancellation reason sent with the request.
+    pub reason: String,
+    /// Event Groups to attach to the cancel-child-workflow command, in addition to any groups
+    /// from the enclosing Event Group scope.
+    ///
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
+    #[cfg(feature = "experimental")]
+    #[builder(default)]
+    pub event_groups: Vec<EventGroup>,
+}
+
 /// Options for signaling a workflow from another workflow.
 #[derive(Default, Debug, Clone, bon::Builder)]
 #[non_exhaustive]
@@ -661,13 +709,13 @@ pub struct SignalWorkflowOptions {
     pub cancellation_token: Option<WorkflowCancellationToken>,
     /// Single-line summary for this signal that will appear in UI/CLI.
     pub summary: Option<String>,
-    /// Event group markers to attach to the resulting `SignalExternalWorkflowExecution` command.
+    /// Event Groups to attach to the resulting signal-external-workflow command, in addition to any
+    /// groups from the enclosing Event Group scope.
     ///
-    /// **Experimental:** Event Groups are not yet fully supported by the Rust SDK. This API may
-    /// change.
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
     #[cfg(feature = "experimental")]
     #[builder(default)]
-    pub event_group_markers: Vec<EventGroupMarker>,
+    pub event_groups: Vec<EventGroup>,
 }
 
 impl SignalWorkflowOptions {
@@ -680,7 +728,7 @@ impl SignalWorkflowOptions {
         target: signal_external_workflow_execution::Target,
     ) -> WorkflowCommand {
         #[cfg(feature = "experimental")]
-        let event_group_markers = self.event_group_markers;
+        let event_group_markers = EventGroup::to_markers(self.event_groups);
         #[cfg(not(feature = "experimental"))]
         let event_group_markers = Vec::new();
         command_with_metadata(
@@ -733,6 +781,15 @@ pub struct ContinueAsNewOptions {
     /// `UseRampingVersion` routes it to the ramping deployment version when one is configured.
     #[cfg(feature = "experimental")]
     pub initial_versioning_behavior: Option<ContinueAsNewVersioningBehavior>,
+    /// Event Groups to attach to the continue-as-new command, in addition to any groups from the
+    /// enclosing Event Group scope.
+    ///
+    /// Markers describe the source event. They are not copied onto the new run.
+    ///
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
+    #[cfg(feature = "experimental")]
+    #[builder(default)]
+    pub event_groups: Vec<EventGroup>,
 }
 
 impl ContinueAsNewOptions {
@@ -742,7 +799,7 @@ impl ContinueAsNewOptions {
         arguments: Vec<Payload>,
         headers: HashMap<String, Payload>,
         payload_converter: &PayloadConverter,
-    ) -> Result<ContinueAsNewRequest, PayloadConversionError> {
+    ) -> Result<ContinueAsNewWorkflowExecution, PayloadConversionError> {
         let context_data = SerializationContextData::Workflow(WorkflowSerializationContext::new());
         let context = SerializationContext::new(&context_data, payload_converter);
         let memo = self
@@ -793,6 +850,70 @@ impl ContinueAsNewOptions {
     }
 }
 
+/// Options for [`crate::SyncWorkflowContext::patched_with_options`].
+///
+/// This experimental API may change without notice.
+#[cfg(feature = "experimental")]
+#[derive(Default, Debug, Clone, bon::Builder)]
+#[non_exhaustive]
+pub struct PatchedOptions {
+    /// Event Groups to attach to the patch command, in addition to any groups from the enclosing
+    /// Event Group scope.
+    ///
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
+    #[cfg(feature = "experimental")]
+    #[builder(default)]
+    pub event_groups: Vec<EventGroup>,
+}
+
+/// Options for [`crate::SyncWorkflowContext::deprecate_patch_with_options`].
+///
+/// This experimental API may change without notice.
+#[cfg(feature = "experimental")]
+#[derive(Default, Debug, Clone, bon::Builder)]
+#[non_exhaustive]
+pub struct DeprecatePatchOptions {
+    /// Event Groups to attach to the deprecate-patch command, in addition to any groups from the
+    /// enclosing Event Group scope.
+    ///
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
+    #[cfg(feature = "experimental")]
+    #[builder(default)]
+    pub event_groups: Vec<EventGroup>,
+}
+
+/// Options for [`crate::SyncWorkflowContext::upsert_memo_with_options`].
+///
+/// This experimental API may change without notice.
+#[cfg(feature = "experimental")]
+#[derive(Default, Debug, Clone, bon::Builder)]
+#[non_exhaustive]
+pub struct UpsertMemoOptions {
+    /// Event Groups to attach to the upsert-memo command, in addition to any groups from the
+    /// enclosing Event Group scope.
+    ///
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
+    #[cfg(feature = "experimental")]
+    #[builder(default)]
+    pub event_groups: Vec<EventGroup>,
+}
+
+/// Options for [`crate::SyncWorkflowContext::upsert_search_attributes_with_options`].
+///
+/// This experimental API may change without notice.
+#[cfg(feature = "experimental")]
+#[derive(Default, Debug, Clone, bon::Builder)]
+#[non_exhaustive]
+pub struct UpsertSearchAttributesOptions {
+    /// Event Groups to attach to the upsert-search-attributes command, in addition to any groups
+    /// from the enclosing Event Group scope.
+    ///
+    /// **EXPERIMENTAL:** Event Groups is an experimental API and may change without notice.
+    #[cfg(feature = "experimental")]
+    #[builder(default)]
+    pub event_groups: Vec<EventGroup>,
+}
+
 fn command_with_metadata(
     variant: workflow_command::Variant,
     summary: Option<String>,
@@ -830,6 +951,74 @@ fn string_user_metadata(summary: Option<String>, details: Option<String>) -> Opt
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "experimental")]
+    use temporalio_common_wasm::{
+        WorkerDeploymentVersion, protos::temporal::api::workflow::v1::versioning_override,
+    };
+
+    #[cfg(feature = "experimental")]
+    #[test]
+    fn child_versioning_overrides_map_to_command() {
+        let version = WorkerDeploymentVersion::builder()
+            .deployment_name("deployment")
+            .build_id("build")
+            .build();
+        for override_value in [
+            None,
+            Some(VersioningOverride::Pinned(version.clone())),
+            Some(VersioningOverride::AutoUpgrade),
+            Some(VersioningOverride::OneTime(version)),
+        ] {
+            let options = ChildWorkflowOptions::builder()
+                .maybe_versioning_override(override_value.clone())
+                .build();
+            let command = options.into_command(
+                1,
+                "child-workflow".to_string(),
+                Vec::new(),
+                HashMap::new(),
+                "child-id".to_string(),
+            );
+            let Some(workflow_command::Variant::StartChildWorkflowExecution(child)) =
+                command.variant
+            else {
+                panic!("expected child start command");
+            };
+            match (
+                override_value,
+                child.versioning_override.and_then(|value| value.r#override),
+            ) {
+                (None, None) => {}
+                (
+                    Some(VersioningOverride::Pinned(version)),
+                    Some(versioning_override::Override::Pinned(pinned)),
+                ) => {
+                    assert_eq!(
+                        pinned.behavior,
+                        versioning_override::PinnedOverrideBehavior::Pinned as i32
+                    );
+                    let actual = pinned.version.expect("pinned version");
+                    assert_eq!(actual.deployment_name, version.deployment_name);
+                    assert_eq!(actual.build_id, version.build_id);
+                }
+                (
+                    Some(VersioningOverride::AutoUpgrade),
+                    Some(versioning_override::Override::AutoUpgrade(true)),
+                ) => {}
+                (
+                    Some(VersioningOverride::OneTime(version)),
+                    Some(versioning_override::Override::OneTime(one_time)),
+                ) => {
+                    let actual = one_time
+                        .target_deployment_version
+                        .expect("one-time version");
+                    assert_eq!(actual.deployment_name, version.deployment_name);
+                    assert_eq!(actual.build_id, version.build_id);
+                }
+                values => panic!("unexpected override mapping: {values:?}"),
+            }
+        }
+    }
 
     #[test]
     fn activity_cancellation_default_preserves_sdk_behavior() {

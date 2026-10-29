@@ -81,6 +81,8 @@ db-cleanup = [
 pi = [
     "playwright==1.58.0",
     "vncdotool==1.4.2",
+    # mint token reads an emailed sign-in code from the mail-* item's inbox (mail_code)
+    "onepassword-sdk==0.4.1",
 ]
 
 [build-system]

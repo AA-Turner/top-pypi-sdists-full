@@ -25,6 +25,7 @@ from .budget import MIN_TOKENS as _MIN_TOKEN_BUDGET
 from .budget import MAX_TOKENS as _MAX_TOKEN_BUDGET
 from .budget import Budget, count_tokens, serialize
 from .contract import (
+    DOCS_QUERY_MAX_CHARS,
     BackendCorpus,
     BackendRetrieval,
     BackendSearchState,
@@ -32,6 +33,7 @@ from .contract import (
     Channel,
     ChannelError,
     CollapseMode,
+    DocsState,
     EntityType,
     EnvelopeState,
     MatchMode,
@@ -44,6 +46,7 @@ from .contract import (
     VIEW_PURPOSE,
     View,
     WebState,
+    is_docs_only,
 )
 from .continuation import ContinuationError
 from .continuation import encode as _encode_delivery_cursor
@@ -88,6 +91,15 @@ _SEARCH_IN_TO_BACKEND: dict[str, set[BackendCorpus]] = {
     # for the experiments union it removed.
     ToolCorpus.PAPERS: {BackendCorpus.PAPERS},
 }
+
+#: `search_in` values POST /v1/search does not search, so they have no row above.
+#: `docs` is Probe's own documentation, answered by `GET /public/v1/docs`. It is
+#: split off in `ResearchReadService.search` BEFORE `_map_search_in`, which would
+#: read a lone `["docs"]` as an unrecognized value (the experiments-only floor)
+#: and a list stripped to `[]` as EVERY corpus -- team hits wearing a success
+#: envelope either way. tests/test_mcp_schema_docs.py carves out exactly this set
+#: from "every ToolCorpus value has a backend mapping".
+NON_BACKEND_CORPORA = frozenset({ToolCorpus.DOCS})
 
 # The knowledge-side values (every one except experiments). Drives the kb_values
 # missing-marker; carries no "always searched" implication for experiments.
@@ -972,6 +984,132 @@ def _budget_for(
     return min(_MAX_TOKEN_BUDGET, -(-whole // 100) * 100)
 
 
+# -- search_in=["docs"]: Probe's own docs --------------------------------------
+#
+# Not the team's record, so not POST /v1/search: `GET /public/v1/docs` answers
+# with whole `##` sections, best first, and this side packs them into the
+# caller's `token_budget` with the real tokenizer. A section is the unit of an
+# answer, so it arrives whole or visibly cut (`truncated`, `retry_with`), never
+# silently shortened; and the best one always arrives, because a docs search that
+# returns nothing for budget reasons costs a second call to learn why.
+
+#: The most docs sections one search asks for: `top_k` caps them, and this caps
+#: `top_k` at what `GET /public/v1/docs` accepts (`limit` 1..20); more would be a
+#: 422 that reads as "docs could not be read".
+_DOCS_SECTION_CAP = 20
+
+_DOCS_UNAVAILABLE_NOTE = "Probe's docs could not be read right now."
+_DOCS_STALE_NOTE = (
+    "Probe's docs site could not be read just now: these sections are from the last good copy."
+)
+_DOCS_QUERY_NOTE = (
+    f"Probe's docs were not searched: they take a query of 1 to {DOCS_QUERY_MAX_CHARS} characters."
+)
+
+
+def _docs_query_problem(query: str) -> str | None:
+    """Why the docs route would refuse this query (it answers 422), or None."""
+    if not query.strip():
+        return 'search_in=["docs"] needs a query: name the feature, command or error to look up'
+    if len(query) > DOCS_QUERY_MAX_CHARS:
+        return (
+            f'search_in=["docs"] takes a query of at most {DOCS_QUERY_MAX_CHARS} characters '
+            f"(this one has {len(query)}): name the feature, command or error, not the whole question"
+        )
+    return None
+
+
+def _docs_hit(section: dict, position: int, text: str, *, retry_with: dict | None = None) -> dict:
+    """One docs section as a search hit: a terminal `document` whose card is the
+    section. `retry_with` marks a cut one with the search that carries it whole."""
+    page = str(section.get("page") or "").strip()
+    heading = str(section.get("heading") or "").strip()
+    title = f"{page} — {heading}" if page and heading and heading != page else page or heading
+    card = {"title": title, "snippet": text}
+    url = section.get("url")
+    if isinstance(url, str) and url:
+        card["source_url"] = url
+    rank = section.get("rank")
+    if not isinstance(rank, int) or isinstance(rank, bool) or rank < 0:
+        rank = position
+    hit: dict[str, Any] = {
+        "entity_type": EntityType.DOCUMENT,
+        "card": card,
+        # The repo's rank convention: ordinal, never a similarity.
+        "why_matched": {"score": max(0.0, round(1.0 - 0.01 * rank, 2))},
+        "truncated": retry_with is not None,
+    }
+    if retry_with is not None:
+        hit["retry_with"] = retry_with
+    return hit
+
+
+def _docs_budget_hint(tokens: int) -> int:
+    """`tokens` as a `token_budget` to pass back: rounded UP to the next hundred
+    (as `_budget_for`), within the tool's range."""
+    return max(_MIN_TOKEN_BUDGET, min(_MAX_TOKEN_BUDGET, -(-tokens // 100) * 100))
+
+
+def _docs_more_note(left_out: int) -> str:
+    """A mixed search's line for the docs sections its half of the budget left out."""
+    sections = "section" if left_out == 1 else "sections"
+    return (
+        f"{left_out} more Probe docs {sections} matched; "
+        'search with search_in=["docs"] alone to read them.'
+    )
+
+
+def _largest(high: int, ok: Callable[[int], bool]) -> int:
+    """The largest n in 1..high for which `ok(n)`, by binary search; 0 if none.
+    Only an n that passed is returned, so the caller keeps nothing unmeasured."""
+    low, kept = 1, 0
+    while low <= high:
+        mid = (low + high) // 2
+        if ok(mid):
+            kept, low = mid, mid + 1
+        else:
+            high = mid - 1
+    return kept
+
+
+def _pack_docs(
+    sections: list[dict],
+    fits: Callable[[list[dict]], bool],
+    retry: Callable[[list[dict]], dict],
+) -> list[dict]:
+    """Docs sections as hits, WHOLE and best first, as many as `fits` admits.
+
+    The first section that does not fit whole is cut at a paragraph boundary to
+    the space left, marked `truncated`, and given `retry_with`: the search at
+    which it arrives whole (`retry`, given the hits up to it, it whole); nothing
+    after it is shown. The best section is never dropped: if not even its first
+    paragraph fits, it is cut mid-paragraph instead."""
+    hits: list[dict] = []
+    for position, section in enumerate(sections):
+        text = section["text"]
+        whole = _docs_hit(section, position, text)
+        if fits([*hits, whole]):
+            hits.append(whole)
+            continue
+        retry_with = retry([*hits, whole])
+
+        def cut(snippet: str, section: dict = section, position: int = position) -> dict:
+            return _docs_hit(section, position, snippet, retry_with=retry_with)
+
+        paragraphs = text.split("\n\n")
+        # `len(paragraphs)` of them is the whole section, which did not fit.
+        kept = _largest(
+            len(paragraphs) - 1, lambda n: fits([*hits, cut("\n\n".join(paragraphs[:n]))])
+        )
+        if kept:
+            hits.append(cut("\n\n".join(paragraphs[:kept])))
+        elif not hits:
+            end = _largest(len(text) - 1, lambda n: fits([cut(text[:n])]))
+            hits.append(cut(text[:end]))
+        break
+    return hits
+
+
 def _fit(rows: list, budget: int) -> list:
     """Select a source-page row window using a cheap size estimate.
 
@@ -1327,6 +1465,15 @@ def _entity_projection(kind: str, entity: dict, *, card: bool, document: bool = 
             if key in entity and not (entity[key] is None and key in _UNKNOWN_COUNT_FIELDS)
         }
     )
+    if kind == EntityType.PROJECT:
+        # Projects are flat (retire subprojects): what a project is part of
+        # rides the card as `part_of` and its parts as `parts` (names and ids,
+        # `_card_part_of`), so the server's compatibility fields are not shown
+        # under the old tree's names -- no `parent_project_id` (one projected
+        # link of many), and the count of its parts as `part_count`.
+        out.pop("parent_project_id", None)
+        if "subproject_count" in out:
+            out["part_count"] = out.pop("subproject_count")
     if kind == EntityType.EXPERIMENT:
         _card_fork(out, entity)
     _card_text(out, entity, "description", _CARD_DESCRIPTION_CHARS)
@@ -2061,6 +2208,27 @@ def _annotate(node: dict, kind: str, *, api_base_url: str | None = None) -> dict
 #: orientation read, so it names a few and states the count; `view="card"` is
 #: not where a 200-edge graph gets enumerated.
 _CARD_REFERENCE_SLUGS = 10
+
+
+def _card_part_of(payload: dict, entity: dict) -> None:
+    """`part_of` (what this project is a part of: its outgoing `part_of_links`)
+    and `parts` (the projects that are a part of it: incoming), each only when
+    it has any. Capped like the references; the count stays exact."""
+    links = entity.get("part_of_links") or []
+    for key, direction in (("part_of", "outgoing"), ("parts", "incoming")):
+        rows = [
+            {"id": link.get("project_id"), "name": link.get("project_name") or link.get("project_slug")}
+            for link in links
+            if link.get("direction") == direction
+        ]
+        if not rows:
+            continue
+        block: dict = {"projects": rows[:_CARD_REFERENCE_SLUGS]}
+        if len(rows) > _CARD_REFERENCE_SLUGS:
+            block["count"] = len(rows)
+        payload[key] = block
+    if entity.get("part_of_links_truncated"):
+        payload["part_of_links_truncated"] = True
 
 
 class ResearchReadService:
@@ -3485,6 +3653,17 @@ class ResearchReadService:
             )
         # Read before `semantic` is rebound to the response section below.
         keyword = not semantic
+        # Probe's docs are not the team's record and POST /v1/search does not
+        # hold them, so they split off HERE, before `_map_search_in` (see
+        # NON_BACKEND_CORPORA). Docs alone never reach the team search; mixed,
+        # the team corpora are searched as ever and the docs ride beside them.
+        if is_docs_only(search_in):
+            return self._search_docs_only(
+                query, top_k=top_k, token_budget=token_budget, verbose=verbose, cursor=cursor
+            )
+        docs_asked = bool(search_in) and any(v in NON_BACKEND_CORPORA for v in search_in)
+        if docs_asked:
+            search_in = [v for v in search_in if v not in NON_BACKEND_CORPORA]
         corpus, unsupported = _map_search_in(search_in)
         exact_cursor, semantic_cursor = _split_cursor(cursor)
         if keyword and semantic_cursor is not None:
@@ -3679,6 +3858,25 @@ class ResearchReadService:
             # fires only if that changes.
             missing.append(MissingMarker.TRUNCATED_BY_RESPONSE_BUDGET)
         backend_ok = isinstance(response, dict) and response.get("state") == BackendSearchState.OK
+        # CLAMPED, not validated. The tool surface already constrains this
+        # (ge=512, le=8000); this method is also callable straight from
+        # Python, where nothing does -- and the graceful answer to "600000"
+        # is the biggest legal budget, not a traceback from a constructor.
+        budget = Budget(max(_MIN_TOKEN_BUDGET, min(int(token_budget), _MAX_TOKEN_BUDGET)))
+        # Docs beside the team's results: the FIRST page only (a cursor page
+        # continues the team's channels, which the docs list is not part of), in
+        # at most half the budget. Measured inside `_payload`, so the team's
+        # cards get whatever the docs leave.
+        docs_hits: list[dict] | None = None
+        docs_note: str | None = None
+        if docs_asked and not cursor:
+            docs_hits, docs_note, docs_read, docs_left_out = self._docs_beside_team(
+                query, top_k, budget, verbose=verbose
+            )
+            if not docs_read:
+                missing.append(MissingMarker.DOCS)
+            if docs_left_out:
+                missing.append(MissingMarker.RESULTS_BEYOND_BUDGET)
 
         def _payload(rows: list[dict], budget_note: dict | None) -> dict:
             data: dict[str, Any] = {
@@ -3734,6 +3932,10 @@ class ResearchReadService:
                 # `search_in` omitted asks for EVERY corpus (`_map_search_in`),
                 # transcripts included, so the silence would be the same.
                 data["note"] = _TRANSCRIPTS_NOT_PROJECT_SCOPED
+            if docs_hits is not None:
+                data["docs"] = docs_hits
+                if docs_note:
+                    data["docs_note"] = docs_note
             if budget_note:
                 data["budget"] = budget_note
             # The view vocabulary, for the hits an agent can actually open.
@@ -3781,16 +3983,130 @@ class ResearchReadService:
                 verbose=verbose,
             )
 
-        return _fit_whole_results(
-            results,
-            _payload,
-            # CLAMPED, not validated. The tool surface already constrains this
-            # (ge=512, le=8000); this method is also callable straight from
-            # Python, where nothing does -- and the graceful answer to "600000"
-            # is the biggest legal budget, not a traceback from a constructor.
-            Budget(max(_MIN_TOKEN_BUDGET, min(int(token_budget), _MAX_TOKEN_BUDGET))),
-            available=fetched,
+        # Mixed, the team's budget hints (`fits_all_at_token_budget`,
+        # `min_token_budget`) are measured with the docs list as packed at THIS
+        # budget's half share, not at the budget they name.
+        return _fit_whole_results(results, _payload, budget, available=fetched)
+
+    def _read_docs(self, query: str, top_k: int) -> tuple[list[dict], str | None, bool]:
+        """Probe's docs sections for `query` (best first, at most `top_k`), the note
+        the response carries about them (None when they answered fresh), and
+        whether they were read at all.
+
+        The docs being down is a NOTE, never an exception: a mixed search keeps
+        its team results, and a docs-only one says what happened instead of
+        failing the call."""
+        limit = max(1, min(int(top_k), _DOCS_SECTION_CAP))
+        try:
+            response = self.source.docs(query, limit=limit)
+        except (errors.RosError, ValueError):
+            # ValueError: a 2xx whose body is not JSON (an ingress page).
+            return [], _DOCS_UNAVAILABLE_NOTE, False
+        state = response.get("state") if isinstance(response, dict) else None
+        if state not in (DocsState.OK, DocsState.STALE):
+            # `unavailable` (no copy yet), or a body this side cannot read.
+            return [], _DOCS_UNAVAILABLE_NOTE, False
+        raw = response.get("sections")
+        sections = [
+            section
+            for section in (raw if isinstance(raw, list) else [])
+            if isinstance(section, dict) and isinstance(section.get("text"), str)
+        ]
+        return sections[:limit], (_DOCS_STALE_NOTE if state == DocsState.STALE else None), True
+
+    def _search_docs_only(
+        self, query: str, *, top_k: int, token_budget: int, verbose: bool, cursor: str | None
+    ) -> dict:
+        """`search_in=["docs"]`: Probe's docs alone, in the whole `token_budget`.
+
+        No team search runs, so the team-search arguments (`project_id`,
+        `workspace_id`, `collapse`, `semantic`, `exclude_session`) have nothing
+        to apply to. One page: a cut section names the budget that carries it
+        whole (`retry_with`), which is the way to read on."""
+        if cursor:
+            raise errors.ValidationError(
+                'search_in=["docs"] answers in one page and returns no cursor: to read '
+                "more, repeat it with a larger token_budget (a cut hit names one in retry_with)",
+                status=422,
+            )
+        problem = _docs_query_problem(query)
+        if problem is not None:
+            raise errors.ValidationError(problem, status=422)
+        sections, note, read = self._read_docs(query, top_k)
+        budget = Budget(max(_MIN_TOKEN_BUDGET, min(int(token_budget), _MAX_TOKEN_BUDGET)))
+        build = self._docs_only_builder(query, sections, note, read, verbose=verbose)
+        hits = _pack_docs(
+            sections,
+            lambda hits: budget.fits(build(hits)),
+            lambda hits: {"token_budget": _docs_budget_hint(_budget_cost(build(hits)))},
         )
+        return build(hits)
+
+    def _docs_only_builder(
+        self, query: str, sections: list[dict], note: str | None, read: bool, *, verbose: bool
+    ) -> Callable[[list[dict]], dict]:
+        """The `search_in=["docs"]` envelope around some hits of `sections`. Left-out
+        sections are counted, with the budget that carries them all when one does
+        (measured once, when first needed)."""
+        fits_all: list[int | None] = []
+
+        def build(hits: list[dict]) -> dict:
+            data: dict[str, Any] = {"query": query, "results": hits}
+            if note:
+                data["note"] = note
+            missing = [] if read else [MissingMarker.DOCS]
+            if len(hits) < len(sections):
+                data["budget"] = {"results_available": len(sections)}
+                if not fits_all:
+                    whole = [_docs_hit(s, i, s["text"]) for i, s in enumerate(sections)]
+                    needed = -(-_budget_cost(build(whole)) // 100) * 100
+                    fits_all.append(needed if needed <= _MAX_TOKEN_BUDGET else None)
+                if fits_all[0] is not None:
+                    data["budget"]["fits_all_at_token_budget"] = fits_all[0]
+            if len(hits) < len(sections) or any(hit["truncated"] for hit in hits):
+                missing.append(MissingMarker.RESULTS_BEYOND_BUDGET)
+            return self._envelope(
+                data,
+                state=EnvelopeState.PARTIAL if missing else EnvelopeState.COMPLETE,
+                missing=sorted(missing),
+                verbose=verbose,
+            )
+
+        return build
+
+    def _docs_beside_team(
+        self, query: str, top_k: int, budget: Budget, *, verbose: bool
+    ) -> tuple[list[dict], str | None, bool, bool]:
+        """The `docs` list of a mixed search, its note, whether the docs were read,
+        and whether sections were left out. At most HALF the budget, so the team's
+        results (what most of such a search is for) keep the rest. A cut hit's
+        `retry_with` is the budget whose half carries it whole or, past the
+        ceiling, the docs-only search that does."""
+        if _docs_query_problem(query) is not None:
+            return [], _DOCS_QUERY_NOTE, False, False
+        sections, note, read = self._read_docs(query, top_k)
+        share = budget.token_budget // 2
+        docs_only = self._docs_only_builder(query, sections, note, read, verbose=verbose)
+
+        def retry(hits: list[dict]) -> dict:
+            mixed = 2 * _budget_cost({"docs": hits})
+            if mixed <= _MAX_TOKEN_BUDGET:
+                return {"token_budget": _docs_budget_hint(mixed)}
+            return {
+                "search_in": [ToolCorpus.DOCS.value],
+                "token_budget": _docs_budget_hint(_budget_cost(docs_only(hits))),
+            }
+
+        hits = _pack_docs(
+            sections,
+            lambda hits: budget.fits({"docs": hits}, reserve=budget.token_budget - share),
+            retry,
+        )
+        left_out = len(sections) - len(hits)
+        if left_out:
+            more = _docs_more_note(left_out)
+            note = f"{note} {more}" if note else more
+        return hits, note, read, left_out > 0
 
     def _checked_view(self, kind: str, view: str) -> str:
         """The view must EXIST for this kind. Rejecting loudly beats the old
@@ -4491,8 +4807,8 @@ class ResearchReadService:
             payload["code"] = code
         # 0159: who worked on this, off the already-fetched detail row, so it
         # costs no request. NAMES, because a uuid answers nobody's question.
-        # `via` names the subproject when the work was done below this project;
-        # its absence means they worked here.
+        # `via` names the project the work was done in when it was not this
+        # one; its absence means they worked here.
         contributors = entity.get("contributors") or []
         if contributors:
             payload["contributors"] = [
@@ -4536,6 +4852,13 @@ class ResearchReadService:
                 payload[key] = block
             if entity.get("references_truncated"):
                 payload["references_truncated"] = True
+        # 0401: projects are flat, and a phase of a bigger effort is its own
+        # project linked `part_of` it. The detail read serves those links
+        # apart from `references` (`part_of_links`). One hop each way, NAMES
+        # AND IDS: a recorder writing the page of a bigger effort reads its
+        # parts from here (`entity` on each id), and a part's page names the
+        # effort it belongs to.
+        _card_part_of(payload, entity)
         return _ViewData(payload=payload) if payload else _ViewData()
 
     def _view_project_notes(self, entity: dict, request: _Req) -> _ViewData:
@@ -5161,7 +5484,7 @@ class ResearchReadService:
         a fact never reads like a guess. On an experiment, `run_edges` is the
         graph AMONG its runs and files (`GET /v1/projects/{P}/experiments/{E}/edges`,
         stored edges first), and the read is the experiment API's
-        (`.../experiments/{E}/lineage`). The ROWS are its children (sub-projects and experiments,
+        (`.../experiments/{E}/lineage`). The ROWS are its children (its experiments,
         groups, runs filed directly under it), each with its own origin, which
         is what connects the graph.
 

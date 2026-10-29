@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING
 # --- shared: one of each, whatever the mode -------------------------------------
 from testmu._configure import configure
 from testmu._step import step
+from testmu._fill import fill
 from testmu._errors import TestmuConfigError, AutohealExhausted, LoopExhausted
 # Classes identical in every mode: the real class, not routed.
 from testmu._condition_enums import ConcatenationOperator, PossibleCondition
@@ -130,6 +131,7 @@ __all__ = [
     "clipboardClear",
     "devtoolsClipboardQuery",
     "as_text",
+    "fill",
     # Version-gated public API (additive — only active when kane_version == "v3")
     "scroll_until_element",
     "locator",

@@ -53,6 +53,17 @@ def _manifest() -> dict:
     return json.loads(_MANIFEST.read_text(encoding="utf-8"))
 
 
+def test_bundled_command_index_matches_cli_source() -> None:
+    """A CLI edit must not publish an index that the daemon has to rebuild."""
+    from probe.daemon import cli_spec
+
+    spec = json.loads(cli_spec.SPEC_PATH.read_text(encoding="utf-8"))
+    assert spec.get("cli_source") == cli_spec.source_sha(), (
+        "The bundled command index is stale. From agent/, run "
+        "`python -m probe.daemon.cli_spec --write` before releasing."
+    )
+
+
 def test_manifest_plugin_latest_matches_plugin_json() -> None:
     advertised = _manifest()["plugin"]["latest"]
     actual = json.loads(_PLUGIN_JSON.read_text(encoding="utf-8"))["version"]

@@ -21,7 +21,7 @@ class MeetingOut(UniversalBaseModel):
 
     artifacts: typing.Optional[MeetingArtifactsOut] = pydantic.Field(default=None)
     """
-    Downloadable artifacts (recording, transcripts, chat)
+    Deprecated: legacy artifact asset IDs, always null. Download artifacts through the meeting download endpoint
     """
 
     created_at: dt.datetime = pydantic.Field()

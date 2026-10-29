@@ -1,21 +1,26 @@
-from typing import Literal
+__lazy_modules__ = ["django.utils.functional"]
+
+from typing import TYPE_CHECKING, Literal
 from uuid import uuid4
 
-from django.utils.functional import Promise
 from solo.models import SingletonModel
 
 from django.db import models
+from django.utils.functional import Promise
 from django.utils.translation import gettext_lazy as _
+
+if TYPE_CHECKING:
+    from django.utils.functional import Promise
 
 
 class AnalyticsIdentifier(SingletonModel):
 
     identifier = models.UUIDField(default=uuid4, editable=False)
 
-    def __str__(self) -> str | Promise | Literal["Analytics Identifier"]:
+    def __str__(self) -> str | Promise | Literal["Analytics Identifier"]: # pyright: ignore[reportIncompatibleMethodOverride]
         return _("Analytics Identifier")
 
-    class Meta:
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
         verbose_name = _("analytics identifier")
 
 

@@ -1,5 +1,13 @@
 /**
- * clib_common.h — common C99 types and performance macros for doppler.
+ * @file clib_common.h
+ * @brief Common C99 types and performance macros for doppler.
+ *
+ * The header every component includes first: the C99 standard headers
+ * and the complex-math surface (dp_complex.h), the doppler-wide DP_OK /
+ * DP_ERR_* return codes, DP_NODISCARD, the jm performance annotations
+ * (jm_perf.h), the abort-on-OOM allocators for trusted internal
+ * allocations, and a few inline numeric helpers shared library-wide
+ * (FFT bin frequencies, a sign-safe fmod, a reentrant lgamma).
  */
 #ifndef DOPPLER_CLIB_COMMON_H
 #define DOPPLER_CLIB_COMMON_H
@@ -11,9 +19,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* CMPLXF is C11 but missing on MinGW/ucrt64.  __builtin_complex is
+/** CMPLXF is C11 but missing on MinGW/ucrt64.  __builtin_complex is
  * the GCC-portable way to construct a complex value without relying
- * on _Complex_I (which can propagate NaN in some implementations). */
+ * on _Complex_I (which can propagate NaN in some implementations).
+ * Defined only where the C library does not already provide it.
+ *
+ * @param r  Real part, converted to float.
+ * @param i  Imaginary part, converted to float. */
 #ifndef CMPLXF
 #  define CMPLXF(r, i) __builtin_complex ((float)(r), (float)(i))
 #endif
@@ -126,6 +138,25 @@ static inline void *
 dp_xrealloc (void *p, size_t n)
 {
   return dp_xnn (realloc (p, n));
+}
+
+/**
+ * @brief Whether @p x is a positive, finite number.
+ *
+ * The domain of a scale or gain that a constructor stores and later
+ * divides by or multiplies with: zero, a negative, NaN and either infinity
+ * are all refused. Spelled once here so every converter's create() refuses
+ * the same set; `x <= 0` alone lets NaN through (every comparison with NaN
+ * is false) and lets +inf through, which then maps every input to a full
+ * scale or to zero.
+ *
+ * @param x  The value to test.
+ * @return 1 when `0 < x < inf`, else 0.
+ */
+static inline int
+dp_positive_finite (double x)
+{
+  return isfinite (x) && x > 0.0;
 }
 
 /**

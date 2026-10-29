@@ -3,19 +3,30 @@
 from __future__ import annotations
 
 import typing
-import warnings
+
+from urwid import _deprecation
 
 from .attr_map import AttrMap
 
 if typing.TYPE_CHECKING:
     from collections.abc import Hashable, Mapping
 
+    # Imported by name for type checkers, see urwid._deprecation.
+    from typing_extensions import deprecated
+
     from .constants import Sizing
     from .widget import AbstractWidget
+else:
+    from urwid._deprecation import deprecated
 
 WrappedWidget = typing.TypeVar("WrappedWidget", bound="AbstractWidget")
 
 
+@deprecated(
+    "AttrWrap is maintained for backwards compatibility only, new code should use AttrMap instead. "
+    "Deprecated since urwid 0.9.9, will be removed in version 7.0.",
+    category=None,
+)
 class AttrWrap(AttrMap[WrappedWidget]):
     """A special case of the :class:`AttrMap` widget.
 
@@ -23,6 +34,7 @@ class AttrWrap(AttrMap[WrappedWidget]):
 
     .. deprecated:: 0.9.9
         Maintained for backwards compatibility only, new code should use :class:`AttrMap` instead.
+        This API will be removed in version 7.0.
     """
 
     def __init__(
@@ -39,6 +51,7 @@ class AttrWrap(AttrMap[WrappedWidget]):
 
         .. deprecated:: 0.9.9
             Maintained for backwards compatibility only, new code should use :class:`AttrMap` instead.
+            This API will be removed in version 7.0.
 
         >>> from urwid import Divider, Edit, Text
         >>> AttrWrap(Divider("!"), "bright")
@@ -52,11 +65,10 @@ class AttrWrap(AttrMap[WrappedWidget]):
         >>> next(aw.render(size, focus=True).content())
         [('fgreet', None, ...'hi   ')]
         """
-        warnings.warn(
-            "AttrWrap is maintained for backwards compatibility only, new code should use AttrMap instead. "
-            "API will be removed in version 6.0.",
-            PendingDeprecationWarning,
-            stacklevel=2,
+        _deprecation.warn(
+            "AttrWrap is maintained for backwards compatibility only, new code should use AttrMap instead.",
+            since="0.9.9",
+            removed_in="7.0",
         )
         super().__init__(w, attr, focus_attr)
 
@@ -68,38 +80,6 @@ class AttrWrap(AttrMap[WrappedWidget]):
         if self.focus_attr is not None:
             d["focus_attr"] = self.focus_attr
         return d
-
-    @property
-    def w(self) -> WrappedWidget:
-        """
-        The wrapped widget.
-
-        .. deprecated:: 0.9.9
-            The widget used to be stored as ``w``. Use :attr:`original_widget` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "backwards compatibility, widget used to be stored as original_widget. API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.original_widget
-
-    @w.setter
-    def w(self, new_widget: WrappedWidget) -> None:
-        """
-        Replace the wrapped widget.
-
-        .. deprecated:: 0.9.9
-            The widget used to be stored as ``w``. Use :attr:`original_widget` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "backwards compatibility, widget used to be stored as original_widget. API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.original_widget = new_widget
 
     def get_attr(self) -> Hashable:
         """Return the attribute applied to the wrapped widget."""

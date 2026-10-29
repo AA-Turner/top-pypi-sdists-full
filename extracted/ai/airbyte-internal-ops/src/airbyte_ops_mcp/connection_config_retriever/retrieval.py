@@ -13,13 +13,17 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 
 import requests
 import sqlalchemy
 from google.cloud import secretmanager
 
 from airbyte_ops_mcp.connection_config_retriever.audit_logging import audit
+from airbyte_ops_mcp.connection_config_retriever.residency import (
+    EU_RUNNER_REQUIRED_MESSAGE,
+    is_running_on_eu_runner,
+)
 from airbyte_ops_mcp.connection_config_retriever.secrets_resolution import (
     get_resolved_config,
 )
@@ -51,10 +55,47 @@ SELECT_ON_CONNECTION_NOT_EU = sqlalchemy.text(
     """
 )
 
+SELECT_ON_CONNECTION = sqlalchemy.text(
+    """
+    SELECT
+        source_id,
+        destination_id,
+        source_catalog_id,
+        catalog
+    FROM
+        connection
+    JOIN
+        actor ON connection.source_id = actor.id
+    JOIN
+        workspace ON actor.workspace_id = workspace.id
+    JOIN
+        dataplane_group ON workspace.dataplane_group_id = dataplane_group.id
+    WHERE
+        connection.id = :connection_id
+    """
+)
+
 SELECT_ON_CONNECTION_DATAPLANE_GROUP_IS_EU = sqlalchemy.text(
     """
     SELECT
         CASE WHEN dataplane_group.name = 'EU' THEN TRUE ELSE FALSE END AS is_eu
+    FROM
+        connection
+    JOIN
+        actor ON connection.source_id = actor.id
+    JOIN
+        workspace ON actor.workspace_id = workspace.id
+    JOIN
+        dataplane_group ON workspace.dataplane_group_id = dataplane_group.id
+    WHERE
+        connection.id = :connection_id
+    """
+)
+
+SELECT_ON_CONNECTION_DATAPLANE_GROUP_NAME = sqlalchemy.text(
+    """
+    SELECT
+        dataplane_group.name
     FROM
         connection
     JOIN
@@ -155,10 +196,16 @@ class ConnectionNotFoundError(Exception):
 def get_connection(
     connection_id: str,
     db_conn: sqlalchemy.Connection,
+    is_eu_connection: bool = False,
 ) -> Mapping | None:
     """Get connection details from the database."""
+    query = (
+        SELECT_ON_CONNECTION
+        if is_eu_connection and is_running_on_eu_runner()
+        else SELECT_ON_CONNECTION_NOT_EU
+    )
     connection_result = db_conn.execute(
-        SELECT_ON_CONNECTION_NOT_EU, parameters={"connection_id": connection_id}
+        query, parameters={"connection_id": connection_id}
     ).first()
     if connection_result is None:
         raise ValueError(f"Could not find connection {connection_id}.")
@@ -320,12 +367,12 @@ def retrieve_objects(
                 raise ConnectionNotFoundError(
                     f"Credentials were not found for connection ID {candidate.connection_id}."
                 )
-            elif is_eu_result[0] is True:
+            is_eu_connection = is_eu_result[0] is True
+            if is_eu_connection and not is_running_on_eu_runner():
                 connection_candidates.remove(candidate)
                 LOGGER.warning(
-                    f"Credential retrieval not permitted; the data residency for "
-                    f"connection ID {candidate.connection_id} is within the EU. "
-                    f"Candidate will be removed from the list"
+                    f"{EU_RUNNER_REQUIRED_MESSAGE}; connection ID "
+                    f"{candidate.connection_id} was removed from candidates."
                 )
                 continue
 
@@ -337,6 +384,7 @@ def retrieve_objects(
                         retrieval_reason,
                         db_conn,
                         secret_manager_client,
+                        is_eu_connection=is_eu_connection,
                     )
                     for connection_object in connection_objects
                 }
@@ -351,12 +399,18 @@ def retrieve_object(
     retrieval_reason: str,
     db_conn: sqlalchemy.Connection,
     secret_manager_client: secretmanager.SecretManagerServiceClient,
+    is_eu_connection: bool = False,
 ) -> Mapping | list[Mapping] | str | None:
     """Retrieve a single connection object."""
     retrieval_metadata = RetrievalMetadata(
         connection_id, connection_object, retrieval_reason
     )
-    connection = get_connection(retrieval_metadata, connection_id, db_conn)
+    connection = get_connection(
+        retrieval_metadata,
+        connection_id,
+        db_conn,
+        is_eu_connection=is_eu_connection,
+    )
 
     if connection_object == ConnectionObject.SOURCE_ID:
         return connection["source_id"]
@@ -376,3 +430,55 @@ def retrieve_object(
             f"Connection object {connection_object} not implemented in vendored version. "
             f"Only SOURCE_CONFIG, SOURCE_ID, DESTINATION_ID, and CONFIGURED_CATALOG are supported."
         )
+
+
+def get_connection_dataplane_group(connection_id: str) -> str:
+    """Get the name of the connection's dataplane group.
+
+    The query does not filter out tombstoned connections, actors or workspaces,
+    so a deleted EU connection still reads as EU and fails closed.
+
+    Raises:
+        ConnectionNotFoundError: No connection has this ID.
+        ValueError: The connection ID is not a UUID, or the dataplane group
+            name is empty or NULL, so residency cannot be decided.
+    """
+    try:
+        uuid.UUID(connection_id)
+    except ValueError:
+        raise ValueError(
+            f"Connection ID '{connection_id}' is not a valid UUID."
+        ) from None
+
+    secret_manager_client = get_secret_manager_client()
+    connection_pool = get_pool(secret_manager_client)
+
+    with connection_pool.connect() as db_conn:
+        result = db_conn.execute(
+            SELECT_ON_CONNECTION_DATAPLANE_GROUP_NAME,
+            parameters={"connection_id": connection_id},
+        ).first()
+
+    if result is None:
+        raise ConnectionNotFoundError(f"Connection {connection_id} was not found.")
+    dataplane_group = result[0]
+    if not dataplane_group or not dataplane_group.strip():
+        raise ValueError(
+            f"Connection {connection_id} has no dataplane group name, "
+            "so its residency cannot be decided."
+        )
+    return dataplane_group
+
+
+def residency_for_dataplane_group(name: str) -> Literal["eu", "us"]:
+    """Map the EU dataplane group to EU residency and all others to US."""
+    return "eu" if name == "EU" else "us"
+
+
+def get_connection_residency(connection_id: str) -> Literal["eu", "us"]:
+    """Get a connection's data residency, `"eu"` or `"us"`.
+
+    The one place that decides residency for a connection ID. It raises the
+    errors of `get_connection_dataplane_group` rather than guessing a residency.
+    """
+    return residency_for_dataplane_group(get_connection_dataplane_group(connection_id))

@@ -1,5 +1,7 @@
+use std::time::Duration;
+
 use super::super::common::MockProcesses;
-use super::{execute, execute_with, render_site, text};
+use super::{PackageSite, execute, execute_with, render_site, text};
 use _pipdeptree::{ProcessError, ProcessOutput};
 use rstest::rstest;
 
@@ -86,6 +88,13 @@ fn limits_graphviz_to_roots_at_depth_zero() {
     b"",
     "graphviz is not available: command not found\n"
 )]
+#[case::timed_out(
+    "png",
+    Err(ProcessError::TimedOut),
+    1,
+    b"",
+    "graphviz did not finish within 300 seconds; use graphviz-dot and run dot on its output\n"
+)]
 fn pipes_graphviz_formats(
     #[case] format: &str,
     #[case] result: Result<ProcessOutput, ProcessError>,
@@ -102,6 +111,7 @@ fn pipes_graphviz_formats(
             request.program == "dot"
                 && request.args == [graphviz_arg.as_str()]
                 && request.stdin.starts_with(b"digraph {\n")
+                && request.timeout == Some(Duration::from_secs(300))
         })
         .return_once(move |_| result);
 
@@ -157,4 +167,35 @@ fn keeps_parentheses_in_graph_labels() {
         ),
         (true, true)
     );
+}
+
+#[test]
+fn replaces_nul_in_graphviz_labels() {
+    let site = PackageSite::new();
+    site.write(
+        "hostile-1.dist-info",
+        "Name: hostile\nVersion: 1.0\x00\" image=<private.png>] //\n",
+    );
+
+    let output = execute(&site, &["--output", "graphviz-dot"]);
+
+    assert!(
+        text(&output)
+            .contains("hostile [label=\"hostile\\n1.0\u{fffd}\\\" image=<private.png>] //\"]")
+    );
+}
+
+#[rstest]
+#[case::quote_after_backslash("1\\\" color=red] //", "1\\\\\\\" color=red] //")]
+#[case::trailing_backslash("1\\", "1\\\\")]
+fn escapes_backslashes_in_graphviz_labels(#[case] version: &str, #[case] escaped: &str) {
+    let site = super::PackageSite::new();
+    site.write(
+        "demo-1.dist-info",
+        &format!("Name: demo\nVersion: {version}\n"),
+    );
+
+    let dot = execute(&site, &["--graph-output", "dot"]);
+
+    assert!(text(&dot).contains(&format!("demo [label=\"demo\\n{escaped}\"]\n")));
 }

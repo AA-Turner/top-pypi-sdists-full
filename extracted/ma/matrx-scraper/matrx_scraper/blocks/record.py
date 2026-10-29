@@ -32,6 +32,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from matrx_orm import db_sqlstate
 from matrx_utils.person_sentence import person_sentence
 
 from matrx_scraper.blocks.store import BlockStore
@@ -272,5 +273,4 @@ async def _record(
 
 
 def _is_dedupe_conflict(exc: Exception) -> bool:
-    text = str(exc)
-    return "acquisition_block_dedupe_uniq" in text or "23505" in text
+    return db_sqlstate(exc) == "23505"

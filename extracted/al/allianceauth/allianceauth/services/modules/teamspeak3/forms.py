@@ -1,3 +1,5 @@
+from typing import Any
+
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
@@ -7,7 +9,7 @@ from .manager import Teamspeak3Manager
 class TeamspeakJoinForm(forms.Form):
     username = forms.CharField(widget=forms.HiddenInput())
 
-    def clean(self):
+    def clean(self) -> dict[str, Any]:
         with Teamspeak3Manager() as ts3man:
             if ts3man._get_userid(self.cleaned_data['username']):
                 return self.cleaned_data

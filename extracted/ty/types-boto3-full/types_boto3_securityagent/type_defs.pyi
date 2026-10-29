@@ -165,6 +165,8 @@ __all__ = (
     "CaCertificateSourceTypeDef",
     "CategoryTypeDef",
     "CiCdConfigurationTypeDef",
+    "ClientCertificateOutputTypeDef",
+    "ClientCertificateTypeDef",
     "CloudWatchLogTypeDef",
     "CodeLocationTypeDef",
     "CodeRemediationTaskDetailsTypeDef",
@@ -508,6 +510,11 @@ ArtifactTypeDef = TypedDict(
     },
 )
 
+class ClientCertificateOutputTypeDef(TypedDict):
+    name: str
+    secretArn: str
+    origins: list[str]
+
 class EndpointTypeDef(TypedDict):
     uri: NotRequired[str]
 
@@ -518,6 +525,11 @@ class IntegratedRepositoryTypeDef(TypedDict):
 
 class SourceCodeRepositoryTypeDef(TypedDict):
     s3Location: NotRequired[str]
+
+class ClientCertificateTypeDef(TypedDict):
+    name: str
+    secretArn: str
+    origins: Sequence[str]
 
 class AzureDevOpsIntegrationInputTypeDef(TypedDict):
     code: str
@@ -2277,6 +2289,7 @@ class AssetsOutputTypeDef(TypedDict):
     sourceCode: NotRequired[list[SourceCodeRepositoryTypeDef]]
     integratedRepositories: NotRequired[list[IntegratedRepositoryTypeDef]]
     trustedCaCertificates: NotRequired[list[TrustedCaCertificateTypeDef]]
+    clientCertificates: NotRequired[list[ClientCertificateOutputTypeDef]]
 
 class AssetsTypeDef(TypedDict):
     endpoints: NotRequired[Sequence[EndpointTypeDef]]
@@ -2285,6 +2298,7 @@ class AssetsTypeDef(TypedDict):
     sourceCode: NotRequired[Sequence[SourceCodeRepositoryTypeDef]]
     integratedRepositories: NotRequired[Sequence[IntegratedRepositoryTypeDef]]
     trustedCaCertificates: NotRequired[Sequence[TrustedCaCertificateTypeDef]]
+    clientCertificates: NotRequired[Sequence[ClientCertificateTypeDef]]
 
 class CodeReviewJobTypeDef(TypedDict):
     codeReviewJobId: NotRequired[str]
@@ -2406,6 +2420,7 @@ class PentestJobTypeDef(TypedDict):
     errorInformation: NotRequired[ErrorInformationTypeDef]
     integratedRepositories: NotRequired[list[IntegratedRepositoryTypeDef]]
     trustedCaCertificates: NotRequired[list[TrustedCaCertificateTypeDef]]
+    clientCertificates: NotRequired[list[ClientCertificateOutputTypeDef]]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     cleanUpStrategy: NotRequired[CleanUpStrategyType]
     disableManagedSkills: NotRequired[list[SkillTypeType]]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: datamodel-code-generator
-Version: 0.86.0
+Version: 0.87.0
 Summary: Datamodel Code Generator
 Project-URL: Homepage, https://github.com/datamodel-code-generator/datamodel-code-generator
 Project-URL: Source, https://github.com/datamodel-code-generator/datamodel-code-generator
@@ -35,6 +35,7 @@ Requires-Dist: typing-extensions<5,>=4.16
 Provides-Extra: all
 Requires-Dist: black>=19.10b0; (python_version < '3.15' and sys_platform != 'emscripten') and extra == 'all'
 Requires-Dist: black>=26.5; (python_version >= '3.15' and sys_platform != 'emscripten') and extra == 'all'
+Requires-Dist: certifi>=2026.10.19; extra == 'all'
 Requires-Dist: graphql-core>=3.2.3; extra == 'all'
 Requires-Dist: grpcio-tools<2,>=1.62; extra == 'all'
 Requires-Dist: httpx>=0.24.1; extra == 'all'
@@ -52,6 +53,7 @@ Requires-Dist: pysnooper<2,>=0.4.1; extra == 'debug'
 Provides-Extra: graphql
 Requires-Dist: graphql-core>=3.2.3; extra == 'graphql'
 Provides-Extra: http
+Requires-Dist: certifi>=2026.10.19; extra == 'http'
 Requires-Dist: httpx>=0.24.1; extra == 'http'
 Provides-Extra: httpx2
 Requires-Dist: httpx2<3,>=2; extra == 'httpx2'
@@ -64,6 +66,7 @@ Requires-Dist: ruff>=0.9.10; extra == 'ruff'
 Provides-Extra: ryaml
 Requires-Dist: ryaml>=0.5.1; extra == 'ryaml'
 Provides-Extra: validation
+Requires-Dist: certifi>=2026.10.19; extra == 'validation'
 Requires-Dist: openapi-spec-validator<0.8,>=0.2.8; extra == 'validation'
 Requires-Dist: prance>=0.18.2; extra == 'validation'
 Provides-Extra: watch
@@ -199,11 +202,11 @@ datamodel-codegen \
   --input schema.json \
   --input-file-type jsonschema \
   --output-model-type pydantic_v2.BaseModel \
-  --preset standard-py312-20261017 \
+  --preset standard-py312-20261027 \
   --output model.py
 ```
 
-This quick start uses `standard-py312-20261017` as the modern Python 3.12 baseline.
+This quick start uses `standard-py312-20261027` as the modern Python 3.12 baseline.
 Preset names include the target Python version: `py312` means Python 3.12.
 
 See [CLI Reference](https://datamodel-code-generator.koxudaxi.dev/cli-reference/) for all options. See [Presets](https://datamodel-code-generator.koxudaxi.dev/presets/),
@@ -211,7 +214,7 @@ See [CLI Reference](https://datamodel-code-generator.koxudaxi.dev/cli-reference/
 [`--output-model-type`](https://datamodel-code-generator.koxudaxi.dev/cli-reference/model-customization/#output-model-type) for this command.
 
 For more schema-aware output that preserves schema-authored names, reuses models, and embeds generated
-documentation, use [`practical-py312-20261017`](https://datamodel-code-generator.koxudaxi.dev/presets/#practical-py312-20261017).
+documentation, use [`practical-py312-20261027`](https://datamodel-code-generator.koxudaxi.dev/presets/#practical-py312-20261027).
 
 **Not sure which options fit your schema?** Add `--recommend-options` to the command above (experimental). It
 analyses the schema and prints the options to add on top of the latest preset with the reason for each, and a ready
@@ -437,7 +440,7 @@ datamodel-codegen \
   --input-file-type openapi \
   --openapi-scopes schemas api \
   --output-model-type pydantic_v2.BaseModel \
-  --preset standard-py312-20261017 \
+  --preset standard-py312-20261027 \
   --output app/models.py \
   --generate-server fastapi \
   --server-output app/server \
@@ -450,7 +453,7 @@ datamodel-codegen \
   --input-file-type openapi \
   --openapi-scopes schemas api \
   --output-model-type pydantic_v2.BaseModel \
-  --preset standard-py312-20261017 \
+  --preset standard-py312-20261027 \
   --output app/models.py \
   --generate-client httpx2 \
   --client-output app/client \

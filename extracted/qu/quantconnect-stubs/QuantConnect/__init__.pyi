@@ -7408,7 +7408,7 @@ class Currencies(System.Object):
         
         :param value: The value with currency
         :param parsed_value: The decimal equivalent to the string value after conversion
-        :returns: True if the value was succesfuly converted.
+        :returns: True if the value was successfully converted.
         """
         ...
 

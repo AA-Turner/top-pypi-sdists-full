@@ -234,6 +234,12 @@ void pyqt6_err_print()
 // Convert a Python argv list to a conventional C argc count and argv array.
 char **pyqt6_from_argv_list(PyObject *argv_list, int &argc)
 {
+    // Ensure monitoring is enabled.  It may have been disabled if an earlier
+    // QCoreApplication instance was destroyed.  Putting it here means we don't
+    // need to export a dedicated function for QCoreApplication sub-classes to
+    // use.
+    PyQtMonitor::enabled = true;
+
     argc = PyList_Size(argv_list);
 
     // Allocate space for two copies of the argument pointers, plus the

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = {"inspect", "numpy"}
+
 import inspect
 import sys
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypeAlias
@@ -285,6 +287,9 @@ def plot2d_full(
     # side plot
     base = side_ax.transData
     rot = transforms.Affine2D().rotate_deg(90).scale(-1, 1)
+    # Rotate the artists while preserving the count-axis tick settings.
+    side_locator = side_ax.xaxis.get_major_locator()
+    side_formatter = side_ax.xaxis.get_major_formatter()
 
     side_art = histplot(
         self.project(self.axes[1].name or 1),
@@ -292,6 +297,8 @@ def plot2d_full(
         transform=rot + base,
         **side_kwargs,
     )
+    side_ax.xaxis.set_major_locator(side_locator)
+    side_ax.xaxis.set_major_formatter(side_formatter)
 
     side_ax.spines["top"].set_visible(False)
     side_ax.spines["right"].set_visible(False)

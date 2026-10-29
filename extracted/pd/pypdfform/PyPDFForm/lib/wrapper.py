@@ -40,6 +40,7 @@ from .coordinate import generate_coordinate_grid
 from .egress import (
     appearance_streams_handler,
     rebuild_acroform_fields,
+    write_path,
 )
 from .filler import fill
 from .font import (
@@ -50,7 +51,6 @@ from .font import (
 )
 from .hooks import trigger_widget_hooks
 from .middleware.dropdown import Dropdown
-from .middleware.signature import Signature
 from .middleware.text import Text
 from .template import (
     build_widgets,
@@ -574,26 +574,26 @@ class PdfWrapper:
 
         return self._stream
 
-    def write(self, dest: str | BinaryIO) -> PdfWrapper:
+    def write(self, dest: str | bytes | PathLike | BinaryIO) -> PdfWrapper:
         """
-        Writes the PDF to a file.
+        Serialize the PDF, then write it to a path or an open binary stream.
 
-        String, bytes, and PathLike destinations are opened in binary write mode.
-        Other objects are treated as already-open writable binary streams.
+        Paths use atomic replacement after a sibling temporary file closes; failures preserve existing bytes.
+        Symlinks are followed and permission bits preserved; new files are private (0600 on POSIX).
+        Other metadata and hard links are not preserved. Stream write failures can leave partial output.
 
         Args:
-            dest (str | BinaryIO): The destination to write the PDF to.
-                Can be a file path (str) or a file-like object (BinaryIO).
+            dest (str | bytes | PathLike | BinaryIO): A regular file path or writable binary stream.
 
         Returns:
             PdfWrapper: The `PdfWrapper` object, allowing for method chaining.
         """
 
+        content = self.read()
         if isinstance(dest, (str, bytes, PathLike)):
-            with open(dest, "wb+") as f:
-                f.write(self.read())
+            write_path(dest, content)
         else:
-            dest.write(self.read())
+            dest.write(content)
 
         return self
 
@@ -664,10 +664,11 @@ class PdfWrapper:
         Fills the PDF form with data from a dictionary.
 
         Only keys that already exist in `self.widgets` are applied. Filling delegates
-        to the lower-level filler, then handles the special image/signature path by
-        drawing those values as watermarks and copying the remaining widgets back onto
-        the output. The wrapper's widget cache is intentionally left in place so
-        subsequent style updates can still refer to the same middleware objects.
+        to the lower-level filler, which draws image/signature values onto the page
+        and removes only the consumed widgets. Other annotations and unfilled
+        signature/image fields are preserved. After image drawing, the widget cache
+        is refreshed to remove consumed fields while retaining the middleware objects
+        for surviving fields so subsequent style updates can still use them.
         Supplied and retained values are prepared before any assignments or PDF
         hooks are applied, so an invalid choice index leaves widget values,
         pending hooks, and PDF state unchanged. Only supplied values are assigned.
@@ -707,22 +708,11 @@ class PdfWrapper:
             readonly=kwargs.get("readonly", False),
         )
 
+        self._stream = (
+            image_drawn_stream if image_drawn_stream is not None else filled_stream
+        )
         if image_drawn_stream is not None:
-            keys_to_copy = [
-                k for k, v in self.widgets.items() if not isinstance(v, Signature)
-            ]  # only copy non-image fields
-            # Case: Single watermark PDF, mapping pages 1:1 to output pages.
-            filled_stream = copy_watermark_widgets(
-                remove_all_widgets(image_drawn_stream),
-                filled_stream,
-                keys_to_copy,
-                None,
-            )
-
-        self._stream = filled_stream
-        if image_drawn_stream is not None:
-            # because copy_watermark_widgets and remove_all_widgets
-            self._reregister_font()
+            self._init_helper()
 
         return self
 

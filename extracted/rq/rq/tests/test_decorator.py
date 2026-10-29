@@ -4,8 +4,9 @@ from rq.decorators import job
 from rq.job import Job, Retry
 from rq.queue import Queue
 from rq.webhook import Webhook
-from rq.worker import DEFAULT_RESULT_TTL
+from rq.worker import DEFAULT_RESULT_TTL, SimpleWorker
 from tests import RQTestCase
+from tests.fixtures import say_hello
 
 
 class TestDecorator(RQTestCase):
@@ -43,12 +44,9 @@ class TestDecorator(RQTestCase):
         self.assertEqual(result.origin, 'queue_name')
 
     def test_decorator_accepts_result_ttl_as_argument(self):
-        """Ensure that passing in result_ttl to the decorator sets the
-        result_ttl on the job
-        """
-        # Ensure default
+        """Check the worker default and explicit result TTL overrides."""
         result = self.decorated_job.enqueue(1, 2)
-        self.assertEqual(result.result_ttl, DEFAULT_RESULT_TTL)
+        self.assertIsNone(result.result_ttl)
 
         @job('default', result_ttl=10, connection=self.connection)
         def hello():
@@ -56,6 +54,28 @@ class TestDecorator(RQTestCase):
 
         result = hello.enqueue()
         self.assertEqual(result.result_ttl, 10)
+
+        queue = Queue('decorator-result-ttl', connection=self.connection)
+        decorated = job(queue, connection=self.connection)(say_hello)
+
+        for ttl in (DEFAULT_RESULT_TTL, 1234):
+            with self.subTest(ttl=ttl):
+                result = decorated.enqueue()
+                worker = SimpleWorker([queue], default_result_ttl=ttl)
+                worker.work(burst=True)
+
+                self.assertTrue(result.is_finished)
+                remaining_ttl = self.connection.ttl(result.key)
+                self.assertTrue(ttl - 5 <= remaining_ttl <= ttl)
+
+        decorated = job(queue, connection=self.connection, result_ttl=10)(say_hello)
+        result = decorated.enqueue()
+        worker = SimpleWorker([queue], default_result_ttl=1234)
+        worker.work(burst=True)
+
+        self.assertTrue(result.is_finished)
+        remaining_ttl = self.connection.ttl(result.key)
+        self.assertTrue(5 <= remaining_ttl <= 10)
 
     def test_decorator_accepts_ttl_as_argument(self):
         """Ensure that passing in ttl to the decorator sets the ttl on the job"""
@@ -69,6 +89,23 @@ class TestDecorator(RQTestCase):
 
         result = hello.enqueue()
         self.assertEqual(result.ttl, 30)
+
+    def test_decorator_enqueue_overrides_at_front(self):
+        for default in (False, True):
+            for override in (None, False, True):
+                with self.subTest(default=default, override=override):
+                    queue = Queue(f'priority-{default}-{override}', connection=self.connection)
+
+                    @job(queue, connection=self.connection, at_front=default)
+                    def hello():
+                        return 'Hello'
+
+                    backlog = queue.enqueue(hello)
+                    kwargs = {} if override is None else {'at_front': override}
+                    result = hello.enqueue(**kwargs)
+                    at_front = default if override is None else override
+                    expected = [result.id, backlog.id] if at_front else [backlog.id, result.id]
+                    self.assertEqual(queue.job_ids, expected)
 
     def test_decorator_accepts_meta_as_argument(self):
         """Ensure that passing in meta to the decorator sets the meta on the job"""

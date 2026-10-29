@@ -53,6 +53,8 @@ class RawDisputesClient:
         currency: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
+        query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Dispute, ListDisputesResponse]:
         """
@@ -93,6 +95,12 @@ class RawDisputesClient:
         created_after : typing.Optional[str]
             Only disputes opened after this ISO 8601 timestamp.
 
+        query : typing.Optional[str]
+            Search disputes by dispute ID, payment ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+
+        include_connected_accounts : typing.Optional[bool]
+            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, covers the disputes of the account and every connected account, in any order. The listing is cut off after 10 seconds; add a `query` to narrow it. With `query`, matches on dispute, payment, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' disputes are returned only for connected accounts you can read disputes on.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -117,6 +125,8 @@ class RawDisputesClient:
                 "currency": currency,
                 "created_before": created_before,
                 "created_after": created_after,
+                "query": query,
+                "include_connected_accounts": include_connected_accounts,
             },
             request_options=request_options,
         )
@@ -147,6 +157,8 @@ class RawDisputesClient:
                         currency=currency,
                         created_before=created_before,
                         created_after=created_after,
+                        query=query,
+                        include_connected_accounts=include_connected_accounts,
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
@@ -205,6 +217,8 @@ class RawDisputesClient:
         currency: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
+        query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[SummaryDisputesResponse]:
         """
@@ -230,6 +244,12 @@ class RawDisputesClient:
         created_after : typing.Optional[str]
             Only disputes opened after this ISO 8601 timestamp.
 
+        query : typing.Optional[str]
+            Search disputes by dispute ID, payment ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+
+        include_connected_accounts : typing.Optional[bool]
+            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, covers the disputes of the account and every connected account, in any order. The listing is cut off after 10 seconds; add a `query` to narrow it. With `query`, matches on dispute, payment, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' disputes are returned only for connected accounts you can read disputes on.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -249,6 +269,8 @@ class RawDisputesClient:
                 "currency": currency,
                 "created_before": created_before,
                 "created_after": created_after,
+                "query": query,
+                "include_connected_accounts": include_connected_accounts,
             },
             request_options=request_options,
         )
@@ -760,6 +782,8 @@ class AsyncRawDisputesClient:
         currency: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
+        query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Dispute, ListDisputesResponse]:
         """
@@ -800,6 +824,12 @@ class AsyncRawDisputesClient:
         created_after : typing.Optional[str]
             Only disputes opened after this ISO 8601 timestamp.
 
+        query : typing.Optional[str]
+            Search disputes by dispute ID, payment ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+
+        include_connected_accounts : typing.Optional[bool]
+            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, covers the disputes of the account and every connected account, in any order. The listing is cut off after 10 seconds; add a `query` to narrow it. With `query`, matches on dispute, payment, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' disputes are returned only for connected accounts you can read disputes on.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -824,6 +854,8 @@ class AsyncRawDisputesClient:
                 "currency": currency,
                 "created_before": created_before,
                 "created_after": created_after,
+                "query": query,
+                "include_connected_accounts": include_connected_accounts,
             },
             request_options=request_options,
         )
@@ -856,6 +888,8 @@ class AsyncRawDisputesClient:
                             currency=currency,
                             created_before=created_before,
                             created_after=created_after,
+                            query=query,
+                            include_connected_accounts=include_connected_accounts,
                             request_options=request_options,
                         )
 
@@ -915,6 +949,8 @@ class AsyncRawDisputesClient:
         currency: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
+        query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[SummaryDisputesResponse]:
         """
@@ -940,6 +976,12 @@ class AsyncRawDisputesClient:
         created_after : typing.Optional[str]
             Only disputes opened after this ISO 8601 timestamp.
 
+        query : typing.Optional[str]
+            Search disputes by dispute ID, payment ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+
+        include_connected_accounts : typing.Optional[bool]
+            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, covers the disputes of the account and every connected account, in any order. The listing is cut off after 10 seconds; add a `query` to narrow it. With `query`, matches on dispute, payment, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' disputes are returned only for connected accounts you can read disputes on.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -959,6 +1001,8 @@ class AsyncRawDisputesClient:
                 "currency": currency,
                 "created_before": created_before,
                 "created_after": created_after,
+                "query": query,
+                "include_connected_accounts": include_connected_accounts,
             },
             request_options=request_options,
         )

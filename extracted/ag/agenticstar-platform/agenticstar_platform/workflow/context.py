@@ -1,7 +1,7 @@
 """顧客 Agent の entrypoint に渡す `context`（marketplace-3.0 03 §2）。
 
 read-only の相関、parameters、input/work/output_dir、operation_key、監査（tool.invoked / tool.effect / tool.denied）、
-取消 / 期限の確認、permitted skip の宣言、起動のきっかけになった確認の決定（`gate_decision`）、外から呼んだ run の
+取消 / 期限の確認、permitted skip と「完遂できなかった」（incomplete）の宣言、起動のきっかけになった確認の決定（`gate_decision`）、外から呼んだ run の
 開始の入力（`start_input`）を提供する。
 gate を決定するメソッドや任意 DB 接続は提供しない。
 実体は子プロセス側にあり、監査と取消確認は親 runner へ IPC で委譲する。
@@ -26,10 +26,31 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional
 
-from .envelope import PRE_ACTION_SKIP_REASONS, SKIP_REASONS
+from .envelope import PRE_ACTION_SKIP_REASONS, SKIP_REASONS, reason_code, report_comment
 from .errors import AuditNotPersisted, WorkflowError
 
 logger = logging.getLogger(__name__)
+
+INCOMPLETE = "incomplete"
+
+
+def _incomplete_reason(reason: Any, execution_id: str) -> str:
+    """`incomplete()` の理由コード。会話の `report_completion()`（`db/completion_report.normalize_reason`）と同じ正規化と検査:
+    前後の空白を除き、小文字にし、`-` と空白を `_` にして `^[a-z][a-z0-9_]{0,31}$` に合えばその値。省略・空は `incomplete`。
+    合わない値（文章・例外の文字列・長すぎる値）も `incomplete` にして警告する（値はログに出さない）。str の派生
+    （StrEnum など）は名前ではなく値を使う。db パッケージは asyncpg を読み込むので import せず、同じ規則をここに置く。"""
+    try:
+        text = str.__str__(reason) if isinstance(reason, str) else str(reason or "")
+        code: Optional[str] = text.strip().lower().replace("-", "_").replace(" ", "_")
+    except Exception:  # noqa: BLE001 — 文字列にできない値も Agent の処理を止めない
+        code = None
+    if code == "":
+        return INCOMPLETE
+    if code is not None and reason_code(code, "") == code:
+        return code
+    logger.warning("[%s] incomplete reason is not a short snake_case code (^[a-z][a-z0-9_]{0,31}$); using %r",
+                   execution_id, INCOMPLETE)
+    return INCOMPLETE
 
 MUTATING_EFFECT_KINDS = ("write", "create", "update", "delete", "send", "mutate")
 READ_EFFECT_KINDS = ("read", "list", "query", "fetch")
@@ -374,6 +395,29 @@ class WorkflowContext:
         reply = await self._ipc.call("skip", reason=PRE_ACTION_SKIP_REASONS[0])
         if not reply.get("ok"):
             raise WorkflowError(f"skip not recorded: {reply.get('error') or 'unknown'}")
+
+    async def incomplete(self, reason: str, comment: Optional[str] = None) -> None:
+        """「完遂できなかった」で工程を終える宣言（3.2.1）。指示が無い・設定の誤りのように、やり直しても同じ結果になる失敗に使う。
+        outcome は `incomplete`、理由コードは `reason`。front は自動で再実行せず、人の確認に回す。
+
+        宣言の後は関数から戻る（宣言の後に例外で抜けても `incomplete` のまま）。監査の保存の失敗・取消・期限・他所の終端・runner の停止・
+        拒否（tool.denied）はこの宣言より先に決まる。宣言は 1 回: 2 回目は記録されず、最初の宣言が残る（runner が警告を出す）。
+        reason: 理由コード（`report_completion()` と同じ: 小文字の snake_case、32 字まで。`-` と空白は `_` に、大文字は小文字に
+                する。合わない値は `incomplete` にして警告）
+        comment: 人が読む短い説明（任意）。終了時の報告（envelope の `completion_report.comment`）に載る。2,048 字（UTF-16 の
+                 単位）を超えた分は切る。文字列でない値（例外など）は載せずに警告する。秘密の値や個人の情報を
+                 書かない"""
+        code = _incomplete_reason(reason, self.execution_id)
+        text = None
+        if comment is not None:
+            # 文字列だけを載せる（例外などを渡すと、その本文が報告に載る）。runner も文字列でない comment を捨てる
+            text = report_comment(comment) if isinstance(comment, str) else None
+            if text is None and not (isinstance(comment, str) and comment == ""):
+                logger.warning("[%s] incomplete comment left out: it must be a str of valid UTF-8 text (got %s)",
+                               self.execution_id, type(comment).__name__)
+        reply = await self._ipc.call("incomplete", reason=code, comment=text)
+        if not reply.get("ok"):
+            raise WorkflowError(f"incomplete not recorded: {reply.get('error') or 'unknown'}")
 
     async def log(self, message: str) -> None:
         await self._ipc.call("log", message=str(message)[:2000])

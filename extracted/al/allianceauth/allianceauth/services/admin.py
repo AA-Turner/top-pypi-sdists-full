@@ -1,3 +1,7 @@
+__lazy_modules__ = ["datetime", "django.db.models"]
+
+from typing import TYPE_CHECKING
+
 from django import forms
 from django.contrib import admin
 
@@ -11,6 +15,11 @@ from allianceauth.authentication.admin import (
 )
 
 from .models import NameFormatConfig
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from django.db.models import Model
 
 
 class ServicesUserAdmin(admin.ModelAdmin):
@@ -41,16 +50,16 @@ class ServicesUserAdmin(admin.ModelAdmin):
     )
 
     @admin.display(ordering='user__profile__state__name')
-    def _state(self, obj):
+    def _state(self, obj: "Model") -> str:
         return obj.user.profile.state.name
 
     @admin.display(ordering='user__date_joined')
-    def _date_joined(self, obj):
+    def _date_joined(self, obj: "Model") -> "datetime":
         return obj.user.date_joined
 
 
 class NameFormatConfigForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         SERVICE_CHOICES = \
             [(s.name, s.name) for h in hooks.get_hooks('services_hook') for s in [h()]]
@@ -69,5 +78,5 @@ class NameFormatConfigAdmin(admin.ModelAdmin):
     @admin.display(
         description='States'
     )
-    def get_state_display_string(self, obj):
+    def get_state_display_string(self, obj: NameFormatConfig) -> str:
         return ', '.join([state.name for state in obj.states.all()])

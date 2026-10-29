@@ -589,6 +589,9 @@ def test_the_audit_never_reads_the_open_web(tmp_path, monkeypatch):
     deps.audit = True
     deps.probe_env = {"PROBE_TOKEN": "k", "PROBE_BASE_URL": "http://api.test"}
     assert _sh(deps, """probe mcp call find_papers '{"query": "x"}'""") == agent_mod.AUDIT_WEB_REFUSED
+    for search_in in ('["docs"]', '["docs", "notes"]'):
+        command = f"""probe mcp call search '{{"query": "x", "search_in": {search_in}}}'"""
+        assert _sh(deps, command) == agent_mod.AUDIT_WEB_REFUSED
     assert calls == []
 
 

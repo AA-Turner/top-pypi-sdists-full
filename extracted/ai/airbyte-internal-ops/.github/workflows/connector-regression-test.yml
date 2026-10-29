@@ -124,19 +124,19 @@ on:
     outputs:
       success:
         description: "True if every executed command passed. False (and the job fails) on a regression, a one-sided failure, or both versions failing"
-        value: ${{ jobs.regression-test.outputs.success }}
+        value: ${{ jobs.regression-test.outputs.success || jobs.regression-test-eu.outputs.success }}
       internal_failure:
-        description: "True if an internal/infrastructure error caused the workflow to fail. Use this to tell a failed test verdict (false) from a broken run (true)"
-        value: ${{ jobs.regression-test.outputs.internal_failure }}
+        description: "True if an internal/infrastructure error or an EU-resident connection requiring the future EU runner caused the workflow to fail. Use this to tell a failed test verdict (false) from a broken or unroutable run (true)"
+        value: ${{ jobs.regression-test.outputs.internal_failure || jobs.regression-test-eu.outputs.internal_failure || 'true' }}
       both_failed:
         description: "True if any step had both versions fail (test failed — inconclusive)"
-        value: ${{ jobs.regression-test.outputs.both_failed }}
+        value: ${{ jobs.regression-test.outputs.both_failed || jobs.regression-test-eu.outputs.both_failed }}
       summary_url:
         description: "GitHub Actions run summary URL"
-        value: ${{ jobs.regression-test.outputs.summary_url }}
+        value: ${{ jobs.regression-test.outputs.summary_url || jobs.regression-test-eu.outputs.summary_url }}
       report_url:
         description: "URL of the run's Artifacts section, where each command's detailed `report.html` is attached as `regression-test-artifacts-<command>-<run_id>`. GitHub has no URL that deep-links into an artifact, so this is where a reviewer downloads it from"
-        value: ${{ jobs.regression-test.outputs.report_url }}
+        value: ${{ jobs.regression-test.outputs.report_url || jobs.regression-test-eu.outputs.report_url }}
     secrets:
       AIRBYTE_CLOUD_CLIENT_ID:
         required: false
@@ -148,8 +148,67 @@ on:
         required: false
 
 jobs:
+  resolve-residency:
+    name: Resolve Data Residency
+    runs-on: ubuntu-latest
+    outputs:
+      residency: ${{ steps.resolve-vars.outputs.residency }}
+      dataplane_group: ${{ steps.resolve-vars.outputs.dataplane_group }}
+    steps:
+      - name: Set US residency when no connection is provided
+        id: residency-default
+        if: inputs.connection_id == ''
+        run: |
+          {
+            echo "dataplane_group="
+            echo "residency=us"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - name: Check out repository for residency lookup
+        if: inputs.connection_id != ''
+        uses: actions/checkout@v6
+
+      - name: Install uv for residency lookup
+        if: inputs.connection_id != ''
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python for residency lookup
+        if: inputs.connection_id != ''
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install minimal dependencies for residency lookup
+        if: inputs.connection_id != ''
+        run: uv sync --no-default-groups --no-group live-tests
+
+      - name: Resolve connection residency
+        id: residency-connection
+        if: inputs.connection_id != ''
+        env:
+          CONNECTION_ID: ${{ inputs.connection_id }}
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
+        run: uv run airbyte-ops cloud connection get-region --connection-id "$CONNECTION_ID"
+
+      - name: Resolve Variables
+        id: resolve-vars
+        env:
+          RESIDENCY: ${{ steps.residency-connection.outputs.residency || steps.residency-default.outputs.residency }}
+          DATAPLANE_GROUP: ${{ steps.residency-connection.outputs.dataplane_group || steps.residency-default.outputs.dataplane_group }}
+        run: |
+          [[ "$RESIDENCY" == "eu" || "$RESIDENCY" == "us" ]] || {
+            echo "::error::Connection residency must resolve to exactly 'eu' or 'us'." >&2
+            exit 1
+          }
+          echo "residency=$RESIDENCY" | tee -a "$GITHUB_OUTPUT"
+          echo "dataplane_group=$DATAPLANE_GROUP" | tee -a "$GITHUB_OUTPUT"
+
   regression-test:
     name: "Regression Test: '${{ inputs.connector_name }}'"
+    needs: resolve-residency
+    if: needs.resolve-residency.outputs.residency == 'us'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -699,3 +758,24 @@ jobs:
       # Artifacts section when the upload produced nothing -- every command
       # failed before writing a report, or the job was cancelled.
       report_url: ${{ steps.upload-consolidated-report.outputs.artifact-url || format('{0}/{1}/actions/runs/{2}#artifacts', github.server_url, github.repository, github.run_id) }}
+
+  # Placeholder to be replaced with the Cloud Batch (`europe-west9`) runner.
+  regression-test-eu:
+    name: "Regression Test (EU): '${{ inputs.connector_name }}'"
+    needs: resolve-residency
+    if: needs.resolve-residency.outputs.residency == 'eu'
+    runs-on: ubuntu-latest
+    # Mirrors every output the US job exposes to `workflow_call` callers, so a
+    # caller reads a defined value on an EU run instead of an empty string.
+    outputs:
+      success: "false"
+      internal_failure: "true"
+      both_failed: "false"
+      summary_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      # No reports exist on this path, so the run page stands in for them.
+      report_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Fail until the EU regression runner is available
+        run: |
+          echo "::error::EU-resident connections must run on the EU regression runner, which is not implemented yet."
+          exit 1

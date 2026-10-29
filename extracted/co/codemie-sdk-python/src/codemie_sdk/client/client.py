@@ -33,6 +33,7 @@ from ..services.mcp_configs import MCPConfigsService
 from ..services.cost_center import CostCenterService
 from ..services.customer_config_service import CustomerConfigService
 from ..services.project_budget_groups import ProjectBudgetGroupsService
+from ..services.servicenow_integration import ServiceNowIntegrationService
 
 
 class CodeMieClient:
@@ -181,6 +182,9 @@ class CodeMieClient:
             self._api_domain, _token_source, verify_ssl=self._verify_ssl
         )
         self.project_budget_groups = ProjectBudgetGroupsService(
+            self._api_domain, _token_source, verify_ssl=self._verify_ssl
+        )
+        self.servicenow_integration = ServiceNowIntegrationService(
             self._api_domain, _token_source, verify_ssl=self._verify_ssl
         )
         self.a2a = A2AService(

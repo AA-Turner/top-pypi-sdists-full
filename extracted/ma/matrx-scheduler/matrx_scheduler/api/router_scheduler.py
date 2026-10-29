@@ -21,6 +21,8 @@ Auth model:
 
 from __future__ import annotations
 
+from matrx_orm import db_sqlstate
+
 import logging
 from typing import Any
 
@@ -97,17 +99,16 @@ def _classify_supabase_error(exc: Exception) -> tuple[int, str]:
     """
     Map a Supabase error to an HTTP status + message.
 
-    Errors from the supabase-py async client typically carry a JSON
-    body with ``code`` / ``message``. We pattern-match on the
-    stringified exception for the common cases.
+    Errors from the supabase-py async client carry a ``code``: a SQLSTATE
+    (42501 privilege / row-level security) or a PostgREST code (PGRST116 no
+    rows, PGRST301/302/303 JWT). Decided by that code, never the message words.
     """
-    msg = str(exc)
-    lower = msg.lower()
-    if "row level security" in lower or "rls" in lower or "permission denied" in lower:
+    code = db_sqlstate(exc) or str(getattr(exc, "code", "") or "")
+    if code == "42501":
         return (status.HTTP_403_FORBIDDEN, "forbidden")
-    if "not found" in lower or "no rows" in lower or "pgrst116" in lower:
+    if code == "PGRST116":
         return (status.HTTP_404_NOT_FOUND, "not found")
-    if "authentication" in lower or "jwt" in lower:
+    if code in {"PGRST301", "PGRST302", "PGRST303"}:
         return (status.HTTP_401_UNAUTHORIZED, "auth required")
     return (status.HTTP_400_BAD_REQUEST, "request failed")
 

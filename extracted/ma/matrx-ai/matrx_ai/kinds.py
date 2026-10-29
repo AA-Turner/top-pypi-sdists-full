@@ -90,6 +90,15 @@ GENERIC_KINDS: frozenset[str] = frozenset(
 )
 
 
+# The prose FORMAT kinds whose registered shape is exactly ``{"__kind": <slug>, "text": str}``
+# (``text`` in aidream/kinds/generics.py, ``markdown`` in aidream/kinds/prose.py). An agent that
+# answers in one is never bound to a response_format: its final text IS the answer, wrapped in the
+# kind's own shape. Run Typed Agent and the step converter both read THIS set, so a new
+# text-shaped prose kind is added here once. (``string`` / ``string_list`` are bare scalars with
+# no ``text`` field and stay refused.) Guard: tests/test_agent_produce_kind_binding.py.
+TEXT_SHAPED_KINDS: frozenset[str] = frozenset({"text", "markdown"})
+
+
 def is_bindable_kind(slug: str | None) -> bool:
     """Whether ``slug`` names a structure an LLM can be bound to answer in.
 

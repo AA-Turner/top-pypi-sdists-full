@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rq
-Version: 2.12.0
+Version: 3.0.0
 Summary: RQ is a simple, lightweight, library for creating background jobs, and processing them.
 Project-URL: changelog, https://github.com/rq/rq/blob/master/CHANGES.md
 Project-URL: documentation, https://python-rq.org/docs/
@@ -27,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -36,7 +37,7 @@ Classifier: Topic :: System :: Systems Administration
 Requires-Python: >=3.10
 Requires-Dist: click>=5
 Requires-Dist: croniter
-Requires-Dist: redis!=6,>=3.5
+Requires-Dist: redis>=5.0.1
 Description-Content-Type: text/markdown
 
 RQ (_Redis Queue_) is a simple Python library for queueing jobs and processing
@@ -166,6 +167,18 @@ job = queue.enqueue(send_email, user_id, job_id='welcome-42', unique=True)
 ```
 
 More details can be found in the [docs](https://python-rq.org/docs/#unique-jobs).
+
+## Rate Limiting
+
+RQ 2.11.0 adds concurrency-based rate limits for jobs sharing a key:
+
+```python
+from rq import RateLimit
+
+queue.enqueue(generate_report, rate_limit=RateLimit(key='reports', concurrency=2))
+```
+
+More details can be found in the [docs](https://python-rq.org/docs/#concurrency-rate-limits).
 
 ## Retrying Failed Jobs
 
@@ -343,9 +356,6 @@ If you use RQ, Check out these below repos which might be useful in your rq base
 
 - [django-rq](https://github.com/rq/django-rq)
 - [rq-dashboard](https://github.com/Parallels/rq-dashboard)
-- [rqmonitor](https://github.com/pranavgupta1234/rqmonitor)
-- [Flask-RQ2](https://github.com/rq/Flask-RQ2)
-- [rq-scheduler](https://github.com/rq/rq-scheduler)
 - [rq-dashboard-fastAPI](https://github.com/Hannes221/rq-dashboard-fast)
 
 

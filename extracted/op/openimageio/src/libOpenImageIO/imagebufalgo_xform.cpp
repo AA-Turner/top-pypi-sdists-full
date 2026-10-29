@@ -161,18 +161,8 @@ public:
     float val() const { return m_val; }
     float dx() const { return m_dx; }
     float dy() const { return m_dy; }
-    Dual2(float val)
-        : m_val(val)
-        , m_dx(0.0f)
-        , m_dy(0.0f)
-    {
-    }
-    Dual2(float val, float dx, float dy)
-        : m_val(val)
-        , m_dx(dx)
-        , m_dy(dy)
-    {
-    }
+    Dual2(float val) : m_val(val), m_dx(0.0f), m_dy(0.0f) {}
+    Dual2(float val, float dx, float dy) : m_val(val), m_dx(dx), m_dy(dy) {}
     Dual2& operator=(float f)
     {
         m_val = f;
@@ -1521,8 +1511,9 @@ resample_hwy(ImageBuf& dst, const ImageBuf& src, bool interpolate, ROI roi,
         float dstpixelwidth  = 1.0f / dstfw;
         float dstpixelheight = 1.0f / dstfh;
 
-        const size_t src_scanline_bytes = srcspec.scanline_bytes();
-        const size_t dst_scanline_bytes = dstspec.scanline_bytes();
+        // Use the real row strides; HwySupports() permits padded rows.
+        const size_t src_scanline_bytes = size_t(src.scanline_stride());
+        const size_t dst_scanline_bytes = size_t(dst.scanline_stride());
         const size_t src_pixel_bytes    = srcspec.pixel_bytes();
         const size_t dst_pixel_bytes    = dstspec.pixel_bytes();
 
@@ -1693,6 +1684,13 @@ ImageBufAlgo::resample(ImageBuf& dst, const ImageBuf& src, bool interpolate,
                  IBAprep_NO_SUPPORT_VOLUME | IBAprep_NO_COPY_ROI_FULL
                      | IBAprep_SUPPORT_DEEP))
         return false;
+
+    // IBAprep() only clamps the channel range to dst. Clamp it to src too,
+    // and treat an empty (possibly inverted) range as nothing to do.
+    roi.chbegin = std::max(0, roi.chbegin);
+    roi.chend   = std::min(roi.chend, src.nchannels());
+    if (roi.chbegin >= roi.chend)
+        return true;
 
     if (dst.deep()) {
         return resample_deep(dst, src, interpolate, roi, nthreads);

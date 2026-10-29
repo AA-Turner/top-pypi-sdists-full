@@ -67,6 +67,7 @@ __all__ = (
     "CustomPluginRevisionSummaryTypeDef",
     "CustomPluginSummaryTypeDef",
     "CustomPluginTypeDef",
+    "CustomPluginUpdateTypeDef",
     "DeleteConnectorRequestTypeDef",
     "DeleteConnectorResponseTypeDef",
     "DeleteCustomPluginRequestTypeDef",
@@ -110,6 +111,7 @@ __all__ = (
     "PauseConnectorResponseTypeDef",
     "PluginDescriptionTypeDef",
     "PluginTypeDef",
+    "PluginUpdateTypeDef",
     "ProvisionedCapacityDescriptionTypeDef",
     "ProvisionedCapacityTypeDef",
     "ProvisionedCapacityUpdateTypeDef",
@@ -140,6 +142,7 @@ __all__ = (
     "WorkerConfigurationRevisionSummaryTypeDef",
     "WorkerConfigurationSummaryTypeDef",
     "WorkerConfigurationTypeDef",
+    "WorkerConfigurationUpdateTypeDef",
     "WorkerLogDeliveryDescriptionTypeDef",
     "WorkerLogDeliveryTypeDef",
     "WorkerSettingTypeDef",
@@ -292,6 +295,11 @@ class CustomPluginTypeDef(TypedDict):
     revision: int
 
 
+class CustomPluginUpdateTypeDef(TypedDict):
+    customPluginArn: str
+    revision: int
+
+
 class DeleteConnectorRequestTypeDef(TypedDict):
     connectorArn: str
     currentVersion: NotRequired[str]
@@ -410,6 +418,11 @@ class TagResourceRequestTypeDef(TypedDict):
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
+
+
+class WorkerConfigurationUpdateTypeDef(TypedDict):
+    revision: int
+    workerConfigurationArn: str
 
 
 class ApacheKafkaClusterDescriptionTypeDef(TypedDict):
@@ -552,6 +565,10 @@ class PluginTypeDef(TypedDict):
     customPlugin: CustomPluginTypeDef
 
 
+class PluginUpdateTypeDef(TypedDict):
+    customPlugin: CustomPluginUpdateTypeDef
+
+
 class DescribeWorkerConfigurationResponseTypeDef(TypedDict):
     creationTime: datetime
     description: str
@@ -650,6 +667,9 @@ class LogDeliveryTypeDef(TypedDict):
 
 class WorkerSettingTypeDef(TypedDict):
     capacity: NotRequired[CapacityDescriptionTypeDef]
+    plugins: NotRequired[list[PluginDescriptionTypeDef]]
+    workerConfiguration: NotRequired[WorkerConfigurationDescriptionTypeDef]
+    useDefaultWorkerConfiguration: NotRequired[bool]
 
 
 class UpdateConnectorRequestTypeDef(TypedDict):
@@ -658,6 +678,9 @@ class UpdateConnectorRequestTypeDef(TypedDict):
     capacity: NotRequired[CapacityUpdateTypeDef]
     connectorConfiguration: NotRequired[Mapping[str, str]]
     skipHealthValidation: NotRequired[bool]
+    plugins: NotRequired[Sequence[PluginUpdateTypeDef]]
+    workerConfiguration: NotRequired[WorkerConfigurationUpdateTypeDef]
+    useDefaultWorkerConfiguration: NotRequired[bool]
 
 
 class CustomPluginSummaryTypeDef(TypedDict):

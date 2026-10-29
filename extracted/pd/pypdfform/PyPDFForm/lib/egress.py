@@ -1,17 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-A module for egress functions.
+Prepare PDF output and publish serialized PDFs to filesystem paths.
 
-This module provides functionalities that prepare the final PDF for output (egress),
-ensuring that it is properly formatted and ready for the end-user. This includes
-managing appearance streams (so form fields display correctly after being filled),
-handling the /NeedAppearances flag, and rebuilding the AcroForm `/Fields` array from
-the widget annotations present on each page. These functions are typically called
-right before the final PDF byte stream is returned by the wrapper module.
+Preparation helpers manage appearance streams and the /NeedAppearances flag,
+and rebuild the AcroForm `/Fields` array from page widget annotations before
+`PdfWrapper.read()` returns the final bytes.
+
+For path output, `write_path()` writes serialized bytes to a sibling temporary
+file and closes it before atomic replacement. It follows symlinks, preserves
+existing permission bits, and cleans up failed temporary writes.
 """
 
+import os
+import stat
+from contextlib import suppress
 from functools import lru_cache
 from io import BytesIO
+from tempfile import NamedTemporaryFile
 from warnings import catch_warnings, filterwarnings
 
 from pikepdf import Pdf
@@ -24,8 +29,55 @@ from .constants import (
     Annots,
     Fields,
     Parent,
+    Subtype,
+    Widget,
 )
 from .template import get_widget_key
+
+
+def write_path(dest: str | bytes | os.PathLike, content: bytes) -> None:
+    """
+    Write serialized content to a sibling temporary file and replace its target.
+
+    Symlinks are followed. Existing permission bits are copied before replacement;
+    new files retain the temporary file's private permissions. Other file metadata
+    and hard-link relationships are not preserved. Failures before replacement
+    leave the destination's bytes unchanged and remove the temporary file.
+    """
+    path = os.path.realpath(os.fsdecode(dest))
+    mode = None
+    try:
+        destination_stat = os.stat(path)
+    except FileNotFoundError:
+        pass
+    else:
+        if not stat.S_ISREG(destination_stat.st_mode):
+            message = "The output destination must be a regular file."
+            raise OSError(message)
+        mode = stat.S_IMODE(destination_stat.st_mode)
+
+    temporary_path = None
+    try:
+        with NamedTemporaryFile(
+            mode="wb", prefix=".pypdfform-", dir=os.path.dirname(path), delete=False
+        ) as output:
+            temporary_path = output.name
+            if output.write(content) != len(content):
+                message = "The temporary PDF write was incomplete."
+                raise OSError(message)
+
+        if mode is not None:
+            os.chmod(temporary_path, mode)
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            with suppress(FileNotFoundError):
+                try:
+                    os.unlink(temporary_path)
+                except PermissionError:
+                    # Windows cannot unlink a temporary file made read-only above.
+                    os.chmod(temporary_path, stat.S_IRUSR | stat.S_IWUSR)
+                    os.unlink(temporary_path)
 
 
 @lru_cache(maxsize=8)
@@ -85,8 +137,8 @@ def rebuild_acroform_fields(
     Rebuilds the AcroForm `/Fields` array from matching page annotations.
 
     The existing `/Fields` array is replaced, creating an AcroForm dictionary
-    when necessary. Each page annotation is resolved to a widget key, and only
-    annotations whose keys are present in `widget_keys` contribute their
+    when necessary. Only widget annotations are resolved to a widget key, and
+    those whose keys are present in `widget_keys` contribute their
     top-level field object to the new array. Page annotation arrays are left
     unchanged. When no matching page annotations are found, the original PDF
     stream is returned unchanged to avoid an unnecessary rewrite.
@@ -111,13 +163,17 @@ def rebuild_acroform_fields(
     seen_fields = set()
     for page in writer.pages:
         for annot in page.get(Annots, []):
-            key = get_widget_key(annot.get_object(), use_full_widget_name)
-            if key in widget_keys:
-                field_ref = _get_root_field_reference(writer, annot)
-                field_key = _field_reference_key(field_ref)
-                if field_key not in seen_fields:
-                    fields.append(field_ref)
-                    seen_fields.add(field_key)
+            annotation = annot.get_object()
+            if (
+                annotation.get(Subtype) != Widget
+                or get_widget_key(annotation, use_full_widget_name) not in widget_keys
+            ):
+                continue
+            field_ref = _get_root_field_reference(writer, annot)
+            field_key = _field_reference_key(field_ref)
+            if field_key not in seen_fields:
+                fields.append(field_ref)
+                seen_fields.add(field_key)
 
     if not seen_fields:
         return pdf

@@ -1,4 +1,7 @@
+__lazy_modules__ = ["celery"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from celery import shared_task
 
@@ -12,15 +15,26 @@ from allianceauth.services.tasks import QueueOnce
 from .manager import DiscourseManager
 from .models import DiscourseUser
 
+if TYPE_CHECKING:
+    from celery import Task
+
+    # https://github.com/sbdchd/celery-types
+    classes = [
+        Task,
+    ]
+
+    for cls in classes:
+        setattr(cls, "__class_getitem__", classmethod(lambda cls, *args, **kwargs: cls))
+
 logger = logging.getLogger(__name__)
 
 
 class DiscourseTasks:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @classmethod
-    def delete_user(cls, user, notify_user=False):
+    def delete_user(cls, user: User, notify_user: bool = False) -> bool:
         if cls.has_account(user) and user.discourse.enabled:
             logger.debug(f"User {user} has a Discourse account. Disabling login.")
             if DiscourseManager.disable_user(user):
@@ -31,7 +45,7 @@ class DiscourseTasks:
         return False
 
     @staticmethod
-    def has_account(user):
+    def has_account(user: User) -> bool:
         """
         Check if the user has a discourse account
         :param user: django.contrib.auth.models.User
@@ -44,7 +58,7 @@ class DiscourseTasks:
 
     @staticmethod
     @shared_task(bind=True, name='discourse.update_groups', base=QueueOnce)
-    def update_groups(self, pk):
+    def update_groups(self: "Task", pk: int) -> None:
         user = User.objects.get(pk=pk)
         logger.debug(f"Updating discourse groups for user {user}")
         try:
@@ -57,12 +71,12 @@ class DiscourseTasks:
 
     @staticmethod
     @shared_task(name='discourse.update_all_groups')
-    def update_all_groups():
+    def update_all_groups() -> None:
         logger.debug("Updating ALL discourse groups")
         for discourse_user in DiscourseUser.objects.filter(enabled=True):
             DiscourseTasks.update_groups.delay(discourse_user.user.pk)
 
     @staticmethod
-    def get_username(user):
+    def get_username(user: User) -> str:
         from .auth_hooks import DiscourseService
         return NameFormatter(DiscourseService(), user).format_name()

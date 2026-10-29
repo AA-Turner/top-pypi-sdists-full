@@ -17,6 +17,10 @@ SOURCE_ROOT = ROOT / "src" / "datamodel_code_generator"
 Layer: TypeAlias = Literal[
     "entrypoint",
     "parser",
+    "parser-passes",
+    "parser-core",
+    "facts",
+    "schema-graph",
     "config",
     "input-model",
     "reference",
@@ -24,6 +28,10 @@ Layer: TypeAlias = Literal[
     "output-model",
     "shared-model",
     "target",
+    "requirements",
+    "constraints",
+    "regex",
+    "checks",
     "shared",
 ]
 SharedModelAliasState: TypeAlias = tuple[set[str], set[str], set[str], set[str], dict[str, str]]
@@ -45,6 +53,8 @@ PARSER_BACKEND_ATTRIBUTES: Final = frozenset({
     "has_typed_dict_non_required",
     "is_pydantic_extra_field",
 })
+PARSER_BACKEND_REQUIREMENT_READERS: Final = frozenset({"_meets", "python_target_meets"})
+PARSER_BACKEND_REQUIREMENT_PREFIX: Final = "python.typed_dict_"
 REFERENCE_BACKEND_DEFINITION_MARKERS: Final = ("dataclass", "msgspec", "pydantic", "typeddict")
 REFERENCE_EXTERNAL_BACKEND_ROOTS: Final = frozenset({"msgspec"})
 DYNAMIC_ATTRIBUTE_MIN_ARGS: Final = 2
@@ -71,16 +81,120 @@ _TARGET_MODULES: Final = frozenset({
     "datamodel_code_generator._target_selection",
     "datamodel_code_generator._target_templates",
 })
+_LEAF_LAYER_IMPORTS: Final[dict[str, tuple[frozenset[str], str]]] = {
+    "facts": (
+        frozenset({*sys.stdlib_module_names, "typing_extensions", "datamodel_code_generator._records"}),
+        (
+            "the attribute-to-fact table is read by checkers without the package: import only the standard library, "
+            "typing_extensions and datamodel_code_generator._records"
+        ),
+    ),
+    "schema-graph": (
+        frozenset({
+            *sys.stdlib_module_names,
+            "typing_extensions",
+            "datamodel_code_generator._records",
+            "datamodel_code_generator.reference",
+        }),
+        (
+            "the schema graph is the L0 core the parsers build: import only the standard library, typing_extensions, "
+            "datamodel_code_generator._records and datamodel_code_generator.reference, and take parser rules as "
+            "arguments"
+        ),
+    ),
+    "requirements": (
+        frozenset({
+            *sys.stdlib_module_names,
+            "typing_extensions",
+            "datamodel_code_generator._records",
+            "datamodel_code_generator.enums",
+        }),
+        (
+            "the requirement table is a leaf: import only the standard library, typing_extensions, "
+            "datamodel_code_generator._records and datamodel_code_generator.enums"
+        ),
+    ),
+    "constraints": (
+        frozenset({
+            *sys.stdlib_module_names,
+            "typing_extensions",
+            "datamodel_code_generator._records",
+            "datamodel_code_generator._regex_syntax",
+            "datamodel_code_generator._requirements",
+            "datamodel_code_generator.enums",
+        }),
+        (
+            "the constraint applicability table is a leaf that types.py reads while it is imported: import only the "
+            "standard library, typing_extensions, datamodel_code_generator._records, "
+            "datamodel_code_generator._regex_syntax, datamodel_code_generator._requirements and "
+            "datamodel_code_generator.enums"
+        ),
+    ),
+    "regex": (
+        frozenset({*sys.stdlib_module_names, "typing_extensions"}),
+        (
+            "the static regex scan is a leaf that the keyword table, the literal check and the backends read: import "
+            "only the standard library and typing_extensions"
+        ),
+    ),
+    "parser-core": (
+        frozenset({
+            *sys.stdlib_module_names,
+            "typing_extensions",
+            "datamodel_code_generator._records",
+            "datamodel_code_generator._regex_syntax",
+        }),
+        (
+            "a pure parser core computes from the dumped schemas it is given: import only the standard library, "
+            "typing_extensions, datamodel_code_generator._records and datamodel_code_generator._regex_syntax"
+        ),
+    ),
+    "checks": (
+        frozenset({*sys.stdlib_module_names, "typing_extensions"}),
+        (
+            "the debug check flags module is a leaf that every layer reads: import only the standard library "
+            "and typing_extensions"
+        ),
+    ),
+}
+"""Leaf layers: the modules (with their submodules) each may import, and the reason shown on a violation."""
+_PARSER_LAYERS: Final = frozenset({"parser", "parser-passes"})
+"""Layers of parser code: the parser modules and the pass modules under ``parser/_passes/``."""
+_PARSER_PASS_IMPORTS: Final = frozenset({
+    "datamodel_code_generator.parser._check_scopes",
+    "datamodel_code_generator.parser._facts",
+    "datamodel_code_generator.parser._finality",
+    "datamodel_code_generator.parser._graph_ids",
+    "datamodel_code_generator.parser._imports_plan",
+    "datamodel_code_generator.parser._model_shapes",
+    "datamodel_code_generator.parser._null_facts",
+    "datamodel_code_generator.parser._pass_decls",
+    "datamodel_code_generator.parser._passes",
+    "datamodel_code_generator.parser._phases",
+    "datamodel_code_generator.parser._pipeline",
+    "datamodel_code_generator.parser._python_type_imports",
+    "datamodel_code_generator.parser.generation",
+})
+"""The parser modules a pass module may import: none imports ``parser/base.py``, so no pass closes a cycle."""
+_PARSER_CORE_FILENAMES: Final = frozenset({
+    "_intersection.py",
+    "_model_shapes.py",
+    "_null_facts.py",
+    "_schema_dispatch.py",
+})
+"""Pure parser modules: decisions over dumped schema dicts or frozen schema facts that the parser adapters call."""
 _NEUTRAL_MODEL_FILENAMES: Final = frozenset({
     "base.py",
     "enum.py",
     "imports.py",
     "output.py",
+    "_render_plan.py",
     "runtime_validation.py",
     "scalar.py",
     "type_alias.py",
     "types.py",
     "union.py",
+    "_views.py",
 })
 
 
@@ -249,6 +363,10 @@ def _module_name(path: Path, layer: Layer) -> str:
         return {
             "entrypoint": "datamodel_code_generator.entrypoint_fixture",
             "parser": "datamodel_code_generator.parser.fixture",
+            "parser-passes": "datamodel_code_generator.parser._passes.fixture",
+            "parser-core": "datamodel_code_generator.parser.core_fixture",
+            "facts": "datamodel_code_generator.parser.facts_fixture",
+            "schema-graph": "datamodel_code_generator.parser.schema_graph_fixture",
             "config": "datamodel_code_generator.config_fixture",
             "input-model": "datamodel_code_generator.input_model_fixture",
             "reference": "datamodel_code_generator.reference_fixture",
@@ -256,6 +374,10 @@ def _module_name(path: Path, layer: Layer) -> str:
             "output-model": "datamodel_code_generator.model.fixture",
             "shared-model": "datamodel_code_generator.model.shared_fixture",
             "target": "datamodel_code_generator.target_fixture",
+            "requirements": "datamodel_code_generator.requirements_fixture",
+            "constraints": "datamodel_code_generator.constraints_fixture",
+            "regex": "datamodel_code_generator.regex_fixture",
+            "checks": "datamodel_code_generator.checks_fixture",
             "shared": "datamodel_code_generator.shared_fixture",
         }[layer]
 
@@ -514,7 +636,7 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
                     self.sys_modules_aliases.add(alias_name)
             if module in {"builtins", "importlib"} and alias.name in _DYNAMIC_IMPORT_ATTRIBUTE_NAMES:
                 self.dynamic_import_aliases.add(alias_name)
-            if self.layer == "parser" and module == "datamodel_code_generator" and alias.name.startswith("_"):
+            if self.layer in _PARSER_LAYERS and module == "datamodel_code_generator" and alias.name.startswith("_"):
                 self._add(
                     node,
                     "parser-root-private-import",
@@ -534,7 +656,11 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
                 continue
             self._record_import_alias(alias.asname or alias.name, module)
             self._check_import(
-                node, target if self.layer in {"reference", "target"} or alias.name.startswith("_") else module
+                node,
+                target
+                if self.layer in {"reference", "target", "requirements", "constraints", "regex"}
+                or alias.name.startswith("_")
+                else module,
             )
 
     def visit_Call(self, node: ast.Call) -> None:
@@ -543,10 +669,13 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
         dynamic_target = None
         if self._is_dynamic_import(node.func) and (argument := self._dynamic_import_target_argument(node)) is not None:
             dynamic_target = self._resolved_dynamic_target(node, self._resolved_string(argument))
-        if (
+        if dynamic_target and self.layer in _LEAF_LAYER_IMPORTS:
+            self._check_import(node, dynamic_target)
+        elif (
             dynamic_target
+            and not self._check_parser_pass_import(node, dynamic_target)
             and not self._check_target_boundary(node, dynamic_target)
-            and self.layer in {"parser", "config", "reference", "shared-model"}
+            and self.layer in {*_PARSER_LAYERS, "config", "reference", "shared-model"}
             and (
                 _is_reference_backend_import(dynamic_target)
                 if self.layer == "reference"
@@ -593,11 +722,25 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
         self._check_entrypoint_private_call(node, chain)
 
         if (
+            self.layer in _PARSER_LAYERS
+            and chain[-1:]
+            and chain[-1] in PARSER_BACKEND_REQUIREMENT_READERS
+            and (construct := self._resolved_string(self._requirement_construct_argument(node))) is not None
+            and construct.startswith(PARSER_BACKEND_REQUIREMENT_PREFIX)
+        ):
+            self._add(
+                node,
+                "backend-semantic-inspection",
+                construct,
+                "parser code must query a neutral DataModel or DataModelFieldBase capability",
+            )
+
+        if (
             chain
             and chain[-1] in {"getattr", "hasattr"}
             and len(node.args) > 1
             and (
-                self.layer == "parser"
+                self.layer in _PARSER_LAYERS
                 and (attribute := self._resolved_string(node.args[1])) in PARSER_BACKEND_ATTRIBUTES
             )
         ):
@@ -610,7 +753,7 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
 
         module_keyword = next((keyword.value for keyword in node.keywords if keyword.arg == "module"), None)
         if (
-            self.layer == "parser"
+            self.layer in _PARSER_LAYERS
             and module_keyword is not None
             and (target := self._resolved_string(module_keyword))
             and _concrete_backend_module(target)
@@ -630,7 +773,7 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
         """Check direct ``__module__`` comparisons to concrete backends."""
         operands = (node.left, *node.comparators)
         if (
-            self.layer == "parser"
+            self.layer in _PARSER_LAYERS
             and any(isinstance(operand, ast.Attribute) and operand.attr == "__module__" for operand in operands)
             and (
                 target := next(
@@ -709,7 +852,7 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
                 node.attr,
                 "entrypoint code must use the Parser public lifecycle and run-context API",
             )
-        elif self.layer == "parser":
+        elif self.layer in _PARSER_LAYERS:
             match node.value:
                 case ast.Name(id=root_alias) if root_alias in self.package_root_aliases and node.attr.startswith("_"):
                     self._add(
@@ -829,6 +972,12 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
         if node.args:
             return node.args[0]
         return next((keyword.value for keyword in node.keywords if keyword.arg == "name"), None)
+
+    @staticmethod
+    def _requirement_construct_argument(node: ast.Call) -> ast.expr | None:
+        if node.args:
+            return node.args[0]
+        return next((keyword.value for keyword in node.keywords if keyword.arg == "construct"), None)
 
     def _is_sys_modules_registry(self, node: ast.AST) -> bool:
         match node:
@@ -983,7 +1132,29 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
             return True
         return False
 
+    def _check_parser_pass_import(self, node: ast.AST, target: str) -> bool:
+        if (
+            self.layer == "parser-passes"
+            and (target == "datamodel_code_generator.parser" or target.startswith("datamodel_code_generator.parser."))
+            and not any(target == module or target.startswith(f"{module}.") for module in _PARSER_PASS_IMPORTS)
+        ):
+            self._add(
+                node,
+                "parser-passes-import",
+                target,
+                "pass modules must not import parser/base.py or the format parsers, not even for typing: take the "
+                "parser through a narrow Protocol and import only the store, the import ledger and other pass modules",
+            )
+            return True
+        return False
+
     def _check_import(self, node: ast.AST, target: str) -> None:
+        if (leaf := _LEAF_LAYER_IMPORTS.get(self.layer)) is not None:
+            allowed, reason = leaf
+            if not any(target == module or target.startswith(f"{module}.") for module in allowed):
+                self._add(node, f"{self.layer}-import", target, reason)
+            return
+        self._check_parser_pass_import(node, target)
         if self.layer == "reference" and _is_reference_backend_import(target):
             self._add(
                 node,
@@ -992,7 +1163,7 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
                 "reference code must not import concrete output backends except bounded compatibility exports",
             )
             return
-        if self.layer == "parser" and _concrete_backend_module(target):
+        if self.layer in _PARSER_LAYERS and _concrete_backend_module(target):
             self._add(
                 node,
                 "backend-import",
@@ -1019,7 +1190,7 @@ class ArchitectureBoundaryVisitor(ast.NodeVisitor):
         if self._check_target_boundary(node, target):
             return
         if (
-            self.layer != "parser"
+            self.layer not in _PARSER_LAYERS
             and target.startswith("datamodel_code_generator.parser.")
             and any(part.startswith("_") for part in target.split(".")[2:])
         ):
@@ -1067,18 +1238,36 @@ def _classify_source_path(path: Path) -> Layer:
     match relative.parts:
         case ("__init__.py",):
             layer = "entrypoint"
+        case ("parser", "_facts.py"):
+            layer = "facts"
+        case ("parser", "_schema_graph.py"):
+            layer = "schema-graph"
+        case ("parser", "_passes", *_):
+            layer = "parser-passes"
+        case ("parser", filename) if filename in _PARSER_CORE_FILENAMES:
+            layer = "parser-core"
         case ("parser", *_):
             layer = "parser"
         case ("config.py" | "input_model.py" as filename,):
             layer = "config" if filename == "config.py" else "input-model"
         case ("reference.py",):
             layer = "reference"
+        case ("_requirements.py",):
+            layer = "requirements"
+        case ("_constraint_applicability.py",):
+            layer = "constraints"
+        case ("_regex_syntax.py",):
+            layer = "regex"
+        case ("_checks.py",):
+            layer = "checks"
         case ("_client" | "_fastapi", *_):
             layer = "target"
         case (filename,) if f"datamodel_code_generator.{filename.removesuffix('.py')}" in _TARGET_MODULES:
             layer = "target"
         case ("model", "__init__.py"):
             layer = "model-composition"
+        case ("model", "_decisions", *_):
+            layer = "shared-model"
         case ("model", filename) if filename in _NEUTRAL_MODEL_FILENAMES:
             layer = "shared-model"
         case ("model", *_):

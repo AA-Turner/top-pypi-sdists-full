@@ -39,6 +39,8 @@ jobs:
               - 'infra/internal-mcp-servers/**'
             airmux-control-plane:
               - 'infra/airmux-control-plane/**'
+            connector-regression-eu:
+              - 'infra/connector-regression-eu/**'
             hydra-review-webapp:
               - 'infra/hydra-review-webapp/**'
             workflow:
@@ -68,6 +70,9 @@ jobs:
             }
             if (${{ steps.changes.outputs['airmux-control-plane'] }} || workflowChanged) {
               stacks.push({name: 'airmux-control-plane', dir: 'infra/airmux-control-plane'});
+            }
+            if (${{ steps.changes.outputs['connector-regression-eu'] }} || workflowChanged) {
+              stacks.push({name: 'connector-regression-eu', dir: 'infra/connector-regression-eu'});
             }
             if (${{ steps.changes.outputs['hydra-review-webapp'] }} || workflowChanged) {
               stacks.push({name: 'hydra-review-webapp', dir: 'infra/hydra-review-webapp'});

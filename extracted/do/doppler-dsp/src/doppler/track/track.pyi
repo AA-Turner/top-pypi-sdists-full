@@ -258,7 +258,7 @@ class LoopFilter:
 
     @property
     def zeta(self) -> float:
-        """damping factor (0.707 = critically damped)."""
+        """damping factor (1.0 = critical; 0.707 usual)."""
 
     @property
     def t(self) -> float:
@@ -333,7 +333,7 @@ class Costas:
     ValueError
         If construction fails. The exception message is ``Costas: invalid
         parameter (need bn >= 0 and zeta > 0, both finite, whose loop gains
-        come out finite)``.
+        come out finite, and bn_fll >= 0 and finite)``.
 
     Examples
     --------
@@ -411,17 +411,18 @@ class Costas:
         """
 
     def steps_max_out(self) -> int:
-        """Largest number of samples steps() can return in the current state.
+        """Output capacity hint for dp_costas_steps(): always 0.
 
-        Size an `out=` buffer with this before calling steps(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on steps_max_out()
-        replaces this text.
+        The output is one prompt per tsamps inputs, so it never exceeds the
+        input length; size out to the input length. A partial symbol carries
+        across calls, so a block of `n` samples emits `(acc_n + n) / tsamps`
+        prompts (integer division), up to one more than `n / tsamps`; a prompt
+        past max_out still steers the loop but is dropped.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            0 (no state-derived bound).
         """
 
     def set_telemetry(
@@ -495,7 +496,7 @@ class Costas:
         bn : float
             Loop noise bandwidth, normalised to the symbol rate.
         zeta : float
-            Damping factor (0.707 = critically damped).
+            Damping factor (1.0 = critical; 0.707 usual).
 
         Raises
         ------
@@ -656,7 +657,7 @@ class Costas:
 
     @property
     def bn(self) -> float:
-        """PLL loop noise bandwidth (retained).
+        """PLL loop noise bandwidth currently in use.
 
         Raises
         ------
@@ -670,12 +671,12 @@ class Costas:
     def bn(self, value: float) -> None: ...
     @property
     def norm_freq(self) -> float:
-        """Norm freq."""
+        """Tracked carrier frequency: the NCO frequency register."""
     @norm_freq.setter
     def norm_freq(self, value: float) -> None: ...
     @property
     def lock_metric(self) -> float:
-        """EMA of |Re P|/|P| (1 = locked)."""
+        """Lock-metric EMA: |Re P|/|P| smoothed by COSTAS_LOCK_ALPHA."""
 
     @property
     def locked(self) -> bool:
@@ -686,11 +687,19 @@ class Costas:
 
     @property
     def last_error(self) -> float:
-        """last PLL discriminator (loop stress)."""
+        """Last PLL discriminator output, the loop stress."""
 
     @property
     def bn_fll(self) -> float:
-        """FLL-assist bandwidth (0 = pure PLL)."""
+        """FLL-assist bandwidth.
+
+        Raises
+        ------
+        ValueError
+            On assignment, if ``dp_costas_set_bn_fll`` refuses the value by
+            returning non-zero. The exception message is ``Costas: bn_fll must
+            be >= 0 and finite (0 = pure PLL)``, with the return code appended.
+        """
     @bn_fll.setter
     def bn_fll(self, value: float) -> None: ...
     def destroy(self) -> None:
@@ -889,17 +898,15 @@ class Dll:
         """
 
     def steps_max_out(self) -> int:
-        """Largest number of samples steps() can return in the current state.
+        """Output capacity hint for dp_dll_steps(): always 0.
 
-        Size an `out=` buffer with this before calling steps(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on steps_max_out()
-        replaces this text.
+        Emitted prompts never outnumber input samples, so size out to the input
+        length.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            0 (no state-derived bound).
         """
 
     def set_telemetry(
@@ -978,7 +985,7 @@ class Dll:
         bn : float
             Loop noise bandwidth, normalised to the code-period rate.
         zeta : float
-            Damping factor (0.707 = critically damped).
+            Damping factor (1.0 = critical; 0.707 usual).
 
         Raises
         ------
@@ -1516,7 +1523,7 @@ class Dll:
 
     @property
     def bn(self) -> float:
-        """loop noise bandwidth (retained).
+        """Loop noise bandwidth currently in use.
 
         Raises
         ------
@@ -1530,25 +1537,19 @@ class Dll:
     def bn(self, value: float) -> None: ...
     @property
     def code_phase(self) -> float:
-        """Code phase."""
+        """Current prompt code phase."""
 
     @property
     def code_rate(self) -> float:
-        """the loop's own rate, chips per nominal chip (~1.0): 1 + the loop
-        filter output (its integrator alone at segments == 1), without the rate
-        aid, so the code runs at code_rate + rate_aid. It is read before the
-        NCO truncates its command to a whole phase step of sf*sps/2^32 chips
-        per chip, so a settled reading sits up to one step above the rate the
-        loop carries.
-        """
+        """The loop's own code rate, without the carrier rate aid."""
 
     @property
     def last_error(self) -> float:
-        """last discriminator output (loop stress)."""
+        """Last discriminator output, the loop stress."""
 
     @property
     def segments(self) -> int:
-        """partial correlations per epoch (1 = full)."""
+        """Partial correlations per code period."""
 
     @property
     def symbol_window(self) -> int:
@@ -1624,16 +1625,16 @@ class Dll:
 
 @final
 class SymbolSync:
-    """SymbolSync component.
+    """Create a symbol-timing recovery loop on the heap.
 
     Parameters
     ----------
     sps : int, default 4
-        sps constructor parameter.
+        Nominal input samples per symbol (default: 4).
     bn : float, default 0.01
-        bn constructor parameter.
+        Loop noise bandwidth, normalized to the symbol rate (default: 0.01).
     zeta : float, default 0.707
-        zeta constructor parameter.
+        Loop damping factor (default: 0.707).
     order : Literal["linear", "parabolic", "cubic"], default "cubic"
         The polynomial order of the Farrow interpolator.
         One of ``"linear"``, ``"parabolic"``, ``"cubic"``.
@@ -1723,17 +1724,14 @@ class SymbolSync:
         """
 
     def steps_max_out(self) -> int:
-        """Largest number of samples steps() can return in the current state.
-
-        Size an `out=` buffer with this before calling steps(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on steps_max_out()
-        replaces this text.
+        """Minimum output capacity dp_symsync_steps() asks for beyond the input
+        length.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            Always 0: at least one input sample per recovered symbol, so an out
+            as long as the input always suffices.
         """
 
     def set_telemetry(
@@ -1804,7 +1802,7 @@ class SymbolSync:
         bn : float
             Loop noise bandwidth, normalised to the symbol rate (>= 0).
         zeta : float
-            Damping factor (0.707 = critically damped).
+            Damping factor (1.0 = critical; 0.707 usual).
 
         Raises
         ------
@@ -2033,7 +2031,7 @@ class SymbolSync:
 
     @property
     def bn(self) -> float:
-        """loop noise bandwidth (retained).
+        """Loop noise bandwidth the timing loop is running.
 
         Raises
         ------
@@ -2047,11 +2045,11 @@ class SymbolSync:
     def bn(self, value: float) -> None: ...
     @property
     def timing_error(self) -> float:
-        """Timing error."""
+        """Most recent timing-detector output."""
 
     @property
     def rate(self) -> float:
-        """Rate."""
+        """Samples per symbol the loop is currently tracking."""
 
     @property
     def lock_stat(self) -> float:
@@ -2156,7 +2154,7 @@ class RateSync:
     bn : float, default 0.01
         Loop noise bandwidth, normalised to the symbol rate.
     zeta : float, default 0.707
-        Damping factor (0.707 = critically damped).
+        Damping factor (1.0 = critical; 0.707 usual).
     ted : Literal["gardner", "dttl"], default "gardner"
         Timing-error detector: "gardner" (blind, works for any constellation)
         or "dttl" (decision-directed sign-sign Data Transition Tracking Loop;
@@ -2258,7 +2256,7 @@ class RateSync:
         Returns
         -------
         int
-            Output.
+            0.
         """
 
     def set_telemetry(
@@ -2314,7 +2312,9 @@ class RateSync:
 
     def configure(self, bn: float, zeta: float) -> None:
         """Recompute the loop gains for a new (bn, zeta); preserve the timing
-        estimate.
+        estimate. Raises ValueError, changing nothing, when (bn, zeta) is
+        outside the loop filter's domain: bn >= 0 and zeta > 0, both finite,
+        with finite gains.
 
         Only the PI coefficients change; the integrator, and therefore the
         tracked rate and the lock, carries through untouched. Use it to narrow
@@ -2326,7 +2326,15 @@ class RateSync:
         bn : float
             Loop noise bandwidth, normalised to the symbol rate.
         zeta : float
-            Damping factor (0.707 = critically damped).
+            Damping factor (1.0 = critical; 0.707 usual).
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a non-zero status. The exception message is
+            ``RateSync: (bn, zeta) is outside the loop filter's domain (need bn
+            >= 0 and zeta > 0, both finite, whose loop gains come out
+            finite)``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -2490,6 +2498,14 @@ class RateSync:
         """Timing-loop noise bandwidth, normalised to the symbol rate. Writing
         it re-derives the loop gains at the damping already in use, exactly as
         configure() does.
+
+        Raises
+        ------
+        ValueError
+            On assignment, if ``dp_ratesync_set_bn`` refuses the value by
+            returning non-zero. The exception message is ``RateSync: bn is
+            outside the loop filter's domain (need bn >= 0, finite, whose loop
+            gains come out finite)``, with the return code appended.
         """
     @bn.setter
     def bn(self, value: float) -> None: ...
@@ -2595,7 +2611,7 @@ class CarrierMpsk:
     init_norm_freq : float, default 0.0
         Seed carrier frequency, cycles/sample (default 0.0).
     tsamps : int, default 64
-        Samples per symbol (default 64).
+        Samples per symbol (default 64); 0 is refused.
     bn_fll : float, default 0.0
         FLL-assist bandwidth (default 0.0 = pure PLL).
     m : int, default 4
@@ -2605,8 +2621,9 @@ class CarrierMpsk:
     ------
     ValueError
         If construction fails. The exception message is ``CarrierMpsk: invalid
-        parameter (need m in {2,4,8}, and bn >= 0 and zeta > 0, both finite,
-        whose loop gains come out finite)``.
+        parameter (need m in {2,4,8}, tsamps >= 1, and bn >= 0 and zeta > 0,
+        both finite, whose loop gains come out finite, and bn_fll >= 0 and
+        finite)``.
 
     Examples
     --------
@@ -2668,13 +2685,16 @@ class CarrierMpsk:
         x : npt.NDArray[np.complex64]
             Input block, one complex baseband sample per element.
         out : npt.NDArray[np.complex64] | None
-            Prompt output buffer written by the binding.
+            Prompt output buffer. Each prompt is the I&D sum divided by tsamps
+            (the mean de-rotated sample).
 
         Returns
         -------
         NDArray[np.complex64]
-            One de-rotated prompt symbol per completed integrate-and-dump
-            period; the count is `x_len / tsamps`.
+            Number of prompts written: one per completed integrate-and-dump
+            period, `(carried + x_len) / tsamps` where `carried` is the partial
+            symbol held from the previous call, capped at max_out. From Python,
+            the prompt array.
 
         Examples
         --------
@@ -2700,17 +2720,16 @@ class CarrierMpsk:
         """
 
     def steps_max_out(self) -> int:
-        """Largest number of samples steps() can return in the current state.
+        """Output capacity hint for dp_carrier_mpsk_steps().
 
-        Size an `out=` buffer with this before calling steps(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on steps_max_out()
-        replaces this text.
+        steps() emits at most one prompt per input sample, so the binding sizes
+        the buffer to the input length; this returns the "caller sizes it"
+        sentinel.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            Always 0.
         """
 
     def configure(self, bn: float, zeta: float) -> None:
@@ -2731,7 +2750,7 @@ class CarrierMpsk:
         bn : float
             Loop noise bandwidth, normalised to the symbol rate.
         zeta : float
-            Damping factor (0.707 = critically damped).
+            Damping factor (1.0 = critical; 0.707 usual).
 
         Raises
         ------
@@ -2847,7 +2866,7 @@ class CarrierMpsk:
 
     @property
     def bn(self) -> float:
-        """PLL loop noise bandwidth (retained).
+        """PLL loop noise bandwidth in force, normalised to the symbol rate.
 
         Raises
         ------
@@ -2861,25 +2880,34 @@ class CarrierMpsk:
     def bn(self, value: float) -> None: ...
     @property
     def norm_freq(self) -> float:
-        """Norm freq."""
+        """Current carrier-NCO frequency estimate, cycles/sample."""
     @norm_freq.setter
     def norm_freq(self, value: float) -> None: ...
     @property
     def lock_metric(self) -> float:
-        """EMA of Re(P conj a)/|P| (1 = locked)."""
+        """Decision-aligned lock metric."""
 
     @property
     def last_error(self) -> float:
-        """last PLL discriminator (loop stress)."""
+        """Last PLL phase-discriminator output, `Im(P conj(ahat))/|P|`."""
 
     @property
     def bn_fll(self) -> float:
-        """FLL-assist bandwidth (0 = pure PLL)."""
+        """FLL-assist bandwidth (0 = pure PLL).
+
+        Raises
+        ------
+        ValueError
+            On assignment, if ``dp_carrier_mpsk_set_bn_fll`` refuses the value
+            by returning non-zero. The exception message is ``CarrierMpsk:
+            bn_fll must be >= 0 and finite (0 = pure PLL)``, with the return
+            code appended.
+        """
     @bn_fll.setter
     def bn_fll(self, value: float) -> None: ...
     @property
     def m(self) -> int:
-        """constellation order M (2, 4, 8)."""
+        """Constellation order M."""
 
     def destroy(self) -> None:
         """Release the underlying C resources immediately.
@@ -3039,17 +3067,14 @@ class CarrierNda:
         """
 
     def steps_max_out(self) -> int:
-        """Largest number of samples steps() can return in the current state.
+        """Output capacity hint for dp_carrier_nda_steps(): always 0.
 
-        Size an `out=` buffer with this before calling steps(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on steps_max_out()
-        replaces this text.
+        The output is one sample per input, so size out to the input length.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            0 (no state-derived bound).
         """
 
     def set_telemetry(
@@ -3251,12 +3276,16 @@ class CarrierNda:
 
     @property
     def norm_freq(self) -> float:
-        """Norm freq."""
+        """Tracked carrier frequency: the NCO centre plus the loop's integrated
+        correction (integrator only, smoothed).
+        """
     @norm_freq.setter
     def norm_freq(self, value: float) -> None: ...
     @property
     def lock(self) -> float:
-        """EMA of the lock signal (1 = locked)."""
+        """Lock-signal EMA: Re((z/|z|)^M) smoothed per sample by
+        CARRIER_NDA_LOCK_ALPHA.
+        """
 
     @property
     def locked(self) -> bool:
@@ -3267,11 +3296,11 @@ class CarrierNda:
 
     @property
     def last_error(self) -> float:
-        """last phase discriminator (loop stress)."""
+        """Last phase error from the M-th-power discriminator."""
 
     @property
     def bn(self) -> float:
-        """PLL loop noise bandwidth (retained).
+        """Loop noise bandwidth currently in use.
 
         Raises
         ------
@@ -3285,15 +3314,15 @@ class CarrierNda:
     def bn(self, value: float) -> None: ...
     @property
     def m(self) -> int:
-        """constellation order M (2, 4, 8)."""
+        """Constellation order the discriminator strips."""
 
     @property
     def n(self) -> int:
-        """sets the MA window (= a 1/n-symbol box)."""
+        """Arm-window divisor: the moving average spans sps / n samples."""
 
     @property
     def sps(self) -> int:
-        """samples per symbol."""
+        """Samples per symbol the arm window is sized from."""
 
     def destroy(self) -> None:
         """Release the underlying C resources immediately.
@@ -3651,17 +3680,16 @@ class MpskReceiver:
         """
 
     def steps_max_out(self) -> int:
-        """Largest number of samples steps() can return in the current state.
+        """Output-capacity hint for the generated binding's steps().
 
-        Size an `out=` buffer with this before calling steps(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on steps_max_out()
-        replaces this text.
+        Always returns 0, which the binding reads as "the input length is a
+        safe bound": `sps >= m_out >= 2`, so a block never yields more symbols
+        than it has samples.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            0.
         """
 
     def bits(
@@ -3714,18 +3742,23 @@ class MpskReceiver:
 
         """
 
-    def bits_max_out(self) -> int:
-        """Largest number of samples bits() can return in the current state.
+    def bits_max_out(self, x_len: int, /) -> int:
+        """Output capacity bits() needs for an x_len-sample block.
 
-        Size an `out=` buffer with this before calling bits(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on bits_max_out()
-        replaces this text.
+        A block yields at most one symbol per input sample, of log2(M) bits
+        each, so `x_len * log2(M)` bits always fit. The bound used to be the
+        input length alone, which 8PSK at an `sps` below 3 outruns; the bits
+        past it were dropped silently (doppler#2643).
+
+        Parameters
+        ----------
+        x_len : int
+            Input samples in the block.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            `x_len * log2(M)`.
         """
 
     def reset(self) -> None:
@@ -4234,17 +4267,16 @@ class BpskReceiver:
         """
 
     def steps_max_out(self) -> int:
-        """Largest number of samples steps() can return in the current state.
+        """Output-capacity hint for the generated binding's steps().
 
-        Size an `out=` buffer with this before calling steps(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on steps_max_out()
-        replaces this text.
+        Always returns 0, which the binding reads as "the input length is a
+        safe bound": `sps >= m_out >= 2`, so a block never yields more symbols
+        than it has samples.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            0.
         """
 
     def bits(
@@ -4297,18 +4329,23 @@ class BpskReceiver:
 
         """
 
-    def bits_max_out(self) -> int:
-        """Largest number of samples bits() can return in the current state.
+    def bits_max_out(self, x_len: int, /) -> int:
+        """Output capacity bits() needs for an x_len-sample block.
 
-        Size an `out=` buffer with this before calling bits(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on bits_max_out()
-        replaces this text.
+        A block yields at most one symbol per input sample, of log2(M) bits
+        each, so `x_len * log2(M)` bits always fit. The bound used to be the
+        input length alone, which 8PSK at an `sps` below 3 outruns; the bits
+        past it were dropped silently (doppler#2643).
+
+        Parameters
+        ----------
+        x_len : int
+            Input samples in the block.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            `x_len * log2(M)`.
         """
 
     def reset(self) -> None:
@@ -4936,17 +4973,16 @@ class MpskReceiverR:
         """
 
     def steps_max_out(self) -> int:
-        """Largest number of samples steps() can return in the current state.
+        """Output-capacity hint for the generated binding's steps_real().
 
-        Size an `out=` buffer with this before calling steps(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on steps_max_out()
-        replaces this text.
+        Always returns 0, which the binding reads as "the input length is a
+        safe bound": `sps > 2 * m_out`, so a block never yields more symbols
+        than it has samples.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            0.
         """
 
     def bits(
@@ -5000,17 +5036,16 @@ class MpskReceiverR:
         """
 
     def bits_max_out(self) -> int:
-        """Largest number of samples bits() can return in the current state.
+        """Output-capacity hint for the generated binding's bits_real().
 
-        Size an `out=` buffer with this before calling bits(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on bits_max_out()
-        replaces this text.
+        Always returns 0, which the binding reads as "the input length is a
+        safe bound": `sps > 2 * m_out >= 4`, so a block yields at most `x_len /
+        4` symbols of at most 3 bits each, which is below the input length.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            0.
         """
 
     def state_bytes(self) -> int:

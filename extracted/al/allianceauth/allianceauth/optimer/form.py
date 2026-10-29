@@ -23,7 +23,7 @@ class OpForm(forms.Form):
         help_text=_("(Optional) Describe the operation with a couple of short words."),
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         _data_list = kwargs.pop('data_list', None)
 
         super().__init__(*args, **kwargs)

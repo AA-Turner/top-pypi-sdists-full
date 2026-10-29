@@ -23,6 +23,7 @@ from .literals import (
     ArtifactStatusType,
     ChatItemTypeType,
     ConnectionTypeType,
+    ContentDispositionType,
     MeetingFeatureStatusType,
     MessageProcessingStatusType,
     ParticipantRoleType,
@@ -133,6 +134,7 @@ class GetAttachmentRequestTypeDef(TypedDict):
     AttachmentId: str
     ConnectionToken: str
     UrlExpiryInSeconds: NotRequired[int]
+    UrlContentDisposition: NotRequired[ContentDispositionType]
 
 class GetAuthenticationUrlRequestTypeDef(TypedDict):
     SessionId: str

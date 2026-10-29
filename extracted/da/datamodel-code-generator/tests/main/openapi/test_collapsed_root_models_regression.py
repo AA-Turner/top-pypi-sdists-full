@@ -39,6 +39,7 @@ def test_collapsed_tree_reuse_partial(output_dir: Path, entrypoint: str, *, incl
                     "tree",
                     "--collapse-root-models",
                     "--disable-timestamp",
+                    "--intersect-allof-keywords",
                     *(["--openapi-scopes", "schemas", "api"] if include_api else []),
                 ],
                 force_exec_validation=True,
@@ -53,6 +54,7 @@ def test_collapsed_tree_reuse_partial(output_dir: Path, entrypoint: str, *, incl
             reuse_scope="tree",
             collapse_root_models=True,
             disable_timestamp=True,
+            intersect_allof_keywords=True,
             **({"openapi_scopes": [OpenAPIScope.Schemas, OpenAPIScope.Api]} if include_api else {}),
         )
     valid_payload = {
@@ -67,19 +69,19 @@ def test_collapsed_tree_reuse_partial(output_dir: Path, entrypoint: str, *, incl
         "nullableValue": {"code": "ok"},
         "nullableObjectValue": {"code": "ok"},
         "directScalarValue": "ab",
-        "directScalarInferred": "a",
-        "inlineScalarInferred": "a",
-        "scalarArrayInferred": ["a"],
-        "scalarMappingInferred": {"item": "a"},
-        "scalarDeepInferred": [["a"]],
-        "scalarArrayRootInferred": ["ab"],
-        "scalarMappingRootInferred": {"item": "ab"},
+        "directScalarInferred": "ab",
+        "inlineScalarInferred": "ab",
+        "scalarArrayInferred": ["ab"],
+        "scalarMappingInferred": {"item": "ab"},
+        "scalarDeepInferred": [["ab"]],
+        "scalarArrayRootInferred": ["ab", "cd"],
+        "scalarMappingRootInferred": {"item": "ab", "other": "cd"},
         "arrayNeutralComposition": [{"code": "ok"}],
         "mappingNeutralComposition": {"item": {"code": "ok"}},
         "deepArrayNeutralComposition": [[{"code": "ok"}]],
-        "scalarArrayWeaker": ["a"],
-        "scalarMappingWeaker": {"item": "a"},
-        "scalarDeepWeaker": [["a"]],
+        "scalarArrayWeaker": ["ab"],
+        "scalarMappingWeaker": {"item": "ab"},
+        "scalarDeepWeaker": [["ab"]],
         "prefixItemsNeutral": ["ab", 1],
         "legacyItemsNeutral": ["ab", 1],
         "unevaluatedItemsNeutral": ["ab", 1],
@@ -89,7 +91,7 @@ def test_collapsed_tree_reuse_partial(output_dir: Path, entrypoint: str, *, incl
     _assert_generated_package_model_validation(output_dir, module_path="", model_name="Child", data=valid_payload)
     with _generated_package_module(output_dir, "") as module:
         with pytest.raises(ValidationError, match="String should have at least 2 characters"):
-            module.Base.model_validate(valid_payload)
+            module.Child.model_validate({**valid_payload, "directScalarInferred": "a"})
         with pytest.raises(ValidationError, match="Field required"):
             module.Child.model_validate({
                 field_name: value for field_name, value in valid_payload.items() if field_name != "directScalarValue"

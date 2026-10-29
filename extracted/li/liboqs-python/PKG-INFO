@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: liboqs-python
-Version: 0.16.0.1
+Version: 0.16.0.2
 Summary: Python bindings for liboqs, providing post-quantum public key cryptography algorithms
 Project-URL: homepage, https://github.com/open-quantum-safe/liboqs-python
 Project-URL: repository, https://github.com/open-quantum-safe/liboqs-python.git

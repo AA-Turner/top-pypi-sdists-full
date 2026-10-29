@@ -20,8 +20,7 @@ from .widget import WidgetWrap
 
 if typing.TYPE_CHECKING:
     from collections.abc import Hashable
-
-    from typing_extensions import Literal
+    from typing import Literal
 
     from urwid.canvas import TextCanvas
     from urwid.util import _TagMarkup
@@ -49,13 +48,15 @@ class Edit(WidgetWrap[Text]):
       called when the event is re-emitted.  It is up to the event
       handler to guard against this case (for instance, by not changing the
       text if it is signaled for text that it has already changed once).
+    * ``"submit"`` is sent when :kbd:`enter`, mapped to ``'activate'``, reaches an Edit with ``multiline=False``.
+      It receives the edit text as an argument. :meth:`keypress` still returns the key.
     """
 
     _sizing = frozenset([Sizing.FLOW])
     _selectable = True
     ignore_focus = False
     # (this variable is picked up by the MetaSignals metaclass)
-    signals: typing.ClassVar[list[str]] = ["change", "postchange"]
+    signals: typing.ClassVar[list[str]] = ["change", "postchange", "submit"]
 
     def valid_char(self, ch: str) -> bool:
         """
@@ -89,6 +90,7 @@ class Edit(WidgetWrap[Text]):
         mask: str | None = None,
         *,
         expand_tabs: bool = True,
+        max_length: int | None = None,
     ) -> None:
         """Create the Edit widget.
 
@@ -103,6 +105,8 @@ class Edit(WidgetWrap[Text]):
         :param mask: hide text entered with this character, None:disable mask
         :param expand_tabs: ``True``: an inserted tab is spaces up to the next tab stop of the line,
             ``False``: a tab character
+        :param max_length: the longest :attr:`edit_text` allowed, see :attr:`max_length`
+        :raises ValueError: *max_length* is negative, or *edit_text* is longer than it.
 
         >>> Edit()
         <Edit selectable flow widget '' edit_pos=0>
@@ -112,6 +116,12 @@ class Edit(WidgetWrap[Text]):
         <Edit selectable flow widget 'Smith' caption='Name ' edit_pos=1>
         >>> Edit("", "3.14", align="right")
         <Edit selectable flow widget '3.14' align='right' edit_pos=4>
+        >>> pin = Edit("PIN: ", "123", max_length=4)
+        >>> pin.keypress((20,), "4")
+        >>> pin.keypress((20,), "5")
+        '5'
+        >>> print(pin.edit_text)
+        1234
         """
         super().__init__(Text("", align, wrap, layout))
         self.multiline = multiline
@@ -120,15 +130,40 @@ class Edit(WidgetWrap[Text]):
         self._edit_pos = 0
         self._caption, self._attrib = decompose_tagmarkup(caption)
         self._edit_text = ""
+        self._max_length: int | None = None
+        self.max_length = max_length
         self.highlight: tuple[int, int] | None = None
         self._mask: str | None = None
         self._shift_view_to_cursor = False
         self.pref_col_maxcol: tuple[None, None] | tuple[int | Literal[Align.LEFT, Align.RIGHT], int] = (None, None)
+        # cursor position the next set_edit_text() call applies before "postchange", see _set_edit_text_and_pos()
+        self._pending_edit_pos: int | None = None
+        # cursor position set_edit_text() left after "postchange" when a pending one was given
+        self._applied_edit_pos: int | None = None
         self.set_edit_text(edit_text)
         if edit_pos is None:
             edit_pos = len(edit_text)
         self.set_edit_pos(edit_pos)
         self.set_mask(mask)
+
+    @property
+    def max_length(self) -> int | None:
+        """The longest :attr:`edit_text` allowed, or ``None`` for no limit.
+
+        It is counted like :attr:`edit_pos`: in code points, or in bytes when the caption is bytes.
+        A key that would go over it is refused, see :meth:`keypress`; :meth:`set_edit_text` and :meth:`insert_text`
+        raise :exc:`ValueError` instead. Setting it negative or below the length of :attr:`edit_text` raises
+        :exc:`ValueError` too.
+        """
+        return self._max_length
+
+    @max_length.setter
+    def max_length(self, max_length: int | None) -> None:
+        if max_length is not None and max_length < 0:
+            raise ValueError(f"max_length must not be negative, got {max_length}")
+        if max_length is not None and len(self._edit_text) > max_length:
+            raise ValueError(f"max_length {max_length} is shorter than the text of length {len(self._edit_text)}")
+        self._max_length = max_length
 
     def selectable(self) -> bool:
         """Return True: this widget is always selectable.
@@ -149,7 +184,7 @@ class Edit(WidgetWrap[Text]):
             *super()._repr_words(),
             repr(self._edit_text if self._mask is None else self._mask * len(self._edit_text)),
             *([f"caption={self._caption!r}"] if self._caption else []),
-            *(["multiline"] if self.multiline is True else []),
+            *(["multiline"] if self.multiline else []),
         ]
 
     def _repr_attrs(self) -> dict[str, typing.Any]:
@@ -265,7 +300,8 @@ class Edit(WidgetWrap[Text]):
         (maxcol,) = size
         pref_col, then_maxcol = self.pref_col_maxcol
         if then_maxcol != maxcol:
-            return self.get_cursor_coords((maxcol,))[0]
+            coords = self.get_cursor_coords((maxcol,))
+            return coords[0] if coords is not None else 0
 
         return typing.cast("int", pref_col)
 
@@ -337,19 +373,22 @@ class Edit(WidgetWrap[Text]):
         Set the character for masking text away.
 
         :param mask: hide text entered with this character, None:disable mask
-        :param expand_tabs: ``True``: an inserted tab is spaces up to the next tab stop of the line,
-            ``False``: a tab character
         """
         self._mask = mask
         self._sync_wrapped()
         self._invalidate()
 
-    def set_edit_text(self, text: str) -> None:
+    def set_edit_text(self, text: str, *, edit_pos: int | None = None) -> None:
         """
         Set the edit text for this widget.
 
         :param text: text for editing, type (bytes or unicode)
                      must match the text in the caption
+        :param edit_pos: cursor position to set before ``"postchange"`` is sent, clipped as by
+            :meth:`set_edit_pos`; ``None`` keeps the current position, clipped to the new text.
+            An override passes ``None`` on unchanged: an editing key gives its position to this method by another
+            route, which an explicit position replaces.
+        :raises ValueError: *text* is longer than :attr:`max_length`; the text is left as it was.
 
         >>> e = Edit()
         >>> e.set_edit_text("yes")
@@ -360,17 +399,48 @@ class Edit(WidgetWrap[Text]):
         >>> e.edit_text = "no"  # Urwid 0.9.9 or later
         >>> print(e.edit_text)
         no
+        >>> e.set_edit_text("maybe", edit_pos=5)
+        >>> e.edit_pos
+        5
         """
+        pending_edit_pos, self._pending_edit_pos = self._pending_edit_pos, None
         text = self._normalize_to_caption(text)  # type: ignore[assignment]
+        if self._max_length is not None and len(text) > self._max_length:
+            raise ValueError(f"text of length {len(text)} is longer than max_length {self._max_length}")
         self.highlight = None
         self._emit("change", text)
         old_text = self._edit_text
         self._edit_text = text
         self._sync_wrapped()
-        self.edit_pos = min(self.edit_pos, len(text))
+        self.edit_pos = min(self.edit_pos, len(text)) if edit_pos is None else edit_pos
+        if edit_pos is None and pending_edit_pos is not None:
+            # an editing key moves the cursor through set_edit_pos(), so that an override sees every move
+            self.set_edit_pos(pending_edit_pos)
 
         self._emit("postchange", old_text)
+        if pending_edit_pos is not None:
+            self._applied_edit_pos = self.edit_pos
         self._invalidate()
+
+    def _set_edit_text_and_pos(self, text: str | bytes, pos: int) -> None:
+        """Replace the edit text and move the cursor to *pos*, so that "postchange" handlers already see *pos*.
+
+        The position reaches :meth:`set_edit_text` through an attribute instead of its ``edit_pos`` argument,
+        so that a subclass overriding it as ``set_edit_text(text)`` keeps working.
+        The position is set again afterwards when the override never calls the base method, or moves the cursor
+        after it returns, as editing keys did before "postchange" saw the new position.
+        A cursor move made by a "postchange" handler is kept otherwise.
+        """
+        self._pending_edit_pos = pos
+        self._applied_edit_pos = None
+        try:
+            self.set_edit_text(text)  # type: ignore[arg-type]  # normalisation happen
+            applied = self._applied_edit_pos
+        finally:
+            self._pending_edit_pos = None
+            self._applied_edit_pos = None
+        if applied is None or self.edit_pos != applied:
+            self.set_edit_pos(pos)
 
     def get_edit_text(self) -> str:
         """
@@ -400,6 +470,7 @@ class Edit(WidgetWrap[Text]):
 
         :param text: text for inserting, type (bytes or unicode)
                      must match the text in the caption
+        :raises ValueError: the result is longer than :attr:`max_length`; the text is left as it was.
 
         >>> e = Edit("", "42")
         >>> e.insert_text(".5")
@@ -412,8 +483,7 @@ class Edit(WidgetWrap[Text]):
         """
         text = self._normalize_to_caption(text)  # type: ignore[assignment]
         result_text, result_pos = self.insert_text_result(text)
-        self.set_edit_text(result_text)  # type: ignore[arg-type]  # normalisation happen
-        self.set_edit_pos(result_pos)
+        self._set_edit_text_and_pos(result_text, result_pos)
         self.highlight = None
 
     def _normalize_to_caption(self, text: str | bytes) -> str | bytes:
@@ -456,13 +526,32 @@ class Edit(WidgetWrap[Text]):
         result_pos += len(text)
         return (result_text, result_pos)
 
+    def _insert_typed_text(self, text: str | bytes) -> bool:
+        """Insert the text a key produced, unless it would make :attr:`edit_text` longer than :attr:`max_length`.
+
+        :returns: whether the text was inserted.
+        """
+        text = self._normalize_to_caption(text)
+        result_text, _result_pos = self.insert_text_result(text)  # type: ignore[arg-type]  # normalised to the caption
+        if self.max_length is not None and len(result_text) > self.max_length:
+            return False
+        self.insert_text(text)  # type: ignore[arg-type]  # normalised to the caption
+        return True
+
     def keypress(
         self,
-        size: tuple[int],
+        size: tuple[int],  # type: ignore[override]
         key: str,
     ) -> str | None:
         """
         Handle editing keystrokes, return others.
+
+        A key whose text would make :attr:`edit_text` longer than :attr:`max_length` inserts nothing and is
+        returned, as :class:`IntEdit` returns a digit past its limit. A tab is inserted whole or not at all.
+
+        The readline delete commands described in :class:`~urwid.CommandMap` go through :meth:`set_edit_text`.
+        A subclass whose :meth:`set_edit_text` raises for some text has to handle those commands itself
+        once an application binds them, or the exception leaves :meth:`keypress`.
 
         >>> e, size = Edit(), (20,)
         >>> e.keypress(size, "x")
@@ -482,32 +571,63 @@ class Edit(WidgetWrap[Text]):
         """
         pos = self.edit_pos
         if self.valid_char(key):
-            if isinstance(key, str) and not isinstance(self._caption, str):
-                key = key.encode("utf-8")  # type: ignore[assignment]
-            self.insert_text(key)
-            return None
+            typed = key.encode("utf-8") if isinstance(key, str) and not isinstance(self._caption, str) else key
+            return None if self._insert_typed_text(typed) else key
 
         if key == "tab" and self.allow_tab:
             if not self.expand_tabs:
-                self.insert_text("\t")
-                return None
+                return None if self._insert_typed_text("\t") else key
             layout = self._w.layout
             if not isinstance(layout, text_layout.StandardTextLayout):
                 layout = text_layout.default_layout  # a custom layout has no tab stops
             text = self._edit_text
             tab, nl = ("\t", "\n") if isinstance(text, str) else (b"\t", b"\n")
             column = 0
+            # pyrefly: ignore[bad-argument-type, no-matching-overload]  # isinstance() does not narrow nl and tab
             for idx, chunk in enumerate(text[text.rfind(nl, 0, pos) + 1 : pos].split(tab)):
                 if idx:
                     column = layout.next_tab_stop(column)
                 column += calc_width(chunk, 0, len(chunk))
-            if spaces := layout.next_tab_stop(column) - column:
-                self.insert_text(" " * spaces)
+            spaces = layout.next_tab_stop(column) - column
+            if spaces and not self._insert_typed_text(" " * spaces):
+                return key
             return None
 
         if key == "enter" and self.multiline:
-            key = "\n"
-            self.insert_text(key)
+            return None if self._insert_typed_text("\n") else key
+
+        command = self._command_map[key]
+        if key == "enter" and command == Command.ACTIVATE:
+            self._emit("submit", self._edit_text)
+            return key
+
+        if command in {Command.WORD_LEFT, Command.WORD_RIGHT}:
+            if (new_pos := self._word_boundary(pos, forward=command == Command.WORD_RIGHT)) == pos:
+                return key
+            self.set_edit_pos(new_pos)
+            return None
+
+        if command in {
+            Command.DELETE_WORD_LEFT,
+            Command.DELETE_WORD_RIGHT,
+            Command.DELETE_TO_LINE_START,
+            Command.DELETE_TO_LINE_END,
+        }:
+            text = self._edit_text
+            nl = "\n" if isinstance(text, str) else b"\n"
+            if command == Command.DELETE_WORD_LEFT:
+                start, end = self._word_boundary(pos, forward=False), pos
+            elif command == Command.DELETE_WORD_RIGHT:
+                start, end = pos, self._word_boundary(pos, forward=True)
+            elif command == Command.DELETE_TO_LINE_START:
+                bol = text.rfind(nl, 0, pos)  # pyrefly: ignore[bad-argument-type]  # isinstance() does not narrow nl
+                start, end = bol + 1, pos
+            else:
+                eol = text.find(nl, pos)  # pyrefly: ignore[bad-argument-type]  # isinstance() does not narrow nl
+                start, end = pos, len(text) if eol < 0 else eol
+            if start == end:
+                return key
+            self._set_edit_text_and_pos(text[:start] + text[end:], start)
             return None
 
         if self._command_map[key] == Command.LEFT:
@@ -527,7 +647,8 @@ class Edit(WidgetWrap[Text]):
         if self._command_map[key] in {Command.UP, Command.DOWN}:
             self.highlight = None
 
-            _x, y = self.get_cursor_coords(size)
+            if (y := self._cursor_row(size)) is None:
+                return key
             pref_col = self.get_pref_col(size)
             if pref_col is None:
                 raise ValueError(pref_col)
@@ -547,8 +668,7 @@ class Edit(WidgetWrap[Text]):
                 if pos == 0:
                     return key
                 pos = move_prev_char(self.edit_text, 0, pos)
-                self.set_edit_text(self.edit_text[:pos] + self.edit_text[self.edit_pos :])
-                self.set_edit_pos(pos)
+                self._set_edit_text_and_pos(self.edit_text[:pos] + self.edit_text[self.edit_pos :], pos)
                 return None
             return None
 
@@ -566,7 +686,8 @@ class Edit(WidgetWrap[Text]):
             self.highlight = None
             self.pref_col_maxcol = None, None
 
-            _x, y = self.get_cursor_coords(size)
+            if (y := self._cursor_row(size)) is None:
+                return key
 
             if self._command_map[key] == Command.MAX_LEFT:
                 self.move_cursor_to_coords(size, Align.LEFT, y)
@@ -577,6 +698,31 @@ class Edit(WidgetWrap[Text]):
         # key wasn't handled
         return key
 
+    def _word_boundary(self, pos: int, *, forward: bool) -> int:
+        """Return the edit position after the next word, or at the start of the previous word.
+
+        A word is a run of characters whose first code point is a letter, a digit or an underscore.
+        A multibyte character of a byte string counts as a letter.
+        A masked text is one word, so that the cursor does not show where the hidden text has spaces.
+        """
+        text = self._edit_text
+        end = len(text)
+        if self._mask is not None:
+            return end if forward else 0
+
+        def in_word(char: str | bytes) -> bool:
+            if isinstance(char, bytes):
+                return char[:1].isalnum() or char[:1] == b"_" or len(char) > 1
+            return char[:1].isalnum() or char[:1] == "_"
+
+        for skip_word in (False, True):  # skip the separators before the word, then the word
+            while pos != (end if forward else 0):
+                other = move_next_char(text, pos, end) if forward else move_prev_char(text, 0, pos)
+                if in_word(text[min(pos, other) : max(pos, other)]) != skip_word:
+                    break
+                pos = other
+        return pos
+
     def move_cursor_to_coords(
         self,
         size: tuple[int],
@@ -585,7 +731,7 @@ class Edit(WidgetWrap[Text]):
     ) -> bool:
         r"""Set the cursor position with (x,y) coordinates.
 
-        Returns True if move succeeded, False otherwise.
+        :returns: True if move succeeded, False otherwise.
 
         >>> size = (10,)
         >>> e = Edit("", "edit\ntext")
@@ -615,7 +761,7 @@ class Edit(WidgetWrap[Text]):
 
     def mouse_event(
         self,
-        size: tuple[int],
+        size: tuple[int],  # type: ignore[override]
         event: str,
         button: int,
         col: int,
@@ -642,14 +788,13 @@ class Edit(WidgetWrap[Text]):
             return False
         start, stop = self.highlight
         btext, etext = self.edit_text[:start], self.edit_text[stop:]
-        self.set_edit_text(btext + etext)
-        self.edit_pos = start
+        self._set_edit_text_and_pos(btext + etext, start)
         self.highlight = None
         return True
 
     def render(
         self,
-        size: tuple[int],
+        size: tuple[int],  # type: ignore[override]
         focus: bool = False,
     ) -> TextCanvas | CompositeCanvas:
         """Render edit widget and return canvas.
@@ -663,7 +808,7 @@ class Edit(WidgetWrap[Text]):
         >>> c.cursor
         (5, 0)
         """
-        self._shift_view_to_cursor = bool(focus)
+        self._shift_view_to_cursor = focus
 
         (maxcol,) = size
         text, attr = self.get_text()
@@ -696,6 +841,13 @@ class Edit(WidgetWrap[Text]):
             return trans
 
         text, _ignore = self.get_text()
+        if self._w.wrap == WrapMode.ELLIPSIS and self._w.layout.supports_wrap_mode(WrapMode.CLIP):
+            # The ellipsis replaces the text past the cut, so no shift could bring a cursor there into view:
+            # the row with the cursor is clipped instead, and the other rows keep their ellipsis.
+            clipped = self._w.layout.layout(text, maxcol, self._w.align, WrapMode.CLIP)
+            if len(clipped) == len(trans):  # a different row count would disagree with rows()
+                cursor_row = text_layout.calc_coords(text, clipped, self.edit_pos + len(self.caption))[1]
+                trans = [*trans[:cursor_row], clipped[cursor_row], *trans[cursor_row + 1 :]]
         x, y = text_layout.calc_coords(text, trans, self.edit_pos + len(self.caption))
         if x < 0:
             return [
@@ -713,16 +865,20 @@ class Edit(WidgetWrap[Text]):
 
         return trans
 
-    def get_cursor_coords(self, size: tuple[int]) -> tuple[int, int]:
+    def get_cursor_coords(self, size: tuple[int]) -> tuple[int, int] | None:
         """
-        Return the (*x*, *y*) coordinates of cursor within widget.
+        Return the (*x*, *y*) coordinates of cursor within widget, or ``None`` when it has no columns to show it in.
 
         >>> Edit("? ", "yes").get_cursor_coords((10,))
         (5, 0)
+        >>> Edit("? ", "yes").get_cursor_coords((0,)) is None
+        True
         """
         (maxcol,) = size
 
         self._shift_view_to_cursor = True
+        if maxcol == 0:
+            return None
         x, y = self.position_coords(maxcol, self.edit_pos)
         if self._w.wrap in (WrapMode.SPACE, WrapMode.ANY) and x >= maxcol:
             # The cursor sits right after a row that is already full and entirely visible.
@@ -730,6 +886,15 @@ class Edit(WidgetWrap[Text]):
             # that has not happened yet.
             x = maxcol - 1
         return x, y
+
+    def _cursor_row(self, size: tuple[int]) -> int | None:
+        if (coords := self.get_cursor_coords(size)) is not None:
+            return coords[1]
+        if size[0] == 0:
+            # No columns means no cursor, but the edit position still has a row.
+            return self.position_coords(0, self.edit_pos)[1]
+        # An override reports no cursor to move from.
+        return None
 
     def position_coords(self, maxcol: int, pos: int) -> tuple[int, int]:
         """Return (*x*, *y*) coordinates for an offset into self.edit_text."""
@@ -763,7 +928,7 @@ class IntEdit(Edit):
 
     def keypress(
         self,
-        size: tuple[int],
+        size: tuple[int],  # type: ignore[override]
         key: str,
     ) -> str | None:
         """
@@ -781,20 +946,46 @@ class IntEdit(Edit):
         >>> print(e.edit_text)
         2
         """
-        # 0 means no limit; the function is missing on Python 3.9 and 3.10 without the security backport.
-        max_digits = getattr(sys, "get_int_max_str_digits", lambda: 0)()
+        max_digits = sys.get_int_max_str_digits()  # 0 means no limit
         if max_digits and self.valid_char(key) and len(self.insert_text_result(key)[0]) > max_digits:
             return key
 
         if unhandled := super().keypress(size, key):
             return unhandled
 
-        # trim leading zeros
-        while self.edit_pos > 0 and self.edit_text[:1] == "0":
-            self.set_edit_pos(self.edit_pos - 1)
-            self.set_edit_text(self.edit_text[1:])
+        text, pos = self._strip_leading_zeros(self.edit_text, self.edit_pos)
+        if text != self.edit_text:
+            self._set_edit_text_and_pos(text, pos)
 
         return None
+
+    def insert_text(self, text: str) -> None:
+        """Insert text at the cursor position and update the cursor, removing the leading zeros before the cursor.
+
+        The result is set at once, so "change" and "postchange" are sent once, and not at all when the text stays
+        the same.
+
+        :param text: text for inserting, type (bytes or unicode) must match the text in the caption
+
+        >>> e = IntEdit("", 0)
+        >>> e.insert_text("7")
+        >>> e
+        <IntEdit selectable flow widget '7' edit_pos=1>
+        """
+        result_text, result_pos = self._strip_leading_zeros(*self.insert_text_result(text))
+        if result_text == self.edit_text:
+            self.set_edit_pos(result_pos)
+        else:
+            self._set_edit_text_and_pos(result_text, result_pos)
+
+    @staticmethod
+    def _strip_leading_zeros(text: str | bytes, pos: int) -> tuple[str | bytes, int]:
+        """Return *text* without the leading zeros before *pos*, keeping a lone zero, and *pos* moved with it."""
+        zero = b"0" if isinstance(text, bytes) else "0"
+        zeros = 0
+        while zeros < pos and text[zeros : zeros + 1] == zero and text[zeros + 1 : zeros + 2].isdigit():
+            zeros += 1
+        return text[zeros:], pos - zeros
 
     def value(self) -> int:
         """

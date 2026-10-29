@@ -2,23 +2,27 @@
 
 from __future__ import annotations
 
+import functools
 import math
 import sys
 import typing
 import warnings
-from itertools import chain, repeat
-
-from typing_extensions import Literal
+from typing import Literal
 
 import urwid
+from urwid import _deprecation
 from urwid.canvas import Canvas, CanvasJoin, CompositeCanvas, SolidCanvas
 from urwid.command_map import Command
 from urwid.split_repr import remove_defaults
 from urwid.util import is_mouse_press
 
 from .constants import Align, Sizing, WHSettings
-from .container import WidgetContainerListContentsMixin, WidgetContainerMixin, _ContainerElementSizingFlag
-from .monitored_list import MonitoredFocusList, MonitoredList
+from .container import (
+    _SELECT_COMMANDS,
+    SelectNavigationListContentsMixin,
+    _ContainerElementSizingFlag,
+)
+from .monitored_list import MonitoredFocusList
 from .widget import (
     AbstractBoxWidget,
     AbstractFixedWidget,
@@ -51,29 +55,31 @@ class ColumnsWarning(WidgetWarning):
 
 class Columns(
     Widget,
-    WidgetContainerMixin[int],
-    WidgetContainerListContentsMixin[
-        typing.Union[
-            tuple[
-                typing.Union[AbstractFlowWidget, AbstractFixedWidget],
-                tuple[Literal[WHSettings.PACK], None, bool],
-            ],
-            tuple[
-                typing.Union[AbstractBoxWidget, AbstractFlowWidget],
-                typing.Union[
-                    tuple[Literal[WHSettings.GIVEN], int, bool],
-                    tuple[Literal[WHSettings.WEIGHT], typing.Union[int, float], bool],
-                ],
-            ],
+    SelectNavigationListContentsMixin[
+        tuple[
+            AbstractFlowWidget | AbstractFixedWidget,
+            tuple[Literal[WHSettings.PACK], None, bool],
+        ]
+        | tuple[
+            AbstractBoxWidget | AbstractFlowWidget,
+            tuple[Literal[WHSettings.GIVEN], int, bool] | tuple[Literal[WHSettings.WEIGHT], int | float, bool],
         ]
     ],
 ):
-    """Widgets arranged horizontally in columns from left to right."""
+    """Widgets arranged horizontally in columns from left to right.
+
+    Sends ``"focus changed"`` after :attr:`focus_position` changed, also through a change of :attr:`contents`.
+    Its handlers receive the container, the old and the new focus position, which is ``None`` while it is empty.
+    """
+
+    signals: typing.ClassVar[list[str]] = ["focus changed"]
 
     def sizing(self) -> frozenset[Sizing]:
         """Sizing supported by widget.
 
-        :return: Calculated widget sizing
+        :returns: Calculated widget sizing
+        :warns ColumnsWarning: a column's width type does not suit its widget's sizing,
+            or no sizing fits all columns and the BOX/FLOW fallback is used.
 
         Due to the nature of container with mutable contents, this method cannot be cached.
 
@@ -243,7 +249,9 @@ class Columns(
         focus_column: int | AbstractWidget | None = None,
         min_width: int = 1,
         box_columns: Iterable[int] | None = None,
-    ):
+        *,
+        select_navigation: bool = False,
+    ) -> None:
         """Initialize a new Columns instance.
 
         :param widget_list: iterable of flow or box widgets
@@ -255,12 +263,20 @@ class Columns(
         :param box_columns: a list of column indexes containing box widgets
             whose height is set to the maximum of the rows
             required by columns not listed in *box_columns*.
+        :param select_navigation: handle the ``'next selectable'`` and ``'prev selectable'`` commands,
+            see :ref:`select-navigation`.
         :raises ColumnsError: an item of *widget_list* is not a widget or a valid ``(width, widget)`` pair.
+        :raises ValueError: *focus_column* is a widget that is not in *widget_list*.
+        :warns ColumnsWarning: an item of *widget_list* is not a widget.
+            A ``'pack'`` column is listed in *box_columns*.
 
         *widget_list* may also contain tuples such as:
 
         (*given_width*, *widget*)
             make this column *given_width* screen columns wide, where *given_width* is an int
+        (``'given'``, *given_width*, *widget*)
+            the same as (*given_width*, *widget*), in the expanded form that repeats the :attr:`contents` options.
+            ``'fixed'`` is accepted as an older name for ``'given'``.
         (``'pack'``, *widget*)
             call :meth:`pack() <Widget.pack>` to calculate the width of this column
         (``'weight'``, *weight*, *widget*)
@@ -297,14 +313,15 @@ class Columns(
         box_columns = set(box_columns or ())
 
         width: Literal["pack", WHSettings.PACK] | int | float | None
+        w: AbstractBoxWidget | AbstractFlowWidget | AbstractFixedWidget
 
         for i, original in enumerate(widget_list):
-            w = original
-            if not isinstance(w, tuple):
+            if not isinstance(original, tuple):
+                w = original
                 self.contents.append((w, (WHSettings.WEIGHT, 1, i in box_columns)))
 
-            elif len(w) == 2:
-                width, w = w  # type: ignore[assignment]  # we match later
+            elif len(original) == 2:
+                width, w = original
                 if width in {Sizing.FLOW, WHSettings.PACK}:  # 'pack' used to be called 'flow'
                     if i in box_columns:
                         warnings.warn(
@@ -326,18 +343,20 @@ class Columns(
                         )
                     )
 
-            elif w[0] in {Sizing.FIXED, WHSettings.GIVEN}:  # backwards compatibility: FIXED -> GIVEN
-                width, w = w[-2:]
+            # Not deprecated: the expanded form of (width, widget) repeating the internal storage (GIVEN, width).
+            # "fixed" is its older name, kept for backward compatibility.
+            elif original[0] in {Sizing.FIXED, WHSettings.GIVEN}:
+                width, w = original[-2:]
                 self.contents.append((w, (WHSettings.GIVEN, typing.cast("int", width), i in box_columns)))
 
-            elif w[0] == WHSettings.WEIGHT:
-                _ignored, width, w = w
+            elif original[0] == WHSettings.WEIGHT:
+                _ignored, width, w = original
                 self.contents.append((w, (WHSettings.WEIGHT, width, i in box_columns)))
 
             else:
                 raise ColumnsError(f"initial widget list item invalid: {original!r}")
 
-            if focus_column == w or (focus_column is None and w.selectable()):  # type: ignore[union-attr]
+            if focus_column == w or (focus_column is None and w.selectable()):
                 focus_column = i
 
             if not isinstance(w, AbstractWidget):
@@ -346,10 +365,15 @@ class Columns(
         self.dividechars = dividechars
 
         if self.contents and focus_column is not None:
-            self.focus_position = typing.cast("int", focus_column)
+            if not isinstance(focus_column, int):
+                raise ValueError(f"Widget not found in Columns contents: {focus_column!r}")
+            self.focus_position = focus_column
         self.pref_col: Literal["left", "right", Align.LEFT, Align.RIGHT] | int | None = None
         self.min_width = min_width
         self._cache_maxcol: int | None = None
+        self.select_navigation = select_navigation
+        # connected last, so that filling the contents during construction sends no signal
+        self._contents.set_focus_moved_callback(functools.partial(self._emit, "focus changed"))
 
     def _repr_words(self) -> list[str]:
         if len(self.contents) > 1:
@@ -366,6 +390,7 @@ class Columns(
             "dividechars": self.dividechars,
             "focus_column": self.focus_position if len(self._contents) > 1 else None,
             "min_width": self.min_width,
+            "select_navigation": self.select_navigation,
         }
         return remove_defaults(attrs, Columns.__init__)
 
@@ -378,17 +403,17 @@ class Columns(
             | tuple[Literal[WHSettings.WEIGHT], int | float, AbstractWidget]
         ] = []
         box_columns: list[int] = []
-        for idx, (w_instance, (sizing, amount, is_box)) in enumerate(self._contents):
-            if sizing == WHSettings.GIVEN:
-                widget_list.append((typing.cast("int", amount), w_instance))
-            elif sizing == WHSettings.PACK:
+        for idx, (w_instance, options) in enumerate(self._contents):
+            if options[0] == WHSettings.GIVEN:
+                widget_list.append((options[1], w_instance))
+            elif options[0] == WHSettings.PACK:
                 widget_list.append((WHSettings.PACK, w_instance))
-            elif amount == 1:
+            elif options[1] == 1:
                 widget_list.append(w_instance)
             else:
-                widget_list.append((WHSettings.WEIGHT, typing.cast("int | float", amount), w_instance))
+                widget_list.append((WHSettings.WEIGHT, options[1], w_instance))
 
-            if is_box:
+            if options[2]:
                 box_columns.append(idx)
 
         yield "widget_list", widget_list
@@ -396,6 +421,7 @@ class Columns(
         yield "focus_column", self.focus_position if self._contents else None
         yield "min_width", self.min_width
         yield "box_columns", box_columns
+        yield "select_navigation", self.select_navigation, False
 
     def __len__(self) -> int:
         """Return the number of columns."""
@@ -440,6 +466,7 @@ class Columns(
                     (
                         t not in {WHSettings.PACK, WHSettings.GIVEN, WHSettings.WEIGHT},
                         (n is not None and (not isinstance(n, (int, float)) or n < 0 or not math.isfinite(float(n)))),
+                        t == WHSettings.GIVEN and not isinstance(n, int),
                         not isinstance(b, bool),
                     )
                 ):
@@ -450,177 +477,6 @@ class Columns(
 
         if invalid_items:
             raise ColumnsError(f"added content invalid: {invalid_items!r}")
-
-    @property
-    def widget_list(self) -> MonitoredList[AbstractWidget]:
-        """
-        A list of the widgets in this Columns.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`contents` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. You should use the new standard container `contents`. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        ml = MonitoredList(w for w, t in self.contents)
-
-        def user_modified() -> None:
-            self.widget_list = ml
-
-        ml.set_modified_callback(user_modified)
-        return ml
-
-    @widget_list.setter
-    def widget_list(self, widgets: MonitoredList[AbstractWidget]) -> None:
-        """
-        Replace the widgets in this Columns, keeping the old options where possible.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`contents` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. You should use the new standard container `contents`. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        focus_position = self.focus_position
-        self.contents = [
-            # need to grow contents list if widgets is longer
-            (new, options)  # type: ignore[misc]  # deprecated API, historic code lack support of FIXED
-            for (new, (w, options)) in zip(
-                widgets,
-                chain(self.contents, repeat((None, (WHSettings.WEIGHT, 1, False)))),
-            )
-        ]
-        if focus_position < len(widgets):
-            self.focus_position = focus_position
-
-    @property
-    def column_types(
-        self,
-    ) -> MonitoredList[
-        tuple[Literal[Sizing.FLOW], None]
-        | tuple[Literal[Sizing.FIXED], int]
-        | tuple[Literal[WHSettings.WEIGHT], int | float],
-    ]:
-        """
-        A list of the old partial options values for the widgets in this Columns.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`contents` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "for backwards compatibility only. "
-            "You should use the new standard container property .contents to modify Columns contents. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        ml = MonitoredList(
-            # return the old column type names
-            (
-                {
-                    WHSettings.GIVEN: Sizing.FIXED,
-                    WHSettings.PACK: Sizing.FLOW,
-                }.get(t, t),
-                n,
-            )
-            for w, (t, n, b) in self.contents
-        )
-
-        def user_modified() -> None:
-            self.column_types = ml  # type: ignore[assignment]
-
-        ml.set_modified_callback(user_modified)
-        return ml  # type: ignore[return-value]
-
-    @column_types.setter
-    def column_types(
-        self,
-        column_types: MonitoredList[
-            tuple[Literal[Sizing.FLOW, WHSettings.PACK], None]
-            | tuple[Literal[Sizing.FIXED, WHSettings.GIVEN], int]
-            | tuple[Literal[WHSettings.WEIGHT], int | float],
-        ],
-    ) -> None:
-        """
-        Replace the width settings of the widgets in this Columns.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`contents` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "for backwards compatibility only. "
-            "You should use the new standard container property .contents to modify Columns contents. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        focus_position = self.focus_position
-        self.contents = [
-            (  # type: ignore[misc]
-                w,
-                (
-                    {
-                        Sizing.FIXED: WHSettings.GIVEN,
-                        Sizing.FLOW: WHSettings.PACK,
-                    }.get(new_t, new_t),  # type: ignore[arg-type]
-                    new_n,
-                    b,
-                ),
-            )
-            for ((new_t, new_n), (w, (t, n, b))) in zip(column_types, self.contents)
-        ]
-        if focus_position < len(column_types):
-            self.focus_position = focus_position
-
-    @property
-    def box_columns(self) -> MonitoredList[int]:
-        """Return the indexes of the columns that are treated as box widgets when Columns is a flow widget.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`contents` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. You should use the new standard container property `contents`. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        ml = MonitoredList(i for i, (w, (t, n, b)) in enumerate(self.contents) if b)
-
-        def user_modified() -> None:
-            self.box_columns = ml
-
-        ml.set_modified_callback(user_modified)
-        return ml
-
-    @box_columns.setter
-    def box_columns(self, box_columns: MonitoredList[int]) -> None:
-        """
-        Mark the columns at the given indexes as box widgets.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`contents` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. You should use the new standard container property `contents`. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        box_columns = set(box_columns)  # type: ignore[assignment]
-        self.contents = [(w, (t, n, i in box_columns)) for (i, (w, (t, n, b))) in enumerate(self.contents)]  # type: ignore[misc]
 
     @property
     def contents(
@@ -659,6 +515,42 @@ class Columns(
     ) -> None:
         self._contents[:] = c
 
+    @typing.overload
+    @staticmethod
+    def options(
+        width_type: Literal["pack", WHSettings.PACK],
+        width_amount: int | float | None = ...,  # noqa: PYI041  # provide explicit for IDEs
+        box_widget: bool = ...,
+    ) -> tuple[Literal[WHSettings.PACK], None, bool]: ...
+
+    @typing.overload
+    @staticmethod
+    def options(
+        width_type: Literal["given", WHSettings.GIVEN],
+        width_amount: int = ...,
+        box_widget: bool = ...,
+    ) -> tuple[Literal[WHSettings.GIVEN], int, bool]: ...
+
+    @typing.overload
+    @staticmethod
+    def options(
+        width_type: Literal["weight", WHSettings.WEIGHT] = ...,
+        width_amount: int | float = ...,  # noqa: PYI041  # provide explicit for IDEs
+        box_widget: bool = ...,
+    ) -> tuple[Literal[WHSettings.WEIGHT], int | float, bool]: ...
+
+    @typing.overload
+    @staticmethod
+    def options(
+        width_type: Literal["pack", "given", "weight", WHSettings.PACK, WHSettings.GIVEN, WHSettings.WEIGHT] = ...,
+        width_amount: int | float | None = ...,  # noqa: PYI041  # provide explicit for IDEs
+        box_widget: bool = ...,
+    ) -> (
+        tuple[Literal[WHSettings.PACK], None, bool]
+        | tuple[Literal[WHSettings.GIVEN], int, bool]
+        | tuple[Literal[WHSettings.WEIGHT], int | float, bool]
+    ): ...
+
     @staticmethod
     def options(
         width_type: Literal[
@@ -694,97 +586,19 @@ class Columns(
         """
         if width_type == WHSettings.PACK:
             return (WHSettings.PACK, None, box_widget)
-        if width_type in {WHSettings.GIVEN, WHSettings.WEIGHT} and width_amount is not None:
-            return (WHSettings(width_type), width_amount, box_widget)  # type: ignore[return-value]
+        if width_type == WHSettings.GIVEN and isinstance(width_amount, int):
+            return (WHSettings.GIVEN, width_amount, box_widget)
+        if width_type == WHSettings.WEIGHT and width_amount is not None:
+            return (WHSettings.WEIGHT, width_amount, box_widget)
         raise ColumnsError(f"invalid combination: width_type={width_type!r}, width_amount={width_amount!r}")
 
     def _invalidate(self) -> None:
         self._cache_maxcol = None
         super()._invalidate()
 
-    def set_focus_column(self, num: int) -> None:
-        """
-        Set the column in focus by its index in :attr:`widget_list`.
-
-        :param num: index of focus-to-be entry
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`focus_position` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. You may also use the new standard container property `focus_position`. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.focus_position = num
-
-    def get_focus_column(self) -> int:
-        """
-        Return the focus column index.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`focus_position` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. You may also use the new standard container property `focus_position`. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.focus_position
-
-    def set_focus(self, item: AbstractWidget | int) -> None:
-        """
-        Set the item in focus.
-
-        :param item: widget or integer index
-        :raises ValueError: *item* is a widget that is not in the contents.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`focus_position` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. "
-            "You may also use the new standard container property `focus_position` to get the focus. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if isinstance(item, int):
-            self.focus_position = item
-            return
-        for i, (w, _options) in enumerate(self.contents):
-            if item == w:
-                self.focus_position = i
-                return
-        raise ValueError(f"Widget not found in Columns contents: {item!r}")
-
     @property
     def focus(self) -> AbstractWidget | None:
         """The child widget in focus or None when Columns is empty."""
-        if not self.contents:
-            return None
-        return self.contents[self.focus_position][0]
-
-    def get_focus(self) -> AbstractWidget | None:
-        """
-        Return the widget in focus.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`focus` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. "
-            "You may also use the new standard container property `focus` to get the focus. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         if not self.contents:
             return None
         return self.contents[self.focus_position][0]
@@ -819,42 +633,6 @@ class Columns(
             ) from exc
         self.contents.focus = position
 
-    @property
-    def focus_col(self) -> int:
-        """
-        A property for reading and setting the index of the column in focus.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`focus_position` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. "
-            "You may also use the new standard container property `focus_position` to get the focus. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.focus_position
-
-    @focus_col.setter
-    def focus_col(self, new_position: int) -> None:
-        """
-        Set the index of the column in focus.
-
-        .. deprecated:: 1.1.0
-            Use the standard container property :attr:`focus_position` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "only for backwards compatibility. "
-            "You may also use the new standard container property `focus_position` to get the focus. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.focus_position = new_position
-
     def column_widths(self, size: tuple[int] | tuple[int, int], focus: bool = False) -> list[int]:
         """
         Return a list of column widths.
@@ -869,7 +647,11 @@ class Columns(
             size_kind: WHSettings,
             is_box: bool,
         ) -> int:
-            """Calculate the width a 'pack' column takes by packing its widget."""
+            """Calculate the width a 'pack' column takes by packing its widget.
+
+            :warns ColumnsWarning: the column holds an object that is not a widget,
+                or its widget supports neither FIXED nor FLOW sizing.
+            """
             if isinstance(widget, AbstractWidget):
                 w_sizing = widget.sizing()
             else:
@@ -917,10 +699,10 @@ class Columns(
 
         static_w: int
 
-        for i, (_w, (t, width, _b)) in enumerate(self.contents):
-            if t == WHSettings.GIVEN:
-                static_w = typing.cast("int", width)
-            elif t == WHSettings.PACK:
+        for i, (_w, options) in enumerate(self.contents):
+            if options[0] == WHSettings.GIVEN:
+                static_w = options[1]
+            elif options[0] == WHSettings.PACK:
                 static_w = pack_widths[i]
             else:
                 static_w = self.min_width
@@ -930,8 +712,8 @@ class Columns(
 
             widths.append(static_w)
             shared -= static_w + self.dividechars
-            if t not in {WHSettings.GIVEN, WHSettings.PACK}:
-                weighted.append((typing.cast("int | float", width), i))
+            if options[0] not in {WHSettings.GIVEN, WHSettings.PACK}:
+                weighted.append((options[1], i))
 
         # drop columns on the left until we fit
         for i, width_ in enumerate(widths):
@@ -981,28 +763,31 @@ class Columns(
         weights: list[int | float] = []
         weight_max_sizes: dict[int | float, int] = {}
 
-        for i, (widget, (size_kind, size_weight, is_box)) in enumerate(self.contents):
+        for i, (widget, options) in enumerate(self.contents):
+            size_kind, is_box = options[0], options[2]
             w_sizing = widget.sizing()
             focused = focus and i == self.focus_position
 
-            if size_kind == WHSettings.GIVEN:
-                size_weight = typing.cast("int", size_weight)
-                widths[i] = size_weight
+            if options[0] == WHSettings.GIVEN:
+                given_width = options[1]
+                widths[i] = given_width
                 if is_box:
                     box.append(i)
                 elif Sizing.FLOW in w_sizing:
-                    heights[i] = typing.cast("AbstractFlowWidget", widget).rows((size_weight,), focused)
-                    w_h_args[i] = (size_weight,)
+                    heights[i] = typing.cast("AbstractFlowWidget", widget).rows((given_width,), focused)
+                    w_h_args[i] = (given_width,)
                 else:
                     raise ColumnsError(f"Unsupported combination of {size_kind} box={is_box!r} for {widget}")
 
-            elif size_kind == WHSettings.PACK and Sizing.FIXED in w_sizing and not is_box:
+            elif options[0] == WHSettings.PACK:
+                if Sizing.FIXED not in w_sizing or is_box:
+                    raise ColumnsError(f"Unsupported combination of {size_kind} box={is_box!r} for {widget}")
                 width, height = typing.cast("AbstractFixedWidget", widget).pack((), focused)
                 widths[i] = width
                 heights[i] = height
                 w_h_args[i] = ()
 
-            elif typing.cast("int | float", size_weight) <= 0:
+            elif options[1] <= 0:
                 widths[i] = 0
                 heights[i] = 1
                 if is_box:
@@ -1016,7 +801,7 @@ class Columns(
                 else:
                     width = self.min_width
 
-                size_weight = typing.cast("int | float", size_weight)
+                size_weight = options[1]
 
                 weighted.setdefault(size_weight, []).append((widget, i, is_box, focused))
                 weights.append(size_weight)
@@ -1066,6 +851,8 @@ class Columns(
         """Get column widths, heights and render size parameters.
 
         :raises ColumnsError: *size* is ``()`` and the children cannot be sized as a fixed widget.
+        :warns ColumnsWarning: a column holds an object that is not a widget.
+            A FLOW render is requested and a BOX-only column is not listed in ``box_columns``.
         """
         if not size:
             return self._get_fixed_column_sizes(focus=focus)
@@ -1082,7 +869,9 @@ class Columns(
         max_height = -1
         focus_position = self.focus_position if focus and self.contents else -1
 
-        for i, (width, (widget, (size_kind, _size_weight, is_box))) in enumerate(zip(widths, self.contents)):
+        for i, (width, (widget, (size_kind, _size_weight, is_box))) in enumerate(
+            zip(widths, self.contents, strict=False)
+        ):
             if isinstance(widget, AbstractWidget):
                 w_sizing = widget.sizing()
             else:
@@ -1168,7 +957,7 @@ class Columns(
         widths, _, size_args = self.get_column_sizes(size, focus)
 
         data: list[tuple[Canvas, int, bool, int]] = []
-        for i, (width, w_size, (w, _)) in enumerate(zip(widths, size_args, self.contents)):
+        for i, (width, w_size, (w, _)) in enumerate(zip(widths, size_args, self.contents, strict=False)):
             # if the widget has a width of 0, hide it
             if width <= 0:
                 continue
@@ -1208,7 +997,8 @@ class Columns(
             return None
 
         widths, _, size_args = self.get_column_sizes(size, focus=True)
-        if len(widths) <= self.focus_position:
+        if len(widths) <= self.focus_position or widths[self.focus_position] <= 0:
+            # the focus column is hidden: render shows no cursor
             return None
 
         if (coords := w.get_cursor_coords(size_args[self.focus_position])) is not None:
@@ -1239,21 +1029,29 @@ class Columns(
 
         best: tuple[int, int, int, AbstractWidget] | None = None
         x = 0
-        for i, (width, (w, _options)) in enumerate(zip(widths, self.contents)):
+        for i, (width, (w, _options)) in enumerate(zip(widths, self.contents, strict=False)):
             end: int = x + width
             if w.selectable():
-                if col != Align.RIGHT and (col == Align.LEFT or x > col) and best is None:  # type: ignore[operator]
-                    # no other choice
+                if not isinstance(col, int):
+                    best = i, x, end, w
+                    if col == Align.LEFT:
+                        # the first selectable column
+                        break
+                elif x > col:
+                    # past the column: keep the one on the left if it is closer
+                    if best is not None:
+                        _best_i, _best_x, best_end, _best_w = best
+                        if col - best_end < x - col:
+                            break
                     best = i, x, end, w
                     break
-                if col != Align.RIGHT and x > col and col - best[2] < x - col:  # type: ignore[index,operator]
-                    # choose one on left
-                    break
-                best = i, x, end, w
-                if col != Align.RIGHT and col < end:  # type: ignore[operator]
-                    # choose this one
-                    break
-            x = end + self.dividechars
+                else:
+                    best = i, x, end, w
+                    if col < end:
+                        # choose this one
+                        break
+            if width > 0:
+                x = end + self.dividechars
 
         if best is None:
             return False
@@ -1263,6 +1061,7 @@ class Columns(
             if isinstance(col, int):
                 move_x: int | Literal["left", "right", Align.LEFT, Align.RIGHT] = min(max(0, col - x), end - x - 1)
             else:
+                # pyrefly: ignore[bad-assignment]  # comparing with Align members widens the Literal
                 move_x = col
 
             if w.move_cursor_to_coords(size_args[i], move_x, row) is False:
@@ -1273,6 +1072,7 @@ class Columns(
                 return False
 
         self.focus_position = i
+        # pyrefly: ignore[bad-assignment]  # comparing with Align members widens the Literal
         self.pref_col = col
         return True
 
@@ -1288,18 +1088,23 @@ class Columns(
         """Send event to appropriate column. May change focus on button 1 press.
 
         :raises ColumnsError: *size* is ``()`` and the children cannot be sized as a fixed widget.
+
+        .. deprecated:: 2.4.0
+            Support for a column that does not implement ``mouse_event`` is deprecated.
+            Support will be removed in version 7.0.
         """
         widths, _, size_args = self.get_column_sizes(size, focus=focus)
 
         x = 0
-        for i, (width, w_size, (w, _)) in enumerate(zip(widths, size_args, self.contents)):
+        for i, (width, w_size, (w, _)) in enumerate(zip(widths, size_args, self.contents, strict=False)):
             if col < x:
                 return False
             w = self.contents[i][0]  # noqa: PLW2901
             end = x + width
 
             if col >= end:
-                x = end + self.dividechars
+                if width > 0:
+                    x = end + self.dividechars
                 continue
 
             focus = focus and self.focus_position == i
@@ -1307,10 +1112,10 @@ class Columns(
                 self.focus_position = i
 
             if not hasattr(w, "mouse_event"):
-                warnings.warn(
-                    f"{w.__class__.__module__}.{w.__class__.__name__} is not implementing Widget API",
-                    DeprecationWarning,
-                    stacklevel=2,
+                _deprecation.warn(
+                    f"{w.__class__.__module__}.{w.__class__.__name__} is not implementing Widget API.",
+                    since="2.4.0",
+                    removed_in="7.0",
                 )
                 return False
 
@@ -1329,29 +1134,28 @@ class Columns(
         widths, _, size_args = self.get_column_sizes(size, focus=True)
 
         w, _ = self.contents[self.focus_position]
-        if len(widths) <= self.focus_position:
+        if len(widths) <= self.focus_position or widths[self.focus_position] <= 0:
             return 0
-        col = None
+        col: Literal["left", "right", Align.LEFT, Align.RIGHT] | int | None = None
         cwidth = widths[self.focus_position]
+        # hidden columns are rendered without a divider
+        x = sum(self.dividechars + wc for wc in widths[: self.focus_position] if wc > 0)
 
         if hasattr(w, "get_pref_col"):
             col = w.get_pref_col(size_args[self.focus_position])
             if isinstance(col, int):
-                col += self.focus_position * self.dividechars
-                col += sum(widths[: self.focus_position])
+                col += x
         if col is None:
             col = self.pref_col
 
         if col is None and w.selectable():
-            col = cwidth // 2
-            col += self.focus_position * self.dividechars
-            col += sum(widths[: self.focus_position])
-        return typing.cast("Literal['left', 'right', Align.LEFT, Align.RIGHT] | int | None", col)
+            col = cwidth // 2 + x
+        return col
 
     def rows(self, size: tuple[int], focus: bool = False) -> int:
         """Return the number of rows required by the columns.
 
-        This only makes sense if :attr:`widget_list` contains flow widgets.
+        This only makes sense if :attr:`contents` contains flow widgets.
 
         see :meth:`Widget.rows` for details
         """
@@ -1368,11 +1172,16 @@ class Columns(
         """
         Pass keypress to the focus column.
 
+        Unhandled :kbd:`left` and :kbd:`right` keys may cause a focus change.
+        With :attr:`select_navigation`, so do unhandled ``'next selectable'`` and ``'prev selectable'`` commands.
+
         :param size: Widget size correct for the supported sizing
         :param key: a single keystroke value
+        :returns: ``None`` if the key was handled, otherwise the key left unhandled,
+            as the focus column returned it.
         :raises ColumnsError: *size* is ``()`` and the children cannot be sized as a fixed widget.
         """
-        if self.focus_position is None:
+        if not self.contents:
             return key
 
         widths, _, size_args = self.get_column_sizes(size, focus=True)
@@ -1390,20 +1199,14 @@ class Columns(
             else:
                 return None
 
+        if self.select_navigation and self._command_map[key] in _SELECT_COMMANDS:
+            return self._select_keypress_unhandled(key)
         if self._command_map[key] not in {Command.LEFT, Command.RIGHT} or not self.contents:
             return key
 
-        # The child may have changed this Columns' contents or focus while handling the key.
-        i = self.focus_position
-        if self._command_map[key] == Command.LEFT:
-            candidates = list(range(i - 1, -1, -1))  # count backwards to 0
-        else:  # key == 'right'
-            candidates = list(range(i + 1, len(self.contents)))
-
-        for j in candidates:
-            if not self.contents[j][0].selectable():
-                continue
-
+        # The child may have changed this Columns' contents or focus while handling the key,
+        # so the candidates are taken from the current focus.
+        for j in self._select_candidates(reverse=self._command_map[key] == Command.LEFT, from_edge=False):
             self.focus_position = j
             return None
         return key

@@ -85,9 +85,6 @@ from omnimarket.models.context_task_kind_rules import (
 from omnimarket.nodes.node_context_pack_builder_compute.handlers.handler_context_pack_builder import (
     HandlerContextPackBuilder,
 )
-from omnimarket.nodes.node_context_pack_orchestrator.handlers.tier_source_binding import (
-    load_tier_sources,
-)
 from omnimarket.nodes.node_context_pack_orchestrator.protocols import (
     ProtocolContextTierSource,
 )
@@ -235,6 +232,7 @@ def _failed(
         tier_statuses=tiers,
         failure_class=failure_class,
         errors=errors,
+        terminal_failure_cause=failure_class,
     )
 
 
@@ -270,7 +268,7 @@ class HandlerContextPackOrchestrator:
         render_contract_version: str = RENDER_CONTRACT_VERSION,
         clock: Callable[[], float] | None = None,
     ) -> None:
-        self._sources = load_tier_sources() if sources is None else dict(sources)
+        self._sources = {} if sources is None else dict(sources)
         self._resolver = profile_resolver or HandlerContextProfileResolver()
         self._builder = builder or HandlerContextPackBuilder()
         self._renderer = renderer or HandlerContextPackRender()

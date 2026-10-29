@@ -14,12 +14,12 @@ class DiscordApiBackoff(DiscordClientException):
         retry_after: time to retry after in milliseconds
     """
 
-    def __init__(self, retry_after: int):
+    def __init__(self, retry_after: int) -> None:
         super().__init__()
         self.retry_after = int(retry_after)
 
     @property
-    def retry_after_seconds(self):
+    def retry_after_seconds(self) -> int:
         """Time to retry after in seconds."""
         return math.ceil(self.retry_after / 1000)
 

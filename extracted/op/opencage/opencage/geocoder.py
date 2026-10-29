@@ -1,9 +1,11 @@
 """Geocoder module for the OpenCage API."""
 
 from decimal import Decimal
+import asyncio
 import collections
 
 import os
+import re
 import sys
 from urllib.parse import urlsplit
 import requests
@@ -93,10 +95,8 @@ class InvalidInputError(OpenCageGeocodeError):
         self.message = message
         self.bad_value = bad_value
 
-    def __unicode__(self):
+    def __str__(self):
         return self.message
-
-    __str__ = __unicode__
 
 
 class UnknownError(OpenCageGeocodeError):
@@ -106,32 +106,26 @@ class UnknownError(OpenCageGeocodeError):
 class RateLimitExceededError(OpenCageGeocodeError):
     """Exception raised when account has exceeded its limit."""
 
-    def __unicode__(self):
+    def __str__(self):
         """Convert exception to a string."""
         return ("You have used the requests available on your plan. "
                 "Please purchase more if you wish to continue: https://opencagedata.com/pricing")
-
-    __str__ = __unicode__
 
 
 class NotAuthorizedError(OpenCageGeocodeError):
     """Exception raised when an unauthorized API key is used."""
 
-    def __unicode__(self):
+    def __str__(self):
         """Convert exception to a string."""
         return "Your API key is not authorized. You may have entered it incorrectly."
-
-    __str__ = __unicode__
 
 
 class ForbiddenError(OpenCageGeocodeError):
     """Exception raised when a blocked or suspended API key is used."""
 
-    def __unicode__(self):
+    def __str__(self):
         """Convert exception to a string."""
         return "Your API key has been blocked or suspended."
-
-    __str__ = __unicode__
 
 
 class AioHttpError(OpenCageGeocodeError):
@@ -141,13 +135,19 @@ class AioHttpError(OpenCageGeocodeError):
 class SSLError(OpenCageGeocodeError):
     """Exception raised when SSL connection to OpenCage server fails."""
 
-    def __unicode__(self):
+    def __str__(self):
         """Convert exception to a string."""
         return ("SSL Certificate error connecting to OpenCage API. This is usually due to "
                 "outdated CA root certificates of the operating system. "
                 )
 
-    __str__ = __unicode__
+
+class NetworkError(OpenCageGeocodeError):
+    """Exception raised when the connection to the OpenCage API fails."""
+
+
+class NetworkTimeoutError(NetworkError, asyncio.TimeoutError):
+    """Exception raised when the request to the OpenCage API times out."""
 
 
 class OpenCageGeocode:
@@ -203,6 +203,17 @@ class OpenCageGeocode:
         self.user_agent_comment = user_agent_comment
 
     def __enter__(self):
+        """Open a pooled requests session for sync geocoding.
+
+        Overlapping or nested ``with`` blocks on the same instance are
+        not supported and will raise ``RuntimeError`` to prevent silently
+        leaking the previous session's connection pool.
+        """
+        if self.session is not None:
+            raise RuntimeError(
+                "OpenCageGeocode context already entered; "
+                "overlapping `with` blocks on the same instance are not supported."
+            )
         self.session = requests.Session()
         return self
 
@@ -212,9 +223,20 @@ class OpenCageGeocode:
         return False
 
     async def __aenter__(self):
+        """Open a pooled aiohttp session for async geocoding.
+
+        Overlapping or nested ``async with`` blocks on the same instance
+        are not supported and will raise ``RuntimeError`` to prevent
+        silently leaking the previous session's connection pool.
+        """
         if not AIOHTTP_AVAILABLE:
             raise AioHttpError("You must install `aiohttp` to use async methods")
 
+        if self.session is not None:
+            raise RuntimeError(
+                "OpenCageGeocode context already entered; "
+                "overlapping `async with` blocks on the same instance are not supported."
+            )
         self.session = aiohttp.ClientSession()
         return self
 
@@ -240,6 +262,8 @@ class OpenCageGeocode:
             InvalidInputError: If query is not a unicode string.
             RateLimitExceededError: If API quota is exceeded.
             UnknownError: If something goes wrong with the OpenCage API.
+            NetworkError: If the request fails at the network or HTTP level.
+            NetworkTimeoutError: If the request times out.
             AioHttpError: If called inside an async context manager.
         """
 
@@ -248,7 +272,13 @@ class OpenCageGeocode:
 
         raw_response = kwargs.pop('raw_response', False)
         request = self._parse_request(query, kwargs)
-        response = self._opencage_request(request)
+        # outside _opencagedata_api_request so backoff still retries
+        try:
+            response = self._opencagedata_api_request(request)
+        except requests.exceptions.Timeout as exc:
+            raise NetworkTimeoutError(_sanetize_exception_message(exc, request)) from None
+        except requests.exceptions.RequestException as exc:
+            raise NetworkError(_sanetize_exception_message(exc, request)) from None
 
         if raw_response:
             return response
@@ -274,6 +304,8 @@ class OpenCageGeocode:
             InvalidInputError: If query is not a unicode string.
             RateLimitExceededError: If API quota is exceeded.
             UnknownError: If something goes wrong with the OpenCage API.
+            NetworkError: If the request fails at the network or HTTP level.
+            NetworkTimeoutError: If the request times out.
             AioHttpError: If aiohttp is not installed or no async session is active.
         """
 
@@ -288,7 +320,12 @@ class OpenCageGeocode:
 
         raw_response = kwargs.pop('raw_response', False)
         request = self._parse_request(query, kwargs)
-        response = await self._opencage_async_request(request)
+        try:
+            response = await self._opencage_async_request(request)
+        except asyncio.TimeoutError as exc:
+            raise NetworkTimeoutError(_sanetize_exception_message(exc, request)) from None
+        except aiohttp.ClientError as exc:
+            raise NetworkError(_sanetize_exception_message(exc, request)) from None
 
         if raw_response:
             return response
@@ -343,7 +380,7 @@ class OpenCageGeocode:
         backoff.expo,
         (UnknownError, requests.exceptions.RequestException),
         max_tries=5, max_time=backoff_max_time)
-    def _opencage_request(self, params):
+    def _opencagedata_api_request(self, params):
         """Send a synchronous geocoding request to the OpenCage API.
 
         Args:
@@ -432,6 +469,8 @@ class OpenCageGeocode:
                     response_json = await response.json()
                 except ValueError as excinfo:
                     raise UnknownError("Non-JSON result from server") from excinfo
+                except aiohttp.ContentTypeError:
+                    raise UnknownError("Non-JSON result from server") from None
 
                 if response.status == 401:
                     raise NotAuthorizedError()
@@ -501,6 +540,27 @@ class OpenCageGeocode:
             raise InvalidInputError(f"Longitude must be a number between -180 and 180, not {lng}", bad_value=lng)
 
 
+def _sanetize_exception_message(exc, params):
+    """Describe an exception without sensitive request parameter values.
+
+    Some ``requests`` and ``aiohttp`` exceptions include the request URL.
+
+    Args:
+        exc: Exception raised by the HTTP client.
+        params: Query parameters of the request.
+
+    Returns:
+        Exception type and message, with sensitive values replaced.
+    """
+    message = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+    for field in ('key',):
+        if params.get(field):
+            message = message.replace(str(params[field]), '[REDACTED]')
+        # also catches values the HTTP client URL-encoded
+        message = re.sub(rf'([?&]{re.escape(field)}=)[^&#\s\'"]*', r'\1[REDACTED]', message)
+    return message
+
+
 def _query_for_reverse_geocoding(lat, lng):
     """Build the query string for a reverse geocoding request.
 
@@ -550,7 +610,7 @@ def floatify_latlng(input_value):
             # This dict has only 2 keys 'lat' & 'lon'
             return {'lat': float_if_float(input_value["lat"]), 'lng': float_if_float(input_value["lng"])}
 
-        return dict((key, floatify_latlng(value)) for key, value in input_value.items())
+        return {key: floatify_latlng(value) for key, value in input_value.items()}
 
     if isinstance(input_value, collections.abc.MutableSequence):
         return [floatify_latlng(x) for x in input_value]

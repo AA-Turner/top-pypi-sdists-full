@@ -1,3 +1,7 @@
+import fcntl
+import resource
+import socket
+import threading
 from unittest import mock
 
 from django import urls
@@ -18,7 +22,7 @@ from .signals import (
     m2m_changed_authts_group, post_delete_authts, post_save_authts,
 )
 from .tasks import Teamspeak3Tasks
-from .util.ts3 import TeamspeakError
+from .util.ts3 import ConnectionError, TeamspeakError, TS3Proto, TS3Server
 
 MODULE_PATH = 'allianceauth.services.modules.teamspeak3'
 DEFAULT_AUTH_GROUP = 'Member'
@@ -469,3 +473,176 @@ class Teamspeak3AdminTestCase(TestCase):
         ReservedGroupName.objects.bulk_create([ReservedGroupName(name='test', reason='tests', created_by='Bob')])
         self.assertQuerySetEqual(AuthTSgroupAdmin(AuthTS, AdminSite()).get_form(request).base_fields['auth_group']._get_queryset(), Group.objects.none())
         self.assertQuerySetEqual(AuthTSgroupAdmin(AuthTS, AdminSite()).get_form(request).base_fields['ts_group']._get_queryset(), TSgroup.objects.none())
+
+
+class Teamspeak3ParseCommandTestCase(TestCase):
+    """Unit tests for TS3 ServerQuery response parsing."""
+
+    def setUp(self):
+        self.proto = TS3Proto()
+
+    def test_error_line_sets_command(self):
+        result = self.proto.parse_command('error id=0 msg=ok')
+        self.assertEqual(result['command'], 'error')
+        self.assertEqual(result['keys']['id'], '0')
+        self.assertEqual(result['keys']['msg'], 'ok')
+
+    def test_empty_valued_keys_are_preserved(self):
+        # Empty parameters arrive as bare tokens and must not be read as the command name.
+        line = (
+            'virtualserver_status=unknown virtualserver_unique_identifier '
+            'client_nickname client_login_name=serveradmin'
+        )
+        result = self.proto.parse_command(line)
+        self.assertNotIn('command', result)
+        self.assertEqual(result['keys']['virtualserver_status'], 'unknown')
+        self.assertEqual(result['keys']['virtualserver_unique_identifier'], '')
+        self.assertEqual(result['keys']['client_nickname'], '')
+        self.assertEqual(result['keys']['client_login_name'], 'serveradmin')
+
+    def test_values_are_unescaped(self):
+        result = self.proto.parse_command(r'sgid=1 name=Guest\sServer\sQuery type=2')
+        self.assertEqual(result['keys']['name'], 'Guest Server Query')
+
+    def test_options_are_parsed(self):
+        result = self.proto.parse_command('clientlist -uid -away')
+        self.assertEqual(result['command'], 'clientlist')
+        self.assertEqual(result['opts'], ['uid', 'away'])
+
+    def test_multiple_rows_split_on_pipe(self):
+        rows = self.proto.parse_command('sgid=1 name=Guest|sgid=2 name=Admin')
+        self.assertIsInstance(rows, list)
+        self.assertEqual([row['keys']['name'] for row in rows], ['Guest', 'Admin'])
+
+
+class Teamspeak3LoginTestCase(TestCase):
+    """Unit tests for TS3Server.login return values."""
+
+    @staticmethod
+    def _server():
+        with mock.patch.object(TS3Server, 'connect'):
+            return TS3Server('127.0.0.1', 10011)
+
+    def test_login_success_returns_true(self):
+        server = self._server()
+        # ServerQuery returns "error id=0", which send_command yields as the string '0'
+        server.send_command = mock.Mock(return_value='0')
+        self.assertTrue(server.login('serveradmin', 'secret'))
+
+    def test_login_failure_raises_error(self):
+        server = self._server()
+        server.send_command = mock.Mock(side_effect=TeamspeakError(520))
+        with self.assertRaises(TeamspeakError):
+            server.login('serveradmin', 'wrong')
+
+
+class Teamspeak3ConnectionErrorTestCase(TestCase):
+    """Unit tests for connection-failure handling in TS3Proto/TS3Server."""
+
+    TS3_CONN = MODULE_PATH + '.util.ts3._TS3Connection'
+
+    @classmethod
+    def _connected_server(cls):
+        conn = mock.MagicMock()
+        conn.read_until.return_value = b'TS3\n\r'
+        conn.read_very_eager.return_value = b''
+        with mock.patch(cls.TS3_CONN, return_value=conn):
+            server = TS3Server('1.2.3.4', 10011)
+        return server, conn
+
+    def test_connect_socket_failure_raises_connection_error(self):
+        with mock.patch(self.TS3_CONN, side_effect=ConnectionRefusedError()):
+            with self.assertRaises(ConnectionError):
+                TS3Server('1.2.3.4', 10011)
+
+    def test_connect_non_ts3_greeting_raises_and_closes(self):
+        conn = mock.MagicMock()
+        conn.read_until.return_value = b'HELLO\n\r'
+        with mock.patch(self.TS3_CONN, return_value=conn):
+            with self.assertRaises(ConnectionError):
+                TS3Server('1.2.3.4', 10011)
+        self.assertTrue(conn.close.called)
+
+    def test_connect_eof_before_greeting_raises_and_closes(self):
+        conn = mock.MagicMock()
+        conn.read_until.side_effect = EOFError()
+        with mock.patch(self.TS3_CONN, return_value=conn):
+            with self.assertRaises(ConnectionError):
+                TS3Server('1.2.3.4', 10011)
+        self.assertTrue(conn.close.called)
+
+    def test_send_command_missing_error_terminator_raises(self):
+        server, conn = self._connected_server()
+        # A response ending without the "error" status line means the connection was lost.
+        conn.read_until.return_value = b'notifytest foo=bar\n\r'
+        with self.assertRaises(ConnectionError):
+            server.send_command('whoami')
+
+    def test_send_command_write_failure_raises_connection_error(self):
+        server, conn = self._connected_server()
+        conn.write.side_effect = BrokenPipeError()
+        with self.assertRaises(ConnectionError):
+            server.send_command('whoami')
+
+    def test_send_command_dropped_connection_raises_connection_error(self):
+        # Exercises the real socket shim: a closed peer must surface as ConnectionError.
+        remote, local = socket.socketpair()
+        self.addCleanup(remote.close)
+        self.addCleanup(local.close)
+        remote.sendall(b'TS3\n\r')  # greeting so connect() succeeds
+        with mock.patch(MODULE_PATH + '.util.ts3.socket.create_connection', return_value=local):
+            server = TS3Server('1.2.3.4', 10011)
+        remote.close()
+        with self.assertRaises(ConnectionError):
+            server.send_command('whoami')
+
+    def test_send_command_silent_server_raises_connection_error(self):
+        remote, local = socket.socketpair()
+        self.addCleanup(remote.close)
+        self.addCleanup(local.close)
+        local.settimeout(0.1)
+        remote.sendall(b'TS3\n\r')
+        with mock.patch(MODULE_PATH + '.util.ts3.socket.create_connection', return_value=local):
+            server = TS3Server('1.2.3.4', 10011)
+        with self.assertRaises(ConnectionError):
+            server.send_command('whoami')
+
+    def test_connect_silent_server_raises_and_closes(self):
+        conn = mock.MagicMock()
+        conn.read_until.side_effect = TimeoutError()
+        with mock.patch(self.TS3_CONN, return_value=conn):
+            with self.assertRaises(ConnectionError):
+                TS3Server('1.2.3.4', 10011)
+        self.assertTrue(conn.close.called)
+
+    def test_send_command_with_fd_above_fd_setsize(self):
+        # confirmed select.select() raises ValueError for fds >= FD_SETSIZE (1024 as pointed out on Linux).
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if hard != resource.RLIM_INFINITY and hard <= 1024:
+            self.skipTest('RLIMIT_NOFILE hard limit too low')
+        if soft <= 1024:
+            new_soft = 2048 if hard == resource.RLIM_INFINITY else min(2048, hard)
+            resource.setrlimit(resource.RLIMIT_NOFILE, (new_soft, hard))
+            self.addCleanup(resource.setrlimit, resource.RLIMIT_NOFILE, (soft, hard))
+
+        remote, low = socket.socketpair()
+        self.addCleanup(remote.close)
+        local = socket.socket(fileno=fcntl.fcntl(low.fileno(), fcntl.F_DUPFD, 1024))
+        low.close()
+        self.addCleanup(local.close)
+        self.assertGreaterEqual(local.fileno(), 1024)
+
+        local.settimeout(1)
+        remote.settimeout(1)
+        remote.sendall(b'TS3\n\r')
+        with mock.patch(MODULE_PATH + '.util.ts3.socket.create_connection', return_value=local):
+            server = TS3Server('1.2.3.4', 10011)
+
+        def respond():
+            remote.recv(4096)
+            remote.sendall(b'error id=0 msg=ok\n\r')
+
+        responder = threading.Thread(target=respond)
+        responder.start()
+        self.addCleanup(responder.join)
+        self.assertEqual(server.send_command('whoami'), '0')

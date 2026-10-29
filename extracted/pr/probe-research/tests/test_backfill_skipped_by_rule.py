@@ -4,8 +4,8 @@ CLI 0.328.0 started skipping hidden folders and nested git worktree copies
 (`test_backfill_hidden_and_worktrees.py`). A folder an OLDER CLI imported keeps
 those files in its coverage store, and the next census did not see them, so
 they read as "previously observed files are absent" -- 65,491 of them for one
-customer -- and `vanished` holds a project's reconstruction until its files
-come back, which a skipped file never does.
+customer -- and `vanished` held a project's draft until its files came
+back, which a skipped file never does.
 
 The store here was written by RELEASED CLI 0.327.0, not by this tree
 (`fixtures/coverage_0_327_0/make_store.py` says how): a real git repo with an
@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 
 from probe.cli import backfill as bf
-from probe.cli import backfill_reconstruction as rec
+from probe.cli import backfill_record as record
 from probe.cli import telemetry
 from probe.cli import backfill_coverage as cov
 from probe.cli.backfill_coverage import Coverage, SkipRule, Scope, WalkSkips, skipped_folders
@@ -41,8 +41,8 @@ pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="needs real 
 FIXTURE = Path(__file__).parent / "fixtures" / "coverage_0_327_0"
 LAYOUT = json.loads((FIXTURE / "layout.json").read_text())
 SOURCE_ID = (FIXTURE / "source_id").read_text().strip()
-#: Saved before the harness swaps it out: one test runs the real thing.
-REAL_RECONSTRUCTION = rec.complete_reconstruction
+#: Saved before the harness swaps it out: these tests run the real thing.
+REAL_RECORD = record.complete_record
 
 WORKTREE = LAYOUT["worktree"]
 MAIN = sorted(LAYOUT["committed"])
@@ -147,61 +147,44 @@ def test_the_plan_json_carries_what_the_walk_skipped(old_import):
 
 
 class _Server:
-    """What reconstruction reads: readable artifacts and a project document."""
-
-    def __init__(self):
-        self.transport = self
-
-    def presign_download_batch(self, ids):
-        return {"items": {ident: {"download_url": "https://r2.invalid/x"} for ident in ids}}
-
-    def get_project(self, project_id):
-        return {"id": project_id, "document": "", "metadata": {"summary": {}}}
-
-    def me(self):
-        return {"capabilities": [rec.CAPABILITY]}
-
-    def get(self, path):
-        from probe.sdk.errors import NotFoundError
-
-        raise NotFoundError("no page", status=404)
-
-    def post(self, path, body, **kwargs):
-        return {"state": "generating"}
+    """The record pass's reads are faked below (`_record`): no server is reached."""
 
 
-def _reconstruct(h, monkeypatch):
-    drafted = []
+def _record(h, monkeypatch):
+    """The REAL `complete_record` over the re-imported store, with its Probe reads
+    and its agent sessions recorded instead of run: which projects it records,
+    and the excerpts each session would read."""
+    recorded = []
 
-    def generate(inputs, directory, *, agent, agents=None):
-        drafted.append(inputs)
-        return rec._render(json.dumps({"sections": [
-            {"title": "Purpose", "claims": [{"text": "It trains once.", "sources": ["F001"]}]},
-        ]}), inputs)
+    def listing_for(client, coverage, project_id, applied=None):
+        return {"schema": record.SCHEMA, "experiments": [], "runs": [],
+                "project": {"id": project_id, "slug": project_id, "notes": "",
+                            "notes_version": 0, "page": None}}
 
-    monkeypatch.setattr(rec, "_generate", generate)
+    def run_sessions(listing, folder, root, **kwargs):
+        recorded.append({"project_id": listing["project"]["id"],
+                         "excerpts": kwargs["excerpts_text"]})
+        return []
+
+    monkeypatch.setattr(record, "listing_for", listing_for)
+    monkeypatch.setattr(record, "run_sessions", run_sessions)
     with h.coverage().writer() as coverage:
-        lines = REAL_RECONSTRUCTION(_Server(), h.folder, coverage, None, agent=bf.Agent.CLAUDE,
-                                    interactive=False, yes=False)
-    return lines, drafted
+        lines = REAL_RECORD(_Server(), h.folder, coverage, None, agent=bf.Agent.CLAUDE)
+    return lines, recorded
 
 
-def test_reconstruction_drafts_from_the_imported_files_and_waits_for_no_skipped_one(
+def test_the_record_pass_reads_the_imported_files_and_records_no_skipped_only_project(
     old_import, monkeypatch,
 ):
-    """Before the fix the undecided worktree file read as absent with no project,
-    and `complete_reconstruction` returned "waiting for reviewed file placement"
-    for every project, on every run."""
+    """Before the skip fix the undecided worktree file read as absent with no
+    project, and the draft waited for it on every run. The record pass records
+    project-a from its imported files; project-b held only worktree copies."""
     h = old_import
     h.run()
-    lines, drafted = _reconstruct(h, monkeypatch)
+    lines, recorded = _record(h, monkeypatch)
     assert not any("waiting" in line for line in lines), lines
-    (inputs,) = drafted  # project-a; project-b held only worktree copies
-    assert inputs["project_id"] == "project-a" and inputs["inventory_count"] == len(MAIN)
-    assert sorted(source["path"] for source in inputs["sources"].values()) == MAIN
-    assert any(line.startswith("project-a: ") or "Draft saved" in line for line in lines)
-    assert ("1 project(s) hold only files now skipped (hidden folders and worktree copies); "
-            "they are not drafted from this folder: project-b.") in lines
+    assert [r["project_id"] for r in recorded] == ["project-a"]
+    assert all(path in recorded[0]["excerpts"] for path in MAIN), recorded[0]["excerpts"]
 
 
 def test_a_file_deleted_from_disk_is_still_absent_even_inside_a_skipped_folder(
@@ -222,15 +205,16 @@ def test_a_file_deleted_from_disk_is_still_absent_even_inside_a_skipped_folder(
             summary["skipped_by_rule_files"]) == (2, 1, 7)
     with h.coverage().writer() as coverage:  # the worktree file keeps its rule
         assert coverage.skipped_rules(on_disk=False) == {f"{WORKTREE}/old.py": "worktree_copy"}
-    # A real absence of an imported file still holds its project, as before.
-    lines, drafted = _reconstruct(h, monkeypatch)
-    assert not drafted
-    assert "project-a: reconstruction waiting for file delivery" in "\n".join(lines)
+    # A real absence holds nothing: the record pass reads the files still there
+    # (the draft waited for every file to come back).
+    lines, recorded = _record(h, monkeypatch)
+    assert [r["project_id"] for r in recorded] == ["project-a"]
+    assert "notes/gone.md" not in recorded[0]["excerpts"]
 
 
 def test_a_skipped_file_deleted_before_the_next_import_becomes_absent(old_import, monkeypatch):
     """Across two imports: skipped while on disk, absent once deleted -- and,
-    still out of the import by its rule, it holds no draft."""
+    still out of the import by its rule, it holds no record pass."""
     h = old_import
     h.run()
     assert f"{WORKTREE}/old.py" in h.report()["skipped"]
@@ -239,13 +223,13 @@ def test_a_skipped_file_deleted_before_the_next_import_becomes_absent(old_import
     report = h.report()
     assert report["vanished"] == [f"{WORKTREE}/old.py"]
     assert f"{WORKTREE}/old.py" not in report["skipped"]
-    lines, drafted = _reconstruct(h, monkeypatch)
+    lines, recorded = _record(h, monkeypatch)
     assert not any("waiting" in line for line in lines), lines
-    assert [inputs["project_id"] for inputs in drafted] == ["project-a"]
+    assert [r["project_id"] for r in recorded] == ["project-a"]
 
 
 @pytest.mark.parametrize("first_reimport", [True, False], ids=["after", "before"])
-def test_removing_the_agent_worktree_does_not_stall_reconstruction_again(
+def test_removing_the_agent_worktree_does_not_stall_the_record_pass(
     old_import, monkeypatch, first_reimport,
 ):
     """A finished agent's worktree is removed (`git worktree remove`), and the
@@ -269,9 +253,9 @@ def test_removing_the_agent_worktree_does_not_stall_reconstruction_again(
     with h.coverage().writer() as coverage:
         rule = SkipRule.WORKTREE_COPY if first_reimport else SkipRule.HIDDEN_FOLDER
         assert coverage.skipped_rules(on_disk=False) == dict.fromkeys(WORKTREE_FILES, rule)
-    lines, drafted = _reconstruct(h, monkeypatch)
+    lines, recorded = _record(h, monkeypatch)
     assert not any("waiting" in line for line in lines), lines
-    assert [inputs["project_id"] for inputs in drafted] == ["project-a"]
+    assert [r["project_id"] for r in recorded] == ["project-a"]
 
 
 def test_a_folder_left_with_only_skipped_files_reports_them_skipped(old_import):

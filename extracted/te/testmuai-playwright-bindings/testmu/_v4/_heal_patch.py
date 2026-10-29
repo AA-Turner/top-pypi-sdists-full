@@ -80,12 +80,49 @@ except ImportError:
     _TIMEOUT_EXCS = (TimeoutError,)
     _HEAL_EXCS = (TimeoutError,)
 
+# Playwright raises TargetClosedError ("Target page, context or browser has
+# been closed") for an action whose page closed before the action returned.
+# The public API doesn't export it, so import it from its internal module.
+try:
+    from playwright._impl._errors import TargetClosedError as _PWTargetClosedError
+except ImportError:
+    _PWTargetClosedError = None
+
+# Pointer activations that can make the page close itself (an onclick that
+# calls window.close(), e.g. a popup's Submit handing its value back to the
+# opener). The page may close while the action is still in flight.
+_SELF_CLOSING_ACTIONS = ("click", "dblclick", "tap")
+
 
 def _is_strict_mode_violation(exc) -> bool:
     """A Playwright strict-mode violation is a plain Error whose message
     names the condition. We match on the message rather than a dedicated
     exception type because Playwright doesn't expose one."""
     return "strict mode violation" in str(exc).lower()
+
+
+def _closed_by_own_action(locator, name, exc) -> bool:
+    """True when ``exc`` is the TargetClosedError of a click whose own page
+    closed while the rest of the session lives on: another page of the
+    context is still open and the browser is connected. The click reached
+    the page and the page closed itself in response, so the click is done;
+    the next step (a tab switch back to the opener) carries on from there.
+    A closed context or a disconnected browser is a real failure (False)."""
+    if _PWTargetClosedError is None or not isinstance(exc, _PWTargetClosedError):
+        return False
+    if name not in _SELF_CLOSING_ACTIONS:
+        return False
+    try:
+        page = locator.page
+        if not page.is_closed():
+            return False
+        context = page.context
+        browser = context.browser
+        if browser is not None and not browser.is_connected():
+            return False
+        return any(not p.is_closed() for p in context.pages)
+    except Exception:  # noqa: BLE001
+        return False
 
 _originals = {}
 
@@ -232,6 +269,12 @@ def _make_wrapper(name, original, heal_fn):
             # violations (element ambiguous). Any other Playwright Error
             # isn't ours to heal — let it propagate untouched.
             if not strict and not isinstance(exc, _TIMEOUT_EXCS):
+                # A click that made its own page close (popup Submit ->
+                # window.close()) is a completed click, not a failure.
+                if _closed_by_own_action(self, name, exc):
+                    _log.info("[heal] %s closed its own page; the context "
+                              "still has an open page -> click done", name)
+                    return None
                 raise
             # Timeout with the element present means "there but not
             # actionable" — heal can't help, so re-raise. For a strict-mode

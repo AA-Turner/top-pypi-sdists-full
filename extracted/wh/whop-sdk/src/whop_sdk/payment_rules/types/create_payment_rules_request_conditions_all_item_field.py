@@ -3,6 +3,20 @@
 import typing
 
 CreatePaymentRulesRequestConditionsAllItemField = typing.Union[
-    typing.Literal["risk_score", "amount_in_usd", "card_country", "card_bin", "customer_email", "ip_address"],
+    typing.Literal[
+        "risk_score",
+        "amount_in_usd",
+        "card_country",
+        "card_brand",
+        "card_funding",
+        "card_bin",
+        "billing_country",
+        "billing_postal_code",
+        "billing_city",
+        "customer_email",
+        "email_domain",
+        "ip_address",
+        "ip_country",
+    ],
     typing.Any,
 ]

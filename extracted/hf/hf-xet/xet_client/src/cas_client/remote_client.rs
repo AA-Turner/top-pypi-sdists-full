@@ -8,7 +8,11 @@ use http::HeaderValue;
 use http::header::{CONTENT_LENGTH, HeaderMap, RANGE};
 use reqwest::{Body, Response, StatusCode, Url};
 use reqwest_middleware::ClientWithMiddleware;
+#[cfg(not(target_family = "wasm"))]
+use tokio::time::Instant;
 use tracing::{event, info, instrument};
+#[cfg(target_family = "wasm")]
+use web_time::Instant;
 use xet_core_structures::merklehash::MerkleHash;
 use xet_core_structures::metadata_shard::file_structs::{FileDataSequenceEntry, FileDataSequenceHeader, MDBFileInfo};
 use xet_core_structures::xorb_object::SerializedXorbObject;
@@ -339,7 +343,7 @@ impl RemoteClient {
         shard_data: Bytes,
         upload_permit: ConnectionPermit,
         progress_callback: Option<ShardUploadProgressCallback>,
-    ) -> Result<()> {
+    ) -> Result<Option<MerkleHash>> {
         let call_id = FN_CALL_ID.fetch_add(1, Ordering::Relaxed);
         let n_upload_bytes = shard_data.len();
         event!(INFORMATION_LOG_LEVEL, call_id, size = n_upload_bytes, "Starting upload_shard API call",);
@@ -364,6 +368,7 @@ impl RemoteClient {
             })
             .await?;
 
+        let shard_hash = response.shard_hash.map(MerkleHash::from);
         let result = match response.result {
             UploadShardResponseType::Exists => "exists",
             UploadShardResponseType::SyncPerformed => "sync performed",
@@ -377,7 +382,7 @@ impl RemoteClient {
             cb(ShardUploadProgressType::Response(&ShardUploadEvent::Result));
         }
 
-        Ok(())
+        Ok(shard_hash)
     }
 
     #[cfg(not(target_family = "wasm"))]
@@ -478,7 +483,7 @@ impl RemoteClient {
         upload_permit: ConnectionPermit,
         forced_version: Option<u32>,
         progress_callback: Option<ShardUploadProgressCallback>,
-    ) -> Result<()> {
+    ) -> Result<Option<MerkleHash>> {
         // Prefer V2; fall back to V1 on 404/501; persist detected version to
         // avoid repeated fallback attempts.
         let version = match forced_version {
@@ -494,11 +499,12 @@ impl RemoteClient {
                 .upload_shard_v2(shard_data.clone(), upload_permit, progress_callback.clone())
                 .await
             {
+                // V2's terminal NDJSON frame reports no stored hash; only V1 does.
                 Ok(()) => {
                     if forced_version.is_none() {
                         self.detected_shard_api_version.store(2, Ordering::Relaxed);
                     }
-                    Ok(())
+                    Ok(None)
                 },
                 Err(e)
                     if forced_version.is_none()
@@ -506,10 +512,10 @@ impl RemoteClient {
                 {
                     info!(status = ?e.status(), "V2 shard upload not available, falling back to V1");
                     let fallback_permit = self.upload_concurrency_controller.acquire_connection_permit().await?;
-                    self.upload_shard_v1(shard_data, fallback_permit, progress_callback).await?;
+                    let shard_hash = self.upload_shard_v1(shard_data, fallback_permit, progress_callback).await?;
                     // Store after success to make sure we don't mess up on e.g. network failure.
                     self.detected_shard_api_version.store(1, Ordering::Relaxed);
-                    Ok(())
+                    Ok(shard_hash)
                 },
                 Err(e) => Err(e),
             },
@@ -777,7 +783,19 @@ impl Client for RemoteClient {
             return Ok(None);
         };
 
-        Ok(Some(response.bytes().await?))
+        // query_dedup_api returns once the response headers arrive; the shard itself is the body, read here.
+        let start = Instant::now();
+        let shard = response.bytes().await?;
+        event!(
+            INFORMATION_LOG_LEVEL,
+            prefix,
+            %chunk_hash,
+            shard_bytes = shard.len(),
+            elapsed_ms = start.elapsed().as_millis() as u64,
+            "Downloaded global dedup shard",
+        );
+
+        Ok(Some(shard))
     }
 
     async fn acquire_upload_permit(&self) -> Result<ConnectionPermit> {
@@ -800,9 +818,10 @@ impl Client for RemoteClient {
         shard_data: Bytes,
         upload_permit: ConnectionPermit,
         progress_callback: Option<ShardUploadProgressCallback>,
-    ) -> Result<()> {
+    ) -> Result<Option<MerkleHash>> {
         if self.dry_run {
-            return Ok(());
+            // Nothing was stored, so there is no hash to report.
+            return Ok(None);
         }
 
         #[cfg(target_family = "wasm")]

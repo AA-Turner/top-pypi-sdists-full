@@ -6047,7 +6047,7 @@ class GithubWorkflow(
         :param registry_package: (experimental) Runs your workflow anytime a package is published or updated.
         :param release: (experimental) Runs your workflow anytime the release event occurs.
         :param repository_dispatch: (experimental) You can use the GitHub API to trigger a webhook event called repository_dispatch when you want to trigger a workflow for activity that happens outside of GitHub.
-        :param schedule: (experimental) You can schedule a workflow to run at specific UTC times using POSIX cron syntax. Scheduled workflows run on the latest commit on the default or base branch. The shortest interval you can run scheduled workflows is once every 5 minutes.
+        :param schedule: (experimental) You can schedule a workflow to run at specific times using POSIX cron syntax. Times are in UTC unless a ``timezone`` is set. Scheduled workflows run on the latest commit on the default or base branch. The shortest interval you can run scheduled workflows is once every 5 minutes.
         :param status: (experimental) Runs your workflow anytime the status of a Git commit changes, which triggers the status event.
         :param watch: (experimental) Runs your workflow anytime the watch event occurs.
         :param workflow_call: (experimental) Can be called from another workflow.

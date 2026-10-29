@@ -450,6 +450,91 @@ class BetaThetaTerminalStub(object):
                 request_serializer=v3grpc_dot_endpoints__pb2.IndexFlatFileEodRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
+        self.GetFutureListSymbols = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureListSymbols',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureListSymbolsRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureListDates = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureListDates',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureListDatesRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureHistoryTrade = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureHistoryTrade',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureHistoryTradeRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureHistoryBbo = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureHistoryBbo',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureHistoryBboRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureHistoryTradeBbo = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureHistoryTradeBbo',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureHistoryTradeBboRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureHistoryOhlc = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureHistoryOhlc',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureHistoryOhlcRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureHistoryEod = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureHistoryEod',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureHistoryEodRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureHistorySettlement = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureHistorySettlement',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureHistorySettlementRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureAtTimeTrade = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureAtTimeTrade',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureAtTimeTradeRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureAtTimeBbo = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureAtTimeBbo',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureAtTimeBboRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureSnapshotBbo = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureSnapshotBbo',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureSnapshotBboRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureSnapshotTrade = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureSnapshotTrade',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureSnapshotTradeRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureSnapshotOhlc = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureSnapshotOhlc',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureSnapshotOhlcRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureSnapshotMarketValue = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureSnapshotMarketValue',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureSnapshotMarketValueRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureFlatFileTradeBbo = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureFlatFileTradeBbo',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureFlatFileTradeBboRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureFlatFileEod = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureFlatFileEod',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureFlatFileEodRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
+        self.GetFutureFlatFileBbo = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetFutureFlatFileBbo',
+                request_serializer=v3grpc_dot_endpoints__pb2.FutureFlatFileBboRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
 
 
 class BetaThetaTerminalServicer(object):
@@ -953,6 +1038,108 @@ class BetaThetaTerminalServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetFutureListSymbols(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureListDates(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureHistoryTrade(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureHistoryBbo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureHistoryTradeBbo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureHistoryOhlc(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureHistoryEod(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureHistorySettlement(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureAtTimeTrade(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureAtTimeBbo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureSnapshotBbo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureSnapshotTrade(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureSnapshotOhlc(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureSnapshotMarketValue(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureFlatFileTradeBbo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureFlatFileEod(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetFutureFlatFileBbo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_BetaThetaTerminalServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -1369,6 +1556,91 @@ def add_BetaThetaTerminalServicer_to_server(servicer, server):
             'GetIndexFlatFileEod': grpc.unary_stream_rpc_method_handler(
                     servicer.GetIndexFlatFileEod,
                     request_deserializer=v3grpc_dot_endpoints__pb2.IndexFlatFileEodRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureListSymbols': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureListSymbols,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureListSymbolsRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureListDates': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureListDates,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureListDatesRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureHistoryTrade': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureHistoryTrade,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureHistoryTradeRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureHistoryBbo': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureHistoryBbo,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureHistoryBboRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureHistoryTradeBbo': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureHistoryTradeBbo,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureHistoryTradeBboRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureHistoryOhlc': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureHistoryOhlc,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureHistoryOhlcRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureHistoryEod': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureHistoryEod,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureHistoryEodRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureHistorySettlement': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureHistorySettlement,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureHistorySettlementRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureAtTimeTrade': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureAtTimeTrade,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureAtTimeTradeRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureAtTimeBbo': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureAtTimeBbo,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureAtTimeBboRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureSnapshotBbo': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureSnapshotBbo,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureSnapshotBboRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureSnapshotTrade': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureSnapshotTrade,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureSnapshotTradeRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureSnapshotOhlc': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureSnapshotOhlc,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureSnapshotOhlcRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureSnapshotMarketValue': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureSnapshotMarketValue,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureSnapshotMarketValueRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureFlatFileTradeBbo': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureFlatFileTradeBbo,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureFlatFileTradeBboRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureFlatFileEod': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureFlatFileEod,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureFlatFileEodRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetFutureFlatFileBbo': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetFutureFlatFileBbo,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.FutureFlatFileBboRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
     }
@@ -3612,6 +3884,465 @@ class BetaThetaTerminal(object):
             target,
             '/BetaEndpoints.BetaThetaTerminal/GetIndexFlatFileEod',
             v3grpc_dot_endpoints__pb2.IndexFlatFileEodRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureListSymbols(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureListSymbols',
+            v3grpc_dot_endpoints__pb2.FutureListSymbolsRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureListDates(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureListDates',
+            v3grpc_dot_endpoints__pb2.FutureListDatesRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureHistoryTrade(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureHistoryTrade',
+            v3grpc_dot_endpoints__pb2.FutureHistoryTradeRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureHistoryBbo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureHistoryBbo',
+            v3grpc_dot_endpoints__pb2.FutureHistoryBboRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureHistoryTradeBbo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureHistoryTradeBbo',
+            v3grpc_dot_endpoints__pb2.FutureHistoryTradeBboRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureHistoryOhlc(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureHistoryOhlc',
+            v3grpc_dot_endpoints__pb2.FutureHistoryOhlcRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureHistoryEod(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureHistoryEod',
+            v3grpc_dot_endpoints__pb2.FutureHistoryEodRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureHistorySettlement(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureHistorySettlement',
+            v3grpc_dot_endpoints__pb2.FutureHistorySettlementRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureAtTimeTrade(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureAtTimeTrade',
+            v3grpc_dot_endpoints__pb2.FutureAtTimeTradeRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureAtTimeBbo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureAtTimeBbo',
+            v3grpc_dot_endpoints__pb2.FutureAtTimeBboRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureSnapshotBbo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureSnapshotBbo',
+            v3grpc_dot_endpoints__pb2.FutureSnapshotBboRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureSnapshotTrade(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureSnapshotTrade',
+            v3grpc_dot_endpoints__pb2.FutureSnapshotTradeRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureSnapshotOhlc(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureSnapshotOhlc',
+            v3grpc_dot_endpoints__pb2.FutureSnapshotOhlcRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureSnapshotMarketValue(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureSnapshotMarketValue',
+            v3grpc_dot_endpoints__pb2.FutureSnapshotMarketValueRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureFlatFileTradeBbo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureFlatFileTradeBbo',
+            v3grpc_dot_endpoints__pb2.FutureFlatFileTradeBboRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureFlatFileEod(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureFlatFileEod',
+            v3grpc_dot_endpoints__pb2.FutureFlatFileEodRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetFutureFlatFileBbo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetFutureFlatFileBbo',
+            v3grpc_dot_endpoints__pb2.FutureFlatFileBboRequest.SerializeToString,
             endpoints__pb2.ResponseData.FromString,
             options,
             channel_credentials,

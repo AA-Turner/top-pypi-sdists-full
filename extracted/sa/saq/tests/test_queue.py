@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import pickle
 import time
 import typing as t
 import unittest
+import uuid
 from functools import partial
 from unittest import mock
 
@@ -24,7 +26,6 @@ from tests.helpers import (
     setup_postgres,
     teardown_postgres,
 )
-
 
 if t.TYPE_CHECKING:
     from unittest.mock import MagicMock
@@ -99,6 +100,28 @@ class TestQueue(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(job.kwargs, {"y": 1})
         self.assertEqual(job.timeout, 1)
         self.assertEqual(job.heartbeat, 0)
+
+    async def test_enqueue_none_keeps_the_default(self) -> None:
+        job = await self.enqueue("test", timeout=None, heartbeat=None, retries=None, ttl=None)
+        self.assertEqual(job.timeout, 10)
+        self.assertEqual(job.heartbeat, 0)
+        self.assertEqual(job.retries, 1)
+        self.assertEqual(job.ttl, 600)
+        self.assertIsNone(job.kwargs)
+        job = await self.enqueue("test", timeout=0)
+        self.assertEqual(job.timeout, 0)
+
+    async def test_enqueue_none_still_sets_a_nullable_field(self) -> None:
+        job = await self.enqueue(Job("test", timeout=30, error="oops"), error=None, timeout=None)
+        self.assertIsNone(job.error)
+        self.assertEqual(job.timeout, 30)
+
+    async def test_map_does_not_impose_a_job_timeout_by_default(self) -> None:
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(self.queue.map("test", [{"key": "mapped"}]), 0.2)
+        job = await self.queue.job("mapped")
+        assert job is not None
+        self.assertEqual(job.timeout, 0)
 
     async def test_enqueue_dup(self) -> None:
         job = await self.enqueue("test", key="1")
@@ -251,12 +274,24 @@ class TestQueue(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(info["queued"], 1)
         self.assertEqual(len(info["jobs"]), 1)
 
-        time.sleep(4)
+        time.sleep(4)  # noqa: ASYNC251
         info = await self.queue.info(jobs=True)
         self.assertEqual(info["workers"], {})
         await worker.queue.sweep()
         info = await self.queue.info(jobs=True)
         self.assertEqual(info["workers"], {})
+
+    async def test_info_jobs_json_safe(self) -> None:
+        # Queues that pickle payloads can carry kwargs/results that aren't JSON-native
+        # (dates, UUIDs, etc). info(jobs=True) must still produce a JSON-serializable
+        # payload, mirroring the safety conversion applied to the single-job route.
+        self.queue = await self.create_queue(dump=pickle.dumps, load=pickle.loads)
+        await self.enqueue("echo", a=uuid.uuid4())
+
+        info = await self.queue.info(jobs=True)
+        self.assertEqual(len(info["jobs"]), 1)
+        json.dumps(info)  # must not raise TypeError
+        self.assertIsInstance(info["jobs"][0]["kwargs"], str)
 
     @mock.patch("saq.utils.time")
     async def test_schedule(self, mock_time: MagicMock) -> None:
@@ -473,6 +508,41 @@ class TestRedisQueue(TestQueue):
         self.assertEqual(await self.count("active"), 0)
         self.assertEqual(await self.queue.redis.get(job.abort_id), b"test")
 
+    async def test_abort_scheduled(self) -> None:
+        job = await self.enqueue("test", scheduled=time.time() + 3600)
+        self.assertEqual(await self.count("queued"), 0)
+        self.assertEqual(await self.count("incomplete"), 1)
+        await self.queue.abort(job, "test")
+        self.assertEqual(await self.count("incomplete"), 0)
+        await job.refresh()
+        self.assertEqual(job.status, Status.ABORTED)
+        self.assertEqual(job.error, "test")
+        self.assertIsNone(await self.queue.redis.get(job.abort_id))
+
+        job = await self.enqueue("test", retries=2, retry_delay=3600)
+        await self.dequeue()
+        await self.queue.retry(job, "error")
+        self.assertEqual(await self.count("queued"), 0)
+        self.assertEqual(await self.count("active"), 0)
+        await self.queue.abort(job, "test")
+        self.assertEqual(await self.count("incomplete"), 0)
+        await job.refresh()
+        self.assertEqual(job.status, Status.ABORTED)
+
+    async def test_abort_active_retried_scheduled(self) -> None:
+        # A retried job keeps its scheduled time as its score, even while active.
+        job = await self.enqueue("test", scheduled=time.time() - 1, retries=2)
+        await self.queue.schedule()
+        await self.dequeue()
+        await self.queue.retry(job, "error")
+        await self.dequeue()
+        self.assertEqual(await self.count("active"), 1)
+        self.assertGreater(await self.queue.redis.zscore(self.queue._incomplete, job.id), 0)
+        await self.queue.abort(job, "test")
+        await job.refresh()
+        self.assertEqual(job.status, Status.ABORTING)
+        self.assertEqual(await self.queue.redis.get(job.abort_id), b"test")
+
     @mock.patch("saq.utils.time")
     async def test_sweep(self, mock_time: MagicMock) -> None:
         mock_time.time.return_value = 1
@@ -532,10 +602,42 @@ class TestPostgresQueue(TestQueue):
     async def test_job_key(self) -> None:
         pass
 
-    @unittest.skip("Not implemented")
+    async def test_dequeue_takes_job_buffered_while_waiting(self) -> None:
+        # a concurrent fetch (a schedule tick serving this waiter) can land a job
+        # in the buffer after the notification wait started; a dequeue that times
+        # out must still take it instead of reporting an empty queue
+        queued = Job("test", queue=self.queue)
+
+        async def buffer_late() -> None:
+            await asyncio.sleep(0.05)
+            self.queue._job_queue.put_nowait(queued)
+
+        task = asyncio.create_task(buffer_late())
+        job = await asyncio.wait_for(self.queue.dequeue(timeout=0.1), timeout=2)
+        await task
+        self.assertIs(job, queued)
+
     @mock.patch("saq.utils.time")
     async def test_schedule(self, mock_time: MagicMock) -> None:
-        pass
+        mock_time.time.return_value = 2
+        # schedule() only dequeues while a consumer is waiting
+        self.queue._waiting = 10
+        self.assertEqual(await self.count("queued"), 0)
+        self.assertEqual(await self.count("active"), 0)
+        await self.enqueue("test")
+        job1 = await self.enqueue("test", scheduled=1)
+        job2 = await self.enqueue("test", scheduled=2)
+        await self.enqueue("test", scheduled=3)
+        self.assertEqual(await self.count("queued"), 3)
+        self.assertEqual(await self.count("active"), 0)
+        jobs1 = await self.queue.schedule()
+        jobs2 = await self.queue.schedule()
+        # the unscheduled job is dequeued too, but only jobs with an explicit
+        # scheduled time are reported, matching RedisQueue.schedule
+        self.assertEqual(jobs1, [job1.id, job2.id])
+        self.assertEqual(jobs2, [])
+        self.assertEqual(await self.count("queued"), 0)
+        self.assertEqual(await self.count("active"), 3)
 
     async def test_enqueue_dup(self) -> None:
         job = await self.enqueue("test", key="1")
@@ -564,6 +666,14 @@ class TestPostgresQueue(TestQueue):
         self.assertEqual(await self.count("incomplete"), 0)
         self.assertEqual(await self.count("active"), 0)
         self.assertEqual(await self.queue.get_job_status(job.key), Status.ABORTING)
+
+    async def test_abort_scheduled(self) -> None:
+        job = await self.enqueue("test", scheduled=time.time() + 3600)
+        await self.queue.abort(job, "test")
+        await job.refresh()
+        self.assertEqual(job.status, Status.ABORTED)
+        self.assertEqual(job.error, "test")
+        self.assertEqual(await self.queue.get_job_status(job.key), Status.ABORTED)
 
     @mock.patch("saq.utils.time")
     async def test_sweep(self, mock_time: MagicMock) -> None:

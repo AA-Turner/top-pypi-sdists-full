@@ -241,7 +241,9 @@ async def prepare_for_send(
             lambda: _settle_held_prompt(config, conversation_id=conversation_id),
         )
         await _stage_reference_fences(prep, config)
-        await _enforce_document_output_ceiling(prep, config)
+        await _enforce_document_output_ceiling(
+            prep, config, conversation_id=conversation_id, request_id=request_id
+        )
 
     effective_cache_state = _resolve_cache_state(
         conversation_id=conversation_id,
@@ -307,6 +309,12 @@ async def prepare_for_send(
         # tail, after every cache breakpoint), BEFORE the wire clone (which
         # deep-copies the staged tail along with the messages).
         await _stage_live_plan(
+            prep, config, conversation_id=conversation_id, organization_id=organization_id
+        )
+        # THE AGENT ALWAYS KNOWS ITS HELPERS (Arman, 2026-10-28): every helper it started, with
+        # its live state, rebuilt on every send in the per-turn context channel
+        # (``config/helper_roster.py``). BEFORE the wire clone.
+        await _stage_helper_roster(
             prep, config, conversation_id=conversation_id, organization_id=organization_id
         )
         _run_step(
@@ -761,7 +769,13 @@ async def _stage_reference_fences(prep: SendPrep, config: Any) -> None:
         )
 
 
-async def _enforce_document_output_ceiling(prep: SendPrep, config: Any) -> None:
+async def _enforce_document_output_ceiling(
+    prep: SendPrep,
+    config: Any,
+    *,
+    conversation_id: str | None = None,
+    request_id: str | None = None,
+) -> None:
     """THE DOCUMENT-CEILING FLOOR AT THE WIRE — the last place it can still hold.
 
     Arman's ruling (2026-09-12, ``matrx_ai.config.output_ceiling``) says a
@@ -800,6 +814,18 @@ async def _enforce_document_output_ceiling(prep: SendPrep, config: Any) -> None:
     billed for tokens generated, not permitted), and one repair quiets itself
     for the rest of the loop because the canonical config now carries the
     maximum.
+
+    EXCEPT UNDER A PER-CALL SPEND CAP (2026-10-27). "Free" holds only when
+    nothing prices the PERMITTED tokens — and the per-call cap
+    (``guardrail_gate.admit_call_spend_cap``, asked after this boundary) does
+    exactly that: it prices the call at its ceiling. Raised blindly, a list-shaped
+    step carrying ``max_output_tokens: 20000`` under a $0.15 cap went out at
+    128,000 (live run a880bc2e, V3 ``who_buys``) — on Gemini Flash about $0.48 at
+    the ceiling, so every such step would be refused. Both rules hold at once:
+    with a cap open the raise goes only as far as the cap affords
+    (``_bound_ceiling_by_spend_cap``), never below the author's own limit, and an
+    author's limit that is itself unaffordable is left for the cap to refuse
+    before anything is sent.
     """
     try:
         from matrx_ai.config.output_ceiling import (
@@ -808,6 +834,7 @@ async def _enforce_document_output_ceiling(prep: SendPrep, config: Any) -> None:
             enforce_document_ceiling,
             model_output_maximum,
         )
+        from matrx_ai.providers.guardrail_gate import current_call_spend_cap
 
         requested = as_int(getattr(config, "max_output_tokens", None))
         if requested is None:
@@ -816,6 +843,17 @@ async def _enforce_document_output_ceiling(prep: SendPrep, config: Any) -> None:
         if schema is None:
             return
         model = getattr(config, "matrx_model_name", None) or getattr(config, "model", None)
+        cap = current_call_spend_cap()
+        loop_key = _loop_key(conversation_id, request_id) if request_id else None
+        repeat = False
+        if cap is not None and loop_key is not None:
+            # A capped loop's later rounds re-judge from the AUTHOR's limit, never from the
+            # bounded number the last round wrote (a growing prompt affords less each round).
+            authored = _AUTHORED_CEILING.get(loop_key)
+            if authored is not None:
+                repeat = True
+                requested = authored
+                config.max_output_tokens = authored
         repairs = enforce_document_ceiling(
             config,
             model_max=await model_output_maximum(model),
@@ -828,17 +866,32 @@ async def _enforce_document_output_ceiling(prep: SendPrep, config: Any) -> None:
         )
         if not repairs:
             return
+        bound = None
+        if cap is not None:
+            if loop_key is not None:
+                _AUTHORED_CEILING[loop_key] = requested
+                _AUTHORED_CEILING.move_to_end(loop_key)
+                while len(_AUTHORED_CEILING) > _MAX_TRACKED:
+                    _AUTHORED_CEILING.popitem(last=False)
+            bound = await _bound_ceiling_by_spend_cap(config, cap=cap, authored=requested)
+            repairs = [*repairs, bound]
         prep.steps.append("document_output_ceiling")
         for repair in repairs:
             vcprint(
                 f"[send_boundary/{prep.stage}] {repair}",
-                title="⚠️ SEND BOUNDARY: output ceiling raised to the model maximum",
+                title="⚠️ SEND BOUNDARY: output ceiling raised for a document answer",
                 color="yellow",
                 log_level="WARNING",
             )
-        _announce_ceiling_raise(
+        if repeat or getattr(config, "max_output_tokens", None) == requested:
+            return  # announced once per request; an unaffordable limit is the cap's to refuse
+        _record_ceiling_raise(
             model=model, requested=requested, sent=getattr(config, "max_output_tokens", None),
             repairs=repairs,
+        )
+        _announce_ceiling_raise(
+            model=model, requested=requested, sent=getattr(config, "max_output_tokens", None),
+            repairs=repairs, cap_usd=cap.max_usd if cap is not None else None,
         )
     except Exception as exc:  # noqa: BLE001 — a guard's lookup never breaks a send
         vcprint(
@@ -848,7 +901,117 @@ async def _enforce_document_output_ceiling(prep: SendPrep, config: Any) -> None:
         )
 
 
-def _announce_ceiling_raise(*, model: Any, requested: int, sent: Any, repairs: list[str]) -> None:
+#: The share of a per-call cap the bounded ceiling may spend. The cap prices the call AFTER
+#: this step, and the blocks staged after it (agent identity, live plan, conversation
+#: instructions) add a few hundred input tokens; the headroom keeps a bounded call from being
+#: refused by a hair. An estimation margin, not a limit.
+_CAP_HEADROOM = 0.98
+
+#: The author's own ceiling of a capped loop, keyed by ``_loop_key`` — so later rounds bound
+#: from it rather than from the number the previous round wrote.
+_AUTHORED_CEILING: OrderedDict[str, int] = OrderedDict()
+
+
+async def _bound_ceiling_by_spend_cap(config: Any, *, cap: Any, authored: int) -> str:
+    """Lower a just-raised document ceiling to what the open per-call cap affords, in place.
+
+    ``config.max_output_tokens`` holds the raised value (the model maximum) on entry. Priced
+    by THE one estimator the cap itself uses (``guardrail_gate.estimate_call_usd``) — never a
+    copy of the pricing: output is linear in tokens for a fixed prompt, so two estimates (at the
+    author's limit and at the maximum) give the per-token price, and the result is re-checked.
+    Never goes below ``authored``; when even that is unaffordable (or the call cannot be
+    priced) the author's limit is sent and the cap refuses it before anything is spent.
+    Returns the one-line account of what it did.
+    """
+    from types import SimpleNamespace
+
+    from matrx_ai.providers.guardrail_gate import estimate_call_usd
+
+    raised = int(config.max_output_tokens)
+    budget = float(cap.max_usd) * _CAP_HEADROOM
+    # Priced on the SAME profile the provider call resolves (and the cap prices): at this
+    # point ``config.model`` is often a catalog id, which no price is keyed by (live
+    # 2026-10-28, run c91d63b3: every capped step fell back to the author's limit).
+    try:
+        from matrx_ai.catalog.resolve import resolve_call_profile
+
+        profile = await resolve_call_profile(
+            str(getattr(config, "model", "") or ""),
+            offering_id=getattr(config, "routing_offering_id", None),
+            **served_via_kwargs(config),
+        )
+    except Exception as exc:  # noqa: BLE001 — priced from the config instead, loudly
+        vcprint(f"[send_boundary] spend-cap bound could not resolve the profile: {exc!r}", color="yellow")
+        profile = SimpleNamespace(
+            model_name=getattr(config, "matrx_model_name", None) or getattr(config, "model", None),
+            offering_id=getattr(config, "runtime_offering_id", None)
+            or getattr(config, "offering_id", None),
+        )
+
+    def cost_at(tokens: int) -> float | None:
+        config.max_output_tokens = tokens
+        return estimate_call_usd(profile, config)[0]
+
+    at_max = cost_at(raised)
+    if at_max is not None and at_max <= budget:
+        return f"Within the ${cap.max_usd:.2f} per-call cap (about ${at_max:.3f} at {raised:,})."
+    at_authored = cost_at(authored)
+    if at_max is None or at_authored is None or at_authored > budget or raised <= authored:
+        config.max_output_tokens = authored
+        return (
+            f"Kept at the author's {authored:,}: even that is not affordable (or not priceable) "
+            f"under the ${cap.max_usd:.2f} per-call cap, which decides next."
+        )
+    per_token = (at_max - at_authored) / (raised - authored)
+    sent = authored + int((budget - at_authored) / per_token) if per_token > 0 else raised
+    sent = max(authored, min(raised, sent))
+    step = max(1, (sent - authored) // 100)
+    while sent > authored and (cost_at(sent) or 0.0) > budget:
+        sent = max(authored, sent - step)
+    config.max_output_tokens = sent
+    return (
+        f"max_output_tokens raised {authored:,} -> {sent:,} (not {raised:,}), bounded by the "
+        f"${cap.max_usd:.2f} per-call cap."
+    )
+
+
+def _record_ceiling_raise(*, model: Any, requested: int, sent: Any, repairs: list[str]) -> None:
+    """The raise is STORED with the request, not only streamed.
+
+    The stream warning reaches a live caller; a workflow step, a mandate run or a
+    batch job has nobody reading its stream, so the only record was the server log.
+    Live 2026-10-28 (agent d8901b25, chat.request a5c8e43a): the agent row said
+    ``max_output_tokens: 3072`` and the call produced 19,208 output tokens, 15,993 of
+    them thinking — Anthropic counts thinking inside ``max_tokens``, so the wire's
+    128,000 was the whole answer, yet ``chat.request_snapshot.metadata.settings_adjustments``
+    recorded only the effort translation. This writes the raise there too, beside the
+    payload it shaped (``publish_settings_adjustments``, stored only: the warning
+    below already tells the caller)."""
+    from matrx_ai.catalog.models import Adjustment
+    from matrx_ai.providers.outbound_params import publish_settings_adjustments
+
+    publish_settings_adjustments(
+        [
+            Adjustment(
+                key="max_output_tokens",
+                action="raised",
+                canonical_value=requested,
+                sent_value=sent,
+                reason=" ".join(repairs),
+                expected=True,
+                provenance="computed",
+                law="document_output_ceiling",
+            )
+        ],
+        model=model,
+        seam="send_boundary",
+        announce=False,
+    )
+
+
+def _announce_ceiling_raise(
+    *, model: Any, requested: int, sent: Any, repairs: list[str], cap_usd: float | None = None
+) -> None:
     """Law 4: the raise reaches the CALLER, not only the server log.
 
     The ceiling may have come from an explicit request ``config_overrides`` —
@@ -867,7 +1030,8 @@ def _announce_ceiling_raise(*, model: Any, requested: int, sent: Any, repairs: l
             system_message=" ".join(repairs),
             user_message=(
                 f"Output limit raised from {requested:,} to {sent:,} so the structured "
-                "answer is not cut off."
+                "answer is not cut off"
+                + (f", bounded by the ${cap_usd:.2f} cap." if cap_usd is not None else ".")
             ),
             level="low",
             recoverable=True,
@@ -876,6 +1040,7 @@ def _announce_ceiling_raise(*, model: Any, requested: int, sent: Any, repairs: l
                 "adjusted": [
                     {"key": "max_output_tokens", "requested": requested, "sent": sent}
                 ],
+                **({"call_spend_cap_usd": cap_usd} if cap_usd is not None else {}),
             },
         ),
         name="send_boundary_ceiling_warning",
@@ -1418,6 +1583,30 @@ async def _stage_live_plan(
     prep.steps.append("live_plan")
 
 
+async def _stage_helper_roster(
+    prep: SendPrep, config: Any, *, conversation_id: str | None, organization_id: str | None
+) -> None:
+    """Restate the agent's helpers on this send (``config/helper_roster.py``).
+
+    A failure is announced loudly and skipped: the send goes out with the slot cleared, never
+    with a stale roster.
+    """
+    from matrx_ai.config.helper_roster import stage_helper_roster
+
+    try:
+        if await stage_helper_roster(
+            config, conversation_id=conversation_id, organization_id=_carried_org(organization_id)
+        ):
+            prep.steps.append("helper_roster")
+    except Exception as exc:  # noqa: BLE001 — shaping never costs a send
+        vcprint(
+            f"[send_boundary/{prep.stage}] step 'helper_roster' failed (ignored): "
+            f"{type(exc).__name__}: {exc} — this send goes out without the agent's helpers list.",
+            color="red",
+        )
+        logger.error("send_boundary helper_roster failed: %s: %s", type(exc).__name__, exc, exc_info=True)
+
+
 def _run_step(prep: SendPrep, name: str, fn: Any) -> None:
     """Run one shaping step; a failure is announced and skipped, never fatal."""
     try:
@@ -1545,5 +1734,6 @@ def _is_newer(candidate_iso: str, existing: Any) -> bool:
 def reset_loop_state(conversation_id: str | None = None, request_id: str | None = None) -> None:
     """Drop this loop's live-send record (housekeeping / tests)."""
     _LAST_SEND_AT.pop(_loop_key(conversation_id, request_id), None)
+    _AUTHORED_CEILING.pop(_loop_key(conversation_id, request_id), None)
     if conversation_id:
         _CACHE_STATE_MEMO.pop(conversation_id, None)

@@ -1,11 +1,11 @@
 from . import core
 from ._native import MGRS as _NativeMGRS
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 
 class MGRS(_NativeMGRS):
-    """Scalar and batch coordinate conversions with decimal/DMS helpers."""
+    """Coordinate conversions and cell geometries with decimal/DMS helpers."""
 
     def ddtodms(self, dd):
         """Take in dd string and convert to dms"""

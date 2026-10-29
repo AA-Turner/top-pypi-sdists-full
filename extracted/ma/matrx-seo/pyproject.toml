@@ -1,18 +1,18 @@
 [project]
 name = "matrx-seo"
-version = "0.1.399"
+version = "0.1.400"
 description = "Provider-neutral SEO collection contracts and canonical persistence."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "matrx-utils>=2.0.97",
-    "matrx-orm>=3.1.265",
+    "matrx-utils>=2.0.98",
+    "matrx-orm>=3.1.267",
     # THE ONE Brave transport. matrx-seo's rank adapter consumes
     # matrx_scraper.search.BraveSearchClient — key selection, adaptive per-key
     # pacing, Retry-After retry and the typed 429-as-error live there ONCE.
     # 0.2.61 is the first release exporting BraveSearchResponse / NullRateLimiter
     # / the full web-search parameter surface this package needs.
-    "matrx-scraper>=0.2.434",
+    "matrx-scraper>=0.2.435",
     "pydantic>=2.12",
     "httpx>=0.28",
 ]

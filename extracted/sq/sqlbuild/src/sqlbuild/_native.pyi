@@ -3145,7 +3145,7 @@ class CliNamespace:
     max_columns: int | None
     query_sql: str | None
     query_file: str | None
-    query_format: str
+    query_format: str | None
     query_limit: int | None
     query_no_limit: bool
     cost_selector: str
@@ -4146,7 +4146,8 @@ def write_fingerprint(
     render_framework_type: Callable[[FrameworkType], str],
     render_create_table_sql: Callable[..., str] | None = None,
     render_create_index_sqls: Callable[..., tuple[str, ...]] | None = None,
-) -> None: ...
+    ensure_table: bool = True,
+) -> bool: ...
 def write_fingerprints(
     *,
     connection: Any,
@@ -4271,6 +4272,7 @@ def scope_expected_model_names(
 def supports_color() -> bool: ...
 def parse_cli_invocation(argv: Sequence[str], *, use_color: bool) -> ParsedCliInvocation: ...
 def run_cli(argv: Sequence[str] | None = None, handlers: object | None = None) -> int: ...
+def termination_requested() -> bool: ...
 def scope_test_ctes(
     texts: list[tuple[str, str]], syntax: dict[str, object]
 ) -> list[tuple[str | None, list[tuple[str, str]]]]: ...
@@ -4818,7 +4820,9 @@ def run_query_command(
     output_format: str = "long",
     limit: int | None = 20,
 ) -> int: ...
-def render_query_result(*, result: QueryResult, output_format: str, limit: int | None) -> str: ...
+def render_query_result(
+    *, result: QueryResult, output_format: str | None, limit: int | None
+) -> str: ...
 def run_dag_command(
     *,
     project_dir: Path | None,
@@ -6237,6 +6241,7 @@ def list_source_candidates(
 ) -> tuple[RelationInfo, ...]: ...
 
 class CostArtifactError(ValueError): ...
+class CommandTerminated(KeyboardInterrupt): ...
 class SourceFreshnessInputError(ValueError): ...
 class SourceFreshnessObservationError(ValueError): ...
 
@@ -7340,6 +7345,8 @@ class WrittenTarget(NativeRecord):
     test_count: int
     target_dir: Path
     diagnostics: tuple[CompilerDiagnostic, ...]
+    failed_compile: bool
+    failed_model_sql: tuple[str, ...]
     def __init__(
         self,
         model_count: int,
@@ -7349,6 +7356,8 @@ class WrittenTarget(NativeRecord):
         test_count: int,
         target_dir: Path,
         diagnostics: tuple[CompilerDiagnostic, ...] = ...,
+        failed_compile: bool = ...,
+        failed_model_sql: tuple[str, ...] = ...,
     ) -> None: ...
 
 class SkillMaintenanceResult(NativeRecord):
@@ -13807,6 +13816,7 @@ class ModelPlanEntry(NativeRecord):
     pre_hooks: object
     post_hooks: object
     previous_query_sql: str | None
+    previous_fingerprint: Fingerprint | None
     fingerprint_metadata_json: str | None
     previous_metadata_json: str | None
     fingerprint_version_hash: str | None
@@ -13893,6 +13903,7 @@ class ModelPlanEntry(NativeRecord):
         pre_hooks: object = ...,
         post_hooks: object = ...,
         previous_query_sql: str | None = ...,
+        previous_fingerprint: Fingerprint | None = ...,
         fingerprint_metadata_json: str | None = ...,
         previous_metadata_json: str | None = ...,
         fingerprint_version_hash: str | None = ...,

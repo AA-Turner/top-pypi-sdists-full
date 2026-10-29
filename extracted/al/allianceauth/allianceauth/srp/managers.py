@@ -1,12 +1,17 @@
+__lazy_modules__ = ["allianceauth.authentication.models"]
+
 import logging
+from typing import TYPE_CHECKING
 
 import requests
 
 from allianceauth import __title_useragent__, __url__, __version__
-from allianceauth.authentication.models import User
 
 from .models import SrpUserRequest
 from .providers import get_killmails_killmail_id_killmail_hash
+
+if TYPE_CHECKING:
+    from allianceauth.authentication.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +19,13 @@ logger = logging.getLogger(__name__)
 class SRPManager:
 
     @staticmethod
-    def get_kill_id(killboard_link):
+    def get_kill_id(killboard_link: str) -> str:
         num_set = '0123456789'
         kill_id = ''.join([c for c in killboard_link if c in num_set])
         return kill_id
 
     @staticmethod
-    def get_kill_data(kill_id):
+    def get_kill_data(kill_id: str | int) -> tuple[int, float, int]:
         url = (f"https://zkillboard.com/api/killID/{kill_id}/")
         headers = {
             'User-Agent': f'{__title_useragent__}/{__version__} (+{__url__})',
@@ -49,7 +54,7 @@ class SRPManager:
             raise ValueError("Invalid Kill ID or Hash.")
 
     @staticmethod
-    def pending_requests_count_for_user(user: User):
+    def pending_requests_count_for_user(user: "User") -> int | None:
         """returns the number of open SRP requests for given user
         or None if user has no permission"""
         if user.has_perm("auth.srp_management"):

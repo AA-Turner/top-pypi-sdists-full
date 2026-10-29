@@ -59,6 +59,7 @@ from omnibase_infra.event_bus.models.model_event_message import ModelEventMessag
 
 from omnimarket.enums.enum_delegation_acceptance import EnumDelegationAcceptanceReason
 from omnimarket.enums.enum_delegation_failure_class import EnumDelegationFailureClass
+from omnimarket.enums.enum_provider_finish_reason import EnumProviderFinishReason
 from omnimarket.models.delegation.wire.model_delegate_skill_request import (
     ModelDelegateSkillRequest,
 )
@@ -297,15 +298,25 @@ async def test_each_fault_decides_its_own_cause_and_none_reads_provider_error(
 ) -> None:
     run = await _run_fault(fault, monkeypatch, record_property)
 
+    # OMN-21264: the consumer terminal hands the run back to its caller and
+    # keeps the deciding cause as its reason, except a run whose clock ran out,
+    # which keeps its own cause; the canonical terminal the projection copies
+    # its cause from still names the deciding cause.
+    consumer_cause: object = run.consumer.terminal_failure_cause
+    if fault != "timeout":
+        assert (
+            consumer_cause is EnumDelegationTerminalFailureCause.RETURNED_TO_CALLER
+        ), (fault, consumer_cause)
+        consumer_cause = run.consumer.terminal_failure_reason
     for reader, cause in (
-        ("consumer terminal", run.consumer.terminal_failure_cause),
+        ("consumer terminal", consumer_cause),
         ("canonical terminal", run.canonical.terminal_failure_cause),
     ):
-        assert cause is not EnumDelegationTerminalFailureCause.PROVIDER_ERROR, (
+        assert cause != EnumDelegationTerminalFailureCause.PROVIDER_ERROR, (
             fault,
             reader,
         )
-        assert cause is _EXPECTED_CAUSES[fault], (fault, reader, cause)
+        assert cause == _EXPECTED_CAUSES[fault], (fault, reader, cause)
 
 
 async def test_the_veto_names_its_rule_on_the_deciding_attempt(
@@ -338,26 +349,41 @@ async def test_the_truncation_carries_the_stop_reason_and_the_flag(
 
     assert deciding["finish_reason"] == "length", deciding
     assert deciding["truncated"] is True, deciding
+    deciding_attempt = run.consumer.attempts[-1]
+    assert deciding_attempt.finish_reason == EnumProviderFinishReason.LENGTH, (
+        deciding_attempt
+    )
+    assert deciding_attempt.truncated is True, deciding_attempt
+    assert run.consumer.finish_reason == EnumProviderFinishReason.LENGTH, run.consumer
+    assert run.consumer.truncated is True, run.consumer
 
 
 async def test_the_veto_and_the_truncation_are_told_apart_by_their_deciding_attempt(
     monkeypatch: pytest.MonkeyPatch,
     record_property: Callable[[str, object], None],
 ) -> None:
-    veto = dict(
-        (
-            await _run_fault("gate_veto", monkeypatch, record_property)
-        ).canonical.escalation_history[-1]
-    )
-    truncation = dict(
-        (
-            await _run_fault("truncation", monkeypatch, record_property)
-        ).canonical.escalation_history[-1]
-    )
+    veto_run = await _run_fault("gate_veto", monkeypatch, record_property)
+    truncation_run = await _run_fault("truncation", monkeypatch, record_property)
+    veto = dict(veto_run.canonical.escalation_history[-1])
+    truncation = dict(truncation_run.canonical.escalation_history[-1])
 
     assert veto.get("finish_reason") != truncation.get("finish_reason")
     assert bool(veto.get("truncated")) is False
     assert truncation.get("truncated") is True
+    veto_attempt = veto_run.consumer.attempts[-1]
+    truncation_attempt = truncation_run.consumer.attempts[-1]
+    assert veto_attempt.finish_reason != EnumProviderFinishReason.LENGTH, veto_attempt
+    assert veto_attempt.truncated is False, veto_attempt
+    assert truncation_attempt.finish_reason == EnumProviderFinishReason.LENGTH, (
+        truncation_attempt
+    )
+    assert truncation_attempt.truncated is True, truncation_attempt
+    assert f"deciding_rules={_VETO_RULE}" in veto_run.canonical.failure_reason, (
+        veto_run.canonical.failure_reason
+    )
+    assert (
+        f"deciding_rules={_VETO_RULE}" not in truncation_run.canonical.failure_reason
+    ), truncation_run.canonical.failure_reason
 
 
 @pytest.mark.parametrize("status", [401, 403])

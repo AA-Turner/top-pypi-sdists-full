@@ -192,6 +192,131 @@ def test_rows_appear_when_the_clock_passes_them_and_runs_end_on_time():
     assert [p["id"] for p in _call(fake, "GET", "/v1/projects", query="slug=svm-vs-logreg").body] == [SVM]
 
 
+def test_project_links_are_served_like_the_servers():
+    """0401: projects are flat. A create's `part_of` links it (no tree), `?part_of=`
+    is one hop, rows carry `part_of`, the detail serves `references` and
+    `part_of_links` apart, one link per pair (part_of upgrades a reference and a
+    plain add never downgrades it), and removing the link that mirrors a frozen
+    parent detaches the project -- which reads as part of it, as the backfill made it."""
+    nested = "88888888-8888-4888-8888-888888888888"
+    reads = _reads()
+    reads[f"/v1/projects/{nested}"] = {"id": nested, "slug": "digits-phase-1", "name": "Phase 1",
+                                       "kind": "training", "description": None, "parent_project_id": PROJECT,
+                                       "tags": [], "notes": None, "notes_version": 0,
+                                       "created_at": "2026-09-23T08:01:30Z"}
+    fake = fp.FakeProbe(reads, clock=fp.ManualClock(T0 + 3600), token="bench-fake-t")
+    assert _call(fake, "GET", f"/v1/projects/{nested}").body["part_of"] == [PROJECT]
+    phase = _call(fake, "POST", "/v1/projects", {"slug": "digits-phase-2", "kind": "training",
+                                                 "part_of": [PROJECT]})
+    assert phase.status == 201 and phase.body["part_of"] == [PROJECT]
+    assert phase.body["parent_project_id"] == PROJECT  # the compatibility parent: its oldest link
+    assert {p["id"] for p in _call(fake, "GET", "/v1/projects", query=f"part_of={PROJECT}").body} == {
+        nested, phase.body["id"]}
+    assert _call(fake, "POST", "/v1/projects", {"slug": "x", "kind": "general", "part_of": [SVM]}).status == 422
+    review = _call(fake, "POST", "/v1/projects", {"slug": "digits-review", "kind": "research"}).body["id"]
+    assert _call(fake, "POST", f"/v1/projects/{review}/references", {"to_project_id": PROJECT}).status == 204
+    detail = _call(fake, "GET", f"/v1/projects/{PROJECT}").body
+    assert [(r["direction"], r["project_id"]) for r in detail["references"]] == [("incoming", review)]
+    assert {(r["direction"], r["project_id"]) for r in detail["part_of_links"]} == {
+        ("incoming", nested), ("incoming", phase.body["id"])}
+    _call(fake, "POST", f"/v1/projects/{review}/references", {"to_project_id": PROJECT, "relation": "part_of"})
+    _call(fake, "POST", f"/v1/projects/{review}/references", {"to_project_id": PROJECT})
+    detail = _call(fake, "GET", f"/v1/projects/{PROJECT}").body
+    assert detail["references"] == [] and len(detail["part_of_links"]) == 3
+    assert "references" not in _call(fake, "GET", "/v1/projects", query="slug=digits").body[0]
+    assert _call(fake, "DELETE", f"/v1/projects/{nested}/references/{PROJECT}").status == 204
+    row = _call(fake, "GET", f"/v1/projects/{nested}").body
+    assert row["part_of"] == [] and row["parent_project_id"] is None
+    state = fake.final_state()
+    assert state["entities"][phase.body["id"]]["part_of"] == [PROJECT]
+    assert PROJECT in state["touched"]  # a part_of create touches its target, as a parented one did
+    assert not fake.unmapped
+
+
+def test_an_old_clients_parent_is_the_oldest_part_of_link():
+    """D3's compatibility parent, as the server serves it to an older client: a
+    project's `parent_project_id` reads as the target of its OLDEST `part_of`
+    link (null inside a loop); PATCH moves that link, keeping its place, and
+    null removes it, the other links staying; a create's `parent_project_id`
+    is a `part_of` link, first, and files nothing. An experiment keeps its project."""
+    fake = _fake(T0 + 3600)
+
+    def create(body: dict) -> dict:
+        made = _call(fake, "POST", "/v1/projects", body)
+        assert made.status == 201, made.body
+        return made.body
+
+    def read(pid: str) -> dict:
+        return _call(fake, "GET", f"/v1/projects/{pid}").body
+
+    review = create({"slug": "digits-review", "kind": "research"})["id"]
+    notes = create({"slug": "digits-notes", "kind": "general"})["id"]
+    phase = create({"slug": "digits-phase-2", "kind": "training", "part_of": [PROJECT, review]})["id"]
+    assert read(phase)["parent_project_id"] == PROJECT
+    assert _call(fake, "PATCH", f"/v1/projects/{phase}", {"parent_project_id": notes}).status == 200
+    assert read(phase)["part_of"] == [notes, review] and read(phase)["parent_project_id"] == notes
+    _call(fake, "PATCH", f"/v1/projects/{phase}", {"parent_project_id": None})
+    assert read(phase)["part_of"] == [review] and read(phase)["parent_project_id"] == review
+    assert _call(fake, "PATCH", f"/v1/projects/{phase}", {"parent_project_id": SVM}).status == 422
+
+    old = create({"slug": "old-style", "kind": "general", "parent_project_id": review, "part_of": [PROJECT]})
+    assert old["part_of"] == [review, PROJECT] and old["parent_project_id"] == review
+    assert fake.rows[old["id"]]["parent_project_id"] is None  # a link, not a filing
+
+    # review <-> old: each one's oldest link closes a loop, so neither has a parent.
+    _call(fake, "POST", f"/v1/projects/{review}/references", {"to_project_id": old["id"], "relation": "part_of"})
+    assert read(review)["parent_project_id"] is None and read(old["id"])["parent_project_id"] is None
+    assert read(SVM)["parent_project_id"] == PROJECT
+
+
+def test_a_browse_node_carries_the_servers_project_links():
+    """A browse `ProjectNode` carries the links the server's does
+    (app/browse/service.py `list_projects`): `part_of`, oldest link first;
+    `subproject_count`, its parts; and the parent an older client reads -- the
+    projected one at the top level, the scope's project for a part listed under
+    `project:<id>`. Without `part_of` a writer's browse showed only the old
+    tree's fields (`parent_project_id`, `subproject_count`) and `part_of: null`."""
+    fake = _fake(T0 + 3600)
+
+    def create(body: dict) -> str:
+        made = _call(fake, "POST", "/v1/projects", body)
+        assert made.status == 201, made.body
+        return made.body["id"]
+
+    review = create({"slug": "digits-review", "kind": "research"})
+    one = create({"slug": "digits-phase-1", "kind": "training", "part_of": [PROJECT]})
+    two = create({"slug": "digits-phase-2", "kind": "training", "part_of": [review, PROJECT]})
+
+    top = {n["id"]: n for n in _call(fake, "GET", "/v1/browse").body["projects"]}
+    assert set(top) == {PROJECT, review, one, two}  # flat: every project at the top, no experiment
+    assert top[PROJECT]["part_of"] == [] and top[PROJECT]["parent_project_id"] is None
+    assert top[PROJECT]["subproject_count"] == 2 and top[review]["subproject_count"] == 1
+    assert top[one]["part_of"] == [PROJECT] and top[one]["parent_project_id"] == PROJECT
+    assert top[two]["part_of"] == [review, PROJECT] and top[two]["parent_project_id"] == review
+
+    scoped = _call(fake, "GET", "/v1/browse", query=f"scope=project:{PROJECT}").body
+    parts = {n["id"]: n for n in scoped["subprojects"]}
+    assert set(parts) == {one, two}
+    assert parts[two]["parent_project_id"] == PROJECT  # the scope's project, as `?parent_id=` serves it
+    assert parts[two]["part_of"] == [review, PROJECT]
+    assert not fake.unmapped
+
+
+def test_a_duplicate_project_has_the_same_name_and_the_same_part_of_set():
+    """The scorer's duplicate rule, on flat projects: a project repeats another
+    when it is a part of the same projects under the same name (0401)."""
+    whole, phase, again, other = (f"{n}{n}{n}{n}{n}{n}{n}{n}-{n}{n}{n}{n}-4{n}{n}{n}-8{n}{n}{n}-" + n * 12
+                                  for n in "9abc")
+    entities = {
+        whole: _entity(slug="odyssey", part_of=[]),
+        phase: _entity(slug="odyssey-phase-1", name="Phase 1", part_of=[whole]),
+        again: _entity(slug="odyssey-phase-1-2", name="Phase 1", part_of=[whole], frozen=False),
+        other: _entity(slug="phase-1", name="Phase 1", part_of=[], frozen=False),
+    }
+    final = _final(entities, created=[again, other])["final"]
+    assert score.duplicate_entities(final) == [f"project odyssey-phase-1-2 repeats {phase}"]
+
+
 def test_notes_follow_the_servers_version_rules():
     fake = _fake(T0 + 3600)
     first = _call(fake, "PATCH", f"/v1/projects/{SVM}", {"notes": "v1 text", "base_version": 0})
@@ -290,6 +415,24 @@ def test_a_metric_and_a_best_pick_are_served_in_the_servers_shapes():
     assert state["metrics"][PROJECT]["key"] == "test/acc"
     assert [e["event"] for e in state["best_picks"][PROJECT]] == ["set", "clear"]
     assert not fake.unmapped
+
+
+def test_a_project_never_inherits_through_a_frozen_rows_parent():
+    """A3: a frozen project row's `parent_project_id` is a link projection
+    (`self.links`), not a filing: its metric is its own, never the metric of
+    the project the old row named -- projects are flat, as on the server."""
+    nested = "88888888-8888-4888-8888-888888888888"
+    reads = _reads()
+    reads[f"/v1/projects/{nested}"] = {"id": nested, "slug": "digits-phase-1", "name": "Phase 1",
+                                       "kind": "training", "description": None, "parent_project_id": PROJECT,
+                                       "tags": [], "notes": None, "notes_version": 0,
+                                       "created_at": "2026-09-23T08:01:30Z"}
+    fake = fp.FakeProbe(reads, clock=fp.ManualClock(T0 + 3600), token="bench-fake-t")
+    assert _call(fake, "PUT", f"/v1/projects/{PROJECT}/metric", {"key": "test/acc", "goal": "max"}).status == 200
+    assert _call(fake, "GET", f"/v1/projects/{nested}/metric").body["metric"] is None
+    assert _call(fake, "GET", f"/v1/projects/{nested}").body["part_of"] == [PROJECT]
+    inherited = _call(fake, "GET", f"/v1/projects/{PROJECT}/experiments/{SVM}/metric").body
+    assert inherited["metric"]["declared_on"] == {"type": "project", "id": PROJECT}
 
 
 def test_unmapped_routes_answer_501_and_are_listed_never_404():

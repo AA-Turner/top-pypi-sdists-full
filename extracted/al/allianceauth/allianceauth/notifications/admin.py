@@ -1,6 +1,16 @@
+__lazy_modules__ = ["allianceauth.authentication.models", "allianceauth.eveonline.models", "django.http"]
+
+from typing import TYPE_CHECKING
+
 from django.contrib import admin
 
 from .models import Notification
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
+
+    from allianceauth.authentication.models import State
+    from allianceauth.eveonline.models import EveCharacter
 
 
 @admin.register(Notification)
@@ -19,7 +29,7 @@ class NotificationAdmin(admin.ModelAdmin):
     @admin.display(
         ordering="user__profile__main_character__character_name"
     )
-    def _main(self, obj):
+    def _main(self, obj: Notification) -> "EveCharacter | None":
         try:
             return obj.user.profile.main_character
         except AttributeError:
@@ -29,12 +39,12 @@ class NotificationAdmin(admin.ModelAdmin):
     @admin.display(
         ordering="user__profile__state__name"
     )
-    def _state(self, obj):
+    def _state(self, obj: Notification) -> "State":
         return obj.user.profile.state
 
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request: "HttpRequest", obj: Notification | None = None) -> bool:
         return False
 
-    def has_add_permission(self, request) -> bool:
+    def has_add_permission(self, request: "HttpRequest") -> bool:
         return False

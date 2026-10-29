@@ -6,8 +6,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import ExternalId, SignalSinkId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
-    CurrentUserScope,
     ScopeDefinition,
+    SignalsCurrentUserScope,
     SubscribeSignalsAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_subscription import (
@@ -42,7 +42,7 @@ class SignalSubscriptionIO(
     dependencies = frozenset({SignalSinkIO, WorkflowIO, HostedExtractorDestinationIO, HostedExtractorSourceIO})
     support_update = True
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Signals#operation/createSignalSubscriptions"
+    _doc_url = "Signals/operation/createSignalSubscriptions"
 
     @property
     def display_name(self) -> str:
@@ -79,11 +79,11 @@ class SignalSubscriptionIO(
 
     @classmethod
     def get_minimum_scope(cls, items: Sequence[SignalSubscriptionRequest]) -> ScopeDefinition:
-        return AllScope()
+        return SignalsCurrentUserScope()
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope | CurrentUserScope):
+        if isinstance(scope, AllScope | SignalsCurrentUserScope):
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 
     def create(self, items: Sequence[SignalSubscriptionRequest]) -> list[SignalSubscriptionResponse]:

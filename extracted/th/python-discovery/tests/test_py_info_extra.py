@@ -439,3 +439,36 @@ def test_resolve_to_system_from_exe_returns_none(mocker: MockerFixture) -> None:
     mocker.patch.object(PythonInfo, "from_exe", return_value=None)
     result = PythonInfo.resolve_to_system(None, target)
     assert result.executable == "/some/venv/python"
+
+
+@pytest.mark.parametrize(
+    "system_executable",
+    [
+        pytest.param("/some/system/python", id="resolved"),
+        pytest.param(None, id="discovered"),
+    ],
+)
+def test_resolve_to_system_leaves_shared_info_untouched(mocker: MockerFixture, system_executable: str | None) -> None:
+    shared = copy.deepcopy(CURRENT)
+    shared.system_executable = shared.executable = "/some/system/python"
+    mocker.patch.object(PythonInfo, "from_exe", return_value=shared)
+    mocker.patch.object(PythonInfo, "discover_exe", return_value=shared)
+
+    results: list[PythonInfo] = []
+    for venv in ("/some/venv-a", "/some/venv-b"):
+        target = copy.deepcopy(CURRENT)
+        target.system_executable = system_executable
+        target.real_prefix, target.base_prefix, target.executable = None, venv, f"{venv}/python"
+        results.append(PythonInfo.resolve_to_system(None, target))
+
+    assert [(info.executable, info.system_executable) for info in results] == [
+        ("/some/venv-a/python", "/some/system/python"),
+        ("/some/venv-b/python", "/some/system/python"),
+    ]
+    assert shared.executable == "/some/system/python"
+
+
+def test_resolve_to_system_returns_target_when_executable_unchanged() -> None:
+    target = copy.deepcopy(CURRENT)
+    target.system_executable = target.executable = "/some/system/python"
+    assert PythonInfo.resolve_to_system(None, target) is target

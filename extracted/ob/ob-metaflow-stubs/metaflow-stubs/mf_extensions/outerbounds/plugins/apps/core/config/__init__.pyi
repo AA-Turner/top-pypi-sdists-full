@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-16T15:14:49.237341                                                            #
+# Generated on 2026-10-28T20:25:47.897878                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from .unified_config import BakedImage as BakedImage
 from .unified_config import AuthType as AuthType
 from .unified_config import CapsuleType as CapsuleType
 from .unified_config import ProxyConfig as ProxyConfig
+from .unified_config import URLSlugValidations as URLSlugValidations
 from . import cli_generator as cli_generator
 from .cli_generator import auto_cli_options as auto_cli_options
 from .config_utils import PureStringKVPairType as PureStringKVPairType

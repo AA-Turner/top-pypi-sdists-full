@@ -144,7 +144,7 @@ def test_workflow_holder_converts_to_run_another_workflow_and_back() -> None:
     [
         (lambda d, f: (d, MandateFacts(**{**f.__dict__, "output_kind": "json"})), "format, not a structure"),
         (lambda d, f: (d, MandateFacts(**{**f.__dict__, "consumption_map": {"material": [_entry("a"), {"mapType": "prompt_user", "prompt": "Level?"}]}})), "asks a person"),
-        (lambda d, f: (_set(d, "must_not_contain", ["secret"]), f), "request firewall"),
+        (lambda d, f: (d, MandateFacts(**{**f.__dict__, "pinned_context": ("level",)})), "pins"),
         (lambda d, f: (_reads(d, "no_such_field"), f), "no run has that field"),
         (lambda d, f: (_set(d, "mandate_key", None), f), "run time"),
     ],
@@ -153,6 +153,49 @@ def test_conversions_that_would_change_behavior_refuse(change: Any, match: str) 
     definition, facts = change(_definition(), FACTS)
     with pytest.raises(StepConversionRefused, match=match):
         convert_step(definition, "sum", "agent", facts)
+
+
+_WALLED = [
+    (lambda d, f: (_set(d, "must_not_contain", ["secret"]), f)),
+    # The firewall can also ARRIVE: mapped by a connection, or per item from a For Each (live: the
+    # AI-visibility blind writer) — and a mandate can carry dispatch guards (the blind wall).
+    (lambda d, f: (_firewall_on_connection(d), f)),
+    (lambda d, f: (_firewall_from_for_each(d), f)),
+    (lambda d, f: (d, MandateFacts(**{**f.__dict__, "dispatch_guarded": True}))),
+]
+
+
+@pytest.mark.parametrize("change", _WALLED)
+def test_a_walled_step_converts_to_a_typed_step_that_keeps_the_wall(change: Any) -> None:
+    """Run Typed Agent declares and enforces the same firewall and runs AS the mandate
+    (``config.mandate_key_origin``: guards, contract, spend holds, pause) — 2026-10-28. Every way the
+    firewall reaches the step (on it, by connection, from a For Each) arrives unchanged."""
+    definition, facts = change(_definition(), FACTS)
+    original = copy.deepcopy(definition)
+    conv = convert_step(definition, "sum", "agent", facts)
+    data = conv.node["data"]
+    assert data["config"]["mandate_key_origin"] == FACTS.mandate_key
+    before = next(n for n in original["nodes"] if n["id"] == "sum")["data"]["input"]
+    for key in ("must_not_contain", "must_not_contain_match", "no_tools", "no_auto_context"):
+        assert data["input"].get(key) == before.get(key)
+    fed = next((e for e in conv.edges if e.get("target") == "sum" and "must_not_contain" in (_maps(e) or {})), None)
+    if "must_not_contain" in (_maps(next(e for e in original["edges"] if e["target"] == "sum")) or {}):
+        assert fed is not None and _maps(fed)["must_not_contain"] == "terms"
+    back = convert_step(_apply(definition, conv), "sum", "mandate", facts).node["data"]
+    assert "mandate_key_origin" not in back["config"] and back["input"]["mandate_key"] == FACTS.mandate_key
+
+
+@pytest.mark.parametrize("change", _WALLED)
+def test_a_walled_step_never_converts_to_a_workflow_step(change: Any) -> None:
+    """Run Workflow has no firewall and does not run as the mandate: converting would drop the wall."""
+    definition, facts = change(_definition(), MandateFacts(**{**FACTS.__dict__, "holder_type": "workflow",
+                                                              "holder_id": CHILD_WF}))
+    with pytest.raises(StepConversionRefused, match="request firewall|dispatch guards"):
+        convert_step(definition, "sum", "workflow", facts)
+
+
+def _maps(edge: dict[str, Any]) -> dict[str, Any] | None:
+    return (edge.get("data") or {}).get("mappings")
 
 
 def _set(definition: dict[str, Any], key: str, value: Any) -> dict[str, Any]:
@@ -187,6 +230,19 @@ def test_a_text_mandate_converts_to_a_text_typed_step() -> None:
     facts = MandateFacts(**{**FACTS.__dict__, "output_kind": "text"})
     conv = convert_step(_definition(), "sum", "agent", facts)
     assert conv.node["data"]["output_kind"] == "text"
+
+
+def test_a_markdown_mandate_converts_and_its_final_text_reads_round_trip() -> None:
+    """Incident Assurance's written report: a ``markdown`` mandate is a typed step, not a refusal."""
+    facts = MandateFacts(**{**FACTS.__dict__, "output_kind": "markdown"})
+    original = _definition()
+    original["edges"] = [e for e in original["edges"] if e["id"] not in ("e_out", "e_plain")]
+    original["edges"].append({"id": "e_txt", "source": "sum", "target": "out", "data": {"kind": "data", "mappings": {"report": "final_text"}}})
+    conv = convert_step(original, "sum", "agent", facts)
+    assert conv.node["data"]["output_kind"] == "markdown"
+    assert {e["id"]: e for e in conv.edges}["e_txt"]["data"]["mappings"] == {"report": "text"}
+    there = _apply(original, conv)
+    assert _apply(there, convert_step(there, "sum", "mandate", facts)) == original
 
 
 def test_a_step_saved_with_data_inputs_converts_like_one_saved_with_data_input() -> None:
@@ -338,3 +394,44 @@ def test_an_optional_variable_with_no_value_falls_back_instead_of_refusing() -> 
     assert _resolve_variable_sources({}, {}, {"angles": "optional"}) == {}
     assert _resolve_variable_sources({"angles": "d"}, {}, {"angles": "optional"}) == {"angles": "d"}
     assert _resolve_variable_sources({"angles": "d"}, {"angles": "x"}, {"angles": "optional"}) == {"angles": "x"}
+
+
+def test_a_typed_only_setting_is_dropped_and_said_when_converting_back_to_a_mandate() -> None:
+    """Agent Foundry 2026-10-28: ``config.label`` on a typed step made convert-to-mandate fail
+    validation ("config.label: Extra inputs are not permitted") — the step could not go back."""
+    from matrx_ai.graph_nodes.agent_action import AgentStartConfig
+
+    original = _definition()
+    there = _apply(original, convert_step(original, "sum", "agent", FACTS))
+    node = next(n for n in there["nodes"] if n["id"] == "sum")
+    node["data"]["config"]["label"] = "main"
+    conv = convert_step(there, "sum", "mandate", FACTS)
+    config = conv.node["data"]["config"]
+    assert "label" not in config
+    AgentStartConfig.model_validate(config)
+    assert any("'label'" in note for note in conv.notes)
+
+
+def test_an_error_connection_keeps_the_failures_own_fields() -> None:
+    """`message`/`code` on an error connection are the failure's, not the run's: never refused, never rewritten."""
+    definition = _definition()
+    definition["nodes"].append({"id": "oops", "type": "data.transform", "data": {"spec_type": "data.transform", "config": {}}})
+    definition["edges"].append(
+        {"id": "e_err", "source": "sum", "target": "oops", "data": {"kind": "error", "mappings": {"first_error": "message"}}}
+    )
+    definition["edges"].append({"id": "e_err_bare", "source": "sum", "target": "oops", "data": {"kind": "error"}})
+    conv = convert_step(definition, "sum", "agent", FACTS)
+    assert "e_err" not in {e["id"] for e in conv.edges} and "e_err_bare" not in {e["id"] for e in conv.edges}
+
+
+def _firewall_on_connection(definition: dict[str, Any]) -> dict[str, Any]:
+    edge = next(e for e in definition["edges"] if e["target"] == "sum")
+    edge["data"].setdefault("mappings", {})["must_not_contain"] = "terms"
+    return definition
+
+
+def _firewall_from_for_each(definition: dict[str, Any]) -> dict[str, Any]:
+    definition["nodes"].append({"id": "each", "type": "control.map", "position": {"x": 0, "y": 0},
+                                "data": {"spec_type": "control.map", "config": {
+                                    "target_node_id": "sum", "payload_template": {"no_tools": True}}}})
+    return definition

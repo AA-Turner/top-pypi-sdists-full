@@ -5,6 +5,7 @@
 Reads one hook JSON document from stdin, publishes through the receipt-mode client
 (no handler hosted here) and writes exactly the hook's output shape to stdout:
 never a ModelSkillResult. Its first stderr line is the resolved max mode.
+The client wait uses the process deadline left after startup and an exit reserve.
 
 Failure posture (P5c/P5d/P5f): no thread spins (every wait blocks on an Event with
 a timeout); the process exits when its parent goes away; it starts no child of its
@@ -20,6 +21,7 @@ import json
 import os
 import sys
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO, cast
@@ -48,8 +50,18 @@ if TYPE_CHECKING:
 CLIENT_ENV = "ONEX_HOOK_RECEIPT_CLIENT"
 HOST_ENV = "ONEX_CLIENT_HOST"
 CONTRACT_ENV = "ONEX_CLAUDE_CODE_ADAPTER_CONTRACT"
-DEFAULT_CLIENT = "omnibase_infra.cli.receipt_mode_client:ReceiptModeClient"
+# OMN-21341: the omnibase_infra receipt-mode publish-and-await handler. Its first
+# spelling here (cli.receipt_mode_client:ReceiptModeClient) named a module that
+# omnibase_infra's canonical-location and lifecycle-class gates refuse to create.
+DEFAULT_CLIENT = (
+    "omnibase_infra.handlers.handler_receipt_mode_publish_await"
+    ":HandlerReceiptModePublishAwait"
+)
 PARENT_POLL_SECONDS = 1.0
+# The binding's deadline_ms is the whole process deadline; the rendered module
+# kills the process at it. Reserve for interpreter start before main, bus close
+# after the wait and the stdout write.
+EXIT_RESERVE_MS = 2000
 
 EXIT_BAD_ARGS = 2
 EXIT_BAD_INPUT = 3
@@ -98,7 +110,9 @@ def main(
     stdout: TextIO | None = None,
     stderr: TextIO | None = None,
     section: ModelClientSection | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> int:
+    started = clock()
     parent_pid = os.getppid()
     out, err, inp = stdout or sys.stdout, stderr or sys.stderr, stdin or sys.stdin
     parser = argparse.ArgumentParser(prog="onex-claude-code-hook")
@@ -140,8 +154,16 @@ def main(
             daemon=True,
         ).start()
     try:
+        remaining_ms = (
+            binding.deadline_ms - round((clock() - started) * 1000) - EXIT_RESERVE_MS
+        )
         result = HandlerClaudeCodeHookAdapter(receipt_client).handle(
-            ModelHookAdapterRequest(binding=binding, hook_input=hook_input)
+            ModelHookAdapterRequest(
+                binding=binding.model_copy(
+                    update={"deadline_ms": max(1, remaining_ms)}
+                ),
+                hook_input=hook_input,
+            )
         )
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
         err.write(f"adapter failed: {type(exc).__name__}: {exc}\n")

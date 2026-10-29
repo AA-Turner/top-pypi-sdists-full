@@ -41,6 +41,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define NSYM 6000
 #define SPS 8.0
@@ -1071,6 +1072,76 @@ main (void)
     free (stx);
     free (sidx);
   }
+
+  /* The carrier centre travels in the blob (doppler#2642): set_norm_freq()
+     moves it, so a retuned receiver restored into a fresh one reports the
+     same norm_freq and nco_freq and continues bit-identically. Both faces. */
+  for (int real = 0; real < 2; real++)
+    {
+      enum
+      {
+        L = 3000
+      };
+      float _Complex *x  = malloc (L * sizeof *x);
+      float          *xr = malloc (L * sizeof *xr);
+      for (size_t i = 0; i < L; i++)
+        {
+          double ph = 2.0 * M_PI * (0.013 * (double)i)
+                      + M_PI / 2.0 * (double)((i / 8) % 4);
+          x[i]      = (float)cos (ph) + I * (float)sin (ph);
+          xr[i]     = (float)cos (2.0 * M_PI * 0.2 * (double)i + ph);
+        }
+      dp_mpsk_receiver_state_t *a, *b;
+      if (real)
+        {
+          a = dp_mpsk_receiver_create_real (4, 16.0, 0u, MPSK_RX_PULSE_IANDD,
+                                            0.35, 8, 0.01, 0.707, 0.01, 0.0,
+                                            0.2, 0, 0u, 1, 0.0);
+          b = dp_mpsk_receiver_create_real (4, 16.0, 0u, MPSK_RX_PULSE_IANDD,
+                                            0.35, 8, 0.01, 0.707, 0.01, 0.0,
+                                            0.2, 0, 0u, 1, 0.0);
+        }
+      else
+        {
+          a = dp_mpsk_receiver_create (4, 8.0, 0u, MPSK_RX_PULSE_IANDD, 0.35,
+                                       8, 0.01, 0.707, 0.01, 0.0, 0.0, 0, 0u,
+                                       1, 0.0);
+          b = dp_mpsk_receiver_create (4, 8.0, 0u, MPSK_RX_PULSE_IANDD, 0.35,
+                                       8, 0.01, 0.707, 0.01, 0.0, 0.0, 0, 0u,
+                                       1, 0.0);
+        }
+      DP_REQUIRE (a != NULL && b != NULL);
+      dp_mpsk_receiver_set_norm_freq (a, real ? 0.21 : 0.012);
+      float _Complex *ya = malloc (L * sizeof *ya),
+                     *yb = malloc (L * sizeof *yb);
+      if (real)
+        (void)dp_mpsk_receiver_steps_real (a, xr, L / 2, ya, L);
+      else
+        (void)dp_mpsk_receiver_steps (a, x, L / 2, ya, L);
+      size_t   sb   = dp_mpsk_receiver_state_bytes (a);
+      uint8_t *blob = malloc (sb);
+      dp_mpsk_receiver_get_state (a, blob);
+      DP_CHECK (dp_mpsk_receiver_set_state (b, blob) == DP_OK);
+      DP_CHECK (dp_mpsk_receiver_get_norm_freq (b)
+                == dp_mpsk_receiver_get_norm_freq (a));
+      DP_CHECK (dp_mpsk_receiver_get_nco_freq (b)
+                == dp_mpsk_receiver_get_nco_freq (a));
+      size_t na
+          = real ? dp_mpsk_receiver_steps_real (a, xr + L / 2, L / 2, ya, L)
+                 : dp_mpsk_receiver_steps (a, x + L / 2, L / 2, ya, L);
+      size_t nb
+          = real ? dp_mpsk_receiver_steps_real (b, xr + L / 2, L / 2, yb, L)
+                 : dp_mpsk_receiver_steps (b, x + L / 2, L / 2, yb, L);
+      DP_CHECK (na == nb && na > 0);
+      DP_CHECK (memcmp (ya, yb, na * sizeof *ya) == 0);
+      free (blob);
+      free (ya);
+      free (yb);
+      free (x);
+      free (xr);
+      dp_mpsk_receiver_destroy (a);
+      dp_mpsk_receiver_destroy (b);
+    }
 
   /* 11. The receiver is LEVEL-INVARIANT with the AGC on, and demonstrably
    * not without it. This is the whole point of the change, so it is asserted
@@ -2189,6 +2260,44 @@ main (void)
       free (lid);
       free (lou);
     }
+  }
+
+  /* bits_max_out is a real bound (doppler#2643): 8PSK at sps = 2 yields
+     about 1.5 bits per input sample, which the old bound (the input length)
+     truncated silently. Sized from bits_max_out, bits() returns 3 bits for
+     every symbol an identical twin's steps() returns. */
+  {
+    enum
+    {
+      L = 4000
+    };
+    float _Complex *x = malloc (L * sizeof *x);
+    for (size_t i = 0; i < L; i++)
+      {
+        double ph = 2.0 * M_PI * (double)((i / 2 * 5) % 8) / 8.0;
+        x[i]      = (float)cos (ph) + I * (float)sin (ph);
+      }
+    dp_mpsk_receiver_state_t *a
+        = dp_mpsk_receiver_create (8, 2.0, 0u, MPSK_RX_PULSE_IANDD, 0.35, 8,
+                                   0.01, 0.707, 0.01, 0.0, 0.0, 0, 0u, 1, 0.0);
+    dp_mpsk_receiver_state_t *b
+        = dp_mpsk_receiver_create (8, 2.0, 0u, MPSK_RX_PULSE_IANDD, 0.35, 8,
+                                   0.01, 0.707, 0.01, 0.0, 0.0, 0, 0u, 1, 0.0);
+    DP_REQUIRE (a != NULL && b != NULL);
+    float _Complex *sym  = malloc (L * sizeof *sym);
+    size_t          nsym = dp_mpsk_receiver_steps (a, x, L, sym, L);
+    size_t          cap  = dp_mpsk_receiver_bits_max_out (b, L);
+    DP_CHECK (cap == 3u * L);
+    uint8_t *bits  = malloc (cap);
+    size_t   nbits = dp_mpsk_receiver_bits (b, x, L, bits, cap);
+    DP_CHECK (nsym > L / 3); /* past the old input-length bound in bits */
+    DP_CHECK (nbits == 3u * nsym);
+    DP_CHECK (nbits > L);
+    free (bits);
+    free (sym);
+    free (x);
+    dp_mpsk_receiver_destroy (a);
+    dp_mpsk_receiver_destroy (b);
   }
 
   DP_TEST_END ("test_mpsk_receiver_core");

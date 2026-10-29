@@ -30,9 +30,10 @@ import functools
 import logging
 import signal
 import typing
-import warnings
 
 from gi.repository import GLib
+
+from urwid import _deprecation
 
 from .abstract_loop import EventLoop, ExitMainLoop
 
@@ -40,11 +41,14 @@ if typing.TYPE_CHECKING:
     from collections.abc import Callable
     from concurrent.futures import Executor, Future
     from types import FrameType
-
-    from typing_extensions import Literal, ParamSpec
+    from typing import Literal, ParamSpec
 
     _Spec = ParamSpec("_Spec")
     _T = typing.TypeVar("_T")
+    # Imported by name for type checkers, see urwid._deprecation.
+    from typing_extensions import deprecated
+else:
+    from urwid._deprecation import deprecated
 
 __all__ = ("GLibEventLoop",)
 
@@ -53,6 +57,10 @@ def _ignore_handler(_sig: int, _frame: FrameType | None = None) -> None:
     return None
 
 
+@deprecated(
+    "GLibEventLoop is deprecated. Deprecated since urwid 4.1.7, will be removed in version 6.0.",
+    category=None,
+)
 class GLibEventLoop(EventLoop):
     """Event loop based on GLib.MainLoop.
 
@@ -62,11 +70,7 @@ class GLibEventLoop(EventLoop):
 
     def __init__(self) -> None:
         """Initialize a fresh GLib.MainLoop with no alarms or watched files yet."""
-        warnings.warn(
-            "GLibEventLoop is deprecated. API will be removed in version 6.0.",
-            PendingDeprecationWarning,
-            stacklevel=2,
-        )
+        _deprecation.warn("GLibEventLoop is deprecated.", since="4.1.7", removed_in="6.0")
         super().__init__()
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         self._alarms: list[int] = []
@@ -92,7 +96,7 @@ class GLibEventLoop(EventLoop):
         :param func: function to call
         :param args: positional arguments to function
         :param kwargs: keyword arguments to function
-        :return: future object for the function call outcome.
+        :returns: future object for the function call outcome.
         """
         return executor.submit(func, *args, **kwargs)
 
@@ -138,8 +142,9 @@ class GLibEventLoop(EventLoop):
         ..
 
         :param signum: signal number
-        :param handler: function (taking signum as its single argument),
+        :param handler: function taking the signal number and the current stack frame (always None here),
             or `signal.SIG_IGN`, or `signal.SIG_DFL`
+        :raises TypeError: *handler* is neither callable nor `signal.SIG_IGN` or `signal.SIG_DFL`.
         """
         glib_signals = [
             signal.SIGHUP,
@@ -157,17 +162,24 @@ class GLibEventLoop(EventLoop):
             # The GLib event loop supports only the signals listed above
             return
 
+        callback: Callable[[int, FrameType | None], typing.Any] | None
+        if handler == signal.Handlers.SIG_DFL:
+            callback = None
+        elif handler == signal.Handlers.SIG_IGN:
+            callback = _ignore_handler
+        elif callable(handler):
+            callback = handler
+        else:
+            raise TypeError(f"signal handler must be signal.SIG_IGN, signal.SIG_DFL, or a callable, not {handler!r}")
+
         if signum in self._signal_handlers:
             GLib.source_remove(self._signal_handlers.pop(signum))
 
-        if handler == signal.Handlers.SIG_IGN:
-            handler = _ignore_handler
-        elif handler == signal.Handlers.SIG_DFL:
+        if callback is None:
             return
 
         def final_handler(signal_number: int) -> bool:
-            # MyPy False-negative: signal.Handlers casted
-            handler(signal_number, None)  # type: ignore[operator]
+            callback(signal_number, None)
             return GLib.SOURCE_CONTINUE  # type: ignore[no-any-return]
 
         source = GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signum, final_handler, signum)
@@ -177,7 +189,7 @@ class GLibEventLoop(EventLoop):
         """
         Remove an alarm.
 
-        Returns True if the alarm exists, False otherwise
+        :returns: True if the alarm exists, False otherwise
         """
         try:
             self._alarms.remove(handle[0])
@@ -195,6 +207,8 @@ class GLibEventLoop(EventLoop):
 
         :param fd: file descriptor to watch for input
         :param callback: function to call when input is available
+
+        A watch already set on *fd* is replaced.
         """
 
         @self.handle_exit
@@ -203,6 +217,7 @@ class GLibEventLoop(EventLoop):
             self._enable_glib_idle()
             return True
 
+        self.remove_watch_file(fd)
         self._watch_files[fd] = GLib.io_add_watch(fd, GLib.IO_IN, io_callback)
         return fd
 
@@ -210,7 +225,7 @@ class GLibEventLoop(EventLoop):
         """
         Remove an input file.
 
-        Returns True if the input file exists, False otherwise
+        :returns: True if the input file exists, False otherwise
         """
         if handle in self._watch_files:
             GLib.source_remove(self._watch_files[handle])
@@ -222,7 +237,7 @@ class GLibEventLoop(EventLoop):
         """
         Add a callback for entering idle.
 
-        Returns a handle that may be passed to remove_enter_idle()
+        :returns: a handle that may be passed to remove_enter_idle()
         """
         self._idle_handle += 1
         self._idle_callbacks[self._idle_handle] = callback
@@ -231,20 +246,24 @@ class GLibEventLoop(EventLoop):
     def _enable_glib_idle(self) -> None:
         if self._glib_idle_enabled:
             return
-        GLib.idle_add(self._glib_idle_callback)
+        GLib.idle_add(self.handle_exit(self._glib_idle_callback))
         self._glib_idle_enabled = True
 
     def _glib_idle_callback(self) -> bool:
-        for callback in self._idle_callbacks.values():
-            callback()
-        self._glib_idle_enabled = False
+        try:
+            # A callback may add or remove idle callbacks.
+            for callback in list(self._idle_callbacks.values()):
+                callback()
+        finally:
+            # Reset even when a callback raises, or no idle callback would be scheduled again.
+            self._glib_idle_enabled = False
         return False  # ask glib not to call again (or we would be called
 
     def remove_enter_idle(self, handle: int) -> bool:
         """
         Remove an idle callback.
 
-        Returns True if the handle was removed.
+        :returns: True if the handle was removed.
         """
         try:
             del self._idle_callbacks[handle]

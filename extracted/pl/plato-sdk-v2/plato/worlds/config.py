@@ -432,8 +432,11 @@ class TailscaleConfig(BaseModel):
     auth_key: str | None = Field(
         default=None,
         description="Tailscale OAuth client secret (``tskey-client-...``) or an auth key. "
-        "An OAuth client secret gets ``?ephemeral=true&preauthorized=true`` appended and is "
-        'passed to ``tailscale up --auth-key``. Use "${TAILSCALE_OAUTH_CLIENT_SECRET}".',
+        "An OAuth client secret stays on the world VM: the world mints a one-off auth key from "
+        "it per joining VM (reusable=false, ephemeral=true, preauthorized=true, the configured "
+        "tags, short expiry) and passes only that minted key to ``tailscale up`` (agent VMs get "
+        "it over SSH; the secret never leaves the world VM). A plain auth key is used as given. "
+        'Use "${TAILSCALE_OAUTH_CLIENT_SECRET}".',
     )
     tags: list[str] = Field(
         default_factory=lambda: ["tag:chronos"],
@@ -474,6 +477,20 @@ class TailscaleConfig(BaseModel):
         default=30,
         ge=1,
         description="Timeout for the short checks (binary, /dev/net/tun, status, /etc/hosts).",
+    )
+    mint_key_expiry_s: int = Field(
+        default=600,
+        ge=60,
+        le=86400,
+        description="Expiry of each one-off auth key the world mints from the OAuth client "
+        "secret, one per joining VM. Short on purpose: the key is used for a single "
+        "``tailscale up`` and is useless after. Only applies when auth_key is an OAuth "
+        "client secret (``tskey-client-...``); a plain auth key is used as given.",
+    )
+    mint_timeout_s: int = Field(
+        default=30,
+        ge=1,
+        description="Timeout for each Tailscale API call the world makes to mint a one-off auth key.",
     )
     accept_dns: bool = Field(
         default=False,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: platformdirs
-Version: 4.13.6
+Version: 4.14.0
 Import-Name: platformdirs
 Summary: A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`.
 Project-URL: Changelog, https://platformdirs.readthedocs.io/en/latest/changelog.html

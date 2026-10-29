@@ -168,7 +168,15 @@ def member_docs(text: str, struct: str) -> dict[str, dict]:
                 continue  # the previous member's trailing comment
             form = "above"
         close = text.index("*/", start) + 2
-        doc = " ".join(text[start + 2 : close - 2].split())
+        body = text[start + 2 : close - 2]
+        # A Doxygen marker is not part of the doc: `/**<` (trailing) or
+        # `/**` (above) carries the same words as `/*`, so exactly one
+        # leading `*<` or `*` is dropped before the words are joined.
+        if body.startswith("*<"):
+            body = body[2:]
+        elif body.startswith("*"):
+            body = body[1:]
+        doc = " ".join(body.split())
         col = start - (text.rindex("\n", 0, start) + 1)
         out[name] = {
             "doc": doc,
@@ -210,7 +218,11 @@ def render() -> str:
     mc = man["module"]["wfm_compose"]
 
     out: list[str] = [
-        "/*",
+        "/**",
+        " * @file wfm_defaults.h",
+        " * @brief The non-zero field defaults of wfm_source_t and",
+        " * wfm_segment_t, as designated initializers.",
+        " *",
         f" * {BANNER}",
         " *",
         " * Do not edit. `just-makeit.toml` is the one declaration of a",
@@ -221,7 +233,8 @@ def render() -> str:
         " * struct already gives, and spelling it would say nothing.",
         " *",
         " * An enum-valued default is rendered as the index of its name in",
-        " * the field's OWN declared [[enum]], with the name in a comment, so",
+        " * the field's OWN declared `[[enum]]`, with the name in a"
+        " comment, so",
         " * reordering that enum moves this file rather than silently",
         " * changing what the value means.",
         " */",
@@ -239,7 +252,10 @@ def render() -> str:
             lit = _literal(f, enums)
             if lit is not None:
                 rows.append((f["name"], lit))
-        out.append(f"/* Non-zero defaults for a wfm_{kind}_t. */")
+        out.append(
+            f"/** Non-zero defaults for a wfm_{kind}_t, as a braced designated"
+        )
+        out.append(f"    initializer: `wfm_{kind}_t x = {macro};`. */")
         out.append(f"#define {macro} \\")
         body = ", \\\n".join(f"    .{n} = {v}" for n, v in rows)
         out.append("  { \\")
@@ -648,6 +664,10 @@ def render_help(rows: list[dict]) -> list[str]:
         sections.setdefault(r["section"], []).extend(help_lines(r, doc))
     out = ["/* --help option lines, one string per USAGE section. */"]
     for sec, lines in sections.items():
+        out.append(
+            f"/** wfmgen --help option lines for the {sec} section of"
+            " USAGE. */"
+        )
         out.append(f"#define WFM_SURFACE_HELP_{sec} \\")
         out += [_c_string(x) + " \\" for x in lines[:-1]]
         out.append(_c_string(lines[-1]))
@@ -964,7 +984,11 @@ def render_surface() -> str:
     rows = surface_rows(man)
     owner_c = {"source": "WFM_SURF_SOURCE", "segment": "WFM_SURF_SEGMENT"}
     out = [
-        "/*",
+        "/**",
+        " * @file wfm_surface.h",
+        " * @brief The wfm field surface table: every source and segment",
+        " * field a non-Python face reads or writes by name.",
+        " *",
         f" * {SURFACE_BANNER}",
         " *",
         " * Do not edit. One row per wfm source or segment field that a",
@@ -982,50 +1006,54 @@ def render_surface() -> str:
         '#include "doppler/wfm/wfm_compose.h"',
         '#include "doppler/wfm/wfm_names.h"',
         "",
-        "/* Which struct a row's offsets are into. */",
+        "/** Which struct a row's offsets are into. */",
         "typedef enum",
         "{",
-        "  WFM_SURF_SOURCE,  /* wfm_source_t */",
-        "  WFM_SURF_SEGMENT, /* wfm_segment_t */",
+        "  WFM_SURF_SOURCE,  /**< wfm_source_t */",
+        "  WFM_SURF_SEGMENT, /**< wfm_segment_t */",
         "} wfm_surf_owner_t;",
         "",
-        "/* What kind of value a row holds. */",
+        "/** What kind of value a row holds. */",
         "typedef enum",
         "{",
-        "  WFM_SV_DOUBLE,",
-        "  WFM_SV_INT,",
-        "  WFM_SV_SIZE,",
-        "  WFM_SV_U32,",
-        "  WFM_SV_U64,",
-        "  WFM_SV_CHOICE,  /* an int index into `choices` */",
-        "  WFM_SV_SYMBOLS, /* float _Complex *, its count at `len_off` */",
-        "  WFM_SV_FIELD,   /* a wfm_seq_t, as a Field (wfm_frame.h) */",
-        "  WFM_SV_BESPOKE, /* a pointer each face reads with its own code;",
-        "                     the generic readers and writers skip it */",
+        "  WFM_SV_DOUBLE,  /**< a double */",
+        "  WFM_SV_INT,     /**< an int */",
+        "  WFM_SV_SIZE,    /**< a size_t */",
+        "  WFM_SV_U32,     /**< a uint32_t */",
+        "  WFM_SV_U64,     /**< a uint64_t */",
+        "  WFM_SV_CHOICE,  /**< an int index into `choices` */",
+        "  WFM_SV_SYMBOLS, /**< float _Complex *, its count at `len_off` */",
+        "  WFM_SV_FIELD,   /**< a wfm_seq_t, as a Field (wfm_frame.h) */",
+        "  WFM_SV_BESPOKE, /**< a pointer each face reads with its own code;",
+        "                       the generic readers and writers skip it */",
         "} wfm_sv_kind_t;",
         "",
+        "/** One field a face reads or writes by name: where it lives, what",
+        "    it holds, and how each face spells and bounds it. */",
         "typedef struct",
         "{",
-        "  const char        *name;  /* the struct member */",
-        "  const char        *cli;   /* the flag; NULL = not on the CLI */",
-        "  wfm_surf_owner_t   owner;",
-        "  wfm_sv_kind_t      kind;",
-        "  size_t             off;       /* offsetof the member */",
-        "  unsigned           range_bit; /* WFM_RANGE_*; 0 = not ranged */",
-        "  size_t             hi_off;    /* `<name>_hi`, if ranged */",
-        "  size_t             len_off;   /* WFM_SV_SYMBOLS: the count */",
-        "  size_t             reps_off;  /* WFM_SV_FIELD: where *REPS goes;",
-        "                                    0 = the field does not repeat */",
-        "  const char *const *choices;   /* WFM_SV_CHOICE: the names */",
-        "  int                n_choices;",
-        "  int                unit_interval; /* require 0 < v <= 1 */",
-        "  const char        *json;          /* the scene/record key */",
-        "  int                json_required; /* absent/unknown: refuse */",
-        "  int                json_omit;     /* not written at its default */",
-        "  int                json_bool;     /* written as true/false */",
-        "  int                has_when;      /* written only when ... */",
-        "  int                when_row;      /* ... this row's choice ... */",
-        "  int                when_value;    /* ... is this index */",
+        "  const char        *name;  /**< the struct member */",
+        "  const char        *cli;   /**< the flag; NULL = not on the CLI */",
+        "  wfm_surf_owner_t   owner; /**< which struct `off` is into */",
+        "  wfm_sv_kind_t      kind;  /**< the member's value kind */",
+        "  size_t             off;       /**< offsetof the member */",
+        "  unsigned           range_bit; /**< WFM_RANGE_*; 0 = not ranged */",
+        "  size_t             hi_off;    /**< `<name>_hi`, if ranged */",
+        "  size_t             len_off;   /**< WFM_SV_SYMBOLS: the count */",
+        "  size_t             reps_off;  /**< WFM_SV_FIELD: where *REPS",
+        "                                     goes; 0 = the field does not",
+        "                                     repeat */",
+        "  const char *const *choices;   /**< WFM_SV_CHOICE: the names */",
+        "  int                n_choices; /**< entries in `choices` */",
+        "  int                unit_interval; /**< require 0 < v <= 1 */",
+        "  const char        *json;          /**< the scene/record key */",
+        "  int                json_required; /**< absent/unknown: refuse */",
+        "  int                json_omit;     /**< not written at its",
+        "                                         default (or at 0) */",
+        "  int                json_bool;     /**< written as true/false */",
+        "  int                has_when;      /**< written only when ... */",
+        "  int                when_row;    /**< ... this row's choice ... */",
+        "  int                when_value;    /**< ... is this index */",
         "} wfm_surface_row_t;",
         "",
         "/* A row's index: WFM_SURFACE_<owner>_<name>. */",
@@ -1118,17 +1146,25 @@ def render_json_keys(schema: dict) -> list[str]:
     so it fails here rather than generating an open level.
     """
     out = [
-        "/* The keys each object of a scene takes, generated from the "
+        "/** The keys each object of a scene takes, generated from the "
         "schema's",
         "   `properties` (docs/schema/wfmgen.schema.json). The reader "
         "refuses any",
         "   other key by name: the schema and the reader are one table "
-        "(#1153). */",
+        "(#1153).",
+        "   One level per kind of scene object; it indexes WFM_JSON_KEYS. */",
         "typedef enum",
         "{",
     ]
-    out += [f"  WFM_JSON_{name}," for name, _ in JSON_LEVELS]
-    out += ["  WFM_JSON_N_LEVELS", "} wfm_json_level_t;", ""]
+    out += [
+        f"  WFM_JSON_{name}, /**< schema `{'/'.join(path) or '$'}` */"
+        for name, path in JSON_LEVELS
+    ]
+    out += [
+        "  WFM_JSON_N_LEVELS /**< number of levels */",
+        "} wfm_json_level_t;",
+        "",
+    ]
     for name, path in JSON_LEVELS:
         obj = schema
         for k in path:
@@ -1182,16 +1218,23 @@ def render_exclusive(rows: list[dict]) -> list[str]:
         "   face that can be given both: the CLI (both flags), a scene (both",
         "   keys), the object (both members set). NULL: that face cannot",
         "   carry one of the two, so it has nothing to refuse. */",
+        "/** One pair of rows no face may take together. */",
         "typedef struct",
         "{",
-        "  int         a, b; /* WFM_SURFACE_<owner>_<name> */",
-        "  const char *cli_why;",
-        "  const char *json_why;",
-        "  const char *obj_why;",
+        "  int         a, b; /**< second row: WFM_SURFACE_<owner>_<name> */",
+        "  const char *cli_why;  /**< CLI refusal; NULL: not both flags */",
+        "  const char *json_why; /**< scene refusal; NULL: not both keys */",
+        "  const char *obj_why;  /**< object refusal; NULL: not both set */",
         "} wfm_surface_exclusive_t;",
+        "/** @var wfm_surface_exclusive_t::a",
+        "    First row of the pair: WFM_SURFACE_<owner>_<name>. */",
         "",
     ]
     excl = exclusions(rows)
+    out += [
+        "/** Pairs in WFM_SURFACE_EXCLUSIVE. With 0, the array holds one",
+        "    zeroed entry that no loop reads. */",
+    ]
     out.append(f"#define WFM_SURFACE_N_EXCLUSIVE {len(excl)}")
     # C has no empty array: with no pair declared, one zeroed entry that
     # WFM_SURFACE_N_EXCLUSIVE (0) keeps every loop from reading.
@@ -1255,8 +1298,10 @@ def render_reps(rows: list[dict]) -> list[str]:
         "/* A Field row with no repetition count refuses *REPS: only the",
         "   rows with `field_reps` repeat (a preamble). One reason per face.",
         "*/",
+        "/** The command line's reason. */",
         "#define WFM_SURFACE_REPS_WHY_CLI \\",
         f"  {_c_lit(f'only {cli} repeats (a preamble): drop the *REPS')}",
+        "/** A scene's (JSON) reason. */",
         "#define WFM_SURFACE_REPS_WHY_JSON \\",
         f"  {_c_lit(f'only {js} repeats (a preamble): drop the *REPS')}",
         "",

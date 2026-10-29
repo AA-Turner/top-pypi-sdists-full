@@ -36,7 +36,7 @@ class Announcement:
         """Builds the announcement from the JSON dict of a GitHub issue"""
         return Announcement(application_name, github_issue["html_url"], github_issue["number"], github_issue["title"])
 
-    def get_hash(self):
+    def get_hash(self) -> str:
         """Get a hash of the Announcement for comparison"""
         name = f"{self.application_name}.{self.announcement_number}"
         hash_value = hashlib.sha256(name.encode("utf-8")).hexdigest()
@@ -103,7 +103,7 @@ class AppAnnouncementHook:
         return [Announcement.build_from_gitlab_issue_dict(self.app_name, gitlab_issue) for gitlab_issue in raw_list]
 
 @register("app_announcement_hook")
-def alliance_auth_announcements_hook():
+def alliance_auth_announcements_hook() -> AppAnnouncementHook:
     return AppAnnouncementHook("Alliance Auth", "allianceauth/allianceauth", AppAnnouncementHook.Service.GITLAB)
 
 def get_all_applications_announcements() -> list[Announcement]:

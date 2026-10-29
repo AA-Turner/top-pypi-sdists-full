@@ -1,19 +1,30 @@
-from collections.abc import Iterable
+__lazy_modules__ = ["collections.abc", "django.contrib.auth.models", "django.http"]
+
+import logging
 from string import Formatter
+from typing import TYPE_CHECKING, Any
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.urls import include, re_path
 from django.utils.functional import cached_property
 
-from allianceauth.admin_status.hooks import AppAnnouncementHook
+from allianceauth.admin_status.hooks import (
+    AppAnnouncementHook as ShimAppAnnouncementHook,
+)
 from allianceauth.hooks import get_hooks
 from allianceauth.menu.hooks import MenuItemHook
 
 from .models import NameFormatConfig
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
 
-def get_extension_logger(name):
+    from django.contrib.auth.models import User
+    from django.http import HttpRequest
+
+
+def get_extension_logger(name: str) -> logging.Logger:
     """
     Takes the name of a plugin/extension and generates a child logger of the extensions logger
     to be used by the extension to log events to the extensions logger.
@@ -45,14 +56,14 @@ class ServicesHook:
     services module registered for callbacks. Must be in
     auth_hook(.py) sub module
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.name = 'Undefined'
         self.urlpatterns = []
         self.service_ctrl_template = 'services/services_ctrl.html'
         self.access_perm = None
 
     @property
-    def title(self):
+    def title(self) -> str:
         """
         A nicely formatted title of the service, for client facing
         display.
@@ -60,7 +71,7 @@ class ServicesHook:
         """
         return self.name.title()
 
-    def delete_user(self, user, notify_user=False):
+    def delete_user(self, user: "User", notify_user: bool = False) -> bool | None:
         """
         Delete the users service account, optionally notify them
         that the service has been disabled
@@ -73,10 +84,10 @@ class ServicesHook:
         """
         pass
 
-    def validate_user(self, user):
+    def validate_user(self, user: "User") -> None:
         pass
 
-    def sync_nickname(self, user):
+    def sync_nickname(self, user: "User") -> None:
         """
         Sync the users nickname
         :param user: Django.contrib.auth.models.User
@@ -84,7 +95,7 @@ class ServicesHook:
         """
         pass
 
-    def update_groups(self, user):
+    def update_groups(self, user: "User") -> None:
         """
         Update the users group membership
         :param user: Django.contrib.auth.models.User
@@ -92,17 +103,17 @@ class ServicesHook:
         """
         pass
 
-    def update_all_groups(self):
+    def update_all_groups(self) -> None:
         """
         Iterate through and update all users groups
         :return: None
         """
         pass
 
-    def service_active_for_user(self, user):
+    def service_active_for_user(self, user: "User") -> bool | None:
         pass
 
-    def show_service_ctrl(self, user):
+    def show_service_ctrl(self, user: "User") -> bool:
         """
         Whether the service control should be displayed to the given user
         who has the given service state. Usually this function wont
@@ -112,7 +123,7 @@ class ServicesHook:
         """
         return self.service_active_for_user(user) or user.is_superuser
 
-    def render_services_ctrl(self, request):
+    def render_services_ctrl(self, request: "HttpRequest") -> str:
         """
         Render the services control template row
         :param request:
@@ -124,14 +135,14 @@ class ServicesHook:
         return self.name or 'Unknown Service Module'
 
     class Urls:
-        def __init__(self):
+        def __init__(self) -> None:
             self.auth_activate = ''
             self.auth_set_password = ''
             self.auth_reset_password = ''
             self.auth_deactivate = ''
 
     @staticmethod
-    def get_services():
+    def get_services() -> "Iterator[ServicesHook]":
         for fn in get_hooks('services_hook'):
             yield fn()
 
@@ -147,7 +158,7 @@ class MenuItemHook(MenuItemHook):
         return super().__init_subclass__()
 
 
-class AppAnnouncementHook(AppAnnouncementHook):
+class AppAnnouncementHook(ShimAppAnnouncementHook):
     """
     AppAnnouncementHook shim to allianceauth.admin_status.hooks
 
@@ -181,7 +192,7 @@ class UrlHook:
             urls,
             namespace: str,
             base_url: str,
-            excluded_views: Iterable[str] | None = None
+            excluded_views: "Iterable[str] | None" = None
     ) -> None:
         self.include_pattern = re_path(base_url, include(urls, namespace=namespace))
         self.excluded_views = set(excluded_views or [])
@@ -190,7 +201,7 @@ class UrlHook:
 class NameFormatter:
     DEFAULT_FORMAT = getattr(settings, "DEFAULT_SERVICE_NAME_FORMAT", '[{corp_ticker}] {character_name}')
 
-    def __init__(self, service, user):
+    def __init__(self, service: ServicesHook, user: "User") -> None:
         """
         :param service: ServicesHook of the service to generate the name for.
         :param user: django.contrib.auth.models.User to format name for
@@ -198,14 +209,14 @@ class NameFormatter:
         self.service = service
         self.user = user
 
-    def format_name(self):
+    def format_name(self) -> str:
         """
         :return: str Generated name
         """
         format_data = self.get_format_data()
         return Formatter().vformat(self.string_formatter, args=[], kwargs=format_data).strip()
 
-    def get_format_data(self):
+    def get_format_data(self) -> dict[str, Any]:
         try:
             character_name = self.user.profile.main_character.character_name
             character_id = self.user.profile.main_character.character_id
@@ -247,7 +258,7 @@ class NameFormatter:
         return format_data
 
     @cached_property
-    def formatter_config(self):
+    def formatter_config(self) -> NameFormatConfig | None:
         format_config = NameFormatConfig.objects.filter(service_name=self.service.name,
                                                         states__pk=self.user.profile.state.pk)
 
@@ -256,7 +267,7 @@ class NameFormatter:
         return None
 
     @cached_property
-    def string_formatter(self):
+    def string_formatter(self) -> str:
         """
         Try to get the config format first
         Then the service default
@@ -266,11 +277,11 @@ class NameFormatter:
         return getattr(self.formatter_config, 'format', self.default_formatter)
 
     @cached_property
-    def default_formatter(self):
+    def default_formatter(self) -> str:
         return getattr(self.service, 'name_format', self.DEFAULT_FORMAT)
 
     @cached_property
-    def _default_to_username(self):
+    def _default_to_username(self) -> bool:
         """
         Default to a users username if they have no main character.
         Default is True

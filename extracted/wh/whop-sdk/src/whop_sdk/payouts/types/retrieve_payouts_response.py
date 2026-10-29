@@ -83,7 +83,7 @@ class RetrievePayoutsResponse(UniversalBaseModel):
 
     id: str = pydantic.Field()
     """
-    Payout ID, prefixed `wdrl_` for a payout returned by `GET /payouts` or `cofr_` for a payout request returned by `POST /payouts`.
+    Payout ID, prefixed `wdrl_` for a payout returned by `GET /payouts`, `cofr_` for a payout request returned by `POST /payouts`, or `pay_` for a payout funded by a card payment that has not been submitted yet.
     """
 
     markup_fee: typing.Optional[str] = pydantic.Field(default=None)
@@ -144,7 +144,7 @@ class RetrievePayoutsResponse(UniversalBaseModel):
 
     statement_descriptor: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Text that appears on the recipient's bank statement, or `null` if no descriptor was set. When set, 5-22 alphanumeric characters (A-Z, a-z, 0-9). Only returned to callers with payout:withdrawal:read on the owning ledger.
+    The payment description sent with the payout, or `null` if no descriptor was set. When set, 5-80 printable ASCII characters. Only returned to callers with payout:withdrawal:read on the owning ledger.
     """
 
     status: RetrievePayoutsResponseStatus = pydantic.Field()

@@ -396,6 +396,93 @@ def test_a_piped_write_is_still_refused(guard, monkeypatch, capsys):
     assert "`probe notes create` was refused before it ran" in out
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        # `probe` is the harness's own subcommand: the `)` of a substitution
+        # among its arguments does not start a new command.
+        "uv run harness --out $(mktemp -d) probe data/x.mcap",
+        "uv run harness --out=$(mktemp -d) probe notes create x",
+        "harness --out $(pwd)/out probe notes push n.md",
+        "harness --at $((1 + 2)) probe log r1 loss=1",
+        "harness --out $(dirname $(mktemp)) probe notes create x",
+        "diff <(sort a) <(sort b) probe notes create x",
+        "nohup harness --out $(mktemp -d) probe notes create x",
+        "for f in a b; do harness --out $(mktemp -d) probe $f; done",
+        "harness $(printf x)>out probe notes create x",
+        "uv run harness --suite case --out $(mktemp -d) probe data/x.mcap",
+    ],
+)
+def test_a_probe_word_after_an_argument_substitution_is_an_argument(guard, command):
+    assert list(guard._probe_invocations(command)) == []
+    assert guard.probe_write(command) is None
+
+
+@pytest.mark.parametrize(
+    ("command", "matched"),
+    [
+        ("echo $(probe notes create x)", "probe notes create"),
+        ("X=$(date) probe notes push n.md", "probe notes push"),
+        ("timeout $(echo 30) probe notes push n.md", "probe notes push"),
+        ("probe notes push $(ls *.md)", "probe notes push"),
+        ("echo $(date) && probe notes push n.md", "probe notes push"),
+        ("echo $(date) | probe notes create p --title t", "probe notes create"),
+        (">out $(printf x) probe notes create x", "probe notes create"),
+        ("2>err $(printf x) probe notes create x", "probe notes create"),
+        (">$(mktemp) probe notes create x", "probe notes create"),
+        ("X=1 >out <(printf x) probe notes create x", "probe notes create"),
+        # A substitution where a wrapper's command goes, or among the arguments
+        # of a program that runs them as a command, may be empty: `probe` is the
+        # program then, as it was read before.
+        ("nohup $(printf '') probe notes create x", "probe notes create"),
+        ("env $(cat vars) probe notes create x", "probe notes create"),
+        ("timeout 5 $(printf '') probe notes create x", "probe notes create"),
+        ("eval $(printf '') probe notes create x", "probe notes create"),
+        ("nohup eval $(printf '') probe notes create x", "probe notes create"),
+        ("sudo -u me $(printf '') probe notes create x", "probe notes create"),
+        ("xargs $(printf '') probe notes create x", "probe notes create"),
+        ("xargs -a <(printf x) probe notes create x", "probe notes create"),
+        ("bash $(printf '') probe notes create x", "probe notes create"),
+        ("uv run $(printf '') probe notes create x", "probe notes create"),
+        ("uv run --with x $(printf '') probe notes create x", "probe notes create"),
+        ("{ $(printf '') probe notes create x; }", "probe notes create"),
+        ("for f in a; do $(printf '') probe notes create $f; done", "probe notes create"),
+        ("echo $(>out $(printf '') probe notes create x)", "probe notes create"),
+        (">&2 >out $(printf '') probe notes create x", "probe notes create"),
+        ("2>&1 >>log $(printf '') probe notes create x", "probe notes create"),
+        ("true;>&2 $(printf '') probe notes create x", "probe notes create"),
+        ("(>|out $(printf '') probe notes create x)", "probe notes create"),
+        ("echo $(case x in x) probe notes create x;; esac)", "probe notes create"),
+        ('probe notes create $(date +%F) --title "$(echo "it\'s")"', "probe notes create"),
+        ("env -C /tmp $(printf '') probe notes create x", "probe notes create"),
+        # Behind a shell keyword or a leading `2>&1`, `probe` is the program.
+        ("{ probe notes create x $(date) y; }", "probe notes create"),
+        ("if true; then probe notes create x; fi", "probe notes create"),
+        ("for f in a; do probe notes create $f; done", "probe notes create"),
+        ("! probe notes create x", "probe notes create"),
+        ("2>&1 probe notes create x", "probe notes create"),
+        ("X+=1 $(printf '') probe notes create x", "probe notes create"),
+        ("a[0]=1 $(printf '') probe notes create x", "probe notes create"),
+        ("{fd}>out $(printf '') probe notes create x", "probe notes create"),
+        ("coproc $(printf '') probe notes create x", "probe notes create"),
+        ("builtin eval $(printf '') probe notes create x", "probe notes create"),
+        ("`true` $(printf '') probe notes create x", "probe notes create"),
+        ("echo `$(printf '') probe notes create x`", "probe notes create"),
+        ("echo <(echo `case x in x ) >&2 probe notes create x ;; esac` )", "probe notes create"),
+    ],
+)
+def test_a_probe_command_beside_a_substitution_is_still_found(guard, command, matched):
+    assert guard.probe_write(command) == matched
+
+
+def test_the_tripwires_still_split_at_every_paren(guard):
+    """`_split` (what `calls_mailbox` and `runs_probe_hook` read) ends a command
+    at every `(` and `)`; only `_segments` resumes one past a substitution."""
+    command = "harness --out $(mktemp -d) probe x"
+    assert guard._split(command)[0] == [["harness", "--out", "$"], ["mktemp", "-d"], ["probe", "x"]]
+    assert list(guard._segments(command)) == [["mktemp", "-d"], ["harness", "--out", "$", "probe", "x"]]
+
+
 # ---------------------------------------------------------------------------
 # The gate order: marker first, then parse.
 # ---------------------------------------------------------------------------

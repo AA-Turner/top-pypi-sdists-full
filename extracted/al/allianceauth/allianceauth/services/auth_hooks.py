@@ -1,3 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
+from typing import TYPE_CHECKING
+
 from django.utils.translation import gettext_lazy as _
 
 from allianceauth import hooks
@@ -5,9 +9,12 @@ from allianceauth import hooks
 from ..menu.hooks import MenuItemHook
 from .hooks import ServicesHook
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest
+
 
 class Services(MenuItemHook):
-    def __init__(self):
+    def __init__(self) -> None:
         MenuItemHook.__init__(
             self,
             _('Services'),
@@ -15,7 +22,7 @@ class Services(MenuItemHook):
             'services:services', 100
         )
 
-    def render(self, request):
+    def render(self, request: "HttpRequest") -> str:
         for svc in ServicesHook.get_services():
             if svc.service_active_for_user(request.user):
                 return MenuItemHook.render(self, request)
@@ -23,5 +30,5 @@ class Services(MenuItemHook):
 
 
 @hooks.register('menu_item_hook')
-def register_menu():
+def register_menu() -> Services:
     return Services()

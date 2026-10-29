@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import copy
 import functools
+import importlib
 import inspect
 import logging
+from contextvars import ContextVar
 from enum import Flag, auto
 from inspect import Parameter, Signature
 from pathlib import Path
@@ -14,7 +17,6 @@ from huggingface_hub import constants
 from kernels._rust import KernelDependency, KernelLocks
 from kernels.resolver import LockedHubCacheResolver, LockedHubResolver
 
-from .._versions import select_revision_or_version
 from ..hf_hub import _get_hf_api
 from ..load import (
     get_kernel,
@@ -22,10 +24,11 @@ from ..load import (
     get_local_kernel,
 )
 from ..locking import (
+    _get_locked_kernel_revision,
     get_caller_locked_kernel_revision,
     get_locked_kernel_revision,
 )
-from ..validate import AllValidator, default_metadata_validators
+from ..validate import AllKernelValidator, AllMetadataValidator, default_kernel_validators, default_metadata_validators
 from .device import Device
 from .globals import _DISABLE_KERNEL_MAPPING, _KERNEL_MAPPING
 from .mode import Mode
@@ -128,19 +131,11 @@ class LayerRepository:
         self._revision = revision
         self._version = version
 
-    @functools.lru_cache()
-    def _resolve_revision(self) -> str:
-        return select_revision_or_version(
-            repo_id=self._repo_id,
-            revision=self._revision,
-            version=self._version,
-            local_files_only=constants.HF_HUB_OFFLINE,
-        )
-
     def load(self) -> Type["nn.Module"]:
         kernel = get_kernel(
             self._repo_id,
-            revision=self._resolve_revision(),
+            revision=self._revision,
+            version=self._version,
             trust_remote_code=self._trust_remote_code,
             user_agent=self._user_agent,
         )
@@ -169,8 +164,11 @@ class LayerRepository:
             )
         )
 
+    def _revision_str(self) -> str:
+        return self._revision if self._revision is not None else f"version {self._version}"
+
     def __str__(self) -> str:
-        return f"`{self._repo_id}` (revision: {self._resolve_revision()}), layer `{self.layer_name}`"
+        return f"`{self._repo_id}` (revision: {self._revision_str()}), layer `{self.layer_name}`"
 
 
 class LocalLayerRepository:
@@ -279,7 +277,8 @@ class LockedLayerRepository:
             backend=None,
             kernel=self.kernel_dep,
             resolver=resolver,
-            metadata_validator=AllValidator(validators=default_metadata_validators()),
+            kernel_validator=AllKernelValidator(validators=default_kernel_validators()),
+            metadata_validator=AllMetadataValidator(validators=default_metadata_validators()),
         )
         return _get_kernel_layer(self, kernel)
 
@@ -310,8 +309,23 @@ class LockedLayerRepository:
         commit = self.kernel_locks[self.kernel_dep].commit
         return f"`{self._repo_id}` (revision: {commit}), layer `{self.layer_name}`)"
 
+    def __getstate__(self):
+        # `kernel_locks` is a Rust object that does not support pickling. So,
+        # serialize it through JSON. `kernel_dep` is derived from it.
+        return {
+            "repo_id": self._repo_id,
+            "lockfile": self._lockfile,
+            "layer_name": self.layer_name,
+            "trust_remote_code": self._trust_remote_code,
+            "kernel_locks": self.kernel_locks.to_json(),
+        }
 
-_CACHED_LAYER: dict[RepositoryProtocol, Type["nn.Module"]] = {}
+    def __setstate__(self, state: dict):
+        self._repo_id = state["repo_id"]
+        self._lockfile = state["lockfile"]
+        self.layer_name = state["layer_name"]
+        self._trust_remote_code = state["trust_remote_code"]
+        self.kernel_locks, self.kernel_dep = _get_locked_kernel_revision(state["repo_id"], state["kernel_locks"])
 
 
 def replace_kernel_forward_from_hub(cls, layer_name: str, condition: Callable[["nn.Module"], bool] | None = None):
@@ -358,6 +372,18 @@ def use_kernel_forward_from_hub(layer_name: str, condition: Callable[["nn.Module
     Since `nn.Module` also implements the `__call__` method, the module can still be
     used as if it was a function. Note that a decorated function is only visible to
     [`~kernels.kernelize`] if it is attached to a module using [`~kernels.use_kernelized_func`].
+
+    <Tip warning>
+
+    Decorating functions is mainly intended for compatibility cases, such as in
+    `transformers`, where a function cannot be converted into a module. If you
+    control the model code, prefer converting the function to an `nn.Module` and
+    decorating that class with [`~kernels.use_kernel_forward_from_hub`]. In the
+    parent module's `__init__`, assign an instance of the decorated class to an
+    attribute, such as `self.activation = MyActivation()`. PyTorch then registers
+    it as a submodule, making it part of the model graph.
+
+    </Tip>
 
     Args:
         layer_name (`str`):
@@ -423,11 +449,64 @@ def use_kernel_forward_from_hub(layer_name: str, condition: Callable[["nn.Module
     return decorator
 
 
+class CompileableContextVar:
+    """
+    Inspired by transformers `output_capturing.py` ensuring compatibility with torch compile for older torch versions.
+
+    The main difference is the call order, i.e. nested scopes and `get` before `set`.
+    """
+
+    def __init__(self, name):
+        self.context_var = ContextVar(name, default=None)
+        self.global_var = None
+        self.uses_global_var = False
+
+    def get(self):
+        import torch
+
+        if self.uses_global_var or torch.compiler.is_compiling():
+            return self.global_var
+        return self.context_var.get()
+
+    def set(self, value):
+        import torch
+
+        if self.uses_global_var or torch.compiler.is_compiling():
+            previous = self.global_var
+            self.global_var = value
+            self.uses_global_var = True
+            return previous
+
+        return self.context_var.set(value)
+
+    def reset(self, token):
+        if self.uses_global_var:
+            self.global_var = token
+            self.uses_global_var = token is not None
+        else:
+            self.context_var.reset(token)
+
+
+_ACTIVE_KERNEL_FUNCS = CompileableContextVar("_ACTIVE_KERNEL_FUNCS")
+
+
 def use_kernelized_func(*args: Callable):
     """
     This decorator attaches the target function within the module as a plain
     attribute (not as a submodule). This makes the function visible to
     [`~kernels.kernelize`].
+
+    <Tip warning>
+
+    This decorator is mainly intended for compatibility cases, such as in
+    `transformers`, where a function cannot be converted into a module. If you
+    control the model code, prefer converting the function to an `nn.Module` and
+    decorating that class with [`~kernels.use_kernel_forward_from_hub`]. In the
+    parent module's `__init__`, assign an instance of the decorated class to an
+    attribute, such as `self.activation = MyActivation()`. PyTorch then registers
+    it as a submodule, making it part of the model graph.
+
+    </Tip>
 
     Args:
         *args (`Callable`):
@@ -475,25 +554,51 @@ def use_kernelized_func(*args: Callable):
                 )
 
         orig_init = cls.__init__
+        orig_forward = cls.forward
 
         def new_init(self, *args, **kwargs):
             orig_init(self, *args, **kwargs)
 
-            # Register new function as non-submodule within the modules dict
+            # Give each model instance its own kernel wrappers
             hidden_kernels = self.__dict__.setdefault("_kernel_funcs", {})
             for fn in decorator_args:
                 name = getattr(fn, "__name__", None) or getattr(fn, "kernel_layer_name", None)
                 assert name is not None
 
-                hidden_kernels[name] = fn
+                hidden_kernels[name] = type(fn)()
+
+        @functools.wraps(orig_forward)
+        def new_forward(self, *args, **kwargs):
+            # Route global function calls to this model's private wrapper
+            active_kernel_funcs = dict(_ACTIVE_KERNEL_FUNCS.get() or {})
+
+            for fn in decorator_args:
+                name = getattr(fn, "__name__", None) or getattr(fn, "kernel_layer_name", None)
+                assert name is not None
+
+                active_kernel_funcs[id(fn)] = self._kernel_funcs[name]
+
+            token = _ACTIVE_KERNEL_FUNCS.set(active_kernel_funcs)
+            try:
+                return orig_forward(self, *args, **kwargs)
+            finally:
+                _ACTIVE_KERNEL_FUNCS.reset(token)
 
         cls.__init__ = new_init
+        cls.forward = new_forward
         return cls
 
     return decorator
 
 
-def kernelize_layer(module: "nn.Module", *, mode: Mode, device_type: Device, use_fallback: KernelizeFallback):
+def kernelize_layer(
+    module: "nn.Module",
+    *,
+    mode: Mode,
+    device_type: Device,
+    use_fallback: KernelizeFallback,
+    device_index: int | None = None,
+):
     module_class = type(module)
     layer_name = module_class.kernel_layer_name  # type: ignore[attr-defined]
 
@@ -524,7 +629,7 @@ def kernelize_layer(module: "nn.Module", *, mode: Mode, device_type: Device, use
         _replace_forward(module, module_class)
         return
 
-    repos = property_repos.repos
+    repos = property_repos.repos_for_device(device_index)
 
     if repos is None:
         if KernelizeFallback.NO_COMPATIBLE_PROPERTIES not in use_fallback:
@@ -571,6 +676,7 @@ def kernelize_layer(module: "nn.Module", *, mode: Mode, device_type: Device, use
         module=module,
         layer=layer,
         mode=mode,
+        repo=repo,
         use_fallback=use_fallback,
     )
 
@@ -605,8 +711,9 @@ def _validate_layer(*, check_cls, cls, repo: RepositoryProtocol):
 
     # ... or predefined member variables.
     torch_module_members = {name for name, _ in inspect.getmembers(nn.Module)}
+    func_module_members = {"__copy__", "__deepcopy__"}  # Separate overrides needed for `Func`
     cls_members = {name for name, _ in inspect.getmembers(cls)}
-    difference = cls_members - torch_module_members
+    difference = cls_members - torch_module_members - func_module_members
     # verify if : difference ⊄ {"can_torch_compile", "has_backward"}
     if not difference <= {"can_torch_compile", "has_backward"}:
         raise TypeError(f"{repo} must not contain additional members compared to `{check_cls.__name__}`.")
@@ -632,6 +739,7 @@ def _conditionally_replace_forward(
     module: "nn.Module",
     layer: Type["nn.Module"],
     mode: Mode,
+    repo: RepositoryProtocol,
     use_fallback: KernelizeFallback,
 ):
     module_class = type(module)
@@ -654,11 +762,22 @@ def _conditionally_replace_forward(
         else:
             raise ValueError(f"Available kernel does not support mode: {mode}")
     else:
-        _replace_forward(module, layer)
+        _replace_forward(module, layer, repo=repo)
 
 
-def _replace_forward(module: "nn.Module", layer: Type["nn.Module"]):
+def _replace_forward(
+    module: "nn.Module",
+    layer: Type["nn.Module"],
+    *,
+    repo: RepositoryProtocol | None = None,
+):
     module.forward = MethodType(layer.forward, module)  # type: ignore[method-assign]
+
+    if repo is None:
+        # No repository, typically when reverting to the original forward.
+        module.__dict__.pop("_kernel_repo", None)
+    else:
+        module.__dict__["_kernel_repo"] = repo
 
 
 def _validate_layer_has_mode(
@@ -687,6 +806,9 @@ def _validate_layer_has_mode(
     return True
 
 
+_CACHED_LAYER: dict[RepositoryProtocol, Type["nn.Module"]] = {}
+
+
 def _get_layer_memoize(repo: RepositoryProtocol, module_class: Type["nn.Module"]) -> Type["nn.Module"]:
     layer = _CACHED_LAYER.get(repo, None)
     if layer is not None:
@@ -699,6 +821,12 @@ def _get_layer_memoize(repo: RepositoryProtocol, module_class: Type["nn.Module"]
     return layer
 
 
+def _rebuild_kernel_func(module_name: str, func_name: str):
+    """For pickle kept outside as base function to rebuild its own local function"""
+    module = importlib.import_module(module_name)
+    return type(getattr(module, func_name))()
+
+
 def _create_func_module(func: Callable) -> Type["nn.Module"]:
     from torch import nn
 
@@ -708,7 +836,59 @@ def _create_func_module(func: Callable) -> Type["nn.Module"]:
         has_backward = getattr(func, "has_backward", True)
 
         def forward(self, *args, **kwargs):
+            # Dispatch global calls to the active model's private wrapper
+            if (active_kernel_funcs := _ACTIVE_KERNEL_FUNCS.get()) is not None:
+                if (kernel_func := active_kernel_funcs.get(id(self))) is not None:
+                    return kernel_func(*args, **kwargs)
+
             return func(*args, **kwargs)
+
+        def __copy__(self):
+            result = type(self)()
+            result.__dict__.update(self.__dict__)
+
+            if isinstance(forward := self.__dict__.get("forward"), MethodType):
+                # Rebind fwd set by `kernelize` to the copy
+                if forward.__self__ is self:
+                    result.forward = MethodType(forward.__func__, result)
+
+            return result
+
+        def __deepcopy__(self, memo):
+            result = type(self)()
+            memo[id(self)] = result
+            result.__dict__.update(copy.deepcopy(self.__dict__, memo))
+            return result
+
+        def __setstate__(self, state):
+            state, forward_func = state
+            self.__dict__.update(state)
+
+            if forward_func is not None:
+                # Rebind fwd set by `kernelize` to the restored instance
+                self.forward = MethodType(forward_func, self)
+
+        def __reduce__(self):
+            module = importlib.import_module(func.__module__)
+
+            # Global case => just resolve by name
+            if getattr(module, func.__name__, None) is self:
+                return func.__name__
+
+            # The own private wrapper case => rebuild a separate instance and restore its state
+            forward_func = None
+            state = self.__dict__.copy()
+            if isinstance(forward := state.get("forward"), MethodType):
+                if forward.__self__ is self:
+                    # Store the function separately and rebind it on restore
+                    forward_func = forward.__func__
+                    del state["forward"]
+
+            return (
+                _rebuild_kernel_func,
+                (func.__module__, func.__name__),
+                (state, forward_func),
+            )
 
     # Use function signature with args prepended by self to support
     # module validation.
@@ -719,5 +899,7 @@ def _create_func_module(func: Callable) -> Type["nn.Module"]:
         parameters=new_args,
         return_annotation=func_sig.return_annotation,
     )
+    # pickle needs to resolve by its original function's module, also see `__reduce__`
+    Func.__module__ = func.__module__
 
     return Func

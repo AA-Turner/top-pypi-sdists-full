@@ -14,9 +14,13 @@ from pydantic import BaseModel, ConfigDict, Field
 class EnumParityMismatchKind(StrEnum):
     ROW_MISSING_IN_PROJECTION = "row_missing_in_projection"
     ROW_MISSING_IN_FILE = "row_missing_in_file"
+    ROW_TEXT_DIFFERS = "row_text_differs"
+    ROW_TEXT_MISSING_IN_PROJECTION = "row_text_missing_in_projection"
+    ROW_AUTHORITY_DIFFERS = "row_authority_differs"
     STATE_MISSING_IN_PROJECTION = "state_missing_in_projection"
     STATE_OPENED_AT_DIFFERS = "state_opened_at_differs"
     STATE_CLOSED_AT_DIFFERS = "state_closed_at_differs"
+    STATE_RELATIONS_DIFFER = "state_relations_differ"
 
 
 class ModelParityMismatch(BaseModel):
@@ -80,7 +84,7 @@ class ModelParityExplain(BaseModel):
 
 
 class ModelWorkLedgerParityReport(BaseModel):
-    """Exact parity means ``mismatches`` is empty and the window held at least one row."""
+    """Exact parity requires complete row text and relationship evidence."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -95,6 +99,20 @@ class ModelWorkLedgerParityReport(BaseModel):
     )
     unemittable_types: dict[str, int] = Field(default_factory=dict)
     state_entities_compared: int
+    rows_text_compared: int = Field(
+        default=0,
+        description="Rows in the window present in both file and projection whose text was compared.",
+    )
+    relations_compared: int = Field(
+        default=0, description="Entities whose relationship closure was compared."
+    )
+    state_horizon: datetime | None = Field(
+        default=None, description="Latest file row folded for the state comparison."
+    )
+    state_after_horizon: tuple[str, ...] = Field(
+        default=(),
+        description="Entities whose projected value is later than state_horizon: the file cannot establish it, so it is counted apart, never a mismatch.",
+    )
     mismatches: tuple[ModelParityMismatch, ...] = ()
     projection_sources: dict[str, int] = Field(
         default_factory=dict,
@@ -106,7 +124,12 @@ class ModelWorkLedgerParityReport(BaseModel):
 
     @property
     def exact(self) -> bool:
-        return not self.mismatches and self.file_rows > 0
+        return (
+            not self.mismatches
+            and self.file_rows > 0
+            and self.rows_text_compared == self.file_rows == self.projection_rows
+            and self.relations_compared == self.state_entities_compared
+        )
 
 
 __all__: list[str] = [

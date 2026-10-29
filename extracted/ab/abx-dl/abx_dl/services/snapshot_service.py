@@ -157,8 +157,9 @@ class SnapshotService(BaseService):
         self.snapshot_max_size = max(0, parse_filesize_to_bytes(config.user.model_dump(mode="json").get("SNAPSHOT_MAX_SIZE") or 0))
         # A retry must get a fresh budget, without a hidden ledger in the output
         # directory blocking it. Hook metadata already supplies file sizes;
-        # count each plugin/path once even when several hooks report it.
-        self._output_sizes: dict[tuple[str, str], int] = {}
+        # count each snapshot-relative path once: another plugin may publish
+        # the same saved file as its primary output without copying its bytes.
+        self._output_sizes: dict[str, int] = {}
         self.config: RuntimeConfig = config
         self._hook_timeouts: dict[tuple[str, str], int] = {}
         self._snapshot_by_process: dict[str, SnapshotEvent] = {}
@@ -368,14 +369,18 @@ class SnapshotService(BaseService):
     async def on_ArchiveResultEvent(self, event: ArchiveResultEvent) -> None:
         if self.snapshot_max_size and event.snapshot_id == self.snapshot.id:
             for output_file in event.output_files:
-                self._output_sizes[event.plugin, output_file.path] = output_file.size
+                path = Path(output_file.path) if getattr(output_file, "root_relative", False) else Path(event.plugin) / output_file.path
+                self._output_sizes[path.as_posix()] = output_file.size
 
     async def on_ProcessCompletedEvent(self, event: ProcessCompletedEvent) -> None:
         # Some hooks emit no result, or write more after their last stdout line.
         # Their bytes still count, regardless of the eventual result status.
         if self.snapshot_max_size and event.hook_name.startswith("on_Snapshot") and Path(event.output_dir).parent == self.output_dir:
             for output_file in event.output_files:
-                self._output_sizes[event.plugin_name, output_file.path] = output_file.size
+                path = (
+                    Path(output_file.path) if getattr(output_file, "root_relative", False) else Path(event.plugin_name) / output_file.path
+                )
+                self._output_sizes[path.as_posix()] = output_file.size
 
     async def on_ProcessStdoutEvent(self, event: ProcessStdoutEvent) -> None:
         """Route type=Snapshot records to SnapshotDiscoveredEvent facts.
@@ -697,55 +702,65 @@ class SnapshotService(BaseService):
         shutdown_order.prepare()
         while shutdown_order.is_active():
             ready = shutdown_order.get_ready()
-            stopping = [(process, started) for process, started in started_processes if process.plugin_name.lower() in ready]
-            pending_kills = [
-                event.emit(
-                    ProcessKillEvent(
-                        plugin_name=started_process.plugin_name,
-                        hook_name=started_process.hook_name,
-                        pid=started_process.pid,
-                        grace_period=grace_by_hook[(started_process.plugin_name, started_process.hook_name)],
-                        event_timeout=grace_by_hook[(started_process.plugin_name, started_process.hook_name)] + 10.0,
-                    ),
-                )
-                for _, started_process in stopping
-            ]
-            if pending_kills:
-                kill_results = await asyncio.gather(
-                    *(_run_event_now(pending_kill, pending_kill.event_timeout) for pending_kill in pending_kills),
-                    return_exceptions=True,
-                )
-                for result in kill_results:
-                    if isinstance(result, Exception):
-                        cleanup_errors.append(result)
-                    elif isinstance(result, BaseException):
-                        raise result
-            if stopping:
-                completion_waiters = []
-                for process_event, _ in stopping:
-                    try:
-                        completed = await self.bus.find(
-                            ProcessCompletedEvent,
-                            child_of=process_event,
-                            past=True,
-                            future=grace_by_hook[(process_event.plugin_name, process_event.hook_name)] + 10.0,
-                        )
-                        if completed is None:
-                            raise RuntimeError(f"Background hook {process_event.hook_name} did not complete")
-                        completion_waiters.append(
-                            _wait_for_process_completed(
-                                completed,
-                                grace_by_hook[(process_event.plugin_name, process_event.hook_name)] + 10.0,
-                            ),
-                        )
-                    except Exception as error:
-                        cleanup_errors.append(error)
-                completion_results = await asyncio.gather(*completion_waiters, return_exceptions=True)
-                for result in completion_results:
-                    if isinstance(result, Exception):
-                        cleanup_errors.append(result)
-                    elif isinstance(result, BaseException):
-                        raise result
+            # Hooks within one plugin acquire resources in startup order too:
+            # e.g. Chrome's tab uses its earlier browser hook. Unwind that stack
+            # before stopping its owner, while independent plugins still flush
+            # concurrently. Otherwise browser shutdown can strand tab cleanup.
+            pending_by_plugin = {
+                # bus.filter returns newest first; pop() must take that end.
+                name: [(process, started) for process, started in reversed(started_processes) if process.plugin_name.lower() == name]
+                for name in ready
+            }
+            while any(pending_by_plugin.values()):
+                stopping = [pending.pop() for pending in pending_by_plugin.values() if pending]
+                pending_kills = [
+                    event.emit(
+                        ProcessKillEvent(
+                            plugin_name=started_process.plugin_name,
+                            hook_name=started_process.hook_name,
+                            pid=started_process.pid,
+                            grace_period=grace_by_hook[(started_process.plugin_name, started_process.hook_name)],
+                            event_timeout=grace_by_hook[(started_process.plugin_name, started_process.hook_name)] + 10.0,
+                        ),
+                    )
+                    for _, started_process in stopping
+                ]
+                if pending_kills:
+                    kill_results = await asyncio.gather(
+                        *(_run_event_now(pending_kill, pending_kill.event_timeout) for pending_kill in pending_kills),
+                        return_exceptions=True,
+                    )
+                    for result in kill_results:
+                        if isinstance(result, Exception):
+                            cleanup_errors.append(result)
+                        elif isinstance(result, BaseException):
+                            raise result
+                if stopping:
+                    completion_waiters = []
+                    for process_event, _ in stopping:
+                        try:
+                            completed = await self.bus.find(
+                                ProcessCompletedEvent,
+                                child_of=process_event,
+                                past=True,
+                                future=grace_by_hook[(process_event.plugin_name, process_event.hook_name)] + 10.0,
+                            )
+                            if completed is None:
+                                raise RuntimeError(f"Background hook {process_event.hook_name} did not complete")
+                            completion_waiters.append(
+                                _wait_for_process_completed(
+                                    completed,
+                                    grace_by_hook[(process_event.plugin_name, process_event.hook_name)] + 10.0,
+                                ),
+                            )
+                        except Exception as error:
+                            cleanup_errors.append(error)
+                    completion_results = await asyncio.gather(*completion_waiters, return_exceptions=True)
+                    for result in completion_results:
+                        if isinstance(result, Exception):
+                            cleanup_errors.append(result)
+                        elif isinstance(result, BaseException):
+                            raise result
             shutdown_order.done(*ready)
         if event.finalize_snapshot:
             # Even a failed result consumer must not leave unused plugin dirs.

@@ -28,6 +28,10 @@ class GoalTemplate(StrEnum):
     # Canva (TotpRecipe): the authenticator-app setup agent, ego-browser and Pi.
     canva_totp = "canva_totp.md"
     canva_pi_totp = "canva_pi_totp.md"
+    # Any vendor (app_mint): the OAuth app and consent agent on the Pi, with web search.
+    mint_pi = "mint_pi.md"
+    # Any vendor (mint_docs): the docs model that reads the developer docs before the walk.
+    mint_docs = "mint_docs.md"
 
 
 @cache

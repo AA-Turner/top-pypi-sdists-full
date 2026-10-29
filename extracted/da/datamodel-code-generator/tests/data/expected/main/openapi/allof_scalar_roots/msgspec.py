@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, TypeAlias
+from typing import Annotated, Any, TypeAlias
 
 from msgspec import UNSET, Meta, Struct, UnsetType
 
@@ -42,15 +42,14 @@ LabelAlias: TypeAlias = Annotated[Label, Meta(description='Another name for a la
 ShortLabel: TypeAlias = Annotated[str, Meta(max_length=9, min_length=1)]
 
 
-class Anything(Struct):
-    pass
+Anything: TypeAlias = Any
 
 
 class Mismatch(Struct):
     pass
 
 
-Nickname1: TypeAlias = str
+Nickname1: TypeAlias = Annotated[str, Meta(max_length=8)]
 
 
 class Named(Struct):
@@ -70,8 +69,9 @@ class Cat(Pet):
     pass
 
 
-class TwoPatterns(Struct):
-    pass
+TwoPatterns: TypeAlias = Annotated[
+    str, Meta(pattern='\\A(?=[\\s\\S]*?(?:^a))(?=[\\s\\S]*?(?:b$))')
+]
 
 
 class MismatchAlias(Mismatch):

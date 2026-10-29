@@ -883,6 +883,64 @@ def everything_is_string(*args):
     return all(isinstance(arg, str) for arg in args)
 
 
+class URLSlugValidations:
+
+    ENUMS_FOR_PREFIX_AND_SUFFIX = ["perimeter", "project", "branch"]
+    # The slug becomes one DNS label, so it gets that 63 character limit less
+    # the longest prefix the platform prepends to it (`api-`).
+    MAX_LENGTH = 59
+
+    @staticmethod
+    def slug(url_slug):
+        # An empty slug means "generate a URL for me", which is what the platform
+        # reads it as too, and what `CapsuleInput` sends by leaving the field out.
+        if not url_slug:
+            return True
+        # These mirror the validations the platform applies to the slug, so that a
+        # bad one is reported here instead of coming back as an API error.
+        regex = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+        max_length = URLSlugValidations.MAX_LENGTH
+        # Every URL the platform generates for itself starts with `c-`.
+        reserved_prefix = "c-"
+
+        validator = BasicValidations(CoreConfig, "url_slug")
+        validator.length_validation(max_length, url_slug)
+        validator.regex_validation(regex, url_slug)
+        if url_slug.startswith(reserved_prefix):
+            raise ConfigValidationFailedException(
+                field_name="url_slug",
+                field_info=CoreConfig._get_field(CoreConfig, "url_slug"),  # type: ignore
+                current_value=url_slug,
+                message=(
+                    "url_slug cannot start with `%s`, that prefix is reserved for "
+                    "generated URLs." % reserved_prefix
+                ),
+            )
+        return True
+
+    @staticmethod
+    def suffix(suffixes: List[str]):
+        if not suffixes:
+            return True
+        validator = BasicValidations(CoreConfig, "url_slug_suffix")
+        for suffix in suffixes:
+            validator.enum_validation(
+                URLSlugValidations.ENUMS_FOR_PREFIX_AND_SUFFIX, suffix
+            )
+        return True
+
+    @staticmethod
+    def prefix(prefixes: List[str]):
+        if not prefixes:
+            return True
+        validator = BasicValidations(CoreConfig, "url_slug_prefix")
+        for prefix in prefixes:
+            validator.enum_validation(
+                URLSlugValidations.ENUMS_FOR_PREFIX_AND_SUFFIX, prefix
+            )
+        return True
+
+
 class BasicAppValidations:
     @staticmethod
     def name(name):
@@ -964,36 +1022,6 @@ class BasicAppValidations:
         )
 
     @staticmethod
-    def url_slug(url_slug):
-        # An empty slug means "generate a URL for me", which is what the platform
-        # reads it as too, and what `CapsuleInput` sends by leaving the field out.
-        if not url_slug:
-            return True
-        # These mirror the validations the platform applies to the slug, so that a
-        # bad one is reported here instead of coming back as an API error.
-        regex = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
-        # The slug becomes one DNS label, so it gets that 63 character limit less
-        # the longest prefix the platform prepends to it (`api-`).
-        max_length = 59
-        # Every URL the platform generates for itself starts with `c-`.
-        reserved_prefix = "c-"
-
-        validator = BasicValidations(CoreConfig, "url_slug")
-        validator.length_validation(max_length, url_slug)
-        validator.regex_validation(regex, url_slug)
-        if url_slug.startswith(reserved_prefix):
-            raise ConfigValidationFailedException(
-                field_name="url_slug",
-                field_info=CoreConfig._get_field(CoreConfig, "url_slug"),  # type: ignore
-                current_value=url_slug,
-                message=(
-                    "url_slug cannot start with `%s`, that prefix is reserved for "
-                    "generated URLs." % reserved_prefix
-                ),
-            )
-        return True
-
-    @staticmethod
     def port_required(core_config: "CoreConfig") -> bool:
         # A Proxy capsule pointing at an existing service carries the port in the
         # service URL, so it has no port of its own.
@@ -1001,6 +1029,8 @@ class BasicAppValidations:
             return True
         return not ProxyConfig.targets_existing_service(core_config.proxy)
 
+    # TODO[POST:URL-SLUG] MOVE This INTO the CLI side and inside the Deployer code for EXPLICIT Validation
+    # instead of under the hood ones like this. Make it more explicit
     @staticmethod
     def proxy_agreement(core_config: "CoreConfig"):
         """Proxy settings belong to a Proxy capsule and nothing else."""
@@ -1030,6 +1060,8 @@ class BasicAppValidations:
             )
         return True
 
+    # TODO[POST:URL-SLUG] MOVE This INTO the CLI side and inside the Deployer code for EXPLICIT Validation
+    # instead of under the hood ones like this. Make it more explicit
     @staticmethod
     def url_generation_agreement(core_config: "CoreConfig"):
         """An app's URL is either named by `url_slug` or generated from its name."""
@@ -1383,7 +1415,7 @@ How to read this schema:
             name="url_slug",
             cli_option_str="--url-slug",
         ),
-        validation_fn=BasicAppValidations.url_slug,
+        validation_fn=URLSlugValidations.slug,
         field_type=str,
         help=(
             "Names the app's URL instead of having one generated for it: "
@@ -1394,6 +1426,56 @@ How to read this schema:
             "has one."
         ),
         example="my-app",
+    )
+
+    # Programmatic callers construct the complete url_slug themselves.
+
+    url_slug_prefix = ConfigField(
+        cli_meta=CLIOption(
+            name="url_slug_prefix",
+            cli_option_str="--url-slug-prefix",
+            choices=URLSlugValidations.ENUMS_FOR_PREFIX_AND_SUFFIX,
+            multiple=True,
+            click_type=str,
+        ),
+        validation_fn=URLSlugValidations.prefix,
+        field_type=list,
+        available_in=ConfigFieldContext.CLI,
+        help=(
+            "Prepend resolved perimeter, project, or branch values to `url_slug`. "
+            "CLI/config-file only; requires `url_slug` and configured values for the "
+            "selected fields. Repeat --url-slug-prefix to add components in order "
+            "(or use an ordered list in the config file). Each selector may appear "
+            "only once across prefix and suffix. Components are lowercased, runs of "
+            "non-alphanumeric characters become hyphens, and edge hyphens are removed. "
+            "Components and slug are joined with hyphens; the final slug must be at "
+            "most 59 characters. AppDeployer callers must construct `url_slug` themselves."
+        ),
+        example=["perimeter"],
+    )
+
+    url_slug_suffix = ConfigField(
+        cli_meta=CLIOption(
+            name="url_slug_suffix",
+            cli_option_str="--url-slug-suffix",
+            choices=URLSlugValidations.ENUMS_FOR_PREFIX_AND_SUFFIX,
+            multiple=True,
+            click_type=str,
+        ),
+        validation_fn=URLSlugValidations.suffix,
+        field_type=list,
+        available_in=ConfigFieldContext.CLI,
+        help=(
+            "Append resolved perimeter, project, or branch values to `url_slug`. "
+            "CLI/config-file only; requires `url_slug` and configured values for the "
+            "selected fields. Repeat --url-slug-suffix to add components in order "
+            "(or use an ordered list in the config file). Each selector may appear "
+            "only once across prefix and suffix. Components are lowercased, runs of "
+            "non-alphanumeric characters become hyphens, and edge hyphens are removed. "
+            "Components and slug are joined with hyphens; the final slug must be at "
+            "most 59 characters. AppDeployer callers must construct `url_slug` themselves."
+        ),
+        example=["perimeter"],
     )
 
     # ------- Experimental -------------

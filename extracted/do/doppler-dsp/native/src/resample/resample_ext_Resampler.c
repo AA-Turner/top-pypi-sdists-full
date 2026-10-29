@@ -42,7 +42,7 @@ static int
 ResamplerObj_init (ResamplerObject *self, PyObject *args, PyObject *kwds)
 {
   static char *kwlist[] = { "rate", "bank", NULL };
-  double       rate     = 0.0;
+  double       rate     = 1.0;
   PyObject    *bank_obj = NULL;
 
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "|dO", kwlist, &rate,
@@ -74,7 +74,10 @@ ResamplerObj_init (ResamplerObject *self, PyObject *args, PyObject *kwds)
     }
   if (!self->handle)
     {
-      PyErr_SetString (PyExc_MemoryError, "dp_Resampler_create returned NULL");
+      PyErr_SetString (PyExc_ValueError,
+                       "Resampler: invalid parameter (need rate finite and > "
+                       "0; a bank of num_phases a power of two, num_taps >= "
+                       "1)");
       return -1;
     }
   return 0;
@@ -562,7 +565,13 @@ Resampler_setprop_rate (ResamplerObject *self, PyObject *value,
   double v = 0.0;
   if (!PyArg_Parse (value, "d", &v))
     return -1;
-  dp_Resampler_set_rate (self->handle, v);
+  int _rc = dp_Resampler_set_rate (self->handle, v);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "Resampler: rate must be finite and > 0", (long long)_rc);
+      return -1;
+    }
   return 0;
 }
 static PyObject *
@@ -574,6 +583,17 @@ Resampler_getprop_ctrl_acc (ResamplerObject *self, void *Py_UNUSED (closure))
       return NULL;
     }
   return PyFloat_FromDouble (dp_Resampler_get_ctrl_acc (self->handle));
+}
+static PyObject *
+Resampler_getprop_consumed (ResamplerObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromUnsignedLongLong (
+      (unsigned long long)dp_Resampler_get_consumed (self->handle));
 }
 static PyObject *
 Resampler_getprop_num_phases (ResamplerObject *self, void *Py_UNUSED (closure))
@@ -610,15 +630,31 @@ Resampler_getprop_delay (ResamplerObject *self, void *Py_UNUSED (closure))
 
 static PyGetSetDef Resampler_getset[] = {
   { "rate", (getter)Resampler_getprop_rate, (setter)Resampler_setprop_rate,
-    "Get / set the output-to-input sample rate ratio. The setter recomputes "
-    "the phase increment immediately; the delay line and phase accumulator "
-    "are preserved so in-stream rate changes are glitch-free. Switching sign "
-    "of (rate - 1) (i.e. crossing the boundary between interp and decim "
-    "modes) requires a fresh create().\n",
+    "Get / set the output-to-input sample rate ratio. The setter\n"
+    "recomputes the phase increment immediately. On the same side of 1.0 the\n"
+    "delay line and phase accumulator are preserved, so in-stream rate\n"
+    "changes are glitch-free. Crossing 1.0 switches the engine between its\n"
+    "interpolation and decimation modes (the doctest below goes 0.5 -> 1.5);\n"
+    "the mode taking over was never advanced, so the crossing resets the\n"
+    "state as reset() does, and the output from there on is what a fresh\n"
+    "Resampler at the new rate gives. A rate that is not finite and > 0\n"
+    "raises ValueError and leaves the rate as it was.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    On assignment, if ``dp_Resampler_set_rate`` refuses the value by\n"
+    "    returning non-zero. The exception message is ``Resampler: rate must\n"
+    "    be finite and > 0``, with the return code appended.\n",
     NULL },
   { "ctrl_acc", (getter)Resampler_getprop_ctrl_acc, NULL,
     "The control accumulator's fractional phase, in [0, 1).\n", NULL },
-  { "num_phases", (getter)Resampler_getprop_num_phases, NULL, "Num phases.\n",
+  { "consumed", (getter)Resampler_getprop_consumed, NULL,
+    "Input samples the last execute() or execute_ctrl() took.\n", NULL },
+  { "num_phases", (getter)Resampler_getprop_num_phases, NULL,
+    "Number of polyphase branches in the filter bank. Always a power of two. "
+    "The built-in bank has 4096 phases giving sub-sample timing resolution of "
+    "1/4096 of an input sample period.\n",
     NULL },
   { "num_taps", (getter)Resampler_getprop_num_taps, NULL,
     "Taps per polyphase branch. Total prototype filter length is num_phases * "
@@ -682,7 +718,9 @@ static PyMethodDef ResamplerObj_methods[] = {
     "-------\n"
     "NDArray[np.complex64]\n"
     "    CF32 output array; length is approximately x_len * rate, capped at\n"
-    "    max_out.\n"
+    "    max_out. A full out stops the call with input unread, never\n"
+    "    dropped: dp_Resampler_get_consumed() (Python: `consumed`) says\n"
+    "    where to resume.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -695,12 +733,12 @@ static PyMethodDef ResamplerObj_methods[] = {
   { "execute_max_out", (PyCFunction)ResamplerObj_execute_max_out, METH_NOARGS,
     "execute_max_out() -> int\n"
     "\n"
-    "Always returns RESAMPLER_MAX_OUT.\n"
+    "Output-capacity hint for dp_Resampler_execute().\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    Always RESAMPLER_MAX_OUT.\n" },
   { "execute_ctrl", (PyCFunction)(void *)ResamplerObj_execute_ctrl,
     METH_VARARGS | METH_KEYWORDS,
     "execute_ctrl(x, ctrl, out) -> ndarray\n"
@@ -729,7 +767,9 @@ static PyMethodDef ResamplerObj_methods[] = {
     "    capped at max_out. In C, the count written (>= 0), or\n"
     "    DP_ERR_INVALID (negative) when ctrl_len is shorter than x_len:\n"
     "    nothing is written. 0 stays a valid, empty result, so the sign\n"
-    "    alone tells a refusal from it (doppler#1869).\n"
+    "    alone tells a refusal from it (doppler#1869). A full out stops the\n"
+    "    call with input unread, never dropped: dp_Resampler_get_consumed()\n"
+    "    (Python: `consumed`) says where to resume.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -752,19 +792,20 @@ static PyMethodDef ResamplerObj_methods[] = {
     METH_NOARGS,
     "execute_ctrl_max_out() -> int\n"
     "\n"
-    "Always returns RESAMPLER_MAX_OUT.\n"
+    "Output-capacity hint for dp_Resampler_execute_ctrl().\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    Always RESAMPLER_MAX_OUT.\n" },
   { "reset", (PyCFunction)ResamplerObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"
     "Zero the delay line and phase accumulator. Rate and polyphase bank\n"
     "are preserved so the resampler can be resumed at the same ratio.\n"
     "Zeroing state eliminates transient artefacts when starting a new signal\n"
-    "burst.\n"
+    "burst. The control accumulator read by dp_Resampler_get_ctrl_acc()\n"
+    "returns to 0.0 as well.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -881,14 +922,23 @@ static PyTypeObject ResamplerObjType = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "rate : float, default 0.0\n"
-    "    Output-to-input sample rate ratio (any positive float). Values >= "
-    "1.0\n"
-    "    interpolate; values < 1.0 decimate.\n"
+    "rate : float, default 1.0\n"
+    "    Output-to-input sample rate ratio: finite and > 0\n"
+    "    (dp_resamp_rate_ok()). Values >= 1.0 interpolate; values < 1.0\n"
+    "    decimate. From Python it defaults to 1.0.\n"
     "bank : NDArray[np.float32] or None\n"
     "    Optional polyphase bank: a 2-D float32 array of shape (num_phases,\n"
     "    num_taps), num_phases a power of two. Omit for the built-in 4096x19\n"
     "    Kaiser bank.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If construction fails. The exception message is ``Resampler: "
+    "invalid\n"
+    "    parameter (need rate finite and > 0; a bank of num_phases a power "
+    "of\n"
+    "    two, num_taps >= 1)``.\n"
     "\n"
     "Examples\n"
     "--------\n"

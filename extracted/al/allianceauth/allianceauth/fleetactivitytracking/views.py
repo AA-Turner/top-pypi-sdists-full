@@ -1,11 +1,13 @@
+__lazy_modules__ = ["django.http", "esi.models"]
+
 import logging
 from datetime import datetime, timedelta
 from datetime import timezone as dt_tz
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.crypto import get_random_string
@@ -28,11 +30,22 @@ from allianceauth.fleetactivitytracking.providers import (
 from .forms import FatlinkForm
 from .models import Fat, Fatlink
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+
+    from esi.models import Token
+
 logger = logging.getLogger(__name__)
 
 
 class CorpStat:
-    def __init__(self, corp_id, start_of_month, start_of_next_month, corp=None) -> None:
+    def __init__(
+        self,
+        corp_id: int,
+        start_of_month: datetime,
+        start_of_next_month: datetime,
+        corp: EveCorporationInfo | None = None,
+    ) -> None:
         if corp:
             self.corp = corp
         else:
@@ -43,11 +56,13 @@ class CorpStat:
     @property
     def avg_fat(self) -> str:
         # Use safe defaults to avoid division by zero: numerator defaults to 0, denominator to 1
-        return "%.2f" % ((float(self.n_fats) or 0) / (float(self.corp.member_count) or 1))
+        return "%.2f" % (float(self.n_fats or 0) / float(self.corp.member_count or 1))
 
 
 class MemberStat:
-    def __init__(self, member, start_of_month, start_of_next_month, mainchid=None) -> None:
+    def __init__(
+        self, member: User, start_of_month: datetime, start_of_next_month: datetime, mainchid: int | None = None
+    ) -> None:
         if mainchid:
             self.mainchid = mainchid
         else:
@@ -66,7 +81,7 @@ class MemberStat:
         return "%.2f" % ((float(self.n_fats) or 0) / (float(self.n_chars) or 1))
 
 
-def first_day_of_next_month(year, month) -> datetime:
+def first_day_of_next_month(year: int, month: int) -> datetime:
     # Build a naive datetime for the first day of the next month then return
     # a timezone-aware datetime if the project uses timezones so comparisons
     # with `timezone.now()` won't fail (can't compare naive vs aware).
@@ -81,7 +96,7 @@ def first_day_of_next_month(year, month) -> datetime:
     return dt
 
 
-def first_day_of_previous_month(year, month) -> datetime:
+def first_day_of_previous_month(year: int, month: int) -> datetime:
     # Build a naive datetime for the first day of the previous month then
     # return a timezone-aware datetime when appropriate.
     if month == 1:
@@ -96,7 +111,7 @@ def first_day_of_previous_month(year, month) -> datetime:
 
 
 @login_required
-def fatlink_view(request) -> HttpResponse:
+def fatlink_view(request: "HttpRequest") -> "HttpResponse":
     # Will show the last 5 or so fatlinks clicked by user.
     # If the user has the right privileges the site will also show the latest fatlinks with the options to add VIPs and
     # manually add players.
@@ -116,7 +131,9 @@ def fatlink_view(request) -> HttpResponse:
 
 @login_required
 @permission_required('auth.fleetactivitytracking_statistics')
-def fatlink_statistics_corp_view(request, corpid, year=None, month=None) -> HttpResponse:
+def fatlink_statistics_corp_view(
+    request: "HttpRequest", corpid: int, year: int | None = None, month: int | None = None
+) -> "HttpResponse":
     if year is None:
         year = timezone.now().year
     if month is None:
@@ -150,7 +167,9 @@ def fatlink_statistics_corp_view(request, corpid, year=None, month=None) -> Http
 
 @login_required
 @permission_required('auth.fleetactivitytracking_statistics')
-def fatlink_statistics_view(request, year=None, month=None) -> HttpResponse:
+def fatlink_statistics_view(
+    request: "HttpRequest", year: int | None = None, month: int | None = None
+) -> "HttpResponse":
     if year is None:
         year = timezone.now().year
     if month is None:
@@ -164,7 +183,7 @@ def fatlink_statistics_view(request, year=None, month=None) -> HttpResponse:
 
     fat_stats = {}
 
-    for corp in EveCorporationInfo.objects.all():
+    for corp in EveCorporationInfo.objects.exclude_closed():
         fat_stats[corp.corporation_id] = CorpStat(corp.corporation_id, start_of_month, start_of_next_month)
 
     # get FAT stats for corps without models
@@ -188,7 +207,7 @@ def fatlink_statistics_view(request, year=None, month=None) -> HttpResponse:
 
 
 @login_required
-def fatlink_personal_statistics_view(request, year=None) -> HttpResponse:
+def fatlink_personal_statistics_view(request: "HttpRequest", year: int | None = None) -> "HttpResponse":
     if year is None:
         year = timezone.now().year
 
@@ -218,7 +237,9 @@ def fatlink_personal_statistics_view(request, year=None) -> HttpResponse:
 
 
 @login_required
-def fatlink_monthly_personal_statistics_view(request, year, month, char_id=None) -> HttpResponseRedirect | HttpResponse:
+def fatlink_monthly_personal_statistics_view(
+    request: "HttpRequest", year: int, month: int, char_id: int | None = None
+) -> "HttpResponseRedirect | HttpResponse":
     year = int(year)
     month = int(month)
     start_of_month = datetime(year, month, 1)
@@ -269,7 +290,9 @@ def fatlink_monthly_personal_statistics_view(request, year, month, char_id=None)
         'esi-location.read_online.v1',
     ]
 )
-def click_fatlink_view(request, token, fat_hash=None) -> HttpResponse | HttpResponseRedirect:
+def click_fatlink_view(
+    request: "HttpRequest", token: "Token", fat_hash: str | None = None
+) -> "HttpResponse | HttpResponseRedirect":
     character = EveCharacter.objects.get_character_by_id(token.character_id)
     character_online = get_characters_character_id_online(character_id=token.character_id, token=token)
 
@@ -333,7 +356,7 @@ def click_fatlink_view(request, token, fat_hash=None) -> HttpResponse | HttpResp
 
 @login_required
 @permission_required('auth.fleetactivitytracking')
-def create_fatlink_view(request) -> HttpResponse | HttpResponseRedirect:
+def create_fatlink_view(request: "HttpRequest") -> "HttpResponse | HttpResponseRedirect":
     logger.debug(f"create_fatlink_view called by user {request.user}")
     if request.method == 'POST':
         logger.debug(f"Post request to create_fatlink_view by user {request.user}")
@@ -374,7 +397,7 @@ def create_fatlink_view(request) -> HttpResponse | HttpResponseRedirect:
 
 @login_required
 @permission_required('auth.fleetactivitytracking')
-def modify_fatlink_view(request, fat_hash=None) -> HttpResponse | HttpResponseRedirect:
+def modify_fatlink_view(request: "HttpRequest", fat_hash: str | None = None) -> "HttpResponse | HttpResponseRedirect":
     logger.debug(f"modify_fatlink_view called by user {request.user}")
     fatlink = get_object_or_404(Fatlink, hash=fat_hash)
 

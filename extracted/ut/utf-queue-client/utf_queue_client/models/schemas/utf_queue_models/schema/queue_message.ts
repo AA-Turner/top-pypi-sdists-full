@@ -696,6 +696,8 @@ interface XrayTestExecUpdate extends QueueRecord {
     steps?: XrayStep[]; // An array of steps for the test run
     iterations?: XrayIteration[]; // An array of iterations for the test run
     custom_fields?: XrayCustomField[]; // An array of custom fields for the test run
+    test_run_fields?: XrayCustomField[]; // An array of custom fields for the test run
+    search_jql?: string; // Jira fields used to find the existing test
 }
 
 interface XrayImportTestExecution extends QueueRecord {

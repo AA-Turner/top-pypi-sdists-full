@@ -1,7 +1,10 @@
+__lazy_modules__ = ["packaging.version"]
+
 import logging
+from typing import TYPE_CHECKING
 
 import requests
-from packaging.version import InvalidVersion, Version as Pep440Version, Version
+from packaging.version import InvalidVersion, Version as Pep440Version
 
 from django import template
 from django.conf import settings
@@ -12,6 +15,9 @@ from allianceauth.admin_status.models import ApplicationAnnouncement, SoftwareVe
 from allianceauth.authentication.task_statistics.counters import (
     dashboard_results,
 )
+
+if TYPE_CHECKING:
+    from packaging.version import Version
 
 register = template.Library()
 
@@ -28,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 @register.simple_tag()
-def decimal_widthratio(this_value, max_value, max_width) -> str:
+def decimal_widthratio(this_value: float, max_value: float, max_width: float) -> str:
     if max_value == 0:
         return str(0)
 
@@ -123,7 +129,7 @@ def _current_notifications() -> dict:
     return response
 
 
-def _current_version_summary() -> dict[str, bool | str | None | Version]:
+def _current_version_summary() -> "dict[str, bool | str | None | Version]":
     """returns the current version info"""
 
     version_summary = SoftwareVersion.get_solo()
@@ -177,7 +183,7 @@ def _current_version_summary() -> dict[str, bool | str | None | Version]:
     }
 
 
-def _fetch_tags_from_gitlab():
+def _fetch_tags_from_gitlab() -> list:
     return _fetch_list_from_gitlab(GITLAB_AUTH_REPOSITORY_TAGS_URL)
 
 

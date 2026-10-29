@@ -226,6 +226,8 @@ STOPPING_WAIT_S = 3.0
 #: While another process holds the pre-machine-key folder's lock (a service
 #: from before the key, still running), look again this often (plan D8).
 LEGACY_RETRY_S = 10.0
+#: Claude Code config folders `_refresh_interval` looks at in one service process.
+MAX_INTERVAL_FOLDERS = 64
 LEGACY_RETRY_ENV = "PROBE_SERVICE_LEGACY_RETRY_S"
 #: `hooks.run` runs only the events pi sends it (plan D38, pi's `serviceGuard.ts`):
 #: the pre-tool lane, for the tools pi's guard reads (its `ClaudeTool` names, and
@@ -727,7 +729,10 @@ class Service:
         #: The desktop app's management requests (`desktop.request`).
         self.management = Management(log=log, changed=self._management_changed)
         #: The status line's server reads, one child per plugin folder (`statusline.refresh`).
-        self.statusline = StatuslineRefresher(log=log, changed=self.reevaluate)
+        self.statusline = StatuslineRefresher(log=log, changed=self.reevaluate, readings=self._statusline_readings)
+        #: Claude Code config folders whose `refreshInterval` was looked at (`_refresh_interval`).
+        self._interval_folders: set = set()
+        self._interval_lock = threading.Lock()
         #: The team note's sync, once per machine (`notes.sync`); none starts
         #: while an in-place update replaces the CLI's files.
         self.notes = NoteSync(log=log, changed=self.reevaluate, held=lambda: self.updater.applying)
@@ -1074,7 +1079,9 @@ class Service:
 
     def _follow_update(self, tap: bool = True) -> None:
         """The follow-up itself (see `followup.py`): the status-line renderer
-        from the installed plugin copy (on a thread), the note sync with every
+        from the installed plugin copy and, for an install from before it,
+        `statusLine.refreshInterval` in Claude Code's settings (on a thread),
+        the note sync with every
         agent's `agent-rules refresh` in each context the recorded sessions run
         in (`notes.sync` reconcile: the managed block), and, with `tap`, a
         restart onto the newest installed tap when it is newer than the one
@@ -1093,9 +1100,11 @@ class Service:
 
         def renderer() -> None:
             for context in contexts:
-                changed = followup.sync_renderer({"HOME": str(paths.home()), **context})
+                env = {"HOME": str(paths.home()), **context}
+                changed = followup.sync_renderer(env)
                 if changed:
                     log(f"update follow-up: the status line renderer refreshed ({', '.join(changed)})")
+                self._refresh_interval(env)
 
         task = asyncio.ensure_future(asyncio.to_thread(renderer))
         self._warming.add(task)
@@ -1123,6 +1132,36 @@ class Service:
                 self._restart_for_update(StopReason.TAP_UPDATE)
             elif self.recorders.settling and tries > 1 and self._loop is not None:
                 self._loop.call_later(TAP_SETTLE_S + 1.0, self._follow_tap, tries - 1)
+
+    def _statusline_readings(self) -> dict:
+        """sid -> what a status line's capture reading is taken from here, for
+        every session this service knows (`statusline.StatuslineRefresher`
+        follows them): its registered mode and its recorder's `(alive,
+        recording, off)` as `service.status` says them, either None when there
+        is none; `statusline.OFF` for a session Probe is off for (registered
+        off, or its recorder holding it off)."""
+        from .statusline import OFF
+
+        out: dict = {s.sid: (s.mode, None) for s in list(self.registry.sessions.values())}
+        for row in self.recorders.public():
+            sid = row["sid"]
+            out[sid] = (out.get(sid, (None, None))[0], (row["alive"], row["recording"], row["off"]))
+        return {sid: OFF if reading[0] == Mode.OFF or (reading[1] and reading[1][2]) else reading
+                for sid, reading in out.items()}
+
+    def _refresh_interval(self, env: dict) -> None:
+        """`followup.ensure_refresh_interval` for a context's Claude Code, once
+        per its config folder in this process, at most MAX_INTERVAL_FOLDERS of
+        them (a thread: it reads files)."""
+        from . import followup
+
+        folder = str(followup.claude_dir(env))
+        with self._interval_lock:  # the update follow-up's thread and requests' threads
+            if folder in self._interval_folders or len(self._interval_folders) >= MAX_INTERVAL_FOLDERS:
+                return
+            self._interval_folders.add(folder)
+        if followup.ensure_refresh_interval(env, seen_dir=paths.service_dir() / followup.REFRESH_INTERVAL_DIRNAME):
+            log(f"the status line in {folder} redraws every {followup.REFRESH_INTERVAL_S} s")
 
     def _recorder_claimed(self, sid: str) -> None:
         """A recorder took (or let go of) its session's claim, on its own
@@ -1321,6 +1360,11 @@ class Service:
             await asyncio.sleep(period)
 
     async def _shutdown(self) -> None:
+        # First: the recorders pausing below moves every session's capture,
+        # and a status-line refresh following it would write "not started"
+        # from a service on its way out (`statusline.py`).
+        with contextlib.suppress(Exception):
+            self.statusline.close()
         for handle in (self._discovery_handle, self._grace_handle, self._expiry_handle, self._outbox_task):
             if handle is not None:
                 handle.cancel()
@@ -1363,7 +1407,7 @@ class Service:
         with contextlib.suppress(Exception):
             await flushing
         self.actions.close()
-        for part in (self.statusline, self.notes, self.imports):
+        for part in (self.notes, self.imports):
             with contextlib.suppress(Exception):
                 part.close()
         self.registry.save()
@@ -2674,6 +2718,11 @@ class Service:
         def check() -> tuple:
             root = os.path.realpath(raw)
             verdict = self.statusline.check(root)
+            if verdict is None:
+                # A status line installed where no update follow-up looked
+                # (another CLAUDE_CONFIG_DIR) redraws when idle too.
+                with contextlib.suppress(Exception):
+                    self._refresh_interval({"HOME": str(paths.home()), **env})
             return root, verdict, (None if verdict else self.hookhosts.python_for(asked))
 
         root, verdict, python = await asyncio.to_thread(check)

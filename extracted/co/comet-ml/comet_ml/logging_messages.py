@@ -176,6 +176,8 @@ OFFLINE_EXPERIMENT_INVALID_METRIC_MSG = "An invalid metric message has been dete
 
 OFFLINE_EXPERIMENT_INVALID_UPLOAD_MSG = "An invalid upload message has been detected"
 
+OFFLINE_SENDER_UPLOAD_ORIGINAL_FILE_NOT_FOUND = "Skipping upload of the asset - the original file %r referenced by the offline experiment was not found"
+
 OFFLINE_EXPERIMENT_INVALID_PARAMETER_MSG = (
     "An invalid parameter message has been detected"
 )
@@ -881,6 +883,8 @@ EXTENSION_NOT_SUPPORTED = "%s is not supported, supported extensions are: %s"
 EXTENSION_NOT_FOUND = "No extension was found for the provided input"
 
 DEPRECATED_COPY_TO_TEMP_ARGUMENT = "copy_to_tmp argument from experiment.%s method is DEPRECATED. \n It doesn't have influence on method's behaviour."
+
+COPY_TO_TMP_ARGUMENT_IGNORED_FOR_FILE_LIKE = "copy_to_tmp=False argument of experiment.%s method has no effect for file-like objects, the data is always copied to a temporary file before upload. It is only honored for file and folder paths."
 
 ENV_DETAILS_MISMATCHED_WARNING = "The value for the parameter %r was %s but 'log_env_details' is set to %s. The parameter for 'log_env_details' was ignored."
 

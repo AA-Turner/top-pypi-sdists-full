@@ -594,8 +594,20 @@ def setup_options(client, request=None):
         if request.get("setting") not in keys or type(request.get("enabled")) is not bool:
             raise ValueError("Unknown setup setting or value.")
         setting = setup.Setting(request["setting"])
+        if setting is setup.Setting.REASONING_SUMMARIES and not setup.reasoning_sources(caps):
+            raise ValueError("Set up Claude Code or Codex before changing reasoning summaries.")
         lines = setup.apply_settings({setting: request["enabled"]}, caps_by_source=caps)
         actual = setup.read_settings(caps)
+        if setting is setup.Setting.REASONING_SUMMARIES:
+            from . import reasoning_summaries as reasoning
+
+            target = reasoning.State.ON if request["enabled"] else reasoning.State.OFF
+            failed = [reasoning.LABELS[source] for source in setup.reasoning_sources(caps)
+                      if reasoning.current(source) is not target]
+            if failed:
+                verb = "enable" if request["enabled"] else "disable"
+                raise ValueError(f"Couldn’t {verb} reasoning summaries for {', '.join(failed)}. "
+                                 "Run checks in Installation for details, then try again.")
         if actual[setting] != request["enabled"]:
             raise ValueError("The setting could not be fully saved. Refresh its current value and try again.")
         if any(line.startswith("!") for line in lines):
@@ -754,13 +766,19 @@ def _dispatch(request):
 #: The ops that take the setup lock (`dispatch`): admission and job lifecycle.
 LOCKED = frozenset({"start_backfill", "resume_job", "cancel_job", "onboarding_complete",
                     "set_computer_workspace", "create_computer_workspace", "set_setup_option"})
+#: Setup can start an automatic update just as the app offers its workspace
+#: picker. Wait before reading the account or changing anything, within the
+#: service's 120-second change deadline; never retry a request that has run.
+WORKSPACE_SAVE_WAIT_S = 60.0
 
 
 def dispatch(request):
     # Admission and lifecycle changes must not race logout/uninstall/update.
     if isinstance(request, dict) and request.get("op") in LOCKED:
         from . import wizard_lock
-        with wizard_lock.held():
+        wait_s = (WORKSPACE_SAVE_WAIT_S if request["op"] in {
+            "set_computer_workspace", "create_computer_workspace"} else None)
+        with wizard_lock.held(wait_s=wait_s):
             # Existing import_job events retain their names and their approving
             # session. A pipe never becomes interactive: provenance is separate.
             try:

@@ -10,8 +10,8 @@ from allianceauth import __version__
 
 from .models import AnalyticsIdentifier, AnalyticsTokens
 from .utils import (
-    existence_baremetal_or_docker, install_stat_addons, install_stat_tokens,
-    install_stat_users,
+    existence_baremetal_or_docker, install_stat_addons,
+    install_stat_python_minor, install_stat_tokens, install_stat_users,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,50 @@ if getattr(settings, "ANALYTICS_ENABLE_DEBUG", False) and settings.DEBUG:
 
 ANALYTICS_URL = COLLECTION_URL
 
+# App labels not reported as extensions, installed by default on every AA install
+IGNORED_APP_LABELS = {
+    "django_celery_beat",
+    "messages",
+    "sessions",
+    "auth",
+    "staticfiles",
+    "users",
+    "addons",
+    "admin",
+    "humanize",
+    "contenttypes",
+    "sortedm2m",
+    "django_bootstrap5",
+    "solo",
+    "sri",
+    "esi",
+    "tokens",
+    "allianceauth",
+    "admin_status",
+    "authentication",
+    "services",
+    "framework",
+    "notifications",
+    "eveonline",
+    "groupmanagement",
+    "navhelper",
+    "analytics",
+    "menu",
+    "theme",
+    "bootstrap",
+    "darkly",
+    "flatly",
+    "materia",
+    "custom_css",
+    "crontab",
+}
+
+# Extensions made up of many sub apps, reported as a single label
+# {AppConfig.name prefix: label}
+COLLAPSED_APP_PREFIXES = {
+    "bootswatch.theme.": "bootswatch",
+}
+
 if settings.DEBUG is True:
     ANALYTICS_URL = DEBUG_URL
 
@@ -40,7 +84,7 @@ def analytics_event(namespace: str,
                     label: str = "",
                     result: str = "",
                     value: int = 1,
-                    event_type: str = 'Celery'):
+                    event_type: str = 'Celery') -> None:
     """
     Send a Google Analytics Event for each token stored
     Includes check for if its enabled/disabled
@@ -81,6 +125,7 @@ def analytics_daily_stats() -> None:
     tokens = install_stat_tokens()
     addons = install_stat_addons()
     existence_type = existence_baremetal_or_docker()
+    python_minor = install_stat_python_minor()
     logger.debug("Running Daily Analytics Upload")
 
     analytics_event(namespace='allianceauth.analytics',
@@ -108,38 +153,28 @@ def analytics_daily_stats() -> None:
                     label='addons',
                     value=addons,
                     event_type='Stats')
+    analytics_event(namespace='allianceauth.analytics',
+                    task='send_install_stats',
+                    label='python_minor',
+                    value=python_minor,
+                    event_type='Stats')
+    extension_labels = {}  # dict as an ordered set
     for appconfig in apps.get_app_configs():
-        if appconfig.label in [
-            "django_celery_beat",
-            "messages",
-            "sessions",
-            "auth",
-            "staticfiles",
-            "users",
-            "addons",
-            "admin",
-            "humanize",
-            "contenttypes",
-            "sortedm2m",
-            "django_bootstrap5",
-            "tokens",
-            "authentication",
-            "services",
-            "framework",
-            "notifications"
-            "eveonline",
-            "navhelper",
-            "analytics",
-            "menu",
-            "theme"
-        ]:
-            pass
-        else:
-            analytics_event(namespace='allianceauth.analytics',
-                            task='send_extension_stats',
-                            label=appconfig.label,
-                            value=1,
-                            event_type='Stats')
+        if appconfig.label in IGNORED_APP_LABELS:
+            continue
+        label = appconfig.label
+        for prefix, collapsed_label in COLLAPSED_APP_PREFIXES.items():
+            if appconfig.name.startswith(prefix):
+                label = collapsed_label
+                break
+        extension_labels[label] = None
+
+    for label in extension_labels:
+        analytics_event(namespace='allianceauth.analytics',
+                        task='send_extension_stats',
+                        label=label,
+                        value=1,
+                        event_type='Stats')
 
 
 @shared_task
@@ -150,7 +185,7 @@ def send_ga_tracking_celery_event(
         task: str,
         label: str = "",
         result: str = "",
-        value: int = 1):
+        value: int = 1) -> int | str:
     """Celery Task: Do not call directly
 
     Sends an events to GA

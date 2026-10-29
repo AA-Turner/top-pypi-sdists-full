@@ -31,6 +31,8 @@ from matrx_orm import (
     IntegrityError,
     LockContentionError,
     call_function,
+    db_constraint,
+    db_sqlstate,
     retry_on_transient,
     rls_session,
     transaction,
@@ -349,27 +351,18 @@ class CrawlStartConflict(RuntimeError):
 def is_start_claim_conflict(exc: BaseException) -> bool:
     """True only for a unique violation on THE start-claim index."""
 
-    details = getattr(exc, "details", None) or {}
-    if details.get("constraint") not in (None, "unique"):
-        return False
-    if details.get("constraint_name") == START_CLAIM_INDEX:
-        return True
-    return START_CLAIM_INDEX in f"{details.get('original_error') or ''}{exc.args}"
+    return db_sqlstate(exc) == "23505" and db_constraint(exc) == START_CLAIM_INDEX
 
 
 def _is_event_sequence_collision(exc: BaseException) -> bool:
     """True only for a duplicate `(session_id, sequence)` on the event ledger.
 
     Narrow on purpose: every OTHER integrity error is a real bug and must keep
-    failing the run. Matched on the constraint NAME in the driver's message —
-    matrx-orm's `IntegrityError` reports the category (`unique`), the name
-    lives in the wrapped error text.
+    failing the run. Matched on SQLSTATE 23505 and the constraint NAME the ORM keeps
+    (matrx_orm.db_constraint), never on the error's words.
     """
 
-    details = getattr(exc, "details", None) or {}
-    if details.get("constraint") not in (None, "unique"):
-        return False
-    return EVENT_SEQUENCE_CONSTRAINT in f"{details.get('original_error') or ''}{exc.args}"
+    return db_sqlstate(exc) == "23505" and db_constraint(exc) == EVENT_SEQUENCE_CONSTRAINT
 
 
 def _warn_if_lease_lost(

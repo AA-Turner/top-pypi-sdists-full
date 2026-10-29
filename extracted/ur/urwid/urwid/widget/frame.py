@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 import typing
-import warnings
 from collections.abc import MutableMapping
+from typing import Literal
 
-from typing_extensions import Literal
-
-from urwid.canvas import CanvasCombine, CompositeCanvas
+from urwid import _deprecation
+from urwid.canvas import CanvasCombine, CompositeCanvas, SolidCanvas
 from urwid.split_repr import remove_defaults
 from urwid.util import is_mouse_press
 
 from .constants import Sizing, VAlign
-from .container import WidgetContainerMixin
+from .container import (
+    _SELECT_COMMANDS,
+    SelectNavigationMixin,
+)
 from .filler import Filler
-from .widget import AbstractBoxWidget, AbstractFlowWidget, AbstractWidget, Widget, WidgetError
+from .widget import AbstractBoxWidget, AbstractFlowWidget, AbstractWidget, Widget, WidgetError, _select_enter_child
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterator
@@ -24,8 +26,8 @@ if typing.TYPE_CHECKING:
 
 
 BodyWidget = typing.TypeVar("BodyWidget", bound=AbstractBoxWidget)
-HeaderWidget = typing.TypeVar("HeaderWidget", bound=typing.Union[AbstractFlowWidget, None])
-FooterWidget = typing.TypeVar("FooterWidget", bound=typing.Union[AbstractFlowWidget, None])
+HeaderWidget = typing.TypeVar("HeaderWidget", bound=AbstractFlowWidget | None)
+FooterWidget = typing.TypeVar("FooterWidget", bound=AbstractFlowWidget | None)
 
 
 class FrameError(WidgetError):
@@ -38,16 +40,12 @@ def _check_widget_subclass(widget: AbstractWidget | None) -> None:
 
     if not isinstance(widget, AbstractWidget):
         obj_class_path = f"{widget.__class__.__module__}.{widget.__class__.__name__}"
-        warnings.warn(
-            f"{obj_class_path} is not implementing Widget API",
-            DeprecationWarning,
-            stacklevel=3,
-        )
+        _deprecation.warn(f"{obj_class_path} is not implementing Widget API.", since="2.4.0", removed_in="7.0")
 
 
 class Frame(
     Widget,
-    WidgetContainerMixin[Literal["header", "footer", "body"]],
+    SelectNavigationMixin[Literal["header", "footer", "body"]],
     typing.Generic[BodyWidget, HeaderWidget, FooterWidget],
 ):
     """Frame widget is a box widget with optional header and footer flow widgets placed above and below it.
@@ -66,14 +64,22 @@ class Frame(
         header: HeaderWidget | None = None,
         footer: FooterWidget | None = None,
         focus_part: Literal["header", "footer", "body"] | AbstractWidget = "body",
-    ):
+        *,
+        select_navigation: bool = False,
+    ) -> None:
         """Initialize a new Frame instance.
 
         :param body: a box widget for the body of the frame
         :param header: a flow widget for above the body (or None)
         :param footer: a flow widget for below the body (or None)
         :param focus_part:  'header', 'footer' or 'body'
+        :param select_navigation: handle the ``'next selectable'`` and ``'prev selectable'`` commands,
+            see :ref:`select-navigation`.
         :raises ValueError: *focus_part* is not one of the three frame parts.
+
+        .. deprecated:: 2.4.0
+            Passing a header, body or footer that does not implement the Widget API is deprecated.
+            Support will be removed in version 7.0.
         """
         super().__init__()
 
@@ -90,6 +96,7 @@ class Frame(
             self.focus_part = "body"
         else:
             raise ValueError(f"Invalid focus part {focus_part!r}")
+        self.select_navigation = select_navigation
 
         _check_widget_subclass(header)
         _check_widget_subclass(body)
@@ -102,6 +109,7 @@ class Frame(
             "header": self._header,
             "footer": self._footer,
             "focus_part": self.focus_part,
+            "select_navigation": self.select_navigation,
         }
         return remove_defaults(attrs, Frame.__init__)
 
@@ -111,6 +119,7 @@ class Frame(
         yield "header", self._header
         yield "footer", self._footer
         yield "focus_part", self.focus_part
+        yield "select_navigation", self.select_navigation, False
 
     @property
     def header(self) -> HeaderWidget | None:
@@ -125,42 +134,6 @@ class Frame(
             self.focus_part = "body"
         self._invalidate()
 
-    def get_header(self) -> HeaderWidget | None:
-        """
-        Return the header widget.
-
-        .. deprecated:: 2.2.0
-            Use the standard property :attr:`header` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            f"method `{self.__class__.__name__}.get_header` is deprecated, "
-            f"standard property `{self.__class__.__name__}.header` should be used instead. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.header
-
-    def set_header(self, header: HeaderWidget | None) -> None:
-        """
-        Set the header widget.
-
-        :param header: the new header widget
-
-        .. deprecated:: 2.2.0
-            Use the standard property :attr:`header` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            f"method `{self.__class__.__name__}.set_header` is deprecated, "
-            f"standard property `{self.__class__.__name__}.header` should be used instead. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.header = header
-
     @property
     def body(self) -> BodyWidget:
         """Return the body widget."""
@@ -171,42 +144,6 @@ class Frame(
         _check_widget_subclass(body)
         self._body = body
         self._invalidate()
-
-    def get_body(self) -> BodyWidget:
-        """
-        Return the body widget.
-
-        .. deprecated:: 2.2.0
-            Use the standard property :attr:`body` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            f"method `{self.__class__.__name__}.get_body` is deprecated, "
-            f"standard property {self.__class__.__name__}.body should be used instead. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.body
-
-    def set_body(self, body: BodyWidget) -> None:
-        """
-        Set the body widget.
-
-        :param body: the new body widget
-
-        .. deprecated:: 2.2.0
-            Use the standard property :attr:`body` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            f"method `{self.__class__.__name__}.set_body` is deprecated, "
-            f"standard property `{self.__class__.__name__}.body` should be used instead. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.body = body
 
     @property
     def footer(self) -> FooterWidget | None:
@@ -220,42 +157,6 @@ class Frame(
         if footer is None and self.focus_part == "footer":
             self.focus_part = "body"
         self._invalidate()
-
-    def get_footer(self) -> FooterWidget | None:
-        """
-        Return the footer widget.
-
-        .. deprecated:: 2.2.0
-            Use the standard property :attr:`footer` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            f"method `{self.__class__.__name__}.get_footer` is deprecated, "
-            f"standard property `{self.__class__.__name__}.footer` should be used instead. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.footer
-
-    def set_footer(self, footer: FooterWidget | None) -> None:
-        """
-        Set the footer widget.
-
-        :param footer: the new footer widget
-
-        .. deprecated:: 2.2.0
-            Use the standard property :attr:`footer` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            f"method `{self.__class__.__name__}.set_footer` is deprecated, "
-            f"standard property `{self.__class__.__name__}.footer` should be used instead. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.footer = footer
 
     @property
     def focus_position(self) -> Literal["header", "footer", "body"]:
@@ -279,43 +180,6 @@ class Frame(
             raise IndexError(f"This Frame has no {part}")
         self.focus_part = part
         self._invalidate()
-
-    def get_focus(self) -> Literal["header", "footer", "body"]:
-        """Return which part of the frame is in focus: `'body', 'header'` or `'footer'`.
-
-        :returns: one of 'header', 'footer' or 'body'.
-
-        .. deprecated:: 1.1.0
-            Use the container property :attr:`focus_position` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "included for backwards compatibility. "
-            "You should rather use the container property `.focus_position` to get this value. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.focus_position
-
-    def set_focus(self, part: Literal["header", "footer", "body"]) -> None:
-        """
-        Set the part of the frame that is in focus.
-
-        :param part: one of 'header', 'footer' or 'body'
-
-        .. deprecated:: 1.1.0
-            Use the container property :attr:`focus_position` instead.
-            This API will be removed in version 5.0.
-        """
-        warnings.warn(
-            "included for backwards compatibility. "
-            "You should rather use the container property `.focus_position` to set this value. "
-            "API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.focus_position = part
 
     @property
     def focus(self) -> BodyWidget | HeaderWidget | FooterWidget:
@@ -358,8 +222,9 @@ class Frame(
         # noinspection PyMethodParameters
         class FrameContents(
             MutableMapping[
-                str,
-                tuple[typing.Union[BodyWidget, HeaderWidget, FooterWidget], None],
+                Literal["header", "footer", "body"],
+                # pyrefly: ignore[invalid-type-var]  # the class TypeVars are reused in a nested signature
+                tuple[BodyWidget | HeaderWidget | FooterWidget, None],
             ]
         ):
             """Mapping view onto this Frame's `header`, `body`, and `footer` slots."""
@@ -371,11 +236,11 @@ class Frame(
             def __len__(inner_self) -> int:
                 return len(self._contents_keys())
 
-            __getitem__ = self._contents__getitem__  # type: ignore[assignment]
+            __getitem__ = self._contents__getitem__
             __setitem__ = self._contents__setitem__  # type: ignore[assignment]
             __delitem__ = self._contents__delitem__  # type: ignore[assignment]
 
-            def __iter__(inner_self) -> Iterator[str]:
+            def __iter__(inner_self) -> Iterator[Literal["header", "footer", "body"]]:
                 yield from self._contents_keys()
 
             def __repr__(inner_self) -> str:
@@ -384,15 +249,15 @@ class Frame(
             def __rich_repr__(inner_self) -> Iterator[tuple[str | None, typing.Any] | typing.Any]:
                 yield from inner_self.items()
 
-        return FrameContents()  # type: ignore[return-value]
+        return FrameContents()
 
     def _contents_keys(self) -> list[Literal["header", "footer", "body"]]:
-        keys = ["body"]
-        if self._header:
+        keys: list[Literal["header", "footer", "body"]] = ["body"]
+        if self._header is not None:
             keys.append("header")
-        if self._footer:
+        if self._footer is not None:
             keys.append("footer")
-        return keys  # type: ignore[return-value]
+        return keys
 
     @typing.overload
     def _contents__getitem__(self, key: Literal["body"]) -> tuple[BodyWidget, None]: ...
@@ -413,9 +278,9 @@ class Frame(
         """
         if key == "body":
             return (self._body, None)
-        if key == "header" and self._header:
+        if key == "header" and self._header is not None:
             return (self._header, None)
-        if key == "footer" and self._footer:
+        if key == "footer" and self._footer is not None:
             return (self._footer, None)
         raise KeyError(f"Frame.contents has no key: {key!r}")
 
@@ -487,12 +352,14 @@ class Frame(
         """
         (maxcol, maxrow) = size
         frows = hrows = 0
+        header: AbstractFlowWidget | None = self._header
+        footer: AbstractFlowWidget | None = self._footer
 
-        if self.header:
-            hrows = self.header.rows((maxcol,), self.focus_part == "header" and focus)  # type: ignore[union-attr]
+        if header is not None:
+            hrows = header.rows((maxcol,), self.focus_part == "header" and focus)
 
-        if self.footer:
-            frows = self.footer.rows((maxcol,), self.focus_part == "footer" and focus)  # type: ignore[union-attr]
+        if footer is not None:
+            frows = footer.rows((maxcol,), self.focus_part == "footer" and focus)
 
         remaining = maxrow
 
@@ -538,16 +405,17 @@ class Frame(
         (htrim, ftrim), (hrows, frows) = self.frame_top_bottom((maxcol, maxrow), focus)
 
         combinelist = []
-        depends_on: list[BodyWidget | HeaderWidget | FooterWidget] = []
+        header: AbstractFlowWidget | None = self._header
+        footer: AbstractFlowWidget | None = self._footer
 
         head: Canvas | CompositeCanvas | None = None
-        if htrim and htrim < hrows:
-            head = Filler(self.header, VAlign.TOP).render(  # type: ignore[type-var]
+        if header is not None and htrim and htrim < hrows:
+            head = Filler(header, VAlign.TOP).render(
                 (maxcol, htrim),
                 focus and self.focus_part == "header",
             )
-        elif htrim:
-            head = self.header.render(  # type: ignore[union-attr]
+        elif header is not None and htrim:
+            head = header.render(
                 (maxcol,),
                 focus and self.focus_part == "header",
             )
@@ -555,7 +423,6 @@ class Frame(
                 raise RuntimeError("rows, render mismatch")
         if head:
             combinelist.append((head, "header", self.focus_part == "header"))
-            depends_on.append(self.header)  # type: ignore[arg-type]
 
         if ftrim + htrim < maxrow:
             body = self.body.render(
@@ -563,16 +430,15 @@ class Frame(
                 focus and self.focus_part == "body",
             )
             combinelist.append((body, "body", self.focus_part == "body"))
-            depends_on.append(self.body)
 
         foot: Canvas | CompositeCanvas | None = None
-        if ftrim and ftrim < frows:
-            foot = Filler(self.footer, VAlign.BOTTOM).render(  # type: ignore[type-var]
+        if footer is not None and ftrim and ftrim < frows:
+            foot = Filler(footer, VAlign.BOTTOM).render(
                 (maxcol, ftrim),
                 focus and self.focus_part == "footer",
             )
-        elif ftrim:
-            foot = self.footer.render(  # type: ignore[union-attr]
+        elif footer is not None and ftrim:
+            foot = footer.render(
                 (maxcol,),
                 focus and self.focus_part == "footer",
             )
@@ -580,8 +446,10 @@ class Frame(
                 raise RuntimeError("rows, render mismatch")
         if foot:
             combinelist.append((foot, "footer", self.focus_part == "footer"))
-            depends_on.append(self.footer)  # type: ignore[arg-type]
 
+        if not combinelist:
+            # No part has rows: an empty combination would lose the width.
+            return CompositeCanvas(SolidCanvas(" ", maxcol, maxrow))
         return CanvasCombine(combinelist)
 
     def keypress(
@@ -589,30 +457,69 @@ class Frame(
         size: tuple[int, int],  # type: ignore[override]
         key: str,
     ) -> str | None:
-        """Pass keypress to widget in focus."""
-        (maxcol, maxrow) = size
+        """Pass keypress to widget in focus.
 
-        if self.focus_part == "header" and self.header is not None:
-            if not self.header.selectable():
+        With :attr:`select_navigation`, unhandled ``'next selectable'`` and ``'prev selectable'`` commands
+        may cause a focus change.
+        """
+        if (unhandled := self._keypress_focus_part(size, key)) is None:
+            return None
+        if self.select_navigation and self._command_map[unhandled] in _SELECT_COMMANDS:
+            return self._select_keypress_unhandled(unhandled)
+        return unhandled
+
+    def _keypress_focus_part(self, size: tuple[int, int], key: str) -> str | None:
+        """Pass keypress to the part in focus and return what it leaves unhandled."""
+        (maxcol, maxrow) = size
+        header: AbstractFlowWidget | None = self._header
+        footer: AbstractFlowWidget | None = self._footer
+
+        if self.focus_part == "header" and header is not None:
+            if not header.selectable():
                 return key
-            return self.header.keypress((maxcol,), key)
-        if self.focus_part == "footer" and self.footer is not None:
-            if not self.footer.selectable():
+            return header.keypress((maxcol,), key)
+        if self.focus_part == "footer" and footer is not None:
+            if not footer.selectable():
                 return key
-            return self.footer.keypress((maxcol,), key)
+            return footer.keypress((maxcol,), key)
         if self.focus_part != "body":
             return key
         remaining = maxrow
-        if self.header is not None:
-            remaining -= self.header.rows((maxcol,))
-        if self.footer is not None:
-            remaining -= self.footer.rows((maxcol,))
+        if header is not None:
+            remaining -= header.rows((maxcol,))
+        if footer is not None:
+            remaining -= footer.rows((maxcol,))
         if remaining <= 0:
             return key
 
         if not self.body.selectable():
             return key
         return self.body.keypress((maxcol, remaining), key)
+
+    def _select_candidates(
+        self,
+        *,
+        reverse: bool,
+        from_edge: bool,
+    ) -> Iterator[Literal["header", "body", "footer"]]:
+        """Yield the selectable parts in the traversal order.
+
+        :param reverse: yield them from the bottom to the top.
+        :param from_edge: start at the top (bottom when *reverse*) part instead of after the focus.
+        """
+        parts: Iterator[Literal["header", "body", "footer"]] = reversed(self) if reverse else iter(self)
+        if not from_edge:
+            for part in parts:
+                if part == self.focus_part:
+                    break
+        for part in parts:
+            # Iteration yields only the parts the frame has, so the widget is not None.
+            if typing.cast("AbstractWidget", self._contents__getitem__(part)[0]).selectable():
+                yield part
+
+    def _select_enter_focus(self, *, reverse: bool) -> None:
+        """Call the entry hook of the part in focus."""
+        _select_enter_child(self.focus, reverse=reverse)
 
     def mouse_event(
         self,
@@ -626,32 +533,26 @@ class Frame(
         """Pass mouse event to appropriate part of frame. Focus may be changed on button 1 press."""
         (maxcol, maxrow) = size
         (htrim, ftrim), (_hrows, _frows) = self.frame_top_bottom((maxcol, maxrow), focus)
+        header: AbstractFlowWidget | None = self._header
+        footer: AbstractFlowWidget | None = self._footer
 
-        if row < htrim:  # within header
+        if header is not None and row < htrim:  # within header
             focus = focus and self.focus_part == "header"
-            if is_mouse_press(event) and button == 1 and self.header.selectable():  # type: ignore[union-attr]
+            if is_mouse_press(event) and button == 1 and header.selectable():
                 self.focus_position = "header"
 
-            if (header_mouse_event := getattr(self.header, "mouse_event", None)) is not None:
-                return typing.cast(
-                    "bool | None",
-                    header_mouse_event((maxcol,), event, button, col, row, focus),
-                )
+            if not hasattr(header, "mouse_event"):
+                return False
+            return header.mouse_event((maxcol,), event, button, col, row, focus)
 
-            return False
-
-        if row >= maxrow - ftrim:  # within footer
+        if footer is not None and row >= maxrow - ftrim:  # within footer
             focus = focus and self.focus_part == "footer"
-            if is_mouse_press(event) and button == 1 and self.footer.selectable():  # type: ignore[union-attr]
+            if is_mouse_press(event) and button == 1 and footer.selectable():
                 self.focus_position = "footer"
 
-            if (footer_mouse_event := getattr(self.footer, "mouse_event", None)) is not None:
-                return typing.cast(
-                    "bool | None",
-                    footer_mouse_event((maxcol,), event, button, col, row - maxrow + ftrim, focus),
-                )
-
-            return False
+            if not hasattr(footer, "mouse_event"):
+                return False
+            return footer.mouse_event((maxcol,), event, button, col, row - maxrow + ftrim, focus)
 
         # within body
         focus = focus and self.focus_part == "body"
@@ -664,24 +565,26 @@ class Frame(
 
     def get_cursor_coords(self, size: tuple[int, int]) -> tuple[int, int] | None:
         """Return the cursor coordinates of the focus widget."""
-        if not self.focus.selectable():  # type: ignore[union-attr]  # mypy bug on union
-            return None
-        if not hasattr(self.focus, "get_cursor_coords"):
-            return None
-
-        fp = self.focus_position
         (maxcol, maxrow) = size
         (hrows, frows), _ = self.frame_top_bottom(size, True)
+        header: AbstractFlowWidget | None = self._header
+        footer: AbstractFlowWidget | None = self._footer
 
-        if fp == "header":
+        if self.focus_part == "header":
+            if header is None or not header.selectable() or not hasattr(header, "get_cursor_coords"):
+                return None
             row_adjust = 0
-            coords = self.header.get_cursor_coords((maxcol,))  # type: ignore[union-attr]  # expect not None
-        elif fp == "body":
+            coords = header.get_cursor_coords((maxcol,))
+        elif self.focus_part == "body":
+            if not self.body.selectable() or not hasattr(self.body, "get_cursor_coords"):
+                return None
             row_adjust = hrows
-            coords = self.body.get_cursor_coords((maxcol, maxrow - hrows - frows))  # type: ignore[attr-defined]
+            coords = self.body.get_cursor_coords((maxcol, maxrow - hrows - frows))
         else:
+            if footer is None or not footer.selectable() or not hasattr(footer, "get_cursor_coords"):
+                return None
             row_adjust = maxrow - frows
-            coords = self.footer.get_cursor_coords((maxcol,))  # type: ignore[union-attr]  # expect not None
+            coords = footer.get_cursor_coords((maxcol,))
 
         if coords is None:
             return None
@@ -691,16 +594,16 @@ class Frame(
 
     def __iter__(self) -> Iterator[Literal["header", "body", "footer"]]:
         """Return an iterator over the positions in this Frame top to bottom."""
-        if self._header:
+        if self._header is not None:
             yield "header"
         yield "body"
-        if self._footer:
+        if self._footer is not None:
             yield "footer"
 
     def __reversed__(self) -> Iterator[Literal["footer", "body", "header"]]:
         """Return an iterator over the positions in this Frame bottom to top."""
-        if self._footer:
+        if self._footer is not None:
             yield "footer"
         yield "body"
-        if self._header:
+        if self._header is not None:
             yield "header"

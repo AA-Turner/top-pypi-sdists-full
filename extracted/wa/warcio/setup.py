@@ -3,7 +3,7 @@
 
 from setuptools import setup, find_packages
 
-__version__ = '1.8.1'
+__version__ = '1.8.2'
 
 
 setup(
@@ -44,9 +44,11 @@ setup(
             'flask',
             'flask_cors',
             'botocore',
+            # certauth uses X509.add_extensions(), which was removed in pyOpenSSL 26.2.
+            'pyOpenSSL<26.2',
         ],
         'all': [
-            'brotlipy',
+            'brotlicffi>=1.2.1.0', # older versions are vulnerable to CVE-2026-111497
             'warcio[s3]',
         ],
         's3': [
@@ -68,6 +70,8 @@ setup(
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.15',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Utilities',
     ]

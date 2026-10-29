@@ -47,14 +47,11 @@ from omnimarket.enums.enum_work_ledger_entity_kind import (
     EnumWorkLedgerStateOp,
 )
 from omnimarket.handlers.work_ledger_fold import (
-    WorkLedgerFoldError,
+    SHARED_WORK_LEDGER_FOLD_MEMO,
+    WorkLedgerFoldMemo,
     apply_ops,
     close_relationships,
-    fold_row,
     parse_stamp,
-)
-from omnimarket.models.model_work_ledger_fold_request import (
-    ModelWorkLedgerFoldRequest,
 )
 from omnimarket.models.model_work_ledger_fold_result import (
     ModelWorkLedgerFoldResult,
@@ -63,10 +60,13 @@ from omnimarket.models.model_work_ledger_fold_result import (
 from omnimarket.nodes.contract_topics import contract_publish_topics
 from omnimarket.nodes.node_context_source_ledger_effect.handlers.ledger_row_reader import (
     LedgerSourceReadError,
+    MarkdownLedgerRowReader,
     ModelLedgerSourceRow,
     PostgresLedgerRowReader,
     ProtocolLedgerRowReader,
+    ProtocolLedgerSequenceReader,
     load_ledger_source_binding,
+    reached_sequence,
 )
 from omnimarket.nodes.node_context_source_ledger_effect.models.model_ledger_source_entry import (
     CORRECTED_LABEL,
@@ -74,6 +74,7 @@ from omnimarket.nodes.node_context_source_ledger_effect.models.model_ledger_sour
     ModelLedgerCorrection,
     ModelLedgerSourceEntry,
     ModelLedgerSourceResult,
+    ledger_provenance_label,
 )
 
 _CONTRACT_PATH = Path(__file__).parent.parent / "contract.yaml"
@@ -119,6 +120,7 @@ class HandlerContextSourceLedger:
         contract_path: Path | None = None,
         reader: ProtocolLedgerRowReader | None = None,
         tenant_ids: Iterable[str] | None = None,
+        fold_memo: WorkLedgerFoldMemo | None = None,
     ) -> None:
         self._contract_path = contract_path or _CONTRACT_PATH
         self.terminal_event = contract_publish_topics(self._contract_path)[0]
@@ -126,8 +128,20 @@ class HandlerContextSourceLedger:
         self._tenant_ids = frozenset(
             tenant_ids if tenant_ids is not None else binding.tenant_ids
         )
-        self._reader = (
-            reader if reader is not None else PostgresLedgerRowReader(binding)
+        self._reader: ProtocolLedgerRowReader
+        if reader is not None:
+            self._reader = reader
+        elif binding.mode == "pinned":
+            # The binding model has already required an absolute manifest root.
+            assert binding.manifest_root is not None
+            self._reader = MarkdownLedgerRowReader(
+                [Path(path) for path in binding.ledger_paths],
+                manifest_root=Path(binding.manifest_root),
+            )
+        else:
+            self._reader = PostgresLedgerRowReader(binding)
+        self._fold_memo = (
+            fold_memo if fold_memo is not None else SHARED_WORK_LEDGER_FOLD_MEMO
         )
 
     def handle(self, request: ModelContextSourceRequest) -> ModelLedgerSourceResult:
@@ -135,6 +149,8 @@ class HandlerContextSourceLedger:
             raise TypeError("ledger context source requires its contract payload")
         if request.access.tenant_id not in self._tenant_ids:
             return ModelLedgerSourceResult(status=EnumContextSourceStatus.DENIED)
+        if request.revision.startswith("ledger_seq"):
+            return self._handle_sequence(request)
         if not _STAMP.match(request.revision):
             return ModelLedgerSourceResult.error(
                 EnumContextSourceErrorCode.INVALID_REQUEST,
@@ -167,6 +183,68 @@ class HandlerContextSourceLedger:
             leg_timings_ms=timings,
         )
 
+    def _handle_sequence(
+        self, request: ModelContextSourceRequest
+    ) -> ModelLedgerSourceResult:
+        # revision remains the context-source contract's opaque string. This
+        # explicitly names both the ledger and the sequence, never a host default.
+        match = re.fullmatch(
+            r"ledger_seq:([^:\s]+):([1-9][0-9]{0,18})", request.revision
+        )
+        if match is None or int(match[2]) > 2**63 - 1:
+            return ModelLedgerSourceResult.error(
+                EnumContextSourceErrorCode.INVALID_REQUEST,
+                "revision must be ledger_seq:<ledger_id>:<positive BIGINT>",
+            )
+        if request.factor is not EnumContextFactor.OPERATOR_RULINGS:
+            return ModelLedgerSourceResult(status=EnumContextSourceStatus.UNRESOLVED)
+        if not isinstance(self._reader, ProtocolLedgerSequenceReader):
+            return ModelLedgerSourceResult(status=EnumContextSourceStatus.UNAVAILABLE)
+        requested = int(match[2])
+        started = time.monotonic()
+        try:
+            rows = self._reader.read_sequence(ledger_id=match[1], through_seq=requested)
+        except LedgerSourceReadError:
+            return ModelLedgerSourceResult(status=EnumContextSourceStatus.UNAVAILABLE)
+        read_ms = int((time.monotonic() - started) * 1000)
+        rows = tuple(
+            row for row in rows if row.ledger_seq is None or row.ledger_seq <= requested
+        )
+        reached, complete = reached_sequence(
+            tuple(row.ledger_seq for row in rows), requested
+        )
+        if not complete:
+            return ModelLedgerSourceResult(
+                status=EnumContextSourceStatus.STALE,
+                watermark_reached=reached,
+                leg_timings_ms={"read": read_ms},
+            )
+        started = time.monotonic()
+        try:
+            as_of = max(parse_stamp(row.raw_row[:20]) for row in rows)
+        except ValueError:
+            return ModelLedgerSourceResult.error(
+                EnumContextSourceErrorCode.INVALID_RESPONSE,
+                "sequence snapshot contains a malformed row timestamp",
+            )
+        entries = self._entries(
+            tuple(sorted(rows, key=lambda row: (row.ledger_seq or 0, row.row_id))),
+            as_of,
+            request.caller_scope.cited_ruling_stamps,
+        )
+        return ModelLedgerSourceResult(
+            status=EnumContextSourceStatus.RESOLVED
+            if entries
+            else EnumContextSourceStatus.UNRESOLVED,
+            entries=entries,
+            watermark_reached=reached,
+            entry_counts={_SOURCE_NAME: len(entries)},
+            leg_timings_ms={
+                "read": read_ms,
+                "fold": int((time.monotonic() - started) * 1000),
+            },
+        )
+
     def _entries(
         self,
         rows: tuple[ModelLedgerSourceRow, ...],
@@ -177,10 +255,9 @@ class HandlerContextSourceLedger:
         folded: dict[str, ModelWorkLedgerFoldResult] = {}
         state: dict[str, dict[str, object]] = {}
         links: list[ModelWorkLedgerLink] = []
-        for row in rows:
-            try:
-                result = fold_row(ModelWorkLedgerFoldRequest(raw_row=row.raw_row))
-            except WorkLedgerFoldError:
+        results = self._fold_memo.fold_rows([(row.row_id, row.raw_row) for row in rows])
+        for row, result in zip(rows, results, strict=True):
+            if result is None:
                 continue
             by_id.setdefault(row.row_id, row)
             folded.setdefault(row.row_id, result)
@@ -289,6 +366,7 @@ class HandlerContextSourceLedger:
             operator_words=operator_words,
             recorded_framing=framing,
             framing_label=label,
+            provenance_label=ledger_provenance_label(text),
         )
 
 

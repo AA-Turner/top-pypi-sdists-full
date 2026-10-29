@@ -1280,6 +1280,42 @@ def test_project_card_caps_the_peer_list_and_states_the_count(client, app):
     assert "referenced_by" not in data
 
 
+def test_project_card_names_what_it_is_part_of_and_its_parts(client, app):
+    """0401: projects are flat, so a recorder writing the page of a bigger
+    effort finds its parts on the card (names AND ids, one hop each way), from
+    the detail's `part_of_links` -- never mixed into the references."""
+    project = client.create_project("odyssey-3", kind="training")
+    app.project_references[project["id"]] = [
+        {"id": "r1", "direction": "incoming", "relation": "references", "project_id": "p-rev",
+         "project_slug": "sampler-review", "project_name": "Sampler review",
+         "created_at": "2026-08-20T00:00:00Z"},
+    ]
+    app.projects[project["id"]]["part_of_links"] = [
+        {"id": "l1", "direction": "outgoing", "relation": "part_of", "project_id": "p-big",
+         "project_slug": "odyssey", "project_name": "Odyssey", "created_at": "2026-08-20T00:00:00Z"},
+        *[{"id": f"l{i}", "direction": "incoming", "relation": "part_of", "project_id": f"p-{i}",
+           "project_slug": f"phase-{i}", "project_name": f"Phase {i}", "created_at": "2026-08-20T00:00:00Z"}
+          for i in range(12)],
+    ]
+    data = _service(client).get_entity(f"project:{project['id']}")["data"]
+    assert data["part_of"] == {"projects": [{"id": "p-big", "name": "Odyssey"}]}
+    assert data["parts"]["projects"][0] == {"id": "p-0", "name": "Phase 0"}
+    assert len(data["parts"]["projects"]) == 10 and data["parts"]["count"] == 12
+    assert data["referenced_by"]["projects"] == ["sampler-review"]
+    assert "references" not in data
+
+
+def test_project_card_labels_its_parts_as_parts(client, app):
+    """A2: a project card never shows the old tree's names -- no
+    `parent_project_id` (one projected link of the many in `part_of`) and its
+    parts counted as `part_count`, not `subproject_count`."""
+    project = client.create_project("umbrella", kind="training")
+    app.projects[project["id"]].update({"parent_project_id": "p-big", "subproject_count": 3})
+    entity = _service(client).get_entity(f"project:{project['id']}")["data"]["entity"]
+    assert "parent_project_id" not in entity and "subproject_count" not in entity
+    assert entity["part_count"] == 3
+
+
 def test_project_card_omits_references_when_there_are_none(client, app):
     """Absent, not an empty block: a key that is always present stops meaning
     anything, and the card is where an agent decides what to open."""
@@ -1287,6 +1323,7 @@ def test_project_card_omits_references_when_there_are_none(client, app):
     data = _service(client).get_entity(f"project:{project['id']}")["data"]
     assert "references" not in data
     assert "referenced_by" not in data
+    assert "part_of" not in data and "parts" not in data
 
 
 # -- lineage: what a run read, and who wrote it (0255) ---------------------------

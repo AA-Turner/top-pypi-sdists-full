@@ -26,19 +26,20 @@ from __future__ import annotations
 import contextlib
 import heapq
 import logging
-import selectors
 import time
 import typing
 from contextlib import suppress
 from itertools import count
 
+from urwid._selectors import read_selector
+
 from .abstract_loop import EventLoop, ExitMainLoop
 
 if typing.TYPE_CHECKING:
+    import selectors
     from collections.abc import Callable, Iterator
     from concurrent.futures import Executor, Future
-
-    from typing_extensions import Literal, ParamSpec
+    from typing import ParamSpec
 
     _T = typing.TypeVar("_T")
     _Spec = ParamSpec("_Spec")
@@ -73,7 +74,7 @@ class SelectEventLoop(EventLoop):
         :param func: function to call
         :param args: positional arguments to function
         :param kwargs: keyword arguments to function
-        :return: future object for the function call outcome.
+        :returns: future object for the function call outcome.
         """
         return executor.submit(func, *args, **kwargs)
 
@@ -89,7 +90,7 @@ class SelectEventLoop(EventLoop):
         :param seconds: floating point time to wait before calling callback
         :param callback: function to call from event loop
         """
-        tm = time.time() + seconds
+        tm = time.monotonic() + seconds
         handle = (tm, next(self._tie_break), callback)
         heapq.heappush(self._alarms, handle)
         return handle
@@ -98,7 +99,7 @@ class SelectEventLoop(EventLoop):
         """
         Remove an alarm.
 
-        Returns True if the alarm exists, False otherwise
+        :returns: True if the alarm exists, False otherwise
         """
         try:
             self._alarms.remove(handle)
@@ -124,7 +125,7 @@ class SelectEventLoop(EventLoop):
         """
         Remove an input file.
 
-        Returns True if the input file exists, False otherwise
+        :returns: True if the input file exists, False otherwise
         """
         if handle in self._watch_files:
             del self._watch_files[handle]
@@ -135,7 +136,7 @@ class SelectEventLoop(EventLoop):
         """
         Add a callback for entering idle.
 
-        Returns a handle that may be passed to remove_idle()
+        :returns: a handle that may be passed to remove_enter_idle()
         """
         self._idle_handle += 1
         self._idle_callbacks[self._idle_handle] = callback
@@ -145,7 +146,7 @@ class SelectEventLoop(EventLoop):
         """
         Remove an idle callback.
 
-        Returns True if the handle was removed.
+        :returns: True if the handle was removed.
         """
         try:
             del self._idle_callbacks[handle]
@@ -155,7 +156,8 @@ class SelectEventLoop(EventLoop):
 
     def _entering_idle(self) -> None:
         """Call all the registered idle callbacks."""
-        for callback in self._idle_callbacks.values():
+        # A callback may add or remove idle callbacks.
+        for callback in list(self._idle_callbacks.values()):
             callback()
 
     def run(self) -> None:
@@ -171,23 +173,20 @@ class SelectEventLoop(EventLoop):
 
     def _loop(self) -> None:
         """Run a single iteration of the event loop."""
-        tm: float | Literal["idle"] | None = None
+        entering_idle = False
+        ready: list[selectors.SelectorKey]
 
-        with selectors.DefaultSelector() as selector:
-            for fd, callback in self._watch_files.items():
-                selector.register(fd, selectors.EVENT_READ, callback)
-
+        with read_selector(self._watch_files.items()) as selector:
             if self._alarms or self._did_something:
                 timeout = 0.0
 
                 if self._alarms:
                     timeout_ = self._alarms[0][0]
-                    tm = timeout_
-                    timeout = max(timeout, timeout_ - time.time())
+                    timeout = max(timeout, timeout_ - time.monotonic())
 
                 if self._did_something and (not self._alarms or (self._alarms and timeout > 0)):
                     timeout = 0.0
-                    tm = "idle"
+                    entering_idle = True
 
                 self.logger.debug(f"Waiting for input: timeout={timeout!r}")
                 if self._watch_files:
@@ -204,17 +203,10 @@ class SelectEventLoop(EventLoop):
             else:
                 ready = []
 
-        if not ready:
-            if tm == "idle":
-                self.logger.debug("No input, entering IDLE")
-                self._entering_idle()
-                self._did_something = False
-            elif tm is not None:
-                # must have been a timeout
-                tm, _tie_break, alarm_callback = heapq.heappop(self._alarms)
-                self.logger.debug(f"No input in timeout, calling scheduled {alarm_callback!r}")
-                alarm_callback()
-                self._did_something = True
+        if not ready and entering_idle:
+            self.logger.debug("No input, entering IDLE")
+            self._entering_idle()
+            self._did_something = False
 
         self.logger.debug("Processing input")
         for record in ready:
@@ -224,4 +216,11 @@ class SelectEventLoop(EventLoop):
             if watch_callback is None or watch_callback is not record.data:
                 continue
             watch_callback()
+            self._did_something = True
+
+        # A continuously readable descriptor must not prevent expired alarms from running.
+        if self._alarms and self._alarms[0][0] <= time.monotonic():
+            _alarm_time, _tie_break, alarm_callback = heapq.heappop(self._alarms)
+            self.logger.debug(f"Calling scheduled {alarm_callback!r}")
+            alarm_callback()
             self._did_something = True

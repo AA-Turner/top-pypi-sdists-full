@@ -13,11 +13,18 @@ use pyo3::exceptions::{PyException, PyOSError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 
 mod config;
+mod git;
 mod lock;
+mod signing;
 mod version;
 
 use config::{PyBuild, PyGeneral};
+use git::PyOid;
 use lock::{PyKernelLock, PyKernelLocks, PyKernelPaths, PyNixKernelLock, PyNixKernelLocks};
+use signing::{
+    PyDigestReceipt, PyDigestReceiptStore, PyKernelLocation, PySignatureReceipt,
+    PySignatureReceiptStore, ReceiptError,
+};
 use version::PyVersion;
 
 /// A validated kernel name matching `^[a-z][-a-z0-9]*[a-z0-9]$`.
@@ -192,8 +199,8 @@ impl From<GitStatus> for PyGitStatus {
 #[pymethods]
 impl PyGitStatus {
     #[getter]
-    fn commit(&self) -> &str {
-        self.commit.as_str()
+    fn commit(&self) -> PyOid {
+        self.commit.clone().into()
     }
 
     #[getter]
@@ -758,6 +765,7 @@ fn data_py(m: &PyBound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyGitStatus>()?;
     m.add_class::<PyKernelBuilderVersion>()?;
     m.add_class::<PyKernelName>()?;
+    m.add_class::<PyOid>()?;
     m.add_class::<PyKernelVersion>()?;
     m.add_class::<PyKernelDependency>()?;
     m.add_class::<PyKernelLock>()?;
@@ -772,10 +780,16 @@ fn data_py(m: &PyBound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyDigestAlgorithm>()?;
     m.add_class::<PyDigest>()?;
     m.add_class::<PyDigestViolation>()?;
+    m.add_class::<PyKernelLocation>()?;
+    m.add_class::<PySignatureReceipt>()?;
+    m.add_class::<PySignatureReceiptStore>()?;
+    m.add_class::<PyDigestReceipt>()?;
+    m.add_class::<PyDigestReceiptStore>()?;
     m.add(
         "DigestValidationError",
         m.py().get_type::<DigestValidationError>(),
     )?;
+    m.add("ReceiptError", m.py().get_type::<ReceiptError>())?;
 
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())

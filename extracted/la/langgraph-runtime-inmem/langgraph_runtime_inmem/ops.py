@@ -2982,7 +2982,9 @@ class Runs(Authenticated):
 
             if run["status"] in ("pending", "running"):
                 cancelable_runs.append(run)
-                if queues or action != "rollback":
+                if action == "rollback" and run["status"] == "running":
+                    pass
+                elif queues or action != "rollback":
                     if run["status"] == "pending":
                         thread = next(
                             (

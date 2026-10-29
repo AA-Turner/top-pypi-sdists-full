@@ -177,13 +177,13 @@ jobs:
           print("flags=" + " ".join(flags))
           EOF
       - name: 📦 Install locked release tools
-        uses: tox-dev/github-workflows/install-locked-tools@259a3d3fb578d00517ffb73341fdd463259b0b2f # 6.0.1
+        uses: tox-dev/github-workflows/install-locked-tools@57a765127aae73adf7d0e24a7fe0f067f2d3ea3e # 6.2.1
         with:
           groups: release-wheel
           venv: ${{ runner.temp }}/release-tools
       - name: 📦 Export hashed build constraints
         id: constraints
-        uses: tox-dev/github-workflows/export-build-constraints@259a3d3fb578d00517ffb73341fdd463259b0b2f # 6.0.1
+        uses: tox-dev/github-workflows/export-build-constraints@57a765127aae73adf7d0e24a7fe0f067f2d3ea3e # 6.2.1
         with:
           lock: pylock.build.toml
           target-platform: ${{ matrix.platform.lock_platform }}
@@ -194,7 +194,7 @@ jobs:
           CONSTRAINTS_PATH: ${{ steps.constraints.outputs.path }}
         run: cp "$CONSTRAINTS_PATH" .release-build-constraints.txt
       - name: 🏗️ Build wheels
-        uses: pypa/cibuildwheel@b3395e271a35f73dad77f21802abe9b986dfe299 # v4.3.1
+        uses: pypa/cibuildwheel@f11181315571b24e4a3c67f1a828532793f2df55 # v4.3.2
         env:
           CIBW_ARCHS: ${{ matrix.platform.arch }}
           CIBW_BUILD_FRONTEND: "uv; args: --build-constraint .release-build-constraints.txt --require-hashes"
@@ -257,13 +257,13 @@ jobs:
           python-version: "3.15"
           enable-cache: false
       - name: 📦 Install locked release tools
-        uses: tox-dev/github-workflows/install-locked-tools@259a3d3fb578d00517ffb73341fdd463259b0b2f # 6.0.1
+        uses: tox-dev/github-workflows/install-locked-tools@57a765127aae73adf7d0e24a7fe0f067f2d3ea3e # 6.2.1
         with:
           groups: release-notes
           venv: ${{ runner.temp }}/release-tools
       - name: 📦 Export hashed build constraints
         id: constraints
-        uses: tox-dev/github-workflows/export-build-constraints@259a3d3fb578d00517ffb73341fdd463259b0b2f # 6.0.1
+        uses: tox-dev/github-workflows/export-build-constraints@57a765127aae73adf7d0e24a7fe0f067f2d3ea3e # 6.2.1
         with:
           lock: pylock.build.toml
           target-platform: linux_x86_64

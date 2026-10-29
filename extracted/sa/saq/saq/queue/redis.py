@@ -5,8 +5,8 @@ Redis Queue
 from __future__ import annotations
 
 import asyncio
-import logging
 import json
+import logging
 import time
 import typing as t
 
@@ -29,7 +29,7 @@ except ModuleNotFoundError as e:
 if t.TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from redis.asyncio.client import Redis, PubSub
+    from redis.asyncio.client import PubSub, Redis
     from redis.commands.core import AsyncScript
 
     from saq.types import (
@@ -100,7 +100,7 @@ class RedisQueue(Queue):
         return job_id[len(f"{ID_PREFIX}{self.name}:") :]
 
     def namespace(self, key: str) -> str:
-        return ":".join(["saq", self.name, key])
+        return f"saq:{self.name}:{key}"
 
     async def disconnect(self) -> None:
         await self._pubsub.close()
@@ -161,7 +161,9 @@ class RedisQueue(Queue):
             job_info = list(
                 {
                     job["key"]: job
-                    for job in (job.to_dict() for job in deserialized_jobs if job is not None)
+                    for job in (
+                        job.to_dict(safe=True) for job in deserialized_jobs if job is not None
+                    )
                 }.values()
             )
         else:
@@ -191,7 +193,7 @@ class RedisQueue(Queue):
             return await self.redis.zcard(self._incomplete)
         raise ValueError("Can't count unknown type {kind}")
 
-    async def schedule(self, lock: int = 1) -> t.List[str]:
+    async def schedule(self, lock: int = 1) -> list[str]:
         if not self._schedule_script:
             self._schedule_script = self.redis.register_script(
                 """
@@ -254,7 +256,7 @@ class RedisQueue(Queue):
 
                     try:
                         await job.refresh(abort)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.info("Could not abort job %s", job_id)
 
                     if job.retryable:
@@ -287,7 +289,7 @@ class RedisQueue(Queue):
         job_id = self.job_id(job_key)
         return await self._get_job_by_id(job_id)
 
-    async def jobs(self, job_keys: Iterable[str]) -> t.List[Job | None]:
+    async def jobs(self, job_keys: Iterable[str]) -> list[Job | None]:
         return [
             self.deserialize(job_bytes)
             for job_bytes in await self.redis.mget(self.job_id(key) for key in job_keys)
@@ -295,9 +297,11 @@ class RedisQueue(Queue):
 
     async def iter_jobs(
         self,
-        statuses: t.List[Status] = list(Status),
+        statuses: list[Status] | None = None,
         batch_size: int = 100,
     ) -> t.AsyncIterator[Job]:
+        if statuses is None:
+            statuses = list(Status)
         cursor = 0
         while True:
             cursor, job_ids = await self.redis.scan(
@@ -324,20 +328,21 @@ class RedisQueue(Queue):
                 job.status = Status.ABORTING
                 job.error = error
 
-                dequeued, *_ = await (
+                dequeued, incomplete, active, *_ = await (
                     pipe.lrem(self._queued, 0, job.id)
                     .zrem(self._incomplete, job.id)
+                    .lrem(self._active, 0, job.id)
                     .set(job.id, self.serialize(job))
                     .setex(job.abort_id, ttl, error)
                     .publish(job.id, job.status)
                     .execute()
                 )
 
-            if dequeued:
+            # A job scheduled for later, or waiting out a retry delay, is in neither
+            # queued nor active, so no worker will pick it up to finish the abort.
+            if dequeued or (incomplete and not active):
                 await self.finish(job, Status.ABORTED, error=error)
                 await self.redis.delete(job.abort_id)
-            else:
-                await self.redis.lrem(self._active, 0, job.id)
 
     async def dequeue(self, timeout: float = 0.0, poll_interval: float = 0.0) -> Job | None:
         if await self.version() < (6, 2, 0):
@@ -499,7 +504,7 @@ class PubSubMultiplexer(Multiplexer):
                     self.publish(message["channel"], message)
             except asyncio.CancelledError:
                 return
-            except Exception:
+            except Exception:  # noqa: BLE001
                 logger.exception("Failed to consume message")
 
     async def _close(self) -> None:

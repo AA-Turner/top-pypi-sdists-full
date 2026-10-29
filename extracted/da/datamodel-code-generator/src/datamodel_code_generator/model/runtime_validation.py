@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+from copy import copy
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Final, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, TypeAlias, cast
+
+from typing_extensions import Sentinel
+
+from datamodel_code_generator._records import record
+from datamodel_code_generator._regex_syntax import is_portable_pattern
+from datamodel_code_generator._requirements import pydantic_target_meets
 
 if TYPE_CHECKING:
     from datamodel_code_generator.types import DataType
+
+
+class _AliasModel(Protocol):
+    """The members of a type-alias model (``IS_ALIAS``) that its pattern engine depends on."""
+
+    extra_template_data: dict[str, Any]
+    fields: list[Any]
+
 
 InputNames: TypeAlias = tuple[str, ...]
 InputNameGroups: TypeAlias = tuple[InputNames, ...]
@@ -32,11 +47,11 @@ UniqueItemsPathStep: TypeAlias = (
     | None
 )
 UniqueItemsPath: TypeAlias = tuple[UniqueItemsPathStep, ...]
-_INTERNAL_SCHEMA_RUNTIME_VALIDATION_TOKEN = object()
+_INTERNAL_SCHEMA_RUNTIME_VALIDATION_TOKEN = Sentinel("_INTERNAL_SCHEMA_RUNTIME_VALIDATION_TOKEN")
 _INTERNAL_SCHEMA_RUNTIME_VALIDATION_ERROR = "internal schema runtime validation must be created by the parser"
 
 
-@dataclass(frozen=True)
+@record(slots=False)
 class PatternPropertiesRule:
     """Runtime rule for JSON Schema patternProperties."""
 
@@ -54,6 +69,49 @@ class PatternPropertiesRule:
             return data_types
         return (*data_types, self.additional_property_type)
 
+    @property
+    def python_regex_types(self) -> tuple[int, ...]:
+        """Return the positions in ``data_types`` whose patterns need the ``python-re`` engine of an adapter.
+
+        A pattern of a type the rule names is checked by the adapter the helper builds for it, which has no model
+        config; a pattern that is not portable (``is_portable_pattern``) selects the engine there, as a model does.
+        A type alias has no config either, so the string patterns of the aliases a type names count as its own.
+        """
+        return tuple(
+            index for index, data_type in enumerate(self.data_types) if _needs_python_regex_engine(data_type, set())
+        )
+
+
+def _needs_python_regex_engine(data_type: DataType, visited: set[int]) -> bool:
+    """Return whether a pattern of ``data_type``, or a string pattern of an alias it names, is not portable.
+
+    An alias keeps string patterns on a target that predates compiled patterns; a later target compiles every
+    pattern that needs Python's engine.
+    """
+    for nested in data_type.all_data_types:
+        if isinstance(pattern := (nested.kwargs or {}).get("pattern"), str) and not is_portable_pattern(pattern):
+            return True
+        if (
+            (reference := nested.reference) is None
+            or not getattr(source := reference.source, "IS_ALIAS", False)
+            or id(source) in visited
+        ):
+            continue
+        visited.add(id(source))
+        alias = cast("_AliasModel", source)
+        if pydantic_target_meets("pydantic.compiled_pattern", alias.extra_template_data.get("target_pydantic_version")):
+            continue
+        if any(
+            (
+                isinstance(pattern := getattr(alias_field.constraints, "pattern", None), str)
+                and not is_portable_pattern(pattern)
+            )
+            or _needs_python_regex_engine(alias_field.data_type, visited)
+            for alias_field in alias.fields
+        ):
+            return True
+    return False
+
 
 class IndependentDeclaredPatternPropertiesRule(PatternPropertiesRule):
     """Pattern validation must preserve the input for a declared field."""
@@ -63,7 +121,7 @@ class IndependentModelPatternPropertiesRule(PatternPropertiesRule):
     """Distinct pattern models must validate the same original input."""
 
 
-@dataclass(frozen=True)
+@record(slots=False)
 class RequiredGroupsRule:
     """Runtime rule for required-property oneOf/anyOf groups and not-required groups."""
 
@@ -71,7 +129,7 @@ class RequiredGroupsRule:
     groups: RequiredGroups
 
 
-@dataclass(frozen=True)
+@record(slots=False)
 class ConditionalRequiredRule:
     """Runtime rule for if/then/else required-property conditions."""
 
@@ -94,7 +152,7 @@ def conditional_value_uses_json_equality(value: object) -> bool:
     return False
 
 
-@dataclass(frozen=True, slots=True)
+@record
 class PropertyCountRule:
     """Runtime rule for JSON Schema object property-count bounds."""
 
@@ -102,7 +160,7 @@ class PropertyCountRule:
     max_properties: int | None = None
 
 
-@dataclass(frozen=True, slots=True)
+@record
 class UniqueItemsRule:
     """Runtime rule for an array's JSON Schema ``uniqueItems`` constraint."""
 
@@ -146,6 +204,33 @@ class SchemaRuntimeValidation:
     def data_types(self) -> tuple[DataType, ...]:
         """Return all generated data types referenced by runtime rules."""
         return tuple(data_type for rule in self.pattern_properties for data_type in rule.data_types)
+
+    def _written_form(self) -> tuple[object, ...]:
+        """Return what the rules write, hashable, so that two holders of rules compare by the rules they write."""
+        return (
+            tuple(
+                (
+                    type(rule).__name__,
+                    rule.declared_properties,
+                    rule.rejected_patterns,
+                    tuple((pattern, data_type.type_hint) for pattern, data_type in rule.pattern_properties),
+                    None if rule.additional_property_type is None else rule.additional_property_type.type_hint,
+                    rule.allow_unmatched,
+                )
+                for rule in self.pattern_properties
+            ),
+            repr(self.required_groups),
+            repr(self.conditional_required),
+            repr(self.property_count),
+            repr(self.unique_items),
+            self.replace_unique_items,
+        )
+
+    def _replace_pattern_properties(self, pattern_properties: list[PatternPropertiesRule]) -> SchemaRuntimeValidation:
+        """Return a copy that holds ``pattern_properties``, so another holder of this value keeps its rules."""
+        replaced = copy(self)
+        replaced.pattern_properties = pattern_properties
+        return replaced
 
 
 class _InternalSchemaRuntimeValidation(SchemaRuntimeValidation):

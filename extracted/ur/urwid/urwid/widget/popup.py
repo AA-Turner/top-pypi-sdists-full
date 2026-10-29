@@ -25,6 +25,7 @@ from __future__ import annotations
 import typing
 
 from urwid.canvas import CompositeCanvas
+from urwid.command_map import Command
 
 from .constants import Align, Sizing, VAlign
 from .overlay import Overlay
@@ -32,11 +33,12 @@ from .widget import delegate_to_widget_mixin
 from .widget_decoration import WidgetDecoration
 
 if typing.TYPE_CHECKING:
-    from typing_extensions import TypedDict
+    from collections.abc import Callable
+    from typing import Literal, NotRequired, TypedDict
 
     from urwid.canvas import Canvas
 
-    from .widget import AbstractBoxWidget, AbstractWidget
+    from .widget import AbstractBoxWidget, AbstractWidget, _DelegateToWidgetMixin
 
     class PopUpParametersModel(TypedDict):
         """Position and box size a :class:`PopUpLauncher` requests for its pop-up."""
@@ -45,21 +47,55 @@ if typing.TYPE_CHECKING:
         top: int
         overlay_width: int
         overlay_height: int
+        anchor_height: NotRequired[int]
 
 
 WrappedWidget = typing.TypeVar("WrappedWidget", bound="AbstractBoxWidget")
+# The launcher wraps a widget of any sizing; the pop-up target is a box widget.
+LauncherWidget = typing.TypeVar("LauncherWidget", bound="AbstractWidget")
+
+
+if typing.TYPE_CHECKING:
+    _PopUpLauncherDelegate = _DelegateToWidgetMixin
+else:
+    _PopUpLauncherDelegate = delegate_to_widget_mixin("_original_widget")
 
 
 class PopUpLauncher(
-    delegate_to_widget_mixin("_original_widget"),  # type: ignore[misc]
-    WidgetDecoration[WrappedWidget],
+    _PopUpLauncherDelegate,
+    WidgetDecoration[LauncherWidget],
 ):
-    """Decoration that lets a wrapped widget open and close a pop-up widget above it."""
+    """Decoration that lets a wrapped widget open and close a pop-up drawn over other widgets by a PopUpTarget."""
 
-    def __init__(self, original_widget: WrappedWidget) -> None:
-        """Wrap `original_widget`, with no pop-up open yet."""
+    # Class-level defaults, so a launcher pickled before these attributes existed still loads.
+    _close_on_menu: bool = False
+    _launcher_size: tuple[int, int] | None = None
+
+    def __init__(self, original_widget: LauncherWidget, *, close_on_menu: bool = False) -> None:
+        """Wrap `original_widget`, with no pop-up open yet.
+
+        :param original_widget: widget that opens the pop-up.
+        :param close_on_menu: close the pop-up when it leaves a key for the ``menu`` command (:kbd:`esc` by
+            default) unhandled while it is the topmost open pop-up.
+        """
         super().__init__(original_widget)
+        self._close_on_menu = close_on_menu
         self._pop_up_widget: AbstractWidget | None = None
+        self._launcher_size = None
+
+    @property
+    def pop_up_widget(self) -> AbstractWidget | None:
+        """The open pop-up widget, or ``None`` when the pop-up is closed."""
+        return self._pop_up_widget
+
+    @property
+    def launcher_size(self) -> tuple[int, int] | None:
+        """The (*columns*, *rows*) of the last render that was not served from the canvas cache, or ``None`` before it.
+
+        It is set before :meth:`get_pop_up_parameters` is called, so inside that method it is always the size being
+        rendered.
+        """
+        return self._launcher_size
 
     def create_pop_up(self) -> AbstractWidget:
         """Return the widget to be used for the pop-up.
@@ -77,9 +113,15 @@ class PopUpLauncher(
         raise NotImplementedError("Subclass must override this method")
 
     def get_pop_up_parameters(self) -> PopUpParametersModel:
-        """Return a dict of pop-up parameters, eg: {'left':0, 'top':1, 'overlay_width':30, 'overlay_height':4}.
+        """Return a dict of pop-up parameters.
+
+        For example: ``{'left': 0, 'top': 1, 'overlay_width': 30, 'overlay_height': 4, 'anchor_height': 1}``.
 
         Subclass must override this method. It is called each time this widget is rendered.
+
+        The optional ``anchor_height`` key makes :class:`PopUpTarget` move the pop-up above the launcher, or clip
+        its height, when it does not fit below;
+        see :meth:`CompositeCanvas.set_pop_up <urwid.CompositeCanvas.set_pop_up>`.
 
         :raises NotImplementedError: the subclass does not override this method.
         """
@@ -102,10 +144,53 @@ class PopUpLauncher(
     ) -> CompositeCanvas | Canvas:
         """Render the wrapped widget, attaching the open pop-up widget to the canvas, if any."""
         canv = super().render(size, focus)
+        self._launcher_size = (canv.cols(), canv.rows())
         if self._pop_up_widget:
             canv = CompositeCanvas(canv)
-            canv.set_pop_up(self._pop_up_widget, **self.get_pop_up_parameters())
+            canv.set_pop_up(
+                self._pop_up_widget,
+                **self.get_pop_up_parameters(),
+                on_unhandled_key=self._close_on_menu_key if self._close_on_menu else None,
+            )
         return canv
+
+    def _close_on_menu_key(self, key: str) -> str | None:
+        """Close the pop-up on the ``menu`` command; return any other key unhandled."""
+        if self._command_map[key] != Command.MENU:
+            return key
+        self.close_pop_up()
+        return None
+
+
+def _place_anchored(maxrow: int, top: int, height: int, anchor_height: int) -> tuple[int, int]:
+    """Return the (top, height) of a pop-up kept off the `anchor_height` launcher rows directly above `top`.
+
+    The pop-up goes below the launcher when it fits there, above it when it fits there, and otherwise on the side
+    with more rows (below on a tie), clipped to that side. When neither side has a row, the position is returned
+    unchanged and :class:`Overlay` shifts the pop-up over the launcher, as it does for a pop-up without an anchor.
+
+    >>> _place_anchored(24, 5, 10, 1)  # fits below
+    (5, 10)
+    >>> _place_anchored(24, 20, 10, 1)  # flips above
+    (9, 10)
+    >>> _place_anchored(24, 12, 30, 1)  # clipped below: 12 rows below, 11 above
+    (12, 12)
+    >>> _place_anchored(24, 13, 30, 1)  # clipped above: 11 rows below, 12 above
+    (0, 12)
+    >>> _place_anchored(24, 20, 10, 3)  # flips above a 3-row launcher on rows 17-19
+    (7, 10)
+    """
+    rows_below = maxrow - top
+    rows_above = top - anchor_height
+    if height <= rows_below:
+        return top, height
+    if height <= rows_above:
+        return rows_above - height, height
+    if max(rows_below, rows_above) < 1:
+        return top, height
+    if rows_below >= rows_above:
+        return top, rows_below
+    return 0, rows_above
 
 
 class PopUpTarget(WidgetDecoration[WrappedWidget]):
@@ -129,7 +214,16 @@ class PopUpTarget(WidgetDecoration[WrappedWidget]):
         # One (widget, Overlay) entry per currently open pop-up, outermost first.
         self._pop_up_levels: list[tuple[AbstractWidget, Overlay[AbstractWidget, AbstractWidget]]] = []
         self._current_widget: AbstractWidget = self._original_widget
+        # Unhandled key callback of the topmost open pop-up.
+        self._pop_up_unhandled_key: Callable[[str], str | None] | None = None
         self._cache_original_canvas: Canvas | None = None
+
+    def enter_selectable(self, *, reverse: bool = False) -> None:
+        """Do nothing: every focus under this widget is kept when a parent container enters it.
+
+        The widget that receives keys is known only after the pop-ups were laid out at the current size,
+        which the entry hook does not have, see :ref:`select-navigation`.
+        """
 
     def _update_overlay(self, size: tuple[int, int], focus: bool) -> None:
         """Rebuild :attr:`_current_widget` as a chain of Overlay widgets, one per open pop-up.
@@ -139,7 +233,8 @@ class PopUpTarget(WidgetDecoration[WrappedWidget]):
         :class:`PopUpLauncher` with its own pop-up open; and so on. Each level's pop-up widget
         is rendered directly to discover whether it declares a further nested pop-up, rather
         than inspecting the wrapping Overlay's merged canvas, whose "pop up" coordinate can go
-        stale once nothing re-declares it.
+        stale once nothing re-declares it. A nested pop-up's position is relative to the pop-up
+        widget that declares it, so it is offset by where that widget was placed.
 
         :param size: box size to render :attr:`_original_widget` and every pop-up level at.
         :param focus: whether this widget is in focus.
@@ -155,9 +250,19 @@ class PopUpTarget(WidgetDecoration[WrappedWidget]):
         rebuilding = False
 
         pop_up = canv.get_pop_up()
+        anchor_height = canv.get_pop_up_anchor_height()
+        on_unhandled_key = canv.get_pop_up_unhandled_key()
+        top_unhandled_key = None
+        # Position of the widget that declared the current pop-up; the original widget fills this widget.
+        offset_left = offset_top = 0
         while pop_up:
             left, top, (w, overlay_width, overlay_height) = pop_up
+            left += offset_left
+            top += offset_top
+            if anchor_height is not None:
+                top, overlay_height = _place_anchored(size[1], top, overlay_height, anchor_height)
             level = len(new_levels)
+            overlay: Overlay[AbstractWidget, AbstractWidget]
             if not rebuilding and level < len(old_levels) and old_levels[level][0] == w:
                 overlay = old_levels[level][1]
                 overlay.set_overlay_parameters(
@@ -182,12 +287,21 @@ class PopUpTarget(WidgetDecoration[WrappedWidget]):
                 )
             new_levels.append((w, overlay))
             bottom_widget = overlay
+            top_unhandled_key = on_unhandled_key
 
-            # Check w itself for a further nested pop-up; see the docstring for why.
-            pop_up = w.render((overlay_width, overlay_height), focus=focus).get_pop_up()
+            # Check w itself for a further nested pop-up; see the docstring for why. Render it where and at the
+            # size the Overlay puts it, which differs from the request when it does not fit.
+            pad_left, pad_right, pad_top, pad_bottom = overlay.calculate_padding_filler(size, focus)
+            offset_left, offset_top = pad_left, pad_top
+            w_size = overlay.top_w_size(size, pad_left, pad_right, pad_top, pad_bottom)
+            w_canv = w.render(w_size, focus=focus)
+            pop_up = w_canv.get_pop_up()
+            anchor_height = w_canv.get_pop_up_anchor_height()
+            on_unhandled_key = w_canv.get_pop_up_unhandled_key()
 
         self._pop_up_levels = new_levels
         self._current_widget = bottom_widget
+        self._pop_up_unhandled_key = top_unhandled_key
 
     def render(
         self,
@@ -211,9 +325,9 @@ class PopUpTarget(WidgetDecoration[WrappedWidget]):
 
         return self._current_widget.get_cursor_coords(size)  # type: ignore[no-any-return]
 
-    def get_pref_col(self, size: tuple[int, int]) -> int:
+    def get_pref_col(self, size: tuple[int, int]) -> int | Literal["left", "right", Align.LEFT, Align.RIGHT] | None:
         """
-        Return the preferred cursor column of the current widget.
+        Return the preferred cursor column of the current widget, or None if it has none.
 
         :raises TypeError: the current widget has no ``get_pref_col`` method.
         """
@@ -222,16 +336,26 @@ class PopUpTarget(WidgetDecoration[WrappedWidget]):
         if not hasattr(self._current_widget, "get_pref_col"):
             raise TypeError(f"widget {type(self._current_widget)} has no get_pref_col method")
 
-        return typing.cast("int", self._current_widget.get_pref_col(size))
+        pref_col: int | Literal["left", "right", Align.LEFT, Align.RIGHT] | None = self._current_widget.get_pref_col(
+            size
+        )
+        return pref_col
 
     def keypress(
         self,
         size: tuple[int, int],  # type: ignore[override]
         key: str,
     ) -> str | None:
-        """Rebuild the pop-up overlay chain for *size* and forward the keypress to it."""
+        """Rebuild the pop-up overlay chain for *size* and forward the keypress to it.
+
+        A key the topmost pop-up leaves unhandled goes to the ``on_unhandled_key`` callback its launcher set, if
+        any; see :meth:`CompositeCanvas.set_pop_up <urwid.CompositeCanvas.set_pop_up>`.
+        """
         self._update_overlay(size, True)
-        return self._current_widget.keypress(size, key)
+        unhandled = self._current_widget.keypress(size, key)
+        if unhandled is not None and self._pop_up_unhandled_key is not None:
+            return self._pop_up_unhandled_key(unhandled)
+        return unhandled
 
     def move_cursor_to_coords(self, size: tuple[int, int], x: int, y: int) -> bool:
         """

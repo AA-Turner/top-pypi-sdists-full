@@ -703,6 +703,10 @@ class Transport:
     # -- auth ---------------------------------------------------------------
     def _auth_headers(self, path: str, raw_body: bytes) -> dict[str, str]:
         headers: dict[str, str] = {}
+        if path.startswith("/public/"):
+            # Public reads (Probe's docs) carry no credential: they are needed most
+            # when sign-in is what broke, and a token there would only be ignored.
+            return headers
         is_ingest = path.startswith("/ingest")
         if is_ingest:
             if not self.settings.ingest_token:
@@ -890,6 +894,7 @@ class Transport:
         timeout: float | None = None,
         content: bytes | None = None,
         content_headers: Mapping[str, str] | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> httpx.Response:
         """One request to the API. ``content`` sends raw bytes instead of a JSON
         body (a gzip catalog manifest, `Client.put_manifest`), described by
@@ -971,13 +976,16 @@ class Transport:
             **device_identity,
             **self._auth_headers(path, raw_body),
             # This computer's workspace limit: a read narrowing the API applies
-            # (`workspace_limit.py`). Never on `/ingest` (capture is not limited).
-            **({} if path.startswith("/ingest") else self._workspace_limit_headers()),
+            # (`workspace_limit.py`). Never on `/ingest` (capture is not limited)
+            # or `/public/` (no workspace's, and naming one needs a credential).
+            **({} if path.startswith(("/ingest", "/public/")) else self._workspace_limit_headers()),
         }
         if json_body is not None:
             headers["Content-Type"] = "application/json"
         if content is not None:
             headers.update(content_headers or {})
+        # A request's own capability flags (`X-Probe-Direct-Upload`), never auth.
+        headers.update(extra_headers or {})
         # Surface attribution: tag every backend request with the originating
         # product surface, and (MCP only) the tool being served. Headers only.
         headers[SURFACE_HEADER] = self.surface
@@ -1214,8 +1222,17 @@ class Transport:
     def get(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
         return self.request("GET", path, params=params, idempotent=True).json()
 
-    def post(self, path: str, json_body: Any | None = None, *, idempotent: bool = False) -> Any:
-        resp = self.request("POST", path, json_body=json_body, idempotent=idempotent)
+    def post(
+        self,
+        path: str,
+        json_body: Any | None = None,
+        *,
+        idempotent: bool = False,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> Any:
+        resp = self.request(
+            "POST", path, json_body=json_body, idempotent=idempotent, extra_headers=extra_headers
+        )
         return resp.json() if resp.content else None
 
     def patch(self, path: str, json_body: Any) -> Any:

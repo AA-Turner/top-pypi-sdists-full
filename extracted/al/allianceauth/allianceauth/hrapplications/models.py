@@ -50,7 +50,7 @@ class Application(models.Model):
     reviewer_character = models.ForeignKey(EveCharacter, on_delete=models.SET_NULL, blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True)
 
-    objects: ClassVar[ApplicationManager] = ApplicationManager()
+    objects: ClassVar[ApplicationManager] = ApplicationManager() # pyright: ignore[reportIncompatibleVariableOverride]
 
     class Meta:
         permissions = (
@@ -63,15 +63,15 @@ class Application(models.Model):
         return str(self.user) + " Application To " + str(self.form)
 
     @property
-    def main_character(self):
+    def main_character(self) -> EveCharacter | None:
         return self.user.profile.main_character
 
     @property
-    def characters(self):
+    def characters(self) -> list[EveCharacter]:
         return [o.character for o in self.user.character_ownerships.all()]
 
     @property
-    def reviewer_str(self):
+    def reviewer_str(self) -> str:
         if self.reviewer_character:
             return str(self.reviewer_character)
         elif self.reviewer:

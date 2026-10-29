@@ -20,6 +20,7 @@
             [7]  parent? {id, queueKey}
             [8]  repeat job key
             [9] deduplication key
+            [10] defer parent release (flow inserts)
       ARGV[2] Json stringified job data
       ARGV[3] msgpacked options
       Output:
@@ -41,6 +42,7 @@ local parentKey = args[5]
 local parent = args[7]
 local repeatJobKey = args[8]
 local deduplicationKey = args[9]
+local deferParentRelease = args[10]
 local parentData
 -- Includes
 --[[
@@ -224,6 +226,12 @@ end
     is already completed and about to be ignored. The parent must get its
     dependencies updated to avoid the parent job being stuck forever in 
     the waiting-children state.
+    When "deferParentRelease" is true (flow inserts), the parent is *not*
+    moved out of waiting-children here: the remaining children of the flow
+    have not been inserted yet, so the parent would be released too early.
+    Only the processed dependency is recorded; releasing the parent is
+    validated by "releaseParentIfNoPendingDependencies" once the whole flow
+    has been added.
 ]]
 -- Includes
 --[[
@@ -370,13 +378,18 @@ local function updateParentDepsIfNeeded(parentKey, parentQueueKey, parentDepende
 end
 local function updateExistingJobsParent(parentKey, parent, parentData,
                                         parentDependenciesKey, completedKey,
-                                        jobIdKey, jobId, timestamp)
+                                        jobIdKey, jobId, timestamp,
+                                        deferParentRelease)
     if parentKey ~= nil then
         if rcall("ZSCORE", completedKey, jobId) then
             local returnvalue = rcall("HGET", jobIdKey, "returnvalue")
-            updateParentDepsIfNeeded(parentKey, parent['queueKey'],
-                                     parentDependenciesKey, parent['id'],
-                                     jobIdKey, returnvalue, timestamp)
+            if deferParentRelease then
+                rcall("HSET", parentKey .. ":processed", jobIdKey, returnvalue)
+            else
+                updateParentDepsIfNeeded(parentKey, parent['queueKey'],
+                                         parentDependenciesKey, parent['id'],
+                                         jobIdKey, returnvalue, timestamp)
+            end
         else
             if parentDependenciesKey ~= nil then
                 rcall("SADD", parentDependenciesKey, jobIdKey)
@@ -386,15 +399,20 @@ local function updateExistingJobsParent(parentKey, parent, parentData,
     end
 end
 local function handleDuplicatedJob(jobKey, jobId, currentParentKey, currentParent,
-  parentData, parentDependenciesKey, completedKey, eventsKey, maxEvents, timestamp)
+  parentData, parentDependenciesKey, completedKey, eventsKey, maxEvents, timestamp,
+  deferParentRelease)
   local existedParentKey = rcall("HGET", jobKey, "parentKey")
-  if not existedParentKey or existedParentKey == currentParentKey then
+  if not existedParentKey or existedParentKey == currentParentKey
+     or rcall("EXISTS", existedParentKey) == 0 then
     updateExistingJobsParent(currentParentKey, currentParent, parentData,
       parentDependenciesKey, completedKey, jobKey,
-      jobId, timestamp)
+      jobId, timestamp, deferParentRelease)
   else
     if currentParentKey ~= nil and currentParentKey ~= existedParentKey
       and (rcall("EXISTS", existedParentKey) == 1) then
+      if deferParentRelease then
+        rcall("HSET", currentParentKey, "flowAttachmentFailed", "1")
+      end
       return -7
     end
   end
@@ -449,7 +467,7 @@ else
     if rcall("EXISTS", jobIdKey) == 1 then
         return handleDuplicatedJob(jobIdKey, jobId, parentKey, parent,
             parentData, parentDependenciesKey, completedKey, eventsKey,
-            maxEvents, timestamp)
+            maxEvents, timestamp, deferParentRelease)
     end
 end
 local deduplicationId = opts['de'] and opts['de']['id']

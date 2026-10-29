@@ -1,20 +1,33 @@
-from typing import Optional
+from __future__ import annotations
+
+from typing import Any
+
+from python_anvil.graphql.selection import selection
 
 
 class BaseQuery:
-    """Base class for any GraphQL queries/mutations."""
+    """Base class for the classes that build a GraphQL mutation and its variables."""
 
-    mutation: Optional[str] = None
-    mutation_res_query: Optional[str] = None
+    # The fields the mutation selects unless `response_query` is given
+    default_response_query: str | None = None
+    # The same, set on a subclass or instance the way it was before 6.0.0
+    mutation_res_query: str | None = None
+    # A subclass's own mutation, as before 6.0.0: a template whose `{query}`
+    # is replaced with the response fields
+    mutation: str | None = None
 
-    def get_mutation(self):
-        if self.mutation and self.mutation_res_query:
-            return self.mutation.format(query=self.mutation_res_query)
-        return self.mutation
+    def get_mutation(self, response_query: str | None = None) -> str:
+        """The mutation to send, selecting `response_query` or the default fields."""
+        if self.mutation is None:
+            raise NotImplementedError
+        return self.mutation.format(query=self.response_fields(response_query) or "")
 
-    def create_payload(self):
-        if not self.mutation:
-            raise ValueError(
-                "`mutation` property must be set on the inheriting class level"
-            )
-        raise NotImplementedError()
+    def response_fields(self, response_query: str | None = None) -> str | None:
+        """The selection to put after the mutation, in braces whether given with them or not."""
+        return selection(
+            response_query or self.mutation_res_query or self.default_response_query
+        )
+
+    def create_payload(self) -> Any:
+        """The model whose dump is the mutation's variables."""
+        raise NotImplementedError

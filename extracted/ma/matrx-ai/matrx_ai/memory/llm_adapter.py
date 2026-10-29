@@ -92,7 +92,17 @@ def _extract_response_text(response: Any) -> str:
 #: (``UnifiedAIClient._dispatch_with_billing_net``) — classifier-aware, a billing
 #: refusal is never retried. Neither runner has a retry loop for a provider
 #: failure of its own (the Observer's retry is for unusable OUTPUT). CAPS.
-MEMORY_TRANSIENT_RETRIES = 2
+MEMORY_TRANSIENT_RETRIES_KEY = "llm_transient_retries"
+#: KNOB MIRROR of platform.feature_knob "agents.memory" "llm_transient_retries"
+MEMORY_TRANSIENT_RETRIES_MIRROR = 2
+
+
+def memory_transient_retries() -> int:
+    """The retries a memory LLM call gets on a passing provider error, live (``agents.memory``)."""
+    from matrx_ai.knobs import package_knob_number
+
+    return package_knob_number("agents.memory", MEMORY_TRANSIENT_RETRIES_KEY, MEMORY_TRANSIENT_RETRIES_MIRROR,
+                               low=0, high=10)
 
 
 class MemoryLLMAdapter:
@@ -215,7 +225,7 @@ class MemoryLLMAdapter:
 
         try:
             response = await client.execute(
-                request, transient_retries=MEMORY_TRANSIENT_RETRIES
+                request, transient_retries=memory_transient_retries()
             )
             text_out = _extract_response_text(response)
             usage = getattr(response, "usage", None)

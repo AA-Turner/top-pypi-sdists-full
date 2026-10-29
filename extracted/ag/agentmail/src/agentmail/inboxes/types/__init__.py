@@ -14,10 +14,12 @@ if typing.TYPE_CHECKING:
     from .email import Email
     from .inbox import Inbox
     from .inbox_id import InboxId
+    from .inbox_signature import InboxSignature
     from .inbox_status import InboxStatus
     from .list_inboxes_response import ListInboxesResponse
     from .metadata import Metadata
     from .metadata_value import MetadataValue
+    from .pause_at import PauseAt
     from .search_inboxes_response import SearchInboxesResponse
     from .update_inbox_request import UpdateInboxRequest
     from .update_metadata import UpdateMetadata
@@ -30,10 +32,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Email": ".email",
     "Inbox": ".inbox",
     "InboxId": ".inbox_id",
+    "InboxSignature": ".inbox_signature",
     "InboxStatus": ".inbox_status",
     "ListInboxesResponse": ".list_inboxes_response",
     "Metadata": ".metadata",
     "MetadataValue": ".metadata_value",
+    "PauseAt": ".pause_at",
     "SearchInboxesResponse": ".search_inboxes_response",
     "UpdateInboxRequest": ".update_inbox_request",
     "UpdateMetadata": ".update_metadata",
@@ -70,10 +74,12 @@ __all__ = [
     "Email",
     "Inbox",
     "InboxId",
+    "InboxSignature",
     "InboxStatus",
     "ListInboxesResponse",
     "Metadata",
     "MetadataValue",
+    "PauseAt",
     "SearchInboxesResponse",
     "UpdateInboxRequest",
     "UpdateMetadata",

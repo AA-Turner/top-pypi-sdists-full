@@ -20,6 +20,11 @@ class StartJobResponse(UniversalBaseModel):
     Server warnings (e.g. filename overridden from content detection). Omitted when empty.
     """
 
+    num_chunks: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Number of translation chunks the source file was split into. Present for Markdown / plain-text jobs; omitted for other formats.
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:

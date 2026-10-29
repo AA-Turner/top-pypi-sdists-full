@@ -1,5 +1,7 @@
+__lazy_modules__ = ["django.contrib.auth.models"]
+
 import logging
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
 
@@ -18,6 +20,9 @@ from .providers import (
     get_characters_character_id, get_corporations_corporation_id_members,
     post_universe_names,
 )
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -130,16 +135,16 @@ class CorpStats(models.Model):
     def mains(self) -> models.QuerySet["CorpMember"]:
         return self.members.filter(pk__in=[m.pk for m in self.members.all() if m.main_character and int(m.main_character.character_id) == int(m.character_id)])
 
-    def visible_to(self, user) -> bool:
+    def visible_to(self, user: "User") -> bool:
         return CorpStats.objects.filter(pk=self.pk).visible_to(user).exists()
 
-    def can_update(self, user) -> bool:
+    def can_update(self, user: "User") -> bool:
         return self.token.user == user or self.visible_to(user)
 
-    def corp_logo(self, size=128) -> str:
+    def corp_logo(self, size: int = 128) -> str:
         return self.corp.logo_url(size)
 
-    def alliance_logo(self, size=128) -> str:
+    def alliance_logo(self, size: int = 128) -> str:
         if self.corp.alliance:
             return self.corp.alliance.logo_url(size)
         else:
@@ -187,7 +192,7 @@ class CorpMember(models.Model):
     def registered(self) -> bool:
         return CharacterOwnership.objects.filter(character__character_id=self.character_id).exists()
 
-    def portrait_url(self, size=32) -> str:
+    def portrait_url(self, size: int = 32) -> str:
         return EveCharacter.generic_portrait_url(self.character_id, size)
 
     @property

@@ -675,7 +675,14 @@ class ProcessService(BaseService):
                         start_new_session=True,
                         preexec_fn=(_permanently_drop_child_privileges(*child_identity) if child_identity is not None else None),
                     )
-                await asyncio.to_thread(write_pid_file_with_mtime, pid_file, process.pid, time.time())
+                # Control files now live in local TMP_DIR, not the archive mount.
+                # Keep this tiny PID write and the ownership registration below
+                # in one event-loop turn: a worker thread could publish the PID
+                # before returning, letting Ctrl+C miss the still-unregistered
+                # child. Started observers also require this file to exist.
+                # Archive/log I/O remains off-loop; only this local control write
+                # must complete before signals and observers can see the hook.
+                write_pid_file_with_mtime(pid_file, process.pid, time.time())
             except (OSError, ValueError) as e:
                 # If spawn partially succeeded, shut it down before surfacing the
                 # failure as a normal ProcessCompletedEvent.

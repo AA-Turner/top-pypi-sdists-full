@@ -68,7 +68,7 @@ extern "C"
     double ki;    /**< integral gain (derived from bn, zeta, t).       */
     double integ; /**< integrator memory = running rate/freq estimate. */
     double bn;    /**< loop noise bandwidth, normalized cycles/sample.  */
-    double zeta;  /**< damping factor (0.707 = critically damped).     */
+    double zeta;  /**< damping factor (1.0 = critical; 0.707 usual).   */
     double t;     /**< update period in samples.                       */
   } dp_loop_filter_state_t;
 
@@ -147,6 +147,21 @@ extern "C"
    * @return      1 inside the domain, 0 outside it (a NaN is outside).
    */
   int dp_loop_filter_params_ok(double bn, double zeta, double t);
+
+  /**
+   * @brief The domain of a first-order FLL-assist bandwidth: `bn_fll >= 0`
+   *        with a finite gain `4 * bn_fll`.
+   *
+   * The FLL assist Costas and CarrierMpsk run beside their PLL has one gain,
+   * `k_fll = 4 * bn_fll`, and `0` means "pure PLL". A negative or NaN value
+   * would silently disable the assist while the getter reports it, and an
+   * infinite one drives the loop integrator to inf/NaN, so both objects'
+   * create() and set_bn_fll() refuse outside this predicate (doppler#2646).
+   *
+   * @param bn_fll  FLL-assist bandwidth, normalized to the symbol rate.
+   * @return        1 inside the domain, 0 outside it (a NaN is outside).
+   */
+  int dp_loop_filter_fll_bn_ok(double bn_fll);
 
   /**
    * @brief Whether a stored filter is one a live filter could hold.
@@ -252,14 +267,31 @@ extern "C"
    * Whole-struct POD snapshot (pointer-free); config fields restore identically
    * into an identically-built instance, the integrator memory resumes exactly.
    */
+  /** State-blob magic ("LPFL") checked by dp_loop_filter_set_state(). */
 #define LOOP_FILTER_STATE_MAGIC DP_FOURCC('L', 'P', 'F', 'L')
+  /** State-blob layout version; bumped whenever the struct layout changes. */
 #define LOOP_FILTER_STATE_VERSION 1u
 
-  /** @brief Serialized-state byte size. */
+  /** @brief Serialized-state byte size.
+   *  @param state Filter state (unused: the size is fixed).
+   *  @return sizeof(dp_state_hdr_t) + sizeof(dp_loop_filter_state_t). */
   size_t dp_loop_filter_state_bytes(const dp_loop_filter_state_t *state);
-  /** @brief Serialize the loop state into @p blob. */
+  /** @brief Serialize the loop state into @p blob.
+   *  Writes the whole struct: gains, integrator, bn, zeta and t.
+   *  @param state Filter state. Must be non-NULL.
+   *  @param[out] blob  At least dp_loop_filter_state_bytes() bytes. */
   void dp_loop_filter_get_state(const dp_loop_filter_state_t *state, void *blob);
-  /** @brief Restore state; DP_OK, or DP_ERR_INVALID if the envelope rejects. */
+  /** @brief Restore state; DP_OK, or DP_ERR_INVALID if the blob is refused.
+   *  The envelope (magic, version, endianness, size) is checked, then the
+   *  payload is decoded into a temporary and accepted only when
+   *  dp_loop_filter_state_ok() accepts it -- the gains, bn, zeta and t that
+   *  create() would refuse are refused (doppler#2641). The integrator is
+   *  not checked: a NaN in it is garbage in (doppler#2128). An accepted
+   *  payload is copied over the whole struct.
+   *  @param state Filter state to overwrite. Must be non-NULL.
+   *  @param[in] blob  Blob from dp_loop_filter_get_state().
+   *  @return DP_OK, or DP_ERR_INVALID on an envelope mismatch or a payload
+   *          dp_loop_filter_state_ok() refuses (and @p state is unchanged). */
   int dp_loop_filter_set_state(dp_loop_filter_state_t *state, const void *blob);
 
   /**

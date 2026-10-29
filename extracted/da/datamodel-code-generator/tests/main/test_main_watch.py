@@ -9,6 +9,7 @@ import subprocess
 import sys
 import threading
 import time
+from contextlib import suppress
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import import_module
@@ -41,6 +42,7 @@ PROJECT_ROOT = Path(__file__).parents[2]
 PACKAGE_ROOT = Path(datamodel_code_generator.__file__).parent
 WATCH_DATA_PATH = PROJECT_ROOT / "tests/data/watch"
 WATCH_CLI_TIMEOUT_SECONDS = 15.0
+WATCH_CLI_STARTUP_TIMEOUT_SECONDS = 120.0
 WATCH_CLI_STOP_TIMEOUT_SECONDS = 5.0
 WATCH_CLI_READY_DELAY_SECONDS = 0.3
 WATCH_CLI_CHANGE_RETRY_SECONDS = 0.75
@@ -260,9 +262,16 @@ def _wait_for_watch_cli(
     stderr_lines: list[str],
     condition: Callable[[], bool],
     description: str,
+    *,
+    timeout: float = WATCH_CLI_TIMEOUT_SECONDS,
 ) -> None:
-    deadline = time.monotonic() + WATCH_CLI_TIMEOUT_SECONDS
-    while time.monotonic() < deadline:
+    """Wait until the condition holds, failing when the process exits first or ``timeout`` seconds pass.
+
+    The default bounds a reaction of the watcher. The start waits ``WATCH_CLI_STARTUP_TIMEOUT_SECONDS``: it covers the
+    process's initial generation, whose first run under the coverage tracer takes seconds on a loaded runner.
+    """
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
         if condition():
             return
         if (return_code := process.poll()) is not None:
@@ -283,19 +292,29 @@ def _write_watch_cli_input_and_wait(
     condition: Callable[[], bool],
     description: str,
 ) -> None:
+    """Replace the watched file with the content and wait for the condition, touching it again while it is unmet.
+
+    Windows refuses to replace a file while the watch process has it open for reading, which only means the watcher is
+    still reading the previous version: the replacement is retried on each poll of the wait, within its timeout.
+    """
     pending_input = input_file.with_name(f".{input_file.name}.pending")
     pending_input.write_text(content, encoding="utf-8")
-    pending_input.replace(input_file)
     last_write = time.monotonic()
+    replaced = False
 
     def condition_after_write() -> bool:
-        nonlocal last_write
+        nonlocal last_write, replaced
 
-        if condition():
+        if not replaced:
+            with suppress(PermissionError):
+                pending_input.replace(input_file)
+                replaced = True
+                last_write = time.monotonic()
+        if replaced and condition():
             return True
 
         now = time.monotonic()
-        if now - last_write >= WATCH_CLI_CHANGE_RETRY_SECONDS:
+        if replaced and now - last_write >= WATCH_CLI_CHANGE_RETRY_SECONDS:
             input_file.touch()
             last_write = now
         return False
@@ -407,6 +426,7 @@ def _wait_for_watch_cli_ready(
             stderr_lines,
             lambda: _lines_contain(stdout_lines, "Watching "),
             "watch mode to start",
+            timeout=WATCH_CLI_STARTUP_TIMEOUT_SECONDS,
         )
         time.sleep(WATCH_CLI_READY_DELAY_SECONDS)
     except BaseException:
@@ -654,11 +674,14 @@ def test_start_watch_cli_until_ready_stops_process_on_start_failure(
         stderr_lines: list[str],
         condition: Callable[[], bool],
         description: str,
+        *,
+        timeout: float,
     ) -> None:
         assert process_ is process
         assert not stdout_lines
         assert not stderr_lines
         assert description == "watch mode to start"
+        assert timeout == WATCH_CLI_STARTUP_TIMEOUT_SECONDS
         assert not condition()
         raise KeyboardInterrupt
 

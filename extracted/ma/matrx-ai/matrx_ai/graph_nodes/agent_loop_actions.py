@@ -43,6 +43,7 @@ from matrx_ai.graph_nodes.iteration_limit import (
 )
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+    assemble_held_step_skills,
     hold_step,
 )
 from matrx_ai.graph_nodes.shared import (
@@ -274,7 +275,9 @@ async def _build_config(
         consumer="ai.agent.tool_calling",
         metadata=inputs.metadata,
     )
-    return UnifiedConfig.from_dict(held.config), held.metadata
+    config = UnifiedConfig.from_dict(held.config)
+    await assemble_held_step_skills(held, config)
+    return config, held.metadata
 
 
 async def _execute(config: Any, inputs: AgentLoopInput, metadata: dict[str, Any]) -> Any:

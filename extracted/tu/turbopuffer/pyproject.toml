@@ -1,6 +1,6 @@
 [project]
 name = "turbopuffer"
-version = "3.0.0"
+version = "3.1.0"
 description = "The official Python library for the turbopuffer API"
 dynamic = ["readme"]
 license = "MIT"
@@ -138,7 +138,9 @@ pythonVersion = "3.11"
 
 exclude = [
     "tests/respx2",
-    "_dev", 
+    # Generated against `client.namespaces`, which `client.namespace(...)` replaces.
+    "tests/api_resources/test_namespaces.py",
+    "_dev",
     ".venv",
     ".nox",
     ".git",

@@ -1,12 +1,18 @@
 import asyncio
 import concurrent.futures
 import sys
-from collections.abc import AsyncIterator, Coroutine
-from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppress
+from collections.abc import AsyncIterator, Coroutine, Generator
+from contextlib import (
+    AbstractAsyncContextManager,
+    asynccontextmanager,
+    contextmanager,
+    suppress,
+)
 from functools import partial
 from typing import Any, Generic, TypeVar
 
 import structlog
+import uvicorn
 
 if sys.platform == "win32":
     _MAIN_LOOP_FACTORY = None
@@ -354,3 +360,19 @@ class AsyncQueue(Generic[T], asyncio.Queue[T]):
                     # the call.  Wake up the next in line.
                     self._wakeup_next(self._getters)
                 raise
+
+
+class NoSignalServer(uvicorn.Server):
+    """Serve until cancelled without replacing the process signal handlers."""
+
+    @contextmanager
+    def capture_signals(self) -> Generator[None, None, None]:
+        yield
+
+    async def serve(self, sockets: list | None = None) -> None:
+        try:
+            await super().serve(sockets)
+        except asyncio.CancelledError:
+            if self.started:
+                await self.shutdown(sockets)
+            raise

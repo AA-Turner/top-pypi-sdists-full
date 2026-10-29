@@ -37,6 +37,7 @@ class AudioCreationRequest(_CreationRequest):
     instructions: str | None
     audio_format: AudioFormat | None
     audio_length: AudioLength | None
+    later: bool = False
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,7 @@ class VideoCreationRequest(_CreationRequest):
     video_format: VideoFormat | None
     video_style: VideoStyle | None
     style_prompt: str | None
+    later: bool = False
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class ReportCreationRequest(_CreationRequest):
     language: str
     custom_prompt: str | None
     extra_instructions: str | None
+    later: bool = False
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,7 @@ class QuizCreationRequest(_CreationRequest):
     instructions: str | None
     quantity: QuizQuantity | None
     difficulty: QuizDifficulty | None
+    later: bool = False
 
 
 @dataclass(frozen=True)
@@ -81,6 +85,7 @@ class InfographicCreationRequest(_CreationRequest):
     orientation: InfographicOrientation | None
     detail_level: InfographicDetail | None
     style: InfographicStyle | None
+    later: bool = False
 
 
 @dataclass(frozen=True)
@@ -89,6 +94,7 @@ class SlideDeckCreationRequest(_CreationRequest):
     instructions: str | None
     slide_format: SlideDeckFormat | None
     slide_length: SlideDeckLength | None
+    later: bool = False
 
 
 @dataclass(frozen=True)

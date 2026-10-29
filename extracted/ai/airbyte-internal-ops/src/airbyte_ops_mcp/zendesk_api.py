@@ -33,6 +33,15 @@ ENV_ZENDESK_EMAIL = "ZENDESK_EMAIL"
 ENV_ZENDESK_API_TOKEN = "ZENDESK_API_TOKEN"
 """Environment variable holding the Zendesk API token."""
 
+TCM_TOTAL_SCORE_FIELD_ID = 57818704759195
+"""Zendesk custom field ID for the TCM total score."""
+
+TCM_TOTAL_SCORE_MIN = 0
+"""Minimum allowed TCM total score."""
+
+TCM_TOTAL_SCORE_MAX = 25
+"""Maximum allowed TCM total score."""
+
 _REQUEST_TIMEOUT_SECONDS = 30
 
 # Zendesk caps comment pages at 100 records per page.
@@ -44,6 +53,16 @@ _SAFE_ERROR_SUMMARY_TOKEN = re.compile(r"[A-Za-z0-9_.]+")
 
 class ZendeskAPIError(Exception):
     """Raised when a Zendesk API call fails or credentials are missing."""
+
+
+class ZendeskTcmScoreConflictError(ZendeskAPIError):
+    """Raised when the TCM total score field already holds a different value."""
+
+    def __init__(self, ticket_id: int | str, current: int) -> None:
+        super().__init__(
+            f"Zendesk ticket {ticket_id} already has TCM total score {current}."
+        )
+        self.current = current
 
 
 class ZendeskCredentials:
@@ -526,6 +545,90 @@ def add_ticket_tags(
             f"Zendesk ticket {ticket_id} tags response missing a `tags` list."
         )
     return [tag for tag in result_tags if isinstance(tag, str)]
+
+
+def _normalize_tcm_total_score(value: Any) -> int | None:
+    """Normalize a Zendesk number-field value."""
+    if value is None or value == "":
+        return None
+    try:
+        return int(str(value))
+    except ValueError as exc:
+        raise ZendeskAPIError(
+            "Zendesk returned an invalid TCM total score value."
+        ) from exc
+
+
+def set_ticket_tcm_total_score(
+    ticket_id: int | str,
+    total: int,
+    *,
+    overwrite: bool = False,
+    credentials: ZendeskCredentials | None = None,
+) -> tuple[int | None, bool]:
+    """Set only the TCM total score field on a Solved ticket.
+
+    Returns the previous normalized value and whether an update was made.
+    """
+    if isinstance(total, bool) or not isinstance(total, int):
+        raise ZendeskAPIError("TCM total score must be an integer from 0 to 25.")
+    if not TCM_TOTAL_SCORE_MIN <= total <= TCM_TOTAL_SCORE_MAX:
+        raise ZendeskAPIError("TCM total score must be an integer from 0 to 25.")
+
+    credentials = credentials or resolve_zendesk_credentials()
+    ticket = get_ticket(ticket_id, credentials)
+    status = ticket.get("status")
+    if status == "closed":
+        raise ZendeskAPIError("Zendesk doesn't allow edits to Closed tickets.")
+    if status != "solved":
+        raise ZendeskAPIError("Only Solved tickets are scored and written.")
+
+    custom_fields = ticket.get("custom_fields", []) or []
+    score_field = next(
+        (
+            field
+            for field in custom_fields
+            if isinstance(field, dict) and field.get("id") == TCM_TOTAL_SCORE_FIELD_ID
+        ),
+        {},
+    )
+    current = _normalize_tcm_total_score(score_field.get("value"))
+    if current == total:
+        return current, False
+    if current is not None and not overwrite:
+        raise ZendeskTcmScoreConflictError(ticket_id, current)
+
+    data = _put(
+        credentials,
+        f"/tickets/{ticket_id}.json",
+        {
+            "ticket": {
+                "custom_fields": [{"id": TCM_TOTAL_SCORE_FIELD_ID, "value": total}],
+                "safe_update": True,
+                "updated_stamp": ticket["updated_at"],
+            }
+        },
+    )
+    updated_ticket = data.get("ticket")
+    if not isinstance(updated_ticket, dict):
+        raise ZendeskAPIError(
+            f"Zendesk ticket {ticket_id} update response missing a `ticket` object."
+        )
+    updated_fields = updated_ticket.get("custom_fields", []) or []
+    updated_score_field = next(
+        (
+            field
+            for field in updated_fields
+            if isinstance(field, dict) and field.get("id") == TCM_TOTAL_SCORE_FIELD_ID
+        ),
+        {},
+    )
+    updated_value = _normalize_tcm_total_score(updated_score_field.get("value"))
+    if updated_value != total:
+        raise ZendeskAPIError(
+            f"Zendesk did not save the requested TCM total score for ticket {ticket_id}."
+        )
+    return current, True
 
 
 def set_ticket_email_ccs(

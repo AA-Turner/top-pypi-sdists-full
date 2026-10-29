@@ -90,8 +90,8 @@ def enqueue(coverage: Coverage, client, folder: Path, *, paths=None) -> tuple[in
             previous = client.delivery_state(correlation)
             common = {"correlation": correlation, "anchor": Anchor.PROJECT,
                       "anchor_id": row["project_id"], "name": intent["artifact_name"],
-                      # No manifest "notes": files carry none. The draft
-                      # reads them from coverage (`backfill_reconstruction._note`).
+                      # No manifest "notes": files carry none. The record
+                      # pass reads them from coverage (`backfill_record._note`).
                       "content_type": mimetypes.guess_type(row["path"])[0],
                       "meta": {"backfill": {"schema": "2", "source_id": coverage.source_id,
                                              "relative_path": row["path"],

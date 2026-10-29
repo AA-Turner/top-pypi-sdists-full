@@ -305,14 +305,51 @@ def get_existence_constraints_for_relationship_type(
 def enrich_key_constraints_for_node_type(
     schema: Optional[GraphSchema], node_label: str
 ) -> list[tuple[str, ...]]:
-    """KEY constraint groups for export metadata, ensuring a single-property KEY exists.
+    """KEY constraint groups for export metadata.
 
-    If the schema has no single-property KEY for this label (including no KEY at all,
-    or only composite KEYs), appends a synthetic ``("__id__",)`` group so downstream
-    import specs always see at least one single-property KEY per node type.
+    When the schema already declares any KEY for this label (single-property or
+    composite), return those groups unchanged. Only when there is **no** KEY at
+    all, append a synthetic ``("__id__",)`` group so keyless labels still have
+    one KEY for downstream import specs.
+
+    Relationship ``from``/``to`` joins still use
+    :func:`get_relationship_join_key_property_name` (first single-property KEY,
+    else ``__id__``). When joins use ``__id__`` but a semantic KEY already exists,
+    :func:`enrich_uniqueness_constraints_for_node_type` adds ``UNIQUENESS(__id__)``
+    so Data Importer node-reference validation (DANG-023) still passes without a
+    second KEY (which would cause Neo4j 22N41 on re-import).
     """
     base = get_key_constraints_for_node_type(schema, node_label)
-    if _first_single_property_key_name_from_groups(base) is not None:
+    if base:
+        return base
+    return [(INTERNAL_ID_PROPERTY,)]
+
+
+def _has_single_property_group(
+    groups: list[tuple[str, ...]], property_name: str
+) -> bool:
+    return any(len(t) == 1 and t[0] == property_name for t in groups)
+
+
+def enrich_uniqueness_constraints_for_node_type(
+    schema: Optional[GraphSchema], node_label: str
+) -> list[tuple[str, ...]]:
+    """UNIQUENESS constraint groups for export metadata.
+
+    Starts from schema UNIQUENESS constraints. When relationship joins use
+    ``__id__`` (no single-property KEY) but enrichment did **not** emit
+    ``KEY(__id__)`` because a semantic KEY already exists, append
+    ``UNIQUENESS(__id__)`` if missing. Data Importer requires the join property
+    to be covered by a KEY or UNIQUENESS constraint (DANG-023).
+    """
+    base = get_uniqueness_constraints_for_node_type(schema, node_label)
+    join = get_relationship_join_key_property_name(schema, node_label)
+    if join != INTERNAL_ID_PROPERTY:
+        return base
+    enriched_keys = enrich_key_constraints_for_node_type(schema, node_label)
+    if _has_single_property_group(enriched_keys, INTERNAL_ID_PROPERTY):
+        return base
+    if _has_single_property_group(base, INTERNAL_ID_PROPERTY):
         return base
     return [*base, (INTERNAL_ID_PROPERTY,)]
 
@@ -333,10 +370,10 @@ def get_relationship_join_key_property_name(
     """Property used in relationship Parquet ``from``/``to`` and endpoint metadata.
 
     Returns the first **single-property** KEY from the schema for this label; if none,
-    returns ``__id__`` (internal node id in row values). Independent of
-    :func:`enrich_key_constraints_for_node_type` ordering, but aligned with it:
-    when the schema has no single-property KEY, the join key is ``__id__`` and
-    enrichment adds a KEY on ``__id__``.
+    returns ``__id__`` (internal node id in row values). When the join is ``__id__``
+    and a semantic KEY already exists, export metadata keeps that KEY and adds
+    ``UNIQUENESS(__id__)`` via :func:`enrich_uniqueness_constraints_for_node_type`
+    rather than a second ``KEY(__id__)``.
     """
     base = get_key_constraints_for_node_type(schema, node_label)
     name = _first_single_property_key_name_from_groups(base)
@@ -710,10 +747,19 @@ class Neo4jGraphParquetFormatter:
         detects those mismatches and coerces:
         - {int, float} -> float  (lossless numeric promotion)
         - anything else mixed -> str  (universal safe fallback)
-        """
-        if len(rows) <= 1:
-            return
 
+        List values need a second look. ``["1998"]`` and ``[1998]`` are both
+        ``list`` at the top level, so the column is invisible to the check above
+        and PyArrow locks ``list<string>`` from the first sample. int/float
+        element mixes are left alone (``format_parquet`` promotes those to
+        ``list<float32>``). Any other element mix is written as strings.
+        """
+        Neo4jGraphParquetFormatter._coerce_mixed_scalar_columns(rows)
+        Neo4jGraphParquetFormatter._coerce_mixed_list_elements(rows)
+
+    @staticmethod
+    def _coerce_mixed_scalar_columns(rows: list[dict[str, Any]]) -> None:
+        """Coerce columns whose values disagree at the top-level Python type."""
         col_types: dict[str, set[type]] = defaultdict(set)
         for row in rows:
             for key, value in row.items():
@@ -740,6 +786,35 @@ class Neo4jGraphParquetFormatter:
                         row[col] = target_type(row[col])
                     except (ValueError, TypeError):
                         row[col] = str(row[col])
+
+    @staticmethod
+    def _coerce_mixed_list_elements(rows: list[dict[str, Any]]) -> None:
+        """Stringify list elements when one column mixes types PyArrow cannot store."""
+        columns: dict[str, list[list[Any]]] = defaultdict(list)
+        for row in rows:
+            for key, value in row.items():
+                if isinstance(value, list):
+                    columns[key].append(value)
+        for col, lists in columns.items():
+            element_types: set[type] = {
+                type(element)
+                for values in lists
+                for element in values
+                if element is not None
+            }
+            if len(element_types) <= 1 or element_types <= {int, float}:
+                continue
+            logger.warning(
+                "Mixed list element types for property '%s': %s — coercing elements to str",
+                col,
+                {t.__name__ for t in element_types},
+            )
+            for row in rows:
+                value = row.get(col)
+                if isinstance(value, list):
+                    row[col] = [
+                        None if element is None else str(element) for element in value
+                    ]
 
     @staticmethod
     def _serialize_geopoint_values(rows: list[dict[str, Any]]) -> set[str]:
@@ -903,6 +978,9 @@ class Neo4jGraphParquetFormatter:
                 labels_list.append("__Entity__")
 
             enriched_keys = enrich_key_constraints_for_node_type(self.schema, label)
+            enriched_uniques = enrich_uniqueness_constraints_for_node_type(
+                self.schema, label
+            )
             dims_for_label = label_to_embedding_dims.get(label, {})
             indexes_meta: Optional[list[dict[str, Any]]] = (
                 [
@@ -922,13 +1000,11 @@ class Neo4jGraphParquetFormatter:
                     primary_key_property_names=flatten_key_constraint_property_names(
                         enriched_keys
                     ),
-                    uniqueness_property_names=get_uniqueness_property_names_for_node_type(
-                        self.schema, label
+                    uniqueness_property_names=flatten_key_constraint_property_names(
+                        enriched_uniques
                     ),
                     key_constraints=enriched_keys,
-                    uniqueness_constraints=get_uniqueness_constraints_for_node_type(
-                        self.schema, label
-                    ),
+                    uniqueness_constraints=enriched_uniques,
                     existence_constraints=get_existence_constraints_for_node_type(
                         self.schema, label
                     ),

@@ -34,18 +34,18 @@ from cozy_runtime.author._loader import (
 )
 from cozy_runtime.author._model import PLACED, LoRAServing
 from cozy_runtime.internal import execution, lora_bake
+from cozy_runtime.internal.accel import ResidencyError, StaleBinding
 from cozy_runtime.internal.derive import placing
-from cozy_runtime.internal.encoding import (
-    TORCH_DTYPES,
+from cozy_runtime.internal.encoding.formats import TORCH_DTYPES, LeafProvider
+from cozy_runtime.internal.encoding.leaves import sites as leaf_sites
+from cozy_runtime.internal.encoding.selection import (
     DeviceFacts,
-    LeafProvider,
     Selection,
     admit,
     device_line,
     implementation_digest,
     launch_providers,
 )
-from cozy_runtime.internal.encoding.leaves import sites as leaf_sites
 from cozy_runtime.internal.fill import (
     Checkpoint,
     PlanRow,
@@ -66,8 +66,6 @@ from cozy_runtime.internal.residency import (
     Model,
     Region,
     Request,
-    ResidencyError,
-    StaleBinding,
     TensorLayout,
     Weights,
     blocks_of,
@@ -540,6 +538,8 @@ class _Routes:
     releases its decoded storage too; active scopes and graph bindings keep their own owners.
     """
 
+    encoded = True
+
     def __init__(self, backend: Backend, rows: Mapping[str, PlanRow]) -> None:
         self.torch = backend.torch
         self.rows = dict(rows)
@@ -651,6 +651,8 @@ class _Routes:
 
 class _PlainDtype:
     """An immutable cast of ordinary stored values into managed final buffers."""
+
+    encoded = False
 
     def __init__(self, base: _Routes, dtype: str) -> None:
         if any(route != "verbatim" for route in base.routes.values()):
@@ -898,15 +900,18 @@ class _Bakes:
         return tuple(self._delta(hook) for hook in hooks)
 
     def _delta(self, hook: LoRASource) -> object:
-        """One hook's armed delta by its content: its factors' model and path, dtypes and scale.
-        Factors no loaded model holds have no name: a fresh object, equal to no other."""
+        """One hook's armed delta by its content: its factors' checkpoint and component (not the
+        package that loaded them: a published package and its source installed locally bake the
+        same bytes), path, dtypes and scale. Factors no loaded model holds have no name: a fresh
+        object, equal to no other."""
         got = hook.lora_factors()
         if got is None:
             return None
         named = self.owner(got[0])
         if named is None:
             return object()
-        return (named[0].name, named[1], str(got[1].dtype), str(got[2].dtype), repr(float(got[3])))
+        model, path = named
+        return (model.content, path, str(got[1].dtype), str(got[2].dtype), repr(float(got[3])))
 
     def _described(self, *, armed: bool) -> str | None:
         """`identity`, or with `armed` each hook's armed delta too: what seeds a bake's rounding."""
@@ -1052,8 +1057,8 @@ class Placement:
         pages (S3). A component with no free room binds per block."""
         entering = {name for name in components if name in self.models}
         self.release(keep=entering.union(*(s for s in self.steps if s & entering)))
-        for name in sorted(entering):  # graphs of another fill go before this one binds
-            graphs.retire_stale(self.torch, self.models[name].module)
+        # Graphs of another fill go before this one binds.
+        graphs.retire_stale(self.torch, *(self.models[name].module for name in sorted(entering)))
         stream = self.torch.cuda.current_stream() if self.memory.cuda else None
         for name in sorted(entering - self.holds.keys() - self.unheld):
             shed = functools.partial(self._shed, name)

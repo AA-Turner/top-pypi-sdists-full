@@ -6,11 +6,11 @@ from django.conf import settings
 class DiscourseAPIClient:
     _client = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @property
-    def client(self):
+    def client(self) -> DiscourseClient:
         if not self._client:
             self._client = DiscourseClient(
                                 settings.DISCOURSE_URL,

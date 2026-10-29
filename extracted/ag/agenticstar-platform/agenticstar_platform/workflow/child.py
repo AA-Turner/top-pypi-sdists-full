@@ -5,6 +5,8 @@ stdout / stderr は Agent の通常出力（本文は制御チャネルに混ざ
 例外は既定でクラス名だけを stderr に出す（本文 / token を Pod ログへ写さない）。`ASTER_WORKFLOW_DEBUG_TRACEBACK=1` で全文。
 クラス名の後ろに、原因の連鎖（クラス名・SDK の error_code / HTTP status・通信先のホスト名だけ）を 1 行で添える
 （devdocs 3.2req reviews 06: `SecurityAPIError` だけでは、egress のサイドカーの 503 か Azure の障害かが分からなかった）。
+同じ原因の連鎖は done の `failure_summary` で runner に渡し、終了時の報告（envelope の `completion_report.comment`）にも載る
+（3.2.1。`ASTER_WORKFLOW_DEBUG_TRACEBACK=1` でも報告に載るのは連鎖だけで、traceback は載せない）。
 """
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ import asyncio
 import importlib
 import json
 import os
+import re
 import sys
 import traceback
 
@@ -19,6 +22,7 @@ from .context import WorkflowContext, _Ipc
 
 
 _MAX_CAUSES = 5
+_ERROR_CODE_RE = re.compile(r"[A-Z][A-Z0-9_]{0,63}")   # SDK の error_code の語の形 (REQUEST_ERROR など)
 
 
 def _safe_failure_summary(exc: BaseException) -> str:
@@ -49,9 +53,10 @@ def _failure_chain(exc: BaseException) -> str:
 def _describe_exception(exc: BaseException) -> str:
     """例外 1 件を ``クラス名(error_code=..., status=..., host=...)`` にする (出せる属性が無ければクラス名だけ)。"""
     attrs = []
-    # error_code は SDK 自身の例外 (SDK が決まった語を入れる) のときだけ。Agent の例外の属性は文言と同じ扱いで出さない
+    # error_code は SDK 自身の例外 (SDK が決まった語を入れる) のときだけ。Agent の例外の属性は文言と同じ扱いで出さない。
+    # SDK の例外クラスを Agent が自分の値で作ることもあるので、SDK の語の形 (大文字の snake_case) に合うものだけ出す
     code = _attr(exc, "error_code") if type(exc).__module__.startswith("agenticstar_platform.") else None
-    if isinstance(code, str) and code.isidentifier():
+    if isinstance(code, str) and _ERROR_CODE_RE.fullmatch(code):
         attrs.append(f"error_code={code}")
     status = _attr(exc, "status_code")
     if isinstance(status, int) and not isinstance(status, bool):
@@ -120,11 +125,12 @@ async def _main() -> int:
         if asyncio.iscoroutine(result):
             await result
     except Exception as e:  # noqa: BLE001
+        summary = _safe_failure_summary(e)
         if os.environ.get("ASTER_WORKFLOW_DEBUG_TRACEBACK") == "1":
             traceback.print_exc(file=sys.stderr)
         else:
-            sys.stderr.write(f"agent entrypoint failed: {type(e).__name__} [{_safe_failure_summary(e)}]\n")
-        await ipc.call("done", status="error", error_class=type(e).__name__)
+            sys.stderr.write(f"agent entrypoint failed: {type(e).__name__} [{summary}]\n")
+        await ipc.call("done", status="error", error_class=type(e).__name__, failure_summary=summary)
         return 1
     await ipc.call("done", status="ok")
     return 0

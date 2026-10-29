@@ -63,8 +63,13 @@ class AiTurnFailedError(RuntimeError):
 # CompletedRequest.metadata statuses that mean "the turn did not do its job".
 # ``truncated`` is deliberately NOT here — a truncated turn carries real
 # content and matches the chat path's behavior of returning it.
+# ``suspended_provider_overload`` IS: the provider stayed overloaded through
+# every retry, so there is no answer. A chat parks it for a person's Retry; a
+# programmatic caller has nobody to press it. Before 2026-10-27 the turn fell
+# through to "the last message" — the caller's OWN prompt — as final_text, the
+# step succeeded, and run once per key stored that echo for reuse (run 477536f8).
 _FAILURE_STATUSES: frozenset[str] = frozenset(
-    {"failed", "paused_loop_guard", "max_iterations_exceeded"}
+    {"failed", "paused_loop_guard", "max_iterations_exceeded", "suspended_provider_overload"}
 )
 
 #: The two of those that mean "a tool loop stalled" — a pause designed for a
@@ -435,7 +440,11 @@ def _caller_refusal_details(completed: Any, meta: dict[str, Any]) -> dict[str, A
     if not (is_caller_refusal(terminal) or is_caller_refusal(error_type)):
         return {}
     out: dict[str, Any] = {CALLER_REFUSAL_KEY: True, "refusal_code": error_type}
-    envelope = getattr(terminal, "envelope", None)
+    # The refusal itself, even when a client layer re-raised it wrapped: its envelope carries the
+    # approval link, which a person needs to approve the spend (2026-10-27 review).
+    from matrx_ai.providers.run_approval_gate import run_approval_refusal_in
+
+    envelope = getattr(run_approval_refusal_in(terminal) or terminal, "envelope", None)
     if callable(envelope):
         try:
             env = envelope()

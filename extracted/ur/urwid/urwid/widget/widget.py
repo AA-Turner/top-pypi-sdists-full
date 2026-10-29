@@ -27,13 +27,12 @@ import functools
 import logging
 import typing
 import warnings
-from operator import attrgetter
+from operator import attrgetter, index
 
-from urwid import signals
+from urwid import _deprecation, signals
 from urwid.canvas import Canvas, CanvasCache, CompositeCanvas
 from urwid.command_map import command_map
 from urwid.split_repr import split_repr
-from urwid.util import MetaSuper
 
 from .constants import Sizing
 
@@ -68,10 +67,9 @@ LOGGER = logging.getLogger(__name__)
 class WidgetMeta(
     signals.MetaSignals,
     type(typing.Protocol),  # type: ignore[misc]  # hack: _ProtocolMeta is private, but need to subclass protocols
-    MetaSuper,
 ):
     """
-    Bases: :class:`MetaSuper`, :class:`MetaSignals`.
+    Bases: :class:`MetaSignals`.
 
     Automatic caching of render and rows methods.
 
@@ -93,15 +91,17 @@ class WidgetMeta(
 
         super().__init__(name, bases, d)
 
+        # setattr() rather than `cls.render = ...`: Pyright reads an assignment to `cls` in a metaclass as a declaration
+        # of that attribute on every widget, with the wrapper's Callable type, which is not bound to the instance.
         if "render" in d:
             if "render" not in no_cache:
                 render_fn = cache_widget_render(cls)
             else:
                 render_fn = nocache_widget_render(cls)
-            cls.render = render_fn
+            setattr(cls, "render", render_fn)  # noqa: B010  # see the comment above
 
         if "rows" in d and "rows" not in no_cache:
-            cls.rows = cache_widget_rows(cls)
+            setattr(cls, "rows", cache_widget_rows(cls))  # noqa: B010  # see the comment above
         if "no_cache" in d:
             del cls.no_cache
         if "ignore_focus" in d:
@@ -335,7 +335,7 @@ def cache_widget_render(
 ) -> Callable[[AbstractWidget, tuple[()] | tuple[int] | tuple[int, int], bool], Canvas]:
     """Return a function that wraps the cls.render() method and fetches and stores canvases with CanvasCache."""
     ignore_focus = bool(getattr(cls, "ignore_focus", False))
-    fn = cls.render
+    fn: Callable[..., Canvas] = cls.render
 
     @functools.wraps(fn)
     def cached_render(
@@ -348,7 +348,7 @@ def cache_widget_render(
         if canv := CanvasCache.fetch(self, cls, size, focus):
             return canv
 
-        canv = fn(self, size, focus=focus)  # type: ignore[call-arg]
+        canv = fn(self, size, focus=focus)
         validate_size(self, size, canv)
         if canv.widget_info:
             canv = CompositeCanvas(canv)
@@ -364,7 +364,7 @@ def nocache_widget_render(
     cls: WidgetMeta,
 ) -> Callable[[AbstractWidget, tuple[()] | tuple[int] | tuple[int, int], bool], Canvas]:
     """Return a function that wraps the cls.render() method and finalizes the canvas that it returns."""
-    fn = cls.render
+    fn: Callable[..., Canvas] = cls.render
     if hasattr(fn, "original_fn"):
         fn = fn.original_fn
 
@@ -374,7 +374,7 @@ def nocache_widget_render(
         size: tuple[()] | tuple[int] | tuple[int, int],
         focus: bool = False,
     ) -> Canvas:
-        canv = fn(self, size, focus=focus)  # type: ignore[call-arg]
+        canv = fn(self, size, focus=focus)
         if canv.widget_info:
             canv = CompositeCanvas(canv)
         validate_size(self, size, canv)
@@ -409,7 +409,7 @@ def nocache_widget_render_instance(
 def cache_widget_rows(cls: WidgetMeta) -> Callable[[AbstractWidget, tuple[int], bool], int]:
     """Return a function that wraps the cls.rows() method and returns rows from the CanvasCache if available."""
     ignore_focus = bool(getattr(cls, "ignore_focus", False))
-    fn = cls.rows
+    fn: Callable[..., int] = cls.rows
 
     @functools.wraps(fn)
     def cached_rows(
@@ -540,6 +540,15 @@ class Widget(AbstractWidget, metaclass=WidgetMeta):
     def __init__(self) -> None:
         """Initialize a logger scoped to the concrete widget subclass."""
         self.logger = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
+
+    def __reduce_ex__(self, protocol: typing.SupportsIndex, /) -> str | tuple[typing.Any, ...]:
+        """Reduce the widget as pickle protocol 2 does, whatever the protocol.
+
+        Protocols 0 and 1 rebuild an object from the first of its bases that is not a heap type.
+        GraalPy implements :class:`typing.Generic` as such a base, so it is chosen there and cannot build the widget.
+        A subclass with its own ``__reduce__`` keeps it.
+        """
+        return super().__reduce_ex__(max(index(protocol), 2))
 
     def _invalidate(self) -> None:
         """Mark cached canvases rendered by this widget as dirty so that they will not be used again."""
@@ -709,7 +718,8 @@ class Widget(AbstractWidget, metaclass=WidgetMeta):
 
         :param size: See :meth:`Widget.render` for details
         :param key: a single keystroke value; see :ref:`keyboard-input`
-        :return: ``None`` if *key* was handled by *key* (the same value passed) if *key* was not handled
+        :returns: ``None`` if *key* was handled, *key* (the same value passed) if it was not handled
+        :warns WidgetWarning: the widget is not selectable and its class did not call ``super().__init__()``.
         """
         if not self.selectable():
             if hasattr(self, "logger"):
@@ -743,7 +753,8 @@ class Widget(AbstractWidget, metaclass=WidgetMeta):
         :param col: Column of the event, 0 is the left edge of this widget
         :param row: Row of the event, 0 it the top row of this widget
         :param focus: Set to ``True`` if this widget or one of its children is in focus
-        :return: ``True`` if the event was handled by this widget, ``False`` otherwise
+        :returns: ``True`` if the event was handled by this widget, ``False`` otherwise
+        :warns WidgetWarning: the widget is not selectable and its class did not call ``super().__init__()``.
         """
         if not self.selectable():
             if hasattr(self, "logger"):
@@ -815,10 +826,116 @@ def fixed_size(size: tuple[()]) -> None:
         raise ValueError(f"FixedWidget takes only () for size.passed: {size!r}")
 
 
+if typing.TYPE_CHECKING:
+
+    class _DelegateToWidgetMixin(Widget):
+        """Checker-only view of the class delegate_to_widget_mixin() builds, for a base listed before WidgetDecoration.
+
+        Runtime behaviour and the documented contract are on delegate_to_widget_mixin().
+        _DelegateToWidgetAfterDecorationMixin repeats these declarations for a base listed after WidgetDecoration,
+        because one typing class used in both positions gives a class inheriting from both an inconsistent MRO.
+        Edit both together.
+        """
+
+        def render(self, size: typing.Any, focus: bool = False) -> Canvas:
+            """Render the delegate and wrap its canvas in a CompositeCanvas."""
+
+        def selectable(self) -> bool:
+            """Return whether the delegate can take the input focus."""
+
+        def sizing(self) -> frozenset[Sizing]:
+            """Return the delegate's sizing modes."""
+
+        def pack(self, size: typing.Any, focus: bool = False) -> tuple[int, int]:
+            """Return the delegate's preferred size."""
+
+        def keypress(self, size: typing.Any, key: str) -> str | None:
+            """Pass the keypress to the delegate."""
+
+        def mouse_event(
+            self,
+            size: typing.Any,
+            event: str,
+            button: int,
+            col: int,
+            row: int,
+            focus: bool,
+        ) -> bool | None:
+            """Pass the mouse event to the delegate."""
+
+        def rows(self, size: tuple[int], focus: bool = False) -> int:
+            """Return the delegate's number of rows."""
+
+        def get_cursor_coords(self, size: typing.Any, /) -> tuple[int, int] | None:
+            """Return the delegate's cursor position."""
+
+        def get_pref_col(self, size: typing.Any, /) -> int | None:
+            """Return the delegate's preferred cursor column."""
+
+        def move_cursor_to_coords(self, size: typing.Any, col: int, row: int, /) -> bool:
+            """Move the delegate's cursor."""
+
+    class _DelegateToWidgetAfterDecorationMixin(Widget):
+        """Same declarations as _DelegateToWidgetMixin, for a base listed after WidgetDecoration; edit both together."""
+
+        def render(self, size: typing.Any, focus: bool = False) -> Canvas:
+            """Render the delegate and wrap its canvas in a CompositeCanvas."""
+
+        def selectable(self) -> bool:
+            """Return whether the delegate can take the input focus."""
+
+        def sizing(self) -> frozenset[Sizing]:
+            """Return the delegate's sizing modes."""
+
+        def pack(self, size: typing.Any, focus: bool = False) -> tuple[int, int]:
+            """Return the delegate's preferred size."""
+
+        def keypress(self, size: typing.Any, key: str) -> str | None:
+            """Pass the keypress to the delegate."""
+
+        def mouse_event(
+            self,
+            size: typing.Any,
+            event: str,
+            button: int,
+            col: int,
+            row: int,
+            focus: bool,
+        ) -> bool | None:
+            """Pass the mouse event to the delegate."""
+
+        def rows(self, size: tuple[int], focus: bool = False) -> int:
+            """Return the delegate's number of rows."""
+
+        def get_cursor_coords(self, size: typing.Any, /) -> tuple[int, int] | None:
+            """Return the delegate's cursor position."""
+
+        def get_pref_col(self, size: typing.Any, /) -> int | None:
+            """Return the delegate's preferred cursor column."""
+
+        def move_cursor_to_coords(self, size: typing.Any, col: int, row: int, /) -> bool:
+            """Move the delegate's cursor."""
+
+
 def delegate_to_widget_mixin(attribute_name: str) -> type[Widget]:
     """Return a mixin class that delegates all standard widget methods to an attribute given by attribute_name.
 
     This mixin is designed to be used as a superclass of another widget.
+    Each call returns a new class, and *attribute_name* may be a dotted path such as ``"holder.child"``.
+
+    The class forwards ``render``, ``selectable``, ``sizing``, ``pack``, ``keypress`` and ``mouse_event``
+    with the parameters of :class:`Widget`, and ``rows``, ``get_cursor_coords``, ``get_pref_col`` and
+    ``move_cursor_to_coords`` with the parameters of the delegate.
+    ``render`` returns the delegate's canvas wrapped in a :class:`CompositeCanvas`.
+    ``keypress`` calls the delegate's ``keypress``.
+    Every other name returns the delegate's own bound method, looked up when the attribute is read.
+    The last four raise :exc:`AttributeError` when the delegate does not define them,
+    so containers can probe for them with :func:`hasattr`.
+
+    Type checkers see ``get_pref_col`` as returning ``int | None``
+    and ``move_cursor_to_coords`` as taking an ``int`` column,
+    although :meth:`Edit.get_pref_col` may return ``'left'`` or ``'right'``
+    and :meth:`Edit.move_cursor_to_coords` accepts those values for the column.
     """
     # FIXME: this is so common, let's add proper support for it
     # when layout and rendering are separated
@@ -901,12 +1018,24 @@ def delegate_to_widget_mixin(attribute_name: str) -> type[Widget]:
     return DelegateToWidgetMixin
 
 
+def _select_enter_child(widget: object, *, reverse: bool) -> None:
+    """Call the ``enter_selectable`` entry hook of *widget*, when it has one."""
+    if (enter_selectable := getattr(widget, "enter_selectable", None)) is not None:
+        enter_selectable(reverse=reverse)
+
+
 class WidgetWrapError(Exception):
     """Error raised for invalid :class:`WidgetWrap` usage."""
 
 
+if typing.TYPE_CHECKING:
+    _WrappedWidgetDelegate = _DelegateToWidgetMixin
+else:
+    _WrappedWidgetDelegate = delegate_to_widget_mixin("_wrapped_widget")
+
+
 class WidgetWrap(
-    delegate_to_widget_mixin("_wrapped_widget"),  # type: ignore[misc]
+    _WrappedWidgetDelegate,
     typing.Generic[WrappedWidget],
 ):
     """Base class for widgets that compose another widget for their display and behaviour."""
@@ -924,15 +1053,15 @@ class WidgetWrap(
         users of the subclass.  The subclass may decide to expose some
         of the wrapped widgets by behaving like a ContainerWidget or
         WidgetDecoration, or it may hide them from outside access.
+
+        .. deprecated:: 2.4.0
+            Wrapping an object that does not implement the Widget API (see ``AbstractWidget``) is deprecated.
+            Support will be removed in version 7.0.
         """
         super().__init__()
         if not isinstance(w, AbstractWidget):
             obj_class_path = f"{w.__class__.__module__}.{w.__class__.__name__}"
-            warnings.warn(
-                f"{obj_class_path} is not implementing Widget API",
-                DeprecationWarning,
-                stacklevel=2,
-            )
+            _deprecation.warn(f"{obj_class_path} is not implementing Widget API.", since="2.4.0", removed_in="7.0")
         self._wrapped_widget = w
 
     @property
@@ -951,7 +1080,7 @@ class WidgetWrap(
         [...'hello? hi ']
         >>> ww.selectable()
         True
-        >>> ww._w = Text("goodbye")  # calls _set_w()
+        >>> ww._w = Text("goodbye")
         >>> ww.render(size).text
         [...'goodbye   ']
         >>> ww.selectable()
@@ -960,34 +1089,17 @@ class WidgetWrap(
         self._wrapped_widget = new_widget
         self._invalidate()
 
-    def _set_w(self, w: WrappedWidget) -> None:
-        """
-        Change the wrapped widget.  This is meant to be called only by subclasses.
+    def enter_selectable(self, *, reverse: bool = False) -> None:
+        """Forward the entry hook to the wrapped widget, when it has one.
 
-        .. deprecated:: 2.2.0
-            Assign to the :attr:`WidgetWrap._w` property directly instead.
-            This API will be removed in version 5.0.
+        A container with ``select_navigation`` calls this when it moves its focus to this widget,
+        see :ref:`select-navigation`.
+        The hook goes to the widget that :meth:`keypress` sends keys to:
+        a subclass that sends keys elsewhere overrides this method to match.
 
-        >>> from urwid import Edit, Text
-        >>> size = (10,)
-        >>> ww = WidgetWrap(Edit("hello? ", "hi"))
-        >>> ww.render(size).text  # ... = b in Python 3
-        [...'hello? hi ']
-        >>> ww.selectable()
-        True
-        >>> ww._w = Text("goodbye")  # calls _set_w()
-        >>> ww.render(size).text
-        [...'goodbye   ']
-        >>> ww.selectable()
-        False
+        :param reverse: start at the last selectable widget instead of the first one.
         """
-        warnings.warn(
-            "_set_w is deprecated. Please use 'WidgetWrap._w' property directly. API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self._wrapped_widget = w
-        self._invalidate()
+        _select_enter_child(self._wrapped_widget, reverse=reverse)
 
 
 def _test() -> None:

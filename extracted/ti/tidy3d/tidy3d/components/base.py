@@ -45,6 +45,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 from tidy3d._runtime import (
     VALIDATE_OVERRIDE,
     VALIDATION_MODES,
+    always_validate,
     fast_validation_active,
 )
 from tidy3d.exceptions import FileError, Tidy3dError, format_chained_exception_message
@@ -487,6 +488,9 @@ class Tidy3dBaseModel(BaseModel):
             *decorators.model_validators.values(),
         ):
             decorator.func = _skippable(decorator.func, decorator.info.mode)
+        # the outermost validator runs first, so it can return a built instance before the rest
+        validators = decorators.model_validators
+        validators["_pass_built_instance"] = validators.pop("_pass_built_instance")
 
         # add docstring once pydantic is done constructing the class
         if _DOCSTRING_RAW_ATTR not in cls.__dict__:
@@ -512,6 +516,21 @@ class Tidy3dBaseModel(BaseModel):
             setattr(cls, _DOCSTRING_RAW_ATTR, cls.__doc__ or "")
         cls.__doc__ = cls.generate_docstring()  # pyrefly: ignore[implicitly-defined-attribute]
         return rebuilt
+
+    @model_validator(mode="wrap")
+    @classmethod
+    @always_validate
+    def _pass_built_instance(
+        cls: type[T],
+        data: Any,
+        handler: ModelWrapValidatorHandler[T],
+    ) -> T:
+        """In ``fast`` mode, return an already built instance (a child of a model being built)
+        without running its model validators again. They ran, and set any derived field, when it
+        was built."""
+        if isinstance(data, cls) and fast_validation_active():
+            return data
+        return handler(data)
 
     @model_validator(mode="wrap")
     @classmethod

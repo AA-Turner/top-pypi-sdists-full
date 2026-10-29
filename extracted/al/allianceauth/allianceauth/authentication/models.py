@@ -67,13 +67,13 @@ class State(models.Model):
     def __str__(self) -> str:
         return self.name
 
-    def available_to_character(self, character):
+    def available_to_character(self, character: EveCharacter) -> bool:
         return self in State.objects.available_to_character(character)
 
-    def available_to_user(self, user):
+    def available_to_user(self, user: BaseUser) -> bool:
         return self in State.objects.available_to_user(user)
 
-    def delete(self, **kwargs):
+    def delete(self, **kwargs) -> None:
         with transaction.atomic():
             for profile in self.userprofile_set.all():
                 profile.assign_state(state=State.objects.exclude(pk=self.pk).get_for_user(profile.user))
@@ -87,7 +87,7 @@ def get_guest_state() -> State:
         return State.objects.create(name="Guest", priority=0, public=True)
 
 
-def get_guest_state_pk():
+def get_guest_state_pk() -> int:
     return get_guest_state().pk
 
 
@@ -154,7 +154,7 @@ class UserProfile(models.Model):
     def __str__(self) -> str:
         return str(self.user)
 
-    def assign_state(self, state=None, commit=True) -> None:
+    def assign_state(self, state: State | None = None, commit: bool = True) -> None:
         if not state:
             state = State.objects.get_for_user(self.user)
         if self.state != state:

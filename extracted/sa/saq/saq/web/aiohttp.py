@@ -14,6 +14,8 @@ from aiohttp import web
 from saq.queue import Queue
 from saq.web.common import STATIC_PATH, job_dict, render
 
+logger = logging.getLogger(__name__)
+
 if t.TYPE_CHECKING:
     from aiohttp.typedefs import Handler
     from aiohttp.web import StreamResponse
@@ -25,7 +27,8 @@ if t.TYPE_CHECKING:
     from saq.types import QueueInfo
 
 
-QUEUES_KEY = web.AppKey("queues", t.Dict[str, Queue])
+QUEUES_KEY = web.AppKey("queues", dict[str, Queue])
+ROOT_PATH_KEY = web.AppKey("root_path", str)
 
 
 async def queues_(request: Request) -> Response:
@@ -58,8 +61,9 @@ async def abort(request: Request) -> Response:
     return web.json_response({})
 
 
-async def views(_request: Request) -> Response:
-    return web.Response(text=render(root_path=""), content_type="text/html")
+async def views(request: Request) -> Response:
+    root_path = request.app[ROOT_PATH_KEY]
+    return web.Response(text=render(root_path=root_path), content_type="text/html")
 
 
 async def health(request: Request) -> Response:
@@ -92,9 +96,9 @@ async def exceptions(request: Request, handler: Handler) -> StreamResponse:
         try:
             resp = await handler(request)
             return resp
-        except Exception:
+        except Exception:  # noqa: BLE001
             error = traceback.format_exc()
-            logging.error(error)
+            logger.error(error)
             return web.json_response({"error": error})
     return await handler(request)
 
@@ -104,7 +108,7 @@ async def shutdown(app: Application) -> None:
         await queue.disconnect()
 
 
-def create_app(queues: list[Queue]) -> Application:
+def create_app(queues: list[Queue], root_path: str = "") -> Application:
     middlewares = [exceptions]
     password = os.environ.get("AUTH_PASSWORD")
 
@@ -116,6 +120,7 @@ def create_app(queues: list[Queue]) -> Application:
 
     app = web.Application(middlewares=middlewares)
     app[QUEUES_KEY] = {q.name: q for q in queues}
+    app[ROOT_PATH_KEY] = root_path
 
     app.add_routes(
         [

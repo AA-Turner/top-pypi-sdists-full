@@ -43,7 +43,9 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
+import google.auth.exceptions
 import requests
+import sqlalchemy.exc
 import yaml
 from airbyte.cloud.workspaces import CloudWorkspace
 from airbyte.exceptions import PyAirbyteInputError
@@ -59,6 +61,7 @@ from fastmcp_extensions.cli import (
     print_success,
     print_warning,
 )
+from google.api_core import exceptions as google_api_exceptions
 
 from airbyte_ops_mcp.cli._base import App, app
 from airbyte_ops_mcp.cloud_admin.auth import CloudAuthError
@@ -77,6 +80,16 @@ from airbyte_ops_mcp.cloud_admin.version_overrides import (
 from airbyte_ops_mcp.cloud_admin.version_overrides import (
     set_version_override as set_cloud_version_override,
 )
+from airbyte_ops_mcp.connection_config_retriever import (
+    ConnectionNotFoundError,
+    get_connection_dataplane_group,
+    get_connection_residency,
+    residency_for_dataplane_group,
+)
+from airbyte_ops_mcp.connection_config_retriever.residency import (
+    EU_RUNNER_REQUIRED_MESSAGE,
+    is_running_on_eu_runner,
+)
 from airbyte_ops_mcp.constants import (
     CLOUD_SQL_INSTANCE,
     CLOUD_SQL_PROXY_PID_FILE,
@@ -85,6 +98,11 @@ from airbyte_ops_mcp.constants import (
 )
 from airbyte_ops_mcp.gcp_logs import GCPSeverity, fetch_error_logs
 from airbyte_ops_mcp.github_api import resolve_default_github_token
+from airbyte_ops_mcp.prod_db_access.db_engine import (
+    CloudRunProdDbAccessNotConfiguredError,
+    ProdDbCloudSqlIamError,
+    ProdDbSecretAccessError,
+)
 from airbyte_ops_mcp.prod_db_access.queries import (
     query_workspace_info,
     query_workspaces_by_email_domain,
@@ -2331,6 +2349,9 @@ def regression_test(
                 "Cannot specify both connection_id and config_path/catalog_path"
             )
 
+        if should_use_secret_retriever():
+            _refuse_eu_connection_off_eu_runner(connection_id)
+
         print_success(f"Fetching config/catalog from connection: {connection_id}")
         connection_data = fetch_connection_data(connection_id)
 
@@ -3688,6 +3709,111 @@ def _read_json_input(
         "via --input <file>, or pipe to STDIN."
     )
     raise SystemExit(1)  # unreachable, but satisfies type checker
+
+
+# Every way the residency lookup can fail before it has an answer. Callers turn
+# these into one line and exit, so a lookup failure never routes a connection.
+_RESIDENCY_LOOKUP_ERRORS: tuple[type[Exception], ...] = (
+    ConnectionNotFoundError,
+    ValueError,
+    google.auth.exceptions.GoogleAuthError,
+    ProdDbSecretAccessError,
+    ProdDbCloudSqlIamError,
+    CloudRunProdDbAccessNotConfiguredError,
+    sqlalchemy.exc.SQLAlchemyError,
+    google_api_exceptions.GoogleAPIError,
+    OSError,
+)
+
+
+def _describe_residency_lookup_error(connection_id: str, exc: Exception) -> str:
+    """Describe a failed residency lookup in one line, without a traceback."""
+    if isinstance(
+        exc,
+        (
+            google.auth.exceptions.DefaultCredentialsError,
+            google.auth.exceptions.RefreshError,
+        ),
+    ):
+        return (
+            "No usable GCP credentials for the Prod DB replica "
+            f"({type(exc).__name__}). Set {ENV_GCP_PROD_DB_ACCESS_CREDENTIALS} "
+            "or configure Application Default Credentials."
+        )
+    if isinstance(
+        exc,
+        (
+            ConnectionNotFoundError,
+            ValueError,
+            ProdDbSecretAccessError,
+            ProdDbCloudSqlIamError,
+        ),
+    ):
+        return str(exc)
+    return (
+        "Could not reach the Prod DB replica to read the dataplane group of "
+        f"connection {connection_id} ({type(exc).__name__})."
+    )
+
+
+def _refuse_eu_connection_off_eu_runner(connection_id: str) -> None:
+    """Exit before any fetch if an EU connection is used off the EU runner.
+
+    The retriever refuses such a connection too, but only after the public API
+    has returned its config and catalog. Checking here keeps them off a US
+    runner. A failed lookup also exits, since the retriever needs the same
+    replica.
+    """
+    try:
+        residency = get_connection_residency(connection_id)
+    except _RESIDENCY_LOOKUP_ERRORS as exc:
+        message = _describe_residency_lookup_error(connection_id, exc)
+        write_github_output("success", False)
+        write_github_output("error", message)
+        exit_with_error(message)
+
+    if residency == "eu" and not is_running_on_eu_runner():
+        message = (
+            f"{EU_RUNNER_REQUIRED_MESSAGE}; connection ID {connection_id} was "
+            "refused before its config or catalog was fetched."
+        )
+        write_github_output("success", False)
+        write_github_output("error", message)
+        exit_with_error(
+            f"{message}\n\n"
+            "Use a connection from a non-EU workspace, or use GSM-based "
+            "integration test credentials instead (by omitting --connection-id)."
+        )
+
+
+@connection_app.command(name="get-region")
+def get_connection_region(
+    connection_id: Annotated[
+        str,
+        Parameter(help="The connection ID (UUID) to check."),
+    ],
+) -> None:
+    """Get a connection's dataplane group and derived residency.
+
+    Reads only the dataplane group, not connection or actor secrets. Requires
+    `GCP_PROD_DB_ACCESS_CREDENTIALS` or Application Default Credentials. On any
+    lookup failure it exits non-zero and writes no GitHub output.
+    """
+    try:
+        dataplane_group = get_connection_dataplane_group(connection_id)
+    except _RESIDENCY_LOOKUP_ERRORS as exc:
+        exit_with_error(_describe_residency_lookup_error(connection_id, exc))
+
+    residency = residency_for_dataplane_group(dataplane_group)
+    write_github_output("dataplane_group", dataplane_group)
+    write_github_output("residency", residency)
+    print_json(
+        {
+            "connection_id": connection_id,
+            "dataplane_group": dataplane_group,
+            "residency": residency,
+        }
+    )
 
 
 @state_app.command(name="get")

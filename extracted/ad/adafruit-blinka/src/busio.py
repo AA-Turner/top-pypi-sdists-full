@@ -54,6 +54,12 @@ class I2C(Lockable):
             self._i2c = _I2C(frequency=frequency)
             return
 
+        if board_id == "MICROCHIP_MCP2222":
+            from adafruit_blinka.microcontroller.mcp2222.i2c import I2C as _I2C
+
+            self._i2c = _I2C(frequency=frequency)
+            return
+
         if detector.board.OS_AGNOSTIC_BOARD:
             from adafruit_blinka.microcontroller.generic_agnostic_board.i2c import (
                 I2C as _I2C,
@@ -225,8 +231,8 @@ class I2C(Lockable):
     def writeto_then_readfrom(
         self,
         address,
-        buffer_out,
-        buffer_in,
+        out_buffer,
+        in_buffer,
         *,
         out_start=0,
         out_end=None,
@@ -239,8 +245,8 @@ class I2C(Lockable):
         """
         return self._i2c.writeto_then_readfrom(
             address,
-            buffer_out,
-            buffer_in,
+            out_buffer,
+            in_buffer,
             out_start=out_start,
             out_end=out_end,
             in_start=in_start,
@@ -257,6 +263,23 @@ class SPI(Lockable):
 
     def __init__(self, clock, MOSI=None, MISO=None):
         self.deinit()
+        if board_id == "MICROCHIP_MCP2222":
+            from adafruit_blinka.microcontroller.mcp2222.spi import SPI as _SPI
+            from adafruit_blinka.microcontroller.mcp2222 import pin
+
+            if (
+                clock is not pin.SCK
+                or MOSI not in (None, pin.MOSI)
+                or MISO
+                not in (
+                    None,
+                    pin.MISO,
+                )
+            ):
+                raise ValueError("Use the dedicated MCP2222 SCK, MOSI, and MISO pins")
+            self._spi = _SPI()
+            self._pins = (clock, MOSI, MISO)
+            return
         if detector.board.ftdi_ft232h:
             from adafruit_blinka.microcontroller.ftdi_mpsse.mpsse.spi import SPI as _SPI
             from adafruit_blinka.microcontroller.ftdi_mpsse.ft232h.pin import (
@@ -403,7 +426,9 @@ class SPI(Lockable):
 
     def configure(self, baudrate=100000, polarity=0, phase=0, bits=8):
         """Update the configuration"""
-        if detector.board.any_nanopi and detector.chip.id == ap_chip.SUN8I:
+        if board_id == "MICROCHIP_MCP2222":
+            from adafruit_blinka.microcontroller.mcp2222.spi import SPI as _SPI
+        elif detector.board.any_nanopi and detector.chip.id == ap_chip.SUN8I:
             from adafruit_blinka.microcontroller.generic_linux.spi import SPI as _SPI
         elif detector.board.ftdi_ft232h:
             from adafruit_blinka.microcontroller.ftdi_mpsse.mpsse.spi import (
@@ -489,6 +514,8 @@ class SPI(Lockable):
 
     def deinit(self):
         """Deinitialization"""
+        if board_id == "MICROCHIP_MCP2222" and getattr(self, "_spi", None) is not None:
+            self._spi.deinit()
         self._spi = None
         self._pinIds = None
 
@@ -502,20 +529,20 @@ class SPI(Lockable):
                 "Frequency attribute not implemented for this platform"
             ) from error
 
-    def write(self, buf, start=0, end=None):
+    def write(self, buffer, start=0, end=None):
         """Write to the SPI device"""
-        return self._spi.write(buf, start, end)
+        return self._spi.write(buffer, start, end)
 
-    def readinto(self, buf, start=0, end=None, write_value=0):
+    def readinto(self, buffer, start=0, end=None, write_value=0):
         """Read from the SPI device into a buffer"""
-        return self._spi.readinto(buf, start, end, write_value=write_value)
+        return self._spi.readinto(buffer, start, end, write_value=write_value)
 
     def write_readinto(
-        self, buffer_out, buffer_in, out_start=0, out_end=None, in_start=0, in_end=None
+        self, out_buffer, in_buffer, out_start=0, out_end=None, in_start=0, in_end=None
     ):
         """Write to the SPI device and read from the SPI device into a buffer"""
         return self._spi.write_readinto(
-            buffer_out, buffer_in, out_start, out_end, in_start, in_end
+            out_buffer, in_buffer, out_start, out_end, in_start, in_end
         )
 
 

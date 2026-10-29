@@ -60,6 +60,7 @@ from aistore.sdk.errors import (
     InvalidBckProvider,
     ErrBckAlreadyExists,
     ErrBckNotFound,
+    ErrRemoteBckNotFound,
     UnexpectedHTTPStatusCode,
 )
 from aistore.sdk.multiobj import ObjectGroup, ObjectRange
@@ -231,7 +232,9 @@ class Bucket(AISSource):
         self._verify_ais_bucket()
         try:
             self.make_request(HTTP_METHOD_DELETE, ACT_DESTROY_BCK)
-        except ErrBckNotFound as err:
+        except (ErrBckNotFound, ErrRemoteBckNotFound) as err:
+            # A bucket in a remote cluster's namespace reports the remote form,
+            # and ErrRemoteBckNotFound is not a subclass of ErrBckNotFound.
             if not missing_ok:
                 raise err
 
@@ -623,7 +626,7 @@ class Bucket(AISSource):
 
         bucket_list = self.client.request_deserialize(
             HTTP_METHOD_GET,
-            path=f"{URL_PATH_BUCKETS}/{ self.name }",
+            path=f"{URL_PATH_BUCKETS}/{self.name}",
             headers=headers,
             res_model=BucketList,
             json=action,

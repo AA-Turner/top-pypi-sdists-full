@@ -33,6 +33,10 @@ def test_architecture_boundary_detector_reports_cross_layer_dependencies() -> No
     files: list[tuple[Path, check_architecture_boundaries.Layer]] = [
         (FIXTURE_ROOT / "entrypoint" / "forbidden.py", "entrypoint"),
         (FIXTURE_ROOT / "parser" / "forbidden.py", "parser"),
+        (FIXTURE_ROOT / "parser_passes" / "forbidden.py", "parser-passes"),
+        (FIXTURE_ROOT / "parser_core" / "forbidden.py", "parser-core"),
+        (FIXTURE_ROOT / "facts" / "forbidden.py", "facts"),
+        (FIXTURE_ROOT / "schema_graph" / "forbidden.py", "schema-graph"),
         (FIXTURE_ROOT / "config" / "forbidden.py", "config"),
         (FIXTURE_ROOT / "input_model" / "forbidden.py", "input-model"),
         (FIXTURE_ROOT / "reference" / "forbidden.py", "reference"),
@@ -40,6 +44,10 @@ def test_architecture_boundary_detector_reports_cross_layer_dependencies() -> No
         (FIXTURE_ROOT / "shared_model" / "forbidden.py", "shared-model"),
         (FIXTURE_ROOT / "shared" / "forbidden.py", "shared"),
         (FIXTURE_ROOT / "target" / "forbidden.py", "target"),
+        (FIXTURE_ROOT / "requirements" / "forbidden.py", "requirements"),
+        (FIXTURE_ROOT / "constraints" / "forbidden.py", "constraints"),
+        (FIXTURE_ROOT / "regex" / "forbidden.py", "regex"),
+        (FIXTURE_ROOT / "checks" / "forbidden.py", "checks"),
     ]
     violations = check_architecture_boundaries.check_files(files, allowlist={})
 
@@ -73,11 +81,18 @@ def test_architecture_boundary_detector_handles_shared_model_dynamic_imports(
 
 
 def test_architecture_boundary_source_classification() -> None:
-    """Keep entrypoint, model composition, and shared-model ownership explicit."""
+    """Keep entrypoint, model, schema graph, parser core, requirement, constraint and check flag ownership explicit."""
     source_root = ROOT / "src" / "datamodel_code_generator"
     paths = (
         source_root / "__init__.py",
         source_root / "parser" / "base.py",
+        source_root / "parser" / "_passes" / "_shared.py",
+        source_root / "parser" / "_facts.py",
+        source_root / "parser" / "_schema_graph.py",
+        source_root / "parser" / "_intersection.py",
+        source_root / "parser" / "_null_facts.py",
+        source_root / "parser" / "_schema_dispatch.py",
+        source_root / "parser" / "_phases.py",
         source_root / "config.py",
         source_root / "input_model.py",
         source_root / "reference.py",
@@ -85,8 +100,18 @@ def test_architecture_boundary_source_classification() -> None:
         source_root / "model" / "__init__.py",
         source_root / "model" / "pydantic_v2" / "base_model.py",
         source_root / "model" / "runtime_validation.py",
+        source_root / "model" / "_views.py",
+        source_root / "model" / "_decisions" / "nullability.py",
+        source_root / "model" / "_decisions" / "enum_kind.py",
+        source_root / "model" / "_decisions" / "tag_value.py",
+        source_root / "model" / "_decisions" / "literal_default.py",
+        source_root / "model" / "_decisions" / "union_assembly.py",
         source_root / "_api_generation.py",
         source_root / "_target_config.py",
+        source_root / "_requirements.py",
+        source_root / "_constraint_applicability.py",
+        source_root / "_regex_syntax.py",
+        source_root / "_checks.py",
         source_root / "types.py",
     )
     classification = "".join(

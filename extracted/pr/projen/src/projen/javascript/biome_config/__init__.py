@@ -5758,6 +5758,7 @@ class RuleDomainValue(enum.Enum):
         "solid": "solid",
         "svelte": "svelte",
         "tailwind": "tailwind",
+        "tanstack_query": "tanstackQuery",
         "test": "test",
         "turborepo": "turborepo",
         "types": "types",
@@ -5779,6 +5780,7 @@ class RuleDomains:
         solid: typing.Optional["RuleDomainValue"] = None,
         svelte: typing.Optional["RuleDomainValue"] = None,
         tailwind: typing.Optional["RuleDomainValue"] = None,
+        tanstack_query: typing.Optional["RuleDomainValue"] = None,
         test: typing.Optional["RuleDomainValue"] = None,
         turborepo: typing.Optional["RuleDomainValue"] = None,
         types: typing.Optional["RuleDomainValue"] = None,
@@ -5796,6 +5798,7 @@ class RuleDomains:
         :param solid: 
         :param svelte: 
         :param tailwind: 
+        :param tanstack_query: 
         :param test: 
         :param turborepo: 
         :param types: 
@@ -5817,6 +5820,7 @@ class RuleDomains:
             check_type(argname="argument solid", value=solid, expected_type=type_hints["solid"])
             check_type(argname="argument svelte", value=svelte, expected_type=type_hints["svelte"])
             check_type(argname="argument tailwind", value=tailwind, expected_type=type_hints["tailwind"])
+            check_type(argname="argument tanstack_query", value=tanstack_query, expected_type=type_hints["tanstack_query"])
             check_type(argname="argument test", value=test, expected_type=type_hints["test"])
             check_type(argname="argument turborepo", value=turborepo, expected_type=type_hints["turborepo"])
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
@@ -5844,6 +5848,8 @@ class RuleDomains:
             self._values["svelte"] = svelte
         if tailwind is not None:
             self._values["tailwind"] = tailwind
+        if tanstack_query is not None:
+            self._values["tanstack_query"] = tanstack_query
         if test is not None:
             self._values["test"] = test
         if turborepo is not None:
@@ -5950,6 +5956,15 @@ class RuleDomains:
         :schema: RuleDomains#tailwind
         '''
         result = self._values.get("tailwind")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def tanstack_query(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#tanstackQuery
+        '''
+        result = self._values.get("tanstack_query")
         return typing.cast(typing.Optional["RuleDomainValue"], result)
 
     @builtins.property
@@ -7743,6 +7758,7 @@ def _typecheckingstub__d48381bffa9c2b0ef8e9116898fdc56e984cd30d1a51b6e379dc5c999
     solid: typing.Optional[RuleDomainValue] = None,
     svelte: typing.Optional[RuleDomainValue] = None,
     tailwind: typing.Optional[RuleDomainValue] = None,
+    tanstack_query: typing.Optional[RuleDomainValue] = None,
     test: typing.Optional[RuleDomainValue] = None,
     turborepo: typing.Optional[RuleDomainValue] = None,
     types: typing.Optional[RuleDomainValue] = None,

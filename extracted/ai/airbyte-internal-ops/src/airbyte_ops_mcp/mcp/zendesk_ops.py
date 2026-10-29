@@ -3,7 +3,8 @@
 
 This module exposes tools for pulling Zendesk tickets (and their comments),
 posting internal (private, agent-only) notes, and notifying Slack reviewers
-after spam triage through the hosted Ops MCP server.
+after spam triage through the hosted Ops MCP server. It can also set the
+Ticket Complexity total score field on Solved tickets.
 
 ## MCP reference
 
@@ -31,6 +32,7 @@ from airbyte_ops_mcp.slack_posting import post_channel_message
 from airbyte_ops_mcp.zendesk_api import (
     ENV_ZENDESK_SUBDOMAIN,
     ZendeskAPIError,
+    ZendeskTcmScoreConflictError,
     add_internal_note,
     add_ticket_tags,
     create_ticket,
@@ -42,6 +44,7 @@ from airbyte_ops_mcp.zendesk_api import (
     list_tickets_by_external_id,
     search,
     set_ticket_email_ccs,
+    set_ticket_tcm_total_score,
 )
 
 # Private #team-support channel; the hydra bot must stay a member.
@@ -212,6 +215,20 @@ class ZendeskTagsResponse(BaseModel):
         default_factory=list,
         description="The ticket's full tag list after the update.",
     )
+
+
+class ZendeskTcmScoreResponse(BaseModel):
+    """Response from the `set_zendesk_tcm_total_score` tool."""
+
+    success: bool = Field(description="Whether the TCM score was set.")
+    message: str = Field(description="Human-readable status message.")
+    ticket_id: int = Field(description="Zendesk ticket ID.")
+    run_id: str = Field(description="TCM scoring run ID supplied by the caller.")
+    previous_value: int | None = Field(
+        description="The score value before this operation, if one was set."
+    )
+    total: int | None = Field(description="The requested TCM total score.")
+    changed: bool = Field(description="Whether the ticket score field changed.")
 
 
 class ZendeskTicketSummary(BaseModel):
@@ -1125,6 +1142,96 @@ def add_zendesk_ticket_tags(
         message=f"Added tags to Zendesk ticket {ticket_id}.",
         ticket_id=ticket_id,
         tags=result_tags,
+    )
+
+
+@mcp_tool(
+    read_only=False,
+    idempotent=True,
+    open_world=True,
+)
+def set_zendesk_tcm_total_score(
+    ticket_id: Annotated[
+        int,
+        Field(description="The numeric Zendesk ticket ID to score.", strict=True),
+    ],
+    total: Annotated[
+        int,
+        Field(description="The TCM total score, an integer from 0 to 25.", strict=True),
+    ],
+    run_id: Annotated[
+        str,
+        Field(description="Required non-empty TCM scoring run ID for audit."),
+    ],
+    review_status: Annotated[
+        Literal["not_required", "approved", "overridden"],
+        Field(
+            description=(
+                "`not_required` for an unflagged row; `approved` or `overridden` "
+                "for a flagged row Kylee reviewed. Pending flagged rows cannot be "
+                "written."
+            )
+        ),
+    ],
+) -> ZendeskTcmScoreResponse:
+    """Set only the TCM total score field on a Solved Zendesk ticket.
+
+    Closed tickets are refused, a matching existing value is a no-op, and an
+    existing different value is refused and never replaced. The tool accepts no
+    credentials; it reads them from the server environment and never logs them.
+    """
+    if not run_id.strip():
+        return ZendeskTcmScoreResponse(
+            success=False,
+            message="The TCM scoring run ID must not be empty.",
+            ticket_id=ticket_id,
+            run_id=run_id,
+            previous_value=None,
+            total=total,
+            changed=False,
+        )
+
+    try:
+        previous_value, changed = set_ticket_tcm_total_score(
+            ticket_id,
+            total,
+        )
+    except ZendeskTcmScoreConflictError as exc:
+        return ZendeskTcmScoreResponse(
+            success=False,
+            message=(
+                f"Zendesk ticket {ticket_id} already has TCM total score "
+                f"{exc.current}; this tool never replaces an existing score."
+            ),
+            ticket_id=ticket_id,
+            run_id=run_id,
+            previous_value=exc.current,
+            total=total,
+            changed=False,
+        )
+    except ZendeskAPIError as exc:
+        return ZendeskTcmScoreResponse(
+            success=False,
+            message=str(exc),
+            ticket_id=ticket_id,
+            run_id=run_id,
+            previous_value=None,
+            total=total,
+            changed=False,
+        )
+
+    action = "Updated" if changed else "Confirmed unchanged"
+    return ZendeskTcmScoreResponse(
+        success=True,
+        message=(
+            f"{action} TCM total score for Zendesk ticket {ticket_id} to {total} "
+            f"(run {run_id}; review status: {review_status})."
+        ),
+        ticket_id=ticket_id,
+        run_id=run_id,
+        previous_value=previous_value,
+        total=total,
+        changed=changed,
     )
 
 

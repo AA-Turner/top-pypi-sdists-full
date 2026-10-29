@@ -1085,12 +1085,14 @@ def ran(monkeypatch):
 
     calls: list = []
 
-    async def fake(argv, *, env, cwd, timeout, stdin=b"", log_path=None):
+    async def fake(argv, *, env, cwd, timeout, stdin=b"", log_path=None, kill_on_cancel=False):
         calls.append((argv, env, stdin))
         await asyncio.sleep(0)
         return 0
 
     monkeypatch.setattr(notesync.children, "run_command", fake)
+    # The status line's folders here are stand-ins: a child's own re-check passes.
+    monkeypatch.setattr(statusline.StatuslineRefresher, "check", lambda self, root: None)
     monkeypatch.setattr(notesync.children, "core_python", lambda: "/cli/python")
     return calls
 
@@ -1206,6 +1208,438 @@ def test_the_status_line_scheduler_batches_and_spaces_its_children(ran, monkeypa
     assert ran[0][1]["X"] == "1"
     assert took >= 0.2 - 0.05, "the second child came sooner than the interval"
     assert refresher.public()["children"] == 2 and refresher.public()["waiting"] == 0
+
+
+def test_a_followed_session_is_refreshed_when_its_capture_moves_with_no_hook_asking(ran, monkeypatch):
+    """A session's capture reading is taken a moment before the service
+    registers it (or its recorder takes it), and an idle session's hooks never
+    ask again: it read "not started" / "not recording" while it was recorded
+    (2026-10-27). The service follows it: a change in what the reading is
+    taken from refreshes it again, in the context it last asked in."""
+    import asyncio
+
+    monkeypatch.setattr(statusline, "INTERVAL_S", 0.05)
+    monkeypatch.setattr(statusline, "GATHER_S", 0.01)
+    monkeypatch.setattr(statusline, "FOLLOW_S", 0.02)
+    monkeypatch.setattr(statusline, "SETTLE_S", 60)
+    known: dict = {}
+
+    async def settle(refresher, children):
+        deadline = time.monotonic() + 5
+        while (len(ran) < children or refresher.in_flight()) and time.monotonic() < deadline:
+            await asyncio.sleep(0.01)
+        await asyncio.sleep(0.15)  # several looks: nothing more is asked
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=lambda: dict(known))
+        assert refresher.request("/plugin", "/py", {"X": "1"}, "s-0000001", "claude_code")["scheduled"] is True
+        await settle(refresher, 1)
+        assert len(ran) == 1, "nothing moved: no second child"
+        known["s-0000001"] = ("daemon", None)  # registered after its first reading
+        await settle(refresher, 2)
+        known["s-0000001"] = ("daemon", (True, True, False))  # its recorder took it
+        await settle(refresher, 3)
+        public = refresher.public()
+        refresher.close()
+        return public
+
+    public = asyncio.run(scenario())
+    batches = [[(s["sid"], s["agent"]) for s in json.loads(stdin)["sessions"]] for _argv, _env, stdin in ran]
+    assert batches == [[("s-0000001", "claude_code")]] * 3, "one refresh per change, no more"
+    assert all(env["X"] == "1" for _argv, env, _stdin in ran), "in the context the session asked in"
+    assert public["followed"] == 1 and public["followups"] == 2
+
+
+def test_following_stops_for_a_session_the_service_does_not_know_and_is_bounded(ran, monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr(statusline, "GATHER_S", 0.01)
+    monkeypatch.setattr(statusline, "FOLLOW_S", 0.01)
+    monkeypatch.setattr(statusline, "FOLLOW_GRACE_S", 0.05)
+    monkeypatch.setattr(statusline, "MAX_FOLLOWED", 2)
+    logged: list = []
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=logged.append, readings=dict)
+        for sid in ("s-0000001", "s-0000002", "s-0000003"):
+            refresher.request("/plugin", "/py", {}, sid, None)
+        assert list(refresher.followed) == ["s-0000002", "s-0000003"], "the one that asked longest ago goes"
+        await asyncio.sleep(0.3)
+        dropped = (dict(refresher.followed), refresher._follow_timer)
+
+        def broken():
+            raise RuntimeError("boom")
+
+        failing = statusline.StatuslineRefresher(log=logged.append, readings=broken)
+        failing.request("/plugin", "/py", {}, "s-0000004", None)
+        await asyncio.sleep(0.1)
+        assert failing._follow_timer is not None, "a failed look tries again"
+        failing.close()
+        return dropped, failing._follow_timer
+
+    (followed, timer), closed_timer = asyncio.run(scenario())
+    assert followed == {} and timer is None, "unknown past the grace: no longer followed, no timer left"
+    assert closed_timer is None
+    assert any("reading the sessions failed: RuntimeError" in line for line in logged)
+
+
+def test_the_service_reads_a_status_lines_capture_from_its_registration_and_recorder():
+    from types import SimpleNamespace
+
+    from probe.service import server
+
+    def row(sid, alive, recording, off):
+        return {"sid": sid, "alive": alive, "recording": recording, "off": off, "last": "", "failures": 0}
+
+    fake = SimpleNamespace(
+        registry=SimpleNamespace(sessions={
+            "s-0000001": SimpleNamespace(sid="s-0000001", mode="daemon"),
+            "s-0000002": SimpleNamespace(sid="s-0000002", mode="off"),
+            "s-0000004": SimpleNamespace(sid="s-0000004", mode="inline"),
+        }),
+        recorders=SimpleNamespace(public=lambda: [
+            row("s-0000001", True, True, False), row("s-0000003", True, None, False), row("s-0000004", True, True, True)]),
+    )
+    assert server.Service._statusline_readings(fake) == {
+        "s-0000001": ("daemon", (True, True, False)),
+        "s-0000002": statusline.OFF,  # registered off
+        "s-0000003": (None, (True, None, False)),
+        "s-0000004": statusline.OFF,  # its recorder holds it off
+    }
+
+
+def _settle(ran, refresher, children, extra=0.15):
+    import asyncio
+
+    async def wait():
+        deadline = time.monotonic() + 5
+        while (len(ran) < children or refresher.in_flight()) and time.monotonic() < deadline:
+            await asyncio.sleep(0.01)
+        await asyncio.sleep(extra)
+
+    return wait()
+
+
+@pytest.fixture
+def fast_follow(monkeypatch):
+    monkeypatch.setattr(statusline, "INTERVAL_S", 0.05)
+    monkeypatch.setattr(statusline, "GATHER_S", 0.01)
+    monkeypatch.setattr(statusline, "FOLLOW_S", 0.02)
+    monkeypatch.setattr(statusline, "SETTLE_S", 60)
+
+
+def _sids(ran):
+    return [[s["sid"] for s in json.loads(stdin)["sessions"]] for _argv, _env, stdin in ran]
+
+
+def test_a_session_switched_off_is_never_refreshed_from_the_service(ran, fast_follow):
+    """Its child would read the server for it: Probe off makes no call for
+    the session (its hooks refresh none either)."""
+    import asyncio
+
+    known = {"s-0000001": ("daemon", (True, True, False))}
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=lambda: dict(known))
+        refresher.request("/plugin", "/py", {}, "s-0000001", None)
+        await _settle(ran, refresher, 1)
+        known["s-0000001"] = statusline.OFF
+        await _settle(ran, refresher, 1, 0.3)
+        assert len(ran) == 1, "switched off: nothing ran for it"
+        assert "s-0000001" in refresher.followed, "off is not ended: still followed"
+        known["s-0000001"] = ("daemon", (True, True, False))  # on again, no hook asking
+        await _settle(ran, refresher, 2)
+        # A hook's request that lands as it is switched off runs nothing either.
+        known["s-0000001"] = statusline.OFF
+        refresher.request("/plugin", "/py", {}, "s-0000001", None)
+        await _settle(ran, refresher, 2, 0.3)
+        refresher.close()
+
+    asyncio.run(scenario())
+    assert _sids(ran) == [["s-0000001"], ["s-0000001"]]
+
+
+def test_a_session_whose_request_names_an_endpoint_is_not_followed(ran, fast_follow):
+    """The endpoint was checked against the CLI config only when it asked."""
+    import asyncio
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=dict)
+        refresher.request("/plugin", "/py", {"PROBE_BASE_URL": "https://api.research.prbe.ai"}, "s-0000001", None)
+        followed = dict(refresher.followed)
+        await _settle(ran, refresher, 1)
+        refresher.close()
+        return followed
+
+    assert asyncio.run(scenario()) == {}
+    assert len(ran) == 1, "its own refresh still runs"
+
+
+def test_a_session_switched_off_then_closed_is_never_refreshed(ran, fast_follow):
+    import asyncio
+
+    known = {"s-0000001": ("daemon", (True, True, False))}
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=lambda: dict(known))
+        refresher.request("/plugin", "/py", {}, "s-0000001", None)
+        await _settle(ran, refresher, 1)
+        known["s-0000001"] = statusline.OFF
+        await _settle(ran, refresher, 1, 0.1)
+        del known["s-0000001"]  # closed while off, well within the grace
+        await _settle(ran, refresher, 1, 0.3)
+        followed = dict(refresher.followed)
+        refresher.close()
+        return followed
+
+    assert asyncio.run(scenario()) == {}
+    assert len(ran) == 1
+
+
+def test_a_session_back_on_is_still_followed_while_its_registration_catches_up(ran, fast_follow):
+    import asyncio
+
+    known = {"s-0000001": ("daemon", (True, True, False))}
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=lambda: dict(known))
+        refresher.request("/plugin", "/py", {}, "s-0000001", None)
+        await _settle(ran, refresher, 1)
+        known["s-0000001"] = statusline.OFF
+        await _settle(ran, refresher, 1, 0.1)
+        known["s-0000001"] = (None, (True, True, False))  # its recorder shows first
+        await _settle(ran, refresher, 2)
+        still = "s-0000001" in refresher.followed
+        refresher.close()
+        return still
+
+    assert asyncio.run(scenario())
+    assert len(ran) == 2
+
+
+def test_a_new_folder_past_the_limit_takes_the_place_of_the_least_recently_asked(ran, fast_follow, monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr(statusline, "MAX_GROUPS", 2)
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=dict)
+        refresher.request("/a", "/py", {}, "s-0000001", None)
+        await asyncio.sleep(0.01)
+        refresher.request("/b", "/py", {}, "s-0000002", None)
+        await _settle(ran, refresher, 2)
+        answer = refresher.request("/c", "/py", {}, "s-0000003", None)
+        followed = sorted(refresher.followed)
+        refresher.close()
+        return answer, followed
+
+    answer, followed = asyncio.run(scenario())
+    assert answer["scheduled"] is True
+    assert followed == ["s-0000002", "s-0000003"], "the folder asked of longest ago made room"
+
+
+def test_an_ended_session_is_not_refreshed_again(ran, fast_follow):
+    import asyncio
+
+    known = {"s-0000001": ("daemon", (True, True, False))}
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=lambda: dict(known))
+        refresher.request("/plugin", "/py", {}, "s-0000001", "claude_code")
+        await _settle(ran, refresher, 1)
+        known["s-0000001"] = (None, (True, True, False))  # its registration ended, its recorder finishes
+        await _settle(ran, refresher, 1, 0.2)
+        del known["s-0000001"]
+        await _settle(ran, refresher, 1, 0.2)
+        idle = not refresher.in_flight() and refresher.followed == {}
+        refresher.close()
+        return idle
+
+    assert asyncio.run(scenario())
+    assert len(ran) == 1
+
+
+def test_a_change_is_refreshed_again_once_it_settles(ran, fast_follow, monkeypatch):
+    """The child also reads what the service does not see (the `.hosted`
+    marker, the switch file), which can land after the change."""
+    import asyncio
+
+    monkeypatch.setattr(statusline, "SETTLE_S", 0.2)
+    known: dict = {}
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=lambda: dict(known))
+        refresher.request("/plugin", "/py", {}, "s-0000001", None)
+        await _settle(ran, refresher, 1)
+        known["s-0000001"] = ("daemon", (True, True, False))
+        await _settle(ran, refresher, 3, 0.6)
+        refresher.close()
+
+    asyncio.run(scenario())
+    assert _sids(ran) == [["s-0000001"]] * 3, "the hook's, the change's, one more once settled: no more"
+
+
+def test_a_failed_refresh_is_retried_a_bounded_number_of_times(monkeypatch, fast_follow):
+    import asyncio
+
+    monkeypatch.setattr(statusline, "SETTLE_S", 0.1)  # a settle due after the last failure runs nothing more
+    monkeypatch.setattr(statusline.StatuslineRefresher, "check", lambda self, root: None)
+    calls: list = []
+
+    async def failing(argv, **_kwargs):
+        calls.append(argv)
+        return 1
+
+    monkeypatch.setattr(statusline.children, "run_command", failing)
+    known = {"s-0000001": ("daemon", (True, False, False))}
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=lambda: dict(known))
+        refresher.request("/plugin", "/py", {}, "s-0000001", None)
+        await asyncio.sleep(1.0)
+        tried = len(calls)
+        known["s-0000001"] = ("daemon", (True, True, False))  # a new change gets its own tries
+        await asyncio.sleep(1.0)
+        refresher.close()
+        return tried
+
+    assert asyncio.run(scenario()) == statusline.MAX_FOLLOW_RETRIES, "retried, then left for the next change or hook"
+    assert len(calls) == 2 * statusline.MAX_FOLLOW_RETRIES
+
+
+def test_a_folder_gone_since_its_request_runs_nothing_and_ends_its_following(monkeypatch, fast_follow, ran):
+    import asyncio
+
+    monkeypatch.setattr(statusline.StatuslineRefresher, "check", lambda self, root: "not a Probe plugin folder")
+    logged: list = []
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=logged.append, readings=dict)
+        refresher.request("/plugin-0.1", "/py", {}, "s-0000001", None)
+        await asyncio.sleep(0.2)
+        followed = dict(refresher.followed)
+        refresher.close()
+        return followed
+
+    assert asyncio.run(scenario()) == {}
+    assert ran == [] and any("not a Probe plugin folder" in line for line in logged)
+
+
+def test_follow_ups_never_queue_past_max_pending_nor_forget_a_followed_folder(ran, fast_follow, monkeypatch):
+    import asyncio
+
+    known: dict = {}
+
+    async def scenario():
+        refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=lambda: dict(known))
+        for sid in ("s-0000001", "s-0000002", "s-0000003"):
+            refresher.request("/plugin", "/py", {}, sid, None)
+        await _settle(ran, refresher, 1)
+        monkeypatch.setattr(statusline, "MAX_PENDING", 2)
+        monkeypatch.setattr(statusline, "GATHER_S", 30)
+        monkeypatch.setattr(statusline, "INTERVAL_S", 30)
+        known.update({sid: ("daemon", None) for sid in ("s-0000001", "s-0000002", "s-0000003")})
+        await asyncio.sleep(0.1)
+        waiting = refresher.public()["waiting"]
+        # A folder its followed sessions need is never forgotten for a new one.
+        monkeypatch.setattr(statusline, "MAX_GROUPS", 1)
+        refused = refresher.request("/other", "/py", {}, "s-0000009", None)
+        refresher.close()
+        return waiting, refused, len(refresher.followed)
+
+    waiting, refused, followed = asyncio.run(scenario())
+    assert waiting == 2
+    assert refused == {"scheduled": False, "reason": "busy: too many plugin folders"}
+    assert followed == 3
+
+
+def test_an_old_contexts_child_never_settles_the_sessions_new_context():
+    """A session that asked again in another context: a child of its old one
+    writes the old context's marker, so it must not mark the new one's reading
+    as seen (that change would never be refreshed there)."""
+    reading = ("daemon", (True, True, False))
+    refresher = statusline.StatuslineRefresher(log=lambda _m: None, readings=lambda: {"s-0000001": reading})
+    old = statusline._Group("/plugin", "/py", {}, "key-a")
+    refresher.followed["s-0000001"] = statusline._Followed("key-b", None)
+    assert refresher._seen(old, {"s-0000001": None}) == {"s-0000001": None}
+    assert refresher.followed["s-0000001"].seen is None
+    new = statusline._Group("/plugin", "/py", {}, "key-b")
+    refresher._seen(new, {"s-0000001": None})
+    assert refresher.followed["s-0000001"].seen == reading
+
+
+def test_the_status_line_stops_following_before_the_recorders_pause():
+    """Pausing the recorders moves every session's capture: followed, each
+    would get a refresh child that reads this service after it has gone and
+    writes "not started" on every update's restart (review of #3554)."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from probe.service import server
+
+    order: list = []
+
+    class Part:
+        def __init__(self, name):
+            self.name = name
+
+        def close(self, *_a, **_k):
+            order.append(self.name)
+
+    class Recorders(Part):
+        async def close(self):
+            order.append(self.name)
+
+    names = ("mailwatch", "mailhost", "alerts", "hints", "hookhosts", "hook_queue", "background", "workers",
+             "watch", "statepost", "actions", "notes", "imports", "statusline")
+    fake = SimpleNamespace(
+        _discovery_handle=None, _grace_handle=None, _expiry_handle=None, _outbox_task=None, _server=None,
+        legacy=None, connections=[], watcher=None, _hook_runs=None, _host_starts=None, _queue_stores=None,
+        _background_starts=None, _host_pool=None, recorders=Recorders("recorders"),
+        registry=SimpleNamespace(save=lambda: order.append("save")),
+        **{name: Part(name) for name in names},
+    )
+    asyncio.run(server.Service._shutdown(fake))
+    assert order.index("statusline") < order.index("recorders")
+    assert order.count("statusline") == 1
+
+
+def test_a_cancelled_status_line_child_is_killed_not_left_running(tmp_path):
+    """A refresh child must not outlive the service it reads (`kill_on_cancel`)."""
+    import asyncio
+
+    from probe.service import children
+
+    pid_file = tmp_path / "pid"
+
+    async def scenario():
+        task = asyncio.ensure_future(children.run_command(
+            ["/bin/sh", "-c", f"echo $$ > {pid_file}; exec sleep 30"], env=dict(os.environ), cwd=str(tmp_path),
+            timeout=60, kill_on_cancel=True))
+        deadline = time.monotonic() + 5
+        while not (pid_file.exists() and pid_file.read_text().strip()) and time.monotonic() < deadline:
+            await asyncio.sleep(0.02)
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+    asyncio.run(scenario())
+    pid = int(pid_file.read_text())
+
+    def gone() -> bool:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        try:  # a zombie the watcher has not reaped yet is gone too
+            return Path(f"/proc/{pid}/stat").read_text().split()[2] == "Z"
+        except OSError:
+            return True
+
+    deadline = time.monotonic() + 5
+    while not gone() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert gone()
 
 
 def test_the_status_line_scheduler_bounds_folders_and_waiting_sessions(monkeypatch):

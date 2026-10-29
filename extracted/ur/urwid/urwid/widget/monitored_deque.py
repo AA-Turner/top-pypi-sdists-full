@@ -22,19 +22,17 @@
 from __future__ import annotations
 
 import collections
-import contextlib
 import functools
 import operator
 import typing
-import warnings
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
-
-    from typing_extensions import Concatenate, ParamSpec
+    from typing import Concatenate, ParamSpec, Self
 
     ArgSpec = ParamSpec("ArgSpec")
     Ret = typing.TypeVar("Ret")
+    _MD = typing.TypeVar("_MD", bound="MonitoredDeque[typing.Any]")
 
 __all__ = ("MonitoredDeque", "MonitoredFocusDeque")
 
@@ -42,11 +40,11 @@ _T = typing.TypeVar("_T")
 
 
 def _call_modified(
-    fn: Callable[Concatenate[MonitoredDeque[typing.Any], ArgSpec], Ret],
-) -> Callable[Concatenate[MonitoredDeque[typing.Any], ArgSpec], Ret]:
+    fn: Callable[Concatenate[_MD, ArgSpec], Ret],
+) -> Callable[Concatenate[_MD, ArgSpec], Ret]:
     @functools.wraps(fn)
     def call_modified_wrapper(
-        self: MonitoredDeque[typing.Any],
+        self: _MD,
         /,
         *args: ArgSpec.args,
         **kwargs: ArgSpec.kwargs,
@@ -58,30 +56,21 @@ def _call_modified(
     return call_modified_wrapper
 
 
-def _insert_index(owner: str, index: typing.SupportsIndex, *, stacklevel: int) -> int:
-    """Convert an ``insert()`` position to an integer as ``deque.insert()`` does.
+def _bounded_repeat_count(length: int, maxlen: int | None, count: int) -> int:
+    """Return a repeat count no larger than *count* that leaves a deque with the same items as *count* would.
 
-    An object without ``__index__`` that ``int()`` accepts is still converted by ``int()``, with a warning.
+    A bounded deque keeps only the last *maxlen* items of the repetition, so repeating beyond filling *maxlen* changes
+    nothing. ``collections.deque`` does not stop early on every interpreter: PyPy repeats *count* times.
 
-    :param owner: class name for the warning message
-    :param index: position passed to ``insert()``
-    :param stacklevel: ``warnings.warn`` stack level of the caller of ``insert()``, counted from this function
-    :returns: the position as an integer
-    :raises TypeError: *index* has no ``__index__`` and ``int()`` rejects its type.
-    :raises ValueError: ``int()`` rejects the value of *index*, such as a NaN or an unparsable string.
-    :raises OverflowError: *index* is an infinite float.
+    :param length: number of items in the deque
+    :param maxlen: the deque's ``maxlen``, ``None`` for an unbounded deque
+    :param count: requested repeat count
     """
-    with contextlib.suppress(TypeError):
-        return operator.index(index)
-    idx = int(index)
-    warnings.warn(
-        f"{owner}.insert() with an index of type {type(index).__name__} is deprecated: "
-        "pass an int or an object with __index__. "
-        "Support will be removed in version 5.0, after which it raises TypeError like deque.insert().",
-        DeprecationWarning,
-        stacklevel=stacklevel + 1,
-    )
-    return idx
+    if count <= 1 or maxlen is None:
+        return count
+    if length == 0:
+        return 1
+    return min(count, max(1, -(-maxlen // length)))
 
 
 class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
@@ -91,9 +80,8 @@ class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
     narrower API. Deliberate differences from :class:`MonitoredList`:
 
     * ``sort()`` is not provided -- ``deque`` itself has no such method.
-    * ``__add__``/``__rmul__``/``__imul__`` are not provided -- ``deque``
-      itself raises ``TypeError`` for concatenation/repetition, so there is
-      nothing meaningful to wrap.
+    * ``__add__``/``__mul__``/``__rmul__`` are not wrapped -- they return a
+      new deque and leave this one unchanged, so there is nothing to notify.
     * ``maxlen`` needs no dedicated property: it is already a read-only
       attribute inherited from ``deque``.
 
@@ -182,9 +170,14 @@ class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
         super().__delitem__(__key)
 
     @_call_modified
-    def __iadd__(self, __value: Iterable[_T]) -> MonitoredDeque[_T]:
+    def __iadd__(self, __value: Iterable[_T]) -> Self:
         """Extend the deque in place with the items from `__value`."""
         return super().__iadd__(__value)
+
+    @_call_modified
+    def __imul__(self, __value: typing.SupportsIndex) -> Self:
+        """Repeat the deque's contents `__value` times in place."""
+        return super().__imul__(_bounded_repeat_count(len(self), self.maxlen, operator.index(__value)))
 
     @_call_modified
     def append(self, __object: _T) -> None:
@@ -207,7 +200,7 @@ class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
         super().extendleft(__iterable)
 
     @_call_modified
-    def pop(self) -> _T:  # type: ignore[override]  # deque.pop takes no argument, unlike list.pop
+    def pop(self) -> _T:  # type: ignore[override]  # as on deque.pop in typeshed: no index, unlike MutableSequence.pop
         """Remove and return the item at the right end of the deque."""
         return super().pop()
 
@@ -220,19 +213,15 @@ class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
     def insert(self, __index: typing.SupportsIndex, __object: _T) -> None:
         """Insert ``__object`` before ``__index``.
 
-        .. deprecated:: 4.2.5
-            An ``__index`` without ``__index__`` that ``int()`` accepts (a float, a ``Decimal``, a numeric string)
-            is converted by ``int()`` with a :exc:`DeprecationWarning`.
-            Pass an integer instead.
-            From version 5.0 such an index raises :exc:`TypeError`, as ``deque.insert()`` does.
+        .. versionchanged:: 5.0
+            An ``__index`` without ``__index__`` (a float, a ``Decimal``, a numeric string) raises :exc:`TypeError`,
+            as ``deque.insert()`` does.
 
-        :raises TypeError: ``__index`` has no ``__index__`` and ``int()`` rejects its type.
-        :raises ValueError: ``int()`` rejects the value of ``__index``, such as a NaN or an unparsable string.
-        :raises OverflowError: ``__index`` is an infinite float or does not fit a C ``ssize_t``.
+        :raises TypeError: ``__index`` has no ``__index__``.
+        :raises OverflowError: ``__index`` does not fit a C ``ssize_t``.
         :raises IndexError: the deque is bounded and already full.
         """
-        # _call_modified's wrapper sits between this method and its caller.
-        super().insert(_insert_index(type(self).__name__, __index, stacklevel=3), __object)
+        super().insert(operator.index(__index), __object)
 
     @_call_modified
     def remove(self, __value: _T) -> None:
@@ -245,9 +234,9 @@ class MonitoredDeque(collections.deque[_T], typing.Generic[_T]):
         super().reverse()
 
     @_call_modified
-    def rotate(self, __n: int = 1) -> None:
+    def rotate(self, __n: typing.SupportsIndex = 1) -> None:
         """Rotate the deque ``__n`` steps to the right (or left, for negative ``__n``)."""
-        super().rotate(__n)
+        super().rotate(operator.index(__n))
 
     @_call_modified
     def clear(self) -> None:
@@ -311,6 +300,8 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
     """
 
     _focus_changed_callback: Callable[[int], typing.Any] | None = None
+    follow_end: bool = False
+    """Move the focus from the last item to the new last item when items are added after it."""
 
     def __init__(
         self,
@@ -318,6 +309,7 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         maxlen: int | None = None,
         *,
         focus: int = 0,
+        follow_end: bool = False,
     ) -> None:
         """Initialize a deque that tracks one item as the focus item.
 
@@ -337,8 +329,35 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         >>> mfd.clear()
         >>> mfd
         MonitoredFocusDeque([], focus=None)
+
+        With *follow_end*, items added after a focused last item take the focus, also when a bounded deque
+        evicts its head item to make room, as in a log view:
+
+        >>> mfd = MonitoredFocusDeque([10, 11], maxlen=2, focus=1, follow_end=True)
+        >>> mfd.append(12)
+        >>> mfd
+        MonitoredFocusDeque([11, 12], maxlen=2, focus=1)
+        >>> mfd.focus = 0
+        >>> mfd.append(13)
+        >>> mfd
+        MonitoredFocusDeque([12, 13], maxlen=2, focus=0)
+
+        :param iterable: the initial items
+        :param maxlen: the maximum length, or ``None`` for an unbounded deque
+        :param focus: the index of the initial focus item
+        :param follow_end: the initial value of :attr:`follow_end`
+        :raises TypeError: *focus* is not an integer.
+        :raises IndexError: *focus* is not an index of the items kept, which is ignored when there are none.
         """
         super().__init__(iterable, maxlen)
+        self.follow_end = follow_end
+        if not self:
+            self._focus = 0
+            return
+        if not isinstance(focus, int):
+            raise TypeError("index must be an integer")
+        if focus < 0 or focus >= len(self):
+            raise IndexError(f"focus index is out of range: {focus}")
         self._focus = focus
 
     def __repr__(self) -> str:
@@ -445,6 +464,17 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         new_len = len(self) - num_removed + num_inserted
         return max(0, min(focus, new_len - 1))
 
+    def _focus_after_append(self, focus: int) -> int | Callable[[], int]:
+        """Return the focus for :meth:`_modify` when items are added at the right end.
+
+        :param focus: the focus position without :attr:`follow_end`
+        :returns: a callable giving the new last index when :attr:`follow_end` is set and the last item has the
+            focus, otherwise *focus*
+        """
+        if self.follow_end and self and self._focus == len(self) - 1:
+            return lambda: len(self) - 1
+        return focus
+
     def _modify(
         self,
         focus: int | Callable[[], int],
@@ -459,6 +489,8 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
 
         :param focus: the new focus index, or a callable returning it, called after the change
         :param change: the unmonitored operation applying the change
+        :param args: positional arguments for *change*
+        :param kwargs: keyword arguments for *change*
         :returns: what ``change`` returns
         :raises Exception: whatever ``change`` raises, leaving the focus as it was and notifying nothing;
             or whatever the focus-changed or the modified callback raises.
@@ -498,18 +530,19 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         >>> mfd
         MonitoredFocusDeque([], focus=None)
         """
-        idx = int(index)
+        position = operator.index(index)
+        idx = position
         if idx < 0:
             idx += len(self)
         focus = self._adjust_focus_on_single_change(idx, 1, 0)
-        self._modify(focus, super(MonitoredDeque, self).__delitem__, index)
+        self._modify(focus, super(MonitoredDeque, self).__delitem__, position)
 
     def append(self, item: _T) -> None:
         """Append ``item`` to the right end of the deque.
 
         Unless the deque was empty, focus is unaffected -- unless the deque is already at
         ``maxlen``, in which case the head item is evicted and focus follows it:
-        ``focus = max(0, focus - 1)``.
+        ``focus = max(0, focus - 1)``. With :attr:`follow_end`, a focused last item passes the focus to *item*.
 
         :param item: item to append
 
@@ -529,7 +562,7 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
             focus = max(0, self._focus - 1)
         else:
             focus = self._focus
-        self._modify(focus, super(MonitoredDeque, self).append, item)
+        self._modify(self._focus_after_append(focus), super(MonitoredDeque, self).append, item)
 
     def appendleft(self, item: _T) -> None:
         """Append ``item`` to the left end of the deque.
@@ -578,9 +611,9 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         else:
             evicted = 0
         focus = max(0, self._focus - evicted) if self else 0
-        self._modify(focus, super(MonitoredDeque, self).extend, items_list)
+        self._modify(self._focus_after_append(focus), super(MonitoredDeque, self).extend, items_list)
 
-    def __iadd__(self, items: Iterable[_T]) -> MonitoredFocusDeque[_T]:
+    def __iadd__(self, items: Iterable[_T]) -> Self:
         """Extend the deque in place with ``items``, adjusting the focus like :meth:`extend`.
 
         >>> bounded = MonitoredFocusDeque([0, 1, 2], maxlen=4, focus=2)
@@ -589,6 +622,32 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         MonitoredFocusDeque([2, 6, 7, 8], maxlen=4, focus=0)
         """
         self.extend(items)
+        return self
+
+    def __imul__(self, n: typing.SupportsIndex) -> Self:
+        """Repeat the deque's contents ``n`` times in place, adjusting the focus like :meth:`extend`.
+
+        >>> bounded = MonitoredFocusDeque([0, 1, 2], maxlen=4, focus=2)
+        >>> bounded *= 2
+        >>> bounded
+        MonitoredFocusDeque([2, 0, 1, 2], maxlen=4, focus=0)
+        >>> bounded *= 0
+        >>> bounded
+        MonitoredFocusDeque([], maxlen=4, focus=None)
+        """
+        count = operator.index(n)
+        if count <= 0:
+            self.clear()
+            return self
+        # the evicted count follows from the full repetition; the deque is only repeated as often as maxlen keeps
+        total = len(self) * count
+        evicted = total - self.maxlen if self.maxlen is not None and total > self.maxlen else 0
+        focus = max(0, self._focus - evicted) if self else 0
+        self._modify(
+            self._focus_after_append(focus),
+            super(MonitoredDeque, self).__imul__,
+            _bounded_repeat_count(len(self), self.maxlen, count),
+        )
         return self
 
     def extendleft(self, items: Iterable[_T]) -> None:
@@ -611,7 +670,7 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
             focus = min(focus, self.maxlen - 1)
         self._modify(focus, super(MonitoredDeque, self).extendleft, items_list)
 
-    def pop(self) -> _T:  # type: ignore[override]  # deque.pop takes no argument, unlike list.pop
+    def pop(self) -> _T:  # type: ignore[override]  # as on deque.pop in typeshed: no index, unlike MutableSequence.pop
         """Remove and return the tail item.
 
         Focus is unaffected unless it pointed at the tail item, in which case it moves to the
@@ -650,17 +709,14 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         Note ``deque.insert`` itself raises ``IndexError`` on an already-full bounded deque,
         rather than evicting -- so there is no eviction case to handle here.
 
-        .. deprecated:: 4.2.5
-            An ``index`` without ``__index__`` that ``int()`` accepts (a float, a ``Decimal``, a numeric string)
-            is converted by ``int()`` with a :exc:`DeprecationWarning`.
-            Pass an integer instead.
-            From version 5.0 such an index raises :exc:`TypeError`, as ``deque.insert()`` does.
+        .. versionchanged:: 5.0
+            An ``index`` without ``__index__`` (a float, a ``Decimal``, a numeric string) raises :exc:`TypeError`,
+            as ``deque.insert()`` does.
 
         :param index: position before which to insert
         :param item: item to insert
-        :raises TypeError: *index* has no ``__index__`` and ``int()`` rejects its type.
-        :raises ValueError: ``int()`` rejects the value of *index*, such as a NaN or an unparsable string.
-        :raises OverflowError: *index* is an infinite float or does not fit a C ``ssize_t``.
+        :raises TypeError: *index* has no ``__index__``.
+        :raises OverflowError: *index* does not fit a C ``ssize_t``.
         :raises IndexError: the deque is bounded and already full.
 
         >>> mfd = MonitoredFocusDeque([0, 1, 2, 3], focus=2)
@@ -671,12 +727,15 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         >>> mfd
         MonitoredFocusDeque([-2, 0, 1, 2, -1, 3], focus=3)
         """
-        position = _insert_index(type(self).__name__, index, stacklevel=2)
+        position = operator.index(index)
         if position < 0:
             idx = max(0, len(self) + position)
         else:
             idx = min(position, len(self))
         focus = self._adjust_focus_on_single_change(idx, 0, 1)
+        if idx == len(self):
+            self._modify(self._focus_after_append(focus), super(MonitoredDeque, self).insert, position, item)
+            return
         self._modify(focus, super(MonitoredDeque, self).insert, position, item)
 
     def remove(self, value: _T) -> None:
@@ -704,7 +763,7 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         """
         self._modify(max(0, len(self) - self._focus - 1), super(MonitoredDeque, self).reverse)
 
-    def rotate(self, n: int = 1) -> None:
+    def rotate(self, n: typing.SupportsIndex = 1) -> None:
         """Rotate the deque ``n`` steps to the right (or left, for negative ``n``).
 
         Carries the focus item along with the rotation -- there is no list precedent for this
@@ -720,7 +779,10 @@ class MonitoredFocusDeque(MonitoredDeque[_T], typing.Generic[_T]):
         >>> mfd
         MonitoredFocusDeque([1, 2, 3, 4, 0], focus=4)
         """
-        self._modify((self._focus + n) % len(self) if self else self._focus, super(MonitoredDeque, self).rotate, n)
+        steps = operator.index(n)
+        self._modify(
+            (self._focus + steps) % len(self) if self else self._focus, super(MonitoredDeque, self).rotate, steps
+        )
 
     def clear(self) -> None:
         """Remove all items and reset focus to ``None``.

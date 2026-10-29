@@ -37,8 +37,7 @@ from .widget import WidgetError, WidgetWrap
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, MutableSequence
-
-    from typing_extensions import Literal, Self
+    from typing import Literal, Self
 
     from urwid.canvas import TextCanvas
     from urwid.text_layout import TextLayout
@@ -56,20 +55,21 @@ class SelectableIcon(Text):
     def __init__(
         self,
         text: _TagMarkup,
-        cursor_position: int = 0,
+        cursor_position: int | None = 0,
         align: Literal["left", "center", "right"] | Align = Align.LEFT,
         wrap: Literal["space", "any", "clip", "ellipsis"] | WrapMode = WrapMode.SPACE,
         layout: TextLayout | None = None,
     ) -> None:
         """Create a text widget that is selectable.
 
-        A cursor is displayed at a fixed location in the text when in focus.
+        A cursor is displayed at a fixed location in the text when in focus, unless *cursor_position* is ``None``.
         This widget has no special handling of keyboard or mouse input.
 
         :param text: markup for this widget; see :class:`Text` for
                      description of text markup
         :param cursor_position: position the cursor will appear in the
-                                text when this widget is in focus
+                                text when this widget is in focus;
+                                ``None`` shows no cursor
         :param align: typically ``'left'``, ``'center'`` or ``'right'``
         :param wrap: typically ``'space'``, ``'any'``, ``'clip'`` or ``'ellipsis'``
         :param layout: defaults to a shared :class:`StandardTextLayout` instance
@@ -99,6 +99,7 @@ class SelectableIcon(Text):
         [b'((*))']
         >>> si.render((), focus=True).cursor
         (2, 0)
+        >>> SelectableIcon("item", None).render((8,), focus=True).cursor
         """
         c: TextCanvas | CompositeCanvas = super().render(size, focus)
         if focus:
@@ -112,7 +113,7 @@ class SelectableIcon(Text):
 
         This method is required for widgets that display a cursor.
         """
-        if self._cursor_position > len(self.text):
+        if self._cursor_position is None or self._cursor_position > len(self.text):
             return None
         # find out where the cursor will be displayed based on
         # the text layout
@@ -224,6 +225,8 @@ class CheckBox(WidgetWrap[Columns]):
         :param on_state_change: shorthand for connect_signal()
                                 function call for a single callback
         :param user_data: user_data for on_state_change
+        :param checked_symbol: the symbol drawn inside the brackets for the checked state,
+            ``None`` for the default one
         :raises ValueError: *state* is not one of the states of this check box.
 
         ..note:: `pack` method expect, that `Columns` backend widget is not modified from outside
@@ -259,7 +262,7 @@ class CheckBox(WidgetWrap[Columns]):
         self._label = Text(label)
         self.has_mixed = has_mixed
 
-        self._state = state
+        self._state: bool | Literal["mixed"] = state
         if checked_symbol:
             # Copy the class-level table so a custom mark does not leak into other CheckBox instances.
             self.states = {  # type: ignore[misc]
@@ -279,7 +282,7 @@ class CheckBox(WidgetWrap[Columns]):
             ),
         )
 
-    def pack(
+    def pack(  # type: ignore[override]
         self,
         size: tuple[()] | tuple[int] | None = (),
         focus: bool = False,
@@ -288,6 +291,7 @@ class CheckBox(WidgetWrap[Columns]):
 
         :param size: size data. Special case: () - get minimal widget size to fit
         :param focus: widget is focused
+        :returns: the (columns, rows) the widget needs.
 
         >>> cb = CheckBox("test")
         >>> cb.pack((10,))
@@ -300,7 +304,7 @@ class CheckBox(WidgetWrap[Columns]):
         >>> ml_cb.pack((), True)
         (12, 3)
         """
-        return typing.cast("tuple[int, int]", super().pack(size or (), focus))
+        return super().pack(size or (), focus)
 
     def _repr_words(self) -> list[str]:
         return [*super()._repr_words(), repr(self.label)]
@@ -401,7 +405,7 @@ class CheckBox(WidgetWrap[Columns]):
 
     state = property(get_state, set_state)
 
-    def keypress(self, size: tuple[int], key: str) -> str | None:
+    def keypress(self, size: tuple[int], key: str) -> str | None:  # type: ignore[override]
         """
         Toggle state on 'activate' command.
 
@@ -451,7 +455,15 @@ class CheckBox(WidgetWrap[Columns]):
         elif self.state == "mixed":
             self.set_state(False)
 
-    def mouse_event(self, size: tuple[int], event: str, button: int, x: int, y: int, focus: bool) -> bool:
+    def mouse_event(
+        self,
+        size: tuple[int],  # type: ignore[override]
+        event: str,
+        button: int,
+        col: int,
+        row: int,
+        focus: bool,
+    ) -> bool:
         """
         Toggle state on button 1 press.
 
@@ -627,6 +639,16 @@ class RadioButton(CheckBox):
     state = property(CheckBox.get_state, set_state)
 
 
+def _button_bracket(default: Text, markup: _TagMarkup | None) -> list[tuple[int, Text]]:
+    """Return the :class:`Button` column for one bracket: none when *markup* has no text."""
+    if markup is None:
+        return [(1, default)]
+    bracket = Text(markup)
+    if not bracket.text:
+        return []
+    return [(bracket.pack()[0], bracket)]
+
+
 class Button(WidgetWrap[Columns]):
     """Selectable widget that emits a ``click`` signal when activated."""
 
@@ -645,6 +667,9 @@ class Button(WidgetWrap[Columns]):
         align: Literal["left", "center", "right"] | Align = ...,
         wrap: Literal["space", "any", "clip", "ellipsis"] | WrapMode = ...,
         layout: TextLayout | None = ...,
+        cursor_position: int | None = ...,
+        left: _TagMarkup | None = ...,
+        right: _TagMarkup | None = ...,
     ) -> None: ...
 
     @typing.overload
@@ -657,6 +682,9 @@ class Button(WidgetWrap[Columns]):
         align: Literal["left", "center", "right"] | Align = ...,
         wrap: Literal["space", "any", "clip", "ellipsis"] | WrapMode = ...,
         layout: TextLayout | None = ...,
+        cursor_position: int | None = ...,
+        left: _TagMarkup | None = ...,
+        right: _TagMarkup | None = ...,
     ) -> None: ...
 
     def __init__(
@@ -668,6 +696,9 @@ class Button(WidgetWrap[Columns]):
         align: Literal["left", "center", "right"] | Align = Align.LEFT,
         wrap: Literal["space", "any", "clip", "ellipsis"] | WrapMode = WrapMode.SPACE,
         layout: TextLayout | None = None,
+        cursor_position: int | None = 0,
+        left: _TagMarkup | None = None,
+        right: _TagMarkup | None = None,
     ) -> None:
         """Create the Button widget.
 
@@ -678,6 +709,12 @@ class Button(WidgetWrap[Columns]):
         :param align: typically ``'left'``, ``'center'`` or ``'right'``
         :param wrap: typically ``'space'``, ``'any'``, ``'clip'`` or ``'ellipsis'``
         :param layout: defaults to a shared :class:`StandardTextLayout` instance
+        :param cursor_position: position of the cursor in the label when the button is in focus;
+            ``None`` shows no cursor, see :class:`SelectableIcon`
+        :param left: markup for the left bracket, in a column as wide as its text;
+            ``None`` uses :attr:`button_left` in a column of width 1, and markup with no text
+            leaves out the bracket together with the space after it
+        :param right: markup for the right bracket, the same way as *left* with :attr:`button_right`
 
         ..note:: `pack` method expect, that `Columns` backend widget is not modified from outside
 
@@ -705,10 +742,15 @@ class Button(WidgetWrap[Columns]):
         >>> with set_temporary_encoding("utf-8"):
         ...     wrapped_button.render((7,), focus=False).text[0].decode("utf-8")
         '< Lo… >'
+        >>> Button("Ok", left="[[", right="]]").render((8,)).text
+        [b'[[ Ok ]]']
+        >>> Button("Link", left="", right="").render((4,)).text
+        [b'Link']
+        >>> Button("Ok", cursor_position=None).render((6,), focus=True).cursor
         """
-        self._label = SelectableIcon(label, 0, align=align, wrap=wrap, layout=layout)
+        self._label = SelectableIcon(label, cursor_position, align=align, wrap=wrap, layout=layout)
         cols = Columns(
-            [(1, self.button_left), self._label, (1, self.button_right)],
+            [*_button_bracket(self.button_left, left), self._label, *_button_bracket(self.button_right, right)],
             dividechars=1,
         )
         super().__init__(cols)
@@ -718,7 +760,7 @@ class Button(WidgetWrap[Columns]):
         if on_press:
             connect_signal(self, "click", on_press, user_data)
 
-    def pack(
+    def pack(  # type: ignore[override]
         self,
         size: tuple[()] | tuple[int] | None = (),
         focus: bool = False,
@@ -727,6 +769,7 @@ class Button(WidgetWrap[Columns]):
 
         :param size: size data. Special case: () - get minimal widget size to fit
         :param focus: widget is focused
+        :returns: the (columns, rows) the widget needs.
 
         >>> btn = Button("Some button")
         >>> btn.pack((10,))
@@ -736,7 +779,7 @@ class Button(WidgetWrap[Columns]):
         >>> btn.pack((), True)
         (15, 1)
         """
-        return typing.cast("tuple[int, int]", super().pack(size or (), focus))
+        return super().pack(size or (), focus)
 
     def _repr_words(self) -> list[str]:
         # include button.label in repr(button)
@@ -769,7 +812,7 @@ class Button(WidgetWrap[Columns]):
 
     label = property(get_label)
 
-    def keypress(self, size: tuple[int], key: str) -> str | None:
+    def keypress(self, size: tuple[int], key: str) -> str | None:  # type: ignore[override]
         """
         Send 'click' signal on 'activate' command.
 
@@ -792,7 +835,15 @@ class Button(WidgetWrap[Columns]):
         self._emit("click")
         return None
 
-    def mouse_event(self, size: tuple[int], event: str, button: int, x: int, y: int, focus: bool) -> bool:
+    def mouse_event(
+        self,
+        size: tuple[int],  # type: ignore[override]
+        event: str,
+        button: int,
+        col: int,
+        row: int,
+        focus: bool,
+    ) -> bool:
         """
         Send 'click' signal on button 1 press.
 

@@ -7,27 +7,35 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
-        DocAiDigitiseRequestContentType,
         DocAiExtractRequestOutputFormat,
         DocAiGetResultsResponse,
-        DocAiGetResultsResponse_Digitise,
+        DocAiGetResultsResponse_Classify,
         DocAiGetResultsResponse_Extract,
+        DocAiGetResultsResponse_Parse,
+        DocAiGetResultsResponse_Split,
+        DocAiParseRequestContentType,
         Format,
     )
     from .requests import (
         DocAiGetResultsResponseParams,
-        DocAiGetResultsResponse_DigitiseParams,
+        DocAiGetResultsResponse_ClassifyParams,
         DocAiGetResultsResponse_ExtractParams,
+        DocAiGetResultsResponse_ParseParams,
+        DocAiGetResultsResponse_SplitParams,
     )
 _dynamic_imports: typing.Dict[str, str] = {
-    "DocAiDigitiseRequestContentType": ".types",
     "DocAiExtractRequestOutputFormat": ".types",
     "DocAiGetResultsResponse": ".types",
     "DocAiGetResultsResponseParams": ".requests",
-    "DocAiGetResultsResponse_Digitise": ".types",
-    "DocAiGetResultsResponse_DigitiseParams": ".requests",
+    "DocAiGetResultsResponse_Classify": ".types",
+    "DocAiGetResultsResponse_ClassifyParams": ".requests",
     "DocAiGetResultsResponse_Extract": ".types",
     "DocAiGetResultsResponse_ExtractParams": ".requests",
+    "DocAiGetResultsResponse_Parse": ".types",
+    "DocAiGetResultsResponse_ParseParams": ".requests",
+    "DocAiGetResultsResponse_Split": ".types",
+    "DocAiGetResultsResponse_SplitParams": ".requests",
+    "DocAiParseRequestContentType": ".types",
     "Format": ".types",
 }
 
@@ -54,13 +62,17 @@ def __dir__():
 
 
 __all__ = [
-    "DocAiDigitiseRequestContentType",
     "DocAiExtractRequestOutputFormat",
     "DocAiGetResultsResponse",
     "DocAiGetResultsResponseParams",
-    "DocAiGetResultsResponse_Digitise",
-    "DocAiGetResultsResponse_DigitiseParams",
+    "DocAiGetResultsResponse_Classify",
+    "DocAiGetResultsResponse_ClassifyParams",
     "DocAiGetResultsResponse_Extract",
     "DocAiGetResultsResponse_ExtractParams",
+    "DocAiGetResultsResponse_Parse",
+    "DocAiGetResultsResponse_ParseParams",
+    "DocAiGetResultsResponse_Split",
+    "DocAiGetResultsResponse_SplitParams",
+    "DocAiParseRequestContentType",
     "Format",
 ]

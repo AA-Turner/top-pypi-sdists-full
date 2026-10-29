@@ -37,7 +37,7 @@ class ResumableStream:
     Args:
         content_provider (BaseContentIterProvider): A provider that creates iterators which
             can fetch object data from AIS in chunks.
-        max_resume (int): Maximum number of resumes allowed for a single pass over the object.
+        max_resume (int): Maximum consecutive retry attempts without delivering new data.
     """
 
     def __init__(self, content_provider: BaseContentIterProvider, max_resume: int):
@@ -73,11 +73,6 @@ class ResumableStream:
         Valid only after the current stream yields or ends.
         """
         return self._bounds.start + self._stream_consumed
-
-    @property
-    def resumes(self) -> int:
-        """Number of resumes performed so far."""
-        return self._resumes
 
     def restart(self) -> None:
         """Discard all progress and open a fresh stream at the start of the object."""
@@ -127,17 +122,23 @@ class ResumableStream:
                 self._resume(ObjectFileReaderUnexpectedEOF(*short))
                 continue
 
-            stream_position = self._stream_position
-            self._stream_consumed += len(chunk)
+            chunk_size = len(chunk)
+            consumed = self._stream_consumed
+            delivered = self._delivered_position
+            # Bounds are populated lazily by the iterator, so read them after next().
+            replayed = delivered - (self._bounds.start + consumed)
+            self._stream_consumed = consumed + chunk_size
 
             # Discard what the caller already holds.
-            replayed = self._delivered_position - stream_position
             if replayed > 0:
-                chunk = chunk[replayed:]
-                if not chunk:
+                if replayed >= chunk_size:
                     continue
+                chunk = chunk[replayed:]
+                chunk_size -= replayed
 
-            self._delivered_position += len(chunk)
+            self._delivered_position = delivered + chunk_size
+            if chunk_size:
+                self._resumes = 0
             return chunk
 
     def _resume(self, err: Exception) -> None:

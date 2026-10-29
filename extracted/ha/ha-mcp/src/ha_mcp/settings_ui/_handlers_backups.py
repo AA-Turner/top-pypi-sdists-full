@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from .._vendor.fastmcp.exceptions import ToolError
 from .._version import is_running_in_addon
 from ..backup_manager import (
     _CAPTURE_TRANSIENT_ERRORS,
@@ -250,7 +251,35 @@ async def _restore_backup(
             ),
             status_code=409,
         )
+    except Exception as err:
+        # A write to Home Assistant failed: keep the error's own code, and the
+        # manager's outcome names the safety backup to revert with (#2632).
+        # The reply carries only the error's message, so the traceback is logged.
+        logger.exception("Restore of %s failed", name)
+        from ..tools.helpers import exception_to_structured_error
+
+        outcome = getattr(err, "restore_outcome", None)
+        response = _structured_tool_error(err)
+        if response is None:
+            response = exception_to_structured_error(
+                err, context={"data": outcome}, raise_error=False
+            )
+        else:
+            response.setdefault("data", outcome)
+        return JSONResponse(response, status_code=409)
     return JSONResponse({"success": True, "data": result})
+
+
+def _structured_tool_error(err: Exception) -> dict[str, Any] | None:
+    """The structured reply a ToolError carries (``COMPONENT_NOT_INSTALLED`` and
+    its fix, say); classifying it again would turn it into an unexpected error."""
+    if not isinstance(err, ToolError):
+        return None
+    try:
+        reply = json.loads(str(err))
+    except ValueError:
+        return None
+    return reply if isinstance(reply, dict) else None
 
 
 async def _delete_backup(
@@ -447,7 +476,7 @@ async def _save_backup_config_addon(
     """Add-on-mode branch of ``_save_backup_config``: merge ``clean`` into the
     Supervisor add-on options (full-replacement) and return.
 
-    ``start.py`` re-derives env vars from ``config.yaml`` on the next add-on
+    ``start.py`` re-derives env vars from ``/data/options.json`` on the next add-on
     boot, but the actual restart is fired by the user's global Restart Add-on
     button — not here — so ``restart_required=True`` and no auto-restart.
     """
@@ -460,12 +489,6 @@ async def _save_backup_config_addon(
             code=ErrorCode.INTERNAL_ERROR,
             status=500,
         )
-    # Merge ``clean`` into the *full* current options before posting.
-    # Supervisor validates against the addon schema and rejects any body
-    # missing a required key (notably ``backup_hint`` on the production /
-    # dev manifests). A previous version shipped just the auto-backup
-    # fields, producing ``addon_configuration_invalid_error: Missing option
-    # 'backup_hint' in root`` from supervisor and a confusing 400 in the UI.
     ok, sup_err = await _supervisor._supervisor_merge_and_post_options(
         server.settings.verify_ssl, clean
     )

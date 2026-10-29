@@ -1,15 +1,19 @@
+__lazy_modules__ = ["esi.models", "esi.stubs"]
+
 from typing import TYPE_CHECKING
 
-from esi.models import Token
 from esi.openapi_clients import ESIClientProvider
 
 from .. import __title__, __url__, __version__
 from . import __esi_compatibility_date__
 
 if TYPE_CHECKING:
+    from esi.models import Token
     from esi.stubs import (
-        CharactersDetail, CorporationsCorporationIdMembersGet,
-        PostUniverseNamesOperation, PostUniverseNamesOperationBody,
+        CharactersDetail,
+        CorporationsCorporationIdMembersGet,
+        PostUniverseNamesOperation,
+        PostUniverseNamesOperationBody,
     )
 
 esi = ESIClientProvider(
@@ -24,11 +28,11 @@ esi = ESIClientProvider(
     ])
 
 
-def get_characters_character_id(character_id: int, use_etag=True) -> "CharactersDetail":
+def get_characters_character_id(character_id: int, use_etag: bool = True) -> "CharactersDetail":
     return esi.client.Character.GetCharactersCharacterId(character_id=character_id).result(use_etag=use_etag)
 
 
-def get_corporations_corporation_id_members(corporation_id: int, token: Token) -> "CorporationsCorporationIdMembersGet":
+def get_corporations_corporation_id_members(corporation_id: int, token: "Token") -> "CorporationsCorporationIdMembersGet":
     return esi.client.Corporation.GetCorporationsCorporationIdMembers(corporation_id=corporation_id, token=token).result()
 
 

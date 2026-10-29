@@ -1,6 +1,7 @@
 # mypy: disable-error-code="no-redef"
 
 import asyncio
+import contextvars
 import datetime
 import logging
 import os
@@ -9,8 +10,9 @@ import threading
 import time
 import types
 import uuid
+from collections import deque
 from functools import wraps
-from typing import Any, Callable, List, Optional, Set, TypeVar, cast
+from typing import Any, Callable, List, Optional, Set, Tuple, TypeVar, cast
 
 import pytest
 import sqlalchemy as sa
@@ -20,10 +22,14 @@ from sqlalchemy.exc import OperationalError
 from dbos import (
     DBOS,
     DBOSConfig,
+    DBOSContextEnsure,
+    DBOSContextSetAuth,
     EnqueueOptions,
     SendMessage,
     SetWorkflowID,
     SetWorkflowTimeout,
+    StepOptions,
+    StepReservation,
     WorkflowHandle,
     WorkflowHandleAsync,
     WorkflowStatusString,
@@ -32,16 +38,26 @@ from dbos import _enterprise as enterprise_module
 
 # Private API because this is a test
 from dbos._client import DBOSClient
-from dbos._context import assert_current_dbos_context, get_local_dbos_context
+from dbos._context import (
+    SetEnqueueOptions,
+    SetShardKey,
+    assert_current_dbos_context,
+    get_local_dbos_context,
+    get_workflow_start_options,
+)
+from dbos._enqueue_options import validate_enqueue_options
 from dbos._error import (
     DBOSAwaitedWorkflowCancelledError,
     DBOSException,
     DBOSNonExistentWorkflowError,
+    DBOSStepTimeoutError,
 )
 from dbos._schemas.system_database import SystemSchema
-from dbos._sys_db import _dbos_null_topic
+from dbos._serialization import DefaultSerializer
+from dbos._shard_keys import bind_shard_keys, shard_key_scope
+from dbos._sys_db import SystemDatabase, _dbos_null_topic
 from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams
-from dbos._workflow_commands import WORKFLOW_TIMEOUT_THREAD_NAME
+from dbos._workflow_commands import BACKGROUND_JOBS_THREAD_NAME, _run_background_jobs
 from tests.conftest import (
     reexecute_workflow_by_id,
     retry_until_success,
@@ -2274,7 +2290,7 @@ def test_recovery_appversion(config: DBOSConfig) -> None:
 
 
 def test_conductor_key_keeps_cloud_executor_id(
-    config: DBOSConfig, monkeypatch: pytest.MonkeyPatch
+    config: DBOSConfig, monkeypatch: pytest.MonkeyPatch, skip_with_sharding: None
 ) -> None:
     # Only the executor identity is under test, so stand in for the enterprise client.
     class _NoopConductor:
@@ -2319,7 +2335,7 @@ def test_workflow_timeout(dbos: DBOS) -> None:
 
     @DBOS.workflow()
     def blocked_workflow() -> None:
-        assert assert_current_dbos_context().workflow_timeout_ms is None
+        assert get_workflow_start_options().workflow_timeout_ms is None
         assert assert_current_dbos_context().workflow_deadline_epoch_ms is not None
         while True:
             DBOS.sleep(0.1)
@@ -2385,7 +2401,7 @@ def test_workflow_timeout(dbos: DBOS) -> None:
 
     @DBOS.workflow()
     def parent_workflow() -> None:
-        assert assert_current_dbos_context().workflow_timeout_ms is None
+        assert get_workflow_start_options().workflow_timeout_ms is None
         assert assert_current_dbos_context().workflow_deadline_epoch_ms is not None
         with SetWorkflowID(start_child):
             DBOS.start_workflow(blocked_workflow)
@@ -2406,25 +2422,25 @@ def test_workflow_timeout(dbos: DBOS) -> None:
 
     # Verify the context variables are set correctly
     with SetWorkflowTimeout(1.0):
-        assert assert_current_dbos_context().workflow_timeout_ms == 1000
+        assert get_workflow_start_options().workflow_timeout_ms == 1000
         with SetWorkflowTimeout(2.0):
-            assert assert_current_dbos_context().workflow_timeout_ms == 2000
+            assert get_workflow_start_options().workflow_timeout_ms == 2000
         with SetWorkflowTimeout(None):
-            assert assert_current_dbos_context().workflow_timeout_ms is None
-        assert assert_current_dbos_context().workflow_timeout_ms == 1000
+            assert get_workflow_start_options().workflow_timeout_ms is None
+        assert get_workflow_start_options().workflow_timeout_ms == 1000
     assert get_local_dbos_context() is None
 
 
-def test_timeout_cleanup_on_destroy(dbos: DBOS, config: DBOSConfig) -> None:
-    """The timeout thread stops on its own event, not the one the other background
-    threads share, so destroy has to set it."""
-    timeout_threads = [
-        t for t in dbos._background_threads if t.name == WORKFLOW_TIMEOUT_THREAD_NAME
+def test_background_jobs_stop_on_destroy(dbos: DBOS, config: DBOSConfig) -> None:
+    """The background jobs thread stops on its own event, not the one the other
+    background threads share, so destroy has to set it."""
+    jobs_threads = [
+        t for t in dbos._background_threads if t.name == BACKGROUND_JOBS_THREAD_NAME
     ]
-    assert len(timeout_threads) == 1 and timeout_threads[0].is_alive()
+    assert len(jobs_threads) == 1 and jobs_threads[0].is_alive()
 
     DBOS.destroy(destroy_registry=True)
-    assert not timeout_threads[0].is_alive()
+    assert not jobs_threads[0].is_alive()
 
     # Re-initialize for fixture teardown
     dbos = DBOS(config=config)
@@ -2520,7 +2536,7 @@ def test_timeout_sweep_cancels_unowned_workflows(dbos: DBOS) -> None:
     dbos._sys_db.cancel_timed_out_workflows = real_sweep  # type: ignore[method-assign]
 
 
-def test_timeout_sweep_query_plan(dbos: DBOS) -> None:
+def test_timeout_sweep_query_plan(dbos: DBOS, skip_with_sharding: None) -> None:
     """The sweep runs every poll, so it must reach expired rows through idx_workflow_status_deadline."""
     from sqlalchemy import event
 
@@ -2535,7 +2551,7 @@ def test_timeout_sweep_query_plan(dbos: DBOS) -> None:
         context: Any,
         executemany: bool,
     ) -> None:
-        # The background timeout thread runs the same sweep on this engine.
+        # The background jobs thread runs the same sweep on this engine.
         if (
             threading.current_thread() is test_thread
             and statement.strip().startswith("UPDATE")
@@ -2598,6 +2614,72 @@ def test_timeout_sweep_query_plan(dbos: DBOS) -> None:
             "Index Cond" in d and "workflow_deadline_epoch_ms" in d for d in details
         ), details
         assert not [d for d in details if "Seq Scan" in d], details
+
+
+def test_background_jobs_run_once_per_interval_across_processes(
+    dbos: DBOS, config: DBOSConfig, skip_with_sqlite: None
+) -> None:
+    """Two processes' loops: whichever holds the lock runs the jobs, so their runs start
+    at least an interval apart, a failing job skips no other, and when the holder stops
+    the other takes over."""
+    peer = SystemDatabase.create(
+        system_database_url=cast(str, config["system_database_url"]),
+        engine_kwargs={},
+        engine=None,
+        schema=dbos._sys_db.schema,
+        serializer=DefaultSerializer(),
+        executor_id="peer",
+        use_listen_notify=False,
+        app_name=dbos._sys_db.app_name,
+        sharding=bool(config.get("sharding")),
+    )
+    interval = 0.2
+    runs: List[Tuple[str, float]] = []
+    stops = {"local": threading.Event(), "peer": threading.Event()}
+
+    def loop(name: str, sys_db: SystemDatabase) -> None:
+        def failing() -> None:
+            raise Exception("injected job failure")
+
+        def job() -> None:
+            runs.append((name, time.monotonic()))
+
+        process = cast(Any, types.SimpleNamespace(_sys_db=sys_db, logger=dbos.logger))
+        jobs = {"failing": failing, "job": job}
+        _run_background_jobs(stops[name], process, "test_jobs", interval, jobs)
+
+    threads = {
+        "local": threading.Thread(target=loop, args=("local", dbos._sys_db)),
+        "peer": threading.Thread(target=loop, args=("peer", peer)),
+    }
+    try:
+        for thread in threads.values():
+            thread.start()
+
+        def ran(times: int) -> None:
+            assert len(runs) >= times
+
+        retry_until_success(lambda: ran(8), interval=0.1, max_attempts=50)
+        # A start trails its lock's by one round trip, so gaps vary by about that much.
+        starts = [at for _, at in runs]
+        assert starts[-1] - starts[0] >= (len(starts) - 1) * interval * 0.9, runs
+        assert all(b - a >= interval / 2 for a, b in zip(starts, starts[1:])), runs
+
+        holder = runs[-1][0]
+        other = "peer" if holder == "local" else "local"
+        stops[holder].set()
+        threads[holder].join()
+
+        def taken_over() -> None:
+            assert runs[-1][0] == other
+
+        retry_until_success(taken_over, interval=0.1, max_attempts=50)
+    finally:
+        for stop in stops.values():
+            stop.set()
+        for thread in threads.values():
+            thread.join()
+        peer.destroy()
 
 
 def test_custom_names(dbos: DBOS) -> None:
@@ -2726,8 +2808,33 @@ def test_destroy(dbos: DBOS, config: DBOSConfig) -> None:
         handle.get_result()
 
 
+def test_destroy_closes_connections_checked_in_late(dbos: DBOS) -> None:
+    engine = dbos._sys_db.engine
+
+    # A connection still checked out when destroy disposes the pool, as a step's write would be.
+    straggler = engine.connect()
+    straggler.execute(sa.text("SELECT 1"))
+    straggler_raw = straggler.connection.dbapi_connection
+    DBOS.destroy()
+    straggler.close()
+
+    # A checkout made through the engine after destroy, by work still holding the system database.
+    with engine.connect() as late:
+        late.execute(sa.text("SELECT 1"))
+        late_raw = late.connection.dbapi_connection
+
+    # Both are closed on checkin, not left open in a pool until GC.
+    for raw in (straggler_raw, late_raw):
+        assert raw is not None
+        with pytest.raises(Exception):
+            raw.cursor().execute("SELECT 1")
+
+
 def test_custom_database(
-    config: DBOSConfig, db_engine: sa.Engine, cleanup_test_databases: None
+    config: DBOSConfig,
+    db_engine: sa.Engine,
+    cleanup_test_databases: None,
+    skip_with_sharding: None,
 ) -> None:
     DBOS.destroy(destroy_registry=True)
     assert config["system_database_url"]
@@ -2851,6 +2958,7 @@ def test_custom_engine(
     drop_test_databases: None,
     db_engine: sa.Engine,
     skip_with_sqlite: None,
+    skip_with_sharding: None,
 ) -> None:
     # Needs a dropped database: it asserts launch fails before the database exists.
     DBOS.destroy(destroy_registry=True)
@@ -3248,6 +3356,344 @@ async def test_run_step_async(dbos: DBOS) -> None:
     await test_errors_wf_async()
 
 
+@pytest.mark.asyncio
+async def test_reserve_step_event_stream(dbos: DBOS) -> None:
+    # Models pydantic-ai's DBOS event dispatch (pydantic/pydantic-ai#10300): emit reserves a handler step that a consumer task runs later.
+    handler_options: StepOptions = {
+        "name": "event_stream_handler",
+        "retries_allowed": True,
+        "max_attempts": 3,
+        "interval_seconds": 0.01,
+    }
+    attempts: dict[str, int] = {}
+    store_reads = 0
+
+    @DBOS.step(name="get_item")
+    async def get_item(item: str) -> str:
+        nonlocal store_reads
+        store_reads += 1
+        # Live-only latency, so replay timing differs from the live run.
+        await asyncio.sleep(0.02)
+        return f"item-{item}"
+
+    async def handle_event(event: str) -> str:
+        attempts[event] = attempts.get(event, 0) + 1
+        await asyncio.sleep(0.01)
+        status = DBOS.step_status
+        assert status is not None
+        # Fails the first attempt of every live execution, so forks retry it too.
+        if event == "flaky" and status.current_attempt == 0:
+            raise ConnectionError("transient handler failure")
+        if event == "bad":
+            raise ValueError("handler rejected event")
+        return f"handled-{event}"
+
+    @DBOS.workflow()
+    async def agent_run() -> List[str]:
+        queue: asyncio.Queue[Optional[Tuple[str, bool]]] = asyncio.Queue()
+        # One FIFO of reservations per event, since the same event can be emitted twice.
+        reservations: dict[str, deque[StepReservation]] = {}
+        handled: List[str] = []
+
+        def emit(event: str, deliver: bool = True) -> None:
+            reservations.setdefault(event, deque()).append(DBOS.reserve_step())
+            queue.put_nowait((event, deliver))
+
+        async def consume() -> None:
+            while (item := await queue.get()) is not None:
+                event, deliver = item
+                reservation = reservations[event].popleft()
+                if not deliver:
+                    continue  # The handler never starts, leaving a gap at its step.
+                try:
+                    handled.append(
+                        await reservation.run_async(
+                            handler_options, handle_event, event
+                        )
+                    )
+                except Exception as e:
+                    handled.append(type(e).__name__)
+
+        consumer = asyncio.create_task(consume())
+        # A plan tool: emit a burst of events, then make durable store reads while the handlers run.
+        for event in ("plan", "plan", "flaky", "bad", "dropped"):
+            emit(event, deliver=event != "dropped")
+        reads = [await get_item("a"), await get_item("b")]
+        emit("progress")
+        reads.append(await get_item("c"))
+        queue.put_nowait(None)
+        await consumer
+        return reads + handled
+
+    expected = [
+        "item-a",
+        "item-b",
+        "item-c",
+        "handled-plan",
+        "handled-plan",
+        "handled-flaky",
+        "DBOSMaxStepRetriesExceeded",
+        "handled-progress",
+    ]
+    expected_journal = [
+        (1, "event_stream_handler"),
+        (2, "event_stream_handler"),
+        (3, "event_stream_handler"),
+        (4, "event_stream_handler"),
+        (6, "get_item"),
+        (7, "get_item"),
+        (8, "event_stream_handler"),
+        (9, "get_item"),
+    ]
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        assert await agent_run() == expected
+    assert attempts == {"plan": 2, "flaky": 2, "bad": 3, "progress": 1}
+    steps = await DBOS.list_workflow_steps_async(wfid)
+    assert [(s["function_id"], s["function_name"]) for s in steps] == expected_journal
+
+    # Live attempts of the handler at each step ID, and the step IDs of the store reads.
+    handler_attempts = {
+        1: ("plan", 1),
+        2: ("plan", 1),
+        3: ("flaky", 2),
+        4: ("bad", 3),
+        8: ("progress", 1),
+    }
+    read_ids = [6, 7, 9]
+
+    def after_rerun(before: dict[str, int], rerun: List[int]) -> dict[str, int]:
+        expected_attempts = dict(before)
+        for fid in rerun:
+            if fid in handler_attempts:
+                event, n = handler_attempts[fid]
+                expected_attempts[event] += n
+        return expected_attempts
+
+    # Recovery replays every step, at its reserved ID, without running it again.
+    live_attempts, live_reads = dict(attempts), store_reads
+    recovered = await asyncio.to_thread(
+        lambda: reexecute_workflow_by_id(dbos, wfid).get_result()
+    )
+    assert recovered == expected
+    assert attempts == live_attempts and store_reads == live_reads
+
+    # A crash can leave reserved handlers unrecorded below recorded steps; recovery reruns only those.
+    with dbos._sys_db.engine.begin() as c:
+        c.execute(
+            sa.delete(SystemSchema.operation_outputs).where(
+                SystemSchema.operation_outputs.c.workflow_uuid == wfid,
+                SystemSchema.operation_outputs.c.function_id.in_([2, 4]),
+            )
+        )
+    before = dict(attempts)
+    recovered = await asyncio.to_thread(
+        lambda: reexecute_workflow_by_id(dbos, wfid).get_result()
+    )
+    assert recovered == expected
+    assert attempts == after_rerun(before, [2, 4]) and store_reads == live_reads
+    steps = await DBOS.list_workflow_steps_async(wfid)
+    assert [(s["function_id"], s["function_name"]) for s in steps] == expected_journal
+
+    # Forking at every step replays a prefix and runs the rest live, under different timing.
+    for start_step in [s["function_id"] for s in steps] + [1000]:
+        before, reads_before = dict(attempts), store_reads
+        handle = await DBOS.fork_workflow_async(wfid, start_step)
+        assert await handle.get_result() == expected
+        rerun = [fid for fid, _ in expected_journal if fid >= start_step]
+        assert attempts == after_rerun(before, rerun)
+        assert store_reads == reads_before + len([f for f in read_ids if f in rerun])
+        forked = await DBOS.list_workflow_steps_async(handle.workflow_id)
+        assert [(s["function_id"], s["function_name"]) for s in forked] == (
+            expected_journal
+        )
+
+
+@pytest.mark.asyncio
+async def test_reserve_step_misuse(dbos: DBOS) -> None:
+    with pytest.raises(DBOSException, match="outside any step or transaction"):
+        DBOS.reserve_step()
+
+    leaked: List[StepReservation] = []
+
+    def fail() -> None:
+        raise ValueError("step failed")
+
+    @DBOS.workflow()
+    async def reserving_workflow() -> None:
+        # A thread that does not inherit the workflow context cannot reserve.
+        with pytest.raises(DBOSException, match="outside any step or transaction"):
+            await asyncio.get_running_loop().run_in_executor(None, DBOS.reserve_step)
+        reservation = DBOS.reserve_step()
+        # Sync run inside an event loop is rejected without using up the reservation.
+        with pytest.raises(RuntimeError, match="run_async"):
+            reservation.run(None, lambda: None)
+        step_id = await reservation.run_async(
+            {"name": "sync_step"}, lambda: DBOS.step_id
+        )
+        assert step_id == reservation.step_id == 1
+        with pytest.raises(DBOSException, match="only be run once"):
+            await reservation.run_async(None, lambda: None)
+        failing = DBOS.reserve_step()
+        with pytest.raises(ValueError, match="step failed"):
+            await failing.run_async({"name": "fail"}, fail)
+        with pytest.raises(DBOSException, match="only be run once"):
+            await failing.run_async(None, lambda: None)
+        leaked.append(DBOS.reserve_step())
+
+    @DBOS.step()
+    async def step_running_reservation(reservation: StepReservation) -> None:
+        await reservation.run_async(None, lambda: None)
+
+    @DBOS.workflow()
+    async def other_workflow() -> None:
+        with pytest.raises(DBOSException, match="must be run from that workflow"):
+            await leaked[0].run_async(None, lambda: None)
+
+    @DBOS.workflow()
+    async def step_workflow() -> None:
+        with pytest.raises(DBOSException, match="must be run from that workflow"):
+            await step_running_reservation(DBOS.reserve_step())
+
+    @DBOS.step()
+    async def reserving_step() -> None:
+        DBOS.reserve_step()
+
+    @DBOS.workflow()
+    async def nested_workflow() -> None:
+        with pytest.raises(DBOSException, match="outside any step or transaction"):
+            await reserving_step()
+
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        await reserving_workflow()
+    steps = await DBOS.list_workflow_steps_async(wfid)
+    assert [(s["function_id"], s["function_name"]) for s in steps] == [
+        (1, "sync_step"),
+        (2, "fail"),
+    ]
+    await other_workflow()
+    await step_workflow()
+    await nested_workflow()
+    with pytest.raises(DBOSException, match="must be run from that workflow"):
+        await leaked[0].run_async(None, lambda: None)
+
+
+@pytest.mark.asyncio
+async def test_reserve_step_lifecycle(dbos: DBOS) -> None:
+    # A consumer task that outlives its workflow cannot run the workflow's reservation.
+    gate = asyncio.Event()
+    orphans: List["asyncio.Task[None]"] = []
+
+    async def run_late(reservation: StepReservation) -> None:
+        await gate.wait()
+        await reservation.run_async(None, lambda: None)
+
+    @DBOS.workflow()
+    async def orphaning_workflow() -> None:
+        orphans.append(asyncio.create_task(run_late(DBOS.reserve_step())))
+
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        await orphaning_workflow()
+    gate.set()
+    with pytest.raises(DBOSException, match="must be run from that workflow"):
+        await orphans[0]
+    assert await DBOS.list_workflow_steps_async(wfid) == []
+
+    # Timeout and preemption options apply to a reserved step.
+    async def current_step() -> Optional[int]:
+        return DBOS.step_id
+
+    async def slow() -> None:
+        await asyncio.sleep(60)
+
+    @DBOS.workflow()
+    async def options_workflow() -> List[Any]:
+        timed = DBOS.reserve_step()
+        preemptible = DBOS.reserve_step()
+        out: List[Any] = [
+            await preemptible.run_async(
+                {"name": "preemptible", "preemptible": True}, current_step
+            )
+        ]
+        with pytest.raises(DBOSStepTimeoutError):
+            await timed.run_async({"name": "timed", "timeout_seconds": 0.2}, slow)
+        return out
+
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        assert await options_workflow() == [2]
+    steps = await DBOS.list_workflow_steps_async(wfid)
+    assert [(s["function_id"], s["function_name"]) for s in steps] == [
+        (1, "timed"),
+        (2, "preemptible"),
+    ]
+
+    # Cancelling mid-step leaves the reserved step unrecorded; resuming runs it again at the same ID.
+    started, release = asyncio.Event(), asyncio.Event()
+    blocked_calls = 0
+
+    async def blocked() -> Optional[int]:
+        nonlocal blocked_calls
+        blocked_calls += 1
+        started.set()
+        await release.wait()
+        return DBOS.step_id
+
+    @DBOS.workflow()
+    async def cancelled_workflow() -> Optional[int]:
+        DBOS.reserve_step()  # Never run, so the blocked step is not step 1.
+        return await DBOS.reserve_step().run_async({"name": "blocked"}, blocked)
+
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        handle = await DBOS.start_workflow_async(cancelled_workflow)
+    await asyncio.wait_for(started.wait(), 10)
+    await DBOS.cancel_workflow_async(wfid)
+    release.set()
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
+        await handle.get_result()
+    assert await DBOS.list_workflow_steps_async(wfid) == []
+    # The resumed run uses these test-loop events from another loop; that is safe only because both are already set.
+    resumed = await DBOS.resume_workflow_async(wfid)
+    assert await resumed.get_result() == 2
+    assert blocked_calls == 2
+    steps = await DBOS.list_workflow_steps_async(wfid)
+    assert [(s["function_id"], s["function_name"]) for s in steps] == [(2, "blocked")]
+
+
+def test_reserve_step_sync(dbos: DBOS) -> None:
+    calls = 0
+
+    def numbered(name: str) -> str:
+        nonlocal calls
+        calls += 1
+        return f"{name}-{DBOS.step_id}"
+
+    async def numbered_async(name: str) -> str:
+        return numbered(name)
+
+    @DBOS.workflow()
+    def sync_workflow() -> str:
+        first = DBOS.reserve_step()
+        second = DBOS.reserve_step()
+        b = second.run({"name": "second"}, numbered_async, "b")
+        a = first.run({"name": "first"}, numbered, "a")
+        return a + b
+
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        assert sync_workflow() == "a-1b-2"
+    assert [
+        (s["function_id"], s["function_name"]) for s in DBOS.list_workflow_steps(wfid)
+    ] == [(1, "first"), (2, "second")]
+
+    assert reexecute_workflow_by_id(dbos, wfid).get_result() == "a-1b-2"
+    assert DBOS.fork_workflow(wfid, 1000).get_result() == "a-1b-2"
+    assert calls == 2
+
+
 def test_wait_first(dbos: DBOS, client: DBOSClient) -> None:
     @DBOS.workflow()
     def fast_workflow() -> str:
@@ -3422,7 +3868,9 @@ def test_notification_fallback_polling(dbos: DBOS) -> None:
     assert duration < 5.0
 
 
-def test_recv_wakeup_trigger_is_kept(dbos: DBOS, skip_with_sqlite: None) -> None:
+def test_recv_wakeup_trigger_is_kept(
+    dbos: DBOS, skip_with_sqlite: None, skip_with_sharding: None
+) -> None:
     """The notifications trigger must wake a blocked recv: assert it exists and that, with the fallback recheck forced far out, a send still delivers promptly via the trigger's NOTIFY."""
     sys_db = dbos._sys_db
 
@@ -3607,3 +4055,200 @@ async def test_workflow_wrapped_by_custom_decorator(
     assert before_count == 4
     assert after_count == 4
     assert error_count == 0
+
+
+def test_set_enqueue_options_exits_in_another_context() -> None:
+    """Entry and exit may run in different contextvars Contexts, as threadpool-run
+    generator dependencies do; the options must still restore cleanly."""
+    options = SetEnqueueOptions(priority=1)
+    entered = contextvars.copy_context()
+    entered.run(options.__enter__)
+    assert entered.run(get_workflow_start_options).priority == 1
+    # Options are per Context, so the caller's are untouched.
+    assert get_workflow_start_options().priority is None
+    exited = contextvars.copy_context()
+    exited.run(options.__exit__, None, None, None)
+    assert exited.run(get_workflow_start_options).priority is None
+    assert get_workflow_start_options().priority is None
+
+
+def test_set_shard_key_exits_in_another_context() -> None:
+    with SetShardKey("tenant-a"):
+        shard_key = SetShardKey("tenant-b")
+        entered = contextvars.copy_context()
+        entered.run(shard_key.__enter__)
+        assert entered.run(get_workflow_start_options).shard_key == "tenant-b"
+        assert get_workflow_start_options().shard_key == "tenant-a"
+        # Independent of the enqueue options: setting those keeps the key.
+        with SetEnqueueOptions(priority=1):
+            assert get_workflow_start_options().shard_key == "tenant-a"
+        exited = contextvars.copy_context()
+        exited.run(shard_key.__exit__, None, None, None)
+        assert exited.run(get_workflow_start_options).shard_key == "tenant-a"
+        assert get_workflow_start_options().shard_key == "tenant-a"
+    assert get_workflow_start_options().shard_key is None
+    with pytest.raises(ValueError):
+        SetShardKey("")
+
+
+def test_setter_instance_rejects_overlapping_use() -> None:
+    timeout = SetWorkflowTimeout(5)
+    with timeout:
+        with pytest.raises(DBOSException, match="already in use"):
+            with timeout:
+                pass
+        assert get_workflow_start_options().workflow_timeout_ms == 5000
+    assert get_workflow_start_options().workflow_timeout_ms is None
+    # Sequential reuse is fine.
+    with timeout:
+        assert get_workflow_start_options().workflow_timeout_ms == 5000
+    assert get_local_dbos_context() is None
+
+    auth = DBOSContextSetAuth("alice", ["admin"])
+    with auth:
+        with pytest.raises(DBOSException, match="already in use"):
+            with auth:
+                pass
+        assert DBOS.authenticated_user == "alice"
+    assert get_local_dbos_context() is None
+
+
+def test_set_authentication_reaches_the_enclosing_context() -> None:
+    """A sync FastAPI dependency runs in a copied contextvars Context; the identity it
+    sets must still reach the endpoint, which shares its DBOSContext."""
+    with DBOSContextEnsure():
+        contextvars.copy_context().run(DBOS.set_authentication, "alice", ["admin"])
+        assert DBOS.authenticated_user == "alice"
+        assert DBOS.authenticated_roles == ["admin"]
+
+
+def test_set_authentication_inside_set_auth_block_is_undone_at_exit() -> None:
+    with DBOSContextEnsure():
+        DBOS.set_authentication("bob", ["reader"])
+        with DBOSContextSetAuth("carol", ["writer"]):
+            DBOS.set_authentication("dave", ["admin"])
+            assert DBOS.authenticated_user == "dave"
+            assert DBOS.authenticated_roles == ["admin"]
+        assert DBOS.authenticated_user == "bob"
+        assert DBOS.authenticated_roles == ["reader"]
+
+
+def test_set_authentication_changes_the_enclosing_set_auth_block() -> None:
+    """Middleware opens a DBOSContextSetAuth block; a sync FastAPI dependency, which runs in
+    a copied contextvars Context, then sets the identity the endpoint must see."""
+    with DBOSContextSetAuth(None, None):
+        contextvars.copy_context().run(DBOS.set_authentication, "alice", ["admin"])
+        assert DBOS.authenticated_user == "alice"
+        assert DBOS.authenticated_roles == ["admin"]
+
+    async def sibling_tasks() -> List[Optional[str]]:
+        with DBOSContextSetAuth("bob", ["reader"]):
+            reader_started = asyncio.Event()
+            identity_set = asyncio.Event()
+
+            async def setter() -> None:
+                await reader_started.wait()
+                DBOS.set_authentication("carol", ["writer"])
+                identity_set.set()
+
+            async def reader() -> Optional[str]:
+                reader_started.set()
+                await identity_set.wait()
+                return DBOS.authenticated_user
+
+            _, seen = await asyncio.gather(setter(), reader())
+            return [seen, DBOS.authenticated_user]
+
+    # A task already running inside the block sees its sibling's change.
+    assert asyncio.run(sibling_tasks()) == ["carol", "carol"]
+    assert get_local_dbos_context() is None
+
+
+def test_context_accessors_inside_setter_block() -> None:
+    with SetWorkflowID("accessor-test"):
+        DBOS.set_authentication("bob", ["reader"])
+        assert DBOS.authenticated_user == "bob"
+        assert DBOS.authenticated_roles == ["reader"]
+    assert get_local_dbos_context() is None
+
+
+def test_shard_keys_must_be_non_empty_strings() -> None:
+    """Every way a shard key enters refuses an empty or non-string one; SetShardKey alone
+    used to, and an empty key written anywhere else could never run."""
+    for bad in ("", 1):
+        with pytest.raises(DBOSException, match="non-empty string"):
+            with bind_shard_keys({"w": bad}):  # type: ignore[dict-item]
+                pass
+        with pytest.raises(DBOSException, match="non-empty string"):
+            with shard_key_scope(bad):  # type: ignore[arg-type]
+                pass
+        options: EnqueueOptions = {"queue_name": "q", "workflow_name": "w"}
+        options["shard_key"] = bad  # type: ignore[typeddict-item]
+        with pytest.raises(DBOSException, match="non-empty string"):
+            validate_enqueue_options(options)
+    # None leaves the key unset rather than invalid.
+    with bind_shard_keys({"w": None}), shard_key_scope(None):
+        pass
+
+
+def test_shard_keys_are_rejected_without_sharding(
+    dbos: DBOS, client: DBOSClient, skip_with_sharding: None
+) -> None:
+    """Without sharding, a shard key passed to any API is an error, never silently ignored."""
+
+    @DBOS.workflow()
+    def keyless() -> int:
+        return 1
+
+    @DBOS.workflow()
+    def nightly(at: datetime.datetime, ctx: Any) -> None:
+        pass
+
+    handle = DBOS.start_workflow(keyless)
+    assert handle.get_result() == 1
+    wfid = handle.workflow_id
+    key = "tenant-a"
+
+    def start_keyed() -> Any:
+        with SetShardKey(key):
+            return DBOS.start_workflow(keyless)
+
+    calls: List[Callable[[], Any]] = [
+        lambda: DBOS.get_workflow_status(wfid, shard_key=key),
+        lambda: DBOS.retrieve_workflow(wfid, shard_key=key),
+        lambda: DBOS.get_result(wfid, shard_key=key),
+        lambda: DBOS.get_event(wfid, "k", 0, shard_key=key),
+        lambda: DBOS.list_workflow_steps(wfid, shard_key=key),
+        lambda: DBOS.cancel_workflow(wfid, shard_key=key),
+        lambda: DBOS.resume_workflow(wfid, shard_key=key),
+        lambda: DBOS.fork_workflow(wfid, 1, shard_key=key),
+        lambda: DBOS.send(wfid, "m", shard_key=key),
+        lambda: DBOS.send_bulk([SendMessage(wfid, "m", shard_key=key)]),
+        start_keyed,
+        lambda: client.retrieve_workflow(wfid, shard_key=key).get_status(),
+        lambda: client.send(wfid, "m", shard_key=key),
+    ]
+    for call in calls:
+        with pytest.raises(DBOSException, match="not sharded"):
+            call()
+    listings: List[Callable[[], Any]] = [
+        lambda: DBOS.list_workflows(shard_key=key),
+        lambda: client.list_workflows(shard_key=key),
+        lambda: DBOS.list_workflows(parent_shard_key=key),
+        lambda: client.list_queued_workflows(parent_shard_key=key),
+        lambda: DBOS.list_workflows(shard_key=[]),
+    ]
+    for listing in listings:
+        with pytest.raises(DBOSException, match="requires a sharded system database"):
+            listing()
+    with pytest.raises(DBOSException, match="requires a sharded system database"):
+        DBOS.create_schedule(
+            schedule_name="keyed",
+            workflow_fn=nightly,
+            schedule="0 0 * * *",
+            shard_key=key,
+        )
+    # Nothing ran, moved or arrived under the key.
+    status = DBOS.get_workflow_status(wfid)
+    assert status is not None and status.status == "SUCCESS"
+    assert DBOS.get_schedule("keyed") is None

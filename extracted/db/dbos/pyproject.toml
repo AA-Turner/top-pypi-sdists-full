@@ -35,7 +35,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Framework :: AsyncIO",
 ]
-version = "3.3.0"
+version = "3.4.0"
 
 [project.license]
 text = "MIT"
@@ -57,7 +57,7 @@ aiosqlite = [
     "aiosqlite>=0.20.0",
 ]
 enterprise = [
-    "dbos-enterprise==3.3.0",
+    "dbos-enterprise==3.4.0",
 ]
 
 [build-system]

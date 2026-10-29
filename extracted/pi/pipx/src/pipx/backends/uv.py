@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__lazy_modules__ = ["importlib", "json", "pathlib", "pipx.util", "shutil", "subprocess"]
+__lazy_modules__ = ["importlib", "json", "pathlib", "pipx", "pipx.util", "shutil", "subprocess"]
 
 import json
 import logging
@@ -14,10 +14,12 @@ from typing import TYPE_CHECKING, Final, cast
 
 from packaging.version import InvalidVersion, Version
 
+from pipx import paths
 from pipx.animate import animate
 from pipx.backends._base import UV, Backend, OutdatedPackage, outdated_packages_from_process
 from pipx.util import (
     PipxError,
+    reject_empty_index,
     run_subprocess,
     subprocess_post_check,
     subprocess_post_check_handle_pip_error,
@@ -97,16 +99,18 @@ class UvBackend(Backend):
         requirements: list[str],
         pip_args: list[str],
         no_deps: bool = False,
-        upgrade: bool = False,
+        upgrade_package: str | None = None,
         log_pip_errors: bool = True,
         verbose: bool = False,
     ) -> CompletedProcess[str]:
+        reject_empty_index(pip_args)
         cmd = self._uv_pip_command("install", venv_python, verbose=verbose)
-        if upgrade:
-            cmd.append("--upgrade")
+        # uv's --upgrade re-resolves every dependency, pip's only-if-needed default upgrades only the named package
+        if upgrade_package is not None:
+            cmd += ["--upgrade-package", upgrade_package]
         if no_deps:
             cmd.append("--no-deps")
-        cmd += [*_strip_pip_quiet_flags(pip_args), *requirements]
+        cmd += [*_default_index_args(_strip_pip_quiet_flags(pip_args)), *requirements]
         process = run_subprocess(
             cmd,
             run_dir=str(venv_root),
@@ -169,8 +173,14 @@ class UvBackend(Backend):
         index_args: list[str],
         exclude: list[str],
     ) -> tuple[OutdatedPackage, ...]:
+        reject_empty_index(index_args)
         cmd = self._uv_pip_command("list", venv_python, verbose=False)
-        cmd += ["--outdated", "--format=json", *index_args, *(f"--exclude={name}" for name in exclude)]
+        cmd += [
+            "--outdated",
+            "--format=json",
+            *_default_index_args(index_args),
+            *(f"--exclude={name}" for name in exclude),
+        ]
         process = run_subprocess(cmd, run_dir=str(venv_root), env_overrides=_uv_env_overrides())
         return outdated_packages_from_process(process)
 
@@ -183,6 +193,7 @@ class UvBackend(Backend):
         capture_stdout: bool = True,
         capture_stderr: bool = True,
         verbose: bool = False,
+        in_working_dir: bool = False,
     ) -> CompletedProcess[str]:
         # Mirror pip-backend ``pipx runpip TOOL`` (no args -> pip's help).
         cmd: list[str | Path] = [self._binary, "pip", args[0] if args else "--help"]
@@ -196,7 +207,7 @@ class UvBackend(Backend):
             cmd += _strip_pip_quiet_flags(args[1:])
         return run_subprocess(
             cmd,
-            run_dir=str(venv_root),
+            run_dir=None if in_working_dir else str(venv_root),
             capture_stdout=capture_stdout,
             capture_stderr=capture_stderr,
             env_overrides=_uv_env_overrides(),
@@ -329,12 +340,27 @@ def _run_uv_version(binary: Path) -> subprocess.CompletedProcess[str]:
 
 def _uv_env_overrides() -> dict[str, str | None]:
     # Stripping VIRTUAL_ENV stops uv from auto-targeting an active venv when no ``--python`` flag is passed. pipx shows
-    # its own spinner in place of uv's bar, and uv hides the bar under --verbose anyway.
-    return {"VIRTUAL_ENV": None, "UV_NO_PROGRESS": "1"}
+    # its own spinner in place of uv's bar, and uv hides the bar under --verbose anyway. UV_PROJECT moves uv's
+    # project-config search from its working directory, which can sit in a shared /tmp, to pipx's home; user and system
+    # config still load.
+    return {"VIRTUAL_ENV": None, "UV_NO_PROGRESS": "1", "UV_PROJECT": str(paths.ctx.home)}
 
 
 def _strip_pip_quiet_flags(pip_args: list[str]) -> list[str]:
     return [arg for arg in pip_args if arg not in {"-q", "-qq", "--quiet"}]
+
+
+def _default_index_args(pip_args: list[str]) -> list[str]:
+    # uv lets UV_DEFAULT_INDEX override a command-line --index-url, but not --default-index
+    return [
+        f"--default-index{separator}{value}"
+        if flag in {"--index-url", "-i"}
+        else f"--default-index={arg[2:]}"
+        if arg.startswith("-i")
+        else arg
+        for arg in pip_args
+        for flag, separator, value in [arg.partition("=")]
+    ]
 
 
 __all__ = [

@@ -35,8 +35,22 @@ AGENT_TIMEOUT_S = 900.0
 AGENT_CANDIDATES = (str(Path.home() / ".local" / "bin" / "claude-seat"), "claude")
 AGENT_ALLOWED_TOOLS = "Bash(ego-browser:*)"
 # The only environment the agent gets: enough for claude-seat to pick a seat and
-# for claude and ego-browser to run. No PLATO_API_KEY, no vendor token.
-AGENT_ENV_NAMES = ("HOME", "PATH", "USER", "LOGNAME", "SHELL", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM")
+# for claude and ego-browser to run, and claude's own credential where no seat pool is set up.
+# No PLATO_API_KEY, no vendor token.
+AGENT_ENV_NAMES = (
+    "HOME",
+    "PATH",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "TMPDIR",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "TERM",
+    "CLAUDE_CODE_OAUTH_TOKEN",
+    "ANTHROPIC_API_KEY",
+)
 AGENT_ENV_PREFIXES = ("CLAUDE_POOL_", "CLAUDE_SEAT_", "EGO_")
 # The consent click (click_consent): how long code waits for the grant button,
 # for the redirect after one click, and how many clicks it tries.

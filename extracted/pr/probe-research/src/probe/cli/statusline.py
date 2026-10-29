@@ -75,6 +75,19 @@ VAR = "_probe_sl_input"
 #: marker format. `sync` refreshes them when the plugin updates.
 INSTALL_DIRNAME = "probe-research-statusline"
 
+#: How often Claude Code re-runs the status line on its own
+#: (`statusLine.refreshInterval`, seconds; Claude Code 2.1.97, and the plugin
+#: needs 2.1.195 already: `probe.mcp.server`). Without it the command runs only
+#: on Claude Code's own events (a new message, a mode change), so an idle
+#: session kept whatever it last drew -- "not started" for a session the Probe
+#: service records -- however often its marker was refreshed (2026-10-27). One
+#: render reads a local file (~20 ms). Written only where Probe's segment is
+#: alone (it re-runs the whole slot: a chained status line would run every few
+#: seconds unasked); a slot's own value is kept. The service gives an install
+#: from before this one (`probe.service.followup`, which holds its own copy of
+#: this number: tests/test_service_followup.py).
+REFRESH_INTERVAL_S = 10
+
 #: What `sync`/`install` copy out of the plugin's hooks directory. The renderer
 #: loads `_session_marker` by explicit sibling path, so the two travel together.
 #: `_telemetry_core` is deliberately NOT among them: it imports urllib.request,
@@ -364,7 +377,12 @@ def install(plugin_root: Path | str, *, python: str | None = None) -> dict:
 
     backup = _backup(path)
     ours = renderer_command(python)
+    own = slot.get("refreshInterval") if isinstance(slot, dict) else None
     settings["statusLine"] = {"type": "command", "command": chain(previous, ours)}
+    # Not over another status line: the interval re-runs the whole chain, so a
+    # predecessor would run every few seconds in every idle session unasked.
+    if own is not None or not previous:
+        settings["statusLine"]["refreshInterval"] = own if own is not None else REFRESH_INTERVAL_S
     _save(path, settings)
     return {
         "settings": str(path),
@@ -393,6 +411,10 @@ def uninstall() -> dict:
     previous = split_existing(current)
     if previous:
         settings["statusLine"] = {"type": "command", "command": previous}
+        # Over another status line `install` writes none of its own: any is theirs.
+        own = slot.get("refreshInterval")
+        if own is not None:
+            settings["statusLine"]["refreshInterval"] = own
     else:
         settings.pop("statusLine", None)
     _save(path, settings)

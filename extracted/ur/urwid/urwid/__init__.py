@@ -27,8 +27,8 @@ import importlib.util
 import sys
 import types
 import typing
-import warnings
 
+from urwid import _deprecation
 from urwid.canvas import (
     BlankCanvas,
     Canvas,
@@ -66,6 +66,7 @@ from urwid.font import (
     Sextant3x3Font,
     Thin3x3Font,
     Thin4x3Font,
+    Thin5x4Font,
     Thin6x6Font,
     get_all_fonts,
 )
@@ -81,15 +82,18 @@ from urwid.signals import (
 from urwid.str_util import calc_text_pos, calc_width, is_wide_char, move_next_char, move_prev_char, within_double_byte
 from urwid.text_layout import LayoutSegment, StandardTextLayout, TextLayout, default_layout
 from urwid.util import (
+    LayeredAttr,
     MetaSuper,
     TagMarkupException,
     apply_target_encoding,
     calc_trim_text,
     decompose_tagmarkup,
     detected_encoding,
+    get_ascii_fallbacks,
     get_encoding_mode,
     int_scale,
     is_mouse_event,
+    set_ascii_fallbacks,
     set_encoding,
     supports_unicode,
 )
@@ -107,18 +111,21 @@ from .display import (
     DARK_MAGENTA,
     DARK_RED,
     DEFAULT,
+    INHERIT,
     LIGHT_BLUE,
     LIGHT_CYAN,
     LIGHT_GRAY,
     LIGHT_GREEN,
     LIGHT_MAGENTA,
     LIGHT_RED,
+    NO_HYPERLINK,
     UPDATE_PALETTE_ENTRY,
     WHITE,
     YELLOW,
     AttrSpec,
     AttrSpecError,
     BaseScreen,
+    Hyperlink,
     RealTerminal,
     ScreenError,
 )
@@ -160,6 +167,7 @@ from .widget import (
     Columns,
     ColumnsError,
     Divider,
+    DropDown,
     Edit,
     EditError,
     Filler,
@@ -193,6 +201,8 @@ from .widget import (
     Scrollable,
     ScrollBar,
     SelectableIcon,
+    SelectNavigationListContentsMixin,
+    SelectNavigationMixin,
     SimpleDequeWalker,
     SimpleFocusDequeWalker,
     SimpleFocusListWalker,
@@ -251,6 +261,7 @@ __all__: tuple[str, ...] = (
     "FIXED",
     "FLOW",
     "GIVEN",
+    "INHERIT",
     "LEFT",
     "LIGHT_BLUE",
     "LIGHT_CYAN",
@@ -259,6 +270,7 @@ __all__: tuple[str, ...] = (
     "LIGHT_MAGENTA",
     "LIGHT_RED",
     "MIDDLE",
+    "NO_HYPERLINK",
     "PACK",
     "REDRAW_SCREEN",
     "RELATIVE",
@@ -301,6 +313,7 @@ __all__: tuple[str, ...] = (
     "CommandMap",
     "CompositeCanvas",
     "Divider",
+    "DropDown",
     "Edit",
     "EditError",
     "EventLoop",
@@ -318,7 +331,9 @@ __all__: tuple[str, ...] = (
     "HalfBlock6x5Font",
     "HalfBlock7x7Font",
     "HalfBlockHeavy6x5Font",
+    "Hyperlink",
     "IntEdit",
+    "LayeredAttr",
     "LayoutSegment",
     "LineBox",
     "ListBox",
@@ -348,6 +363,8 @@ __all__: tuple[str, ...] = (
     "ScrollBar",
     "Scrollable",
     "SelectEventLoop",
+    "SelectNavigationListContentsMixin",
+    "SelectNavigationMixin",
     "SelectableIcon",
     "Sextant2x2Font",
     "Sextant3x3Font",
@@ -367,6 +384,7 @@ __all__: tuple[str, ...] = (
     "TextLayout",
     "Thin3x3Font",
     "Thin4x3Font",
+    "Thin5x4Font",
     "Thin6x6Font",
     "TreeListBox",
     "TreeNode",
@@ -404,6 +422,7 @@ __all__: tuple[str, ...] = (
     "event_loop",
     "fixed_size",
     "get_all_fonts",
+    "get_ascii_fallbacks",
     "get_encoding_mode",
     "int_scale",
     "is_mouse_event",
@@ -412,6 +431,7 @@ __all__: tuple[str, ...] = (
     "move_prev_char",
     "register_signal",
     "scale_bar_values",
+    "set_ascii_fallbacks",
     "set_encoding",
     "supports_unicode",
     "widget",
@@ -477,7 +497,6 @@ _moved_warn: dict[str, str] = {
     "curses_display": "urwid.display.curses",
     "escape": "urwid.display.escape",
 }
-# Before DeprecationWarning need to start PendingDeprecationWarning process.
 
 
 def lazy_import(name: str, package: str | None = None) -> types.ModuleType:
@@ -535,16 +554,19 @@ class _MovedModuleWarn(_MovedModule):
     """Special class to handle moved modules.
 
     Produce DeprecationWarning messages for imports.
+
+    .. deprecated:: 2.4.0
+        This API will be removed in version 7.0.
     """
 
     __slots__ = ()
 
     def __getattr__(self, name: str) -> typing.Any:
-        warnings.warn(
-            f"{self._moved_from} is moved to {self._moved_to} since urwid 2.4.0. API will be removed in version 6.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        if name.startswith("__") and name.endswith("__"):
+            # Introspection (for example `unittest` reading `__warningregistry__` of every module in `sys.modules`)
+            # must neither warn nor replace this stub with the real module.
+            raise AttributeError(name)
+        _deprecation.warn(f"{self._moved_from} is moved to {self._moved_to}.", since="2.4.0", removed_in="7.0")
         return super().__getattr__(name)
 
 
@@ -556,15 +578,16 @@ for _name, _module in _moved_warn.items():
 def __getattr__(name: str) -> typing.Any:
     """Get attributes lazy.
 
-    :return: attribute by name
+    :returns: attribute by name
     :raises AttributeError: attribute is not defined for lazy load
+
+    .. deprecated:: 2.4.0
+        ``urwid.display_common``, ``urwid.raw_display``, ``urwid.curses_display`` and ``urwid.escape`` moved to
+        ``urwid.display.common``, ``urwid.display.raw``, ``urwid.display.curses`` and ``urwid.display.escape``.
+        This API will be removed in version 7.0.
     """
     if name in _moved_warn:
-        warnings.warn(
-            f"{name} is moved to {_moved_warn[name]} since urwid 2.4.0. API will be removed in version 6.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        _deprecation.warn(f"urwid.{name} is moved to {_moved_warn[name]}.", since="2.4.0", removed_in="7.0")
 
         try:
             mod = importlib.import_module(_moved_warn[name])

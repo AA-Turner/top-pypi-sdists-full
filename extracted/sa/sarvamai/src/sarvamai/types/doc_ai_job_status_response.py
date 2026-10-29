@@ -18,9 +18,9 @@ class DocAiJobStatusResponse(UniversalBaseModel):
     Current status of the job. Terminal statuses: `completed`, `partially_completed`, `failed`, `rejected`.
     """
 
-    pipeline: str = pydantic.Field()
+    pipeline: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Job pipeline: `digitise` or `extract`.
+    Job pipeline: `parse` or `extract`. Classify and Split jobs report `type` instead.
     """
 
     usage: DocAiUsage
@@ -32,6 +32,41 @@ class DocAiJobStatusResponse(UniversalBaseModel):
     updated_at: str = pydantic.Field()
     """
     Timestamp of the last job update.
+    """
+
+    type: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Job type. Present for Classify and Split jobs: `classify` or `split`.
+    """
+
+    phase: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Processing phase of a Classify or Split job, e.g. `commit` when finished.
+    """
+
+    progress: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    """
+    Progress counters for a Classify or Split job, such as `pages_read`, `pages_analyzed` and `pages_total_selected`.
+    """
+
+    result_revision: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Revision of the result. Present for Classify and Split jobs.
+    """
+
+    run_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The unique identifier of the job run.
+    """
+
+    results_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Path to fetch the results from.
+    """
+
+    documents: typing.Optional[typing.List[typing.Dict[str, typing.Any]]] = pydantic.Field(default=None)
+    """
+    For a batch, one entry per submitted document with its own `job_id`, `status` and URLs.
     """
 
     if IS_PYDANTIC_V2:

@@ -310,3 +310,90 @@ async def run_raw_ipc_long_done(context):
     ec = "\U0001F600" * 100 if context.parameters.get("product_code") == "astral" else "E" * 150
     await context._ipc.call("done", status="error", error_class=ec)
     await asyncio.sleep(5)
+
+
+# ----- 完遂できなかった（incomplete）と終了時の報告（3.2.1 AU-23） -----
+async def run_incomplete(context):
+    """指示が無い: 完遂できなかったと宣言して戻る（理由は report_completion() と同じく正規化される）。"""
+    await context.incomplete("Missing-Instructions", comment="instructions.md is empty")
+
+
+async def run_incomplete_then_raise(context):
+    """宣言の後に例外で抜ける（incomplete のまま。報告の comment は Agent の説明）。"""
+    await context.incomplete("missing_instructions", comment="no instructions")
+    raise RuntimeError("boom secret-value-123")
+
+
+async def run_incomplete_twice(context):
+    await context.incomplete("missing_instructions", comment="first")
+    await context.incomplete("bad_config", comment="second")
+
+
+async def run_incomplete_long_comment(context):
+    """front の上限（2,048 = UTF-16 の単位）を超える説明。BMP の外の文字は 1 文字 = 2 単位。"""
+    await context.incomplete("bad_config", comment="あ" * 2000 + "\U0001F600" * 100)
+
+
+async def run_incomplete_bad_reason(context):
+    """理由に文章を渡す（理由コードにならないので incomplete になる）。"""
+    await context.incomplete("The instructions file was empty, so nothing could be drafted", comment=None)
+
+
+async def run_incomplete_with_reply(context):
+    """成果物を書いてから宣言する（書いた成果物は保存される）。"""
+    (context.output_dir / "reply.md").write_text("partial\n", encoding="utf-8")
+    await context.incomplete("bad_config")
+
+
+async def run_denied_then_incomplete(context):
+    await context.audit.tool_denied("mock_send", reason="policy forbids send", reason_code="policy_denied")
+    await context.incomplete("missing_instructions", comment="denied first")
+
+
+async def run_incomplete_then_slow(context):
+    """宣言してから待つ（その間に取消が入る試験用）。"""
+    await context.incomplete("missing_instructions", comment="waiting")
+    (context.output_dir / "reply.md").write_text("partial\n", encoding="utf-8")
+    await asyncio.sleep(30)
+
+
+async def run_raw_ipc_bad_incomplete(context):
+    """SDK を通らずに制御チャネルへ、形の違う理由（object）と文字列でない comment の incomplete を書く。"""
+    await context._ipc.call("incomplete", reason={"x": 1}, comment=123)
+
+
+async def run_incomplete_exception_comment(context):
+    """comment に例外を渡す（本文に秘密の値）。文字列でないので載せない。"""
+    try:
+        raise RuntimeError("token=secret-value-123 rejected")
+    except RuntimeError as e:
+        await context.incomplete("bad_config", comment=e)
+
+
+async def run_sdk_error(context):
+    """SDK の例外（URL の query・応答の本文に秘密の値）。報告に出るのはクラス名・error_code・ホスト名だけ。"""
+    import httpx
+
+    from agenticstar_platform.security.base import SecurityAPIError
+    request = httpx.Request("POST", "https://example.services.ai.azure.com/contentsafety/text:analyze?key=SECRET-KEY-1")
+    try:
+        raise httpx.ProxyError("503 body-secret-2", request=request)
+    except httpx.RequestError as e:  # SDK の azure.py と同じく except の中で変換する（暗黙の __context__）
+        raise SecurityAPIError(f"failed: {e}", error_code="REQUEST_ERROR")  # noqa: B904
+
+
+async def run_error_long_class_name(context):
+    """クラス名が front の上限を超える例外（error_class は 128、報告の comment は 2,048 単位で切る）。"""
+    raise type("E" * 3000, (RuntimeError,), {})("secret-value-123")
+
+
+# ----- 公開の偽物（3.2.1 AU-24） -----
+async def run_custom_contract(context):
+    """偽物に渡した契約・parameters・入力・接続を使う Agent。"""
+    brief = json.loads((context.work_dir / "in" / "brief.json").read_text(encoding="utf-8"))
+    token = await context.connection_token("crm")
+    inv = await context.audit.tool_invoked("read_brief", effect_kind="read", target="in/brief.json")
+    await context.audit.tool_effect(inv, status="ok", count=1)
+    (context.output_dir / "summary.txt").write_text(
+        f"{brief['topic']}|{context.parameters['tone']}|{token['access_token']}|{token['expires_at']}|{context.effect_mode}\n",
+        encoding="utf-8")

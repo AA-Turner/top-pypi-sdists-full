@@ -1,11 +1,15 @@
 """Counters."""
 
+__lazy_modules__ = ["redis"]
 
-from redis import Redis
+from typing import TYPE_CHECKING
 
 from django.core.cache import cache
 
 from .cache import get_redis_client
+
+if TYPE_CHECKING:
+    from redis import Redis
 
 
 class ItemCounter:
@@ -21,7 +25,7 @@ class ItemCounter:
     DEFAULT_CACHE_TIMEOUT = 24 * 3600
 
     def __init__(
-        self, name: str, minimum: int | None = None, redis: Redis | None = None
+        self, name: str, minimum: int | None = None, redis: "Redis | None" = None
     ) -> None:
         if not name:
             raise ValueError("Must define a name")
@@ -34,7 +38,7 @@ class ItemCounter:
     def _cache_key(self) -> str:
         return f"{self.CACHE_KEY_BASE}-{self._name}"
 
-    def reset(self, init_value: int = 0):
+    def reset(self, init_value: int = 0) -> None:
         """Reset counter to initial value."""
         with self._redis.lock(f"{self.CACHE_KEY_BASE}-reset"):
             if self._minimum is not None and init_value < self._minimum:
@@ -42,14 +46,14 @@ class ItemCounter:
 
             cache.set(self._cache_key, init_value, self.DEFAULT_CACHE_TIMEOUT)
 
-    def incr(self, delta: int = 1):
+    def incr(self, delta: int = 1) -> None:
         """Increment counter by delta."""
         try:
             cache.incr(self._cache_key, delta)
         except ValueError:
             pass
 
-    def decr(self, delta: int = 1):
+    def decr(self, delta: int = 1) -> None:
         """Decrement counter by delta."""
         with self._redis.lock(f"{self.CACHE_KEY_BASE}-decr"):
             if self._minimum is not None and self.value() == self._minimum:

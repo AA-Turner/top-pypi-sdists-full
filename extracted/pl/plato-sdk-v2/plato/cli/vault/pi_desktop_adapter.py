@@ -59,8 +59,11 @@ SCREEN_SEALED = (
     "End your run with the result line"
 )
 DEVTOOLS_REFUSED = "this key or click opens DevTools or a context menu, and it is not available on this desktop"
+SCREEN_MASKING = "code masked a new value on the screen: take a screenshot again"
+PASTE_REFUSED = "pasting is not available on this desktop: code reads and types every value"
 # How long a screenshot waits for the page check on the other thread. No answer: no frame.
 GATE_ASK_S = 5.0
+MASK_SETTLE_S = 0.5
 
 # RFB pointer buttons (the button-mask bits are button - 1).
 BUTTON_LEFT = 1
@@ -159,6 +162,13 @@ def opens_devtools(keysyms: list[int]) -> bool:
     return ctrl and ord("u") in letters
 
 
+def pastes(keysyms: list[int]) -> bool:
+    """ctrl+v, ctrl+shift+v and shift+insert: a copied value would show in the address bar."""
+    keys = set(keysyms)
+    letters = {k | 0x20 for k in keys if 0x41 <= k <= 0x5A or 0x61 <= k <= 0x7A}
+    return bool(keys & _CTRL and ord("v") in letters) or bool(keys & _SHIFTS and _KEYSYMS["insert"] in keys)
+
+
 class ScreenGate:
     """A check, run on the thread that owns the page, before a frame goes out.
 
@@ -169,13 +179,17 @@ class ScreenGate:
     page before it is on the screen, so a frame that shows it always fails the
     check. Once the check says a secret shows, the gate stays latched."""
 
+    refused = SCREEN_SEALED
+    blocks_paste = False
+
     def __init__(self, secret_visible: Callable[[], bool]) -> None:
         self._check = secret_visible
         self._asks: queue.Queue[tuple[threading.Event, list[bool]]] = queue.Queue()
         self.latched = False
 
-    def ask(self, timeout_s: float = GATE_ASK_S) -> bool:
-        """True when the frame may go out. No answer in time: False."""
+    def ask(self, timeout_s: float = GATE_ASK_S, started_at: float | None = None) -> bool:
+        """True when the frame may go out. No answer in time: False. ``started_at``: when
+        the frame's capture began (:class:`MaskGate` uses it)."""
         if self.latched:
             return False
         done, box = threading.Event(), [False]
@@ -220,6 +234,40 @@ class ScreenGate:
                 return
             box[0] = False
             done.set()
+
+
+class MaskGate(ScreenGate):
+    """A gate that never latches: ``masked_since_last`` (run on the page thread) masks every
+    secret-like value on the page and says whether it masked one that was not masked at the
+    last check. Such a frame may show the value, so it is refused, and the next one goes out.
+    It also refuses paste keys, so a copied value never reaches the address bar."""
+
+    refused = SCREEN_MASKING
+    blocks_paste = True
+
+    def __init__(self, masked_since_last: Callable[[], bool]) -> None:
+        super().__init__(masked_since_last)
+        # When a check last masked a new value. The screen shows a change a little after
+        # the page has it, so a frame captured up to MASK_SETTLE_S before that is refused too.
+        self.changed_at: float | None = None
+
+    def ask(self, timeout_s: float = GATE_ASK_S, started_at: float | None = None) -> bool:
+        done, box = threading.Event(), [False]
+        self._asks.put((done, box))
+        done.wait(timeout_s)
+        changed = self.changed_at
+        if started_at is not None and changed is not None and changed >= started_at - MASK_SETTLE_S:
+            return False
+        return box[0]
+
+    def _run_check(self) -> bool:
+        try:
+            masked = bool(self._check())
+        except Exception:
+            masked = True  # no answer from the page (a navigation): this frame does not go out
+        if masked:
+            self.changed_at = time.monotonic()
+        return not masked
 
 
 class ScreenSize(BaseModel):
@@ -344,14 +392,19 @@ class PiDesktop:
         with self._lock:
             if self.locked:
                 return ToolResult(error=SCREEN_SEALED if self.sealed else SCREEN_LOCKED)
+            started = time.monotonic()
             try:
                 result = self._act(req)
             except UnknownKey as e:
                 return ToolResult(error=str(e))
             gate = self.gate
-            if result.base64_image is not None and gate is not None and not gate.ask():
-                return ToolResult(error=SCREEN_SEALED)
+            if result.base64_image is not None and gate is not None and not gate.ask(started_at=started):
+                return ToolResult(error=gate.refused)
             return result
+
+    def _no_paste(self) -> bool:
+        gate = self.gate
+        return gate is not None and gate.blocks_paste
 
     def _to_screen(self, x: int, y: int) -> tuple[int, int]:
         sx = round(x * self.screen.width / self.view.width)
@@ -402,6 +455,8 @@ class PiDesktop:
             self._maybe_move(req)
         elif action == Action.right_click:
             return ToolResult(error=DEVTOOLS_REFUSED)  # the context menu has "Inspect"
+        elif action == Action.middle_click and self._no_paste():
+            return ToolResult(error=PASTE_REFUSED)  # X pastes the primary selection
         elif action in _CLICK_BUTTON:
             self._maybe_move(req)
             self._click(_CLICK_BUTTON[action], 1)
@@ -433,6 +488,8 @@ class PiDesktop:
             combos = [combo_keysyms(c) for c in (req.text or "").split()]  # xdotool: space-separated
             if any(opens_devtools(c) for c in combos):
                 return ToolResult(error=DEVTOOLS_REFUSED)
+            if self._no_paste() and any(pastes(c) for c in combos):
+                return ToolResult(error=PASTE_REFUSED)
             for keysyms in combos:
                 self._keys(keysyms)
         elif action == Action.hold_key:
@@ -441,6 +498,8 @@ class PiDesktop:
             keysyms = combo_keysyms((req.text or "").strip())
             if opens_devtools(keysyms):
                 return ToolResult(error=DEVTOOLS_REFUSED)
+            if self._no_paste() and pastes(keysyms):
+                return ToolResult(error=PASTE_REFUSED)
             self._keys(keysyms, hold_s=min(req.duration or 0.5, MAX_WAIT_S))
         elif action == Action.scroll:
             self._maybe_move(req)

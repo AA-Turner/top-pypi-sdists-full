@@ -27,8 +27,22 @@ LIVE_ENDPOINTS: dict[str, tuple[str, ...]] = {
 }
 
 
-async def send_live(provider: str, endpoint: str, payload: dict[str, Any], *, client: AsyncOpenAI | AsyncAnthropic | genai.Client) -> Any:
-    """Send one rendered batch body live and return the provider's response object."""
+async def send_live(
+    provider: str,
+    endpoint: str,
+    payload: dict[str, Any],
+    *,
+    client: AsyncOpenAI | AsyncAnthropic | genai.Client,
+) -> Any:
+    """Send one rendered batch body live and return the provider's response object.
+
+    THE PER-CALL SPEND CAP: this lane sends straight to the vendor SDK, beside the unified client's
+    dispatch seam, so it asks the cap itself. A body carries no ``UnifiedConfig`` to price, so under an
+    open cap it is refused unpriced (``admit_call_spend_cap`` fails closed) — nothing is sent.
+    """
+    from matrx_ai.providers.guardrail_gate import admit_call_spend_cap
+
+    admit_call_spend_cap(None, None)
     if provider == "openai":
         openai_client = cast("AsyncOpenAI", client)
         if endpoint == "/v1/responses":

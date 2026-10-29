@@ -20,6 +20,7 @@ import ast
 import configparser
 import json
 import logging
+import os
 import shutil
 import textwrap
 import tomllib
@@ -29,11 +30,11 @@ from typing import TYPE_CHECKING, Final, NamedTuple, TypedDict
 from urllib.parse import urlparse
 
 from packaging.requirements import Requirement
-from packaging.utils import canonicalize_name
+from packaging.utils import InvalidName, canonicalize_name
 
 from pipx.constants import COMPLETION_SECTIONS, MAN_SECTIONS, WINDOWS
 from pipx.requires_python import unsatisfied_constraint
-from pipx.util import PipxError, run_subprocess
+from pipx.util import PipxError, is_file_name, run_subprocess
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
@@ -73,19 +74,21 @@ class VenvMetadata(NamedTuple):
 
 
 def _distribution_name(dist: metadata.Distribution) -> str | None:
+    # uninject passes these names to the installer, which would read a metadata Name like ``-t/dir`` as an option
     try:
-        return dist.name
-    except KeyError:  # Python 3.15+ raises instead of returning None when the metadata has no Name
+        return canonicalize_name(dist.name or "", validate=True)
+    except (KeyError, InvalidName):  # Python 3.15+ raises KeyError instead of returning None when there is no Name
         return None
 
 
 def get_distributions_by_name(paths: list[str]) -> dict[str, metadata.Distribution]:
     metadata.MetadataPathFinder().invalidate_caches()
-    return {
-        canonicalize_name(name): dist
-        for dist in metadata.distributions(path=paths)
-        if (name := _distribution_name(dist))
-    }
+    distributions: dict[str, metadata.Distribution] = {}
+    for dist in metadata.distributions(path=paths):
+        if name := _distribution_name(dist):
+            # the interpreter resolves a name to its first record on sys.path, so a later one must not shadow it
+            distributions.setdefault(canonicalize_name(name), dist)
+    return distributions
 
 
 def get_package_dependencies(dist: metadata.Distribution, extras: set[str], env: dict[str, str]) -> list[Requirement]:
@@ -140,10 +143,12 @@ def not_required_packages(sys_path: list[str], env: dict[str, str]) -> set[str]:
 
 def get_apps_from_entry_points(dist: metadata.Distribution, bin_path: Path) -> set[str]:
     app_names = set()
+    if not _owns_entry_points(dist):
+        return app_names
     sections = {"console_scripts", "gui_scripts"}
     # "entry_points" entry in setup.py are found here
     for ep in dist.entry_points:
-        if ep.group not in sections:
+        if ep.group not in sections or not is_file_name(ep.name):
             continue
         if (bin_path / ep.name).exists():
             app_names.add(ep.name)
@@ -151,6 +156,13 @@ def get_apps_from_entry_points(dist: metadata.Distribution, bin_path: Path) -> s
             # WINDOWS adds .exe to entry_point name
             app_names.add(ep.name + ".exe")
     return app_names
+
+
+def _owns_entry_points(dist: metadata.Distribution) -> bool:
+    # every wheel unpacks into one site-packages, so a dependency can plant entry_points.txt in this .dist-info
+    if dist.read_text("RECORD") is None:
+        return True
+    return any(path.name == "entry_points.txt" and path.parent.suffix == ".dist-info" for path in dist.files or [])
 
 
 def get_resources_from_dist_files(
@@ -164,7 +176,7 @@ def get_resources_from_dist_files(
     for path in dist.files or []:
         # vast speedup by ignoring all paths not above distribution root dir
         #   (venv/bin or venv/Scripts is above distribution root)
-        if Path(path).parts[0] != "..":
+        if Path(path).parts[0] != ".." or not is_file_name(path.name):
             continue
 
         dist_file_path = Path(str(dist.locate_file(path)))
@@ -186,11 +198,12 @@ def get_resources_from_inst_files(
     app_names = set()
     man_names = set()
     completion_names = set()
-    # not sure what is found here
-    inst_files = dist.read_text("installed-files.txt") or ""
+    # only a legacy egg-info owns this file; next to a RECORD another wheel planted it, and importlib ignores it too
+    inst_files = "" if dist.read_text("RECORD") is not None else dist.read_text("installed-files.txt") or ""
     for line in inst_files.splitlines():
         entry = line.split(",")[0]
-        inst_file_path = Path(str(dist.locate_file(entry))).resolve()
+        # Path.resolve() raises RuntimeError on a symlink loop before Python 3.13, os.path.realpath() does not
+        inst_file_path = Path(os.path.realpath(str(dist.locate_file(entry))))
         try:
             if inst_file_path.parent.samefile(bin_path):
                 app_names.add(inst_file_path.name)
@@ -234,6 +247,8 @@ def _get_man_pages_from_editable_project(dist: metadata.Distribution, man_path: 
     project_root = _get_editable_project_root(dist)
     if project_root is None:
         return set()
+    # Path.resolve() raises RuntimeError on a symlink loop before Python 3.13, os.path.realpath() does not
+    project_root = Path(os.path.realpath(project_root))
 
     man_names = set()
     for target_dir, source_paths in _iter_editable_project_data_files(project_root):
@@ -241,15 +256,14 @@ def _get_man_pages_from_editable_project(dist: metadata.Distribution, man_path: 
         if man_section is None:
             continue
         for source_path in source_paths:
-            source = Path(source_path)
-            if not source.is_absolute():
-                source = project_root / source
-            if not source.is_file():
+            source = project_root / source_path
+            # a wheel can ship its own direct_url.json, so only files inside the project count as its man pages
+            if not (resolved := Path(os.path.realpath(source))).is_relative_to(project_root) or not resolved.is_file():
                 continue
             dest = man_path / man_section / source.name
             try:
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, dest)
+                shutil.copy2(resolved, dest)
             except OSError as exc:
                 logger.warning("Unable to copy editable man page %s to %s: %s", source, dest, exc)
                 continue

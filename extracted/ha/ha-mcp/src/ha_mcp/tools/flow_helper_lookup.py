@@ -4,14 +4,13 @@ import logging
 from typing import Any, Literal, NoReturn
 
 from ..client.rest_client import (
-    HomeAssistantAPIError,
     HomeAssistantAuthError,
     HomeAssistantConnectionError,
 )
 from ..errors import ErrorCode, create_error_response
 from .config_helpers.schemas import SIMPLE_HELPER_TYPES
 from .helper_flows import helper_flow_types, listed_helper_flows
-from .helpers import raise_tool_error, ws_failure_code
+from .helpers import get_entity_state_or_none, raise_tool_error, ws_failure_code
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +18,30 @@ YAML_HELPER_REMOVAL = (
     "YAML-configured helpers must be removed by editing the configuration file."
 )
 YAML_HELPER_SUGGESTION = "Edit the YAML file and reload the relevant integration."
+
+
+def not_stored_reply(
+    helper_type: str, unique_id: str, target: str
+) -> tuple[ErrorCode, str, str]:
+    """The error when Core holds no stored item to delete.
+
+    Core's storage collection holds only UI-created items, so another helper
+    is YAML-configured or already deleted. Tags have no YAML form, so a tag
+    id with no stored item names no tag.
+    """
+    if helper_type == "tag":
+        return (
+            ErrorCode.ENTITY_NOT_FOUND,
+            f"Home Assistant has no tag with the id '{unique_id}'.",
+            "Find the tag's id or its entity_id (tag.<name>) with ha_search().",
+        )
+    return (
+        ErrorCode.RESOURCE_NOT_FOUND,
+        f"Home Assistant has no stored {helper_type} '{unique_id}': {target} is "
+        f"YAML-configured or was already deleted. {YAML_HELPER_REMOVAL}",
+        YAML_HELPER_SUGGESTION,
+    )
+
 
 FlowLookupReason = Literal[
     "ok",
@@ -106,12 +129,7 @@ async def _absence_reason(client: Any, entity_id: str) -> FlowLookupReason:
     template sensor without unique_id, ``zone.home``) still has a state. A
     state read failing with a status other than 404 propagates.
     """
-    try:
-        state = await client.get_entity_state(entity_id)
-    except HomeAssistantAPIError as e:
-        if e.status_code != 404:
-            raise
-        state = None
+    state = await get_entity_state_or_none(client, entity_id)
     return "not_registry_managed" if state else "not_in_registry"
 
 

@@ -11,7 +11,8 @@ A port of the remote-lane runner's ``eligible``, ``choose_codex`` and the shared
   lab hosts come first and the launching host only when no lab host has a slot; the
   pick is the best spread key (an idle host, then the lowest fill, then free capacity,
   memory, the launching host, the name).
-- A Codex lane holds no Claude login, so no Claude mark keeps it off a host. It takes
+- A Codex lane holds no Claude login, so no Claude mark keeps it off a host. A
+  Codex-specific usage mark does keep it off that host. It takes
   the admitted host the Codex bar passes with the most free capacity, then memory,
   then the name.
 
@@ -23,9 +24,32 @@ lane (a usage mark, the admission bar, the pin or a full host is a different rea
 hash that was not supplied on a drift-judged request is VENV_UNKNOWN, never a pass. A
 request carrying no hash and not marked ``dispatch_venv_required`` is an old producer's
 and places as before.
+
+OMN-21396: supplied ladder facts choose the cheapest eligible engine up to the route
+ceiling, escalating past failed attempts and returning one experiment row for the last.
+A lane declaring a capability the Codex sandbox cannot grant skips the Codex rung.
+RULING 2026-10-28T13:32:09Z makes Sonnet the default and admits Opus only with an
+escalation_reason (complexity:<B4 or above> or sonnet-failed:<run or lane>), for legacy
+requests and pinned routes alike; a failed Sonnet attempt is itself that reason.
 """
 
 from __future__ import annotations
+
+from omnimarket.handlers.handler_engine_ladder import load_engine_ladder
+from omnimarket.models.model_engine_experiment import (
+    CLAUDE_RUNGS,
+    CODEX_UNGRANTABLE_CAPABILITIES,
+    ESCALATING_OUTCOMES,
+    LOW_RISK_CLASSES,
+    NO_ENGINE,
+    QUOTA_FREE_RUNGS,
+    RUNG_GATES,
+    ModelEngineExperimentRow,
+)
+from omnimarket.models.model_engine_ladder import ModelEngineLadder
+from omnimarket.nodes.node_lane_model_policy_compute.handlers.handler_lane_model_policy import (
+    lane_model_refusal,
+)
 
 from ..models import (
     CODEX_ENGINE,
@@ -33,9 +57,11 @@ from ..models import (
     ModelRemoteLaneHostReading,
     ModelRemoteLaneHostVenv,
     ModelRemoteLaneHostVerdict,
+    ModelRemoteLaneLadder,
     ModelRemoteLanePlacementRequest,
     ModelRemoteLanePlacementResult,
     ModelRemoteLaneReconcileIntent,
+    ModelRemoteLaneRungVerdict,
     ModelRemoteLaneVenvDrift,
 )
 
@@ -90,7 +116,7 @@ def _select(
 ) -> tuple[ModelRemoteLaneHostReading | None, dict[str, str]]:
     """The pick and every host's reason for not being it, with ``blocked`` hosts kept off."""
     codex = request.engine == CODEX_ENGINE
-    limited = set() if codex else set(request.limited_hosts)
+    limited = set(request.codex_limited_hosts if codex else request.limited_hosts)
     expired = set() if codex else set(request.auth_expired_hosts)
     reasons: dict[str, str] = {}
     admitted: list[ModelRemoteLaneHostReading] = []
@@ -145,12 +171,149 @@ def _select(
     return pick, reasons
 
 
+def _escalation_reason(ladder: ModelRemoteLaneLadder) -> str | None:
+    """The declared reason, else the lane's own failed Sonnet attempt."""
+    if ladder.escalation_reason:
+        return ladder.escalation_reason
+    if any(
+        a.engine == "sonnet" and a.outcome in ESCALATING_OUTCOMES
+        for a in ladder.attempts
+    ):
+        return f"sonnet-failed:{ladder.lane}"
+    return None
+
+
+def _rung_reason(
+    engines: ModelEngineLadder, ladder: ModelRemoteLaneLadder, rung: str
+) -> str | None:
+    """The first route or readiness rule that refuses a rung."""
+    if engines.index(rung) > engines.index(ladder.ceiling):
+        return "above-route-ceiling"
+    if refusal := lane_model_refusal(
+        rung, escalation_reason=_escalation_reason(ladder)
+    ):
+        return refusal
+    if ladder.pinned and rung != ladder.ceiling:
+        return "pinned-to-route"
+    if ladder.claude_required and rung not in CLAUDE_RUNGS:
+        return "claude-required"
+    failing = {
+        "landing-worker": ladder.landing_worker,
+        # A lane that declares no risk class is judged by its kind (a small-fix lane).
+        "risk-class": (ladder.risk_class or ladder.lane_kind) not in LOW_RISK_CLASSES,
+        "no-writable-or-check": not ladder.code_edit_ready,
+        "no-local-slot": ladder.local_model_slots == 0,
+        "sandbox-capability": bool(
+            set(ladder.required_capabilities) & set(CODEX_UNGRANTABLE_CAPABILITIES)
+        ),
+    }
+    return next((gate for gate in RUNG_GATES[rung] if failing[gate]), None)
+
+
+def _experiment(
+    ladder: ModelRemoteLaneLadder, rung: str | None
+) -> ModelEngineExperimentRow | None:
+    """Describe the last finished attempt and the placement's next engine."""
+    if not ladder.attempts:
+        return None
+    last = ladder.attempts[-1]
+    return ModelEngineExperimentRow(
+        lane=ladder.lane,
+        ticket=ladder.ticket,
+        attempt=len(ladder.attempts),
+        engine=last.engine,
+        model=last.model,
+        outcome=last.outcome,
+        failure_cause=last.failure_cause,
+        duration_s=last.duration_s,
+        next_engine=rung or NO_ENGINE,
+    )
+
+
 class HandlerRemoteLanePlacement:
-    """Choose the host for one remote lane from the pool's evaluated readings."""
+    """Choose the host for one remote lane from the pool's evaluated readings.
+
+    The engine ladder is the ``config.engine_ladder`` of this node's contract, read once at
+    composition (OMN-21475); a caller may inject a validated ladder.
+    """
+
+    def __init__(self, engines: ModelEngineLadder | None = None) -> None:
+        self._engines = load_engine_ladder() if engines is None else engines
 
     def handle(
         self, request: ModelRemoteLanePlacementRequest
     ) -> ModelRemoteLanePlacementResult:
+        ladder = request.ladder
+        if ladder is None:
+            return self._place(request)
+        last_result = ModelRemoteLanePlacementResult(host=None, engine=request.engine)
+        start = 0
+        if ladder.attempts:
+            last = ladder.attempts[-1]
+            if last.outcome not in ESCALATING_OUTCOMES:
+                return last_result.model_copy(
+                    update={"experiment": _experiment(ladder, None)}
+                )
+            start = self._engines.index(last.engine) + 1
+        rungs: list[ModelRemoteLaneRungVerdict] = []
+        for rung in self._engines.rungs[start:]:
+            reason = _rung_reason(self._engines, ladder, rung)
+            if reason is not None:
+                rungs.append(ModelRemoteLaneRungVerdict(engine=rung, reason=reason))
+                continue
+            placement_request = request.model_copy(
+                update={
+                    "engine": self._engines.host_engine(rung),
+                    "ladder": None,
+                    "escalation_reason": _escalation_reason(ladder),
+                    **(
+                        {"limited_hosts": (), "auth_expired_hosts": ()}
+                        if rung in QUOTA_FREE_RUNGS
+                        else {}
+                    ),
+                }
+            )
+            result = self._place(placement_request)
+            if result.outcome == EnumRemoteLaneOutcome.ADMITTED:
+                rungs.append(ModelRemoteLaneRungVerdict(engine=rung, reason="chosen"))
+                return result.model_copy(
+                    update={
+                        "rung": rung,
+                        "engine": self._engines.host_engine(rung),
+                        "rungs": tuple(rungs),
+                        "experiment": _experiment(ladder, rung),
+                    }
+                )
+            rungs.append(
+                ModelRemoteLaneRungVerdict(
+                    engine=rung, reason=f"no-capacity: {result.outcome.value}"
+                )
+            )
+            last_result = result
+        return last_result.model_copy(
+            update={
+                "host": None,
+                "rung": None,
+                "engine": request.engine,
+                "rungs": tuple(rungs),
+                "experiment": _experiment(ladder, None),
+            }
+        )
+
+    def _place(
+        self, request: ModelRemoteLanePlacementRequest
+    ) -> ModelRemoteLanePlacementResult:
+        if refusal := lane_model_refusal(
+            request.engine, escalation_reason=request.escalation_reason
+        ):
+            return ModelRemoteLanePlacementResult(
+                host=None,
+                engine=request.engine,
+                verdicts=tuple(
+                    ModelRemoteLaneHostVerdict(host=reading.name, reason=refusal)
+                    for reading in request.readings
+                ),
+            )
         pick, reasons = _select(request, {})
         blocked: dict[str, str] = {}
         if _drift_judged(request):

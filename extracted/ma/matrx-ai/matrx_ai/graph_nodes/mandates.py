@@ -128,6 +128,46 @@ class HeldStep:
     #: The step fields the Holder (or its binding) filled because the author
     #: left them unset. Empty is the normal case: the author said everything.
     filled_by_holder: tuple[str, ...] = field(default=())
+    #: The Holder agent the step stands on (``None`` when nothing held it). Its attached
+    #: skills reach the step through :func:`assemble_held_step_skills`.
+    holder: Any = field(default=None)
+
+
+#: The host seam for the ONE skill assembly (aidream: ``skill_merge.assemble_agent_skills``).
+#: ``(*, agent, config, app_ctx) -> app_ctx``. matrx-ai owns no skill catalog of its own.
+AGENT_SKILL_ASSEMBLY_EXT = "agent_skill_assembly"
+
+
+async def assemble_held_step_skills(held: HeldStep, config: Any) -> None:
+    """The Holder agent's attached skills, assembled onto the step's config — the same
+    assembly every agent door runs (the host's ``apply_unified_skills``), before the call.
+
+    An unheld step has no agent, so no skills. A host that never registered the seam is
+    SCREAMED once per call (never silent): the step runs without its Holder's skills.
+    """
+    if held.holder is None:
+        return
+    from matrx_connect.context.app_context import set_app_context, try_get_app_context
+
+    from matrx_ai._ext import get_ext, has_ext
+
+    if not has_ext(AGENT_SKILL_ASSEMBLY_EXT):
+        vcprint(
+            f"the host registered no '{AGENT_SKILL_ASSEMBLY_EXT}' seam, so this step runs "
+            "without its Holder agent's skills",
+            title="⚠️ WORKFLOW STEP: Holder skills not assembled",
+            color="yellow",
+            log_level="WARNING",
+        )
+        return
+    app_ctx = try_get_app_context()
+    if app_ctx is None:
+        return
+    prepared = await get_ext(AGENT_SKILL_ASSEMBLY_EXT)(
+        agent=held.holder, config=config, app_ctx=app_ctx
+    )
+    if prepared is not None and prepared is not app_ctx:
+        set_app_context(prepared)
 
 
 def _holder_identity(resolution: Any, agent: Any) -> dict[str, Any]:
@@ -340,7 +380,9 @@ async def hold_step(
     if filled:
         identity["filled"] = list(filled)
     carried[MANDATE_HOLDER_METADATA_KEY] = identity
-    return HeldStep(config=merged, metadata=carried, filled_by_holder=tuple(filled))
+    return HeldStep(
+        config=merged, metadata=carried, filled_by_holder=tuple(filled), holder=agent
+    )
 
 
 async def hold_ambient_workflow_strict_json(

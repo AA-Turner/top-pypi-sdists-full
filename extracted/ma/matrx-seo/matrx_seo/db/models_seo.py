@@ -1,5 +1,5 @@
 # File: matrx_seo/db/models_seo.py
-from matrx_orm import BigIntegerField, BooleanField, CharField, DateField, DateTimeField, DecimalField, EnumField, ForeignKey, IntegerArrayField, IntegerField, JSONBField, MatrxEntity, Model, SmallIntegerField, TextArrayField, TextField, TimeField, UUIDArrayField, UUIDField, model_registry, BaseDTO, BaseManager
+from matrx_orm import BigIntegerField, BooleanField, DateField, DateTimeField, DecimalField, EnumField, ForeignKey, IntegerArrayField, IntegerField, JSONBField, MatrxEntity, Model, SmallIntegerField, TextArrayField, TextField, TimeField, UUIDArrayField, UUIDField, model_registry, BaseDTO, BaseManager
 from enum import StrEnum
 from dataclasses import dataclass
 from typing import ClassVar
@@ -530,6 +530,8 @@ class LandscapeBrief(MatrxEntity):
     brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', null=False)
     inputs = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "landscape_brief"
@@ -1719,6 +1721,8 @@ class MapTopic(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     custom = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'page_intent_queue': {'from_model': 'PageIntentQueue', 'from_field': 'topic_id', 'referenced_field': 'id', 'related_name': 'page_intent_queue', 'from_schema': 'seo'}, 'site_keyword_value': {'from_model': 'SiteKeywordValue', 'from_field': 'topic_id', 'referenced_field': 'id', 'related_name': 'site_keyword_value', 'from_schema': 'seo'}, 'site_offering_value': {'from_model': 'SiteOfferingValue', 'from_field': 'topic_id', 'referenced_field': 'id', 'related_name': 'site_offering_value', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "map_topic"
@@ -2141,6 +2145,8 @@ class TrackerStory(MatrxEntity):
     deleted_at = DateTimeField()
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "tracker_story"

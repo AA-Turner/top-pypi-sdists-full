@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import copy
 import hashlib
 import inspect
 import json
@@ -9,7 +8,8 @@ import os
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+import weakref
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from logging import Logger
 from typing import (
@@ -57,6 +57,7 @@ from ._core import (
     StepOptions,
     WorkflowHandleAsyncPolling,
     WorkflowHandlePolling,
+    _CancellationWatcher,
     _validate_enqueue_only_options,
     close_stream,
     decorate_step,
@@ -103,9 +104,11 @@ from ._scheduler import (
     ScheduledWorkflow,
     backfill_schedule,
     dynamic_scheduler_loop,
+    schedule_shard_key,
     trigger_schedule,
 )
 from ._sys_db import (
+    _SHARDED_RESET_REFUSED,
     DEFAULT_NOTIFICATION_COALESCE_SEC,
     GetEventWorkflowContext,
     SendMessage,
@@ -128,13 +131,17 @@ if TYPE_CHECKING:
 from typing import ParamSpec
 
 from . import _enterprise
+from ._auto_upgrade import AutoUpgradeThread
 from ._context import (
     DBOSContext,
     EnterDBOSStepCtx,
     StepStatus,
     TracedAttributes,
     assert_current_dbos_context,
+    get_authentication,
     get_local_dbos_context,
+    get_workflow_start_options,
+    set_current_authentication,
     snapshot_step_context,
 )
 from ._dbos_config import (
@@ -147,6 +154,7 @@ from ._dbos_config import (
 from ._enterprise import AlertHandler, ConductorThread
 from ._error import (
     DBOSException,
+    DBOSInitializationError,
     DBOSNonExistentWorkflowError,
     DBOSPatchNondeterminismError,
 )
@@ -159,11 +167,12 @@ from ._logger import (
     init_logger,
     teardown_logger,
 )
+from ._shard_keys import bind_shard_keys
 from ._workflow_commands import (
-    WORKFLOW_TIMEOUT_THREAD_NAME,
+    BACKGROUND_JOBS_THREAD_NAME,
+    background_jobs_thread,
     delete_workflow,
     get_workflow,
-    workflow_timeout_thread,
 )
 
 # Most DBOS functions are just any callable F, so decorators / wrappers work on F
@@ -324,6 +333,21 @@ class DBOSRegistry:
         else:
             self.instance_info_map[fn] = inst
 
+    def auto_upgradable_workflows(self, default: bool) -> List[str]:
+        """
+        Names of registered workflows eligible for auto-upgrade.
+        When default is set to true (passed via the DBOS class configuration), all workflows are considered
+        Except if they explicitly opted out.
+        When default is false, only opt-in workflows are considered
+        """
+        names: List[str] = []
+        for name, wf in self.workflow_info_map.items():
+            fi = get_func_info(wf)
+            flag = fi.auto_upgrade if fi is not None else None
+            if flag is True or (flag is None and default):
+                names.append(name)
+        return names
+
     def compute_app_version(self, app_name: str) -> str:
         """
         An application's version is computed from a hash of the source of its workflows.
@@ -385,6 +409,136 @@ class ScheduleInput(TypedDict, total=False):
     automatic_backfill: bool
     cron_timezone: Optional[str]
     queue_name: Optional[str]
+    # Shard key the schedule's workflows run under; required on a sharded system database.
+    shard_key: Optional[str]
+
+
+class StepReservation:
+    """A step ID drawn by `DBOS.reserve_step`, run exactly once later with `run` or `run_async`.
+    It must run in the workflow that reserved it; a reservation that never runs leaves a gap in the step IDs.
+    """
+
+    def __init__(self, step_ctx: DBOSContext) -> None:
+        self._step_ctx = step_ctx
+        self._used = False
+
+    @property
+    def step_id(self) -> int:
+        """The reserved step ID."""
+        return self._step_ctx.function_id
+
+    def _claim(self) -> None:
+        if self._used:
+            raise DBOSException("A step reservation can only be run once")
+        step_ctx = self._step_ctx
+        ctx = get_local_dbos_context()
+        if (
+            ctx is None
+            or not ctx.is_workflow()
+            or ctx.workflow_id != step_ctx.workflow_id
+        ):
+            raise DBOSException(
+                f"Step {step_ctx.function_id} was reserved in workflow {step_ctx.workflow_id} "
+                "and must be run from that workflow, outside any step"
+            )
+        self._used = True
+
+    @overload
+    def run(
+        self,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, Coroutine[Any, Any, R]],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R: ...
+
+    @overload
+    def run(
+        self,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, R],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R: ...
+
+    def run(
+        self,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, Coroutine[Any, Any, R]] | Callable[P, R],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R:
+        """Invoke a step function at the reserved step ID and checkpoint its result."""
+        check_async("run")
+        self._claim()
+        return run_step(
+            _get_dbos_instance(),
+            self._step_ctx,
+            func,
+            dbos_step_options or {},
+            args,
+            kwargs,
+        )
+
+    @overload
+    async def run_async(
+        self,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, Coroutine[Any, Any, R]],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R: ...
+
+    @overload
+    async def run_async(
+        self,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, R],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R: ...
+
+    async def run_async(
+        self,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, Coroutine[Any, Any, R]] | Callable[P, R],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R:
+        """Invoke a step function on the event loop at the reserved step ID and checkpoint its result."""
+        self._claim()
+        await DBOS._configure_asyncio_thread_pool()
+        return await run_step_async(
+            _get_dbos_instance(),
+            self._step_ctx,
+            func,
+            dbos_step_options or {},
+            args,
+            kwargs,
+        )
+
+
+class _SharedExecutor(ThreadPoolExecutor):
+    """
+    Default executor for event loops DBOS doesn't own.
+
+    It runs work on the DBOS executor but ignores shutdown(). asyncio.run()
+    shuts down its loop's default executor on exit, and that must not shut
+    down the DBOS executor.
+    """
+
+    def __init__(self, executor: ThreadPoolExecutor) -> None:
+        # submit() is overridden, so this pool never starts a thread
+        super().__init__(max_workers=1)
+        self.executor = executor
+
+    def submit(
+        self, fn: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs
+    ) -> Future[T]:
+        return self.executor.submit(fn, *args, **kwargs)
+
+    def shutdown(self, wait: bool = True, *, cancel_futures: bool = False) -> None:
+        pass
 
 
 class DBOS:
@@ -464,8 +618,21 @@ class DBOS:
 
         # DBOS Cloud always uses Conductor. Checked before any state exists, so a missing package fails cleanly.
         key = config.get("conductor_key") or conductor_key
+        # Every enterprise feature requires Conductor to report the org entitled to it.
+        features = _enterprise.enabled_features(config)
+        if config.get("sharding"):
+            # Auto-upgrade is disabled on a sharded system database, so it needs no entitlement.
+            features = [f for f in features if f is not _enterprise.AUTO_UPGRADE]
+        _enterprise.require_enterprise(
+            features,
+            enterprise_key=config.get("transact_enterprise_key"),
+            conductor_key=key,
+            conductor_url=config.get("conductor_url") or conductor_url,
+        )
         if GlobalParams.dbos_cloud or key is not None:
             _enterprise.load()
+        elif features:
+            _enterprise.load(features[0].description)
 
         self._initialized: bool = True
 
@@ -477,22 +644,32 @@ class DBOS:
         # Stop background threads (queue thread, pollers like the scheduler and Kafka, etc.)
         self.background_thread_stop_events: List[threading.Event] = []
         self._executor_field: Optional[ThreadPoolExecutor] = None
+        self._shared_executor_field: Optional[_SharedExecutor] = None
         self._background_threads: List[threading.Thread] = []
         # Set after the shutdown drain, so timeouts still fire while workflows finish.
-        self._workflow_timeout_stop_event = threading.Event()
+        self._background_jobs_stop_event = threading.Event()
         # Strong references to running async workflow tasks: the event loop
         # only keeps weak references, so without these a garbage-collection
         # pass can destroy a pending workflow task mid-execution (#710).
         # Entries remove themselves on completion via done-callback.
         self._workflow_tasks: set["asyncio.Task[Any]"] = set()
+        # One preemptible-step cancellation watcher per event loop.
+        self._cancellation_watchers: weakref.WeakKeyDictionary[
+            asyncio.AbstractEventLoop, _CancellationWatcher
+        ] = weakref.WeakKeyDictionary()
         self.conductor_url: Optional[str] = conductor_url
         if config.get("conductor_url"):
             self.conductor_url = config.get("conductor_url")
         self.conductor_key: Optional[str] = conductor_key
         if config.get("conductor_key"):
             self.conductor_key = config.get("conductor_key")
+        self.transact_enterprise_key: Optional[str] = config.get(
+            "transact_enterprise_key"
+        )
         self.enable_patching = config.get("enable_patching") == True
         self.conductor_websocket: Optional[ConductorThread] = None
+        self._auto_upgrade: bool = config.get("auto_upgrade") == True
+        self.auto_upgrader: Optional[AutoUpgradeThread] = None
         self._background_event_loop: BackgroundEventLoop = BackgroundEventLoop()
         self._active_workflows_set: ActiveWorkflowById = ActiveWorkflowById()
         self._alert_handler: Optional[AlertHandler] = None
@@ -528,6 +705,12 @@ class DBOS:
                 GlobalParams.executor_id = config["executor_id"]
 
         init_logger()
+        if self.enable_patching:
+            dbos_logger.warning(
+                "enable_patching is deprecated and will be removed in a future release. "
+                "DBOS.patch and DBOS.deprecate_patch no longer require it. "
+                "To keep every deployment on one application version, as the flag does, set application_version explicitly."
+            )
 
         # Translate user provided config to an internal format
         unvalidated_config = translate_dbos_config_to_config_file(config)
@@ -571,6 +754,7 @@ class DBOS:
         *,
         schema: str = "dbos",
         application_role: Optional[str] = None,
+        sharding: bool = False,
     ) -> None:
         """Create or migrate the system database with a privileged role, optionally
         granting application_role access to the system schema."""
@@ -586,6 +770,7 @@ class DBOS:
             schema=schema,
             serializer=DefaultSerializer(),
             executor_id=None,
+            sharding=sharding,
         )
         try:
             sys_db.run_migrations()
@@ -641,7 +826,7 @@ class DBOS:
                 max_workers=max_executor_threads, thread_name_prefix="dbos-executor-"
             )
 
-            self._background_event_loop.start()
+            self._background_event_loop.start(self._executor_field)
             assert self._config["database"]["sys_db_engine_kwargs"] is not None
             # Get the schema configuration, use "dbos" as default
             schema = self._config.get("dbos_system_schema", "dbos")
@@ -678,6 +863,7 @@ class DBOS:
                 idle_transaction_timeout_sec=self._config["database"].get(
                     "sys_db_idle_transaction_timeout_sec"
                 ),
+                sharding=self._config.get("sharding", False),
             )
 
             # Run migrations for the system database
@@ -753,15 +939,15 @@ class DBOS:
             bg_queue_thread.start()
             self._background_threads.append(bg_queue_thread)
 
-            # Start the workflow timeout thread
-            timeout_thread = threading.Thread(
-                target=workflow_timeout_thread,
-                args=(self._workflow_timeout_stop_event, self),
-                name=WORKFLOW_TIMEOUT_THREAD_NAME,
+            # Start the background jobs thread
+            jobs_thread = threading.Thread(
+                target=background_jobs_thread,
+                args=(self._background_jobs_stop_event, self),
+                name=BACKGROUND_JOBS_THREAD_NAME,
                 daemon=True,
             )
-            timeout_thread.start()
-            self._background_threads.append(timeout_thread)
+            jobs_thread.start()
+            self._background_threads.append(jobs_thread)
 
             # Start the conductor thread if requested
             if GlobalParams.dbos_cloud:
@@ -785,14 +971,14 @@ class DBOS:
                     )
                     self.conductor_websocket.start()
             elif self.conductor_key is not None:
-                if self.conductor_url is None:
-                    dbos_domain = os.environ.get("DBOS_DOMAIN", "cloud.dbos.dev")
-                    self.conductor_url = f"wss://{dbos_domain}/conductor/v1alpha1"
+                conductor_url = self.conductor_url
+                if conductor_url is None:
+                    conductor_url = _enterprise.default_conductor_url()
                 dbos_logger.debug("Starting Conductor thread")
                 self.conductor_websocket = _enterprise.load().ConductorWebsocket(
                     self,
                     app_name=self._config["name"],
-                    conductor_url=self.conductor_url,
+                    conductor_url=conductor_url,
                     conductor_key=self.conductor_key,
                     executor_metadata=self._conductor_executor_metadata,
                     metadata_only_mode=self._conductor_metadata_only_mode,
@@ -810,6 +996,43 @@ class DBOS:
                 poller_thread.start()
                 self._background_threads.append(poller_thread)
             self._registry.pollers = []
+
+            # Start the auto-upgrade pass if any workflow takes part.
+            auto_upgradable = bool(self._auto_upgradable_workflows())
+            if auto_upgradable and self._sys_db.sharded:
+                # Its queries aren't keyed by shard, so it doesn't run on a sharded database.
+                dbos_logger.warning(
+                    "Auto-upgrade is disabled: it is not supported on a sharded "
+                    "system database."
+                )
+            elif auto_upgradable:
+                # Workflows enroll one by one through DBOS.workflow(auto_upgrade=True),
+                # which only launch can see; the config flag was checked at construction.
+                if not self._auto_upgrade:
+                    _enterprise.require_enterprise(
+                        [_enterprise.AUTO_UPGRADE],
+                        enterprise_key=self.transact_enterprise_key,
+                        conductor_key=self.conductor_key,
+                        conductor_url=self.conductor_url,
+                    )
+                auto_upgrade_interval_sec: float = (
+                    self._config.get("runtimeConfig", {}).get(
+                        "auto_upgrade_interval_sec"
+                    )
+                    or 30.0
+                )
+                auto_upgrade_grace_sec: float = (
+                    self._config.get("runtimeConfig", {}).get("auto_upgrade_grace_sec")
+                    or 0.0
+                )
+                self.auto_upgrader = AutoUpgradeThread(
+                    self,
+                    _enterprise.load(
+                        _enterprise.AUTO_UPGRADE.description
+                    ).AutoUpgradePass(self, grace_sec=auto_upgrade_grace_sec),
+                    interval_sec=auto_upgrade_interval_sec,
+                )
+                self.auto_upgrader.start()
 
             # Start the dynamic scheduler thread
             scheduler_polling_interval_sec: float = (
@@ -894,6 +1117,8 @@ class DBOS:
         assert (
             not self._launched
         ), "The system database cannot be reset after DBOS is launched. Resetting the system database is a destructive operation that should only be used in a test environment."
+        if self._config.get("sharding"):
+            raise DBOSException(_SHARDED_RESET_REFUSED)
 
         configured_url = self._config["system_database_url"]
         assert configured_url is not None
@@ -924,7 +1149,10 @@ class DBOS:
                     )
                 else:
                     break
-        self._workflow_timeout_stop_event.set()
+        self._background_jobs_stop_event.set()
+        # The upgrader unlocks its per-application advisory lock before the system database engine is disposed.
+        if self.auto_upgrader is not None:
+            self.auto_upgrader.stop()
         # Disconnect from Conductor only once the wait above is over, so the executor stays visibly alive to Conductor for its whole duration.
         if self.conductor_websocket is not None:
             self.conductor_websocket.stop()
@@ -1156,6 +1384,7 @@ class DBOS:
         max_recovery_attempts: Optional[int] = DEFAULT_MAX_RECOVERY_ATTEMPTS,
         serialization_type: Optional[WorkflowSerializationFormat] = None,
         validate_args: Optional["ValidateArgsCallable"] = None,
+        auto_upgrade: Optional[bool] = None,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorate a function for use as a DBOS workflow."""
         return decorate_workflow(
@@ -1164,6 +1393,7 @@ class DBOS:
             max_recovery_attempts,
             serialization_type=serialization_type,
             validate_args=validate_args,
+            auto_upgrade=auto_upgrade,
         )
 
     @classmethod
@@ -1328,13 +1558,11 @@ class DBOS:
         **kwargs: P.kwargs,
     ) -> WorkflowHandleAsync[R]:
         """Invoke a workflow function on the event loop, returning a handle to the ongoing execution."""
-        ctx = get_local_dbos_context()
-        _validate_enqueue_only_options(ctx, None)
-        parent_ctx_copy = copy.copy(ctx)
-        child_ctx = DBOSContext.create_start_workflow_child(ctx)
+        _validate_enqueue_only_options(get_workflow_start_options(), None)
+        child_ctx = DBOSContext.create_start_workflow_child(get_local_dbos_context())
         await cls._configure_asyncio_thread_pool()
         return await start_workflow_async(
-            _get_dbos_instance(), parent_ctx_copy, child_ctx, func, args, kwargs
+            _get_dbos_instance(), child_ctx, func, args, kwargs
         )
 
     @classmethod
@@ -1395,12 +1623,10 @@ class DBOS:
     ) -> WorkflowHandleAsync[Any]:
         """Async version of :meth:`enqueue_workflow_with_options`."""
         # All context management runs before the first await, for concurrency safety.
-        ctx = get_local_dbos_context()
-        parent_ctx_copy = copy.copy(ctx)
-        child_ctx = DBOSContext.create_start_workflow_child(ctx)
+        child_ctx = DBOSContext.create_start_workflow_child(get_local_dbos_context())
         await cls._configure_asyncio_thread_pool()
         return await enqueue_workflow_with_options_async(
-            _get_dbos_instance(), parent_ctx_copy, child_ctx, options, args, kwargs
+            _get_dbos_instance(), child_ctx, options, args, kwargs
         )
 
     @classmethod
@@ -1435,7 +1661,12 @@ class DBOS:
         check_async("run_step")
 
         return run_step(
-            _get_dbos_instance(), func, dbos_step_options or {}, args, kwargs
+            _get_dbos_instance(),
+            snapshot_step_context(reserve_sleep_id=False),
+            func,
+            dbos_step_options or {},
+            args,
+            kwargs,
         )
 
     @classmethod
@@ -1489,64 +1720,86 @@ class DBOS:
         )
 
     @classmethod
-    def get_workflow_status(cls, workflow_id: str) -> Optional[WorkflowStatus]:
+    def reserve_step(cls) -> StepReservation:
+        """Draw the next step ID now, so a step can run at it later (for example, from another task).
+        Must be called from workflow code, not from a step or transaction; run the reservation with `run` or `run_async`.
+        """
+        ctx = get_local_dbos_context()
+        if ctx is None or not ctx.is_workflow():
+            raise DBOSException(
+                "DBOS.reserve_step must be called from a workflow, outside any step or transaction"
+            )
+        return StepReservation(ctx.snapshot_step_ctx())
+
+    @classmethod
+    def get_workflow_status(
+        cls, workflow_id: str, *, shard_key: Optional[str] = None
+    ) -> Optional[WorkflowStatus]:
         """Return the status of a workflow execution."""
-        check_async("get_workflow_status")
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("get_workflow_status")
 
-        def fn() -> Optional[WorkflowStatus]:
-            return get_workflow(_get_dbos_instance()._sys_db, workflow_id)
+            def fn() -> Optional[WorkflowStatus]:
+                return get_workflow(_get_dbos_instance()._sys_db, workflow_id)
 
-        return _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.getStatus", snapshot_step_context(reserve_sleep_id=False)
-        )
+            return _get_dbos_instance()._sys_db.call_function_as_step(
+                fn, "DBOS.getStatus", snapshot_step_context(reserve_sleep_id=False)
+            )
 
     @classmethod
     async def get_workflow_status_async(
-        cls, workflow_id: str
+        cls, workflow_id: str, *, shard_key: Optional[str] = None
     ) -> Optional[WorkflowStatus]:
         """Return the status of a workflow execution."""
+        with bind_shard_keys({workflow_id: shard_key}):
+            step_ctx = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
 
-        step_ctx = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
+            def fn() -> Optional[WorkflowStatus]:
+                return get_workflow(_get_dbos_instance()._sys_db, workflow_id)
 
-        def fn() -> Optional[WorkflowStatus]:
-            return get_workflow(_get_dbos_instance()._sys_db, workflow_id)
-
-        return await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fn,
-            "DBOS.getStatus",
-            step_ctx,
-        )
-
-    @classmethod
-    def get_result(cls, workflow_id: str) -> Optional[Any]:
-        """Await and return the result of a workflow execution."""
-        check_async("get_result")
-
-        def fn() -> Optional[Any]:
-            return _get_dbos_instance()._sys_db.await_workflow_result(
-                workflow_id, DEFAULT_POLLING_INTERVAL
+            return await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fn,
+                "DBOS.getStatus",
+                step_ctx,
             )
 
-        return _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.getResult", snapshot_step_context(reserve_sleep_id=False)
-        )
-
     @classmethod
-    async def get_result_async(cls, workflow_id: str) -> Optional[Any]:
+    def get_result(
+        cls, workflow_id: str, *, shard_key: Optional[str] = None
+    ) -> Optional[Any]:
         """Await and return the result of a workflow execution."""
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("get_result")
 
-        step_ctx = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
-        dbos = _get_dbos_instance()
+            def fn() -> Optional[Any]:
+                return _get_dbos_instance()._sys_db.await_workflow_result(
+                    workflow_id, DEFAULT_POLLING_INTERVAL
+                )
 
-        async def fn() -> Optional[Any]:
-            return await dbos._sys_db.await_workflow_result_async(
-                workflow_id, DEFAULT_POLLING_INTERVAL
+            return _get_dbos_instance()._sys_db.call_function_as_step(
+                fn, "DBOS.getResult", snapshot_step_context(reserve_sleep_id=False)
             )
 
-        return await dbos._sys_db.call_coroutine_as_step(fn, "DBOS.getResult", step_ctx)
+    @classmethod
+    async def get_result_async(
+        cls, workflow_id: str, *, shard_key: Optional[str] = None
+    ) -> Optional[Any]:
+        """Await and return the result of a workflow execution."""
+        with bind_shard_keys({workflow_id: shard_key}):
+            step_ctx = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
+            dbos = _get_dbos_instance()
+
+            async def fn() -> Optional[Any]:
+                return await dbos._sys_db.await_workflow_result_async(
+                    workflow_id, DEFAULT_POLLING_INTERVAL
+                )
+
+            return await dbos._sys_db.call_coroutine_as_step(
+                fn, "DBOS.getResult", step_ctx
+            )
 
     @classmethod
     def wait_first(
@@ -1573,9 +1826,10 @@ class DBOS:
                 workflow_ids, polling_interval_sec
             )
 
-        completed_id: str = _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.waitFirst", snapshot_step_context(reserve_sleep_id=False)
-        )
+        with bind_shard_keys({h.workflow_id: h.shard_key for h in handles}):
+            completed_id: str = _get_dbos_instance()._sys_db.call_function_as_step(
+                fn, "DBOS.waitFirst", snapshot_step_context(reserve_sleep_id=False)
+            )
         return handle_map[completed_id]
 
     @classmethod
@@ -1607,46 +1861,63 @@ class DBOS:
                 workflow_ids, polling_interval_sec
             )
 
-        completed_id: str = await dbos._sys_db.call_coroutine_as_step(
-            fn, "DBOS.waitFirst", step_ctx
-        )
+        with bind_shard_keys({h.workflow_id: h.shard_key for h in handles}):
+            completed_id: str = await dbos._sys_db.call_coroutine_as_step(
+                fn, "DBOS.waitFirst", step_ctx
+            )
         return handle_map[completed_id]
 
     @classmethod
     def retrieve_workflow(
-        cls, workflow_id: str, existing_workflow: bool = True
+        cls,
+        workflow_id: str,
+        existing_workflow: bool = True,
+        *,
+        shard_key: Optional[str] = None,
     ) -> WorkflowHandle[R]:
         """Return a `WorkflowHandle` for a workflow execution."""
-        check_async("retrieve_workflow")
-        dbos = _get_dbos_instance()
-        if existing_workflow:
-            stat = dbos.get_workflow_status(workflow_id)
-            if stat is None:
-                raise DBOSNonExistentWorkflowError("target", workflow_id)
-        return WorkflowHandlePolling(workflow_id, dbos)
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("retrieve_workflow")
+            dbos = _get_dbos_instance()
+            if existing_workflow:
+                stat = dbos.get_workflow_status(workflow_id)
+                if stat is None:
+                    raise DBOSNonExistentWorkflowError("target", workflow_id)
+            # The resolved key, so the handle also works outside this binding.
+            return WorkflowHandlePolling(
+                workflow_id, dbos, shard_key=dbos._sys_db._key_hint(workflow_id)
+            )
 
     @classmethod
     async def retrieve_workflow_async(
-        cls, workflow_id: str, existing_workflow: bool = True
+        cls,
+        workflow_id: str,
+        existing_workflow: bool = True,
+        *,
+        shard_key: Optional[str] = None,
     ) -> WorkflowHandleAsync[R]:
         """Return a `WorkflowHandle` for a workflow execution."""
-        dbos = _get_dbos_instance()
-        if existing_workflow:
-            step_ctx = snapshot_step_context(reserve_sleep_id=False)
-            await cls._configure_asyncio_thread_pool()
+        with bind_shard_keys({workflow_id: shard_key}):
+            dbos = _get_dbos_instance()
+            if existing_workflow:
+                step_ctx = snapshot_step_context(reserve_sleep_id=False)
+                await cls._configure_asyncio_thread_pool()
 
-            def fn() -> Optional[WorkflowStatus]:
-                return get_workflow(_get_dbos_instance()._sys_db, workflow_id)
+                def fn() -> Optional[WorkflowStatus]:
+                    return get_workflow(_get_dbos_instance()._sys_db, workflow_id)
 
-            stat = await asyncio.to_thread(
-                _get_dbos_instance()._sys_db.call_function_as_step,
-                fn,
-                "DBOS.getStatus",
-                step_ctx,
+                stat = await asyncio.to_thread(
+                    _get_dbos_instance()._sys_db.call_function_as_step,
+                    fn,
+                    "DBOS.getStatus",
+                    step_ctx,
+                )
+                if stat is None:
+                    raise DBOSNonExistentWorkflowError("target", workflow_id)
+            # The resolved key, so the handle also works outside this binding.
+            return WorkflowHandleAsyncPolling(
+                workflow_id, dbos, shard_key=dbos._sys_db._key_hint(workflow_id)
             )
-            if stat is None:
-                raise DBOSNonExistentWorkflowError("target", workflow_id)
-        return WorkflowHandleAsyncPolling(workflow_id, dbos)
 
     @classmethod
     def send(
@@ -1660,6 +1931,7 @@ class DBOS:
             WorkflowSerializationFormat
         ] = WorkflowSerializationFormat.DEFAULT,
         send_to_forks: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Send a message to a workflow execution.
 
@@ -1670,7 +1942,7 @@ class DBOS:
         return send_bulk(
             _get_dbos_instance(),
             snapshot_step_context(),
-            [SendMessage(destination_id, message, topic, idempotency_key)],
+            [SendMessage(destination_id, message, topic, idempotency_key, shard_key)],
             serialization_type=serialization_type,
             function_name="DBOS.send",
             span_name="send",
@@ -1689,6 +1961,7 @@ class DBOS:
             WorkflowSerializationFormat
         ] = WorkflowSerializationFormat.DEFAULT,
         send_to_forks: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Send a message to a workflow execution.
 
@@ -1701,7 +1974,7 @@ class DBOS:
             send_bulk,
             _get_dbos_instance(),
             ctx,
-            [SendMessage(destination_id, message, topic, idempotency_key)],
+            [SendMessage(destination_id, message, topic, idempotency_key, shard_key)],
             serialization_type=serialization_type,
             function_name="DBOS.send",
             span_name="send",
@@ -1981,7 +2254,14 @@ class DBOS:
         )
 
     @classmethod
-    def get_event(cls, workflow_id: str, key: str, timeout_seconds: float = 60) -> Any:
+    def get_event(
+        cls,
+        workflow_id: str,
+        key: str,
+        timeout_seconds: float = 60,
+        *,
+        shard_key: Optional[str] = None,
+    ) -> Any:
         """
         Return the `value` of a workflow event, waiting for it to occur if necessary.
 
@@ -1993,29 +2273,35 @@ class DBOS:
             timeout_seconds(float): The amount of time to wait, in case `set_event` has not yet been called byt the workflow
 
         """
-        check_async("get_event")
-        cur_ctx = snapshot_step_context(reserve_sleep_id=True)
-        dbos = _get_dbos_instance()
-        if cur_ctx is not None and cur_ctx.is_workflow():
-            attributes: TracedAttributes = {
-                "name": "get_event",
-            }
-            with EnterDBOSStepCtx(attributes, cur_ctx) as ctx:
-                timeout_function_id = ctx.curr_step_function_id + 1
-                caller_ctx: GetEventWorkflowContext = {
-                    "workflow_uuid": ctx.workflow_id,
-                    "function_id": ctx.curr_step_function_id,
-                    "timeout_function_id": timeout_function_id,
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("get_event")
+            cur_ctx = snapshot_step_context(reserve_sleep_id=True)
+            dbos = _get_dbos_instance()
+            if cur_ctx is not None and cur_ctx.is_workflow():
+                attributes: TracedAttributes = {
+                    "name": "get_event",
                 }
-                return dbos._sys_db.get_event(
-                    workflow_id, key, timeout_seconds, caller_ctx
-                )
-        else:
-            return dbos._sys_db.get_event(workflow_id, key, timeout_seconds)
+                with EnterDBOSStepCtx(attributes, cur_ctx) as ctx:
+                    timeout_function_id = ctx.curr_step_function_id + 1
+                    caller_ctx: GetEventWorkflowContext = {
+                        "workflow_uuid": ctx.workflow_id,
+                        "function_id": ctx.curr_step_function_id,
+                        "timeout_function_id": timeout_function_id,
+                    }
+                    return dbos._sys_db.get_event(
+                        workflow_id, key, timeout_seconds, caller_ctx
+                    )
+            else:
+                return dbos._sys_db.get_event(workflow_id, key, timeout_seconds)
 
     @classmethod
     async def get_event_async(
-        cls, workflow_id: str, key: str, timeout_seconds: float = 60
+        cls,
+        workflow_id: str,
+        key: str,
+        timeout_seconds: float = 60,
+        *,
+        shard_key: Optional[str] = None,
     ) -> Any:
         """
         Return the `value` of a workflow event, waiting for it to occur if necessary.
@@ -2028,28 +2314,33 @@ class DBOS:
             timeout_seconds(float): The amount of time to wait, in case `set_event` has not yet been called byt the workflow
 
         """
-        cur_ctx = snapshot_step_context(reserve_sleep_id=True)
-        dbos = _get_dbos_instance()
-        await cls._configure_asyncio_thread_pool()
-        if cur_ctx is not None and cur_ctx.is_workflow():
-            attributes: TracedAttributes = {
-                "name": "get_event",
-            }
-            with EnterDBOSStepCtx(attributes, cur_ctx) as ctx:
-                timeout_function_id = ctx.curr_step_function_id + 1
-                caller_ctx: GetEventWorkflowContext = {
-                    "workflow_uuid": ctx.workflow_id,
-                    "function_id": ctx.curr_step_function_id,
-                    "timeout_function_id": timeout_function_id,
+        with bind_shard_keys({workflow_id: shard_key}):
+            cur_ctx = snapshot_step_context(reserve_sleep_id=True)
+            dbos = _get_dbos_instance()
+            await cls._configure_asyncio_thread_pool()
+            if cur_ctx is not None and cur_ctx.is_workflow():
+                attributes: TracedAttributes = {
+                    "name": "get_event",
                 }
+                with EnterDBOSStepCtx(attributes, cur_ctx) as ctx:
+                    timeout_function_id = ctx.curr_step_function_id + 1
+                    caller_ctx: GetEventWorkflowContext = {
+                        "workflow_uuid": ctx.workflow_id,
+                        "function_id": ctx.curr_step_function_id,
+                        "timeout_function_id": timeout_function_id,
+                    }
+                    return await dbos._sys_db.get_event_async(
+                        workflow_id, key, timeout_seconds, caller_ctx
+                    )
+            else:
                 return await dbos._sys_db.get_event_async(
-                    workflow_id, key, timeout_seconds, caller_ctx
+                    workflow_id, key, timeout_seconds
                 )
-        else:
-            return await dbos._sys_db.get_event_async(workflow_id, key, timeout_seconds)
 
     @classmethod
-    def get_all_events(cls, workflow_id: str) -> Dict[str, Any]:
+    def get_all_events(
+        cls, workflow_id: str, *, shard_key: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get all events currently present for a workflow ID.
         Args:
@@ -2057,17 +2348,20 @@ class DBOS:
         Returns:
             A dictionary mapping event keys to their deserialized values
         """
-        check_async("get_all_events")
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("get_all_events")
 
-        def fn() -> Dict[str, Any]:
-            return _get_dbos_instance()._sys_db.get_all_events(workflow_id)
+            def fn() -> Dict[str, Any]:
+                return _get_dbos_instance()._sys_db.get_all_events(workflow_id)
 
-        return _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.get_events", snapshot_step_context(reserve_sleep_id=False)
-        )
+            return _get_dbos_instance()._sys_db.call_function_as_step(
+                fn, "DBOS.get_events", snapshot_step_context(reserve_sleep_id=False)
+            )
 
     @classmethod
-    async def get_all_events_async(cls, workflow_id: str) -> Dict[str, Any]:
+    async def get_all_events_async(
+        cls, workflow_id: str, *, shard_key: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get all events currently present for a workflow ID.
         Args:
@@ -2075,18 +2369,22 @@ class DBOS:
         Returns:
             A dictionary mapping event keys to their deserialized values
         """
-        step_ctx = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
+        with bind_shard_keys({workflow_id: shard_key}):
+            step_ctx = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
 
-        def fn() -> Dict[str, Any]:
-            return _get_dbos_instance()._sys_db.get_all_events(workflow_id)
+            def fn() -> Dict[str, Any]:
+                return _get_dbos_instance()._sys_db.get_all_events(workflow_id)
 
-        return await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fn,
-            "DBOS.get_events",
-            step_ctx,
-        )
+            return await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fn,
+                "DBOS.get_events",
+                step_ctx,
+            )
+
+    def _auto_upgradable_workflows(self) -> List[str]:
+        return self._registry.auto_upgradable_workflows(self._auto_upgrade)
 
     @classmethod
     def _recover_pending_workflows(
@@ -2097,61 +2395,83 @@ class DBOS:
 
     @classmethod
     def cancel_workflow(
-        cls, workflow_id: str, *, cancel_children: bool = False
+        cls,
+        workflow_id: str,
+        *,
+        cancel_children: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Cancel a workflow by ID."""
-        cls.cancel_workflows([workflow_id], cancel_children=cancel_children)
+        with bind_shard_keys({workflow_id: shard_key}):
+            cls.cancel_workflows([workflow_id], cancel_children=cancel_children)
 
     @classmethod
     async def cancel_workflow_async(
-        cls, workflow_id: str, *, cancel_children: bool = False
+        cls,
+        workflow_id: str,
+        *,
+        cancel_children: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Cancel a workflow by ID."""
-        await cls.cancel_workflows_async([workflow_id], cancel_children=cancel_children)
+        with bind_shard_keys({workflow_id: shard_key}):
+            await cls.cancel_workflows_async(
+                [workflow_id], cancel_children=cancel_children
+            )
 
     @classmethod
     def cancel_workflows(
-        cls, workflow_ids: List[str], *, cancel_children: bool = False
+        cls,
+        workflow_ids: List[str],
+        *,
+        cancel_children: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Cancel multiple workflows by ID.
 
         If cancel_children is True, also cancels all child workflows recursively.
         """
-        check_async("cancel_workflows")
+        with bind_shard_keys({wid: shard_key for wid in workflow_ids}):
+            check_async("cancel_workflows")
 
-        def fn() -> None:
-            dbos_logger.info(f"Cancelling workflow(s): {workflow_ids}")
-            _get_dbos_instance()._sys_db.cancel_workflows(
-                workflow_ids, cancel_children=cancel_children
+            def fn() -> None:
+                dbos_logger.info(f"Cancelling workflow(s): {workflow_ids}")
+                _get_dbos_instance()._sys_db.cancel_workflows(
+                    workflow_ids, cancel_children=cancel_children
+                )
+
+            return _get_dbos_instance()._sys_db.call_function_as_step(
+                fn, "DBOS.cancelWorkflow", snapshot_step_context(reserve_sleep_id=False)
             )
-
-        return _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.cancelWorkflow", snapshot_step_context(reserve_sleep_id=False)
-        )
 
     @classmethod
     async def cancel_workflows_async(
-        cls, workflow_ids: List[str], *, cancel_children: bool = False
+        cls,
+        workflow_ids: List[str],
+        *,
+        cancel_children: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Cancel multiple workflows by ID.
 
         If cancel_children is True, also cancels all child workflows recursively.
         """
-        step_ctx = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
+        with bind_shard_keys({wid: shard_key for wid in workflow_ids}):
+            step_ctx = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
 
-        def fn() -> None:
-            dbos_logger.info(f"Cancelling workflow(s): {workflow_ids}")
-            _get_dbos_instance()._sys_db.cancel_workflows(
-                workflow_ids, cancel_children=cancel_children
+            def fn() -> None:
+                dbos_logger.info(f"Cancelling workflow(s): {workflow_ids}")
+                _get_dbos_instance()._sys_db.cancel_workflows(
+                    workflow_ids, cancel_children=cancel_children
+                )
+
+            return await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fn,
+                "DBOS.cancelWorkflow",
+                step_ctx,
             )
-
-        return await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fn,
-            "DBOS.cancelWorkflow",
-            step_ctx,
-        )
 
     @classmethod
     def update_workflow_attributes(
@@ -2160,6 +2480,7 @@ class DBOS:
         attributes: Optional[Dict[str, Any]],
         *,
         merge: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Replace the custom attributes attached to a workflow by ID. Pass None to clear all attributes.
 
@@ -2170,19 +2491,20 @@ class DBOS:
         Safe to call from within a workflow: the update is recorded as a step so
         it runs exactly once even if the workflow is recovered.
         """
-        check_async("update_workflow_attributes")
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("update_workflow_attributes")
 
-        def fn() -> None:
-            dbos_logger.info(f"Updating attributes of workflow: {workflow_id}")
-            _get_dbos_instance()._sys_db.update_workflow_attributes(
-                workflow_id, attributes, merge=merge
+            def fn() -> None:
+                dbos_logger.info(f"Updating attributes of workflow: {workflow_id}")
+                _get_dbos_instance()._sys_db.update_workflow_attributes(
+                    workflow_id, attributes, merge=merge
+                )
+
+            return _get_dbos_instance()._sys_db.call_function_as_step(
+                fn,
+                "DBOS.updateWorkflowAttributes",
+                snapshot_step_context(reserve_sleep_id=False),
             )
-
-        return _get_dbos_instance()._sys_db.call_function_as_step(
-            fn,
-            "DBOS.updateWorkflowAttributes",
-            snapshot_step_context(reserve_sleep_id=False),
-        )
 
     @classmethod
     async def update_workflow_attributes_async(
@@ -2191,6 +2513,7 @@ class DBOS:
         attributes: Optional[Dict[str, Any]],
         *,
         merge: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Replace the custom attributes attached to a workflow by ID. Pass None to clear all attributes.
 
@@ -2201,79 +2524,102 @@ class DBOS:
         Safe to call from within a workflow: the update is recorded as a step so
         it runs exactly once even if the workflow is recovered.
         """
-        step_ctx = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
+        with bind_shard_keys({workflow_id: shard_key}):
+            step_ctx = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
 
-        def fn() -> None:
-            dbos_logger.info(f"Updating attributes of workflow: {workflow_id}")
-            _get_dbos_instance()._sys_db.update_workflow_attributes(
-                workflow_id, attributes, merge=merge
+            def fn() -> None:
+                dbos_logger.info(f"Updating attributes of workflow: {workflow_id}")
+                _get_dbos_instance()._sys_db.update_workflow_attributes(
+                    workflow_id, attributes, merge=merge
+                )
+
+            return await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fn,
+                "DBOS.updateWorkflowAttributes",
+                step_ctx,
             )
-
-        return await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fn,
-            "DBOS.updateWorkflowAttributes",
-            step_ctx,
-        )
 
     @classmethod
     def delete_workflow(
-        cls, workflow_id: str, *, delete_children: bool = False
+        cls,
+        workflow_id: str,
+        *,
+        delete_children: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Delete a workflow and all its associated data by ID."""
-        cls.delete_workflows([workflow_id], delete_children=delete_children)
+        with bind_shard_keys({workflow_id: shard_key}):
+            cls.delete_workflows([workflow_id], delete_children=delete_children)
 
     @classmethod
     async def delete_workflow_async(
-        cls, workflow_id: str, *, delete_children: bool = False
+        cls,
+        workflow_id: str,
+        *,
+        delete_children: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Delete a workflow and all its associated data by ID."""
-        await cls.delete_workflows_async([workflow_id], delete_children=delete_children)
+        with bind_shard_keys({workflow_id: shard_key}):
+            await cls.delete_workflows_async(
+                [workflow_id], delete_children=delete_children
+            )
 
     @classmethod
     def delete_workflows(
-        cls, workflow_ids: List[str], *, delete_children: bool = False
+        cls,
+        workflow_ids: List[str],
+        *,
+        delete_children: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Delete multiple workflows and all their associated data by ID.
 
         If delete_children is True, also deletes all child workflows recursively.
         """
-        check_async("delete_workflows")
+        with bind_shard_keys({wid: shard_key for wid in workflow_ids}):
+            check_async("delete_workflows")
 
-        def fn() -> None:
-            dbos_logger.info(f"Deleting workflow(s): {workflow_ids}")
-            delete_workflow(
-                _get_dbos_instance(), workflow_ids, delete_children=delete_children
+            def fn() -> None:
+                dbos_logger.info(f"Deleting workflow(s): {workflow_ids}")
+                delete_workflow(
+                    _get_dbos_instance(), workflow_ids, delete_children=delete_children
+                )
+
+            return _get_dbos_instance()._sys_db.call_function_as_step(
+                fn, "DBOS.deleteWorkflow", snapshot_step_context(reserve_sleep_id=False)
             )
-
-        return _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.deleteWorkflow", snapshot_step_context(reserve_sleep_id=False)
-        )
 
     @classmethod
     async def delete_workflows_async(
-        cls, workflow_ids: List[str], *, delete_children: bool = False
+        cls,
+        workflow_ids: List[str],
+        *,
+        delete_children: bool = False,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Delete multiple workflows and all their associated data by ID.
 
         If delete_children is True, also deletes all child workflows recursively.
         """
-        step_ctx = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
+        with bind_shard_keys({wid: shard_key for wid in workflow_ids}):
+            step_ctx = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
 
-        def fn() -> None:
-            dbos_logger.info(f"Deleting workflow(s): {workflow_ids}")
-            delete_workflow(
-                _get_dbos_instance(), workflow_ids, delete_children=delete_children
+            def fn() -> None:
+                dbos_logger.info(f"Deleting workflow(s): {workflow_ids}")
+                delete_workflow(
+                    _get_dbos_instance(), workflow_ids, delete_children=delete_children
+                )
+
+            return await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fn,
+                "DBOS.deleteWorkflow",
+                step_ctx,
             )
-
-        return await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fn,
-            "DBOS.deleteWorkflow",
-            step_ctx,
-        )
 
     @classmethod
     async def _configure_asyncio_thread_pool(cls) -> None:
@@ -2283,7 +2629,13 @@ class DBOS:
         This function is called before the first call to asyncio.to_thread.
         """
         loop = asyncio.get_running_loop()
-        loop.set_default_executor(_get_dbos_instance()._executor)
+        dbos = _get_dbos_instance()
+        executor = dbos._executor
+        shared = dbos._shared_executor_field
+        if shared is None or shared.executor is not executor:
+            shared = _SharedExecutor(executor)
+            dbos._shared_executor_field = shared
+        loop.set_default_executor(shared)
 
     @classmethod
     def resume_workflow(
@@ -2291,21 +2643,28 @@ class DBOS:
         workflow_id: str,
         *,
         queue_name: Optional[str] = None,
+        shard_key: Optional[str] = None,
     ) -> WorkflowHandle[Any]:
         """Resume a workflow by ID."""
-        check_async("resume_workflow")
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("resume_workflow")
 
-        def fn() -> None:
-            dbos_logger.info(f"Resuming workflow: {workflow_id}")
-            _get_dbos_instance()._sys_db.resume_workflows(
-                [workflow_id],
-                queue_name=queue_name,
+            def fn() -> None:
+                dbos_logger.info(f"Resuming workflow: {workflow_id}")
+                _get_dbos_instance()._sys_db.resume_workflows(
+                    [workflow_id],
+                    queue_name=queue_name,
+                )
+
+            _get_dbos_instance()._sys_db.call_function_as_step(
+                fn, "DBOS.resumeWorkflow", snapshot_step_context(reserve_sleep_id=False)
             )
-
-        _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.resumeWorkflow", snapshot_step_context(reserve_sleep_id=False)
-        )
-        return WorkflowHandlePolling(workflow_id, _get_dbos_instance())
+            # The resolved key, so the handle also works outside this binding.
+            return WorkflowHandlePolling(
+                workflow_id,
+                _get_dbos_instance(),
+                shard_key=_get_dbos_instance()._sys_db._key_hint(workflow_id),
+            )
 
     @classmethod
     async def resume_workflow_async(
@@ -2313,25 +2672,32 @@ class DBOS:
         workflow_id: str,
         *,
         queue_name: Optional[str] = None,
+        shard_key: Optional[str] = None,
     ) -> WorkflowHandleAsync[Any]:
         """Resume a workflow by ID."""
-        step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
+        with bind_shard_keys({workflow_id: shard_key}):
+            step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
 
-        def fnres() -> None:
-            dbos_logger.info(f"Resuming workflow: {workflow_id}")
-            _get_dbos_instance()._sys_db.resume_workflows(
-                [workflow_id],
-                queue_name=queue_name,
+            def fnres() -> None:
+                dbos_logger.info(f"Resuming workflow: {workflow_id}")
+                _get_dbos_instance()._sys_db.resume_workflows(
+                    [workflow_id],
+                    queue_name=queue_name,
+                )
+
+            await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fnres,
+                "DBOS.resumeWorkflow",
+                step_ctx_res,
             )
-
-        await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fnres,
-            "DBOS.resumeWorkflow",
-            step_ctx_res,
-        )
-        return WorkflowHandleAsyncPolling(workflow_id, _get_dbos_instance())
+            # The resolved key, so the handle also works outside this binding.
+            return WorkflowHandleAsyncPolling(
+                workflow_id,
+                _get_dbos_instance(),
+                shard_key=_get_dbos_instance()._sys_db._key_hint(workflow_id),
+            )
 
     @classmethod
     def resume_workflows(
@@ -2339,23 +2705,26 @@ class DBOS:
         workflow_ids: List[str],
         *,
         queue_name: Optional[str] = None,
+        shard_key: Optional[str] = None,
     ) -> List[WorkflowHandle[Any]]:
         """Resume multiple workflows by ID."""
-        check_async("resume_workflows")
+        with bind_shard_keys({wid: shard_key for wid in workflow_ids}):
+            check_async("resume_workflows")
 
-        def fn() -> None:
-            dbos_logger.info(f"Resuming workflows: {workflow_ids}")
-            _get_dbos_instance()._sys_db.resume_workflows(
-                workflow_ids,
-                queue_name=queue_name,
+            def fn() -> None:
+                dbos_logger.info(f"Resuming workflows: {workflow_ids}")
+                _get_dbos_instance()._sys_db.resume_workflows(
+                    workflow_ids,
+                    queue_name=queue_name,
+                )
+
+            _get_dbos_instance()._sys_db.call_function_as_step(
+                fn, "DBOS.resumeWorkflow", snapshot_step_context(reserve_sleep_id=False)
             )
-
-        _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.resumeWorkflow", snapshot_step_context(reserve_sleep_id=False)
-        )
-        return [
-            WorkflowHandlePolling(wfid, _get_dbos_instance()) for wfid in workflow_ids
-        ]
+            return [
+                WorkflowHandlePolling(wfid, _get_dbos_instance(), shard_key=shard_key)
+                for wfid in workflow_ids
+            ]
 
     @classmethod
     async def resume_workflows_async(
@@ -2363,29 +2732,33 @@ class DBOS:
         workflow_ids: List[str],
         *,
         queue_name: Optional[str] = None,
+        shard_key: Optional[str] = None,
     ) -> List[WorkflowHandleAsync[Any]]:
         """Resume multiple workflows by ID."""
-        step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
+        with bind_shard_keys({wid: shard_key for wid in workflow_ids}):
+            step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
 
-        def fnres() -> None:
-            dbos_logger.info(f"Resuming workflows: {workflow_ids}")
-            _get_dbos_instance()._sys_db.resume_workflows(
-                workflow_ids,
-                queue_name=queue_name,
+            def fnres() -> None:
+                dbos_logger.info(f"Resuming workflows: {workflow_ids}")
+                _get_dbos_instance()._sys_db.resume_workflows(
+                    workflow_ids,
+                    queue_name=queue_name,
+                )
+
+            await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fnres,
+                "DBOS.resumeWorkflow",
+                step_ctx_res,
             )
 
-        await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fnres,
-            "DBOS.resumeWorkflow",
-            step_ctx_res,
-        )
-
-        return [
-            WorkflowHandleAsyncPolling(wfid, _get_dbos_instance())
-            for wfid in workflow_ids
-        ]
+            return [
+                WorkflowHandleAsyncPolling(
+                    wfid, _get_dbos_instance(), shard_key=shard_key
+                )
+                for wfid in workflow_ids
+            ]
 
     @classmethod
     def set_workflow_delay(
@@ -2394,26 +2767,28 @@ class DBOS:
         *,
         delay_seconds: Optional[float] = None,
         delay_until_epoch_ms: Optional[int] = None,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Set or update the delay on a workflow.
 
         Provide exactly one of delay_seconds (relative) or delay_until_epoch_ms (absolute).
         Only affects DELAYED workflows.
         """
-        check_async("set_workflow_delay")
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("set_workflow_delay")
 
-        def fn() -> None:
-            _get_dbos_instance()._sys_db.set_workflow_delay(
-                workflow_id,
-                delay_seconds=delay_seconds,
-                delay_until_epoch_ms=delay_until_epoch_ms,
+            def fn() -> None:
+                _get_dbos_instance()._sys_db.set_workflow_delay(
+                    workflow_id,
+                    delay_seconds=delay_seconds,
+                    delay_until_epoch_ms=delay_until_epoch_ms,
+                )
+
+            _get_dbos_instance()._sys_db.call_function_as_step(
+                fn,
+                "DBOS.setWorkflowDelay",
+                snapshot_step_context(reserve_sleep_id=False),
             )
-
-        _get_dbos_instance()._sys_db.call_function_as_step(
-            fn,
-            "DBOS.setWorkflowDelay",
-            snapshot_step_context(reserve_sleep_id=False),
-        )
 
     @classmethod
     async def set_workflow_delay_async(
@@ -2422,28 +2797,30 @@ class DBOS:
         *,
         delay_seconds: Optional[float] = None,
         delay_until_epoch_ms: Optional[int] = None,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Set or update the delay on a workflow.
 
         Provide exactly one of delay_seconds (relative) or delay_until_epoch_ms (absolute).
         Only affects DELAYED workflows.
         """
-        step_ctx = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
+        with bind_shard_keys({workflow_id: shard_key}):
+            step_ctx = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
 
-        def fn() -> None:
-            _get_dbos_instance()._sys_db.set_workflow_delay(
-                workflow_id,
-                delay_seconds=delay_seconds,
-                delay_until_epoch_ms=delay_until_epoch_ms,
+            def fn() -> None:
+                _get_dbos_instance()._sys_db.set_workflow_delay(
+                    workflow_id,
+                    delay_seconds=delay_seconds,
+                    delay_until_epoch_ms=delay_until_epoch_ms,
+                )
+
+            await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fn,
+                "DBOS.setWorkflowDelay",
+                step_ctx,
             )
-
-        await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fn,
-            "DBOS.setWorkflowDelay",
-            step_ctx,
-        )
 
     def _rewind_workflow(
         self,
@@ -2474,26 +2851,33 @@ class DBOS:
         application_version: Optional[str] = None,
         queue_name: Optional[str] = None,
         queue_partition_key: Optional[str] = None,
+        shard_key: Optional[str] = None,
     ) -> WorkflowHandle[Any]:
         """Rewind a workflow to a step (default: the first). Only a workflow in a
         terminal state can be rewound."""
-        check_async("rewind_workflow")
-        step = 1 if start_step is None else start_step
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("rewind_workflow")
+            step = 1 if start_step is None else start_step
 
-        def fn() -> None:
-            dbos_logger.info(f"Rewinding workflow: {workflow_id} to step {step}")
-            _get_dbos_instance()._rewind_workflow(
-                workflow_id,
-                step,
-                application_version=application_version,
-                queue_name=queue_name,
-                queue_partition_key=queue_partition_key,
+            def fn() -> None:
+                dbos_logger.info(f"Rewinding workflow: {workflow_id} to step {step}")
+                _get_dbos_instance()._rewind_workflow(
+                    workflow_id,
+                    step,
+                    application_version=application_version,
+                    queue_name=queue_name,
+                    queue_partition_key=queue_partition_key,
+                )
+
+            _get_dbos_instance()._sys_db.call_function_as_step(
+                fn, "DBOS.rewindWorkflow", snapshot_step_context(reserve_sleep_id=False)
             )
-
-        _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.rewindWorkflow", snapshot_step_context(reserve_sleep_id=False)
-        )
-        return WorkflowHandlePolling(workflow_id, _get_dbos_instance())
+            # The resolved key, so the handle also works outside this binding.
+            return WorkflowHandlePolling(
+                workflow_id,
+                _get_dbos_instance(),
+                shard_key=_get_dbos_instance()._sys_db._key_hint(workflow_id),
+            )
 
     @classmethod
     async def rewind_workflow_async(
@@ -2504,30 +2888,37 @@ class DBOS:
         application_version: Optional[str] = None,
         queue_name: Optional[str] = None,
         queue_partition_key: Optional[str] = None,
+        shard_key: Optional[str] = None,
     ) -> WorkflowHandleAsync[Any]:
         """Rewind a workflow to a step (default: the first). Only a workflow in a
         terminal state can be rewound."""
-        step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
-        step = 1 if start_step is None else start_step
+        with bind_shard_keys({workflow_id: shard_key}):
+            step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
+            step = 1 if start_step is None else start_step
 
-        def fnres() -> None:
-            dbos_logger.info(f"Rewinding workflow: {workflow_id} to step {step}")
-            _get_dbos_instance()._rewind_workflow(
-                workflow_id,
-                step,
-                application_version=application_version,
-                queue_name=queue_name,
-                queue_partition_key=queue_partition_key,
+            def fnres() -> None:
+                dbos_logger.info(f"Rewinding workflow: {workflow_id} to step {step}")
+                _get_dbos_instance()._rewind_workflow(
+                    workflow_id,
+                    step,
+                    application_version=application_version,
+                    queue_name=queue_name,
+                    queue_partition_key=queue_partition_key,
+                )
+
+            await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fnres,
+                "DBOS.rewindWorkflow",
+                step_ctx_res,
             )
-
-        await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fnres,
-            "DBOS.rewindWorkflow",
-            step_ctx_res,
-        )
-        return WorkflowHandleAsyncPolling(workflow_id, _get_dbos_instance())
+            # The resolved key, so the handle also works outside this binding.
+            return WorkflowHandleAsyncPolling(
+                workflow_id,
+                _get_dbos_instance(),
+                shard_key=_get_dbos_instance()._sys_db._key_hint(workflow_id),
+            )
 
     @classmethod
     def fork_workflow(
@@ -2540,27 +2931,33 @@ class DBOS:
         queue_partition_key: Optional[str] = None,
         replacement_children: Optional[dict[str, str]] = None,
         timeout_seconds: Optional[float] = None,
+        shard_key: Optional[str] = None,
     ) -> WorkflowHandle[Any]:
         """Restart a workflow with a new workflow ID from a specific step"""
-        check_async("fork_workflow")
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("fork_workflow")
 
-        def fn() -> str:
-            dbos_logger.info(f"Forking workflow: {workflow_id} from step {start_step}")
-            return fork_workflow(
-                _get_dbos_instance()._sys_db,
-                workflow_id,
-                start_step,
-                application_version=application_version,
-                queue_name=queue_name,
-                queue_partition_key=queue_partition_key,
-                replacement_children=replacement_children,
-                timeout_seconds=timeout_seconds,
+            def fn() -> str:
+                dbos_logger.info(
+                    f"Forking workflow: {workflow_id} from step {start_step}"
+                )
+                return fork_workflow(
+                    _get_dbos_instance()._sys_db,
+                    workflow_id,
+                    start_step,
+                    application_version=application_version,
+                    queue_name=queue_name,
+                    queue_partition_key=queue_partition_key,
+                    replacement_children=replacement_children,
+                    timeout_seconds=timeout_seconds,
+                )
+
+            new_id = _get_dbos_instance()._sys_db.call_function_as_step(
+                fn, "DBOS.forkWorkflow", snapshot_step_context(reserve_sleep_id=False)
             )
-
-        new_id = _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.forkWorkflow", snapshot_step_context(reserve_sleep_id=False)
-        )
-        return cls.retrieve_workflow(new_id)
+            # A fork lives under its original's shard key, however the caller supplied it.
+            fork_key = _get_dbos_instance()._sys_db._key_hint(workflow_id)
+            return cls.retrieve_workflow(new_id, shard_key=fork_key)
 
     @classmethod
     async def fork_workflow_async(
@@ -2573,44 +2970,53 @@ class DBOS:
         queue_partition_key: Optional[str] = None,
         replacement_children: Optional[dict[str, str]] = None,
         timeout_seconds: Optional[float] = None,
+        shard_key: Optional[str] = None,
     ) -> WorkflowHandleAsync[Any]:
         """Restart a workflow with a new workflow ID from a specific step"""
-        step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
-        step_ctx_ret = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
+        with bind_shard_keys({workflow_id: shard_key}):
+            step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
+            step_ctx_ret = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
 
-        def fn() -> str:
-            dbos_logger.info(f"Forking workflow: {workflow_id} from step {start_step}")
-            return fork_workflow(
-                _get_dbos_instance()._sys_db,
-                workflow_id,
-                start_step,
-                application_version=application_version,
-                queue_name=queue_name,
-                queue_partition_key=queue_partition_key,
-                replacement_children=replacement_children,
-                timeout_seconds=timeout_seconds,
+            def fn() -> str:
+                dbos_logger.info(
+                    f"Forking workflow: {workflow_id} from step {start_step}"
+                )
+                return fork_workflow(
+                    _get_dbos_instance()._sys_db,
+                    workflow_id,
+                    start_step,
+                    application_version=application_version,
+                    queue_name=queue_name,
+                    queue_partition_key=queue_partition_key,
+                    replacement_children=replacement_children,
+                    timeout_seconds=timeout_seconds,
+                )
+
+            new_id = await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fn,
+                "DBOS.forkWorkflow",
+                step_ctx_res,
             )
 
-        new_id = await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fn,
-            "DBOS.forkWorkflow",
-            step_ctx_res,
-        )
+            def fnret() -> Optional[WorkflowStatus]:
+                return get_workflow(_get_dbos_instance()._sys_db, new_id)
 
-        def fnret() -> Optional[WorkflowStatus]:
-            return get_workflow(_get_dbos_instance()._sys_db, new_id)
-
-        stat = await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fnret,
-            "DBOS.getStatus",
-            step_ctx_ret,
-        )
-        if stat is None:
-            raise DBOSNonExistentWorkflowError("target", new_id)
-        return WorkflowHandleAsyncPolling(new_id, _get_dbos_instance())
+            # A fork lives under its original's shard key, however the caller supplied it.
+            fork_key = _get_dbos_instance()._sys_db._key_hint(workflow_id)
+            with bind_shard_keys({new_id: fork_key}):
+                stat = await asyncio.to_thread(
+                    _get_dbos_instance()._sys_db.call_function_as_step,
+                    fnret,
+                    "DBOS.getStatus",
+                    step_ctx_ret,
+                )
+            if stat is None:
+                raise DBOSNonExistentWorkflowError("target", new_id)
+            return WorkflowHandleAsyncPolling(
+                new_id, _get_dbos_instance(), shard_key=fork_key
+            )
 
     @classmethod
     def list_workflows(
@@ -2644,6 +3050,8 @@ class DBOS:
         attributes: Optional[Dict[str, Any]] = None,
         schedule_name: Optional[str | list[str]] = None,
         application_name: Optional[str | list[str]] = None,
+        shard_key: Optional[str | list[str]] = None,
+        parent_shard_key: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         check_async("list_workflows")
 
@@ -2677,6 +3085,8 @@ class DBOS:
                 attributes=attributes,
                 schedule_name=schedule_name,
                 application_name=application_name,
+                shard_key=shard_key,
+                parent_shard_key=parent_shard_key,
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
@@ -2715,6 +3125,8 @@ class DBOS:
         attributes: Optional[Dict[str, Any]] = None,
         schedule_name: Optional[str | list[str]] = None,
         application_name: Optional[str | list[str]] = None,
+        shard_key: Optional[str | list[str]] = None,
+        parent_shard_key: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         step_ctx = snapshot_step_context(reserve_sleep_id=False)
         await cls._configure_asyncio_thread_pool()
@@ -2749,6 +3161,8 @@ class DBOS:
                 attributes=attributes,
                 schedule_name=schedule_name,
                 application_name=application_name,
+                shard_key=shard_key,
+                parent_shard_key=parent_shard_key,
             )
 
         return await asyncio.to_thread(
@@ -2787,6 +3201,8 @@ class DBOS:
         has_parent: Optional[bool] = None,
         attributes: Optional[Dict[str, Any]] = None,
         application_name: Optional[str | list[str]] = None,
+        shard_key: Optional[str | list[str]] = None,
+        parent_shard_key: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         check_async("list_queued_workflows")
 
@@ -2818,6 +3234,8 @@ class DBOS:
                 has_parent=has_parent,
                 attributes=attributes,
                 application_name=application_name,
+                shard_key=shard_key,
+                parent_shard_key=parent_shard_key,
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
@@ -2855,6 +3273,8 @@ class DBOS:
         has_parent: Optional[bool] = None,
         attributes: Optional[Dict[str, Any]] = None,
         application_name: Optional[str | list[str]] = None,
+        shard_key: Optional[str | list[str]] = None,
+        parent_shard_key: Optional[str | list[str]] = None,
     ) -> List[WorkflowStatus]:
         step_ctx = snapshot_step_context(reserve_sleep_id=False)
         await cls._configure_asyncio_thread_pool()
@@ -2887,6 +3307,8 @@ class DBOS:
                 has_parent=has_parent,
                 attributes=attributes,
                 application_name=application_name,
+                shard_key=shard_key,
+                parent_shard_key=parent_shard_key,
             )
 
         return await asyncio.to_thread(
@@ -2904,17 +3326,21 @@ class DBOS:
         load_output: bool = True,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        shard_key: Optional[str] = None,
     ) -> List[StepInfo]:
-        check_async("list_workflow_steps")
+        with bind_shard_keys({workflow_id: shard_key}):
+            check_async("list_workflow_steps")
 
-        def fn() -> List[StepInfo]:
-            return _get_dbos_instance()._sys_db.list_workflow_steps(
-                workflow_id, load_output=load_output, limit=limit, offset=offset
+            def fn() -> List[StepInfo]:
+                return _get_dbos_instance()._sys_db.list_workflow_steps(
+                    workflow_id, load_output=load_output, limit=limit, offset=offset
+                )
+
+            return _get_dbos_instance()._sys_db.call_function_as_step(
+                fn,
+                "DBOS.listWorkflowSteps",
+                snapshot_step_context(reserve_sleep_id=False),
             )
-
-        return _get_dbos_instance()._sys_db.call_function_as_step(
-            fn, "DBOS.listWorkflowSteps", snapshot_step_context(reserve_sleep_id=False)
-        )
 
     @classmethod
     async def list_workflow_steps_async(
@@ -2924,21 +3350,23 @@ class DBOS:
         load_output: bool = True,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        shard_key: Optional[str] = None,
     ) -> List[StepInfo]:
-        step_ctx = snapshot_step_context(reserve_sleep_id=False)
-        await cls._configure_asyncio_thread_pool()
+        with bind_shard_keys({workflow_id: shard_key}):
+            step_ctx = snapshot_step_context(reserve_sleep_id=False)
+            await cls._configure_asyncio_thread_pool()
 
-        def fn() -> List[StepInfo]:
-            return _get_dbos_instance()._sys_db.list_workflow_steps(
-                workflow_id, load_output=load_output, limit=limit, offset=offset
+            def fn() -> List[StepInfo]:
+                return _get_dbos_instance()._sys_db.list_workflow_steps(
+                    workflow_id, load_output=load_output, limit=limit, offset=offset
+                )
+
+            return await asyncio.to_thread(
+                _get_dbos_instance()._sys_db.call_function_as_step,
+                fn,
+                "DBOS.listWorkflowSteps",
+                step_ctx,
             )
-
-        return await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fn,
-            "DBOS.listWorkflowSteps",
-            step_ctx,
-        )
 
     # ── Schedule API ──────────────────────────────────────────────
 
@@ -2953,6 +3381,7 @@ class DBOS:
         automatic_backfill: bool = False,
         cron_timezone: Optional[str] = None,
         queue_name: Optional[str] = None,
+        shard_key: Optional[str] = None,
     ) -> None:
         """
         Create a cron schedule that periodically invokes a workflow function.
@@ -3017,6 +3446,7 @@ class DBOS:
             cron_timezone=cron_timezone,
             queue_name=queue_name,
             application_name=GlobalParams.app_name,
+            shard_key=shard_key,
         )
         ctx = snapshot_step_context(reserve_sleep_id=False)
         if ctx and ctx.is_workflow():
@@ -3130,6 +3560,7 @@ class DBOS:
         automatic_backfill: bool = False,
         cron_timezone: Optional[str] = None,
         queue_name: Optional[str] = None,
+        shard_key: Optional[str] = None,
     ) -> None:
         """Async version of :meth:`create_schedule`."""
         await cls._configure_asyncio_thread_pool()
@@ -3142,6 +3573,7 @@ class DBOS:
             automatic_backfill=automatic_backfill,
             cron_timezone=cron_timezone,
             queue_name=queue_name,
+            shard_key=shard_key,
         )
 
     @classmethod
@@ -3289,6 +3721,7 @@ class DBOS:
                     cron_timezone=cron_timezone,
                     queue_name=entry_queue_name,
                     application_name=GlobalParams.app_name,
+                    shard_key=entry.get("shard_key"),
                 )
             )
         with dbos._sys_db.engine.begin() as c:
@@ -3332,7 +3765,11 @@ class DBOS:
             )
         dbos = _get_dbos_instance()
         workflow_ids = backfill_schedule(dbos._sys_db, schedule_name, start, end)
-        return [WorkflowHandlePolling(wf_id, dbos) for wf_id in workflow_ids]
+        shard_key = schedule_shard_key(dbos._sys_db, schedule_name)
+        return [
+            WorkflowHandlePolling(wf_id, dbos, shard_key=shard_key)
+            for wf_id in workflow_ids
+        ]
 
     @classmethod
     def trigger_schedule(cls, schedule_name: str) -> WorkflowHandle[None]:
@@ -3357,7 +3794,11 @@ class DBOS:
             )
         dbos = _get_dbos_instance()
         workflow_id = trigger_schedule(dbos._sys_db, schedule_name)
-        return WorkflowHandlePolling(workflow_id, dbos)
+        return WorkflowHandlePolling(
+            workflow_id,
+            dbos,
+            shard_key=schedule_shard_key(dbos._sys_db, schedule_name),
+        )
 
     # ── Application Version API ─────────────────────────────────
 
@@ -3436,6 +3877,15 @@ class DBOS:
             return None
 
     @classproperty
+    def shard_key(cls) -> Optional[str]:
+        """Return the shard key of the currently executing workflow. If a workflow is not executing, or the system database is unsharded, return None."""
+        ctx = get_local_dbos_context()
+        if ctx and ctx.is_within_workflow():
+            return ctx.shard_key
+        else:
+            return None
+
+    @classproperty
     def step_id(cls) -> Optional[int]:
         """Return the step ID for the currently executing step. This is a unique identifier of the current step within the workflow. If a step is not currently executing, return None."""
         ctx = get_local_dbos_context()
@@ -3463,29 +3913,24 @@ class DBOS:
     @classproperty
     def authenticated_user(cls) -> Optional[str]:
         """Return the current authenticated user, if any, associated with the current context."""
-        ctx = assert_current_dbos_context()
-        return ctx.authenticated_user
+        return get_authentication(assert_current_dbos_context()).user
 
     @classproperty
     def authenticated_roles(cls) -> Optional[List[str]]:
         """Return the roles granted to the current authenticated user, if any, associated with the current context."""
-        ctx = assert_current_dbos_context()
-        return ctx.authenticated_roles
+        return get_authentication(assert_current_dbos_context()).roles
 
     @classproperty
     def assumed_role(cls) -> Optional[str]:
         """Return the role currently assumed by the authenticated user, if any, associated with the current context."""
-        ctx = assert_current_dbos_context()
-        return ctx.assumed_role
+        return get_authentication(assert_current_dbos_context()).assumed_role
 
     @classmethod
     def set_authentication(
         cls, authenticated_user: Optional[str], authenticated_roles: Optional[List[str]]
     ) -> None:
         """Set the current authenticated user and granted roles into the current context."""
-        ctx = assert_current_dbos_context()
-        ctx.authenticated_user = authenticated_user
-        ctx.authenticated_roles = authenticated_roles
+        set_current_authentication(authenticated_user, authenticated_roles)
 
     @classmethod
     def write_stream(
@@ -3531,6 +3976,7 @@ class DBOS:
         offset: int = 0,
         polling_interval_sec: Optional[float] = None,
         timeout_seconds: Optional[float] = None,
+        shard_key: Optional[str] = None,
     ) -> Generator[Any, Any, None]:
         """
         Read values from a stream as a generator.
@@ -3558,6 +4004,7 @@ class DBOS:
             offset=offset,
             polling_interval=polling_interval_sec,
             timeout_seconds=timeout_seconds,
+            shard_key=shard_key,
         )
 
     @classmethod
@@ -3569,6 +4016,7 @@ class DBOS:
         *,
         polling_interval_sec: Optional[float] = None,
         timeout_seconds: Optional[float] = None,
+        shard_key: Optional[str] = None,
     ) -> Any:
         """
         Read the single value at one offset of a stream, waiting for it to be written.
@@ -3597,6 +4045,7 @@ class DBOS:
             offset,
             polling_interval=polling_interval_sec,
             timeout_seconds=timeout_seconds,
+            shard_key=shard_key,
         )
 
     @classmethod
@@ -3608,6 +4057,7 @@ class DBOS:
         *,
         polling_interval_sec: Optional[float] = None,
         timeout_seconds: Optional[float] = None,
+        shard_key: Optional[str] = None,
     ) -> Any:
         """
         Read the single value at one offset of a stream, waiting for it to be written.
@@ -3636,6 +4086,7 @@ class DBOS:
             offset,
             polling_interval=polling_interval_sec,
             timeout_seconds=timeout_seconds,
+            shard_key=shard_key,
         )
 
     @classmethod
@@ -3688,6 +4139,7 @@ class DBOS:
         offset: int = 0,
         polling_interval_sec: Optional[float] = None,
         timeout_seconds: Optional[float] = None,
+        shard_key: Optional[str] = None,
     ) -> AsyncGenerator[Any, None]:
         """
         Read values from a stream as an async generator.
@@ -3715,6 +4167,7 @@ class DBOS:
             offset=offset,
             polling_interval=polling_interval_sec,
             timeout_seconds=timeout_seconds,
+            shard_key=shard_key,
         )
         try:
             async for value in values:
@@ -3726,8 +4179,6 @@ class DBOS:
     @classmethod
     def patch(cls, patch_name: str) -> bool:
         check_async("patch")
-        if not _get_dbos_instance().enable_patching:
-            raise DBOSException("enable_patching must be True in DBOS configuration")
         ctx = get_local_dbos_context()
         if ctx is None or not ctx.is_workflow():
             raise DBOSException("DBOS.patch must be called from a workflow")
@@ -3744,8 +4195,6 @@ class DBOS:
 
     @classmethod
     async def patch_async(cls, patch_name: str) -> bool:
-        if not _get_dbos_instance().enable_patching:
-            raise DBOSException("enable_patching must be True in DBOS configuration")
         ctx = get_local_dbos_context()
         if ctx is None or not ctx.is_workflow():
             raise DBOSException("DBOS.patch_async must be called from a workflow")
@@ -3798,8 +4247,6 @@ class DBOS:
     @classmethod
     def deprecate_patch(cls, patch_name: str) -> bool:
         check_async("deprecate_patch")
-        if not _get_dbos_instance().enable_patching:
-            raise DBOSException("enable_patching must be True in DBOS configuration")
         ctx = get_local_dbos_context()
         if ctx is None or not ctx.is_workflow():
             raise DBOSException("DBOS.deprecate_patch must be called from a workflow")
@@ -3816,8 +4263,6 @@ class DBOS:
 
     @classmethod
     async def deprecate_patch_async(cls, patch_name: str) -> bool:
-        if not _get_dbos_instance().enable_patching:
-            raise DBOSException("enable_patching must be True in DBOS configuration")
         ctx = get_local_dbos_context()
         if ctx is None or not ctx.is_workflow():
             raise DBOSException(
@@ -3918,6 +4363,7 @@ class WorkflowHandle(Generic[R], Protocol):
     def __init__(self, workflow_id: str) -> None: ...
 
     workflow_id: str
+    shard_key: Optional[str]
 
     def get_workflow_id(self) -> str:
         """Return the applicable workflow ID."""
@@ -3949,6 +4395,7 @@ class WorkflowHandleAsync(Generic[R], Protocol):
     def __init__(self, workflow_id: str) -> None: ...
 
     workflow_id: str
+    shard_key: Optional[str]
 
     def get_workflow_id(self) -> str:
         """Return the applicable workflow ID."""

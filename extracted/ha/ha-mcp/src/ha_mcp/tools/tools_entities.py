@@ -21,7 +21,7 @@ from ..client.rest_client import (
 )
 from ..client.websocket_client import get_websocket_client
 from ..errors import ErrorCode, create_error_response
-from ..utils.registry_update_lock import registry_update_lock
+from ..utils.registry_update_lock import registry_update_locks
 from .auto_backup import with_auto_backup
 from .coercion import JSON_STRING_COERCION
 from .component_api import (
@@ -39,6 +39,7 @@ from .entity_param_parsing import (
     _parse_options_param,
     _parse_string_list_field,
 )
+from .entity_removal import remove_registry_entry
 from .entity_update_fields import (
     build_name_visibility_fields,
     build_state_tag_fields,
@@ -223,6 +224,18 @@ def _match_registry_by_unique_id(
             continue
         matches.append(_format_fetched_entity(entry))
     return matches
+
+
+def _single_entity_target(kw: dict[str, Any]) -> str:
+    """The entity a call backs up; a bulk call (a longer list) backs up none.
+
+    Snapshotting only the first entity of a list would leave the rest without
+    a backup while looking covered. The capture treats "" as "no entity".
+    """
+    entity_id = kw.get("entity_id")
+    if isinstance(entity_id, list):
+        return str(entity_id[0]) if len(entity_id) == 1 else ""
+    return str(entity_id or "")
 
 
 def _format_entity_entry(entry: dict[str, Any]) -> dict[str, Any]:
@@ -936,7 +949,7 @@ class EntityTools:
         new_device_name = clearable_value(
             new_device_name, "new_device_name", hint=_CLEAR_DEVICE_NAME_HINT
         )
-        async with registry_update_lock("entity", entity_id):
+        async with registry_update_locks("entity", entity_id, new_entity_id):
             # Phase 1: For add/remove label operations, fetch current labels first
             final_labels = await self._resolve_final_labels(
                 entity_id, parsed_labels, label_operation
@@ -1025,39 +1038,39 @@ class EntityTools:
             (
                 entity_id,
                 entity_entry,
-                has_registry_updates,
+                registry_updated,
             ) = await self._execute_registry_update(
                 entity_id, message, updates_made, new_entity_id
             )
 
-        # Phase 4: Per-domain options
-        entity_entry, options_succeeded = await self._apply_options_updates(
-            entity_id, parsed_options, entity_entry, has_registry_updates, updates_made
-        )
-
-        # Phase 5: Device rename
-        device_rename_result: dict[str, Any] | None = None
-        if device_name_blank:
-            device_name_warning: str | None = _CLEAR_DEVICE_NAME_HINT
-        else:
-            device_name_warning = None
-            device_rename_result, entity_entry = await self._apply_device_rename(
-                entity_id, entity_entry, new_device_name
+            # Phase 4: Per-domain options; Phases 3-6 run under one hold of the lock
+            entity_entry, options_succeeded = await self._apply_options_updates(
+                entity_id, parsed_options, entity_entry, registry_updated, updates_made
             )
-        if device_rename_result and device_rename_result.get("success"):
-            updates_made.append(f"device_name -> {new_device_name}")
 
-        # Phase 6: Expose to assistants
-        exposure_result, entity_entry = await self._apply_expose_to(
-            entity_id,
-            parsed_expose_to,
-            entity_entry,
-            has_registry_updates,
-            options_succeeded,
-            device_rename_result,
-        )
-        if parsed_expose_to is not None:
-            updates_made.append(f"expose_to={parsed_expose_to}")
+            # Phase 5: Device rename
+            device_rename_result: dict[str, Any] | None = None
+            if device_name_blank:
+                device_name_warning: str | None = _CLEAR_DEVICE_NAME_HINT
+            else:
+                device_name_warning = None
+                device_rename_result, entity_entry = await self._apply_device_rename(
+                    entity_id, entity_entry, new_device_name
+                )
+            if device_rename_result and device_rename_result.get("success"):
+                updates_made.append(f"device_name -> {new_device_name}")
+
+            # Phase 6: Expose to assistants
+            exposure_result, entity_entry = await self._apply_expose_to(
+                entity_id,
+                parsed_expose_to,
+                entity_entry,
+                registry_updated,
+                options_succeeded,
+                device_rename_result,
+            )
+            if parsed_expose_to is not None:
+                updates_made.append(f"expose_to={parsed_expose_to}")
 
         # Phase 7: Build response
         return self._build_entity_response(
@@ -1457,18 +1470,7 @@ class EntityTools:
             "Set Entity", destructive=True, idempotent=True, open_world=False
         ),
     )
-    @with_auto_backup(
-        domain="entity",
-        # Bulk calls (entity_id is a list) intentionally skip the
-        # decorator path: we'd otherwise snapshot only the first entity
-        # and silently leave the rest of the list un-protected. The
-        # capture pipeline treats "" as "no entity" and no-ops.
-        id_fn=lambda kw: (
-            ""
-            if isinstance(kw.get("entity_id"), list)
-            else str(kw.get("entity_id") or "")
-        ),
-    )
+    @with_auto_backup(domain="entity", id_fn=_single_entity_target)
     @log_tool_usage
     async def ha_set_entity(
         self,
@@ -2114,11 +2116,7 @@ class EntityTools:
             "Remove Entity", destructive=True, idempotent=True, open_world=False
         ),
     )
-    # Single-entity removal is snapshotted via id_param. A bulk (list) call
-    # stringifies to a non-matching target, so its pre-write snapshot is a
-    # best-effort no-op — bulk removal is not individually backed up (the
-    # decorator captures one entity per call).
-    @with_auto_backup(domain="entity", id_param="entity_id")
+    @with_auto_backup(domain="entity", id_fn=_single_entity_target)
     @log_tool_usage
     async def ha_remove_entity(
         self,
@@ -2137,10 +2135,12 @@ class EntityTools:
 
         Permanently removes the entity registration; the entity will no longer
         appear in the UI or be available to automations. Use only for orphaned
-        or stale entity entries: if the underlying device or integration is
-        still active, the entity may be re-added automatically on the next HA
-        restart or reload. This cannot be undone without restoring from backup.
-        For most use cases, consider disabling instead:
+        or stale entity entries: if the underlying device, integration or
+        stored helper is still there, the entity may be re-added on the next HA
+        restart or reload; for a stored helper's entity a single-id removal
+        names the tool that removes the helper. Added again, it gets back its registry
+        settings while its config entry exists, and for 30 days after that entry, or an
+        entity without one, was removed. For most use cases, consider disabling instead:
         ha_set_entity(entity_id="sensor.old", enabled=False).
 
         BULK MODE:
@@ -2149,8 +2149,7 @@ class EntityTools:
         its filters change. Removals run sequentially and return:
           {removed: [...], skipped: [...], errors: [{entity_id, code, message}]}
         where skipped = ids already absent (not-found is idempotent, not an
-        error). Bulk mode is NOT auto-backed-up (the snapshot is single-entity);
-        single-id removal still is.
+        error). Only single-id removal is auto-backed-up.
 
         EXAMPLES:
         - Remove orphaned sensor: ha_remove_entity("sensor.old_temperature")
@@ -2172,9 +2171,7 @@ class EntityTools:
                     "Use ha_search() to find valid entity IDs",
                 ],
             )
-            result = await self._client.send_websocket_message(
-                {"type": "config/entity_registry/remove", "entity_id": entity_id}
-            )
+            result, notes = await remove_registry_entry(self._client, entity_id)
 
             if not result.get("success"):
                 error_msg = _extract_ws_error(result)
@@ -2201,7 +2198,9 @@ class EntityTools:
                     )
                 )
 
-            return {"success": True, "entity_id": entity_id}
+            return {"success": True, "entity_id": entity_id} | (
+                {"warnings": notes} if notes else {}
+            )
 
         except ToolError:
             raise

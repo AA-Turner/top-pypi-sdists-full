@@ -1,12 +1,10 @@
 import logging
-import random
-import string
 from typing import ClassVar
 
+from django.utils.crypto import get_random_string
 from passlib.hash import bcrypt_sha256
 
 from django.db import models
-from django.db.models.fields import related
 from django.utils.translation import gettext_lazy as _
 
 from allianceauth.authentication.models import User
@@ -28,7 +26,7 @@ class TempLink(models.Model):
     class Meta:
         permissions = (("create_new_links", "Can Create Temp Links"),)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Link {self.link_ref} - {self.expires}"
 
 
@@ -71,11 +69,11 @@ class MumbleUserCommon(AbstractServiceModel):
     def __str__(self) -> str:
         return f"{self.username}"
 
-    def update_password(self, password=None) -> None:
+    def update_password(self, password: str | None = None) -> None:
         init_password = password
         logger.debug(f"Updating mumble user {self.user} password.")
         if not password:
-            password = MumbleManager.generate_random_pass()
+            password = get_random_string(length=20)
         pwhash = MumbleManager.gen_pwhash(password)
         logger.debug(f"Proceeding with mumble user {self.user} password update - pwhash starts with {pwhash[0:5]}")
         self.pwhash = pwhash
@@ -143,11 +141,7 @@ class TempUser(MumbleUserCommon):
         return ['Guest', 'Temporary-User']
 
     @staticmethod
-    def generate_random_pass() -> str:
-        return ''.join([random.choice(string.ascii_letters + string.digits) for n in range(16)])
-
-    @staticmethod
-    def gen_pwhash(password) -> str:
+    def gen_pwhash(password: str) -> str:
         return bcrypt_sha256.encrypt(password.encode('utf-8'))
 
     def __str__(self) -> str:
@@ -165,8 +159,8 @@ class IdlerHandler(models.Model):
     seconds = models.SmallIntegerField(_("Idle Seconds"), default=3600)
     interval = models.SmallIntegerField(_("Run Interval"), default=60)
     channel = models.SmallIntegerField(_("AFK Channel"))
-    denylist = models.BooleanField(_("DenyList"), default=True, help_text="True for DenyList, False for Allowlist")
-    list = models.CharField(_("Allow/Deny list"), max_length=50, default="")
+    denylist = models.BooleanField(_("DenyList"), default=True,  choices=((True, _('DenyList')), (False, _('AllowList'))), help_text="Whether the channel IDs in the below list are checked or excluded from checking idleness.")
+    list = models.CharField(_("Allow/Deny list"), max_length=50, blank=True, default="", help_text="Comma-separated list of channel IDs in which the handler checks or does not check idleness.")
 
     class Meta:
         verbose_name = _("Idler Handler")

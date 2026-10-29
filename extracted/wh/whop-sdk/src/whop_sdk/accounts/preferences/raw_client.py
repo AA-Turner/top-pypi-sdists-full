@@ -22,6 +22,7 @@ from .types.update_preferences_request_ads_payment_methods import UpdatePreferen
 from .types.update_preferences_request_ads_triple_whale_integration import (
     UpdatePreferencesRequestAdsTripleWhaleIntegration,
 )
+from .types.update_preferences_request_customer_tracking import UpdatePreferencesRequestCustomerTracking
 from .types.update_preferences_request_economic_intelligence_duration_key import (
     UpdatePreferencesRequestEconomicIntelligenceDurationKey,
 )
@@ -120,6 +121,8 @@ class RawPreferencesClient:
         ads_triple_whale_integration: typing.Optional[UpdatePreferencesRequestAdsTripleWhaleIntegration] = OMIT,
         cards_auto_top_up: typing.Optional[bool] = OMIT,
         cards_notifications: typing.Optional[bool] = OMIT,
+        covers_connected_account_negative_balances: typing.Optional[bool] = OMIT,
+        customer_tracking: typing.Optional[UpdatePreferencesRequestCustomerTracking] = OMIT,
         dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         economic_intelligence_auto_renew: typing.Optional[bool] = OMIT,
         economic_intelligence_duration_key: typing.Optional[
@@ -138,10 +141,10 @@ class RawPreferencesClient:
         | Preferences | Required scope |
         | --- | --- |
         | `ads_payment_methods`, `ads_reporting_currency`, `ads_scheduling_timezone`, `ads_triple_whale_integration`, `ads_certifications` | `ad_campaign:create` |
-        | `cards_auto_top_up`, `cards_notifications` | `payout:account:update` |
+        | `cards_auto_top_up`, `cards_notifications`, `covers_connected_account_negative_balances` | `payout:account:update` |
         | `dispute_fighter_enabled` | `payment:dispute` |
         | `economic_intelligence_duration_key`, `economic_intelligence_auto_renew` | `company:update` |
-        | `feedback_options` | `company:manage_checkout` |
+        | `feedback_options`, `customer_tracking` | `company:manage_checkout` |
 
         When updating preferences from multiple rows, all corresponding scopes are required for the account.
 
@@ -171,6 +174,12 @@ class RawPreferencesClient:
         cards_notifications : typing.Optional[bool]
             Whether Whop Card notifications reach this account's team. Set it to `false` to stop every card email and push notification for the account — application status, verification and action-required alerts, card-ready alerts, declines, large charges, and cashback summaries. Cardholder onboarding invitations still send, because they carry the only link an invited cardholder can onboard with. Requesting a card is rejected while notifications are off, since the request reaches nobody. Cards on personal accounts are unaffected. Requires a cards balance on the account and the `payout:account:update` scope on your API key.
 
+        covers_connected_account_negative_balances : typing.Optional[bool]
+            Whether this account covers its connected accounts' negative balances. When a connected account's balance drops below zero (from refunds, disputes, or fees), this account's available balance in the same currency pays it back, up to what is available. Only accounts with connected accounts can set it. Requires the `payout:account:update` scope on your API key.
+
+        customer_tracking : typing.Optional[UpdatePreferencesRequestCustomerTracking]
+            Customer tracking settings for the hosted tracking page and Element, replaced as a whole: fields left out are saved as unset. Pass null to clear them, which turns tracking off. Tracking is off unless `enabled` is `true`. Requires the `company:manage_checkout` scope on your API key.
+
         dispute_fighter_enabled : typing.Optional[bool]
             Whether Whop assembles and files the evidence response when this account's payments are disputed. Off by default; enabling it also opts the account into the success fee charged only on disputes it wins. Requires the `payment:dispute` scope on your API key.
 
@@ -184,7 +193,7 @@ class RawPreferencesClient:
             Replaces the account's own cancel reasons, shown to members in this order when they cancel. Pass an option's `id` to keep it, for example when renaming it; options without an `id` are added, and options left out are removed. Pass an empty array to go back to Whop's default reasons. Members who already picked an option keep the label they saw. Requires the `company:manage_checkout` scope on your API key.
 
         preferred_settlement_currency : typing.Optional[UpdatePreferencesRequestPreferredSettlementCurrency]
-            Settle every new sale into this currency, regardless of the plan's currency or what the buyer paid in; sales converted this way carry an additional 0.5% FX fee. Pass `null` to go back to settling each sale in its plan's currency. Changing it never converts money already in your balances, and it can change at most once every 7 days (see `preferred_settlement_currency_changeable_at`). Requires the `payout:account:update` scope on your API key.
+            Settle every new sale into this currency, regardless of the plan's currency or what the buyer paid in; sales converted this way carry an additional 0.5% FX fee. Pass `null` to go back to settling each sale in its plan's currency. Changing it never converts money already in your balances, and it can change at most once a day (see `preferred_settlement_currency_changeable_at`). Requires the `payout:account:update` scope on your API key.
 
         subscription_failure_behavior : typing.Optional[UpdatePreferencesRequestSubscriptionFailureBehavior]
             What happens to a subscription once every retry of a renewal payment has failed. `cancel` (the default) cancels it. `none` leaves it past due and keeps billing it each period; access follows the account's past-due access setting. Requires company:manage_checkout permission.
@@ -219,6 +228,12 @@ class RawPreferencesClient:
                 ),
                 "cards_auto_top_up": cards_auto_top_up,
                 "cards_notifications": cards_notifications,
+                "covers_connected_account_negative_balances": covers_connected_account_negative_balances,
+                "customer_tracking": convert_and_respect_annotation_metadata(
+                    object_=customer_tracking,
+                    annotation=typing.Optional[UpdatePreferencesRequestCustomerTracking],
+                    direction="write",
+                ),
                 "dispute_fighter_enabled": dispute_fighter_enabled,
                 "economic_intelligence_auto_renew": economic_intelligence_auto_renew,
                 "economic_intelligence_duration_key": economic_intelligence_duration_key,
@@ -392,6 +407,8 @@ class AsyncRawPreferencesClient:
         ads_triple_whale_integration: typing.Optional[UpdatePreferencesRequestAdsTripleWhaleIntegration] = OMIT,
         cards_auto_top_up: typing.Optional[bool] = OMIT,
         cards_notifications: typing.Optional[bool] = OMIT,
+        covers_connected_account_negative_balances: typing.Optional[bool] = OMIT,
+        customer_tracking: typing.Optional[UpdatePreferencesRequestCustomerTracking] = OMIT,
         dispute_fighter_enabled: typing.Optional[bool] = OMIT,
         economic_intelligence_auto_renew: typing.Optional[bool] = OMIT,
         economic_intelligence_duration_key: typing.Optional[
@@ -410,10 +427,10 @@ class AsyncRawPreferencesClient:
         | Preferences | Required scope |
         | --- | --- |
         | `ads_payment_methods`, `ads_reporting_currency`, `ads_scheduling_timezone`, `ads_triple_whale_integration`, `ads_certifications` | `ad_campaign:create` |
-        | `cards_auto_top_up`, `cards_notifications` | `payout:account:update` |
+        | `cards_auto_top_up`, `cards_notifications`, `covers_connected_account_negative_balances` | `payout:account:update` |
         | `dispute_fighter_enabled` | `payment:dispute` |
         | `economic_intelligence_duration_key`, `economic_intelligence_auto_renew` | `company:update` |
-        | `feedback_options` | `company:manage_checkout` |
+        | `feedback_options`, `customer_tracking` | `company:manage_checkout` |
 
         When updating preferences from multiple rows, all corresponding scopes are required for the account.
 
@@ -443,6 +460,12 @@ class AsyncRawPreferencesClient:
         cards_notifications : typing.Optional[bool]
             Whether Whop Card notifications reach this account's team. Set it to `false` to stop every card email and push notification for the account — application status, verification and action-required alerts, card-ready alerts, declines, large charges, and cashback summaries. Cardholder onboarding invitations still send, because they carry the only link an invited cardholder can onboard with. Requesting a card is rejected while notifications are off, since the request reaches nobody. Cards on personal accounts are unaffected. Requires a cards balance on the account and the `payout:account:update` scope on your API key.
 
+        covers_connected_account_negative_balances : typing.Optional[bool]
+            Whether this account covers its connected accounts' negative balances. When a connected account's balance drops below zero (from refunds, disputes, or fees), this account's available balance in the same currency pays it back, up to what is available. Only accounts with connected accounts can set it. Requires the `payout:account:update` scope on your API key.
+
+        customer_tracking : typing.Optional[UpdatePreferencesRequestCustomerTracking]
+            Customer tracking settings for the hosted tracking page and Element, replaced as a whole: fields left out are saved as unset. Pass null to clear them, which turns tracking off. Tracking is off unless `enabled` is `true`. Requires the `company:manage_checkout` scope on your API key.
+
         dispute_fighter_enabled : typing.Optional[bool]
             Whether Whop assembles and files the evidence response when this account's payments are disputed. Off by default; enabling it also opts the account into the success fee charged only on disputes it wins. Requires the `payment:dispute` scope on your API key.
 
@@ -456,7 +479,7 @@ class AsyncRawPreferencesClient:
             Replaces the account's own cancel reasons, shown to members in this order when they cancel. Pass an option's `id` to keep it, for example when renaming it; options without an `id` are added, and options left out are removed. Pass an empty array to go back to Whop's default reasons. Members who already picked an option keep the label they saw. Requires the `company:manage_checkout` scope on your API key.
 
         preferred_settlement_currency : typing.Optional[UpdatePreferencesRequestPreferredSettlementCurrency]
-            Settle every new sale into this currency, regardless of the plan's currency or what the buyer paid in; sales converted this way carry an additional 0.5% FX fee. Pass `null` to go back to settling each sale in its plan's currency. Changing it never converts money already in your balances, and it can change at most once every 7 days (see `preferred_settlement_currency_changeable_at`). Requires the `payout:account:update` scope on your API key.
+            Settle every new sale into this currency, regardless of the plan's currency or what the buyer paid in; sales converted this way carry an additional 0.5% FX fee. Pass `null` to go back to settling each sale in its plan's currency. Changing it never converts money already in your balances, and it can change at most once a day (see `preferred_settlement_currency_changeable_at`). Requires the `payout:account:update` scope on your API key.
 
         subscription_failure_behavior : typing.Optional[UpdatePreferencesRequestSubscriptionFailureBehavior]
             What happens to a subscription once every retry of a renewal payment has failed. `cancel` (the default) cancels it. `none` leaves it past due and keeps billing it each period; access follows the account's past-due access setting. Requires company:manage_checkout permission.
@@ -491,6 +514,12 @@ class AsyncRawPreferencesClient:
                 ),
                 "cards_auto_top_up": cards_auto_top_up,
                 "cards_notifications": cards_notifications,
+                "covers_connected_account_negative_balances": covers_connected_account_negative_balances,
+                "customer_tracking": convert_and_respect_annotation_metadata(
+                    object_=customer_tracking,
+                    annotation=typing.Optional[UpdatePreferencesRequestCustomerTracking],
+                    direction="write",
+                ),
                 "dispute_fighter_enabled": dispute_fighter_enabled,
                 "economic_intelligence_auto_renew": economic_intelligence_auto_renew,
                 "economic_intelligence_duration_key": economic_intelligence_duration_key,

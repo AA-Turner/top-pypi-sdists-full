@@ -4721,6 +4721,7 @@ class ExitProvider(Enum):
     brightdata = "brightdata"
     decodo = "decodo"
     home = "home"
+    rpi = "rpi"
 
 
 class Username(RootModel[str]):

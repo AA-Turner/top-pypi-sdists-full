@@ -599,9 +599,12 @@ def classify(
         # one fresh session that starts from the plan (`revise`).
         return plan, tail, None
 
+    from . import backfill_structure as structure_mod
+
     fixed = fixed or {}
     own_slugs = [spec.slug for spec in own]
     others = [slug for slug in existing if slug not in own_slugs]
+    files = tuple(plan_mod.relative_paths(ev))
     prompt = prompts.classify(
         root=folder,
         evidence_jsonl=jsonl,
@@ -611,9 +614,9 @@ def classify(
         mtime_uninformative=ev.mtime_uninformative,
         imported=len(fixed),
         own=_own_pairs(own),
+        candidates=prompts.run_candidates(structure_mod.run_candidates(files)),
     ) + _git_note(folder, work_dir)
     heading = f"Reading {folder.name} — {ev.total_files:,} files"
-    files = tuple(plan_mod.relative_paths(ev))
     ref = tool_mod.Reference(
         root=str(folder), mode=tool_mod.Mode.CLASSIFY,
         files=files, projects=tuple(dict.fromkeys([*own_slugs, *fixed.values()])),
@@ -1259,6 +1262,8 @@ def classify_chunked(
         # nothing is serialised except by the worker bound. Bounded by the
         # context floor each slice pays, which is a different bound from the one
         # on `run_units` -- hence a separate number rather than a shared one.
+        from . import backfill_structure as structure_mod
+
         # HOISTED. `mtime_uninformative` walks every file in the folder, and this
         # was inside `file_one` -- so a 200,000-file drive rebuilt a 200,000-element
         # list once per slice, across dozens of slices, all holding the GIL.
@@ -1280,7 +1285,9 @@ def classify_chunked(
                                      projects=listing, index=i, total=n,
                                      work_dir=str(work_dir),
                                      truncated=ev.sample_budget_hit,
-                                     mtime_uninformative=mtime_dead, feedback=feedback),
+                                     mtime_uninformative=mtime_dead, feedback=feedback,
+                                     candidates=prompts.run_candidates(
+                                         structure_mod.run_candidates(owned))),
                 ref, agent=agent, work_dir=work_dir, stream=stream,
                 heading=f"Filing slice {i} of {n}", phase="assign",
                 key=_session_key("assign", i, ref), agents=agents,

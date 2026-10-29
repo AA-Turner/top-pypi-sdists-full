@@ -2,12 +2,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from huggingface_hub.errors import LocalEntryNotFoundError
+from huggingface_hub.errors import IncompleteSnapshotError, LocalEntryNotFoundError
 from huggingface_hub.hf_api import HfApi
 
-from kernels._rust import KernelDependency, KernelLocks, KernelPaths, Metadata
+from kernels._rust import KernelDependency, KernelLocks, KernelPaths, Metadata, Oid
 from kernels._versions import _get_available_versions, resolve_kernel_version
-from kernels.hf_hub import CACHE_DIR, _check_trust_remote_code
+from kernels.hf_hub import _check_trust_remote_code, _get_cache_dir
 from kernels.variants import (
     Variant,
     get_variants,
@@ -40,6 +40,10 @@ class LocalKernel:
     def variant_str(self) -> str:
         return self.variant_path.name
 
+    def get_file(self, filename: str, *, api: HfApi) -> Path:
+        """Return the local path of a file in this build variant."""
+        return self.variant_path / filename
+
     def install(self, *, api: HfApi) -> "LocalKernel":
         # Local kernels are already installed, so we just return self.
         return self
@@ -50,13 +54,26 @@ class RemoteKernel:
     """A kernel that can be loaded from a remote path."""
 
     repo_id: str
-    revision: str
+    revision: Oid
     metadata: Metadata
     variant: Variant
 
     @property
     def variant_str(self) -> str:
         return self.variant.variant_str
+
+    def get_file(self, filename: str, *, api: HfApi) -> Path:
+        """Download one file from this variant at the resolved commit."""
+        return Path(
+            api.hf_hub_download(
+                self.repo_id,
+                repo_type="kernel",
+                filename=f"build/{self.variant_str}/{filename}",
+                cache_dir=_get_cache_dir(),
+                revision=str(self.revision),
+                local_files_only=False,
+            )
+        )
 
     def install(self, *, api: HfApi) -> LocalKernel:
         allow_patterns = [f"build/{self.variant.variant_str}/*"]
@@ -68,8 +85,8 @@ class RemoteKernel:
                     repo_type="kernel",
                     allow_patterns=allow_patterns,
                     ignore_patterns=_BYTECODE_IGNORE_PATTERNS,
-                    cache_dir=CACHE_DIR,
-                    revision=self.revision,
+                    cache_dir=_get_cache_dir(),
+                    revision=str(self.revision),
                     local_files_only=False,
                 )
             )
@@ -114,12 +131,12 @@ def resolve_hub_kernel(
     *,
     api: HfApi,
     backend: str | None,
-    revision: str,
+    revision: Oid,
 ) -> RemoteKernel:
     variants = get_variants(
         api,
         repo_id=repo_id,
-        revision=revision,
+        revision=str(revision),
     )
     variant, trace = resolve_variant(variants, backend)
     if variant is None:
@@ -138,8 +155,8 @@ def resolve_hub_kernel(
             repo_id,
             repo_type="kernel",
             filename=f"build/{variant.variant_str}/metadata.json",
-            cache_dir=CACHE_DIR,
-            revision=revision,
+            cache_dir=_get_cache_dir(),
+            revision=str(revision),
             local_files_only=False,
         )
     )
@@ -186,7 +203,7 @@ def resolve_hub_cache_kernel(
     api: HfApi,
     repo_id: str,
     *,
-    revision: str,
+    revision: Oid,
     backend: str | None,
 ) -> LocalKernel:
     """Resolve a kernel variant path from the local Hugging Face cache only.
@@ -201,12 +218,17 @@ def resolve_hub_cache_kernel(
                     repo_id,
                     repo_type="kernel",
                     ignore_patterns=_BYTECODE_IGNORE_PATTERNS,
-                    cache_dir=CACHE_DIR,
-                    revision=revision,
+                    cache_dir=_get_cache_dir(),
+                    revision=str(revision),
                     local_files_only=True,
                 )
             )
         )
+    except IncompleteSnapshotError as e:
+        # This exception is raised when the snapshot is incomplete. However,
+        # for us that's nearly always the case, since we ownly download the
+        # build variant required for the system. Variants are reported below.
+        repo_path = Path(e.snapshot_path)
     except LocalEntryNotFoundError as e:
         raise FileNotFoundError(
             f"Cannot find a local snapshot for {repo_id} (revision: {revision}). "
@@ -226,7 +248,16 @@ def resolve_hub_cache_kernel(
         raise FileNotFoundError(f"Variant path does not exist: `{variant_path}`")
 
     metadata = Metadata.read_from_file(variant_path / "metadata.json")
-    location = LocalKernel(variant_path=variant_path, metadata=metadata)
+    location = LocalKernel(
+        variant_path=variant_path,
+        metadata=metadata,
+        origin=RemoteKernel(
+            repo_id=repo_id,
+            revision=revision,
+            metadata=metadata,
+            variant=variant,
+        ),
+    )
 
     return location
 
@@ -278,7 +309,7 @@ class HubResolver:
         )
 
         # Resolve the revision that we need.
-        revision = resolve_kernel_version(kernel, local_files_only=False)
+        revision = resolve_kernel_version(kernel.repo_id, kernel.version, local_files_only=False)
 
         # Get the kernel metadata for the revision.
         return resolve_hub_kernel(kernel.repo_id, api=api, revision=revision, backend=backend)
@@ -301,7 +332,7 @@ class HubCacheResolver:
         )
 
         # Resolve the revision that we need.
-        revision = resolve_kernel_version(kernel, local_files_only=True)
+        revision = resolve_kernel_version(kernel.repo_id, kernel.version, local_files_only=True)
 
         # Get the kernel metadata for the revision.
         return resolve_hub_cache_kernel(
@@ -312,7 +343,7 @@ class HubCacheResolver:
         )
 
 
-def _locked_revision(kernel_locks: KernelLocks, kernel: KernelDependency) -> str:
+def _locked_revision(kernel_locks: KernelLocks, kernel: KernelDependency) -> Oid:
     kernel_lock = kernel_locks.get(kernel, None)
     if kernel_lock is None:
         raise ValueError(

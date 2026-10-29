@@ -45,7 +45,16 @@ from typing import Any, Mapping, Optional
 import httpx
 
 from .canonical import digest_json
-from .envelope import PRE_ACTION_SKIP_REASONS, SKIP_REASONS, EffectTally, build_envelope, decide_outcome
+from .envelope import (
+    PRE_ACTION_SKIP_REASONS,
+    SKIP_REASONS,
+    EffectTally,
+    build_completion_report,
+    build_envelope,
+    decide_outcome,
+    reason_code,
+    report_comment,
+)
 from .errors import (
     AuditNotPersisted,
     ExecutionTerminal,
@@ -293,6 +302,7 @@ class WorkflowRunner:
         self._collection_explicit = False
         self._state: Optional[_State] = None
         self._cleanup_uncertain = False   # 再起動後、前の Agent プロセスの停止を確認できなかった（回収しない）
+        self._failure_summary: Optional[str] = None   # Agent の例外の伏せ字付きの原因の連鎖（子の done。終了時の報告の comment）
 
     # ------------------------------------------------------------------
     def _seconds_left(self) -> Optional[float]:
@@ -481,8 +491,15 @@ class WorkflowRunner:
             outcome, reason, error_class = "failed", "input_integrity", "InputIntegrityError"
         runner_state = {"stop_reason": self._stop_reason, "agent_error": agent_error, "restarted": restarted,
                         "cleanup_uncertain": self._cleanup_uncertain}
+        # 終了時の報告（3.2.1）: incomplete は Agent の説明、Agent の例外（failed/agent_error）は伏せ字付きの原因の連鎖。
+        # ほかの終わり方では載せない（上の上書きの後で決める = 再起動・cleanup 未完などに変わった終わり方には載せない）
+        report = None
+        if outcome == "incomplete":
+            report = build_completion_report(reason, self._tally.incomplete_comment)
+        elif (outcome, reason) == ("failed", "agent_error"):
+            report = build_completion_report("agent_error", self._failure_summary)
         envelope = build_envelope(outcome=outcome, reason=reason, had_mutating_success=had, tally=self._tally,
-                                  error_class=error_class, runner=runner_state)
+                                  error_class=error_class, runner=runner_state, completion_report=report)
         saved, already = await self._complete(state, envelope, [a["artifact_id"] for a in artifacts])
         return WorkflowResult(eid, outcome, reason, had, saved, already,
                               _exit_code(saved, already, self._completion_refused), artifacts)
@@ -723,7 +740,7 @@ class WorkflowRunner:
     # ------------------------------------------------------------------
     async def _run_agent(self, ctx: dict[str, Any], manifest: dict[str, Any], input_dir: Path, work_dir: Path,
                          output_dir: Path) -> Optional[str]:
-        """子プロセスで entrypoint を実行し、専用 fd の制御チャネルで監査 / 取消確認 / skip に応える。
+        """子プロセスで entrypoint を実行し、専用 fd の制御チャネルで監査 / 取消確認 / skip / incomplete に応える。
         戻り値: None（正常 return）/ error_class（例外・設定不正・停止）。"""
         lr = ctx.get("launch_request") or {}
         spec = {
@@ -832,6 +849,8 @@ class WorkflowRunner:
                     if msg.get("op") == "done":
                         status = str(msg.get("status") or "error")
                         error_class = _error_class(msg.get("error_class"))
+                        if status == "error":   # 例外のときだけ（2,048 単位までの文字列。それ以外の値は捨てる）
+                            self._failure_summary = report_comment(msg.get("failure_summary"))
                         break
                 else:
                     line_task.cancel()
@@ -878,6 +897,8 @@ class WorkflowRunner:
                     return {"ok": False, "error": "observation journal not durable"}
                 return {"ok": True}
             return {"ok": False, "error": "unknown skip reason"}
+        if op == "incomplete":
+            return await self._on_incomplete(msg)
         if op == "log":
             logger.info("[%s] agent: %s", self.execution_id, str(msg.get("message"))[:2000])
             return {"ok": True}
@@ -886,6 +907,21 @@ class WorkflowRunner:
         if op == "done":
             return {"ok": True}
         return {"ok": False, "error": "unknown op"}
+
+    async def _on_incomplete(self, msg: dict[str, Any]) -> dict[str, Any]:
+        """Agent の「完遂できなかった」の宣言（`context.incomplete`。skip と同じ道: tally に置いて journal してから承認）。
+        制御チャネルは Agent のプロセスが書けるので、ここでも形を確かめる（合わない理由は `incomplete`、comment は 2,048 単位
+        までの文字列だけ）。宣言は 1 回: 2 回目は最初の宣言を残して警告する。"""
+        if self._tally.incomplete_reason is not None:
+            logger.warning("[%s] incomplete was already declared; keeping the first declaration", self.execution_id)
+            return {"ok": True}
+        self._tally.incomplete_reason = reason_code(msg.get("reason"), "incomplete")
+        self._tally.incomplete_comment = report_comment(msg.get("comment"))
+        if not await self._journal_tally():
+            self._tally.persist_failures += 1   # 失敗の証拠を残す（skip と同じ）
+            await self._journal_tally()
+            return {"ok": False, "error": "observation journal not durable"}
+        return {"ok": True}
 
     async def _on_connection_token(self, slot: str) -> dict[str, Any]:
         """子の求めで接続 slot の access token を front から取り直す（起動時に env で渡した token は 1 時間程度で

@@ -26,6 +26,7 @@ from pathlib import Path
 import pytest
 
 from probe.cli import backfill as bf
+from probe.cli import backfill_record
 from probe.cli import import_agent_settings as settings_mod
 from probe.cli.import_agent_settings import ENV_VAR, Lane, Meter, Source
 
@@ -65,7 +66,7 @@ def _resolve(client, agent=bf.Agent.CODEX, env=None, meter=None):
 
 
 def test_env_wins_over_server_wins_over_builtin_field_by_field():
-    server = _server({"claude": {"*": {"effort": "low"}, "draft": {"effort": "high"},
+    server = _server({"claude": {"*": {"effort": "low"}, "record": {"effort": "high"},
                                  "import": {"model": "opus"}}})
     env = {"claude": {"import": {"effort": "max"}}}
     agents = _resolve(server, bf.Agent.CLAUDE, env)
@@ -75,9 +76,9 @@ def test_env_wins_over_server_wins_over_builtin_field_by_field():
     assert (agents.lane(Lane.IMPORT).model, agents.lane(Lane.IMPORT).effort) == ("opus", "max")
     assert agents.lane(Lane.IMPORT).source is Source.ENV
     # A named lane beats `*` within one source; the builtin model survives.
-    draft = agents.lane(Lane.DRAFT)
-    assert (draft.model, draft.effort, draft.source) == ("sonnet", "high", Source.SERVER)
-    assert draft.builtin_model == "sonnet"
+    record = agents.lane(Lane.RECORD)
+    assert (record.model, record.effort, record.source) == ("sonnet", "high", Source.SERVER)
+    assert record.builtin_model == "sonnet"
     assert agents.version == "v1"
 
 
@@ -93,14 +94,14 @@ def test_an_agent_the_map_does_not_name_runs_as_built_in():
     agents = _resolve(_server({"codex": {"*": {"effort": "medium"}}}), bf.Agent.CLAUDE)
     assert all(agents.lane(lane).source is Source.BUILTIN for lane in Lane)
     assert agents.lane(Lane.CLASSIFY).effort is None
-    assert agents.lane(Lane.DRAFT).model == "sonnet"
+    assert agents.lane(Lane.RECORD).model == "sonnet"
 
 
 # -- no answer is today's argv ------------------------------------------------
 
 
-_MAIN_MODEL = {  # what each lane sent before settings existed (backfill_reconstruction.MODEL)
-    (bf.Agent.CLAUDE, Lane.DRAFT): "sonnet",
+_MAIN_MODEL = {  # what each lane sent before settings existed (the claims draft's MODEL, now the record lane's)
+    (bf.Agent.CLAUDE, Lane.RECORD): "sonnet",
 }
 
 
@@ -121,8 +122,8 @@ def test_every_failed_read_launches_exactly_as_before(monkeypatch, answer, agent
     for lane in Lane:
         settings = agents.lane(lane)
         assert settings.source is Source.BUILTIN
-        kwargs = dict(workdir=Path("/w"), session_id="s", tools=bf.DIGEST_TOOLS.get(agent)
-                      if lane is Lane.DRAFT else None)
+        kwargs = dict(workdir=Path("/w"), session_id="s", tools=backfill_record.RECORD_TOOLS
+                      if lane is Lane.RECORD and agent is bf.Agent.CLAUDE else None)
         today = bf.agent_argv(agent, f"/bin/{agent.value}", Path("/f"),
                               model=_MAIN_MODEL.get((agent, lane)), **kwargs)
         now = bf.agent_argv(agent, f"/bin/{agent.value}", Path("/f"),
@@ -158,12 +159,12 @@ def test_a_bad_field_is_dropped_and_the_rest_kept():
         "classify": {"effort": "bogus", "model": "gpt-6"},
         "import": {"effort": "low", "temperature": "0"},
         "summaries": {"effort": "low"},
-        "draft": {"model": "-c", "effort": "minimal"},
+        "record": {"model": "-c", "effort": "minimal"},
     }})
     agents = _resolve(server)
     assert (agents.lane(Lane.CLASSIFY).model, agents.lane(Lane.CLASSIFY).effort) == ("gpt-6", None)
     assert agents.lane(Lane.IMPORT).effort == "low"
-    assert (agents.lane(Lane.DRAFT).model, agents.lane(Lane.DRAFT).effort) == (None, "minimal")
+    assert (agents.lane(Lane.RECORD).model, agents.lane(Lane.RECORD).effort) == (None, "minimal")
     assert agents.dropped == 4
     assert agents.notes == (), "a server field the CLI cannot take is not the researcher's doing"
 
@@ -204,7 +205,7 @@ def test_missing_usage_is_counted_and_never_summed_as_zero():
     assert props["import_rejected"] == 1
     assert props["import_effort"] == "medium" and props["import_source"] == "server"
     assert props["import_model"] is None
-    assert props["draft_launches"] == 0
+    assert props["record_launches"] == 0
     assert (props["backfill_agent"], props["settings_version"], props["settings_dropped"]) == (
         "codex", "abc", 0)
 
@@ -250,7 +251,7 @@ def test_the_degraded_note_names_a_settings_flag_only_when_this_import_sends_it(
     with_effort = _resolve(_server({"claude": {"import": {"effort": "low"}}}), bf.Agent.CLAUDE)
     assert "--effort" in bf.degraded_note(bf.Agent.CLAUDE, with_effort.flags())
     without = _resolve(_server({}), bf.Agent.CLAUDE)
-    assert without.flags() == ("--model",), "Claude drafts send --model sonnet today"
+    assert without.flags() == ("--model",), "Claude records send --model sonnet today"
     assert bf.degraded_note(bf.Agent.CLAUDE, without.flags()) is None
 
 

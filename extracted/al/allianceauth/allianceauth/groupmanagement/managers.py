@@ -1,10 +1,16 @@
+__lazy_modules__ = ["allianceauth.authentication.models", "django.db.models"]
+
 import logging
+from typing import TYPE_CHECKING
 
-from django.db.models import Q, QuerySet
-
-from allianceauth.authentication.models import State, User
+from django.db.models import Q
 
 from .models import Group, GroupRequest
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+
+    from allianceauth.authentication.models import State, User
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +19,8 @@ class GroupManager:
 
     @classmethod
     def get_joinable_groups_for_user(
-        cls, user: User, include_hidden=True
-    ) -> QuerySet[Group]:
+        cls, user: "User", include_hidden: bool = True
+    ) -> "QuerySet[Group]":
         """get groups a user could join incl. groups already joined"""
         groups_qs = cls.get_joinable_groups(user.profile.state)
 
@@ -27,7 +33,7 @@ class GroupManager:
         return groups_qs
 
     @staticmethod
-    def get_joinable_groups(state: State) -> QuerySet[Group]:
+    def get_joinable_groups(state: "State") -> "QuerySet[Group]":
         """get groups that can be joined by user with given state"""
         return (
             Group.objects
@@ -36,12 +42,12 @@ class GroupManager:
         )
 
     @staticmethod
-    def get_all_non_internal_groups() -> QuerySet[Group]:
+    def get_all_non_internal_groups() -> "QuerySet[Group]":
         """get groups that are not internal"""
         return Group.objects.exclude(authgroup__internal=True)
 
     @staticmethod
-    def get_group_leaders_groups(user: User) -> QuerySet[Group]:
+    def get_group_leaders_groups(user: "User") -> "QuerySet[Group]":
         return (
             Group.objects.filter(authgroup__group_leaders=user)
             | Group.objects.filter(
@@ -50,7 +56,7 @@ class GroupManager:
         )
 
     @staticmethod
-    def joinable_group(group: Group, state: State) -> bool:
+    def joinable_group(group: Group, state: "State") -> bool:
         """
         Check if a group is a user/state joinable group, i.e.
         not an internal group for Corp, Alliance, Members etc,
@@ -76,11 +82,11 @@ class GroupManager:
         return not group.authgroup.internal
 
     @staticmethod
-    def has_management_permission(user: User) -> bool:
+    def has_management_permission(user: "User") -> bool:
         return user.has_perm('auth.group_management')
 
     @classmethod
-    def can_manage_groups(cls, user:User) -> bool:
+    def can_manage_groups(cls, user:"User") -> bool:
         """
         For use with user_passes_test decorator.
         Check if the user can manage groups. Either has the
@@ -97,7 +103,7 @@ class GroupManager:
         return False
 
     @classmethod
-    def can_manage_group(cls, user: User, group: Group) -> bool:
+    def can_manage_group(cls, user: "User", group: Group) -> bool:
         """
         Check user has permission to manage the given group
         :param user: User object to test permission of
@@ -112,7 +118,7 @@ class GroupManager:
         return False
 
     @classmethod
-    def pending_requests_count_for_user(cls, user: User) -> int:
+    def pending_requests_count_for_user(cls, user: "User") -> int:
         """Returns the number of pending group requests for the given user"""
         if cls.has_management_permission(user):
             return GroupRequest.objects.all().count()

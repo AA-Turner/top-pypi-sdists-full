@@ -206,6 +206,10 @@ from worker_automate_hub.tasks.jobs.prorrogacao_boletos import (
     prorrogacao_boletos,
 )
 
+from worker_automate_hub.tasks.jobs.lancamento_produtos_as import (
+    lancamento_produtos_as,
+)
+
 task_definitions = {
     "5b295021-8df7-40a1-a45e-fe7109ae3902": exemplo_processo,
     "a0788650-de48-454f-acbf-3537ead2d8ed": login_emsys,
@@ -339,6 +343,7 @@ task_definitions = {
     "23d23598-7aaf-4731-b897-0a3887f8e624": baixar_faturas_portal,
     "bc9b2013-dfd0-4d30-89a4-61597bcfd39f": emissao_nota_cuponada_sap,
     "404000dc-f426-4895-a578-5fc7f76e4028": prorrogacao_boletos,
+    "9887f533-ce63-44f6-b4b3-83b13cb5789b": lancamento_produtos_as,
 }
 
 

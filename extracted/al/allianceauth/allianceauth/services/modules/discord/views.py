@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
@@ -8,8 +11,12 @@ from django.utils.translation import gettext_lazy as _
 from allianceauth.services.views import superuser_test
 
 from . import __title__
+from .managers import DiscordUserAlreadyLinkedError
 from .models import DiscordUser
 from .utils import LoggerAddTag
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
 
 logger = LoggerAddTag(logging.getLogger(__name__), __title__)
 
@@ -18,7 +25,7 @@ ACCESS_PERM = 'discord.access_discord'
 
 @login_required
 @permission_required(ACCESS_PERM)
-def deactivate_discord(request):
+def deactivate_discord(request: "HttpRequest") -> "HttpResponse":
     logger.debug("deactivate_discord called by user %s", request.user)
     if request.user.discord.delete_user(
         is_rate_limited=False, handle_api_exceptions=True
@@ -37,7 +44,7 @@ def deactivate_discord(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def reset_discord(request):
+def reset_discord(request: "HttpRequest") -> "HttpResponse":
     logger.debug("reset_discord called by user %s", request.user)
     if request.user.discord.delete_user(
         is_rate_limited=False, handle_api_exceptions=True
@@ -60,14 +67,14 @@ def reset_discord(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def activate_discord(request):
+def activate_discord(request: "HttpRequest") -> "HttpResponse":
     logger.debug("activate_discord called by user %s", request.user)
     return redirect(DiscordUser.objects.generate_oauth_redirect_url())
 
 
 @login_required
 @permission_required(ACCESS_PERM)
-def discord_callback(request):
+def discord_callback(request: "HttpRequest") -> "HttpResponse":
     logger.debug(
         "Received Discord callback for activation of user %s", request.user
     )
@@ -78,16 +85,28 @@ def discord_callback(request):
         )
         success = False
     else:
-        if DiscordUser.objects.add_user(
-            user=request.user,
-            authorization_code=authorization_code,
-            is_rate_limited=False
-        ):
+        try:
+            linked = DiscordUser.objects.add_user(
+                user=request.user,
+                authorization_code=authorization_code,
+                is_rate_limited=False
+            )
+        except DiscordUserAlreadyLinkedError:
+            messages.error(
+                request,
+                _(
+                    'This Discord account is already linked to another '
+                    'Alliance Auth account. A Discord account can only be '
+                    'linked to one Alliance Auth account.'
+                )
+            )
+            return redirect("services:services")
+
+        if linked:
             logger.info(
                 "Successfully activated Discord account for user %s", request.user
             )
             success = True
-
         else:
             logger.error(
                 "Failed to activate Discord account for user %s", request.user
@@ -112,5 +131,5 @@ def discord_callback(request):
 
 @login_required
 @user_passes_test(superuser_test)
-def discord_add_bot(request):
+def discord_add_bot(request: "HttpRequest") -> "HttpResponse":
     return redirect(DiscordUser.objects.generate_bot_add_url())

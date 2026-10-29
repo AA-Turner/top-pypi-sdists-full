@@ -33,42 +33,44 @@ def trigger_state_check(state: State) -> None:
 
 
 @receiver(m2m_changed, sender=State.member_characters.through)
-def state_member_characters_changed(sender, instance, action, *args, **kwargs):
+def state_member_characters_changed(sender: type, instance: State, action: str, *args, **kwargs) -> None:
     if action.startswith('post_'):
         logger.debug(f'State {instance} member characters changed. Re-evaluating membership.')
         trigger_state_check(instance)
 
 
 @receiver(m2m_changed, sender=State.member_corporations.through)
-def state_member_corporations_changed(sender, instance, action, *args, **kwargs):
+def state_member_corporations_changed(sender: type, instance: State, action: str, *args, **kwargs) -> None:
     if action.startswith('post_'):
         logger.debug(f'State {instance} member corporations changed. Re-evaluating membership.')
         trigger_state_check(instance)
 
 
 @receiver(m2m_changed, sender=State.member_alliances.through)
-def state_member_alliances_changed(sender, instance, action, *args, **kwargs):
+def state_member_alliances_changed(sender: type, instance: State, action: str, *args, **kwargs) -> None:
     if action.startswith('post_'):
         logger.debug(f'State {instance} member alliances changed. Re-evaluating membership.')
         trigger_state_check(instance)
 
 
 @receiver(m2m_changed, sender=State.member_factions.through)
-def state_member_factions_changed(sender, instance, action, *args, **kwargs):
+def state_member_factions_changed(sender: type, instance: State, action: str, *args, **kwargs) -> None:
     if action.startswith('post_'):
         logger.debug(f'State {instance} member factions changed. Re-evaluating membership.')
         trigger_state_check(instance)
 
 
 @receiver(post_save, sender=State)
-def state_saved(sender, instance, *args, **kwargs):
+def state_saved(sender: type[State], instance: State, *args, **kwargs) -> None:
     logger.debug(f'State {instance} saved. Re-evaluating membership.')
     trigger_state_check(instance)
 
 
 # Is there a smarter way to intercept pre_save with a diff main_character or state?
 @receiver(post_save, sender=UserProfile)
-def reassess_on_profile_save(sender, instance, created, *args, **kwargs):
+def reassess_on_profile_save(
+    sender: type[UserProfile], instance: UserProfile, created: bool, *args, **kwargs
+) -> None:
     # catches post_save from profiles to trigger necessary service and state checks
     if not created:
         update_fields = kwargs.pop('update_fields', []) or []
@@ -78,7 +80,7 @@ def reassess_on_profile_save(sender, instance, created, *args, **kwargs):
 
 
 @receiver(post_save, sender=User)
-def create_required_models(sender, instance, created, *args, **kwargs):
+def create_required_models(sender: type[User], instance: User, created: bool, *args, **kwargs) -> None:
     # ensure all users have our Sub-Models
     if created:
         logger.debug(f'User {instance} created. Creating default UserProfile.')
@@ -86,7 +88,7 @@ def create_required_models(sender, instance, created, *args, **kwargs):
 
 
 @receiver(post_save, sender=Token)
-def record_character_ownership(sender, instance, created, *args, **kwargs):
+def record_character_ownership(sender: type[Token], instance: Token, created: bool, *args, **kwargs) -> None:
     if created:
         logger.debug(f'New token for {instance.user} character {instance.character_name} saved. Evaluating ownership.')
         if instance.user:
@@ -105,7 +107,9 @@ def record_character_ownership(sender, instance, created, *args, **kwargs):
 
 
 @receiver(pre_delete, sender=CharacterOwnership)
-def validate_main_character(sender, instance, *args, **kwargs):
+def validate_main_character(
+    sender: type[CharacterOwnership], instance: CharacterOwnership, *args, **kwargs
+) -> None:
     try:
         if instance.user.profile.main_character == instance.character:
             logger.info(f"Ownership of a main character {instance.character} has been revoked. Resetting {instance.user} main character.")
@@ -118,14 +122,14 @@ def validate_main_character(sender, instance, *args, **kwargs):
 
 
 @receiver(post_delete, sender=Token)
-def validate_ownership(sender, instance, *args, **kwargs):
+def validate_ownership(sender: type[Token], instance: Token, *args, **kwargs) -> None:
     if not Token.objects.filter(character_owner_hash=instance.character_owner_hash).filter(refresh_token__isnull=False).exists():
         logger.info(f"No remaining tokens to validate ownership of character {instance.character_name}. Revoking ownership.")
         CharacterOwnership.objects.filter(owner_hash=instance.character_owner_hash).delete()
 
 
 @receiver(pre_save, sender=User)
-def assign_state_on_active_change(sender, instance, *args, **kwargs):
+def assign_state_on_active_change(sender: type[User], instance: User, *args, **kwargs) -> None:
     # set to guest state if inactive, assign proper state if reactivated
     if instance.pk:
         old_instance = User.objects.get(pk=instance.pk)
@@ -141,7 +145,9 @@ def assign_state_on_active_change(sender, instance, *args, **kwargs):
 
 
 @receiver(post_save, sender=EveCharacter)
-def check_state_on_character_update(sender, instance, *args, **kwargs):
+def check_state_on_character_update(
+    sender: type[EveCharacter], instance: EveCharacter, *args, **kwargs
+) -> None:
     # if this is a main character updating, check that user's state
     try:
         logger.debug(f"Character {instance} has been saved. Assessing owner's state for changes.")
@@ -152,7 +158,9 @@ def check_state_on_character_update(sender, instance, *args, **kwargs):
 
 
 @receiver(post_save, sender=CharacterOwnership)
-def ownership_record_creation(sender, instance, created, *args, **kwargs):
+def ownership_record_creation(
+    sender: type[CharacterOwnership], instance: CharacterOwnership, created: bool, *args, **kwargs
+) -> None:
     if created:
         records = OwnershipRecord.objects.filter(owner_hash=instance.owner_hash).filter(character=instance.character)
         if records.exists():

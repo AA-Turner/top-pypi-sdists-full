@@ -5,6 +5,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .chunk_metrics import ChunkMetrics
 from .document_translation_job_state import DocumentTranslationJobState
 from .page_metrics import PageMetrics
 from .translation_language_metrics import TranslationLanguageMetrics
@@ -29,6 +30,11 @@ class JobLiveStatusResponse(UniversalBaseModel):
     translation_metrics: typing.Optional[TranslationLanguageMetrics] = pydantic.Field(default=None)
     """
     Present for Office format (document-granular) jobs.
+    """
+
+    chunk_metrics: typing.Optional[ChunkMetrics] = pydantic.Field(default=None)
+    """
+    Present for Markdown / plain-text (chunk-granular) jobs.
     """
 
     translations: typing.Optional[typing.List[TranslationStatusItem]] = None

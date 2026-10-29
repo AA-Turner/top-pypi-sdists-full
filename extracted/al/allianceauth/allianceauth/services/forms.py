@@ -20,7 +20,7 @@ class FleetFormatterForm(forms.Form):
 class ServicePasswordForm(forms.Form):
     password = forms.CharField(label=_("Password"), required=True, widget=forms.PasswordInput())
 
-    def clean_password(self):
+    def clean_password(self) -> str:
         password = self.cleaned_data['password']
         if not len(password) >= 8:
             raise forms.ValidationError(_("Password must be at least 8 characters long."))
@@ -30,13 +30,13 @@ class ServicePasswordForm(forms.Form):
 class ServicePasswordModelForm(forms.ModelForm):
     password = forms.CharField(label=_("Password"), required=True, widget=forms.PasswordInput())
 
-    def clean_password(self):
+    def clean_password(self) -> str:
         password = self.cleaned_data['password']
         if not len(password) >= 8:
             raise forms.ValidationError(_("Password must be at least 8 characters long."))
         return password
 
-    def save(self, commit=True):
+    def save(self, commit: bool = True):
         svc_obj = super().save(commit=False)
         svc_obj.update_password(self.cleaned_data['password'])
         if commit:

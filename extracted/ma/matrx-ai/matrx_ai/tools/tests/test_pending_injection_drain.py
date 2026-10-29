@@ -13,6 +13,10 @@ from typing import Any
 from matrx_ai.tools import dynamic_drain
 
 
+async def _no_reports(_conversation_id, *, request_id=None):
+    return []
+
+
 class _CapturingEmitter:
     def __init__(self) -> None:
         self.injection_payloads: list[Any] = []
@@ -48,7 +52,7 @@ async def test_drain_appends_messages_and_emits(monkeypatch):
 
     import matrx_ai.db.cx_managers as cxm_mod
 
-    monkeypatch.setattr(cxm_mod.cxm, "pending_injection", SimpleNamespace(claim_pending=_claim))
+    monkeypatch.setattr(cxm_mod.cxm, "pending_injection", SimpleNamespace(claim_pending=_claim, claim_reports_now=_no_reports))
 
     emitter = _CapturingEmitter()
     config = _config()
@@ -87,7 +91,7 @@ async def test_drain_handles_stringified_jsonb_content(monkeypatch):
 
     import matrx_ai.db.cx_managers as cxm_mod
 
-    monkeypatch.setattr(cxm_mod.cxm, "pending_injection", SimpleNamespace(claim_pending=_claim))
+    monkeypatch.setattr(cxm_mod.cxm, "pending_injection", SimpleNamespace(claim_pending=_claim, claim_reports_now=_no_reports))
 
     emitter = _CapturingEmitter()
     config = _config()
@@ -104,7 +108,7 @@ async def test_drain_empty_is_noop(monkeypatch):
 
     import matrx_ai.db.cx_managers as cxm_mod
 
-    monkeypatch.setattr(cxm_mod.cxm, "pending_injection", SimpleNamespace(claim_pending=_claim))
+    monkeypatch.setattr(cxm_mod.cxm, "pending_injection", SimpleNamespace(claim_pending=_claim, claim_reports_now=_no_reports))
 
     emitter = _CapturingEmitter()
     config = _config()
@@ -136,7 +140,7 @@ async def test_drain_skips_internal_agents_without_db_hit(monkeypatch):
 
     import matrx_ai.db.cx_managers as cxm_mod
 
-    monkeypatch.setattr(cxm_mod.cxm, "pending_injection", SimpleNamespace(claim_pending=_claim))
+    monkeypatch.setattr(cxm_mod.cxm, "pending_injection", SimpleNamespace(claim_pending=_claim, claim_reports_now=_no_reports))
 
     config = _config()
     emitter = _CapturingEmitter()
@@ -199,7 +203,7 @@ async def test_turn_end_items_wait_for_the_final_boundary(monkeypatch):
     monkeypatch.setattr(
         cxm_mod.cxm,
         "pending_injection",
-        SimpleNamespace(claim_pending=_claim, claim_next_turn_end=_claim_turn_end),
+        SimpleNamespace(claim_pending=_claim, claim_next_turn_end=_claim_turn_end, claim_reports_now=_no_reports),
     )
 
     # Mid-run drain: steers only, the queued item untouched.
@@ -223,11 +227,10 @@ async def test_turn_end_items_wait_for_the_final_boundary(monkeypatch):
     assert {it.injection_id for it in emitter2.injection_payloads[0].items} == {"s1", "q1"}
 
 
-async def test_hidden_injection_stamps_message_visibility_metadata(monkeypatch):
-    """A hidden inbox item (is_visible_to_user=false — steering notes,
-    agent_collab write-backs) must stay hidden on the DURABLE row: persistence
-    lifts metadata['is_visible_to_user'] into the typed column, so the drain
-    must stamp it on the appended message, not just the transient event."""
+async def test_a_hidden_injection_is_delivered_visible_and_host_authored(monkeypatch):
+    """NOTHING THE MODEL READS IS HIDDEN FROM THE OWNING PERSON (owner ruling 2026-10-23): a
+    row flagged is_visible_to_user=false is delivered visible, labeled as the host's, never
+    quoted as the person's words."""
     rows = [
         SimpleNamespace(
             id="hidden-1",
@@ -244,7 +247,7 @@ async def test_hidden_injection_stamps_message_visibility_metadata(monkeypatch):
 
     import matrx_ai.db.cx_managers as cxm_mod
 
-    monkeypatch.setattr(cxm_mod.cxm, "pending_injection", SimpleNamespace(claim_pending=_claim))
+    monkeypatch.setattr(cxm_mod.cxm, "pending_injection", SimpleNamespace(claim_pending=_claim, claim_reports_now=_no_reports))
 
     config = _config()
     ctx = _ctx("conv-1", _CapturingEmitter())
@@ -252,7 +255,8 @@ async def test_hidden_injection_stamps_message_visibility_metadata(monkeypatch):
 
     assert len(config.messages) == 2
     hidden, visible = config.messages
-    assert hidden.metadata.get("is_visible_to_user") is False
+    assert "is_visible_to_user" not in (hidden.metadata or {})
+    assert hidden.metadata.get("authored_by") == "host"
     assert "is_visible_to_user" not in (visible.metadata or {})
 
 
@@ -275,7 +279,8 @@ async def test_claim_next_turn_end_skips_items_enqueued_by_the_claiming_run():
     updates: list[dict] = []
 
     async def filter_items(**kwargs):
-        return [own, other]
+        # The manager reads 'pending' and 'failed' separately; both rows are pending.
+        return [own, other] if kwargs.get("status") == "pending" else []
 
     async def update_where(where, **fields):
         updates.append({"where": where, **fields})
@@ -292,7 +297,7 @@ async def test_claim_next_turn_end_skips_items_enqueued_by_the_claiming_run():
 
     # With only the run's own item pending, nothing is claimed at all.
     async def filter_only_own(**kwargs):
-        return [own]
+        return [own] if kwargs.get("status") == "pending" else []
 
     fake_self_own = SimpleNamespace(filter_items=filter_only_own, update_where=update_where)
     claimed_own = await CxPendingInjectionManager.claim_next_turn_end(

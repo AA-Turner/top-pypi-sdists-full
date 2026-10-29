@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 """The contract-declared tier source binding of node_context_pack_orchestrator (TA.8).
 
-The orchestrator resolves the source node for each tier from its contract's
-``context_tier_sources`` block, so the runtime's zero-argument construction reads every
-bound tier from its live source instead of answering every tier ``unavailable``.
+The contract maps each tier to a source port supplied by the runtime. These
+fixtures supply explicit source instances; zero-argument construction stays
+unwired rather than importing sibling handlers.
 """
 
 from __future__ import annotations
@@ -29,6 +29,9 @@ from omnimarket.nodes.node_context_source_guidance_effect.handlers.handler_conte
 )
 from omnimarket.nodes.node_context_source_ledger_effect.handlers.handler_context_source_ledger import (
     HandlerContextSourceLedger,
+)
+from omnimarket.nodes.node_context_source_repo_doctrine_effect.handlers.handler_context_source_repo_doctrine import (
+    HandlerContextSourceRepoDoctrine,
 )
 from omnimarket.nodes.node_context_source_work_state_effect.handlers.handler_context_source_work_state import (
     HandlerContextSourceWorkState,
@@ -59,7 +62,19 @@ _EXPECTED: dict[EnumContextFactor, type] = {
     EnumContextFactor.REPO_STATE: HandlerSessionContextSources,
     EnumContextFactor.LANE_RULES: HandlerContextSourceGuidance,
     EnumContextFactor.ARCHITECTURE_PATTERNS: HandlerContextSourceGuidance,
+    EnumContextFactor.INVARIANTS: HandlerContextSourceRepoDoctrine,
+    EnumContextFactor.CANONICAL_SHAPES: HandlerContextSourceRepoDoctrine,
+    EnumContextFactor.EXEMPLAR: HandlerContextSourceRepoDoctrine,
 }
+
+
+def _resolve_fixture(node_name: str) -> ProtocolContextTierSource:
+    bindings = dict(
+        zip(_CONTRACT["context_tier_sources"].values(), _EXPECTED.values(), strict=True)
+    )
+    if node_name not in bindings:
+        raise ValueError(f"No fixture source for {node_name}")
+    return bindings[node_name]()
 
 
 def _write_contract(tmp_path: Path, block: object) -> Path:
@@ -80,6 +95,9 @@ def test_contract_binds_each_served_factor_to_its_source_node() -> None:
         "repo_state": "node_session_context_sources_effect",
         "lane_rules": "node_context_source_guidance_effect",
         "architecture_patterns": "node_context_source_guidance_effect",
+        "invariants": "node_context_source_repo_doctrine_effect",
+        "canonical_shapes": "node_context_source_repo_doctrine_effect",
+        "exemplar": "node_context_source_repo_doctrine_effect",
     }
 
 
@@ -89,13 +107,13 @@ def test_every_bound_source_node_is_a_declared_dependency() -> None:
 
 
 def test_load_tier_sources_instantiates_each_node_handler() -> None:
-    bound = load_tier_sources()
+    bound = load_tier_sources(resolve=_resolve_fixture)
     assert {f: type(s) for f, s in bound.items()} == _EXPECTED
     assert all(isinstance(s, ProtocolContextTierSource) for s in bound.values())
 
 
 def test_a_node_bound_to_several_factors_is_one_instance() -> None:
-    bound = load_tier_sources()
+    bound = load_tier_sources(resolve=_resolve_fixture)
     assert (
         bound[EnumContextFactor.OPEN_WORK]
         is bound[EnumContextFactor.ORCHESTRATION_STATE]
@@ -104,6 +122,11 @@ def test_a_node_bound_to_several_factors_is_one_instance() -> None:
         bound[EnumContextFactor.LANE_RULES]
         is bound[EnumContextFactor.ARCHITECTURE_PATTERNS]
     )
+    assert (
+        bound[EnumContextFactor.INVARIANTS]
+        is bound[EnumContextFactor.CANONICAL_SHAPES]
+        is bound[EnumContextFactor.EXEMPLAR]
+    )
 
 
 def test_loading_makes_no_connection_without_a_dsn(
@@ -111,12 +134,12 @@ def test_loading_makes_no_connection_without_a_dsn(
 ) -> None:
     for name in ("OMNIBASE_INFRA_DB_URL", "OMNIMARKET_READ_DB_URL", "DATABASE_URL"):
         monkeypatch.delenv(name, raising=False)
-    assert load_tier_sources()
+    assert load_tier_sources(resolve=_resolve_fixture)
 
 
-def test_zero_argument_orchestrator_binds_the_contract_sources() -> None:
+def test_zero_argument_orchestrator_requires_runtime_sources() -> None:
     handler = HandlerContextPackOrchestrator()
-    assert {f: type(s) for f, s in handler._sources.items()} == _EXPECTED
+    assert handler._sources == {}
 
 
 def test_explicit_empty_sources_bind_nothing() -> None:
@@ -129,7 +152,7 @@ def test_compaction_required_factors_are_all_bound() -> None:
         (PROFILES_DIR / "compaction_orchestrator.yaml").read_text(encoding="utf-8")
     )
     required = {EnumContextFactor(f) for f in profile["required_factors"]}
-    assert required <= set(load_tier_sources())
+    assert required <= set(load_tier_sources(resolve=_resolve_fixture))
 
 
 def test_unknown_factor_is_refused(tmp_path: Path) -> None:
@@ -137,13 +160,13 @@ def test_unknown_factor_is_refused(tmp_path: Path) -> None:
         tmp_path, {"not_a_factor": "node_context_source_ledger_effect"}
     )
     with pytest.raises(ValueError, match="not_a_factor"):
-        load_tier_sources(path)
+        load_tier_sources(path, resolve=_resolve_fixture)
 
 
 def test_unknown_source_node_is_refused(tmp_path: Path) -> None:
     path = _write_contract(tmp_path, {"operator_rulings": "node_does_not_exist"})
     with pytest.raises(ValueError, match="node_does_not_exist"):
-        load_tier_sources(path)
+        load_tier_sources(path, resolve=_resolve_fixture)
 
 
 def test_source_node_without_the_read_is_refused(tmp_path: Path) -> None:
@@ -151,11 +174,11 @@ def test_source_node_without_the_read_is_refused(tmp_path: Path) -> None:
         tmp_path, {"operator_rulings": "node_context_pack_render_compute"}
     )
     with pytest.raises(ValueError, match="node_context_pack_render_compute"):
-        load_tier_sources(path)
+        load_tier_sources(path, resolve=_resolve_fixture)
 
 
 def test_missing_block_binds_nothing(tmp_path: Path) -> None:
     raw = {k: v for k, v in _CONTRACT.items() if k != "context_tier_sources"}
     path = tmp_path / "contract.yaml"
     path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
-    assert load_tier_sources(path) == {}
+    assert load_tier_sources(path, resolve=_resolve_fixture) == {}

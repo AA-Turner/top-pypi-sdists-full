@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
+from .utils import now
+
 if TYPE_CHECKING:
     from redis.client import Pipeline
 
@@ -73,7 +75,7 @@ class Repeat:
         return intervals[count]
 
     @classmethod
-    def schedule(cls, job: Job, queue: Queue, pipeline: Pipeline | None = None):
+    def schedule(cls, job: Job, queue: Queue, pipeline: Pipeline | None = None) -> datetime | None:
         """Schedules a job to repeat based on its repeat configuration.
 
         This decrements the job's repeats_left counter and either enqueues
@@ -86,7 +88,7 @@ class Repeat:
             pipeline (Optional[Pipeline], optional): Redis pipeline to use. Defaults to None.
 
         Returns:
-            scheduled_time (Optional[datetime]): When the job was scheduled to run, or None if not scheduled
+            scheduled_time (Optional[datetime]): When the job was scheduled to run, or None if enqueued immediately
         """
 
         if job.repeats_left is None or job.repeats_left <= 0:
@@ -94,25 +96,31 @@ class Repeat:
 
         pipe = pipeline if pipeline is not None else job.connection.pipeline()
 
-        # Get the interval for this repeat based on remaining repeats
-        repeat_count = job.repeats_left - 1  # Count from the end (0-indexed)
         interval = 0
 
         if job.repeat_intervals:
-            interval = cls.get_interval(repeat_count, job.repeat_intervals)
+            interval = cls.get_interval(0, job.repeat_intervals)
+            if len(job.repeat_intervals) > 1:
+                job.repeat_intervals = job.repeat_intervals[1:]
 
         # Decrement repeats_left
         job.repeats_left = job.repeats_left - 1
         job.save(pipeline=pipe)
 
+        scheduled_time = None
         if interval == 0:
             # Enqueue the job immediately
             queue._enqueue_job(job, pipeline=pipe)
         else:
-            # Schedule the job to run after the interval
-            scheduled_time = datetime.now() + timedelta(seconds=interval)
+            # Schedule the job to run after the interval. Use an aware UTC
+            # datetime: a naive one makes ScheduledJobRegistry.schedule() guess
+            # the server's offset from time.altzone whenever time.daylight is
+            # set, which is an hour off outside DST.
+            scheduled_time = now() + timedelta(seconds=interval)
             queue.schedule_job(job, scheduled_time, pipeline=pipe)
 
         # Execute the pipeline if we created it
         if pipeline is None:
             pipe.execute()
+
+        return scheduled_time

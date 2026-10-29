@@ -3,6 +3,7 @@ from __future__ import annotations
 __lazy_modules__ = [
     "collections",
     "filecmp",
+    "importlib.machinery",
     "packaging.utils",
     "pathlib",
     "pipx",
@@ -25,12 +26,14 @@ import os
 import re
 import shlex
 import shutil
+import sys
 import tempfile
 import time
 from collections import Counter
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import AbstractContextManager, contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass
+from importlib.machinery import all_suffixes
 from pathlib import Path
 from re import Pattern
 from shutil import which
@@ -46,15 +49,10 @@ from pipx.colors import bold, red
 from pipx.constants import COMPLETION_SECTIONS, MACOS, MAN_SECTIONS, WINDOWS
 from pipx.emojis import hazard, stars
 from pipx.fanout import in_turn
-from pipx.package_specifier import (
-    parse_specifier_for_install,
-    static_project_name,
-    valid_pypi_name,
-    wheel_project_name,
-)
-from pipx.pipx_metadata_file import PipxMetadata
+from pipx.package_specifier import local_project_name, parse_specifier_for_install, valid_pypi_name
+from pipx.pipx_metadata_file import PIPX_INFO_FILENAME, PipxMetadata
 from pipx.result import OutputMessage, OutputStream
-from pipx.util import PipxError, mkdir, pipx_wrap, rmdir, safe_unlink
+from pipx.util import PipxError, is_file_name, mkdir, pipx_wrap, safe_unlink
 from pipx.venv import Venv, VenvContainer
 
 if TYPE_CHECKING:
@@ -76,11 +74,13 @@ class VenvProblems:
         bad_venv_name: bool = False,
         invalid_interpreter: bool = False,
         missing_metadata: bool = False,
+        unreadable_metadata: bool = False,
         not_installed: bool = False,
     ) -> None:
         self.bad_venv_name = bad_venv_name
         self.invalid_interpreter = invalid_interpreter
         self.missing_metadata = missing_metadata
+        self.unreadable_metadata = unreadable_metadata
         self.not_installed = not_installed
 
     def any_(self) -> bool:
@@ -96,6 +96,18 @@ class VenvProblems:
 
 
 _SHARED_RESOURCES: Final[ContextVar[frozenset[Path]]] = ContextVar("shared_resources", default=frozenset())
+# None is a user's --force, which replaces whatever holds a name
+_REPLACEABLE_RESOURCES: Final[ContextVar[frozenset[Path] | None]] = ContextVar("replaceable_resources", default=None)
+
+
+@contextmanager
+def force_replaces_only(resource_paths: Iterable[Path]) -> Generator[None]:
+    # a rebuild forces only so its own exposed files are refreshed, not to take names install left with their owner
+    token = _REPLACEABLE_RESOURCES.set(frozenset(resource_paths))
+    try:
+        yield
+    finally:
+        _REPLACEABLE_RESOURCES.reset(token)
 
 
 @contextmanager
@@ -134,7 +146,21 @@ def expose_resources_globally(
 ) -> list[Path]:
     collisions: Final[list[Path]] = []
     for path in paths:
+        # names come from package metadata and pipx_metadata.json; ".." or a path would escape the exposure directory
+        if not is_file_name(name := add_suffix(path.name, suffix)):
+            msg = f"Refusing to expose {path} as {name!r}, which is not a file name."
+            raise PipxError(msg)
         if resource_type == "app":
+            if module := _shadowed_module(name, path):
+                _LOGGER.warning(
+                    "%s  Not exposing %s: a Python script started from %s, such as pip's pipx launcher, would import "
+                    "it in place of the %s module.",
+                    hazard,
+                    name,
+                    local_resource_dir,
+                    module,
+                )
+                continue
             _add_ignore_environment_to_python_shebang(path)
         src = path.resolve()
         if resource_type == "man":
@@ -162,6 +188,18 @@ def expose_resources_globally(
             else:
                 collisions.append(collision)
     return collisions
+
+
+def _shadowed_module(name: str, path: Path) -> str | None:
+    # a script started from the bin dir, such as pip's pipx launcher, searches that dir first, and the launcher imports
+    # re (and through it enum, functools and more) and then pipx itself before pipx can drop the entry from sys.path
+    shadowed: Final[frozenset[str]] = frozenset({*sys.stdlib_module_names, "pipx"})
+    if path.is_dir():
+        return name if name in shadowed else None
+    return next(
+        (module for suffix in all_suffixes() if (module := name.removesuffix(suffix)) != name and module in shadowed),
+        None,
+    )
 
 
 def _in_turn_if_shared(path: Path) -> AbstractContextManager[None]:
@@ -234,7 +272,11 @@ def _add_ignore_environment_to_python_shebang(path: Path) -> None:
     if len(first_line) + len(separator) + len(_IGNORE_ENVIRONMENT_FLAG) > _MAX_SHEBANG_LENGTH:
         return
 
-    path.write_bytes(first_line + _IGNORE_ENVIRONMENT_FLAG + separator + rest)
+    # uv hard-links or symlinks installed files to its cache, which other environments share, so write a new inode
+    with TemporaryDirectory(dir=path.parent) as directory:
+        (rewritten := Path(directory) / path.name).write_bytes(first_line + _IGNORE_ENVIRONMENT_FLAG + separator + rest)
+        shutil.copymode(path, rewritten)
+        rewritten.replace(path)
 
 
 def _copy_package_resource(dest_dir: Path, path: Path, *, force: bool, suffix: str = "") -> Path | None:
@@ -246,7 +288,7 @@ def _copy_package_resource(dest_dir: Path, path: Path, *, force: bool, suffix: s
     if dest.exists():
         if filecmp.cmp(dest, src, shallow=False):
             return None
-        if not force:
+        if not force or not _force_replaces(dest):
             _LOGGER.warning("%s  File exists at %s and does not match %s. Not modifying.", hazard, dest, src)
             return dest
         _LOGGER.warning("%s  Overwriting file %s with %s", hazard, dest, src)
@@ -254,6 +296,10 @@ def _copy_package_resource(dest_dir: Path, path: Path, *, force: bool, suffix: s
     if src.exists():
         shutil.copy(src, dest)
     return None
+
+
+def _force_replaces(path: Path) -> bool:
+    return (replaceable := _REPLACEABLE_RESOURCES.get()) is None or path in replaceable
 
 
 def _symlink_package_resource(
@@ -270,26 +316,22 @@ def _symlink_package_resource(
     if not symlink_path.parent.is_dir():
         mkdir(symlink_path.parent)
 
-    if force:
+    if force and _force_replaces(symlink_path) and (symlink_path.is_symlink() or not symlink_path.is_dir()):
         _LOGGER.info("Force is true. Removing %s.", symlink_path)
-        try:
+        with suppress(FileNotFoundError, RuntimeError):
             symlink_path.unlink()
-        except (FileNotFoundError, RuntimeError):
-            pass
-        except IsADirectoryError:
-            rmdir(symlink_path)
 
     exists = symlink_path.exists()
     is_symlink = symlink_path.is_symlink()
-    if exists:
-        if symlink_path.samefile(path):
+    if exists or (is_symlink and _links_into_another_venv(symlink_path, path)):
+        if exists and symlink_path.samefile(path):
             _LOGGER.info("Same path %s and %s", symlink_path, path)
             return None
         _LOGGER.warning(
             pipx_wrap(
                 f"""
                 {hazard}  File exists at {symlink_path!s} and points
-                to {symlink_path.resolve()}, not {path!s}. Not
+                to {symlink_path.resolve()}{"" if exists else ", which is missing"}, not {path!s}. Not
                 modifying.
                 """,
                 subsequent_indent=" " * 4,
@@ -314,6 +356,40 @@ def _symlink_package_resource(
             )
         )
     return None
+
+
+def _links_into_another_venv(symlink_path: Path, path: Path) -> bool:
+    # an installer removes a package's old files before it writes the new ones, and another task of a fan-out or another
+    # pipx run can expose meanwhile, so a dangling link into a venv that still exists is that venv's, not a left-over
+    venvs: Final[Path] = paths.ctx.venvs.resolve()
+    try:
+        target: Final[Path] = symlink_path.resolve()
+    except RuntimeError:  # a symlink loop, which Python before 3.13 reports this way
+        return False
+    venv_dir: Final[Path | None] = next((parent for parent in target.parents if parent.parent == venvs), None)
+    return (
+        venv_dir is not None
+        and venv_dir.is_dir()
+        and not path.resolve().is_relative_to(venv_dir)
+        and _still_exposed_by(venv_dir, target)
+    )
+
+
+def _still_exposed_by(venv_dir: Path, target: Path) -> bool:
+    # pipx before 1.18.0 kept the link when a new release dropped the app, so a resource the venv's metadata no longer
+    # lists is a left-over, not a file an installer is rewriting
+    metadata: Final[PipxMetadata] = PipxMetadata(venv_dir)
+    if metadata.read_metadata_version is None:  # unreadable metadata can't prove the link stale
+        return True
+    return any(
+        resource.resolve() == target
+        for package in (metadata.main_package, *metadata.injected_packages.values())
+        for resource in (
+            *package.app_paths_to_expose,
+            *package.man_paths_to_expose,
+            *package.completion_paths_to_expose,
+        )
+    )
 
 
 def _remove_resource_named_before_last_dot(dest_dir: Path, path: Path, suffix: str) -> None:
@@ -344,6 +420,13 @@ def venv_health_check(venv: Venv, package_name: str | None = None) -> tuple[Venv
         return (
             VenvProblems(invalid_interpreter=True),
             f"   package {red(bold(venv_dir.name))} has invalid interpreter {python_path!s}\r{hazard}",
+        )
+    # the metadata is owner-only as it can hold index credentials, so another user sees a --global environment this way
+    metadata_file: Final[Path] = venv_dir / PIPX_INFO_FILENAME
+    if not venv.package_metadata and metadata_file.exists() and not os.access(metadata_file, os.R_OK):
+        return (
+            VenvProblems(unreadable_metadata=True),
+            f"   package {red(bold(venv_dir.name))} has pipx metadata this user cannot read.\r{hazard}",
         )
     if not venv.package_metadata:
         return (
@@ -500,6 +583,21 @@ def drop_copies_claimed_elsewhere(resource_paths: set[Path], venv_bin_path: Path
         path for path in resource_paths if not path.is_symlink() and own_id not in _launcher_owner_ids(path)
     }
     return resource_paths - (copies & _claimed_by_other_venvs(venv_bin_path)) if copies else resource_paths
+
+
+def drop_links_taken_over(resource_paths: set[Path], *venv_dirs: Path) -> set[Path]:
+    # a link dangles while its venv is rebuilt or its package uninstalled, and the next package claiming a dangling name
+    # takes it, so a path gathered before then is still the venv's only if it links into the venv
+    venv_roots: Final[list[Path]] = [venv_dir.resolve() for venv_dir in venv_dirs]
+    return {
+        path
+        for path in resource_paths
+        if (
+            any(path.resolve().is_relative_to(venv_root) for venv_root in venv_roots)
+            if path.is_symlink()
+            else not can_symlink(path.parent)
+        )
+    }
 
 
 def _directory_id_or_none(path: Path) -> tuple[int, int] | None:
@@ -727,7 +825,7 @@ def package_name_from_spec(  # ruff:ignore[too-many-arguments]  # resolver input
     # check syntax and clean up spec and pip_args
     (package_spec, pip_args) = parse_specifier_for_install(package_spec, pip_args)
 
-    if (project_name := static_project_name(package_spec) or wheel_project_name(package_spec)) is not None:
+    if (project_name := local_project_name(package_spec)) is not None:
         backend_name, _ = resolve_backend_name(
             cli_value=backend, env_value=env_default_backend() if env_backend is None else env_backend
         )
@@ -739,7 +837,8 @@ def package_name_from_spec(  # ruff:ignore[too-many-arguments]  # resolver input
 
     with tempfile.TemporaryDirectory() as temp_venv_dir:
         venv = Venv(Path(temp_venv_dir), python=python, verbose=verbose, backend=backend, env_backend=env_backend)
-        venv.create_venv(venv_args=[], pip_args=[])
+        # under pip this can be the call that builds the shared libraries, so their pip must come from the user's index
+        venv.create_venv(venv_args=[], pip_args=pip_args)
         package_name = venv.install_package_no_deps(
             package_or_url=package_spec,
             pip_args=pip_args,
@@ -949,10 +1048,12 @@ __all__ = [
     "add_suffix",
     "can_symlink",
     "drop_copies_claimed_elsewhere",
+    "drop_links_taken_over",
     "expose_package_resources",
     "expose_resources_globally",
     "expose_shared_resources_in_order",
     "exposed_app_names",
+    "force_replaces_only",
     "get_expected_venv_resource_paths",
     "get_exposed_man_paths_for_package",
     "get_exposed_paths_for_package",

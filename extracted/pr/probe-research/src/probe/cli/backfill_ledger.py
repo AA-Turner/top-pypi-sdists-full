@@ -242,12 +242,15 @@ def default_dir() -> Path:
 
 #: The scratch dirs the import's agents run in, wherever the state root is:
 #: `<root>/v2/<scope>/<source>/manifests` (classifier and upload agents) and
-#: `<root>/v2/<scope>/<source>/reconstruction/<project>/<input>` (the draft).
-#: Matched by LAYOUT, not by root: a root set by `PROBE_BACKFILL_STATE_DIR` for
-#: one import is not set when its sessions are imported later.
+#: `<root>/v2/<scope>/<source>/record/<project>/<key>/s<n>/work` (the record
+#: pass) and `.../reconstruction/<project>/<input>` (the retired claims draft,
+#: whose sessions still sit on disk). Matched by LAYOUT, not by root: a root
+#: set by `PROBE_BACKFILL_STATE_DIR` for one import is not set when its
+#: sessions are imported later.
 _IMPORT_AGENT_DIR = re.compile(
     r"/v2/[0-9a-f]{8,64}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-    r"/(?:manifests|reconstruction/[0-9a-f-]{8,64}/[0-9a-f]{8,128})$"
+    r"/(?:manifests|reconstruction/[0-9a-f-]{8,64}/[0-9a-f]{8,128}"
+    r"|record/[0-9a-f-]{8,64}/[0-9a-f]{8,128}/s[0-9]{1,4}/work)$"
 )
 #: The older layout, beside a ledger: `<root>/<ledger stem>-manifests`.
 _LEGACY_AGENT_DIR = re.compile(r"[0-9a-f]{8,64}-manifests$")
@@ -256,7 +259,7 @@ _LEGACY_AGENT_DIR = re.compile(r"[0-9a-f]{8,64}-manifests$")
 def is_import_agent_cwd(cwd: object) -> bool:
     """Whether a session ran in one of the folder import's own scratch dirs.
 
-    Every agent the import starts (classifier, upload, reconstruction) runs in
+    Every agent the import starts (classifier, upload, record) runs in
     such a dir and nothing else does: it is Probe's own automation, never the
     researcher's work, so the past-sessions import must not take it as their
     history (45 were, on 2026-10-25). The exact scratch-dir layout, not "under

@@ -346,11 +346,40 @@ def test_an_unknown_workspace_slug_is_refused_before_creating(app):
 
 
 def test_subproject_without_workspace_keeps_the_parent_workspace(client):
+    """The older `parent_project_id` kwarg keeps working for existing callers."""
     parent = client.create_project("parent", kind="general", workspace_id=_WS_OTHER)
 
     child = client.create_project("child", kind="general", parent_project_id=parent["id"])
 
     assert child["workspace_id"] == _WS_OTHER
+
+
+def test_a_part_of_create_sends_links_and_is_filed_beside_its_target(client, app):
+    """0401: projects are flat. `part_of` sends the links and NO workspace --
+    not even this computer's -- so the server files it beside its first target."""
+    whole = client.create_project("odyssey", kind="training", workspace_id=_WS_OTHER)
+    review = client.create_project("odyssey-review", kind="research", workspace_id=_WS_MINE)
+
+    phase = client.create_project("odyssey-phase-2", kind="training", part_of=[whole["id"], review["id"]])
+
+    sent = json.loads(next(r for r in reversed(app.requests) if r.url.path == "/v1/projects").content)
+    assert sent["part_of"] == [whole["id"], review["id"]]
+    assert "workspace_id" not in sent and "parent_project_id" not in sent
+    assert phase["workspace_id"] == _WS_OTHER
+    assert [p["slug"] for p in client.list_projects(part_of=whole["id"]).items] == ["odyssey-phase-2"]
+
+
+def test_a_backend_that_ignores_part_of_is_refused_not_mislabelled():
+    """The parent_id trap again for `?part_of=` (0401): an older backend returns
+    every project, which would read as the parts of the one asked about."""
+    from probe.sdk import errors
+    from probe.sdk.client import Client
+
+    whole = "11111111-1111-1111-1111-111111111111"
+    with pytest.raises(errors.NotFoundError, match="predates"):
+        Client._verify_part_of_filter(whole, [{"slug": "someone-elses"}], "GET /v1/projects")
+    Client._verify_part_of_filter(whole, [{"part_of": [whole]}], "GET /v1/projects")
+    Client._verify_part_of_filter(whole, [], "GET /v1/projects")
 
 
 # -- the patch / move split --------------------------------------------------

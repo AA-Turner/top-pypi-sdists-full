@@ -282,6 +282,9 @@ workspace_management:
   ws_id: wildcard
   env: wildcard
   type: wildcard
+workspace_category:
+  org_id: wildcard
+  ws_id: wildcard
 # (entity / event / feature sensitive field)
 workspace_sensitive_field:
   org_id: wildcard

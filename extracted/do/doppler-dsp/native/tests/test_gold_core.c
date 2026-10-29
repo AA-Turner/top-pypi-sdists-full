@@ -1,5 +1,6 @@
 #include "doppler/gold/gold_core.h"
 #include "dp_test.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -357,6 +358,90 @@ main (void)
     dp_gold_state_t *w = dp_gold_create (0x3A6, 1025, 0x237, 0x49, 10);
     DP_CHECK_MSG (w != NULL, "a wide seed that masks to 1 builds");
     dp_gold_destroy (w);
+  }
+
+  /* set_state refuses a register create() could never fill (doppler#2641):
+     zero, or with a bit above the length. Each forged blob keeps its size,
+     so the envelope passes it; the payload check refuses it and the
+     target's own blob is byte-identical afterwards. */
+  {
+    dp_gold_state_t *g
+        = dp_gold_create (TAPS_A, SEED_A_EXAMPLE, TAPS_B, SEED_B, 10);
+    uint8_t chips[17];
+    dp_gold_generate (g, 17, chips, 17);
+    size_t sb = dp_gold_state_bytes (g);
+    /* Room for both registers past the envelope, required up front so the
+       compiler cannot see a path where the forged offsets pass the end
+       (gcc's -Wstringop-overflow otherwise flags these memcpys). */
+    DP_REQUIRE (sb >= sizeof (dp_state_hdr_t) + 2 * sizeof (uint64_t));
+    unsigned char *blob   = malloc (sb);
+    unsigned char *before = malloc (sb);
+    unsigned char *after  = malloc (sb);
+    dp_gold_get_state (g, before);
+    const uint64_t bad[] = { 0, (uint64_t)1 << 10, 1u | ((uint64_t)1 << 40) };
+    for (int reg = 0; reg < 2; reg++)
+      for (size_t k = 0; k < sizeof bad / sizeof bad[0]; k++)
+        {
+          memcpy (blob, before, sb);
+          memcpy (blob + sizeof (dp_state_hdr_t) + reg * sizeof (uint64_t),
+                  &bad[k], sizeof bad[k]);
+          DP_CHECK (dp_state_validate (blob, sb, GOLD_STATE_MAGIC,
+                                       GOLD_STATE_VERSION)
+                    == DP_OK);
+          DP_CHECK (dp_gold_set_state (g, blob) == DP_ERR_INVALID);
+          dp_gold_get_state (g, after);
+          DP_CHECK (memcmp (before, after, sb) == 0);
+        }
+    /* Positive control: the top bit of the register is a legal value. */
+    memcpy (blob, before, sb);
+    uint64_t top = (uint64_t)1 << 9;
+    memcpy (blob + sizeof (dp_state_hdr_t), &top, sizeof top);
+    DP_CHECK (dp_gold_set_state (g, blob) == DP_OK);
+    free (blob);
+    free (before);
+    free (after);
+    dp_gold_destroy (g);
+  }
+
+  /* Every configuration create() accepts restores its own blob, at every
+     step (doppler#2641 follow-up). Taps without the top stage can shift a
+     register down to zero -- taps_a = 1 on 10 bits from 1 << 9 does in one
+     step -- and set_state refused that blob. Sweep every tap set and every
+     seed of one register on 1..6 bits (the other register on all-ones taps
+     and seed 1), each register in turn, through more steps than the period. */
+  {
+    size_t refused = 0, zeros = 0;
+    for (uint32_t L = 1; L <= 6; L++)
+      {
+        const uint64_t m = ((uint64_t)1 << L) - 1;
+        for (int which = 0; which < 2; which++)
+          for (uint64_t taps = 0; taps <= m; taps++)
+            for (uint64_t seed = 1; seed <= m; seed++)
+              {
+                dp_gold_state_t *g
+                    = which ? dp_gold_create (m, 1, taps, seed, L)
+                            : dp_gold_create (taps, seed, m, 1, L);
+                if (!g)
+                  {
+                    refused++;
+                    continue;
+                  }
+                unsigned char
+                    blob[sizeof (dp_state_hdr_t) + 2 * sizeof (uint64_t)];
+                for (uint64_t step = 0; step < m + 3; step++)
+                  {
+                    uint8_t chip;
+                    dp_gold_get_state (g, blob);
+                    zeros += (which ? g->reg_b : g->reg_a) == 0;
+                    if (dp_gold_set_state (g, blob) != DP_OK)
+                      refused++;
+                    dp_gold_generate (g, 1, &chip, 1);
+                  }
+                dp_gold_destroy (g);
+              }
+      }
+    DP_CHECK (refused == 0);
+    DP_CHECK (zeros > 0); /* non-vacuous: some config did reach zero */
   }
 
   DP_TEST_END ("test_gold_core");

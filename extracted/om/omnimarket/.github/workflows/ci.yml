@@ -89,7 +89,7 @@ jobs:
   # (d) not lane-bound: `scripts/ci/check_lane_job_placement.py` refuses a
   # variable-driven placement for a job whose correctness depends on WHERE its
   # runner sits, and its LANE_BOUND_JOBS map names only
-  # delegation-regression-nightly.yml's `golden-tasks`, no job in this file.
+  # the delegation workflows' lab-bound jobs, no job in this file.
   # EVERY OTHER JOB HERE IS UNTOUCHED and keeps its existing placement
   # expression; a survey of the routing repos found no prior use of this wiring
   # at fan-out scale, so widening it in one step would put the whole fleet on
@@ -111,7 +111,7 @@ jobs:
   # there.
   route:
     name: Runner Route (OMN-18031)
-    uses: OmniNode-ai/omnimarket/.github/workflows/route-runner-reusable.yml@01a0d1b3e7d7ba1a09012f9af245ba29afa000b5
+    uses: OmniNode-ai/omnimarket/.github/workflows/route-runner-reusable.yml@dev-20261016123308-0a385ce46cdf
     with:
       workflow_path: .github/workflows/ci.yml
     secrets:
@@ -154,7 +154,13 @@ jobs:
           elapsed=0
           # The repo-owned verifier has a 40-minute job timeout. Allow another
           # 180 seconds for scheduling; a missing verdict still fails closed.
+          # The window belongs to one verifier run, not to this job: an edited
+          # event restarts the pull_request_target verifier (its concurrency
+          # cancels the run in flight), and a restart late in this job's wait
+          # used to time out here while the new run was still verifying. Each
+          # new verifier run id therefore restarts the clock (OMN-17427).
           deadline=2580
+          seen_run=""
 
           while [ "$elapsed" -lt "$deadline" ]; do
             # NOTE(OMN-14343): GH Actions runs run: steps under `bash -e {0}` by
@@ -166,13 +172,7 @@ jobs:
             # the command substitution as the condition of this `if` is the
             # errexit-safe form -- bash does not trigger -e for a command that is
             # part of an if/while/until condition, regardless of ambient -e state.
-            response=""
-            status=0
-            if response="$(
-              gh api "repos/${REPO}/commits/${HEAD_SHA}/check-runs?filter=latest&check_name=repo-evidence%20%2F%20dod-verify&per_page=100" \
-                --jq '[.check_runs[] | select(.app.id == 15368)] | sort_by(.id) | last | .conclusion // ""' \
-                2>&1
-            )"; then
+            if response="$(gh api "repos/${REPO}/commits/${HEAD_SHA}/check-runs?filter=latest&check_name=repo-evidence%20%2F%20dod-verify&per_page=100" --jq '[.check_runs[] | select(.app.id == 15368)] | sort_by(.id) | last | "\(.id // "") \(.conclusion // "")"' 2>&1)"; then
               status=0
             else
               status=$?
@@ -191,7 +191,11 @@ jobs:
             fi
             backoff=5
 
-            conclusion="$response"
+            read -r run_id conclusion <<< "$response" || true
+            if [ -n "$run_id" ] && [ "$run_id" != "$seen_run" ]; then
+              [ -z "$seen_run" ] || echo "Repo evidence restarted as run ${run_id}; its window starts now."
+              seen_run="$run_id" elapsed=0
+            fi
 
             case "$conclusion" in
               success)
@@ -233,7 +237,7 @@ jobs:
   zone-filter:
     needs: repo-evidence-preflight
     if: always()
-    uses: OmniNode-ai/omnibase_core/.github/workflows/zone-filter.yml@7631ef3321e1a6561f4b2c70019ee57d24160620
+    uses: OmniNode-ai/omnibase_core/.github/workflows/zone-filter.yml@dev-20261018024445-b6ee996befa1
     with:
       python-version: "3.12"
 
@@ -288,7 +292,7 @@ jobs:
       actions: read
       contents: read
       pull-requests: read
-    uses: OmniNode-ai/omnibase_core/.github/workflows/full-suite-reuse.yml@624e03f3d7797709879b6c410708be6cc1061261
+    uses: OmniNode-ai/omnibase_core/.github/workflows/full-suite-reuse.yml@dev-20261018024445-b6ee996befa1
 
   dev-suite-reuse-verdict:
     name: Dev Push Full Suite Reuse
@@ -368,10 +372,16 @@ jobs:
         run: uv sync --locked
       - name: Ruff check
         run: uv run ruff check src/ tests/ benchmarks/
+      - name: Retired model references (including dated history)
+        run: uv run --frozen python -m omnimarket.nodes.node_retired_model_reference_check_effect
+      - name: Retired model and archive safety negative controls
+        run: uv run pytest tests/ci/test_retired_model_references.py tests/nodes/test_file_retention_archive_safety.py -q --no-cov
       - name: Queue full-suite admission policy (OMN-19998)
         run: uv run pytest tests/ci/test_queue_run_once_omn19998.py -q -n 0 -p no:randomly --no-cov
       - name: Ruff format check
         run: uv run ruff format --check src/ tests/ benchmarks/
+      - name: Delegation target and lab-job seam gate
+        run: uv run --frozen pytest tests/unit/nodes/node_llm_delegation_call_effect/test_delegation_targets.py -q --no-cov
       # OMN-20865: SYNC with the landing-decision-scenarios pre-commit hook.
       - name: Landing decision scenarios
         run: uv run --frozen pytest tests/unit/nodes/node_pr_landing_decision_compute/test_landing_decision_scenarios.py -q --no-cov
@@ -423,6 +433,9 @@ jobs:
       # SYNC with pre-commit hook 'projection-cursor-declared'.
       - name: Projection cursor-declared gate
         run: uv run python -m omnimarket.nodes.node_contract_projection_check_effect.runtime_projection_contract_check --rule cursor
+      # OMN-21289: no harness is invoked outside the delegation effect node's handlers (shrink-only baseline). SYNC with pre-commit hook 'harness-invocation-check'.
+      - name: Harness invocation gate
+        run: uv run python -m omnimarket.nodes.node_harness_invocation_check_effect
       # OMN-17446: a REGISTRY-shaped projection (its relation is resolved
       # against by another node's `ALTER COLUMN ... TYPE ... USING` conversion,
       # or by a shared write-path module another node imports) must not be fed
@@ -441,13 +454,6 @@ jobs:
       # 'internal-relation-tenant-posture'.
       - name: Internal-relation tenant-posture gate
         run: uv run python scripts/validation/check_internal_relation_tenant_posture.py
-      # OMN-14285 (WI-1 / S1d): exactly one OCC companion producer. Fails if a
-      # second writer surface (inline receipt/contract template outside the
-      # occ_evidence_stamp seam, duplicate OccCompanionEmitter, or a resurrected
-      # scaffold_occ_receipt.py) reappears. SYNC with pre-commit hook
-      # 'one-occ-producer'.
-      - name: One OCC producer per contract
-        run: uv run python scripts/ci/check_one_occ_producer.py
       - name: Reject node-level topics.py files
         run: |
           FOUND=$(find src/omnimarket/nodes -name "topics.py" -path "*/node_*/*" 2>/dev/null)
@@ -465,12 +471,27 @@ jobs:
       # while the other stays green. SYNC with pre-commit hook 'coverage-ignore-parity'.
       - name: Coverage-json ignore-errors parity gate
         run: uv run python scripts/ci/check_coverage_ignore_parity.py
-      # OMN-14762 (F-19-A): every third-party `uses:` must be pinned to a 40-char
-      # SHA. OMN-20558 pinned every frozen ref to the commit its tag resolved to
-      # and deleted the baseline, so any unpinned, non-exempt ref fails.
-      # SYNC with pre-commit hook 'check-action-pins'.
-      - name: GitHub Actions pin ratchet
-        run: uv run python scripts/ci/check_action_pins.py
+      # OMN-17427: how every `uses:` ref is pinned is omnibase_core's check-action-pins,
+      # with this repository's rule values in .action-pin-overlay.yaml. A third-party
+      # ref is a full 40-hex commit sha; a first-party ref is a dev-merge tag. The
+      # core ref is the dev-merge tag the pre-commit hook's rev names. The overlay's
+      # known exceptions only shrink against the pull request base. SYNC with
+      # pre-commit hook 'check-action-pins'.
+      - name: GitHub Actions pin check
+        env:
+          ACTION_PINS_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@dev-20261028202452-b8b19b0b4bff"
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          MQ_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          set -u
+          args=()
+          base="${PR_BASE:-${MQ_BASE:-}}"
+          if [ -n "$base" ] && git fetch --no-tags --depth=1 origin "$base"; then
+            args+=(--ratchet-base-ref "$base")
+          else
+            echo "no base revision on this event; checking the tree against the overlay only"
+          fi
+          uv run --no-project --with "$ACTION_PINS_CORE" check-action-pins "${args[@]}"
       # SYNC: Pre-commit hook 'validate-no-env-fallbacks' at pre-commit stage (OMN-10738)
       # Prevents silent fallback to localhost defaults via os.getenv/os.environ.get
       - name: Validate no silent env fallbacks
@@ -533,7 +554,7 @@ jobs:
       # OMN-13285 (W6/GAP-3): ported to the canonical core COMPUTE validator
       # (replaces the deleted omnimarket-local scripts/ci/check_routing_authority.py).
       - name: Routing-authority demo gate (enforce)
-        run: uv run python -m omnibase_core.validation.validator_routing_authority --repo omnimarket --repo-root .
+        run: uv run python scripts/validation/validate_contract_overlay_boundary.py --routing-authority --root .
       # OMN-12964: Quality-gate calibration. Fails CI if the delegation quality
       # gate score distribution collapses (degenerate {0.0,1.0}) or fails to
       # discriminate known-good from known-bad outputs. A meaningless quality
@@ -723,6 +744,13 @@ jobs:
       # model's digest. SYNC with pre-commit hook 'compaction-lifecycle-model'.
       - name: Compaction lifecycle model and verdict (OMN-21104)
         run: uv run pytest tests/formal/test_compaction_lifecycle_model.py -q -n 0 -p no:randomly --no-cov
+      # OMN-21442: the andon stop and lane lease model (formal/andon_stop) passes its
+      # design configs, each property fails on a one-knob mutation, the results match
+      # the committed model, configs and outputs, the model's states, triggers and
+      # constants are its contracts', and the verdict approves the model's digest.
+      # SYNC with pre-commit hook 'andon-stop-model'.
+      - name: Andon stop model and verdict (OMN-21442)
+        run: uv run pytest tests/formal/test_andon_stop_model.py -q -n 0 -p no:randomly --no-cov
       # OMN-20601: routing decisions come from overlays, never from omnimarket code
       # (ruling 2026-10-10T17:54:30Z). Inventory of routing sources, overlay
       # precedence, and a ratchet on route-selecting code. SYNC with pre-commit hook
@@ -835,6 +863,11 @@ jobs:
         run: uv run pytest tests/unit/test_generated_llm_routing_constants.py -q
       # OMN-10821: Handler* classes in handler_*.py with zero external import references
       # cannot be wired by the DI container and are silently absent from the pipeline.
+      # OMN-21372: same owning transport hook; lint gates required CI Summary.
+      - name: Transport imports (static and dynamic)
+        run: uv run python scripts/ci/check_unimported_handlers.py --transport-imports
+      - name: Dynamic import gate regression fixtures
+        run: uv run pytest tests/ci -q -k dynamic_import_gate
       - name: Unimported-handler check
         run: uv run python scripts/ci/check_unimported_handlers.py
       # OMN-12942: node migration sets must create base tables before views.
@@ -3090,21 +3123,21 @@ jobs:
 
   dep-health-findings-baseline-oneway:
     name: Dependency Findings Baseline One-way (OMN-19677)
-    uses: OmniNode-ai/omniclaude/.github/workflows/anti-growth-baseline-reusable.yml@3faefdcd5750b05f69d2efcb8cf200bc359483c3
+    uses: OmniNode-ai/omniclaude/.github/workflows/anti-growth-baseline-reusable.yml@dev-20261023162355-3e657bae8f91
     with:
       baseline-path: .onex_state/dep_health_baseline.json
       parser: json-list:findings
 
   dep-health-allowlist-oneway:
     name: Dependency Topic Allowlist One-way (OMN-19677)
-    uses: OmniNode-ai/omniclaude/.github/workflows/anti-growth-baseline-reusable.yml@3faefdcd5750b05f69d2efcb8cf200bc359483c3
+    uses: OmniNode-ai/omniclaude/.github/workflows/anti-growth-baseline-reusable.yml@dev-20261023162355-3e657bae8f91
     with:
       baseline-path: src/dep_health_allowlist.yaml
       parser: yaml-list:allowlist
 
   state-coverage-baseline-oneway:
     name: State Coverage Baseline One-way (OMN-19677)
-    uses: OmniNode-ai/omniclaude/.github/workflows/anti-growth-baseline-reusable.yml@3faefdcd5750b05f69d2efcb8cf200bc359483c3
+    uses: OmniNode-ai/omniclaude/.github/workflows/anti-growth-baseline-reusable.yml@dev-20261023162355-3e657bae8f91
     with:
       baseline-path: scripts/validation/state_coverage_baseline.txt
       parser: line-set
@@ -3881,7 +3914,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@031148215620031436cba30619bbae67c0bb38ad"
+      CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@dev-20261023085853-9d65b648bff5"
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6

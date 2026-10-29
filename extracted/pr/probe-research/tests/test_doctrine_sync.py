@@ -311,23 +311,38 @@ def test_every_skill_on_disk_is_counted_by_telemetry() -> None:
     assert not missing, f"skills invisible to telemetry: {sorted(missing)}"
 
 
-def test_subprojects_are_taught_where_a_new_project_gets_registered() -> None:
+def test_part_of_links_are_taught_where_a_new_project_gets_registered() -> None:
     """THE MEASURED FAILURE: four Odyssey-3 phase projects were registered as
     flat top-level siblings, by an agent with a CLI that had `--parent`, on the
-    day the feature shipped. Nothing it could see said projects nest.
+    day the feature shipped. Nothing it could see said how phases relate.
 
-    `--parent` in the skill body was not enough: a skill is read only once
-    SELECTED, while the decision "is this a new project or a phase of one?" is
-    made at registration time from the always-loaded block. So the block keeps
-    ONE line on it (restored 2026-09-17 after the rewrite dropped it), and the
-    skill carries the kind vocabulary with its tie-breaks.
+    Projects are flat since the subproject tree was retired (2026-10-28), so a
+    forgotten link now leaves NO relation at all: the phase must be linked
+    `--part-of` the effort. Teaching it in the skill body is not enough: a
+    skill is read only once SELECTED, while the decision "is this a new project
+    or a phase of one?" is made at registration time from the always-loaded
+    block. So the block keeps ONE line on it, with the command, and the skill
+    carries the kind vocabulary with its tie-breaks.
     """
     register = " ".join(POINTER().split())
-    assert "SUBPROJECT of it (`project create --parent`), never a new top-level sibling" in register
+    assert "Projects are flat." in register
+    # The block names no `--kind ` (test_agent_rules: commands that can rot);
+    # the skill carries the whole command.
+    assert (
+        "A phase of a bigger effort is its own project linked `--part-of` it "
+        "(`project create --part-of`); related-but-separate work is `project reference add --to`"
+        in register
+    )
     assert "(training|evaluation|research|general|experiment)" in register
 
     skill = " ".join(_skill_text("track-work").split())
-    assert "A phase of a bigger effort is a SUBPROJECT of it, never a new top-level sibling" in skill
+    assert (
+        "Projects are flat. A phase of a bigger effort is its own project linked `--part-of` it "
+        "(`probe project create SLUG --kind K --part-of P`); related-but-separate work is "
+        "`project reference add --to`" in skill
+    )
+    for text in (register, skill):
+        assert "SUBPROJECT" not in text and "subproject" not in text
     for kind in _KIND_VOCABULARY:
         assert f"`{kind}`" in skill, kind
     assert "weights MOVE" in skill

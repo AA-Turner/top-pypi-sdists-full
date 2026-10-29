@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -8,11 +11,14 @@ from django.utils.translation import gettext_lazy as _
 
 from .models import Notification
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 
 @login_required
-def notification_list(request):
+def notification_list(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"notification_list called by user {request.user}")
     notifications_qs = Notification.objects.filter(user=request.user).order_by("-timestamp")
     new_notifs = notifications_qs.filter(viewed=False)
@@ -31,7 +37,7 @@ def notification_list(request):
 
 
 @login_required
-def notification_view(request, notif_id):
+def notification_view(request: "HttpRequest", notif_id: int) -> "HttpResponse":
     logger.debug(
         "notification_view called by user %s for notif_id %s",
         request.user,
@@ -54,7 +60,7 @@ def notification_view(request, notif_id):
 
 
 @login_required
-def remove_notification(request, notif_id):
+def remove_notification(request: "HttpRequest", notif_id: int) -> "HttpResponse":
     logger.debug(
         "remove notification called by user %s for notif_id %s",
         request.user,
@@ -77,7 +83,7 @@ def remove_notification(request, notif_id):
 
 
 @login_required
-def mark_all_read(request):
+def mark_all_read(request: "HttpRequest") -> "HttpResponse":
     logger.debug('mark all notifications read called by user %s', request.user)
     Notification.objects.filter(user=request.user).update(viewed=True)
     messages.success(request, _('Marked all notifications as read.'))
@@ -85,7 +91,7 @@ def mark_all_read(request):
 
 
 @login_required
-def delete_all_read(request):
+def delete_all_read(request: "HttpRequest") -> "HttpResponse":
     logger.debug('delete all read notifications called by user %s', request.user)
     Notification.objects.filter(user=request.user).filter(viewed=True).delete()
     messages.success(request, _('Deleted all read notifications.'))
@@ -93,7 +99,7 @@ def delete_all_read(request):
 
 
 @login_required()
-def user_notifications_count(request):
+def user_notifications_count(request: "HttpRequest") -> "HttpResponse":
     """
     Returns the notifications count for the current user as JSON
     """

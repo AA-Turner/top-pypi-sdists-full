@@ -1132,7 +1132,7 @@ def test_a_foreign_jsonl_beside_claude_sessions_is_not_a_session(tmp_path):
 SCRATCH = "v2/e2cd2ea4431987955905f68a/de27be8b-3187-4538-a86a-8a63d438f66a"
 
 
-@pytest.mark.parametrize("where", ["default", "configured-then-unset", "reconstruction", "legacy"])
+@pytest.mark.parametrize("where", ["default", "configured-then-unset", "reconstruction", "record", "legacy"])
 def test_probes_own_import_agents_are_never_imported_as_the_researchers_sessions(
     roots, tmp_path, monkeypatch, where,
 ) -> None:
@@ -1150,6 +1150,8 @@ def test_probes_own_import_agents_are_never_imported_as_the_researchers_sessions
         # The import ran with PROBE_BACKFILL_STATE_DIR; this shell has none.
         "configured-then-unset": tmp_path / "mnt" / "import-state" / SCRATCH / "manifests",
         "reconstruction": default / SCRATCH / "reconstruction" / "5490c0d2-db52-4a24-986b-2f806f5c9e32" / ("f0" * 32),
+        "record": (default / SCRATCH / "record" / "5490c0d2-db52-4a24-986b-2f806f5c9e32" / ("f0" * 16)
+                   / "s1" / "work"),
         "legacy": default / "a7da8a379fbd395f-manifests",
     }[where]
     scratch.mkdir(parents=True)

@@ -11,7 +11,6 @@ from errno import ENOENT
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
 from typing_extensions import TypedDict, Unpack
@@ -47,7 +46,6 @@ from datamodel_code_generator.model.base import (
     _RenderedDataModelField,
     _safe_dataclass_arguments,
     _safe_extra_template_data,
-    _TypingImportRequirements,
     comment_safe,
     escape_docstring,
     format_docstring,
@@ -214,13 +212,12 @@ def test_msgspec_apply_discriminator_tag() -> None:
         reference=Reference(path="Pet", original_name="Pet", name="Pet"),
     )
 
-    model.apply_discriminator_tag(field, "kind", "pet")
-
+    assert model.apply_discriminator_tag(field, "kind", "pet") is True
     assert model.extra_template_data["base_class_kwargs"] == {
         "tag_field": "'kind'",
         "tag": "'pet'",
     }
-    assert field.extras["is_classvar"] is True
+    assert field.extras == {}
 
 
 def test_msgspec_custom_template_data_keeps_raw_options() -> None:
@@ -779,8 +776,7 @@ def test_default_apply_discriminator_tag_is_noop() -> None:
         reference=Reference(path="Pet", original_name="Pet", name="Pet"),
     )
 
-    model.apply_discriminator_tag(field, "kind", "pet")
-
+    assert model.apply_discriminator_tag(field, "kind", "pet") is False
     assert model.extra_template_data == {}
     assert field.extras == {}
 
@@ -1281,40 +1277,18 @@ def test_data_model_parent_and_reference_path_changes_invalidate_field_semantics
     assert not field.self_reference()
 
 
+@pytest.mark.usefixtures("parse_memo")
 def test_field_deep_copy_drops_transient_semantic_caches() -> None:
     """Copied fields must recompute transient renderer and self-reference state."""
-    field = PydanticV2DataModelField(name="value", data_type=DataType(type="str"))
-    field.__dict__["_computed_default_factory"] = "list"
-    field.__dict__["_self_reference_cache"] = True
+    node_reference = Reference(path="Node", original_name="Node", name="Node")
+    field = PydanticV2DataModelField(name="value", data_type=DataType(reference=node_reference))
+    BaseModel(fields=[field], reference=node_reference)
+    assert field.self_reference()
 
     copied = field.copy_deep()
+    BaseModel(fields=[copied], reference=Reference(path="Other", original_name="Other", name="Other"))
 
-    assert "_computed_default_factory" not in copied.__dict__
-    assert "_self_reference_cache" not in copied.__dict__
-
-
-def test_field_semantic_cache_invalidation_supports_legacy_parent_hook() -> None:
-    """External parent implementations with only the legacy import hook remain compatible."""
-
-    class ImportsOnlyParent:
-        def __init__(self) -> None:
-            self.cache_cleared = False
-
-        def clear_imports_cache(self) -> None:
-            self.cache_cleared = True
-
-    parent = ImportsOnlyParent()
-    field = DataModelFieldBase(name="value", data_type=DataType(type="str"))
-    field.parent = parent  # ty: ignore[invalid-assignment]
-
-    field.invalidate_semantic_caches()
-
-    assert parent.cache_cleared
-
-    parent.cache_cleared = False
-    field.force_field_assignment()
-
-    assert parent.cache_cleared
+    assert not copied.self_reference()
 
 
 def test_pydantic_v2_extra_type_hint_keeps_non_dict_hint() -> None:
@@ -1474,8 +1448,8 @@ def test_pydantic_v2_missing_sentinel_default_keeps_explicit_default() -> None:
     assert IMPORT_MISSING not in field.imports
 
 
-def test_pydantic_v2_missing_sentinel_type_hint_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test defensive MISSING type-hint branches."""
+def test_pydantic_v2_missing_sentinel_type_hint_fallbacks() -> None:
+    """Test the MISSING type hint of an empty hint."""
     field = PydanticV2DataModelField(
         name="value",
         data_type=DataType(type="str", use_union_operator=True),
@@ -1483,10 +1457,6 @@ def test_pydantic_v2_missing_sentinel_type_hint_fallbacks(monkeypatch: pytest.Mo
     )
 
     assert field._type_hint_with_missing_sentinel("") == "MISSING"
-
-    monkeypatch.setattr(PydanticV2DataModelField, "_use_union_operator", property(lambda _self: None))
-
-    assert field._type_hint_with_missing_sentinel("str") == "str"
 
 
 def test_rendered_pydantic_v2_field_uses_structured_values() -> None:
@@ -1626,7 +1596,7 @@ def test_pydantic_v2_empty_field_render_plan_is_shared_for_builtin_fields() -> N
 
 
 def test_pydantic_v2_empty_field_render_plan_falls_back_for_extensions_and_field_syntax() -> None:
-    """Custom templates, subclasses, and Field() features retain the conventional plan."""
+    """Custom templates and subclasses build the conventional plan, which writes no call; Field() features write one."""
     plain = PydanticV2DataModelField(name="plain", data_type=DataType(type="str"), required=True)
     BaseModel(fields=[plain], reference=Reference(path="Plain", name="Plain"))
     shared_plan = plain._get_field_render_plan()
@@ -1680,7 +1650,9 @@ def test_pydantic_v2_empty_field_render_plan_falls_back_for_extensions_and_field
         ),
     ):
         assert field.parent is model
-        assert field._get_field_render_plan() is not shared_plan
+        assert (field._get_field_render_plan() == shared_plan) is (
+            field is custom_field or field is custom_template_field
+        )
 
     assert hook_calls == 1
     assert str(constrained_field) == "Field(None, min_length=1)"
@@ -1943,8 +1915,8 @@ def test_field_semantic_policy_api() -> None:
     assert pydantic_field.type_hint == "ClassVar[str]"
     assert base_field.enable_structured_default_validation() is False
     assert pydantic_field.enable_structured_default_validation() is True
+    pydantic_field.extras["validate_default"] = True
     assert pydantic_field.enable_structured_default_validation() is False
-    assert pydantic_field.extras["validate_default"] is True
 
 
 def test_rendered_data_model_field_caches_delegated_attributes() -> None:
@@ -2156,10 +2128,10 @@ def test_pydantic_dataclass_render_computes_plan_once() -> None:
     plan_calls = 0
 
     class CountingField(PydanticDataclassField):
-        def _get_field_render_plan(self) -> Any:
+        def _build_render_plan(self) -> Any:
             nonlocal plan_calls
             plan_calls += 1
-            return super()._get_field_render_plan()
+            return super()._build_render_plan()
 
     field = CountingField(
         name="value",
@@ -2498,6 +2470,16 @@ def test_msgspec_simple_unset_fast_path_does_not_mutate_nullable_reference(
     assert child.is_optional is False
 
 
+def test_data_type_union_with_an_optional_any_member_becomes_optional() -> None:
+    """A constructed union drops an optional ``Any`` member and is optional instead; an ``Any``-only union stays."""
+    union = DataType(data_types=[DataType(type="str"), DataType(type="Any", is_optional=True)])
+    only_any = DataType(data_types=[DataType(type="Any", is_optional=True), DataType(type="Any")])
+
+    assert union.is_optional
+    assert [data_type.type for data_type in union.data_types] == ["str"]
+    assert [data_type.type for data_type in only_any.data_types] == ["Any", "Any"]
+
+
 def test_data_type_deepcopy_keeps_the_source_of_a_nullable_reference_none() -> None:
     """Deep copies keep a dropped None dropped and a model's None coming back; no generation copies such a type."""
     reference = Reference(path="#/NullableModel", name="NullableModel")
@@ -2510,6 +2492,15 @@ def test_data_type_deepcopy_keeps_the_source_of_a_nullable_reference_none() -> N
 
     assert deepcopy(own).type_hint == "NullableModel"
     assert deepcopy(from_model).type_hint == "Optional[NullableModel]"
+
+
+def test_data_type_deepcopy_keeps_the_enum_of_its_member_literals() -> None:
+    """A deep copy keeps the enum whose members its ``Literal`` renders, so every module still imports the class."""
+    reference = Reference(path="#/Kind", name="Kind")
+    data_type = DataType(type="str")
+    data_type._set_enum_member_literal_reference(reference)
+
+    assert deepcopy(data_type)._enum_member_literal_reference is reference
 
 
 def test_msgspec_simple_unset_fast_path_falls_back_for_nested_optional_union() -> None:
@@ -3200,18 +3191,18 @@ def test_field_import_fallback_collects_explicit_typing_names_with_ast() -> None
 
 
 def test_field_import_fallback_collects_dict_key_typing_names() -> None:
-    """Test dict key annotations contribute structured typing imports."""
+    """Test dict key annotations contribute structured typing imports, beside the Any written for the missing value."""
     field = DataModelFieldBase(
         name="a",
         data_type=DataType(is_dict=True, dict_key=DataType(type="Optional[str]")),
         required=True,
     )
 
-    assert field.imports == (IMPORT_DICT, IMPORT_OPTIONAL)
+    assert field.imports == (IMPORT_ANY, IMPORT_DICT, IMPORT_OPTIONAL)
 
 
 def test_field_import_fallback_collects_nullable_reference_in_union() -> None:
-    """Test nullable references inside complex types contribute Optional structurally."""
+    """Test nullable references inside complex types contribute Optional structurally, from the member and the union."""
     reference = Reference(path="#/definitions/User", name="User")
     reference.source = ReferenceSource(nullable=True)
     field = DataModelFieldBase(
@@ -3220,110 +3211,25 @@ def test_field_import_fallback_collects_nullable_reference_in_union() -> None:
         required=True,
     )
 
-    assert field.imports == (IMPORT_OPTIONAL, IMPORT_UNION)
-
-
-def test_field_import_cache_normalizes_union_on_cache_hit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test cached import lookup still applies union Optional side effects."""
-    DataModelFieldBase._field_imports_cache.clear()
-    try:
-        primed_field = DataModelFieldBase(
-            name="a",
-            data_type=DataType(data_types=[DataType(type="str"), DataType(type=NONE)]),
-            required=True,
-        )
-
-        assert primed_field.imports == (IMPORT_OPTIONAL,)
-        assert primed_field.data_type.is_optional is True
-
-        uncached = Mock(side_effect=AssertionError("unexpected uncached import collection"))
-        monkeypatch.setattr(DataModelFieldBase, "_collect_field_imports_uncached", uncached)
-        cached_field = DataModelFieldBase(
-            name="a",
-            data_type=DataType(data_types=[DataType(type="str"), DataType(type=NONE)]),
-            required=True,
-        )
-
-        assert cached_field.data_type.is_optional is False
-        assert cached_field.imports == (IMPORT_OPTIONAL,)
-        assert cached_field.data_type.is_optional is True
-        uncached.assert_not_called()
-    finally:
-        DataModelFieldBase._field_imports_cache.clear()
+    assert field.imports == (IMPORT_OPTIONAL, IMPORT_OPTIONAL, IMPORT_UNION)
+    assert field.data_type.data_types[0].is_optional is False
 
 
 def test_field_import_cache_distinguishes_fixed_tuple_item_count() -> None:
-    """Fixed-length empty and Any tuples need distinct cached imports."""
-    DataModelFieldBase._field_imports_cache.clear()
-    try:
-        empty_tuple = DataModelFieldBase(
-            name="empty",
-            data_type=DataType(is_tuple=True, tuple_item_count=0),
-            required=True,
-        )
-        any_tuple = DataModelFieldBase(
-            name="values",
-            data_type=DataType(is_tuple=True, tuple_item_count=2),
-            required=True,
-        )
+    """Fixed-length empty and Any tuples need distinct imports."""
+    empty_tuple = DataModelFieldBase(
+        name="empty",
+        data_type=DataType(is_tuple=True, tuple_item_count=0),
+        required=True,
+    )
+    any_tuple = DataModelFieldBase(
+        name="values",
+        data_type=DataType(is_tuple=True, tuple_item_count=2),
+        required=True,
+    )
 
-        assert empty_tuple.imports == (Import.from_full_path("typing.Tuple"),)
-        assert any_tuple.imports == (IMPORT_ANY, Import.from_full_path("typing.Tuple"))
-    finally:
-        DataModelFieldBase._field_imports_cache.clear()
-
-
-def test_field_import_cache_normalizes_nullable_reference_on_cache_hit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test cached import lookup still applies reference nullable side effects."""
-    DataModelFieldBase._field_imports_cache.clear()
-    try:
-        primed_reference = Reference(path="#/definitions/User", name="User")
-        primed_reference.source = ReferenceSource(nullable=True)
-        primed_field = DataModelFieldBase(
-            name="user",
-            data_type=DataType(data_types=[DataType(reference=primed_reference), DataType(type="int")]),
-            required=True,
-        )
-
-        assert primed_field.imports == (IMPORT_OPTIONAL, IMPORT_UNION)
-        assert primed_field.data_type.data_types[0].is_optional is True
-
-        uncached = Mock(side_effect=AssertionError("unexpected uncached import collection"))
-        monkeypatch.setattr(DataModelFieldBase, "_collect_field_imports_uncached", uncached)
-        cached_reference = Reference(path="#/definitions/User", name="User")
-        cached_reference.source = ReferenceSource(nullable=True)
-        cached_field = DataModelFieldBase(
-            name="user",
-            data_type=DataType(data_types=[DataType(reference=cached_reference), DataType(type="int")]),
-            required=True,
-        )
-
-        assert cached_field.data_type.data_types[0].is_optional is False
-        assert cached_field.imports == (IMPORT_OPTIONAL, IMPORT_UNION)
-        assert cached_field.data_type.data_types[0].is_optional is True
-        uncached.assert_not_called()
-    finally:
-        DataModelFieldBase._field_imports_cache.clear()
-
-
-def test_field_import_cache_evicts_oldest_entry() -> None:
-    """Test the bounded field imports cache evicts the oldest entry."""
-    DataModelFieldBase._field_imports_cache.clear()
-    original_max_size = DataModelFieldBase._FIELD_IMPORTS_CACHE_MAX_SIZE
-    try:
-        DataModelFieldBase._FIELD_IMPORTS_CACHE_MAX_SIZE = 1
-        field = DataModelFieldBase(name="a", data_type=DataType(type="str"), required=True)
-        first_key: tuple[Any, ...] = ("first",)
-        second_key: tuple[Any, ...] = ("second",)
-
-        field._set_cached_field_imports(first_key, ())
-        field._set_cached_field_imports(second_key, (IMPORT_OPTIONAL,))
-
-        assert first_key not in DataModelFieldBase._field_imports_cache
-        assert DataModelFieldBase._field_imports_cache[second_key] == (IMPORT_OPTIONAL,)
-    finally:
-        DataModelFieldBase._FIELD_IMPORTS_CACHE_MAX_SIZE = original_max_size
-        DataModelFieldBase._field_imports_cache.clear()
+    assert empty_tuple.imports == (Import.from_full_path("typing.Tuple"),)
+    assert any_tuple.imports == (IMPORT_ANY, Import.from_full_path("typing.Tuple"))
 
 
 @pytest.mark.parametrize(
@@ -3423,13 +3329,6 @@ def test_field_import_fallback_keeps_union_operator_optional_in_forward_ref_mode
     model.has_forward_reference = True
 
     assert field.imports == ()
-
-
-def test_typing_import_requirements_ignore_unknown_import_name() -> None:
-    """Test unknown annotation names leave structured import requirements unchanged."""
-    requirements = _TypingImportRequirements(optional=True)
-
-    assert requirements.with_import_name("Literal") is requirements
 
 
 def test_annotation_typing_import_names_ignores_invalid_annotation() -> None:

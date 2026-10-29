@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.contrib.auth.models", "django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
@@ -7,11 +10,15 @@ from allianceauth.hooks import get_hooks
 
 from .forms import FleetFormatterForm
 
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 
 @login_required
-def fleet_formatter_view(request):
+def fleet_formatter_view(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"fleet_formatter_view called by user {request.user}")
     generated = ""
     if request.method == 'POST':
@@ -41,7 +48,7 @@ def fleet_formatter_view(request):
 
 
 @login_required
-def services_view(request):
+def services_view(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"services_view called by user {request.user}")
     context = {'service_ctrls': []}
     for fn in get_hooks('services_hook'):
@@ -53,5 +60,5 @@ def services_view(request):
     return render(request, 'services/services.html', context=context)
 
 
-def superuser_test(user):
+def superuser_test(user: "User") -> bool:
     return user.is_superuser

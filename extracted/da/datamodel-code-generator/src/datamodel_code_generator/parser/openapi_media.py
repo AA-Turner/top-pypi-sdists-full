@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from typing import Literal, TypeAlias
+
+from typing_extensions import final
+
+from datamodel_code_generator._records import record
 
 MediaOwner: TypeAlias = Literal["request_body", "response", "parameter", "header"]
 IgnoredEncodingReason: TypeAlias = Literal["oas_encoding_request_body_only", "oas_encoding_media_not_applicable"]
@@ -17,7 +20,8 @@ _PARAMETER = re.compile(
 )
 
 
-@dataclass(frozen=True, slots=True)
+@final
+@record
 class MediaType:
     """Retain normalized type tokens and ordered, unescaped parameter values."""
 
@@ -44,9 +48,14 @@ def parse_media_type(value: str) -> MediaType:
     return MediaType(match["type"].lower(), match["subtype"].lower(), tuple(parameters))
 
 
+def encoding_applies(owner: MediaOwner, *, openapi_32: bool) -> bool:
+    """Return whether an encoding under ``owner`` applies in the OpenAPI version, before its media type is read."""
+    return openapi_32 or owner == "request_body"
+
+
 def encoding_media(value: str, owner: MediaOwner, *, openapi_32: bool) -> MediaType | IgnoredEncodingReason:
     """Apply version/location before media, without inspecting ignored children."""
-    if not openapi_32 and owner != "request_body":
+    if not encoding_applies(owner, openapi_32=openapi_32):
         return "oas_encoding_request_body_only"
     media = parse_media_type(value)
     if media.type != "multipart" and (media.type, media.subtype) != ("application", "x-www-form-urlencoded"):

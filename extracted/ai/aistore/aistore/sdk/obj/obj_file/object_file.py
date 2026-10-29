@@ -2,9 +2,10 @@
 # Copyright (c) 2025-2026, NVIDIA CORPORATION. All rights reserved.
 #
 
-from io import BufferedIOBase, BufferedWriter
+from io import BufferedIOBase
 from sys import maxsize as sys_maxsize
 from typing import Optional
+from warnings import warn
 
 from overrides import override
 
@@ -26,12 +27,15 @@ class ObjectFileReader(BufferedIOBase):
 
     In case of unexpected stream interruptions (e.g. `ChunkedEncodingError`, `ConnectionError`) or timeouts (e.g.
     `ReadTimeout`), the `read()` method automatically retries and resumes fetching data from the last successfully
-    retrieved chunk. The `max_resume` parameter controls how many retry attempts are made before an error is raised.
+    retrieved chunk. The `max_resume` parameter limits consecutive retry attempts without forward progress.
+    Total retry count is unlimited as long as reads continue to fetch new bytes.
+
+    Entering a context restarts the reader from the beginning, even after `close()`.
 
     Args:
         content_provider (BaseContentIterProvider): A provider that creates iterators which
             can fetch object data from AIS in chunks.
-        max_resume (int): Maximum number of resumes allowed for a single pass over the object.
+        max_resume (int): Maximum consecutive retry attempts without forward progress.
     """
 
     def __init__(self, content_provider: BaseContentIterProvider, max_resume: int):
@@ -48,6 +52,11 @@ class ObjectFileReader(BufferedIOBase):
     def __enter__(self):
         self._reset()
         return self
+
+    @property
+    def closed(self) -> bool:
+        """Return whether the file is closed."""
+        return self._closed
 
     @override
     def readable(self) -> bool:
@@ -75,45 +84,37 @@ class ObjectFileReader(BufferedIOBase):
             raise ValueError("I/O operation on closed file.")
         if size == 0:
             return b""
-        if size is None:
-            size = -1
-
-        # Maximum possible size if size is negative
-        size = sys_maxsize if size < 0 else size
-
-        result = []
+        if size is None or size < 0:
+            size = sys_maxsize
 
         try:
-            # Consume any remaining data from a previous chunk before fetching new data
-            if self._remainder:
-                if size < len(self._remainder):
-                    result.append(self._remainder[:size])
-                    self._remainder = self._remainder[size:]
-                    size = 0
-                else:
-                    result.append(self._remainder)
-                    size -= len(self._remainder)
-                    self._remainder = None
-
-            # Fetch new chunks from the stream as needed
-            while size:
+            chunk = self._remainder
+            if not chunk:
                 chunk = next(self._stream, None)
                 if chunk is None:
-                    break
+                    return b""
 
-                # Add the part of the chunk that fits within the requested size and
-                # store any leftover data for the next read
-                if size < len(chunk):
-                    result.append(chunk[:size])
-                    self._remainder = chunk[size:]
-                    size = 0
-                else:
-                    result.append(chunk)
-                    self._remainder = None
-                    size -= len(chunk)
+            chunk_size = len(chunk)
+            if size < chunk_size:
+                self._remainder = chunk[size:]
+                return bytes(chunk[:size])
+
+            self._remainder = None
+            if size == chunk_size:
+                # A full view of plain bytes needs no additional copy.
+                data = chunk.obj
+                if (
+                    type(data) is bytes  # pylint: disable=unidiomatic-typecheck
+                    and chunk_size == len(data)
+                    and chunk.c_contiguous
+                ):
+                    return data
+                return bytes(chunk)
+
+            size -= chunk_size
+            result = self._read_chunks(chunk, size)
 
         except Exception as err:
-            # Handle any unexpected errors, log them with context, close the file, and re-raise
             logger.error(
                 "Error while reading object at '%s': %s. Closing file.",
                 self._stream.path,
@@ -123,8 +124,24 @@ class ObjectFileReader(BufferedIOBase):
             self.close()
             raise err
 
-        # Assemble the final bytes object with a single data copy
         return b"".join(result)
+
+    def _read_chunks(self, first_chunk: memoryview, size: int) -> list[memoryview]:
+        """Collect the first chunk and up to size additional bytes, buffering any excess."""
+        result = [first_chunk]
+        while size:
+            chunk = next(self._stream, None)
+            if chunk is None:
+                break
+
+            chunk_size = len(chunk)
+            if size < chunk_size:
+                result.append(chunk[:size])
+                self._remainder = chunk[size:]
+                break
+            result.append(chunk)
+            size -= chunk_size
+        return result
 
     @override
     def close(self) -> None:
@@ -133,9 +150,18 @@ class ObjectFileReader(BufferedIOBase):
         self._stream.close()
 
 
-class ObjectFileWriter(BufferedWriter):
+class ObjectFileWriter(BufferedIOBase):
     """
-    A file-like writer object for AIStore, extending `BufferedWriter`.
+    A file-like writer object for AIStore, extending `BufferedIOBase`.
+
+    Writes go directly to AIStore; no local write buffer is added. Use a context
+    manager or call `close()` to finalize the object. Finalization only warns
+    if the writer is left open; it does not send requests to the cluster.
+
+    Write mode truncates the object when the writer is created. Entering a
+    context preserves any data already written by the open writer. Entering a
+    context with a closed writer raises `ValueError`. Create a new writer with
+    `ObjectWriter.as_file()` to write again.
 
     Args:
         obj_writer (ObjectWriter): The ObjectWriter instance for handling write operations.
@@ -150,17 +176,27 @@ class ObjectFileWriter(BufferedWriter):
         self._obj_writer = obj_writer
         self._mode = mode
         self._handle = ""
+        self._closed = True
+        if self._mode == "w":
+            self._obj_writer.put_content(b"")
         self._closed = False
-        if self._mode == "w":
-            self._obj_writer.put_content(b"")
+
+    @property
+    def closed(self) -> bool:
+        """Return whether the file is closed."""
+        return self._closed
+
+    def __del__(self) -> None:
+        # The inherited finalizer calls close(), which can send a remote flush.
+        if not getattr(self, "_closed", True):
+            warn(f"unclosed {self!r}", ResourceWarning, source=self)
 
     @override
-    def __enter__(self, *args, **kwargs):
-        if self._mode == "w":
-            self._obj_writer.put_content(b"")
-        return self
+    def writable(self) -> bool:
+        """Return whether the file is writable."""
+        return not self.closed
 
-    @override
+    @override(check_signature=False)  # Preserve the public buffer keyword.
     def write(self, buffer: bytes) -> int:
         """
         Write data to the object.

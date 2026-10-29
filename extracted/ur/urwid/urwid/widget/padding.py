@@ -23,8 +23,7 @@ from .widget_decoration import WidgetDecoration, WidgetError, WidgetWarning
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterator
-
-    from typing_extensions import Literal
+    from typing import Literal
 
     from .widget import AbstractFlowWidget, AbstractWidget
 
@@ -131,23 +130,42 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         super().__init__(w)
 
         # convert obsolete parameters 'fixed left' and 'fixed right':
+        normalized_align: (
+            Literal["left", "center", "right"] | Align | tuple[Literal["relative", WHSettings.RELATIVE], int]
+        )
         if isinstance(align, tuple) and align[0] in {"fixed left", "fixed right"}:
             if align[0] == "fixed left":
                 left = align[1]
-                align = Align.LEFT
             else:
                 right = align[1]
-                align = Align.RIGHT
+            normalized_align = Align.LEFT if align[0] == "fixed left" else Align.RIGHT
+        elif isinstance(align, tuple):
+            # 'fixed left'/'fixed right' handled above, so only the relative form remains.
+            normalized_align = typing.cast("tuple[Literal['relative', WHSettings.RELATIVE], int]", align)
+        else:
+            normalized_align = align
+        normalized_width: (
+            int
+            | Literal["pack", "clip", WHSettings.PACK, WHSettings.CLIP]
+            | tuple[Literal["relative", WHSettings.RELATIVE], int]
+        )
         if isinstance(width, tuple) and width[0] in {"fixed left", "fixed right"}:
             if width[0] == "fixed left":
                 left = width[1]
             else:
                 right = width[1]
-            width = RELATIVE_100
+            normalized_width = RELATIVE_100
 
         # convert old clipping mode width=None to width='clip'
-        if width is None:
-            width = WHSettings.CLIP
+        elif width is None:
+            normalized_width = WHSettings.CLIP
+
+        elif isinstance(width, tuple):
+            # 'fixed left'/'fixed right' handled above, so only the relative form remains.
+            normalized_width = typing.cast("tuple[Literal['relative', WHSettings.RELATIVE], int]", width)
+
+        else:
+            normalized_width = width
 
         self.left = left
         self.right = right
@@ -156,8 +174,8 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         self._width_type: Literal[WHSettings.CLIP, WHSettings.PACK, WHSettings.GIVEN, WHSettings.RELATIVE]
         self._width_amount: int | None
 
-        self._align_type, self._align_amount = normalize_align(align, PaddingError)  # type: ignore[arg-type]
-        self._width_type, self._width_amount = normalize_width(width, PaddingError)  # type: ignore[arg-type]
+        self._align_type, self._align_amount = normalize_align(normalized_align, PaddingError)
+        self._width_type, self._width_amount = normalize_width(normalized_width, PaddingError)
         self.min_width = min_width
 
     def sizing(self) -> frozenset[Sizing]:
@@ -167,6 +185,8 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         * width == CLIP: only FLOW is supported, and wrapped widget should support FIXED
         * width == GIVEN: FIXED is supported, and wrapped widget should support FLOW
         * All other cases: use sizing of target widget
+
+        :warns PaddingWarning: the width is GIVEN and the wrapped widget supports neither FLOW nor BOX sizing.
         """
         if self._width_type == WHSettings.CLIP:
             return frozenset((Sizing.FLOW,))
@@ -250,6 +270,8 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
 
         :raises PaddingError: this Padding uses ``CLIP``, which makes it FLOW-only, or its width type does not resolve
             to a fixed size.
+        :warns PaddingWarning: the wrapped widget does not support the sizing a FIXED pack needs:
+            FLOW for a GIVEN width, FIXED otherwise.
         """
         if size:
             return super().pack(size, focus)
@@ -301,6 +323,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         Render the Padding and return the resulting canvas.
 
         :raises ValueError: the Padding is empty and no *size* was given.
+        :warns PaddingWarning: the width is GIVEN and *size* is too narrow for it.
         """
         left, right = self.padding_values(size, focus)
 
@@ -324,8 +347,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
             if not size:
                 raise ValueError(f"{self}.render(size={size}, focus={focus}): size is required for empty widget")
 
-            canv = SolidCanvas(" ", size[0], canv.rows())
-            canv = CompositeCanvas(canv)
+            canv = CompositeCanvas(SolidCanvas(" ", size[0], canv.rows()))
             canv.set_depends([self._original_widget])
             return canv
 
@@ -453,12 +475,12 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
     def move_cursor_to_coords(
         self,
         size: tuple[()] | tuple[int] | tuple[int, int],
-        x: int,
+        x: int | Literal["left", "right", Align.LEFT, Align.RIGHT],
         y: int,
     ) -> bool:
         """Set the cursor position with (x,y) coordinates of self._original_widget.
 
-        Returns True if move succeeded, False otherwise.
+        :returns: True if move succeeded, False otherwise.
         """
         if not hasattr(self._original_widget, "move_cursor_to_coords"):
             return True
@@ -504,7 +526,10 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
 
         return self._original_widget.mouse_event(maxvals, event, button, col - left, row, focus)
 
-    def get_pref_col(self, size: tuple[()] | tuple[int] | tuple[int, int]) -> int | None:
+    def get_pref_col(
+        self,
+        size: tuple[()] | tuple[int] | tuple[int, int],
+    ) -> int | Literal["left", "right", Align.LEFT, Align.RIGHT] | None:
         """Return the preferred column from self._original_widget, or None."""
         if not hasattr(self._original_widget, "get_pref_col"):
             return None
@@ -515,7 +540,7 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         else:
             maxvals = ()
 
-        x = typing.cast("int | None", self._original_widget.get_pref_col(maxvals))
+        x: int | Literal["left", "right", Align.LEFT, Align.RIGHT] | None = self._original_widget.get_pref_col(maxvals)
         if isinstance(x, int):
             return x + left
         return x
@@ -572,6 +597,7 @@ def calculate_left_right_padding(
 ) -> tuple[int, int]:
     """Return the amount of padding (or clipping) on the left and right part of maxcol columns.
 
+    :param maxcol: number of columns available
     :param align_type: 'left', 'center', 'right', 'relative'
     :param align_amount: a percentage when align_type=='relative'
     :param width_type: 'fixed', 'relative', 'clip'

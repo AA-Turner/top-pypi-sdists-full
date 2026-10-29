@@ -1599,33 +1599,20 @@ async def kind_activate(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             if ctx_is_admin(ctx)
             else nullcontext()
         )
-        try:
-            async with lane:
-                raw = await call_function(
-                    KindDefinition._database,
-                    "content_ir",
-                    "set_kind_activation",
-                    str(kd.id),
-                    active,
-                    note,
-                    ctx_user_id(ctx),
-                    mode="scalar",
-                )
-        except Exception as gate_err:
-            # The gate raises with the missing-asset reasons inlined; surface
-            # them to the agent verbatim so it knows exactly what to build.
-            msg = str(gate_err)
-            if "failed the dual gate" in msg:
-                return err(
-                    "validation",
-                    f'kind "{kd.kind}" cannot be activated yet — {msg}',
-                    suggested=(
-                        "Create the missing asset, then call kind_activate again. A missing "
-                        "render leg is closed by kindcomp_create_component; a missing "
-                        "structural leg by kind_add_example with is_canonical=true."
-                    ),
-                )
-            raise
+        # content_ir.set_kind_activation never refuses on the dual gate any more: it activates
+        # and returns the gate's missing-asset reasons as `warnings` in its verdict (read below).
+        # The old branch matched the words "failed the dual gate", which no live function raises.
+        async with lane:
+            raw = await call_function(
+                KindDefinition._database,
+                "content_ir",
+                "set_kind_activation",
+                str(kd.id),
+                active,
+                note,
+                ctx_user_id(ctx),
+                mode="scalar",
+            )
         verdict = json.loads(raw) if isinstance(raw, str) else raw
 
         # The catalog caches `is_active`; without this the kind stays invisible

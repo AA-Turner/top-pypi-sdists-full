@@ -1,0 +1,17 @@
+name: connector-regression-eu
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: |
+  Pulumi Infrastructure as Code for EU connector regression testing.
+
+  This project manages:
+  - Google Cloud Batch infrastructure in europe-west9 (GDPR data residency)
+  - A dedicated VPC with no external IPs (Cloud NAT egress only)
+  - A short-lived output bucket (2-day lifecycle) and a regional log bucket
+    (2-day retention) for Batch and Cloud NAT logs
+  - Bucket IAM for the Batch job service account; project-level and
+    service-account IAM are one-time owner grants (see BOOTSTRAP.md)
+
+  Tracking issue: https://github.com/airbytehq/airbyte-ops-mcp/issues/1480

@@ -40,6 +40,8 @@ __all__ = (
     "DeploymentStatusType",
     "DeploymentStrategyType",
     "DescribePackagesFilterNameType",
+    "DiffFieldPolicyType",
+    "DiffStatusType",
     "DomainHealthType",
     "DomainPackageStatusType",
     "DomainProcessingStatusTypeType",
@@ -86,6 +88,8 @@ __all__ = (
     "PrincipalTypeType",
     "PropertyValueTypeType",
     "RegionName",
+    "ReplicationRoleType",
+    "ReplicationStatusType",
     "RequirementLevelType",
     "ReservedInstancePaymentOptionType",
     "ResourceServiceName",
@@ -156,6 +160,8 @@ DeploymentStrategyType = Literal["CapacityOptimized", "Default"]
 DescribePackagesFilterNameType = Literal[
     "EngineVersion", "PackageID", "PackageName", "PackageOwner", "PackageStatus", "PackageType"
 ]
+DiffFieldPolicyType = Literal["redacted"]
+DiffStatusType = Literal["compared", "error"]
 DomainHealthType = Literal["Green", "NotAvailable", "Red", "Yellow"]
 DomainPackageStatusType = Literal[
     "ACTIVE", "ASSOCIATING", "ASSOCIATION_FAILED", "DISSOCIATING", "DISSOCIATION_FAILED"
@@ -352,6 +358,17 @@ PackageTypeType = Literal["PACKAGE-CONFIG", "PACKAGE-LICENSE", "TXT-DICTIONARY",
 PauseStateType = Literal["Active", "Completed", "Disabled", "Scheduled"]
 PrincipalTypeType = Literal["AWS_ACCOUNT", "AWS_SERVICE"]
 PropertyValueTypeType = Literal["PLAIN_TEXT", "STRINGIFIED_JSON"]
+ReplicationRoleType = Literal["PRIMARY", "SECONDARY"]
+ReplicationStatusType = Literal[
+    "ACTIVE",
+    "DETACHED",
+    "EJECTED",
+    "FAILED",
+    "FAILING_OVER",
+    "PENDING_REMOVAL",
+    "PENDING_SETUP",
+    "SWITCHING_OVER",
+]
 RequirementLevelType = Literal["NONE", "OPTIONAL", "REQUIRED"]
 ReservedInstancePaymentOptionType = Literal["ALL_UPFRONT", "NO_UPFRONT", "PARTIAL_UPFRONT"]
 RolesKeyIdCOptionType = Literal["GroupId", "GroupName"]
@@ -488,6 +505,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -539,8 +557,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -794,7 +810,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

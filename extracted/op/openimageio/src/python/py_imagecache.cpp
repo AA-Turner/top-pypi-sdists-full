@@ -11,10 +11,7 @@ class ImageCacheWrap {
 public:
     std::shared_ptr<ImageCache> m_cache;
 
-    ImageCacheWrap(bool shared = true)
-        : m_cache(ImageCache::create(shared))
-    {
-    }
+    ImageCacheWrap(bool shared = true) : m_cache(ImageCache::create(shared)) {}
     ImageCacheWrap(const ImageCacheWrap&) = delete;
     ImageCacheWrap(ImageCacheWrap&&)      = delete;
     ~ImageCacheWrap() {}  // will call the deleter on the IC
@@ -48,8 +45,14 @@ ImageCacheWrap::get_pixels(const std::string& filename_, int subimage,
                                  ustring("channels"), TypeDesc::INT, &chend))
         return py::none();  // couldn't open file
 
-    size_t size = size_t((xend - xbegin) * (yend - ybegin) * (zend - zbegin)
-                         * (chend - chbegin) * datatype.size());
+    if (xend < xbegin || yend < ybegin || zend < zbegin)
+        return py::none();
+    imagesize_t npixels
+        = clamped_mult64(clamped_mult64(imagesize_t(int64_t(xend) - xbegin),
+                                        imagesize_t(int64_t(yend) - ybegin)),
+                         imagesize_t(int64_t(zend) - zbegin));
+    imagesize_t size = clamped_mult64(npixels, imagesize_t(chend - chbegin)
+                                                   * datatype.size());
     std::unique_ptr<char[]> data(new char[size]);
     bool ok;
     {

@@ -6,8 +6,10 @@ import re
 import runpy
 import shutil
 import sys
+import tarfile
 import tempfile
 import webbrowser
+import zipfile
 from functools import partial
 from typing import TYPE_CHECKING, Final
 from unittest.mock import MagicMock, create_autospec
@@ -274,6 +276,98 @@ def test_cli_index_empty_project(
     captured: Final = capsys.readouterr()
 
     assert (code, json.loads(captured.out), captured.err) == (0, [], "")
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(["member"], "member==2\n", id="generated"),
+        pytest.param(["--pyproject", "project/pyproject.toml"], "member==1\n", id="pyproject"),
+    ],
+)
+def test_cli_index_workspace_above_project(
+    entry_point: Callable[[Sequence[str] | None], int | None],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    source: list[str],
+    expected: str,
+) -> None:
+    (tmp_path / "nab.toml").write_text('[workspace]\nmembers = ["member"]\n')
+    for name, dependencies in (("member", []), ("project", ["member"])):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "pyproject.toml").write_text(
+            f'[project]\nname = "{name}"\nversion = "1"\ndependencies = {dependencies}\n'
+        )
+    index: Final = tmp_path / "index"
+    index.mkdir()
+    with zipfile.ZipFile(index / "member-2-py3-none-any.whl", "w") as wheel:
+        wheel.writestr("member-2.dist-info/METADATA", "Metadata-Version: 2.1\nName: member\nVersion: 2\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("NAB_CACHE_DIR", str(tmp_path / "cache"))
+    for name in ("TMPDIR", "TMP", "TEMP"):
+        monkeypatch.setenv(name, str(tmp_path))
+
+    code: Final = entry_point(["from-index", *source, "--index-url", index.as_uri()])
+
+    assert (code, capsys.readouterr().out) == (0, expected)
+
+
+def test_cli_index_local_source_leaves_index_sdist_unbuilt(
+    entry_point: Callable[[Sequence[str] | None], int | None],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    built: Final = tmp_path / "built"
+    _write_dynamic_project(tmp_path / "remote-1", "remote", built)
+    index: Final = tmp_path / "index"
+    index.mkdir()
+    with tarfile.open(index / "remote-1.tar.gz", "w:gz") as archive:
+        archive.add(tmp_path / "remote-1", "remote-1")
+    local: Final = tmp_path / "local"
+    local.mkdir()
+    (local / "pyproject.toml").write_text('[project]\nname = "local"\nversion = "1"\ndependencies = ["remote"]\n')
+    monkeypatch.setenv("NAB_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.chdir(tmp_path)
+
+    entry_point(["from-index", "./local", "--index-url", index.as_uri()])
+
+    assert (built.exists(), "remote: every version in range was rejected" in capsys.readouterr().err) == (False, True)
+
+
+def test_cli_index_builds_dynamic_local_source(
+    entry_point: Callable[[Sequence[str] | None], int | None],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _write_dynamic_project(tmp_path / "local", "local", tmp_path / "built")
+    index: Final = tmp_path / "index"
+    index.mkdir()
+    monkeypatch.setenv("NAB_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.chdir(tmp_path)
+
+    code: Final = entry_point(["from-index", "./local", "--index-url", index.as_uri()])
+
+    assert (code, capsys.readouterr().out) == (0, "local==1\n")
+
+
+def _write_dynamic_project(directory: Path, name: str, marker: Path) -> None:
+    (directory / "hooks").mkdir(parents=True)
+    (directory / "pyproject.toml").write_text(
+        '[build-system]\nrequires = []\nbuild-backend = "backend"\nbackend-path = ["hooks"]\n'
+        f'[project]\nname = "{name}"\nversion = "1"\ndynamic = ["dependencies"]\n'
+    )
+    (directory / "PKG-INFO").write_text(f"Metadata-Version: 2.1\nName: {name}\nVersion: 1\n")
+    (directory / "hooks" / "backend.py").write_text(
+        f"import os\nopen({str(marker)!r}, 'w').close()\n"
+        "def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):\n"
+        f"    os.mkdir(os.path.join(metadata_directory, '{name}-1.dist-info'))\n"
+        f"    with open(os.path.join(metadata_directory, '{name}-1.dist-info', 'METADATA'), 'w') as metadata:\n"
+        f"        metadata.write('Metadata-Version: 2.1\\nName: {name}\\nVersion: 1\\n')\n"
+        f"    return '{name}-1.dist-info'\n"
+    )
 
 
 def test_module_entrypoint(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

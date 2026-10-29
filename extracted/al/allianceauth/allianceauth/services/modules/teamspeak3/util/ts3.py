@@ -1,12 +1,56 @@
 import logging
+from typing import Any
 
-from telnetlib3 import telnetlib
+import select
+import socket
 
 
-class ConnectionError:
-    def __init__(self, ip, port):
+class _TS3Connection:
+    """Line-based TCP client for the TS3 ServerQuery protocol (no telnet negotiation)."""
+
+    def __init__(self, host, port, timeout=5):
+        self._socket = socket.create_connection((host, port), timeout=timeout)
+        self._buffer = b""
+        self._poller = select.poll()
+        self._poller.register(self._socket, select.POLLIN)
+
+    def read_until(self, match):
+        while match not in self._buffer:
+            chunk = self._socket.recv(4096)
+            if not chunk:
+                raise EOFError('connection closed by remote host')
+            self._buffer += chunk
+        end = self._buffer.find(match) + len(match)
+        data, self._buffer = self._buffer[:end], self._buffer[end:]
+        return data
+
+    def read_very_eager(self):
+        while self._poller.poll(0):
+            try:
+                chunk = self._socket.recv(4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            self._buffer += chunk
+        data, self._buffer = self._buffer, b""
+        return data
+
+    def write(self, payload):
+        self._socket.sendall(payload)
+
+    def close(self):
+        # Unregister while fileno() is still valid; skip if already closed.
+        if self._socket.fileno() != -1:
+            self._poller.unregister(self._socket)
+        self._socket.close()
+
+
+class ConnectionError(Exception):
+    def __init__(self, ip: str, port: int) -> None:
         self.ip = ip
         self.port = port
+        super().__init__(f'Error connecting to host {ip} port {port}')
 
     def __str__(self) -> str:
         return f'Error connecting to host {self.ip} port {self.port}'
@@ -32,26 +76,38 @@ class TS3Proto:
 
     EOL = b'\n\r'
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._log = logging.getLogger(f'{__name__}.{self.__class__.__name__}')
         self._conn = None
         self._connected = False
+        self._ip = None
+        self._port = None
 
-    def connect(self, ip, port):
+    def connect(self, ip: str, port: int) -> bool | None:
+        self._ip = ip
+        self._port = port
         try:
-            self._conn = telnetlib.Telnet(host=ip, port=port, timeout=5)
-            self._connected = True
-        except Exception:
-            # raise ConnectionError(ip, port)
-            raise
+            self._conn = _TS3Connection(ip, port, timeout=5)
+        except OSError as exc:
+            raise ConnectionError(ip, port) from exc
 
-        data = self._conn.read_until(self.EOL)
-        if data.strip() == "TS3":
-            self._conn.read_very_eager()  # Clear buffer
-            self._connected = True
-            return True
+        try:
+            greeting = self._conn.read_until(self.EOL)
+        except (OSError, EOFError) as exc:
+            self._conn.close()
+            self._conn = None
+            raise ConnectionError(ip, port) from exc
 
-    def disconnect(self):
+        if greeting.strip() != b'TS3':
+            self._conn.close()
+            self._conn = None
+            raise ConnectionError(ip, port)
+
+        self._conn.read_very_eager()  # discard the welcome banner
+        self._connected = True
+        return True
+
+    def disconnect(self) -> None:
         if self._connected:
             try:
                 self.send("quit")
@@ -63,7 +119,7 @@ class TS3Proto:
         else:
             self._log.info("Not connected")
 
-    def send_command(self, command, keys=None, opts=None):
+    def send_command(self, command: str, keys: dict[str, Any] | None = None, opts: list[str] | None = None):
         cmd = self.construct_command(command, keys=keys, opts=opts)
 
         # Clear read buffer of any stray bytes
@@ -76,7 +132,10 @@ class TS3Proto:
 
         max_loop = 10000
         while True:
-            resp = self._conn.read_until(self.EOL)
+            try:
+                resp = self._conn.read_until(self.EOL)
+            except (OSError, EOFError) as exc:
+                raise ConnectionError(self._ip, self._port) from exc
             resp = self.parse_command(resp.decode('utf-8'))
             if 'command' in resp:
                 break
@@ -91,19 +150,23 @@ class TS3Proto:
         # Clear read buffer of any stray bytes
         self._conn.read_very_eager()
 
-        if resp['command'] == 'error':
-            if resp['keys']['id'] == '0':
-                if data:
-                    if len(data) > 1:
-                        return data
-                    else:
-                        return data[0]
-                else:
-                    return resp['keys']['id']
-            else:
-                raise TeamspeakError(resp['keys']['id'])
+        if resp.get('command') != 'error':
+            raise ConnectionError(self._ip, self._port)
 
-    def construct_command(self, command, keys=None, opts=None):
+        if resp['keys']['id'] == '0':
+            if data:
+                if len(data) > 1:
+                    return data
+                else:
+                    return data[0]
+            else:
+                return resp['keys']['id']
+        else:
+            raise TeamspeakError(resp['keys']['id'])
+
+    def construct_command(
+        self, command: str, keys: dict[str, Any] | None = None, opts: list[str] | None = None
+    ) -> str:
         """
         Constructs a TS3 formatted command string
         Keys can have a single nested list to construct a nested parameter
@@ -135,7 +198,7 @@ class TS3Proto:
 
         return " ".join(cstr)
 
-    def parse_command(self, commandstr):
+    def parse_command(self, commandstr: str):
         """
         Parses a TS3 command string into command/keys/opts tuple
         @param commandstr: Command string
@@ -153,7 +216,7 @@ class TS3Proto:
         keys = {}
         opts = []
 
-        for key in cmdlist:
+        for idx, key in enumerate(cmdlist):
             v = key.strip().split('=')
             if len(v) > 1:
                 # Key
@@ -166,8 +229,12 @@ class TS3Proto:
                 if v[0][0] and v[0][0] == '-':
                     # Option
                     opts.append(v[0][1:])
-                else:
+                elif idx == 0:
+                    # Leading bare token is the command/notify name
                     command = v[0]
+                else:
+                    # A bare token elsewhere is a key with an empty value
+                    keys[v[0]] = ''
 
         d = {'keys': keys, 'opts': opts}
         if command:
@@ -175,7 +242,7 @@ class TS3Proto:
         return d
 
     @staticmethod
-    def _escape_str(value):
+    def _escape_str(value: str | int) -> str:
         """
         Escape a value into a TS3 compatible string
         @param value: Value
@@ -190,7 +257,7 @@ class TS3Proto:
         return value
 
     @staticmethod
-    def _unescape_str(value):
+    def _unescape_str(value: str | int) -> str:
         """
         Unescape a TS3 compatible string into a normal string
         @param value: Value
@@ -204,14 +271,17 @@ class TS3Proto:
             value = value.replace(j, i)
         return value
 
-    def send(self, payload):
+    def send(self, payload: str) -> None:
         if self._connected:
             self._log.debug(f'Sent: {payload}')
-            self._conn.write(payload.encode('utf-8'))
+            try:
+                self._conn.write(payload.encode('utf-8'))
+            except OSError as exc:
+                raise ConnectionError(self._ip, self._port) from exc
 
 
 class TS3Server(TS3Proto):
-    def __init__(self, ip, port, id=0):
+    def __init__(self, ip: str, port: int, id: int = 0) -> None:
         """
         Abstraction class for TS3 Servers
         @param ip: IP Address
@@ -223,7 +293,7 @@ class TS3Server(TS3Proto):
 
         self.connect(ip, port)
 
-    def login(self, username, password):
+    def login(self, username: str, password: str) -> bool:
         """
         Login to the TS3 Server
         @param username: Username
@@ -232,7 +302,7 @@ class TS3Server(TS3Proto):
         @type password: str
         """
         d = self.send_command('login', keys={'client_login_name': username, 'client_login_password': password})
-        if d == 0:
+        if d == '0':
             self._log.info('Login Successful')
             return True
         return False
@@ -244,7 +314,7 @@ class TS3Server(TS3Proto):
         if self._connected:
             return self.send_command('serverlist')
 
-    def gm(self, msg):
+    def gm(self, msg: str):
         """
         Send a global message to the current Virtual Server
         @param msg: Message
@@ -253,7 +323,7 @@ class TS3Server(TS3Proto):
         if self._connected:
             return self.send_command('gm', keys={'msg': msg})
 
-    def use(self, id):
+    def use(self, id: int) -> None:
         """
         Use a particular Virtual Server instance
         @param id: Virtual Server ID
@@ -264,7 +334,7 @@ class TS3Server(TS3Proto):
 
 
 class TeamspeakError(Exception):
-    def __init__(self, code, msg=None):
+    def __init__(self, code: int | str, msg: str | None = None) -> None:
         self.code = str(code)
         if not msg:
             msg = ts3_errors[self.code]

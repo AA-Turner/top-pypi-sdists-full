@@ -49,6 +49,25 @@ test_extra_field_rejected_format2_strict:
   operation: validate_format2_strict
   expect_error: true
 
+test_extra_field_output_valid_format2_lax:
+  fixture: synthetic-extra-field-output.gxwf.yml
+  operation: validate_format2
+
+test_extra_field_output_rejected_format2_strict:
+  fixture: synthetic-extra-field-output.gxwf.yml
+  operation: validate_format2_strict
+  expect_error: true
+
+test_missing_class_rejected_format2:
+  fixture: synthetic-lint-no-class.gxwf.yml
+  operation: validate_format2
+  expect_error: true
+
+test_missing_class_rejected_format2_strict:
+  fixture: synthetic-lint-no-class.gxwf.yml
+  operation: validate_format2_strict
+  expect_error: true
+
 test_missing_steps_rejected_format2:
   fixture: synthetic-missing-steps.gxwf.yml
   operation: validate_format2
@@ -464,3 +483,59 @@ test_text_input_validators_valid_format2:
 test_text_input_validators_valid_format2_strict:
   fixture: synthetic-text-input-validators.gxwf.yml
   operation: validate_format2_strict
+
+test_inline_subworkflow_no_class_valid_format2:
+  fixture: synthetic-inline-subworkflow-no-class.gxwf.yml
+  operation: validate_format2
+
+test_inline_subworkflow_no_class_valid_format2_strict:
+  fixture: synthetic-inline-subworkflow-no-class.gxwf.yml
+  operation: validate_format2_strict
+
+test_color_directory_uri_inputs_valid_format2:
+  fixture: synthetic-color-directory-uri-inputs.gxwf.yml
+  operation: validate_format2
+
+test_color_directory_uri_inputs_valid_format2_strict:
+  fixture: synthetic-color-directory-uri-inputs.gxwf.yml
+  operation: validate_format2_strict
+
+test_validators_on_color_rejected_format2:
+  fixture: synthetic-bad-validators-on-color.gxwf.yml
+  operation: validate_format2
+  expect_error: true
+
+test_validators_on_color_rejected_format2_strict:
+  fixture: synthetic-bad-validators-on-color.gxwf.yml
+  operation: validate_format2_strict
+  expect_error: true
+
+test_restrictions_on_directory_uri_rejected_format2:
+  fixture: synthetic-bad-restrictions-on-directory-uri.gxwf.yml
+  operation: validate_format2
+  expect_error: true
+
+test_restrictions_on_directory_uri_rejected_format2_strict:
+  fixture: synthetic-bad-restrictions-on-directory-uri.gxwf.yml
+  operation: validate_format2_strict
+  expect_error: true
+
+test_multiple_color_rejected_format2:
+  fixture: synthetic-bad-multiple-color.gxwf.yml
+  operation: validate_format2
+  expect_error: true
+
+test_multiple_color_rejected_format2_strict:
+  fixture: synthetic-bad-multiple-color.gxwf.yml
+  operation: validate_format2_strict
+  expect_error: true
+
+test_multiple_directory_uri_rejected_format2:
+  fixture: synthetic-bad-multiple-directory-uri.gxwf.yml
+  operation: validate_format2
+  expect_error: true
+
+test_multiple_directory_uri_rejected_format2_strict:
+  fixture: synthetic-bad-multiple-directory-uri.gxwf.yml
+  operation: validate_format2_strict
+  expect_error: true

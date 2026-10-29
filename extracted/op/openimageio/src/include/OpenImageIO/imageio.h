@@ -366,7 +366,10 @@ public:
     /// Sets the `channelnames` to reasonable defaults for the number of
     /// channels.  Specifically, channel names are set to "R", "G", "B,"
     /// and "A" (up to and including 4 channels, beyond that they are named
-    /// "channel*n*").
+    /// "channel*n*"). If `nchannels` is less than 1, `channelnames` is left
+    /// empty. If it exceeds the `limits:channels` attribute, only that many
+    /// channels are named, and the rest have no entry in `channelnames`
+    /// (`channel_name()` returns an empty string for them).
     void default_channel_names () noexcept;
 
     /// Returns the number of bytes comprising each channel of each pixel
@@ -773,30 +776,42 @@ public:
                                 int defaultqual = -1) const;
 
     /// Helper function to verify that the given pixel range exactly covers a
-    /// set of 2D tiles.  Also returns false if the spec indicates that the
-    /// image isn't tiled at all.
+    /// set of 2D tiles: it must start on a tile boundary within the data
+    /// window, and end on a tile boundary or the edge of the data window.
+    /// Also returns false if the spec indicates that the image isn't tiled
+    /// at all.
     OIIO_NODISCARD bool valid_tile_range (int xbegin, int xend, int ybegin, int yend) noexcept {
-        return (tile_width &&
-                ((xbegin-x) % tile_width)  == 0 &&
-                ((ybegin-y) % tile_height) == 0 &&
-                (((xend-x) % tile_width)  == 0 || (xend-x) == width) &&
-                (((yend-y) % tile_height) == 0 || (yend-y) == height));
+        return (tile_width > 0 && tile_height > 0 &&
+                valid_tile_axis(xbegin, xend, x, width, tile_width) &&
+                valid_tile_axis(ybegin, yend, y, height, tile_height));
     }
 
     /// Helper function to verify that the given pixel range exactly covers a
-    /// set of 3D tiles.  Also returns false if the spec indicates that the
-    /// image isn't tiled at all.
+    /// set of 3D tiles: it must start on a tile boundary within the data
+    /// window, and end on a tile boundary or the edge of the data window.
+    /// Also returns false if the spec indicates that the image isn't tiled
+    /// at all.
     OIIO_NODISCARD bool valid_tile_range (int xbegin, int xend, int ybegin, int yend,
                            int zbegin, int zend) noexcept {
-        return (tile_width &&
-                ((xbegin-x) % tile_width)  == 0 &&
-                ((ybegin-y) % tile_height) == 0 &&
-                ((zbegin-z) % tile_depth)  == 0 &&
-                (((xend-x) % tile_width)  == 0 || (xend-x) == width) &&
-                (((yend-y) % tile_height) == 0 || (yend-y) == height) &&
-                (((zend-z) % tile_depth)  == 0 || (zend-z) == depth));
+        return (tile_width > 0 && tile_height > 0 && tile_depth > 0 &&
+                valid_tile_axis(xbegin, xend, x, width, tile_width) &&
+                valid_tile_axis(ybegin, yend, y, height, tile_height) &&
+                valid_tile_axis(zbegin, zend, z, depth, tile_depth));
     }
 
+private:
+    // One axis of valid_tile_range(). The end may reach past the data
+    // window only as far as the edge of the last (partial) tile. Done in
+    // 64 bits so that hostile coordinates can't overflow.
+    static constexpr bool valid_tile_axis (int begin, int end, int origin,
+                                           int size, int tilesize) noexcept {
+        int64_t b = int64_t(begin) - origin, e = int64_t(end) - origin;
+        return b >= 0 && b <= e && b % tilesize == 0 &&
+               (e % tilesize == 0 || e == size) &&
+               e <= (int64_t(size) + tilesize - 1) / tilesize * tilesize;
+    }
+
+public:
     /// Return the channelformat of the given channel. This is safe even
     /// if channelformats is not filled out.
     TypeDesc channelformat (int chan) const {
@@ -893,7 +908,8 @@ public:
     /// nothing about the color space if `name` is empty). The core operation
     /// is to set the "oiio:ColorSpace" attribute, but it also removes or
     /// alters several other attributes that may hint color space in ways that
-    /// might be contradictory or no longer true.
+    /// might be contradictory or no longer true. The default color config is
+    /// only loaded if it is needed.
     ///
     /// @version 2.5
     void set_colorspace(string_view name);
@@ -1093,6 +1109,10 @@ public:
     ///
     /// - `"cicp"` :
     ///       Does this format support embedding CICP metadata?
+    ///
+    /// - `"mdcv"` :
+    ///       Does this format support embedding mastering display color
+    ///       volume metadata (the `mdcv_*` attributes)?
     ///
     /// - `"ioproxy"` :
     ///       Does this format reader support reading from an `IOProxy`?
@@ -2303,10 +2323,12 @@ protected:
     ///   implied by `range`.
     /// * Whether the channel count is within the `"limits:channels"` OIIO
     ///   attribute.
-    /// * Whether any single dimension (width, height, depth) is within the
+    /// * Whether any single dimension (width, height, depth) of the pixel
+    ///   data window, display window, or tile is within the
     ///   `"limits:resolution"` OIIO attribute.
-    /// * The total uncompressed pixel data size is expected to be within the
-    ///   `"limits:imagesize_MB"` OIIO attribute.
+    /// * The total uncompressed pixel data size, and the size of a single
+    ///   tile, are expected to be within the `"limits:imagesize_MB"` OIIO
+    ///   attribute.
     /// * The full_{width,height,depth} are valid and within the range.
     ///
     bool check_open (const ImageSpec &spec,
@@ -2603,6 +2625,10 @@ public:
     ///
     ///  - `"cicp"` :
     ///        Does this format support embedding CICP metadata?
+    ///
+    ///  - `"mdcv"` :
+    ///        Does this format support embedding mastering display color
+    ///        volume metadata (the `mdcv_*` attributes)?
     ///
     /// This list of queries may be extended in future releases. Since this
     /// can be done simply by recognizing new query strings, and does not
@@ -3967,14 +3993,15 @@ OIIO_API std::string geterror(bool clear = true);
 /// - `int limits:resolution` (1048576)
 ///
 ///    When nonzero, the maximum number of pixels allowed along any single
-///    dimension (width, height, or depth) of an image. Images whose headers
-///    indicate a larger dimension might be assumed to be corrupted or
-///    malicious files. This complements `limits:imagesize_MB` by catching a
-///    header that is small in one dimension but absurdly large in another,
-///    which could otherwise slip under the total-size limit. The default is
-///    1048576 (2^20). In situations when images with a larger single
-///    dimension are expected to be encountered, you should raise this limit.
-///    Setting the limit to 0 means having no limit. (Added in version 3.2.)
+///    dimension (width, height, or depth) of an image, its display window, or
+///    its tiles. Images whose headers indicate a larger dimension might be
+///    assumed to be corrupted or malicious files. This complements
+///    `limits:imagesize_MB` by catching a header that is small in one
+///    dimension but absurdly large in another, which could otherwise slip
+///    under the total-size limit. The default is 1048576 (2^20). In
+///    situations when images with a larger single dimension are expected to
+///    be encountered, you should raise this limit. Setting the limit to 0
+///    means having no limit. (Added in version 3.2.)
 ///
 /// - `int log_times` (0)
 ///
@@ -4381,6 +4408,7 @@ OIIO_API void set_colorspace(ImageSpec& spec, string_view name);
 /// but it also removes or alters several other attributes that may hint color
 /// space in ways that might be contradictory or no longer true. This uses the
 /// current default color config to adjudicate color space name equivalencies.
+/// The default color config is only loaded if it is needed.
 ///
 /// @version 3.0
 OIIO_API void set_colorspace_rec709_gamma(ImageSpec& spec, float gamma);
@@ -4708,15 +4736,8 @@ void debugfmt (const char* fmt, Args&&... args)
 }
 
 namespace pvt {
-// For internal use - use errorfmt() below for a nicer interface.
+// For internal use - use errorfmt() for a nicer interface.
 OIIO_API void append_error(string_view message);
-}
-
-/// error logging (mostly for OIIO internals) with `std::format` conventions.
-template<typename... Args>
-inline void errorfmt(const char* fmt, Args&&... args)
-{
-    pvt::append_error(string_view(Strutil::fmt::format(fmt, args...)));
 }
 
 /// Internal function to log time recorded by an OIIO::timer(). It will only
@@ -4797,7 +4818,6 @@ using v3_1::debug;
 using v3_1::debugfmt;
 using v3_1::declare_imageio_format;
 using v3_1::equivalent_colorspace;
-using v3_1::errorfmt;
 using v3_1::get_colorspace_cicp;
 using v3_1::get_colorspace_icc_profile;
 using v3_1::get_extension_map;

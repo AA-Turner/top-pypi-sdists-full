@@ -1,17 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: paragraphs
-Version: 1.0.1
+Version: 1.1.0
 Summary: Incorporate long strings painlessly, beautifully into Python code.
+Author: Shay Hill
 Author-email: Shay Hill <shay_public@hotmail.com>
-License: MIT
-Requires-Python: >=3.8
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 6 - Mature
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-License-File: LICENSE.txt
-Provides-Extra: dev
-Requires-Dist: commitizen; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: tox; extra == "dev"
 
 # paragraphs
 
@@ -22,6 +27,7 @@ Incorporate long strings painlessly, beautifully into Python code.
 **Easily edited, `gq`-able, `fill-paragraph`-able, comprehensive error messages.**
 ```python
 from paragraphs import par
+
 
 class SuddenDeathError(Exception):
     def __init__(self, cause: str) -> None:
@@ -42,6 +48,7 @@ class SuddenDeathError(Exception):
             come to me? Somebody pinched it; and what I say is, them as pinched
             it done her in."""
         )
+
 
 raise SuddenDeathError("influenza")
 ```
@@ -114,7 +121,6 @@ PARAGRAPH = (
     + " occaecat cupidatat non proident, sunt in culpa qui officia deserunt"
     + " mollit anim id est laborum."
 )
-
 ```
 
 ## Features

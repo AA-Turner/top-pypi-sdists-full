@@ -36,17 +36,38 @@ identity on every meaningful field — the round-trip test pins it). Mandate →
   ``conversation_id``, ``metadata``…) keeps its read: the typed step hands those over beside its
   answer (``config.run_envelope``).
 
-Refuses, naming the reason, rather than producing a step that would run differently: a request
-firewall (Run Typed Agent has none), a read of something no run has, a runtime-chosen mandate.
+* A CALLER of a unit that runs whichever agent it is given (``to='agent'`` on a step that hands the
+  unit a fixed ``mandate_key``) hands it ``agent_id`` + ``binding`` + ``output_kind`` + goal instead
+  (:func:`caller_to_agent`); the unit's Join Values step takes the binding as an input and joins every
+  agent input with the binding's own code.
+
+* THE JOB'S PROTECTIONS (2026-10-28): the request firewall fields (``must_not_contain`` …) stay on
+  the step — Run Typed Agent declares and enforces the same ones — and ``config.mandate_key_origin``
+  records the mandate, so the typed step still runs AS that job: its dispatch guards, its contract
+  (closed automatic context, required context policies), its spend holds and its pause switch.
+
+* THE STEP'S OWN SETTINGS (2026-10-28): 'Only when' (``data.when``) and 'If skipped' (``data.if_skipped``)
+  read the step's inputs, so ``inputs['provision_values']['x']`` becomes ``inputs['<variable>']`` (and
+  back); 'If skipped' and 'Shape the result' (``data.shape``) are in the step's answer shape, so a run
+  envelope ``{'structured_output': A, …}`` becomes the typed step's answer ``A`` (run facts read
+  downstream stay beside it) or Run Workflow's ``{'output': A}``. A read of the whole state or of a value
+  the binding does not deliver refuses, naming it.
+
+Refuses, naming the reason, rather than producing a step that would run differently: a mandate
+that pins context from its provision (a typed step has no binding to place it), a read of
+something no run has, a runtime-chosen mandate.
 """
 
 from __future__ import annotations
 
+import ast
 import copy
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from matrx_ai.graph_nodes.shared import RUN_ENVELOPE_FIELDS
+from matrx_ai.kinds import TEXT_SHAPED_KINDS
 
 MANDATE_STEP = "ai.mandate.start"
 TYPED_AGENT_STEP = "ai.agent.produce"
@@ -70,11 +91,12 @@ _SHAPING_KEYS = ("heading", "template", "item_template", "max_items", "item_fiel
 ConvertTarget = Literal["agent", "mandate", "workflow"]
 TARGET_STEP: dict[str, str] = {"agent": TYPED_AGENT_STEP, "mandate": MANDATE_STEP, "workflow": WORKFLOW_STEP}
 _HUMAN_GROUNDINGS = frozenset({"H", "V"})
-#: Formats Run Typed Agent cannot bind to. ``text`` is NOT here: the step answers in the
-#: registered ``text`` kind (coordinator decision 2026-10-27).
-_FORMAT_KINDS = frozenset({"", "json", "markdown", "string"})
-#: Run Mandate fields Run Typed Agent does not have — set to anything but the default, the
-#: conversion would silently drop a safety rule.
+#: Formats Run Typed Agent cannot bind to. ``text`` and ``markdown`` (``TEXT_SHAPED_KINDS``) are NOT
+#: here: the step answers in the kind's own ``{"text": ...}`` shape (decision 2026-10-27).
+_FORMAT_KINDS = frozenset({"", "json", "string"})
+#: The request firewall fields. Run Mandate and Run Typed Agent both declare them
+#: (``agent_action.StepProtectionInput``); Run Workflow does not — converting a firewalled step to a
+#: workflow step would silently drop a safety rule, so that conversion refuses.
 _FIREWALL_DEFAULTS: dict[str, Any] = {
     "must_not_contain": None,
     "must_not_contain_match": "folded",
@@ -104,6 +126,12 @@ class MandateFacts:
     #: Live organization/person rebindings of this mandate. A typed step names ONE agent, so they
     #: no longer apply after converting — said in the notes, never silently dropped.
     binding_overrides: int = 0
+    #: The mandate has dispatch guards (``aidream.services.mandates.dispatch_guards``; the AI-visibility
+    #: blind wall). They ride the mandate key, which a typed step does not carry — so it cannot convert.
+    dispatch_guarded: bool = False
+    #: Provision values the mandate pins as context (``mandate.definition.pinned_context``). They are
+    #: placed by the mandate's binding, which a typed step does not run — so it cannot convert.
+    pinned_context: tuple[str, ...] = ()
 
 
 @dataclass
@@ -281,6 +309,151 @@ def _structural(kind: str | None) -> bool:
     return bool(kind) and str(kind).strip().lower() not in _FORMAT_KINDS
 
 
+# ── the step's own settings: Only when · If skipped · Shape the result ──────
+#
+# ``data.when`` and ``data.if_skipped`` read the step's INPUTS (``inputs['provision_values']['x']`` on a
+# Run Mandate step, ``inputs['var']`` on a typed one); ``data.if_skipped`` IS the step's result when it is
+# skipped and ``data.shape`` reads what the step produced — both in the step's answer shape (the run
+# envelope's ``structured_output`` on a Run Mandate step, the answer itself on a typed step, ``output``
+# on Run Workflow). Before 2026-10-28 a conversion carried all three verbatim, so every converted gate
+# read an input the step no longer has and every skipped result arrived in the old answer shape.
+
+_SETTING_LABEL = {"when": "'Only when'", "if_skipped": "'If skipped'", "shape": "'Shape the result'"}
+
+
+def _key_read(name: str) -> str:
+    """A regex for ``inputs['name']`` / ``inputs["name"]``."""
+    return r"inputs\s*\[\s*(['\"])" + re.escape(name) + r"\1\s*\]"
+
+
+def _rename_input_reads(expr: str, rename: dict[str, str], *, setting: str, gone: set[str]) -> str:
+    """``rename``: old input path (``provision_values.x`` or ``var``) → new path. A read of anything in
+    ``gone`` (an input the converted step no longer receives) refuses, naming it."""
+    def path_re(path: str) -> str:
+        return r"\s*".join(_key_read(p) if i == 0 else r"\[\s*(['\"])" + re.escape(p) + "\\" + str(i + 1) + r"\s*\]"
+                           for i, p in enumerate(path.split(".")))
+
+    def subscript(path: str) -> str:
+        return "inputs" + "".join(f"['{p}']" for p in path.split("."))
+
+    # Longest paths first, so ``provision_values.x`` is rewritten before a bare ``provision_values``.
+    for old in sorted(rename, key=lambda p: -p.count(".")):
+        expr = re.sub(path_re(old), lambda _m, new=rename[old]: subscript(new), expr)
+    for name in sorted(gone):
+        if re.search(_key_read(name), expr):
+            raise StepConversionRefused(
+                f"the step's {_SETTING_LABEL[setting]} reads inputs[{name!r}], which the converted step no longer "
+                f"receives as one input. Rewrite it to read the step's own inputs, then convert."
+            )
+    return expr
+
+
+def _split_result(expr: str, setting: str) -> tuple[ast.Dict | None, ast.expr]:
+    try:
+        tree = ast.parse(expr, mode="eval").body
+    except SyntaxError as exc:
+        raise StepConversionRefused(f"the step's {_SETTING_LABEL[setting]} is not a readable expression: {exc}") from exc
+    if isinstance(tree, ast.Dict) and all(isinstance(k, ast.Constant) and isinstance(k.value, str) for k in tree.keys):
+        return tree, tree
+    return None, tree
+
+
+def _dict_text(items: list[tuple[str, str]]) -> str:
+    return "{" + ", ".join(f"{key!r}: {value}" for key, value in items) + "}"
+
+
+def _result_from_envelope(expr: str, answer_key: str, *, typed: bool, keep: list[str], text_kind: bool = False) -> str:
+    """A Run Mandate step's skipped result (a run envelope) → the converted step's: the typed step's
+    answer itself (with the run facts ``keep`` beside it), or ``{answer_key: answer}``."""
+    literal, _ = _split_result(expr, "if_skipped")
+    if literal is None:
+        if typed and keep:
+            raise StepConversionRefused(
+                "the step's 'If skipped' result is not written out as {'structured_output': …, …}, and steps after "
+                f"it read the run's {keep}; write it out, then convert."
+            )
+        return f"({expr})['{ENVELOPE_ANSWER}']" if typed else f"{{'{answer_key}': ({expr})['{ENVELOPE_ANSWER}']}}"
+    parts = {k.value: ast.get_source_segment(expr, v) or "None" for k, v in zip(literal.keys, literal.values, strict=True)}
+    answer = parts.get(ENVELOPE_ANSWER, "None")
+    if typed and text_kind and ENVELOPE_ANSWER not in parts and ENVELOPE_TEXT in parts:
+        answer = _dict_text([(TEXT_ANSWER, parts.pop(ENVELOPE_TEXT))])  # a text step answers {'text': …}
+    if not typed:
+        return _dict_text([(answer_key, answer)])
+    beside = [(k, v) for k, v in parts.items() if k in keep]
+    if not beside:
+        return answer
+    inner, _ = _split_result(answer, "if_skipped")
+    if inner is None:
+        raise StepConversionRefused(
+            f"the step's 'If skipped' answer is not written out as {{…}}, and steps after it read the run's {keep} "
+            "beside the answer; write it out, then convert."
+        )
+    own = [(k.value, ast.get_source_segment(answer, v) or "None") for k, v in zip(inner.keys, inner.values, strict=True)]
+    return _dict_text(own + beside)
+
+
+def _result_to_envelope(expr: str, answer_key: str, *, typed: bool, envelope: list[str], text_kind: bool = False) -> str:
+    """The inverse: a typed step's skipped answer (or a Run Workflow step's ``{answer_key: …}``) → a run
+    envelope ``{'structured_output': …}`` (run facts the typed step handed beside it move out again)."""
+    literal, _ = _split_result(expr, "if_skipped")
+    if not typed:
+        if literal is not None and answer_key in [k.value for k in literal.keys]:
+            value = literal.values[[k.value for k in literal.keys].index(answer_key)]
+            return _dict_text([(ENVELOPE_ANSWER, ast.get_source_segment(expr, value) or "None")])
+        return f"{{'{ENVELOPE_ANSWER}': ({expr})['{answer_key}']}}"
+    keys = [k.value for k in literal.keys] if literal is not None else []
+    if text_kind and keys == [TEXT_ANSWER]:
+        return _dict_text([(ENVELOPE_TEXT, ast.get_source_segment(expr, literal.values[0]) or "None")])
+    if literal is None or not envelope:
+        return _dict_text([(ENVELOPE_ANSWER, expr)])
+    parts = [(k.value, ast.get_source_segment(expr, v) or "None") for k, v in zip(literal.keys, literal.values, strict=True)]
+    own = [(k, v) for k, v in parts if k not in envelope]
+    return _dict_text([(ENVELOPE_ANSWER, _dict_text(own)), *[(k, v) for k, v in parts if k in envelope]])
+
+
+def _shape_reads(expr: str, *, forward: bool, answer_key: str | None, envelope: list[str]) -> str:
+    """``data.shape`` reads what the step produced. Forward (run envelope → typed answer, ``answer_key``
+    None; → Run Workflow, ``answer_key='output'``): ``inputs['structured_output']`` becomes the answer.
+    Back: every read of the answer goes through ``inputs['structured_output']`` again."""
+    if forward:
+        return re.sub(_key_read(ENVELOPE_ANSWER), "inputs" if answer_key is None else f"inputs['{answer_key}']", expr)
+    if answer_key is not None:
+        return re.sub(_key_read(answer_key), f"inputs['{ENVELOPE_ANSWER}']", expr)
+
+    def back(match: re.Match[str]) -> str:
+        key = match.group(2)
+        return match.group(0) if key in envelope else f"inputs['{ENVELOPE_ANSWER}']['{key}']"
+
+    rewritten = re.sub(r"inputs\s*\[\s*(['\"])(\w+)\1\s*\]", back, expr)
+    return re.sub(r"\binputs\b(?!\s*\[)", f"inputs['{ENVELOPE_ANSWER}']", rewritten)
+
+
+def _carry_settings(
+    data: dict[str, Any], *, rename: dict[str, str], gone: set[str], forward: bool, typed: bool,
+    answer_key: str, keep: list[str], notes: list[str], text_kind: bool = False,
+) -> None:
+    """Rewrite ``data.when`` / ``data.if_skipped`` / ``data.shape`` for the converted step, or refuse."""
+    changed: list[str] = []
+    for setting in ("when", "if_skipped"):
+        expr = data.get(setting)
+        if isinstance(expr, str) and expr.strip():
+            new = _rename_input_reads(expr, rename, setting=setting, gone=gone)
+            if setting == "if_skipped":
+                new = (_result_from_envelope(new, answer_key, typed=typed, keep=keep, text_kind=text_kind) if forward
+                       else _result_to_envelope(new, answer_key, typed=typed, envelope=keep, text_kind=text_kind))
+            if new != expr:
+                data[setting] = new
+                changed.append(_SETTING_LABEL[setting])
+    shape = data.get("shape")
+    if isinstance(shape, str) and shape.strip():
+        new = _shape_reads(shape, forward=forward, answer_key=None if typed else answer_key, envelope=keep)
+        if new != shape:
+            data["shape"] = new
+            changed.append(_SETTING_LABEL["shape"])
+    if changed:
+        notes.append(f"the step's {', '.join(changed)} now read the converted step's inputs and answer")
+
+
 # ── mandate → typed agent / workflow ─────────────────────────────────────────
 
 
@@ -305,19 +478,49 @@ def _rekey_once(data: dict[str, Any], prefix_of: dict[str, str]) -> None:
     data["once"] = {**once, "key": rebuilt}
 
 
-def _refuse_firewall(inputs: dict[str, Any], target: str) -> None:
+def _refuse_firewall(
+    inputs: dict[str, Any], target: str, definition: dict[str, Any] | None = None, node_id: str | None = None
+) -> None:
+    """A request firewall reaches a Run Mandate step three ways — written on it, mapped onto it by a
+    connection, or handed to it per item by a For Each's payload template. The typed / agent steps have
+    no request firewall, so any of the three refuses the conversion (live 2026-10-28: Write questions
+    blind's unprompted writer gets its never-say list from its For Each)."""
     set_fields = [k for k, default in _FIREWALL_DEFAULTS.items() if inputs.get(k, default) not in (default, [], None)]
+    if definition is not None and node_id is not None:
+        for edge in definition.get("edges") or []:
+            if edge.get("target") == node_id:
+                set_fields += [k for k in (_mappings(edge) or {}) if k in _FIREWALL_DEFAULTS]
+        for other in definition.get("nodes") or []:
+            config = (other.get("data") or {}).get("config") or {}
+            if config.get("target_node_id") == node_id and isinstance(config.get("payload_template"), dict):
+                set_fields += [k for k in config["payload_template"] if k in _FIREWALL_DEFAULTS]
     if set_fields:
         raise StepConversionRefused(
-            f"this Run Mandate step sets {set_fields} (a request firewall). The {target} step has no "
+            f"this Run Mandate step gets {sorted(set(set_fields))} (a request firewall). The {target} step has no "
             "request firewall, so converting would drop a safety rule. Remove it first, or keep the step."
         )
 
 
+def _refuse_dispatch_guards(facts: MandateFacts, target: str) -> None:
+    if facts.dispatch_guarded:
+        raise StepConversionRefused(
+            f"mandate {facts.mandate_key!r} has dispatch guards (they check the rendered request before it is "
+            f"paid for). They run for the mandate, and the {target} step does not run as the mandate, so "
+            "converting would drop them. Keep the Run Mandate step."
+        )
+
+
 def _state_to_variables(
-    inputs: dict[str, Any], incoming: list[dict], variable_of: dict[str, str], joined: set[str] | None = None
+    inputs: dict[str, Any], incoming: list[dict], variable_of: dict[str, str], joined: set[str] | None = None,
+    source_outputs: dict[str, frozenset[str]] | None = None,
 ) -> tuple[dict[str, Any], list[dict], list[str]]:
-    """Static state → step variables; edges feeding ``provision_values`` → per-variable mappings."""
+    """Static state → step variables; edges feeding ``provision_values`` → per-variable mappings.
+
+    A WHOLE-payload edge (``provision_values: $FULL_PAYLOAD``) maps only the keys its source step's
+    declared output kind provides (``source_outputs``: source step id → the kind's top-level keys);
+    every other variable stays unmapped (the agent's own default) — never a mapping to a key the
+    source does not emit, which fails every run with an edge-routing error. A source whose keys are
+    unknown keeps the full expansion and says so in the notes."""
     notes: list[str] = []
     offered_to_var = {offered: var for var, offered in variable_of.items()}
     state = inputs.pop(STATE_FIELD, None)
@@ -341,8 +544,18 @@ def _state_to_variables(
             if target != STATE_FIELD:
                 rebuilt[target] = src
                 continue
+            provided = (source_outputs or {}).get(str(edge.get("source"))) if source == WHOLE else None
+            if source == WHOLE and provided is None:
+                notes.append(
+                    f"connection {edge.get('id')!r} hands over its whole payload and its source declares no "
+                    "output keys, so every agent variable is mapped; check each key exists on that source"
+                )
             for var, offered in variable_of.items():
-                rebuilt[var] = offered if source == WHOLE else f"{source}.{offered}"
+                if source == WHOLE:
+                    if provided is None or offered in provided:
+                        rebuilt[var] = offered
+                else:
+                    rebuilt[var] = f"{source}.{offered}"
         edge = copy.deepcopy(edge)
         _set_mappings(edge, rebuilt)
         changed.append(edge)
@@ -363,8 +576,10 @@ def _rewrite_outgoing(
     anything else refuses."""
     changed: list[dict] = []
     for edge in outgoing:
-        if (edge.get("data") or {}).get("kind") == "control":
-            continue  # a control connection carries no payload; a mapping on it is refused
+        if (edge.get("data") or {}).get("kind") in ("control", "error"):
+            # A control connection carries no payload; an error connection carries the failure's own
+            # fields (`message`, `code`), which are not the run's - neither is rewritten.
+            continue
         maps = _mappings(edge)
         edge = copy.deepcopy(edge)
         if maps is None:
@@ -398,7 +613,8 @@ def _rewrite_outgoing(
 
 
 def mandate_to_agent(
-    definition: dict[str, Any], node_id: str, facts: MandateFacts, *, pin_version: bool = False
+    definition: dict[str, Any], node_id: str, facts: MandateFacts, *, pin_version: bool = False,
+    source_outputs: dict[str, frozenset[str]] | None = None,
 ) -> Conversion:
     node = copy.deepcopy(_node(definition, node_id))
     if step_type_of(node) != MANDATE_STEP:
@@ -421,16 +637,18 @@ def mandate_to_agent(
             f"mandate {facts.mandate_key!r} answers in {kind!r}, a format, not a structure. Run Typed Agent "
             "binds the agent to a registered kind — declare one on the mandate (or the step) first."
         )
-    _refuse_firewall(inputs, "Run Typed Agent")
+    if facts.pinned_context:
+        raise StepConversionRefused(
+            f"mandate {facts.mandate_key!r} pins {list(facts.pinned_context)} from its state as context, which "
+            "only the mandate's binding places. A typed step would run without it. Keep the Run Mandate step."
+        )
     variable_of, joins = split_binding(facts)
     incoming, outgoing = _edges_touching(definition, node_id)
 
     inputs.pop("mandate_key", None)
-    for key in _FIREWALL_DEFAULTS:
-        inputs.pop(key, None)
     join_nodes, join_edges = _join_steps(definition, node, inputs.get(STATE_FIELD), incoming, joins)
     joined = {r for parts in joins.values() for r in _join_reads(parts)}
-    inputs, in_edges, notes = _state_to_variables(inputs, incoming, variable_of, joined)
+    inputs, in_edges, notes = _state_to_variables(inputs, incoming, variable_of, joined, source_outputs)
     # A connection that fed only state the Join Values steps now read carries nothing to this step:
     # it goes (the join step's own connection orders the two). Never left unmapped — an unmapped
     # connection hands its whole payload over as variables.
@@ -455,6 +673,13 @@ def mandate_to_agent(
         notes.append(f"cost attributed to source_feature {inputs['source_feature']!r}")
 
     config = dict(data.get("config") or {})
+    # The typed step runs AS this job: guards, contract, spend holds and pause keep applying.
+    config["mandate_key_origin"] = facts.mandate_key
+    if facts.dispatch_guarded or any(inputs.get(k) not in (d, [], None) for k, d in _FIREWALL_DEFAULTS.items()):
+        notes.append(
+            f"the step keeps mandate {facts.mandate_key!r}'s request firewall fields and runs as that job "
+            "(config.mandate_key_origin), so its dispatch guards, contract, spend holds and pause switch apply"
+        )
     exposed = list(config.get("exposed_variables") or [])
     config["exposed_variables"] = exposed + [v for v in [*variable_of, *joins] if v not in exposed]
     # A binding source that may be absent (when_absent skip / use_default) must not turn into a
@@ -490,14 +715,99 @@ def mandate_to_agent(
     node["type"] = TYPED_AGENT_STEP
     kept: list[str] = []
     edges = in_edges + _rewrite_outgoing(
-        outgoing, "", typed=True, text_kind=str(kind).strip().lower() == TEXT_ANSWER, kept_envelope=kept
+        outgoing, "", typed=True, text_kind=str(kind).strip().lower() in TEXT_SHAPED_KINDS, kept_envelope=kept
     )
     if kept:
         config["run_envelope"] = list(dict.fromkeys([*(config.get("run_envelope") or []), *kept]))
         notes.append(f"downstream reads the run's {kept}; the step hands them over beside its answer")
+    _carry_settings(
+        data, rename={f"{STATE_FIELD}.{offered}": var for var, offered in variable_of.items()},
+        gone={STATE_FIELD, "mandate_key"}, forward=True, typed=True, answer_key="", keep=kept, notes=notes,
+        text_kind=str(kind).strip().lower() in TEXT_SHAPED_KINDS,
+    )
     return Conversion(node=node, edges=edges, notes=notes, from_type=MANDATE_STEP,
                       added_nodes=join_nodes, added_edges=join_edges, removed_edges=dropped_edges)
 
+
+
+#: What a caller hands a unit that runs whichever agent it is given, in place of a mandate key: the
+#: Holder agent, its binding (the unit's Join Values step takes it as ``binding``), the kind it answers
+#: in and the goal the judge grades it against, plus ``mandate_key_origin`` (the mandate the caller used to
+#: hand over, so the unit's Run Typed Agent step runs AS that job). The unit declares each as an input.
+CALLER_AGENT_FIELDS = ("agent_id", "binding", "output_kind", "goal", "goal_approved", "mandate_key_origin")
+
+
+def caller_agent_inputs(facts: MandateFacts, *, pin_version: bool = False) -> dict[str, Any]:
+    """The caller-side spec for ``facts``'s mandate:
+    ``{agent_id, binding, output_kind, goal, goal_approved, mandate_key_origin}``.
+
+    ``mandate_key_origin`` is the mandate itself. The unit's Run Typed Agent step reads it
+    (``config.mandate_key_origin: {"$input": "mandate_key_origin"}``) so the job's dispatch guards,
+    contract, spend holds and pause switch apply INSIDE the unit exactly as they did on the key.
+
+    ``binding`` is the mandate's consumption map verbatim, so the unit's Join Values step builds every
+    agent input with the binding's own code (byte-identical to the mandate run). Refuses what a typed
+    step cannot run: a non-agent Holder, a format answer, a source that asks a person.
+    """
+    if facts.holder_type != "agent" or not facts.holder_id:
+        raise StepConversionRefused(
+            f"mandate {facts.mandate_key!r} is held by a {facts.holder_type or 'missing'} holder, not an agent"
+        )
+    if not _structural(facts.output_kind):
+        raise StepConversionRefused(
+            f"mandate {facts.mandate_key!r} answers in {facts.output_kind!r}, a format, not a structure. "
+            "Declare a registered kind on the mandate first."
+        )
+    split_binding(facts)  # refuses a source that asks a person at run time
+    if pin_version and not facts.holder_version_id:
+        raise StepConversionRefused(f"mandate {facts.mandate_key!r} pins no Holder version to pin to")
+    return {
+        "agent_id": facts.holder_version_id if pin_version else facts.holder_id,
+        "binding": copy.deepcopy(facts.consumption_map or {}),
+        "output_kind": facts.output_kind,
+        "goal": facts.goal,
+        "goal_approved": facts.goal_grounding in _HUMAN_GROUNDINGS,
+        "mandate_key_origin": facts.mandate_key,
+    }
+
+
+def caller_to_agent(
+    definition: dict[str, Any], node_id: str, facts: MandateFacts, *, key_field: str = "mandate_key",
+    pin_version: bool = False,
+) -> Conversion:
+    """A step that hands a runtime-agent unit a mandate key (``input.<key_field>``) hands it the agent instead.
+
+    The step keeps its type (usually Run Workflow) and every other input; ``key_field`` is replaced by
+    :func:`caller_agent_inputs`. The values the step already passes (the provision values) stay as they
+    are — the unit's Join Values step reads them by the binding's names.
+    """
+    node = copy.deepcopy(_node(definition, node_id))
+    data = node.setdefault("data", {})
+    inputs = step_inputs(data)
+    if inputs.get(key_field) != facts.mandate_key:
+        raise StepConversionRefused(
+            f"step {node_id!r} does not hand {facts.mandate_key!r} in input {key_field!r} "
+            f"(it hands {inputs.get(key_field)!r}); only a fixed key can become its agent"
+        )
+    inputs.pop(key_field)
+    spec = caller_agent_inputs(facts, pin_version=pin_version)
+    clash = sorted(k for k in spec if k in inputs)
+    if clash:
+        raise StepConversionRefused(f"step {node_id!r} already sets {clash}; remove them, then convert")
+    inputs.update(spec)
+    data.pop("inputs", None)
+    data["input"] = inputs
+    notes = [f"hands the unit agent {spec['agent_id']} (holder of {facts.mandate_key!r}), its binding, "
+             f"kind {spec['output_kind']!r}, goal and mandate_key_origin instead of the mandate key; the unit "
+             "must declare input 'mandate_key_origin' and read it in its Run Typed Agent step "
+             "(config.mandate_key_origin: {'$input': 'mandate_key_origin'}) or the job's protections "
+             "do not apply inside it"]
+    if facts.binding_overrides:
+        notes.append(
+            f"WARNING: mandate {facts.mandate_key!r} has {facts.binding_overrides} organization/person "
+            "rebinding(s); the caller now always hands the default Holder"
+        )
+    return Conversion(node=node, edges=[], notes=notes, from_type=step_type_of(node))
 
 
 def mandate_to_workflow(definition: dict[str, Any], node_id: str, facts: MandateFacts) -> Conversion:
@@ -511,7 +821,8 @@ def mandate_to_workflow(definition: dict[str, Any], node_id: str, facts: Mandate
         )
     data = node.setdefault("data", {})
     inputs = step_inputs(data)
-    _refuse_firewall(inputs, "Run Workflow")
+    _refuse_firewall(inputs, "Run Workflow", definition, node_id)
+    _refuse_dispatch_guards(facts, "Run Workflow")
     variable_of = one_to_one_map(facts)
     incoming, outgoing = _edges_touching(definition, node_id)
     kept = {k: v for k, v in inputs.items() if k not in ("mandate_key", *_FIREWALL_DEFAULTS)}
@@ -527,6 +838,11 @@ def mandate_to_workflow(definition: dict[str, Any], node_id: str, facts: Mandate
                 spec_type=WORKFLOW_STEP)
     node["type"] = WORKFLOW_STEP
     edges = in_edges + _rewrite_outgoing(outgoing, "output", typed=False)
+    _carry_settings(
+        data, rename={f"{STATE_FIELD}.{offered}": var for var, offered in variable_of.items()},
+        gone={STATE_FIELD, "mandate_key", *_FIREWALL_DEFAULTS}, forward=True, typed=False, answer_key="output",
+        keep=[], notes=notes,
+    )
     return Conversion(node=node, edges=edges, notes=notes, from_type=MANDATE_STEP)
 
 
@@ -623,7 +939,7 @@ def agent_to_mandate(definition: dict[str, Any], node_id: str, facts: MandateFac
             "converts to a Run Mandate step"
         )
     data = node.setdefault("data", {})
-    text_kind = str(data.get("output_kind") or facts.output_kind or "").strip().lower() == TEXT_ANSWER
+    text_kind = str(data.get("output_kind") or facts.output_kind or "").strip().lower() in TEXT_SHAPED_KINDS
     variable_of, joins = split_binding(facts)
     incoming, outgoing = _edges_touching(definition, node_id)
     notes: list[str] = []
@@ -643,6 +959,7 @@ def agent_to_mandate(definition: dict[str, Any], node_id: str, facts: MandateFac
         config.pop("goal_approved", None)
         config.pop("goal_grounding", None)
         config.pop("required_output_keys", None)
+        config.pop("mandate_key_origin", None)  # the step names the mandate itself again
         envelope = list(config.pop("run_envelope", None) or [])
         overrides = dict(inputs.get("config_overrides") or {})
         for key, value in (facts.default_config_overrides or {}).items():
@@ -669,6 +986,12 @@ def agent_to_mandate(definition: dict[str, Any], node_id: str, facts: MandateFac
             config.pop("exposed_variables", None)
         if inputs.get("source_feature") in (facts.mandate_key, mandate_cost_stamp(facts.mandate_key)):
             inputs.pop("source_feature")
+        # A Run Mandate step's config is AgentStartConfig (extra keys forbidden): a typed-only
+        # setting (e.g. ``label``) left on it made every conversion back fail validation.
+        from matrx_ai.graph_nodes.agent_action import AgentStartConfig
+
+        for key in [k for k in config if k not in AgentStartConfig.model_fields]:
+            notes.append(f"the typed step's setting {key!r}={config.pop(key)!r} has no place on a Run Mandate step and was dropped")
     unbound = sorted(k for k in inputs if k not in variable_of and k in (facts.consumption_map or {}))
     if unbound:
         raise StepConversionRefused(f"variables {unbound} are not in mandate {facts.mandate_key!r}'s binding")
@@ -702,6 +1025,11 @@ def agent_to_mandate(definition: dict[str, Any], node_id: str, facts: MandateFac
     node["type"] = MANDATE_STEP
     edges = in_edges + _restore_outgoing(
         outgoing, "output", typed=from_type == TYPED_AGENT_STEP, text_kind=text_kind, envelope=envelope
+    )
+    _carry_settings(
+        data, rename={var: f"{STATE_FIELD}.{offered}" for var, offered in variable_of.items()},
+        gone=set(joins) | {"agent_id", "is_version"}, forward=False, typed=from_type == TYPED_AGENT_STEP,
+        answer_key="output", keep=envelope, notes=notes, text_kind=text_kind,
     )
     return Conversion(node=node, edges=edges, notes=notes, from_type=from_type,
                       added_edges=added_edges, removed_nodes=join_ids)
@@ -749,10 +1077,13 @@ def convert_step(
     facts: MandateFacts,
     *,
     pin_version: bool = False,
+    source_outputs: dict[str, frozenset[str]] | None = None,
 ) -> Conversion:
     """THE one entry: convert step ``node_id`` of ``definition`` to ``to`` using ``facts``."""
+    if to == "agent" and step_type_of(_node(definition, node_id)) != MANDATE_STEP:
+        return caller_to_agent(definition, node_id, facts, pin_version=pin_version)
     if to == "agent":
-        return mandate_to_agent(definition, node_id, facts, pin_version=pin_version)
+        return mandate_to_agent(definition, node_id, facts, pin_version=pin_version, source_outputs=source_outputs)
     if to == "workflow":
         return mandate_to_workflow(definition, node_id, facts)
     if to == "mandate":
@@ -772,7 +1103,10 @@ def as_patch_ops(conversion: Conversion) -> list[dict[str, Any]]:
 
 
 __all__ = [
+    "CALLER_AGENT_FIELDS",
     "JOIN_STEP",
+    "caller_agent_inputs",
+    "caller_to_agent",
     "split_binding",
     "MANDATE_STEP",
     "TARGET_STEP",

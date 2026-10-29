@@ -16,13 +16,17 @@
  *   §11 One wrap of `mu` buys one INPUT interval, not one output period
  *   §12 `mu` is steady at an exact rate, slewing at a rate error
  *   §13 dp_resamp_dc_gain is the bank's own gain, computed, on both paths
- *   §14 dp_resamp_destroy(NULL) is a no-op; create_custom rejects
+ *   §14 dp_resamp_destroy(NULL) is a no-op; create_custom rejects;
+ *       every rate entry point refuses a non-finite or non-positive rate
+ *   §14b a num_phases that is not a power of two is refused
+ *   §14c a set_rate that crosses 1 equals a fresh create at the new rate
  *   §15 set_rate preserves the accumulator and the delay line
  *   §16 reset zeroes every accumulator and every delay buffer
  *   §17 The bank's advertised 60 dB stopband and 0.4/0.6 cutoffs
  *   §17b The same bank anti-imaging: the artifact floor for R >= 1
  *   §18 execute_ctrl rides the interpolator at EVERY rate
  *   §20 interp_inputs_needed is exact at every rate, not just integer ones
+ *   §21 The built-in bank is sized and shaped by the public Kaiser rules
  *
  * Sections numbered §10 onward were added by the validation campaign, which
  * enumerated resamp_core.h's prose claims and asked of each whether anything
@@ -41,12 +45,14 @@
 
 #include "doppler/dp_complex.h"
 #include "doppler/resamp/resamp_impl.h"
+#include "doppler/resample/resample_core.h"
 #include "dp_chunk_inv.h"
 #include "dp_rng_test.h"
 #include "dp_test.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* The plain resampler as a chunk-invariance subject (dp_chunk_inv.h). */
 static void *
@@ -837,6 +843,152 @@ lifecycle_rejects (void)
     ok = 0; /* rate == 0       */
   if (dp_resamp_create_custom (2, 2, ok_bank, -1.0) != NULL)
     ok = 0; /* rate < 0        */
+  if (dp_resamp_create_custom (2, 2, ok_bank, NAN) != NULL)
+    ok = 0; /* rate NaN: `rate <= 0` let it through (doppler#2640) */
+  if (dp_resamp_create_custom (2, 2, ok_bank, INFINITY) != NULL)
+    ok = 0; /* rate infinite   */
+
+  /* The built-in constructor checked nothing at all (doppler#2640). */
+  const double bad[] = { 0.0, -1.0, -0.5, NAN, INFINITY, -INFINITY };
+  for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++)
+    {
+      if (dp_resamp_rate_ok (bad[i]))
+        ok = 0;
+      resamp_state_t *r = dp_resamp_create (bad[i]);
+      if (r)
+        {
+          DP_TEST_ERR ("  §14 dp_resamp_create(%g) accepted\n", bad[i]);
+          dp_resamp_destroy (r);
+          ok = 0;
+        }
+    }
+  if (!dp_resamp_rate_ok (1e-3) || !dp_resamp_rate_ok (1.0)
+      || !dp_resamp_rate_ok (37.5))
+    ok = 0;
+
+  /* set_rate refuses the same values, and changes nothing when it does. */
+  resamp_state_t *r = dp_resamp_create (0.75);
+  if (!r)
+    return 0;
+  uint32_t inc = r->phase_inc;
+  for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++)
+    if (dp_resamp_set_rate (r, bad[i]) != DP_ERR_INVALID
+        || dp_resamp_get_rate (r) != 0.75 || r->phase_inc != inc
+        || r->upsample != 0)
+      {
+        DP_TEST_ERR ("  §14 dp_resamp_set_rate(%g) accepted\n", bad[i]);
+        ok = 0;
+      }
+  if (dp_resamp_set_rate (r, 0.5) != DP_OK || dp_resamp_get_rate (r) != 0.5)
+    ok = 0;
+  dp_resamp_destroy (r);
+  return ok;
+}
+
+/* ── §14b — a phase count that is not a power of two is refused ──────────
+ *
+ * get_branch() takes the arm from the top log2(num_phases) bits of the
+ * phase word, rounded UP: 48 phases use 6 bits and reach arm 63, so arms
+ * 48-63 read bank[48 * num_taps ...] past a 48-arm allocation -- a heap
+ * out-of-bounds read on the interpolator, the decimator and the push path
+ * (doppler#2640). The refusal is the fix. If one is ever accepted again the
+ * object is driven through all three paths anyway, so an ASan build reports
+ * the read instead of this test merely counting a non-NULL. */
+static int
+non_power_of_two_phases_refused (void)
+{
+  const size_t counts[] = { 3, 5, 6, 12, 48, 100, 4095 };
+  int          ok       = 1;
+  for (size_t c = 0; c < sizeof counts / sizeof counts[0]; c++)
+    {
+      size_t P    = counts[c];
+      float *bank = calloc (P * 2, sizeof (float));
+      if (!bank)
+        return 0;
+      resamp_state_t *r = dp_resamp_create_custom (P, 2, bank, 0.37);
+      free (bank);
+      if (!r)
+        continue;
+      DP_TEST_ERR ("  §14b num_phases=%zu accepted\n", P);
+      ok = 0;
+      float _Complex x[256], y[512];
+      for (int k = 0; k < 256; k++)
+        x[k] = CMPLXF (1.0f, 0.0f);
+      dp_resamp_execute (r, x, 256, y, 512); /* decimator  */
+      for (int k = 0; k < 256; k++)
+        dp_resamp_execute_ctrl_push (r, x[k], 0.0, y, 512); /* push */
+      dp_resamp_set_rate (r, 1.37);
+      dp_resamp_execute (r, x, 256, y, 512); /* interpolator */
+      dp_resamp_destroy (r);
+    }
+  /* Every power of two, 1 included, is still accepted. */
+  for (size_t P = 1; P <= 4096; P <<= 1)
+    {
+      float *bank = calloc (P * 2, sizeof (float));
+      if (!bank)
+        return 0;
+      resamp_state_t *r = dp_resamp_create_custom (P, 2, bank, 0.37);
+      free (bank);
+      if (!r)
+        {
+          DP_TEST_ERR ("  §14b num_phases=%zu refused\n", P);
+          ok = 0;
+        }
+      dp_resamp_destroy (r);
+    }
+  return ok;
+}
+
+/* ── §14c — a set_rate that crosses 1 is a fresh create at the new rate ──
+ *
+ * Crossing 1 hands dp_resamp_execute() to the other path. That path's state
+ * was never advanced by the old one, and the phase word meant a different
+ * step, so the header promises the crossing starts it as a fresh create
+ * would. Measured both ways, bit for bit, after enough history that a stale
+ * delay line or accumulator would show (doppler#2640). */
+static int
+crossing_set_rate_is_a_fresh_create (void)
+{
+  enum
+  {
+    NX = 300,
+    NY = 1024
+  };
+  static float _Complex x[NX], y_a[NY], y_b[NY], scratch[NY];
+  for (int k = 0; k < NX; k++)
+    x[k] = CMPLXF ((float)cos (0.031 * k), (float)sin (0.017 * k));
+
+  const double pairs[][2]
+      = { { 0.5, 2.0 }, { 2.0, 0.5 }, { 0.7, 1.0 }, { 1.0, 0.3 } };
+  int ok = 1;
+  for (size_t i = 0; i < sizeof pairs / sizeof pairs[0]; i++)
+    {
+      resamp_state_t *a = dp_resamp_create (pairs[i][0]);
+      resamp_state_t *b = dp_resamp_create (pairs[i][1]);
+      if (!a || !b)
+        return 0;
+      /* History on the old path, then on the ctrl port, then cross. */
+      dp_resamp_execute (a, x, NX, scratch, NY);
+      for (int k = 0; k < 17; k++)
+        dp_resamp_execute_ctrl_push (a, x[k], 0.01, scratch, NY);
+      if (dp_resamp_set_rate (a, pairs[i][1]) != DP_OK)
+        ok = 0;
+      size_t na = dp_resamp_execute (a, x, NX, y_a, NY);
+      size_t nb = dp_resamp_execute (b, x, NX, y_b, NY);
+      int    eq = na == nb && na > 0;
+      for (size_t k = 0; eq && k < na; k++)
+        eq = crealf (y_a[k]) == crealf (y_b[k])
+             && cimagf (y_a[k]) == cimagf (y_b[k]);
+      if (!eq)
+        {
+          DP_TEST_ERR ("  §14c %.2f -> %.2f: %zu vs %zu outputs, not a "
+                       "fresh create\n",
+                       pairs[i][0], pairs[i][1], na, nb);
+          ok = 0;
+        }
+      dp_resamp_destroy (a);
+      dp_resamp_destroy (b);
+    }
   return ok;
 }
 
@@ -1250,6 +1402,136 @@ reset_zeroes_state (void)
   return ok;
 }
 
+/* ── §21b — the built-in bank's TAPS follow the public Kaiser design ─────
+ *
+ * §21 pins the sizing and the formulas' agreement, but nothing pinned the
+ * taps themselves: scaling resamp's beta by 1.01 inside its bank builder
+ * left the suite green (review of #2659). This rebuilds a sample of taps
+ * from the published design -- a windowed sinc at the bank's centre cutoff,
+ * the window a Kaiser one with beta = dp_kaiser_beta (60 dB) -- and holds
+ * the bank to it. The tolerance absorbs float32 rounding and a libm's last
+ * bit in sin(), so it does not ride on a byte hash: the bank's sha256 is
+ * the same here (be0a7f3c...) on two machines, but a hash cannot say which
+ * of two differing banks is right, and a hash of anything but the float32
+ * bank itself (the a6481fff in #2652's commit body matches none of the
+ * bank's float32, float64, transposed, .npy or text forms) pins nothing. */
+static double
+ref_bessel_i0 (double x)
+{
+  /* The power series, summed to convergence: an independent I0, not the
+     builder's. */
+  double sum = 1.0, term = 1.0;
+  for (int k = 1; k < 500; k++)
+    {
+      double q = x / (2.0 * k);
+      term *= q * q;
+      sum += term;
+      if (term < 1e-18 * sum)
+        break;
+    }
+  return sum;
+}
+
+static int
+builtin_bank_taps_follow_the_public_design (void)
+{
+  resamp_state_t *r = dp_resamp_create (1.0);
+  if (!r)
+    return 0;
+  const size_t P    = dp_resamp_get_num_phases (r),
+               T    = dp_resamp_get_num_taps (r);
+  const double beta = dp_kaiser_beta (60.0), pb = 0.4 / (double)P,
+               sb    = 0.6 / (double)P;
+  const double wc    = 2.0 * M_PI * (pb + (sb - pb) * 0.5);
+  size_t       proto = P * T;
+  if (proto % 2 == 0)
+    proto++;
+  const double half = (double)(proto / 2), mid = (double)(proto - 1) * 0.5;
+  const double i0b   = ref_bessel_i0 (beta);
+  double       worst = 0.0;
+  for (size_t p = 0; p < P; p += 37)
+    for (size_t t = 0; t < T; t++)
+      {
+        size_t idx = t * P + p;
+        double g   = 0.0;
+        if (idx < proto)
+          {
+            double m = (double)idx - half;
+            double u = 2.0 * ((double)idx - mid) / (double)(proto - 1);
+            double w = ref_bessel_i0 (beta * sqrt (1.0 - u * u)) / i0b;
+            double s = (m == 0.0) ? 1.0 : sin (wc * m) / (wc * m);
+            g        = w * wc / M_PI * s * (double)P;
+          }
+        double e = fabs ((double)r->bank[p * T + t] - g);
+        if (e > worst)
+          worst = e;
+      }
+  dp_resamp_destroy (r);
+  /* The taps peak near 1; float32 holds them to ~6e-8. */
+  if (!(worst < 1e-6))
+    {
+      DP_TEST_ERR ("  §21b built-in bank differs from the public Kaiser "
+                   "design by %g\n",
+                   worst);
+      return 0;
+    }
+  return 1;
+}
+
+/* ── §21 — the built-in bank uses the library's Kaiser rules ─────────────
+ *
+ * resamp used to carry private copies of dp_kaiser_beta() and
+ * dp_kaiser_num_taps(); the formulas now live once, header-inline in
+ * resample_core.h, and the public functions call them (doppler#2652). This
+ * holds both ends to each other: the default bank's size is exactly what
+ * dp_kaiser_num_taps() says for its spec, and the inline beta and sizing
+ * agree with the public functions bit for bit across a sweep -- so a third
+ * copy, or a public function that grows its own formula, goes red here. */
+static int
+builtin_bank_uses_public_kaiser (void)
+{
+  int             ok = 1;
+  resamp_state_t *r  = dp_resamp_create (1.0);
+  if (!r)
+    return 0;
+  if (dp_resamp_get_num_phases (r) != 4096
+      || dp_resamp_get_num_taps (r)
+             != (size_t)dp_kaiser_num_taps (4096, 60.0, 0.4, 0.6)
+      || dp_resamp_get_num_taps (r) != 19)
+    {
+      DP_TEST_ERR ("  §21 built-in bank %zu x %zu, dp_kaiser_num_taps %d\n",
+                   dp_resamp_get_num_phases (r), dp_resamp_get_num_taps (r),
+                   dp_kaiser_num_taps (4096, 60.0, 0.4, 0.6));
+      ok = 0;
+    }
+  dp_resamp_destroy (r);
+
+  for (double atten = 0.0; atten <= 140.0; atten += 0.25)
+    {
+      if (dp_kaiser_beta (atten) != dp_kaiser_beta_eval (atten))
+        {
+          DP_TEST_ERR ("  §21 beta(%g) differs\n", atten);
+          ok = 0;
+        }
+      for (int lg = 0; lg <= 14; lg++)
+        {
+          int P = 1 << lg;
+          /* Below 8 dB the length formula goes negative; the eval floors
+             the prototype at one tap there rather than casting a negative
+             double to size_t, which is undefined (UBSan caught this sweep
+             doing it), so the two faces agree across the whole range. */
+          size_t t = dp_kaiser_num_taps_eval ((size_t)P, atten, 0.4, 0.6);
+          if ((size_t)dp_kaiser_num_taps (P, atten, 0.4, 0.6) != t
+              || (atten <= 8.0 && t != 1u / (size_t)P + 1u))
+            {
+              DP_TEST_ERR ("  §21 num_taps(%d, %g) differs\n", P, atten);
+              ok = 0;
+            }
+        }
+    }
+  return ok;
+}
+
 int
 main (void)
 {
@@ -1623,6 +1905,10 @@ main (void)
 
   /* ── §14 — destroy(NULL) is a no-op; create_custom rejects ──────────── */
   DP_CHECK (lifecycle_rejects ());
+  DP_CHECK (non_power_of_two_phases_refused ());
+  DP_CHECK (crossing_set_rate_is_a_fresh_create ());
+  DP_CHECK (builtin_bank_uses_public_kaiser ());
+  DP_CHECK (builtin_bank_taps_follow_the_public_design ());
 
   /* ── §15 / §16 — the two promises the old literals could not see ────── */
   DP_CHECK (set_rate_preserves_state ());
@@ -1701,6 +1987,89 @@ main (void)
   DP_CHECK (inputs_needed_is_exact (2.5));
   DP_CHECK (inputs_needed_is_exact (3.7));
   DP_CHECK (inputs_needed_is_exact (7.3));
+
+  /* The ctrl block forms report what they took (doppler#2643): they stop
+     offering input once out is full, and re-offering in + consumed gives
+     output identical to one whole call. The rate is above 1, so out fills
+     with ticks still owed before a sample: the block form declines that
+     sample rather than load it ahead, which used to emit those ticks one
+     sample late. */
+  {
+    enum
+    {
+      L   = 400,
+      CAP = 1024
+    };
+    float _Complex in[L], ref[CAP], got[CAP];
+    double ctrl[L], pos[CAP];
+    for (size_t i = 0; i < L; i++)
+      {
+        in[i]   = (float)cos (0.21 * (double)i)
+                  + I * (float)sin (0.05 * (double)i);
+        ctrl[i] = 0.05 * sin (0.01 * (double)i);
+      }
+    resamp_state_t *a    = dp_resamp_create (1.37);
+    size_t          nref = dp_resamp_execute_ctrl (a, in, ctrl, L, ref, CAP);
+    DP_CHECK (dp_resamp_consumed (a) == L);
+    for (int form = 0; form < 2; form++)
+      {
+        resamp_state_t *b   = dp_resamp_create (1.37);
+        size_t          off = 0, ngot = 0, k = 0, calls = 0;
+        while (off < L && calls++ < 4 * L)
+          {
+            size_t cap = 1 + (k++) % 5;
+            ngot += form ? dp_resamp_execute_ctrl_pos (b, in + off, ctrl + off,
+                                                       L - off, got + ngot,
+                                                       pos, cap)
+                         : dp_resamp_execute_ctrl (b, in + off, ctrl + off,
+                                                   L - off, got + ngot, cap);
+            off += dp_resamp_consumed (b);
+          }
+        DP_CHECK (off == L);
+        DP_CHECK (ngot == nref);
+        DP_CHECK (memcmp (ref, got, nref * sizeof *ref) == 0);
+        dp_resamp_destroy (b);
+      }
+    dp_resamp_destroy (a);
+  }
+
+  /* The plain block form reports what it took too (doppler#2643, review
+     of #2659): execute() also stops when out fills, and before
+     dp_resamp_consumed() covered it a caller had no count of the input it
+     left unread. Both engines -- output-driven interpolation (rate > 1)
+     and input-driven decimation (rate < 1) -- split by a short out resume
+     bit-exact from in + consumed. */
+  {
+    enum
+    {
+      L   = 400,
+      CAP = 1024
+    };
+    float _Complex in[L], ref[CAP], got[CAP];
+    for (size_t i = 0; i < L; i++)
+      in[i]
+          = (float)cos (0.21 * (double)i) + I * (float)sin (0.05 * (double)i);
+    const double rates[] = { 1.37, 2.0, 0.61, 0.25 };
+    for (size_t r = 0; r < sizeof rates / sizeof rates[0]; r++)
+      {
+        resamp_state_t *a    = dp_resamp_create (rates[r]);
+        size_t          nref = dp_resamp_execute (a, in, L, ref, CAP);
+        DP_CHECK (dp_resamp_consumed (a) == L);
+        resamp_state_t *b   = dp_resamp_create (rates[r]);
+        size_t          off = 0, ngot = 0, k = 0, calls = 0;
+        while (off < L && calls++ < 4 * L)
+          {
+            size_t cap = 1 + (k++) % 5;
+            ngot += dp_resamp_execute (b, in + off, L - off, got + ngot, cap);
+            off += dp_resamp_consumed (b);
+          }
+        DP_CHECK (off == L);
+        DP_CHECK (ngot == nref);
+        DP_CHECK (memcmp (ref, got, nref * sizeof *ref) == 0);
+        dp_resamp_destroy (a);
+        dp_resamp_destroy (b);
+      }
+  }
 
   DP_TEST_END ("test_resamp_core");
 }

@@ -13,7 +13,7 @@ from pydantic import (
     model_validator,
 )
 
-from ..base import Base, round_float
+from ..base import Base, LowercaseStrEnum, round_float
 from ..conformers import ConformerGenSettingsUnion, OpenConfSettings
 from ..pdb import PDB
 from ..types import UUID, ProteinUUID, Vector3D
@@ -146,6 +146,70 @@ class VinaSettings(DockingSettings):
         if self.executable == "heron" and self.scoring_function != "vinardo":
             raise ValueError("Heron implements Vinardo scoring only.")
         return self
+
+
+class TurboDockPreset(LowercaseStrEnum):
+    """Named search-effort presets for TurboDock."""
+
+    FAST = "fast"
+    BALANCED = "balanced"
+    RIGOROUS = "rigorous"
+
+
+class TurboDockSettings(DockingSettings):
+    """Configure explicit scientific parameters for high-throughput GPU batch docking.
+
+    Presets resolve to numeric search parameters. Execution backends control
+    hardware allocation and scheduling.
+
+    Attributes:
+        max_poses: maximum number of alternative poses returned per ligand
+        scoring_function: scoring function used during docking
+        exhaustiveness: number of independent search attempts per ligand
+        max_search_steps: maximum global search steps per attempt
+    """
+
+    max_poses: PositiveInt = 1
+    settings_type: Literal["turbodock"] = "turbodock"
+    scoring_function: Literal["vina", "vinardo"] = "vina"
+    exhaustiveness: PositiveInt = 128
+    max_search_steps: PositiveInt = 20
+
+    @classmethod
+    def from_preset(
+        cls,
+        preset: TurboDockPreset | str,
+        *,
+        scoring_function: Literal["vina", "vinardo"] = "vina",
+        max_poses: int = 1,
+    ) -> Self:
+        """Construct explicit search parameters from a preset.
+
+        Args:
+            preset: named search-effort preset or its string value
+            scoring_function: scoring function independent of the search preset
+            max_poses: maximum number of alternative poses returned per ligand
+
+        Returns:
+            Settings containing the resolved search parameters
+
+        Raises:
+            ValueError: preset is unsupported
+
+        Examples:
+            >>> settings = TurboDockSettings.from_preset(TurboDockPreset.BALANCED)
+            >>> settings.exhaustiveness, settings.max_search_steps
+            (384, 40)
+        """
+        settings = _TURBODOCK_PRESETS[TurboDockPreset(preset)]
+        return cls.model_validate(settings.model_dump() | {"scoring_function": scoring_function, "max_poses": max_poses})
+
+
+_TURBODOCK_PRESETS = {
+    TurboDockPreset.FAST: TurboDockSettings(exhaustiveness=128, max_search_steps=20),
+    TurboDockPreset.BALANCED: TurboDockSettings(exhaustiveness=384, max_search_steps=40),
+    TurboDockPreset.RIGOROUS: TurboDockSettings(exhaustiveness=512, max_search_steps=40),
+}
 
 
 DockingSettingsUnion = Annotated[VinaSettings | GninaSettings, Field(discriminator="settings_type")]

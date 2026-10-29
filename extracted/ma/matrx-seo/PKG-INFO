@@ -1,12 +1,12 @@
 Metadata-Version: 2.5
 Name: matrx-seo
-Version: 0.1.399
+Version: 0.1.400
 Summary: Provider-neutral SEO collection contracts and canonical persistence.
 Requires-Python: >=3.13
 Requires-Dist: httpx>=0.28
-Requires-Dist: matrx-orm>=3.1.265
-Requires-Dist: matrx-scraper>=0.2.434
-Requires-Dist: matrx-utils>=2.0.97
+Requires-Dist: matrx-orm>=3.1.267
+Requires-Dist: matrx-scraper>=0.2.435
+Requires-Dist: matrx-utils>=2.0.98
 Requires-Dist: pydantic>=2.12
 Provides-Extra: dev
 Requires-Dist: pytest-asyncio>=0.25; extra == 'dev'

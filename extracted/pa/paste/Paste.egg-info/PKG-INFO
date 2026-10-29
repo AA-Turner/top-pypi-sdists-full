@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Paste
-Version: 3.10.1
+Version: 3.11.0
 Summary: Tools for using a Web Server Gateway Interface stack
 Home-page: https://pythonpaste.readthedocs.io/
 Author: Chris Dent
@@ -26,7 +26,6 @@ Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Server
 Classifier: Framework :: Paste
 Requires-Python: >=3
 License-File: LICENSE
-Requires-Dist: setuptools
 Provides-Extra: subprocess
 Provides-Extra: hotshot
 Provides-Extra: flup
@@ -34,6 +33,18 @@ Requires-Dist: flup; extra == "flup"
 Provides-Extra: paste
 Provides-Extra: openid
 Requires-Dist: python-openid; extra == "openid"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 
 *Paste is in maintenance mode and recently moved from bitbucket to github.

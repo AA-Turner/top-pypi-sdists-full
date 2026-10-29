@@ -1,9 +1,8 @@
 import calendar
 import logging
-import time
-from datetime import timedelta, timezone
 from typing import Any, Literal
 
+from .defaults import RQ_KEY_PREFIX
 from .exceptions import DuplicateJobError
 from .logutils import blue, green
 
@@ -186,11 +185,10 @@ def schedule_unique_job(connection, queue_key, registry_key, job, scheduled_date
 
     # Convert datetime to UTC timestamp (same logic as ScheduledJobRegistry.schedule)
     if not scheduled_datetime.tzinfo:
-        tz = timezone(timedelta(seconds=-(time.timezone if time.daylight == 0 else time.altzone)))
-        scheduled_datetime = scheduled_datetime.replace(tzinfo=tz)
+        scheduled_datetime = scheduled_datetime.astimezone()
     timestamp = calendar.timegm(scheduled_datetime.utctimetuple())
 
-    queues_key = 'rq:queues'
+    queues_key = RQ_KEY_PREFIX + ':queues'
 
     result = script(
         keys=[job.key, registry_key, queues_key],

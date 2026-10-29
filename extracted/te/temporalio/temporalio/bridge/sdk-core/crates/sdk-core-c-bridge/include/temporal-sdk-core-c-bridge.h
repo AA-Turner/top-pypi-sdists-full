@@ -58,6 +58,11 @@ typedef enum TemporalCoreOpenTelemetryProtocol {
   TemporalCoreOpenTelemetryProtocol_Http,
 } TemporalCoreOpenTelemetryProtocol;
 
+typedef enum TemporalCoreOpenTelemetryHistogramAggregation {
+  TemporalCoreOpenTelemetryHistogramAggregation_ExplicitBuckets = 0,
+  TemporalCoreOpenTelemetryHistogramAggregation_Base2Exponential,
+} TemporalCoreOpenTelemetryHistogramAggregation;
+
 typedef enum TemporalCoreRuntimeType {
   TemporalCoreRuntimeType_Unspecified = 0,
   TemporalCoreRuntimeType_Jvm = 1,
@@ -416,6 +421,24 @@ typedef struct TemporalCoreOpenTelemetryOptions {
    * `<metric1>\n<float>,<float>,<float>\n<metric2>\n<float>,<float>,<float>`
    */
   TemporalCoreNewlineDelimitedMapRef histogram_bucket_overrides;
+  /**
+   * The zero value selects explicit buckets, which is the default.
+   */
+  enum TemporalCoreOpenTelemetryHistogramAggregation histogram_aggregation;
+  /**
+   * Only used with `Base2Exponential`. 0 means the default of 160.
+   */
+  uint32_t exponential_histogram_max_size;
+  /**
+   * Only used with `Base2Exponential` when `exponential_histogram_max_scale_set` is true.
+   * Otherwise, the default of 20 applies.
+   */
+  int8_t exponential_histogram_max_scale;
+  bool exponential_histogram_max_scale_set;
+  /**
+   * Only used with `Base2Exponential`. Empty means the default of `_native`.
+   */
+  struct TemporalCoreByteArrayRef exponential_histogram_name_suffix;
 } TemporalCoreOpenTelemetryOptions;
 
 typedef struct TemporalCorePrometheusOptions {
@@ -571,6 +594,11 @@ typedef struct TemporalCoreTestServerOptions {
    * 0 means no TTL
    */
   uint64_t download_ttl_seconds;
+  /**
+   * Readiness timeout for dev and test servers, excluding executable download time.
+   * 0 uses the five-second default.
+   */
+  uint64_t startup_timeout_millis;
 } TemporalCoreTestServerOptions;
 
 typedef struct TemporalCoreDevServerOptions {
@@ -1121,6 +1149,14 @@ void temporal_core_worker_poll_nexus_task(struct TemporalCoreWorker *worker,
                                           void *user_data,
                                           TemporalCoreWorkerPollCallback callback);
 
+/**
+ * Accepts a protobuf-encoded `coresdk.workflow_completion.WorkflowActivationCompletion`.
+ *
+ * Child workflow versioning overrides are carried in
+ * `coresdk.workflow_commands.StartChildWorkflowExecution.versioning_override`, so language SDKs
+ * can configure child routing without a separate C ABI option. Requires Temporal Server 1.32.0
+ * or later.
+ */
 void temporal_core_worker_complete_workflow_activation(struct TemporalCoreWorker *worker,
                                                        struct TemporalCoreByteArrayRef completion,
                                                        void *user_data,

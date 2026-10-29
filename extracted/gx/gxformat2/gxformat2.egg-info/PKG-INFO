@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gxformat2
-Version: 0.28.0
+Version: 0.29.0
 Summary: Galaxy Workflow Format 2 Descriptions
 Author-email: Galaxy Project and Community <jmchilton@gmail.com>
 License-Expression: MIT
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Testing

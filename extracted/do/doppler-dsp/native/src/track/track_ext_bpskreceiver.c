@@ -367,15 +367,18 @@ BpskReceiverObj_steps (BpskReceiverObject *self, PyObject *args,
 }
 
 static PyObject *
-BpskReceiverObj_bits_max_out (BpskReceiverObject *self,
-                              PyObject           *Py_UNUSED (ignored))
+BpskReceiverObj_bits_max_out (BpskReceiverObject *self, PyObject *args)
 {
   if (!self->handle)
     {
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  return PyLong_FromSize_t (dp_mpsk_receiver_bits_max_out (self->handle));
+  Py_ssize_t x_len = 0;
+  if (!PyArg_ParseTuple (args, "n", &x_len))
+    return NULL;
+  return PyLong_FromSize_t (
+      dp_mpsk_receiver_bits_max_out (self->handle, (size_t)x_len));
 }
 
 static PyObject *
@@ -431,10 +434,9 @@ BpskReceiverObj_bits (BpskReceiverObject *self, PyObject *args, PyObject *kwds)
           PyErr_SetString (PyExc_RuntimeError, "destroyed");
           return NULL;
         }
-      size_t _omax    = dp_mpsk_receiver_bits_max_out (self->handle);
-      size_t _min_cap = _omax > (size_t)PyArray_SIZE (x_arr)
-                            ? _omax
-                            : ((size_t)PyArray_SIZE (x_arr));
+      size_t _omax = dp_mpsk_receiver_bits_max_out (
+          self->handle, (size_t)PyArray_SIZE (x_arr));
+      size_t _min_cap = _omax;
       if (_cap < _min_cap)
         {
           PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
@@ -495,9 +497,9 @@ BpskReceiverObj_bits (BpskReceiverObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
   size_t _need = (size_t)PyArray_SIZE (x_arr);
-  size_t _cap  = dp_mpsk_receiver_bits_max_out (self->handle);
-  if (!_cap || _cap < _need)
-    _cap = _need;
+  size_t _cap  = dp_mpsk_receiver_bits_max_out (self->handle,
+                                                (size_t)PyArray_SIZE (x_arr));
+  (void)_need;
   size_t _adim_need = (size_t)(_cap);
   if (_adim_need > (size_t)NPY_MAX_INTP)
     {
@@ -1148,18 +1150,16 @@ static PyMethodDef BpskReceiverObj_methods[] = {
   { "steps_max_out", (PyCFunction)BpskReceiverObj_steps_max_out, METH_NOARGS,
     "steps_max_out() -> int\n"
     "\n"
-    "Largest number of samples steps() can return in the current state.\n"
+    "Output-capacity hint for the generated binding's steps().\n"
     "\n"
-    "Size an `out=` buffer with this before calling steps(), or use it to\n"
-    "allocate one up front. The bound is this object's own: what it depends\n"
-    "on is a property of the algorithm, so a header block on steps_max_out()\n"
-    "replaces this text.\n"
+    "Always returns 0, which the binding reads as \"the input length is a\n"
+    "safe bound\": `sps >= m_out >= 2`, so a block never yields more symbols\n"
+    "than it has samples.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Upper bound on the output length; the actual call may return "
-    "fewer.\n" },
+    "    0.\n" },
   { "bits", (PyCFunction)(void *)BpskReceiverObj_bits,
     METH_VARARGS | METH_KEYWORDS,
     "bits(x, out) -> ndarray\n"
@@ -1206,21 +1206,25 @@ static PyMethodDef BpskReceiverObj_methods[] = {
     ">>> tail = np.mean(b[1001:2001] != idx[1000:2000])\n"
     ">>> round(float(min(tail, 1 - tail)), 3)\n"
     "0.0\n" },
-  { "bits_max_out", (PyCFunction)BpskReceiverObj_bits_max_out, METH_NOARGS,
-    "bits_max_out() -> int\n"
+  { "bits_max_out", (PyCFunction)BpskReceiverObj_bits_max_out, METH_VARARGS,
+    "bits_max_out(x_len) -> int\n"
     "\n"
-    "Largest number of samples bits() can return in the current state.\n"
+    "Output capacity bits() needs for an x_len-sample block.\n"
     "\n"
-    "Size an `out=` buffer with this before calling bits(), or use it to\n"
-    "allocate one up front. The bound is this object's own: what it depends\n"
-    "on is a property of the algorithm, so a header block on bits_max_out()\n"
-    "replaces this text.\n"
+    "A block yields at most one symbol per input sample, of log2(M) bits\n"
+    "each, so `x_len * log2(M)` bits always fit. The bound used to be the\n"
+    "input length alone, which 8PSK at an `sps` below 3 outruns; the bits\n"
+    "past it were dropped silently (doppler#2643).\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x_len : int\n"
+    "    Input samples in the block.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Upper bound on the output length; the actual call may return "
-    "fewer.\n" },
+    "    `x_len * log2(M)`.\n" },
   { "reset", (PyCFunction)BpskReceiverObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"

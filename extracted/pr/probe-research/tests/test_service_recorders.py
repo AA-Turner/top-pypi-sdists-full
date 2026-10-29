@@ -912,3 +912,4 @@ def test_a_tap_written_while_it_is_copied_is_never_used(tmp_path, monkeypatch, c
     whole = recorders._pin(str(root), "0.10.18")  # once it holds still: copied
     assert (whole / pins.PIN_DONE).is_file() and (whole / "tap" / "late.py").read_text().endswith(
         "MORE = 2\n" if change == "a-module-grows" else 'WORD = "late-"\n')
+

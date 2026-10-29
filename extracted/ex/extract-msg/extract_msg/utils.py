@@ -26,11 +26,9 @@ __all__ = [
     'guessEncoding',
     'htmlSanitize',
     'inputToBytes',
-    'inputToMsgPath',
     'inputToString',
     'isEncapsulatedRtf',
     'makeWeakRef',
-    'msgPathToString',
     'parseType',
     'patchCss',
     'prepareFilename',
@@ -417,7 +415,7 @@ def getCommandArgs(args: Sequence[str]) -> argparse.Namespace:
                         help='Overrides the path for finding wkhtmltopdf.')
     # --wk-options OPTIONS
     parser.add_argument('--wk-options', dest='wkOptions', nargs='*',
-                        help='Sets additional options to be used in wkhtmltopdf. Should be a series of options and values, replacing the - or -- in the beginning with + or ++, respectively. For example: --wk-options "+O Landscape"')
+                        help='Sets additional options to be used in wkhtmltopdf. Should be a series of options and values, replacing the - or -- in the beginning with + or ++, respectively. For example: --wk-options "+O Landscape" "++no-images"')
     # --wk-allow-external-files
     parser.add_argument('--wk-allow-external-files', dest='allowExternalFiles', action='store_true',
                         help='Enables external files to appear in the PDF output. WARNING: This allows wkpdftohtml to make url requests that are unchecked, and as such may be a security vulnerability in untrusted emails. Only use this option if you trust the source of the MSG file.')
@@ -635,32 +633,6 @@ def inputToBytes(obj: Union[bytes, None, str, SupportsBytes], encoding: str) -> 
     raise ConversionError('Cannot convert to bytes.')
 
 
-def inputToMsgPath(inp: constants.MSG_PATH) -> List[str]:
-    """
-    Converts the input into an msg path.
-
-    :raises ValueError: The path contains an illegal character.
-    """
-    if isinstance(inp, (list, tuple)):
-        inp = '/'.join(inp)
-
-    inp = inputToString(inp, 'utf-8')
-
-    # Validate the path is okay. Normally we would check for '/' and '\', but
-    # we are expecting a string or similar which will use those as path
-    # separators, so we will ignore that for now.
-    if ':' in inp or '!' in inp:
-        raise ValueError('Illegal character ("!" or ":") found in MSG path.')
-
-    ret = [x for x in inp.replace('\\', '/').split('/') if x]
-
-    # One last thing to check: all path segments can be, at most, 31 characters
-    # (32 if you include the null character), so we should verify that.
-    if any(len(x) > 31 for x in ret):
-        raise ValueError('Path segments must not be greater than 31 characters.')
-    return ret
-
-
 def inputToString(bytesInputVar: Optional[Union[str, bytes]], encoding: str) -> str:
     """
     Converts the input into a string.
@@ -722,16 +694,6 @@ def minutesToDurationStr(minutes: int) -> str:
         return f'{minutes // 60} hours 1 minute'
     else:
         return f'{minutes // 60} hours {minutes % 60} minutes'
-
-
-def msgPathToString(inp: Union[str, Iterable[str]]) -> str:
-    """
-    Converts an MSG path (one of the internal paths inside an MSG file) into a
-    string.
-    """
-    if not isinstance(inp, str):
-        inp = '/'.join(inp)
-    return inp.replace('\\', '/')
 
 
 def parseType(_type: int, stream: Union[int, bytes], encoding: str, extras: Sequence[bytes]):
@@ -1045,6 +1007,7 @@ def stripRtf(rtfBody: bytes) -> bytes:
 
     return rtfBody
 
+
 def _stripRtfCloseHelper(match: re.Match) -> bytes:
     if (ret := match.expand(b'\\g<0>')).count(b'\\htmlrtf0') > 1:
         return ret
@@ -1078,8 +1041,6 @@ def _stripRtfHelper(match: re.Match) -> bytes:
     # TODO
 
     return res
-
-
 
 
 def tryGetMimetype(att: AttachmentBase, mimetype: Union[str, None]) -> Union[str, None]:
@@ -1305,7 +1266,10 @@ def unwrapMultipart(mp: Union[bytes, str, email.message.Message]) -> Dict:
         elif attachment['mimetype'] == 'text/plain':
             if plainBody:
                 logger.warning('Found multiple candidates for plain text body.')
-            plainBody = data
+            # We need to get the content again and ensure it is a string. If
+            # not, decode it to one.
+            content = inputToString(node.get_content(), node.get_content_charset('utf-8'))
+            plainBody = content
         elif attachment['mimetype'] == 'text/html':
             if htmlBody:
                 logger.warning('Found multiple candidates for HTML body.')

@@ -3,14 +3,18 @@ from __future__ import annotations
 import contextlib
 import errno
 import os
+import pickle
 import signal
 import sys
 import time
 from random import shuffle
 from typing import TYPE_CHECKING
 
+from redis import SSLConnection
+
+from ..callbacks import execute_stopped_callback
 from ..connections import get_connection_kwargs
-from ..defaults import DEFAULT_WORKER_TTL
+from ..defaults import DEFAULT_LOGGING_DATE_FORMAT, DEFAULT_LOGGING_FORMAT, DEFAULT_WORKER_TTL
 from ..exceptions import InvalidJobOperation, ShutDownImminentException
 from ..job import Job, JobStatus
 from ..timeouts import HorseMonitorTimeoutException
@@ -18,6 +22,7 @@ from ..utils import now
 from .base import SHUTDOWN_SIGNAL, BaseWorker, WorkerStatus, signal_name
 
 if TYPE_CHECKING:
+    from ..executions import Execution
     from ..queue import Queue
 
     try:
@@ -71,14 +76,15 @@ class Worker(BaseWorker):
             self._horse_pid = child_pid
             self.procline(f'Forked {child_pid} at {time.time()}')
 
-    def monitor_work_horse(self, job: Job, queue: Queue):
+    def monitor_work_horse(self, job: Job, queue: Queue, execution: Execution):
         """The worker will monitor the work horse and make sure that it
         either executes successfully or the status of the job is set to
         failed
 
         Args:
-            job (Job): _description_
-            queue (Queue): _description_
+            job (Job): The job being run by the work horse
+            queue (Queue): The queue the job was dequeued from
+            execution (Execution): The execution running the job
         """
         retpid = ret_val = rusage = None
         job.started_at = now()
@@ -89,17 +95,16 @@ class Worker(BaseWorker):
                 break
             except HorseMonitorTimeoutException:
                 # Horse has not exited yet and is still running.
-                # Send a heartbeat to keep the worker alive.
-                self.set_current_job_working_time((now() - job.started_at).total_seconds())
+                working_time = (now() - job.started_at).total_seconds()
 
                 # Kill the job from this side if something is really wrong (interpreter lock/etc).
-                if job.timeout != -1 and self.current_job_working_time > (job.timeout + 60):  # type: ignore
+                if job.timeout != -1 and working_time > (job.timeout + 60):  # type: ignore
                     self.heartbeat(self.job_monitoring_interval + 60)
                     self.kill_horse()
                     self.wait_for_horse()
                     break
 
-                self.maintain_heartbeats(job)
+                self.maintain_heartbeats(job, execution)
 
             except OSError as e:
                 # In case we encountered an OSError due to EINTR (which is
@@ -113,8 +118,11 @@ class Worker(BaseWorker):
                 # Send a heartbeat to keep the worker alive.
                 self.heartbeat()
 
-        self.set_current_job_working_time(0)
         self._horse_pid = 0  # Set horse PID to 0, horse has finished working
+
+        # The horse's cleanup_execution() only popped its own copy of `executions`,
+        # so the parent process drops its entry here
+        self.executions.pop(execution.id, None)
 
         self.log.debug(
             'Worker %s: work horse finished for job %s: retpid=%s, ret_val=%s', self.name, job.id, retpid, ret_val
@@ -130,10 +138,7 @@ class Worker(BaseWorker):
 
         if self._stopped_job_id == job.id:
             # Work-horse killed deliberately
-            self.log.warning('Worker %s: job %s stopped by user, moving job to FailedJobRegistry', self.name, job.id)
-            if job.stopped_callback:
-                job.execute_stopped_callback(self.death_penalty_class)
-            self.handle_job_failure(job, queue=queue, exc_string='Job stopped by user, work-horse terminated.')
+            self._handle_stopped_job(job, queue, execution)
         elif job_status not in [JobStatus.FINISHED, JobStatus.FAILED]:
             job.ended_at = now()
 
@@ -143,7 +148,22 @@ class Worker(BaseWorker):
             self.log.warning('Worker %s: job %s failed (%s)', self.name, job.id, exc_string)
 
             self.handle_work_horse_killed(job, retpid, ret_val, rusage)
-            self.handle_job_failure(job, queue=queue, exc_string=exc_string)
+            self.handle_job_failure(job, queue=queue, exc_string=exc_string, execution=execution)
+
+    def _handle_stopped_job(self, job: Job, queue: Queue, execution: Execution):
+        """Move a deliberately stopped job to the FailedJobRegistry.
+
+        A raising stopped callback must not prevent the job from being failed, so it is
+        logged and swallowed here.
+        """
+        self.log.warning('Worker %s: job %s stopped by user, moving job to FailedJobRegistry', self.name, job.id)
+        try:
+            execute_stopped_callback(job, self.death_penalty_class)
+        except Exception:
+            self.log.exception('Worker %s: stopped callback for job %s raised', self.name, job.id)
+        self.handle_job_failure(
+            job, queue=queue, exc_string='Job stopped by user, work-horse terminated.', execution=execution
+        )
 
     def execute_job(self, job: Job, queue: Queue):
         """Spawns a work horse to perform the actual work and passes it a job.
@@ -151,62 +171,113 @@ class Worker(BaseWorker):
         within the given timeout bounds, or will end the work horse with
         SIGALRM.
         """
-        self.prepare_execution(job)
+        execution = self.prepare_execution(job)
         self.fork_work_horse(job, queue)
-        self.monitor_work_horse(job, queue)
+        self.monitor_work_horse(job, queue, execution)
         self.set_state(WorkerStatus.IDLE)
 
 
 class SpawnWorker(Worker):
-    """Worker implementation that uses os.spawn() instead of os.fork().
-    This implementation is intended for environments where `os.fork()` is not available.
+    """Worker implementation that uses `os.posix_spawn()` instead of `os.fork()`.
+    This implementation is intended for POSIX environments where `os.fork()` is unsafe, like macOS.
     """
 
+    def bootstrap(
+        self,
+        logging_level: str | None = 'INFO',
+        date_format: str = DEFAULT_LOGGING_DATE_FORMAT,
+        log_format: str = DEFAULT_LOGGING_FORMAT,
+    ):
+        for obj in (type(self), self.job_class, self.queue_class, self.death_penalty_class, *self._exc_handlers):
+            if getattr(obj, '__module__', None) == '__main__':
+                raise ValueError(
+                    f'SpawnWorker cannot use {obj!r}: objects defined in __main__ are not importable by the work horse'
+                )
+        # Reject unpicklable configuration before registering or dequeuing work.
+        self._dump_worker_config()
+        super().bootstrap(logging_level, date_format, log_format)
+
+    def _dump_worker_config(self) -> bytes:
+        """Serialize the worker class and supported horse settings for this job."""
+        return pickle.dumps(
+            (
+                type(self),
+                {
+                    'job_class': self.job_class,
+                    'queue_class': self.queue_class,
+                    'death_penalty_class': self.death_penalty_class,
+                    '_exc_handlers': self._exc_handlers,
+                    'default_result_ttl': self.default_result_ttl,
+                    'job_monitoring_interval': self.job_monitoring_interval,
+                    'log_job_description': self.log_job_description,
+                    'log_result_lifespan': self.log_result_lifespan,
+                    'disable_default_exception_handler': self.disable_default_exception_handler,
+                },
+            )
+        )
+
     def fork_work_horse(self, job: Job, queue: Queue):
-        """Spawns a work horse to perform the actual work using os.spawn()."""
+        """Spawns a work horse to perform the actual work using `os.posix_spawn()`."""
         os.environ['RQ_WORKER_ID'] = self.name
+        os.environ['RQ_JOB_ID'] = job.id
         os.environ['RQ_EXECUTION_ID'] = self.execution.id  # type: ignore
 
         redis_kwargs = get_connection_kwargs(self.connection)
+        if 'path' in redis_kwargs:
+            redis_kwargs['unix_socket_path'] = redis_kwargs.pop('path')
+        if issubclass(self.connection.connection_pool.connection_class, SSLConnection):
+            # Redis() only uses the ssl_* settings, and SSLConnection, when ssl is set
+            redis_kwargs['ssl'] = True
         if redis_kwargs.get('retry'):
-            # Remove retry from connection kwargs to avoid issues with os.spawnv
+            # Remove retry from connection kwargs so they can be embedded in the child source
             del redis_kwargs['retry']
         if redis_kwargs.get('driver_info'):
             del redis_kwargs['driver_info']
 
-        child_pid = os.spawnv(
-            os.P_NOWAIT,
-            sys.executable,
-            [
-                sys.executable,
-                '-c',
-                f"""
+        worker_config_payload = self._dump_worker_config()
+        child_source = f"""
 import os
+import pickle
 import sys
+
+sys.path[:] = {sys.path!r}
+
 from redis import Redis
-from rq import Worker, Queue
-from rq.job import Job
 from rq.executions import Execution
+
+worker_class, worker_attributes = pickle.loads({worker_config_payload!r})
 
 # Recreate worker instance
 redis = Redis(**{redis_kwargs!r})
-worker = Worker.find_by_key({self.key!r}, connection=redis, serializer={self._serializer_arg!r})
+worker = worker_class.find_by_key(
+    {self.key!r},
+    connection=redis,
+    job_class=worker_attributes['job_class'],
+    queue_class=worker_attributes['queue_class'],
+    serializer={self._serializer_arg!r},
+)
 if not worker:
     sys.exit(1)
+for name, value in worker_attributes.items():
+    setattr(worker, name, value)
 
 # Reconstruct job, queue and execution objects
-job = Job.fetch({job.id!r}, connection=worker.connection, serializer=worker.serializer)
-queue = Queue({queue.name!r}, connection=worker.connection, serializer=worker.serializer)
-execution_id = os.environ["RQ_EXECUTION_ID"]
-worker.execution = Execution.fetch(execution_id, job.id, connection=worker.connection)
+job = worker.job_class.fetch({job.id!r}, connection=worker.connection, serializer=worker.serializer)
+queue = worker.queue_class(
+    {queue.name!r},
+    connection=worker.connection,
+    job_class=worker.job_class,
+    serializer=worker.serializer,
+    death_penalty_class=worker.death_penalty_class,
+)
+execution = Execution.fetch(os.environ['RQ_EXECUTION_ID'], job.id, connection=worker.connection)
+execution._job = job
+worker.execution = execution
 
-# Set up work horse
-os.setpgrp()
-worker._is_horse = True
 worker.main_work_horse(job, queue)
-""",
-            ],
-        )
+"""
+        # setpgroup=0 puts the horse in its own process group before any of its code runs
+        child_pid = os.posix_spawn(sys.executable, [sys.executable, '-c', child_source], os.environ, setpgroup=0)
 
         self._horse_pid = child_pid
         self.procline(f'Spawned {child_pid} at {time.time()}')
@@ -215,16 +286,17 @@ worker.main_work_horse(job, queue)
 class SimpleWorker(BaseWorker):
     def execute_job(self, job: Job, queue: Queue):
         """Execute job in same thread/process, do not fork()"""
-        self.prepare_execution(job)
-        self.perform_job(job, queue)
+        execution = self.prepare_execution(job)
+        self.perform_job(job, queue, execution)
         self.set_state(WorkerStatus.IDLE)
 
-    def get_heartbeat_ttl(self, job: Job) -> int:
+    def get_heartbeat_ttl(self, job: Job, working_time: float = 0.0) -> int:
         """-1" means that jobs never timeout. In this case, we should _not_ do -1 + 60 = 59.
         We should just stick to DEFAULT_WORKER_TTL.
 
         Args:
             job (Job): The Job
+            working_time (float): Unused; accepted for signature compatibility.
 
         Returns:
             ttl (int): TTL

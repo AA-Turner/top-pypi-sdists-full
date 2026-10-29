@@ -20,6 +20,7 @@ import yaml
 from omnibase_core.models.delegation.wire import EnumDelegationTerminalFailureCause
 
 from omnimarket.enums.enum_delegation_acceptance import EnumDelegationAcceptanceReason
+from omnimarket.enums.enum_provider_finish_reason import EnumProviderFinishReason
 from omnimarket.inference.local_byok_credential_adapter import (
     register_local_byok_credential,
 )
@@ -167,7 +168,19 @@ async def _run_fault(
 
 def _assert_failed(response: ModelDelegateSkillResponse, fault: str) -> None:
     assert response.status == "failed", response.model_dump(mode="json")
-    assert response.terminal_failure_cause is _EXPECTED_CAUSES[fault], (
+    if fault == "timeout":
+        # A run whose clock ran out keeps its own cause (OMN-21264).
+        assert response.terminal_failure_cause is _EXPECTED_CAUSES[fault], (
+            response.model_dump(mode="json")
+        )
+        return
+    # OMN-21264: the chosen model failed, so the run goes back to its caller;
+    # the cause that decided it stays readable as the reason.
+    assert (
+        response.terminal_failure_cause
+        is EnumDelegationTerminalFailureCause.RETURNED_TO_CALLER
+    ), response.model_dump(mode="json")
+    assert response.terminal_failure_reason == _EXPECTED_CAUSES[fault].value, (
         response.model_dump(mode="json")
     )
 
@@ -222,12 +235,8 @@ async def test_finish_reason_length_is_quality_gate_refused(
     assert TRUNCATION_CHECK_NAME == "not_truncated_by_output_budget"
     assert TRUNCATION_CHECK_NAME in deciding.acceptance_detail
     assert "finish_reason=length" in deciding.acceptance_detail
-    if {
-        "finish_reason",
-        "truncated",
-    } <= ModelDelegateSkillAttemptRecord.model_fields.keys():
-        assert deciding.finish_reason == "length"
-        assert deciding.truncated is True
+    assert deciding.finish_reason == EnumProviderFinishReason.LENGTH, deciding
+    assert deciding.truncated is True, deciding
 
 
 @pytest.mark.parametrize("faults", [pytest.param(_FAULTS, id="all-five-faults")])
@@ -243,14 +252,16 @@ async def test_the_five_faults_have_pairwise_distinct_evidence_and_none_reads_pr
         for fault in faults
     }
     for fault, response in responses.items():
-        assert response.terminal_failure_cause is not (
-            EnumDelegationTerminalFailureCause.PROVIDER_ERROR
+        assert EnumDelegationTerminalFailureCause.PROVIDER_ERROR.value not in (
+            response.terminal_failure_cause,
+            response.terminal_failure_reason,
         ), (fault, response.model_dump(mode="json"))
         _assert_failed(response, fault)
     assert (
         len(
             {
-                responses[fault].terminal_failure_cause
+                responses[fault].terminal_failure_reason
+                or responses[fault].terminal_failure_cause
                 for fault in ("wrong_key", "quota", "timeout")
             }
         )
@@ -268,3 +279,7 @@ async def test_the_five_faults_have_pairwise_distinct_evidence_and_none_reads_pr
         veto.acceptance_reason != truncation.acceptance_reason
         or veto_rule != truncation_rule
     )
+    assert truncation.finish_reason == EnumProviderFinishReason.LENGTH, truncation
+    assert truncation.truncated is True, truncation
+    assert veto.finish_reason != EnumProviderFinishReason.LENGTH, veto
+    assert veto.truncated is False, veto

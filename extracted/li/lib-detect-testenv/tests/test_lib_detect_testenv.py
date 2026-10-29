@@ -113,6 +113,45 @@ def test_is_pytest_active_with_pytest_env_var(monkeypatch: pytest.MonkeyPatch) -
     assert is_pytest_active(arg_string="") is True
 
 
+#: The argv a pytest-xdist worker process runs with: execnet starts it as ``python -c <bootstrap>``.
+_XDIST_WORKER_ARGV = ["-c"]
+
+
+@pytest.fixture
+def worker_process_argv(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    """Make the process look like an xdist worker's argv, with neither pytest variable set."""
+    monkeypatch.setattr(sys, "argv", _XDIST_WORKER_ARGV)
+    monkeypatch.delenv("PYTEST_IS_RUNNING", raising=False)
+    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
+    return monkeypatch
+
+
+@pytest.mark.os_agnostic
+def test_a_worker_argv_alone_does_not_read_as_pytest(worker_process_argv: pytest.MonkeyPatch) -> None:
+    """The control: with the argv replaced and no xdist variable, nothing names pytest."""
+    assert is_pytest_active() is False
+    assert is_testenv_active() is False
+
+
+@pytest.mark.os_agnostic
+def test_an_xdist_worker_reads_as_pytest(worker_process_argv: pytest.MonkeyPatch) -> None:
+    """A pytest-xdist worker's argv does not name pytest; xdist sets PYTEST_XDIST_WORKER in it."""
+    worker_process_argv.setenv("PYTEST_XDIST_WORKER", "gw0")
+
+    assert is_pytest_active() is True
+    assert is_testenv_active() is True
+
+
+@pytest.mark.os_agnostic
+def test_an_explicit_arg_string_ignores_the_xdist_worker_variable(worker_process_argv: pytest.MonkeyPatch) -> None:
+    """Only a call reading the real process consults the worker variable; a given string is judged alone."""
+    worker_process_argv.setenv("PYTEST_XDIST_WORKER", "gw0")
+
+    assert is_pytest_active(arg_string="") is False
+    assert is_pytest_active(arg_string="python test.py") is False
+    assert is_testenv_active(arg_string="python script.py") is False
+
+
 # ============================================================================
 # Tests for is_doctest_active()
 # ============================================================================

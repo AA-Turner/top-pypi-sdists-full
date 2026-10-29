@@ -53,7 +53,9 @@ def test_render_ignores_module_versions(
         package = tmp_path / "fallbackdemo"
         package.mkdir()
         source = package / "__init__.py"
-    source.write_text(f"from pathlib import Path\nPath({str(marker)!r}).write_text('imported')\n__version__ = '2.0'\n")
+    source.write_text(
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('imported')\n__version__ = '9.8.7.6'\n"
+    )
     if module_kind == "bytecode":
         py_compile.compile(str(source), cfile=str(tmp_path / "fallbackdemo.pyc"), doraise=True)
         source.unlink()
@@ -62,7 +64,7 @@ def test_render_ignores_module_versions(
     result = pipdeptree.render(output_format=output_format)
 
     assert not marker.exists()
-    assert "2.0" not in result
+    assert "9.8.7.6" not in result
     assert "fallbackdemo" in result
     if output_format == "text":
         assert "installed: ?" in result
@@ -228,3 +230,15 @@ def test_render_rejects_invalid_options(call: Callable[[], str], expected: str) 
 
 def test_render_summary_json_is_valid() -> None:
     assert json.loads(pipdeptree.render(summary=True, output_format="json"))["total_packages"] > 0
+
+
+def test_render_raises_on_trees_past_the_nesting_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for position in range(202):
+        dist_info = tmp_path / f"p{position:05}-1.dist-info"
+        dist_info.mkdir()
+        requires = f"Requires-Dist: p{position + 1:05}\n" if position < 201 else ""
+        (dist_info / "METADATA").write_text(f"Name: p{position:05}\nVersion: 1\n{requires}")
+    monkeypatch.setattr(sys, "path", [str(tmp_path)])
+
+    with pytest.raises(ValueError, match="nests deeper than 200 levels"):
+        pipdeptree.render(output_format="json-tree")

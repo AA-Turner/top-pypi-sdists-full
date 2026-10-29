@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+    assemble_held_step_skills,
     hold_step,
 )
 
@@ -146,6 +147,7 @@ async def ai_extract(ctx: NodeExecutionContext, inputs: ExtractInput) -> NodeRes
     # fills only what the author left unset; an unbound mandate REFUSES here.
     held = await hold_step(overrides, spec_type="ai.extract", consumer="ai.extract")
     config = UnifiedConfig.from_dict(held.config)
+    await assemble_held_step_skills(held, config)
 
     completed = await execute_ai_request(
         config,

@@ -13,6 +13,7 @@
 #include "doppler/hbdecim/hbdecim_r2c_core.h"
 #include "doppler/lo/lo_core.h"
 
+#include "doppler/clib_common.h"
 #include "doppler/dp_complex.h"
 #include <stdlib.h>
 #include <string.h>
@@ -86,7 +87,9 @@ ddcr_ddcr_new (double norm_freq, double rate, int pulse, double beta,
       free (s);
       return NULL;
     }
-  s->rate = rate;
+  s->rate        = rate;
+  s->scratch     = NULL; /* grown by the first execute */
+  s->scratch_cap = 0;
   /* See ddc_core.c: a one-symbol-wide rectangle sampled fewer than four
      times per symbol is a two- or three-tap matched filter. */
   s->narrow_pulse = (pulse == RC_PULSE_IANDD && pulse_sps < 4.0);
@@ -117,6 +120,7 @@ dp_ddcr_destroy (dp_ddcr_state_t *s)
   dp_hbdecim_r2c_destroy (s->r2c);
   dp_lo_destroy (s->lo);
   dp_RateConverter_destroy (s->rc);
+  free (s->scratch);
   free (s);
 }
 
@@ -205,6 +209,22 @@ dp_ddcr_execute_ctrl_push_max_out (dp_ddcr_state_t *s)
   return (size_t)(rate > 1.0 ? rate : 1.0) + 2;
 }
 
+/* The scratch, grown to at least @p need samples and kept (doppler#2650):
+ * a steady stream allocates once, not per call. The growth aborts on OOM
+ * (dp_xrealloc, the library's grow-on-demand scratch rule): returning 0 for
+ * a failed growth looked exactly like "no output yet", and no caller could
+ * tell it to retry (#2647). */
+static float _Complex *
+ddcr_scratch (dp_ddcr_state_t *s, size_t need)
+{
+  if (s->scratch_cap < need)
+    {
+      s->scratch     = dp_xrealloc (s->scratch, need * sizeof *s->scratch);
+      s->scratch_cap = need;
+    }
+  return s->scratch;
+}
+
 size_t
 dp_ddcr_execute (dp_ddcr_state_t *s, const float *in, size_t n_in,
                  float _Complex *out, size_t max_out)
@@ -212,36 +232,23 @@ dp_ddcr_execute (dp_ddcr_state_t *s, const float *in, size_t n_in,
   if (n_in == 0)
     return 0;
 
-  /* Step 1: halfband R2C decimation (2:1). */
+  /* One buffer holds the halfband output and the mixed block. */
   size_t          hb_max = n_in / 2 + 2;
-  float _Complex *hb_buf = malloc (hb_max * sizeof (float _Complex));
-  if (!hb_buf)
+  float _Complex *hb_buf = ddcr_scratch (s, 2 * hb_max);
+  float _Complex *mix    = hb_buf + hb_max;
+
+  /* Step 1: halfband R2C decimation (2:1). */
+  size_t n_hb = dp_hbdecim_r2c_execute (s->r2c, in, n_in, hb_buf, hb_max);
+  if (n_hb == 0)
     return 0;
 
-  size_t n_hb = dp_hbdecim_r2c_execute (s->r2c, in, n_in, hb_buf, hb_max);
-
-  if (n_hb == 0)
-    {
-      free (hb_buf);
-      return 0;
-    }
-
   /* Step 2: LO mix at intermediate rate. */
-  float _Complex *mix = malloc (n_hb * sizeof (float _Complex));
-  if (!mix)
-    {
-      free (hb_buf);
-      return 0;
-    }
   dp_lo_steps (s->lo, n_hb, mix, n_hb);
   for (size_t i = 0; i < n_hb; i++)
     mix[i] = hb_buf[i] * mix[i];
-  free (hb_buf);
 
   /* Step 3: rate-convert to target output rate. */
-  size_t nout = dp_RateConverter_execute (s->rc, mix, n_hb, out, max_out);
-  free (mix);
-  return nout;
+  return dp_RateConverter_execute (s->rc, mix, n_hb, out, max_out);
 }
 
 size_t
@@ -253,26 +260,19 @@ dp_ddcr_execute_ctrl (dp_ddcr_state_t *s, const float *x, size_t n_in,
     return 0;
 
   size_t          hb_max = n_in / 2 + 2;
-  float _Complex *hb_buf = malloc (hb_max * sizeof (float _Complex));
-  if (!hb_buf)
-    return 0;
+  float _Complex *hb_buf = ddcr_scratch (s, hb_max);
 
   size_t n_hb = dp_hbdecim_r2c_execute (s->r2c, x, n_in, hb_buf, hb_max);
   if (n_hb == 0)
-    {
-      free (hb_buf);
-      return 0;
-    }
+    return 0;
 
   /* The LO runs at the intermediate rate, so the frequency control is applied
      once per halfband output — not once per ADC sample. */
   for (size_t i = 0; i < n_hb; i++)
     hb_buf[i] = hb_buf[i] * lo_step_ctrl (s->lo, freq_ctrl);
 
-  size_t nout = dp_RateConverter_execute_ctrl (s->rc, hb_buf, n_hb, rate_ctrl,
-                                               out, max_out);
-  free (hb_buf);
-  return nout;
+  return dp_RateConverter_execute_ctrl (s->rc, hb_buf, n_hb, rate_ctrl, out,
+                                        max_out);
 }
 
 size_t

@@ -1,6 +1,7 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
+from unittest import mock
 
-from rq import Queue, Worker
+from rq import Queue, SimpleWorker, Worker
 from rq.job import Job
 from rq.registry import ScheduledJobRegistry
 from rq.repeat import Repeat
@@ -195,8 +196,93 @@ class TestRepeatEnqueue(RQTestCase):
         job.refresh()
         self.assertEqual(job.repeats_left, 2)
 
+    def test_repeat_schedule_is_not_shifted_by_local_timezone(self):
+        """Repeat.schedule() schedules against UTC, not the server's wall clock"""
+        queue = self.queue
+        registry = ScheduledJobRegistry(queue=queue)
+
+        job = queue.enqueue(say_hello, repeat=Repeat(times=3, interval=30))
+        queue.empty()
+
+        # Simulate a server whose timezone observes DST but is currently on
+        # standard time. For a naive datetime, ScheduledJobRegistry.schedule()
+        # falls back to time.altzone whenever time.daylight is set, so it
+        # guesses an offset an hour away from the real one. An aware datetime
+        # never reaches that fallback.
+        standard_offset = int(-datetime.now().astimezone().utcoffset().total_seconds())
+        daylight = mock.patch('time.daylight', 1)
+        timezone = mock.patch('time.timezone', standard_offset)
+        altzone = mock.patch('time.altzone', standard_offset - 3600)
+
+        with daylight, timezone, altzone:
+            before_schedule = now()
+            Repeat.schedule(job, queue)
+            after_schedule = now()
+
+        scheduled_time = registry.get_scheduled_time(job.id)
+        expected_min = before_schedule + timedelta(seconds=25)
+        expected_max = after_schedule + timedelta(seconds=35)
+        self.assertTrue(
+            expected_min <= scheduled_time <= expected_max,
+            f'Job not scheduled in expected window: {expected_min} <= {scheduled_time} <= {expected_max}',
+        )
+
+    def test_repeat_schedule_interval_order(self):
+        current_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        for times, intervals, expected in (
+            (5, [5, 10, 15], [5, 10, 15, 15, 15]),
+            (3, [0, 10], [0, 10, 10]),
+        ):
+            with self.subTest(times=times, intervals=intervals):
+                repeat = Repeat(times=times, interval=intervals)
+                job = self.queue.enqueue(say_hello, repeat=repeat)
+                registry = ScheduledJobRegistry(queue=self.queue)
+                for interval in expected:
+                    self.queue.empty()
+                    with mock.patch('rq.repeat.now', return_value=current_time):
+                        scheduled_time = Repeat.schedule(job, self.queue)
+                    if interval:
+                        expected_time = current_time + timedelta(seconds=interval)
+                        self.assertEqual(scheduled_time, expected_time)
+                        self.assertEqual(registry.get_scheduled_time(job.id), expected_time)
+                    else:
+                        self.assertIsNone(scheduled_time)
+                        self.assertIn(job.id, self.queue.get_job_ids())
+                    job = Job.fetch(job.id, connection=self.connection)
+                self.assertEqual(job.repeats_left, 0)
+                self.assertEqual(repeat.intervals, intervals)
+
 
 class TestWorkerRepeat(RQTestCase):
+    def test_repeat_state_survives_transaction_retry(self):
+        queue = Queue(connection=self.connection)
+        job = queue.enqueue(say_hello, repeat=Repeat(times=2, interval=[5, 10]))
+        worker = SimpleWorker([queue], connection=self.connection)
+        move_dependents = Queue.move_dependents_to_ready
+        added_dependency = False
+
+        def add_dependency(queue, parent_job, *args, **kwargs):
+            nonlocal added_dependency
+            result = move_dependents(queue, parent_job, *args, **kwargs)
+            if not added_dependency:
+                added_dependency = True
+                # Changing the watched dependents key aborts the first transaction.
+                queue.enqueue(say_hello, depends_on=parent_job)
+            return result
+
+        current_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        with (
+            mock.patch.object(Queue, 'move_dependents_to_ready', add_dependency),
+            mock.patch('rq.repeat.now', return_value=current_time),
+        ):
+            worker.work(burst=True, max_jobs=1)
+
+        self.assertTrue(added_dependency)
+        job.refresh()
+        self.assertEqual(job.repeats_left, 1)
+        registry = ScheduledJobRegistry(queue=queue)
+        self.assertEqual(registry.get_scheduled_time(job.id), current_time + timedelta(seconds=5))
+
     def test_successful_job_repeat(self):
         """Test that successful jobs are repeated according to Repeat settings"""
         queue = Queue(connection=self.connection)

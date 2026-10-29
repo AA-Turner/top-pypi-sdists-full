@@ -30,6 +30,7 @@ from datamodel_code_generator.enums import (
     AsyncAPIVersion,
     ClassNameAffixScope,
     CollapseRootModelsNameStrategy,
+    ConstructorFieldOrder,
     DataclassArguments,
     DefaultValueType,
     FieldTypeCollisionStrategy,
@@ -38,6 +39,7 @@ from datamodel_code_generator.enums import (
     JsonSchemaVersion,
     ModuleSplitMode,
     NamingStrategy,
+    OpenAPIAsDefinitions,
     OpenAPIScope,
     OpenAPIVersion,
     ProtobufVersion,
@@ -117,7 +119,13 @@ def _rebuild_config_model(model_type: type[BaseModel], types_namespace: dict[str
 def _rebuild_generate_config() -> None:
     _rebuild_config_model(
         GenerateConfig,
-        {"DefaultValueType": DefaultValueType, "StrictTypes": StrictTypes, "UnionMode": UnionMode},
+        {
+            "ConstructorFieldOrder": ConstructorFieldOrder,
+            "DefaultValueType": DefaultValueType,
+            "OpenAPIAsDefinitions": OpenAPIAsDefinitions,
+            "StrictTypes": StrictTypes,
+            "UnionMode": UnionMode,
+        },
     )
 
 
@@ -160,12 +168,14 @@ class ParserConfig(BaseModel):
     extra_template_data: ExtraTemplateDataType | None = None
     validators: Mapping[str, ModelValidators] | None = None
     generate_schema_validators: bool = False
+    check_pattern_maps_strictly: bool = False
     schema_validator_base_class_name: str | None = None
     target_python_version: PythonVersion = PythonVersionMin
     dump_resolve_reference_action: DumpResolveReferenceAction | None = None
     validation: bool = False
     field_constraints: bool = False
     alias_generator: AliasGenerator | None = None
+    pin_aliases_with_alias_generator: bool = False
     snake_case_field: bool = False
     strip_default_none: bool = False
     aliases: Mapping[str, str | list[str]] | None = None
@@ -203,6 +213,7 @@ class ParserConfig(BaseModel):
     use_subclass_enum: bool = False
     use_specialized_enum: bool = True
     strict_nullable: bool = False
+    omit_redundant_reference_null: bool = False
     use_generic_container_types: bool = False
     enable_faux_immutability: bool = False
     remote_text_cache: DefaultPutDictSchema | None = None
@@ -222,6 +233,7 @@ class ParserConfig(BaseModel):
     use_operation_id_as_name: bool = False
     use_unique_items_as_set: bool = False
     use_tuple_for_fixed_items: bool = False
+    use_tuple_for_closed_arrays: bool = False
     use_tuple_for_fixed_length_arrays: bool = False
     use_total_false_for_typed_dict: bool = False
     use_closed_typed_dict: bool = True
@@ -239,12 +251,16 @@ class ParserConfig(BaseModel):
     use_serialize_as_any: bool = False
     use_non_positive_negative_number_constrained_types: bool = False
     use_decimal_for_multiple_of: bool = False
+    use_decimal_in_field_forms: bool = False
+    omit_redundant_constraints: bool = False
+    use_site_models_for_constrained_refs: bool = False
     original_field_name_delimiter: str | None = None
     use_double_quotes: bool = False
     use_union_operator: bool = False
     allow_responses_without_content: bool = False
     collapse_root_models: bool = False
     collapse_root_models_name_strategy: CollapseRootModelsNameStrategy | None = None
+    collapse_shared_parent_wrappers: bool = False
     collapse_reuse_models: bool = False
     skip_root_model: bool = False
     use_root_model_sequence_interface: bool = False
@@ -253,12 +269,23 @@ class ParserConfig(BaseModel):
     remove_special_field_name_prefix: bool = False
     capitalise_enum_members: bool = False
     keep_model_order: bool = False
+    order_constructor_fields_by: Sequence[ConstructorFieldOrder] = ()
     use_one_literal_as_default: bool = False
     use_enum_values_in_discriminator: bool = False
     use_msgspec_tagged_unions: bool = False
+    tag_msgspec_by_payload_name: bool = False
     use_msgspec_nullable_enum_alias: bool = False
     use_typed_nullable_map_values: bool = False
+    use_typed_map_values_beside_other_types: bool = False
+    use_single_dict_for_object_maps: bool = False
+    read_unevaluated_properties: bool = False
     use_single_value_enum_as_const: bool = False
+    read_const_beside_enum: bool = False
+    filter_literal_values: bool = False
+    intersect_allof_keywords: bool = False
+    read_nullable_beside_type_list: bool = False
+    keep_field_defaults_off_branch_roots: bool = False
+    keep_enum_member_values: bool = False
     known_third_party: list[str] | None = None
     custom_formatters: list[str] | None = None
     custom_formatters_kwargs: dict[str, Any] | None = None
@@ -290,6 +317,7 @@ class ParserConfig(BaseModel):
     type_mappings: list[str] | None = None
     type_overrides: dict[str, str] | None = None
     read_only_write_only_model_type: ReadOnlyWriteOnlyModelType | None = None
+    dedupe_request_response_variants: bool = False
     field_type_collision_strategy: FieldTypeCollisionStrategy | None = None
     target_pydantic_version: TargetPydanticVersion | None = None
     default_value_overrides: Mapping[str, Any] | None = None
@@ -333,6 +361,7 @@ class OpenAPIParserConfig(JSONSchemaParserConfig):
     use_status_code_in_response_name: bool = False
     openapi_include_paths: list[str] | None = None
     openapi_include_info_version: bool = False
+    openapi_as_definitions: Sequence[OpenAPIAsDefinitions] = ()
     openapi_version: OpenAPIVersion | None = None
 
 
@@ -344,6 +373,7 @@ class AsyncAPIParserConfig(JSONSchemaParserConfig):
     use_status_code_in_response_name: bool = False
     openapi_include_paths: list[str] | None = None
     openapi_include_info_version: bool = False
+    openapi_as_definitions: Sequence[OpenAPIAsDefinitions] = ()
     openapi_version: OpenAPIVersion | None = None
     asyncapi_version: AsyncAPIVersion | None = None
 

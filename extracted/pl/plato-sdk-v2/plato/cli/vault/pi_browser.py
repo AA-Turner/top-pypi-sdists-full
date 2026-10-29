@@ -13,9 +13,11 @@ again, and a ``request`` listener forwards a server-side redirect. docs/explorat
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import json
 import logging
 import os
+import queue
 import re
 import shutil
 import signal
@@ -29,7 +31,7 @@ from contextlib import contextmanager, suppress
 from enum import StrEnum
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 from urllib.parse import urljoin
 
 import httpx
@@ -316,34 +318,80 @@ class AgentRun(BaseModel):
     timed_out: bool = False
 
 
-def pi_mcp_config(mcp_url: str) -> str:
-    return json.dumps({"mcpServers": {"computer": {"type": "http", "url": mcp_url}}})
+class AgentServer(Protocol):
+    """A second MCP server for the agent (the mint's ``vault`` tools), started next to `computer`."""
+
+    name: str
+
+    @property
+    def url(self) -> str: ...
+
+    async def start(self) -> None: ...
+
+    async def close(self) -> None: ...
 
 
-def pi_agent_command(agent: str, goal: str, mcp_url: str) -> list[str]:
+class AgentExtras(BaseModel):
+    """What a goal adds to the screen-only agent: built-in tools (``WebSearch``), the
+    tools of a second MCP server, a model and a system-prompt block."""
+
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    server: Callable[[], AgentServer] | None = None
+    server_tools: tuple[str, ...] = ()
+    builtin_tools: tuple[str, ...] = ()
+    model: str | None = None
+    instructions: str = ""
+
+
+def pi_mcp_config(mcp_url: str, servers: dict[str, str] | None = None) -> str:
+    entries = {"computer": {"type": "http", "url": mcp_url}}
+    entries.update({name: {"type": "http", "url": url} for name, url in (servers or {}).items()})
+    return json.dumps({"mcpServers": entries})
+
+
+def pi_agent_command(
+    agent: str,
+    goal: str,
+    mcp_url: str,
+    extras: AgentExtras | None = None,
+    server_url: str | None = None,
+    server_name: str | None = None,
+) -> list[str]:
     """``claude -p`` with no built-in tool (``--tools ""``), one MCP server (the
     `computer` server, ``--strict-mcp-config``), its tools minus ``bash`` allowed,
     ``bash`` disallowed, and ``dontAsk`` so any other tool is refused. No session
-    file (``--no-session-persistence``): a frame must not stay on disk."""
-    return [
+    file (``--no-session-persistence``): a frame must not stay on disk. ``extras``
+    adds its built-in tools, the second server's tools and a model."""
+    extras = extras or AgentExtras()
+    allowed = [f"mcp__computer__{t}" for t in PI_AGENT_TOOLS]
+    servers: dict[str, str] = {}
+    if server_url is not None and server_name is not None:
+        servers[server_name] = server_url
+        allowed += [f"mcp__{server_name}__{t}" for t in extras.server_tools]
+    allowed += list(extras.builtin_tools)
+    command = [
         agent,
         "-p",
         goal,
         "--no-session-persistence",
         "--tools",
-        "",
+        ",".join(extras.builtin_tools),
         "--allowedTools",
-        ",".join(f"mcp__computer__{t}" for t in PI_AGENT_TOOLS),
+        ",".join(allowed),
         "--disallowedTools",
         ",".join(PI_DISALLOWED_TOOLS),
         "--permission-mode",
         "dontAsk",
         "--strict-mcp-config",
         "--mcp-config",
-        pi_mcp_config(mcp_url),
+        pi_mcp_config(mcp_url, servers),
         "--append-system-prompt",
-        PI_COMPUTER_INSTRUCTIONS,
+        "\n\n".join(p for p in (PI_COMPUTER_INSTRUCTIONS, extras.instructions) if p),
     ]
+    if extras.model:
+        command += ["--model", extras.model]
+    return command
 
 
 async def _drain(stream: asyncio.StreamReader | None, sink: list[bytes]) -> None:
@@ -391,10 +439,13 @@ def _kill_group(proc: asyncio.subprocess.Process) -> None:
             proc.kill()
 
 
-def run_pi_agent(agent: str, goal: str, desktop_url: str, workdir: str, timeout_s: float) -> AgentRun:
-    """Start the `computer` MCP server on the adapter at ``desktop_url``, run the agent
-    against it, then stop the server. Call it off the Playwright thread: it runs its
-    own event loop (:meth:`PiDriver.agent` runs it in a worker thread)."""
+def run_pi_agent(
+    agent: str, goal: str, desktop_url: str, workdir: str, timeout_s: float, extras: AgentExtras | None = None
+) -> AgentRun:
+    """Start the `computer` MCP server on the adapter at ``desktop_url`` (and the
+    ``extras`` server), run the agent against them, then stop the servers. Call it off
+    the Playwright thread: it runs its own event loop (:meth:`PiDriver.agent` runs it in
+    a worker thread)."""
 
     async def main() -> AgentRun:
         import fastmcp
@@ -408,9 +459,19 @@ def run_pi_agent(agent: str, goal: str, desktop_url: str, workdir: str, timeout_
         _quiet_server_logs()
         mcp = ComputerUseMcp(desktop_url, port=free_local_port(), screenshots="on_request")
         await mcp.start()
+        server = extras.server() if extras is not None and extras.server is not None else None
         try:
+            if server is not None:
+                await server.start()
             proc = await asyncio.create_subprocess_exec(
-                *pi_agent_command(agent, goal, mcp.url),
+                *pi_agent_command(
+                    agent,
+                    goal,
+                    mcp.url,
+                    extras,
+                    server.url if server is not None else None,
+                    server.name if server is not None else None,
+                ),
                 stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -441,6 +502,9 @@ def run_pi_agent(agent: str, goal: str, desktop_url: str, workdir: str, timeout_
             )
         finally:
             _quiet_server_logs()  # uvicorn set its own levels at start
+            if server is not None:
+                with suppress(Exception):
+                    await server.close()
             await mcp.close()
 
     return asyncio.run(main())
@@ -480,6 +544,37 @@ def _in_thread(
     if "error" in box:
         raise box["error"]
     return box["value"]
+
+
+class PageJobs:
+    """Calls from another thread (an agent's MCP tool) that must run on the page thread:
+    Playwright's sync API belongs to one thread. :meth:`serve` runs in the page thread's
+    wait loop (:meth:`PiDriver.agent`)."""
+
+    def __init__(self) -> None:
+        self._queue: queue.Queue[tuple[Callable[[], Any], concurrent.futures.Future[Any]]] = queue.Queue()
+
+    def call(self, fn: Callable[[], T], timeout_s: float) -> T:
+        future: concurrent.futures.Future[T] = concurrent.futures.Future()
+        self._queue.put((fn, future))
+        try:
+            return future.result(timeout_s)
+        except concurrent.futures.TimeoutError:
+            future.cancel()
+            raise PortalError(f"the page step did not run within {timeout_s:.0f} s") from None
+
+    def serve(self) -> None:
+        while True:
+            try:
+                fn, future = self._queue.get_nowait()
+            except queue.Empty:
+                return
+            if not future.set_running_or_notify_cancel():
+                continue
+            try:
+                future.set_result(fn())
+            except BaseException as e:
+                future.set_exception(e)
 
 
 def free_local_port() -> int:
@@ -727,6 +822,25 @@ def _launcher_reply(output: str) -> LauncherReply | None:
     return reply
 
 
+def follow_tab(page: Any) -> Any:
+    """``page`` while it is the only open tab; else the newest open tab that is visible, else
+    the newest open one. ``page`` itself when its context cannot be read."""
+    try:
+        tabs = [p for p in page.context.pages if not p.is_closed()]
+    except Exception:
+        return page
+    if not tabs or tabs == [page]:
+        return page
+    for tab in reversed(tabs):
+        with suppress(Exception):
+            if (
+                limited(tab, PAGE_CALL_TIMEOUT_S, "the tab check", lambda t=tab: t.evaluate("document.visibilityState"))
+                == "visible"
+            ):
+                return tab
+    return tabs[-1]
+
+
 class CdpSession:
     """A Playwright connection to the Pi's Chromium. :meth:`close` stops Playwright and
     leaves Chromium running (the launcher stops it)."""
@@ -848,7 +962,7 @@ class PiDriver:
         tunnel_factory: Callable[[PiBrowserConfig, str], SshTunnel] = SshTunnel,
         cdp_connect: Callable[[str], CdpSession] = connect_cdp,
         screen_factory: Callable[[PiBrowserConfig], PiScreen] = PiScreen,
-        agent_runner: Callable[[str, str, str, str, float], AgentRun] = run_pi_agent,
+        agent_runner: Callable[..., AgentRun] = run_pi_agent,
         callback_get: Callable[[str], httpx.Response] | None = None,
         clock: Callable[[], float] = time.monotonic,
         login: str | None = None,
@@ -985,8 +1099,12 @@ class PiDriver:
             raise PortalError(f"the Pi browser did not stop cleanly: {'; '.join(errors)}")
 
     def _page(self) -> Any:
+        """The tab on screen. A sign-in can open a new tab (Slack's workspace list) and the old
+        one can be closed: then the context's open tab the person sees takes over (the mask
+        script and the callback route are on the context, so they cover it too)."""
         if self.page is None:
             raise PortalError("the Pi browser is not connected")
+        self.page = follow_tab(self.page)
         return self.page
 
     def pump(self) -> None:
@@ -1097,6 +1215,9 @@ class PiDriver:
         secret_visible: Callable[[], bool] | None = None,
         *,
         hand_off_on_need: bool = True,
+        gate: pi_desktop_adapter.ScreenGate | None = None,
+        jobs: PageJobs | None = None,
+        extras: AgentExtras | None = None,
     ) -> VaultLine:
         """Run the click agent on the Pi screen; its last ``@@VAULT`` line. Its output
         goes to :func:`app_portal.write_agent_log` (redacted), never to the terminal.
@@ -1107,7 +1228,11 @@ class PiDriver:
         of the command.
 
         ``hand_off_on_need`` False: a ``need_person`` line raises :class:`NeedPerson` but
-        leaves the window with code, so code can sign in first (:mod:`sign_in`)."""
+        leaves the window with code, so code can sign in first (:mod:`sign_in`).
+
+        ``gate`` is used instead of a :class:`ScreenGate` on ``secret_visible`` (the mint's
+        :class:`pi_desktop_adapter.MaskGate`). ``jobs``: the page steps of the ``extras``
+        server's tools, run on this thread while the agent runs."""
         if self.tools.agent is None:
             raise PortalUnavailable("no `claude` binary here for the portal agent")
         desktop_url = self._ensure_screen()
@@ -1116,15 +1241,19 @@ class PiDriver:
         workdir = tempfile.mkdtemp(prefix="vault-agent-")  # empty: no project files to read
         header = f"# portal agent, Pi browser (Chromium pid {self.space_id})\n## goal\n{goal}"
         agent = self.tools.agent
-        gate = pi_desktop_adapter.ScreenGate(secret_visible) if secret_visible is not None else None
+        if gate is None and secret_visible is not None:
+            gate = pi_desktop_adapter.ScreenGate(secret_visible)
         pump: Callable[[], None] | None = self.pump if self.page is not None else None
         if gate is not None:
             screen.set_gate(gate)
             # Answer each frame check (the check runs Playwright, which handles events too).
             pump = partial(gate.serve, PUMP_MS / 1000)
+        if jobs is not None:
+            pump = _with_jobs(pump or self.pump, jobs)
+        runner_args: dict[str, Any] = {"extras": extras} if extras is not None else {}
         try:
             run = _in_thread(
-                lambda: self._agent_runner(agent, goal, desktop_url, workdir, timeout_s),
+                lambda: self._agent_runner(agent, goal, desktop_url, workdir, timeout_s, **runner_args),
                 pump=pump,
                 on_abort=LIVE_AGENTS.kill_all,
             )
@@ -1328,6 +1457,14 @@ class PiDriver:
                 f"(client id prefix {line.client_id_prefix!r}, secret length {line.secret_len})"
             )
         return PortalSecretFile(client_id=client_id, client_secret=secret), line
+
+
+def _with_jobs(pump: Callable[[], None], jobs: PageJobs) -> Callable[[], None]:
+    def both() -> None:
+        pump()
+        jobs.serve()
+
+    return both
 
 
 def _navigate_page(target: str) -> bytes:

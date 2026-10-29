@@ -1,17 +1,17 @@
 import json
 import logging
-import random
-import string
+from typing import Any
 
 import requests
 
 from django.conf import settings
+from django.utils.crypto import get_random_string
 
 logger = logging.getLogger(__name__)
 
 
 class XenForoManager:
-    def __init__(self):
+    def __init__(self) -> None:
         if not settings.XENFORO_ENDPOINT:
             logger.debug("Could not find XenForo endpoint")
         if not settings.XENFORO_APIKEY:
@@ -19,16 +19,12 @@ class XenForoManager:
         pass
 
     @staticmethod
-    def __sanitize_username(username):
+    def __sanitize_username(username: str) -> str:
         sanitized = username.replace(" ", "_")
         return sanitized
 
     @staticmethod
-    def __generate_password():
-        return ''.join([random.choice(string.ascii_letters + string.digits) for n in range(16)])
-
-    @staticmethod
-    def exec_http_request(http_params):
+    def exec_http_request(http_params: dict[str, Any]) -> requests.Response:
         default_params = {
             'hash': settings.XENFORO_APIKEY
         }
@@ -37,10 +33,10 @@ class XenForoManager:
         return r
 
     @staticmethod
-    def add_user(username, email):
+    def add_user(username: str, email: str) -> dict[str, Any]:
 
         sanitized = XenForoManager.__sanitize_username(username)
-        password = XenForoManager.__generate_password()
+        password = get_random_string(length=20)
 
         data = {
             'action': 'register',
@@ -70,9 +66,8 @@ class XenForoManager:
         return data
 
     @staticmethod
-    def reset_password(username):
-
-        password = XenForoManager.__generate_password()
+    def reset_password(username: str) -> dict[str, Any]:
+        password = get_random_string(length=20)
 
         data = {
             'action': 'editUser',
@@ -92,7 +87,7 @@ class XenForoManager:
         return data
 
     @staticmethod
-    def disable_user(username):
+    def disable_user(username: str) -> requests.Response:
         data = {
             'action': 'editUser',
             'user': username,
@@ -102,12 +97,12 @@ class XenForoManager:
         return r
 
     @staticmethod
-    def reactivate_user(username):
+    def reactivate_user(username: str) -> dict[str, Any]:
         data = {
             'action': 'editUser',
             'user': username,
             'add_groups': settings.XENFORO_DEFAULT_GROUP,
-            'password': XenForoManager.__generate_password()
+            'password': get_random_string(length=20)
         }
         r = XenForoManager.exec_http_request(data)
         response = {
@@ -121,7 +116,7 @@ class XenForoManager:
         return data
 
     @staticmethod
-    def update_user_password(username, raw_password):
+    def update_user_password(username: str, raw_password: str) -> dict[str, Any]:
         data = {
             'action': 'editUser',
             'user': username,

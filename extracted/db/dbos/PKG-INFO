@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbos
-Version: 3.3.0
+Version: 3.4.0
 Summary: Ultra-lightweight durable execution in Python
 Author-Email: "DBOS, Inc." <contact@dbos.dev>
 License: MIT
@@ -39,7 +39,7 @@ Requires-Dist: pydantic>=2.0; extra == "validation"
 Provides-Extra: aiosqlite
 Requires-Dist: aiosqlite>=0.20.0; extra == "aiosqlite"
 Provides-Extra: enterprise
-Requires-Dist: dbos-enterprise==3.3.0; extra == "enterprise"
+Requires-Dist: dbos-enterprise==3.4.0; extra == "enterprise"
 Description-Content-Type: text/markdown
 
 

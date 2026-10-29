@@ -2,10 +2,8 @@ from unittest import mock
 
 from django.test import TestCase, override_settings
 
-from allianceauth.groupmanagement.models import Group
+from allianceauth.groupmanagement.models import Group, GroupRequest, RequestLog, ReservedGroupName
 from allianceauth.tests.auth_utils import AuthUtils
-
-from ..models import GroupRequest, RequestLog, ReservedGroupName
 
 MODULE_PATH = "allianceauth.groupmanagement.models"
 
@@ -144,81 +142,99 @@ class TestGroupRequest(TestCase):
         _, kwargs = mock_notify.call_args
         self.assertEqual(kwargs["user"],self.user_1)
 
+    def test_request_type_returns_join_for_unsaved_instance(self):
+        """
+        Test that the request_type method returns 'join' for an unsaved GroupRequest instance.
+
+        :return:
+        """
+
+        group = Group.objects.create(name="group_join_unsaved")
+
+        gr = GroupRequest(leave_request=False, user=self.user_2, group=group)
+
+        result = gr.request_type()
+
+        self.assertEqual(result, RequestLog.Type.JOIN)
+        self.assertIsInstance(result, str)
+
+    def test_request_type_returns_leave_for_unsaved_instance(self):
+        """
+        Test that the request_type method returns 'leave' for an unsaved GroupRequest instance.
+
+        :return:
+        """
+
+        group = Group.objects.create(name="group_leave_unsaved")
+
+        gr = GroupRequest(leave_request=True, user=self.user_2, group=group)
+
+        result = gr.request_type()
+
+        self.assertEqual(result, RequestLog.Type.LEAVE)
+        self.assertIsInstance(result, str)
+
+    def test_request_type_returns_join_for_saved_instance(self):
+        """
+        Test that the request_type method returns 'join' for a saved GroupRequest instance.
+
+        :return:
+        """
+
+        group = Group.objects.create(name="group_join_saved")
+
+        gr = GroupRequest.objects.create(leave_request=False, user=self.user_2, group=group)
+
+        result = gr.request_type()
+
+        self.assertEqual(result, RequestLog.Type.JOIN)
+        self.assertIsInstance(result, str)
+
+    def test_request_type_returns_leave_for_saved_instance(self):
+        """
+        Test that the request_type method returns 'leave' for a saved GroupRequest instance.
+
+        :return:
+        """
+
+        group = Group.objects.create(name="group_leave_saved")
+
+        gr = GroupRequest.objects.create(leave_request=True, user=self.user_2, group=group)
+
+        result = gr.request_type()
+
+        self.assertEqual(result, RequestLog.Type.LEAVE)
+        self.assertIsInstance(result, str)
+
 
 class TestRequestLog(TestCase):
+    """
+    Test case for the RequestLog model.
+    """
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.group, cls.user_1, cls.user_2, _ = create_testdata()
 
-    def test_requestor(self):
-        request_log = RequestLog.objects.create(
-            group=self.group,
-            request_info='Clark Kent:Superheros',
-            request_actor=self.user_1
-        )
-        expected = 'Clark Kent'
-        self.assertEqual(request_log.requestor(), expected)
+    def test_str(self):
+        """
+        Test the string representation of a RequestLog instance.
 
-    def test_type_to_str_removed(self):
-        request_log = RequestLog.objects.create(
-            request_type=None,
-            group=self.group,
-            request_info='Clark Kent:Superheros',
-            request_actor=self.user_1
-        )
-        expected = 'Removed'
-        self.assertEqual(request_log.type_to_str(), expected)
+        :return:
+        """
 
-    def test_type_to_str_leave(self):
-        request_log = RequestLog.objects.create(
-            request_type=True,
-            group=self.group,
-            request_info='Clark Kent:Superheros',
-            request_actor=self.user_1
-        )
-        expected = 'Leave'
-        self.assertEqual(request_log.type_to_str(), expected)
+        group = Group.objects.create(name="group_log")
 
-    def test_type_to_str_join(self):
-        request_log = RequestLog.objects.create(
-            request_type=False,
-            group=self.group,
-            request_info='Clark Kent:Superheros',
-            request_actor=self.user_1
+        log = RequestLog.objects.create(
+            request_type=RequestLog.Type.JOIN,
+            group=group,
+            action=RequestLog.Action.ACCEPT,
+            request_actor=self.user_2,
+            requestor=self.user_1,
         )
-        expected = 'Join'
-        self.assertEqual(request_log.type_to_str(), expected)
 
-    def test_action_to_str_accept(self):
-        request_log = RequestLog.objects.create(
-            group=self.group,
-            request_info='Clark Kent:Superheros',
-            request_actor=self.user_1,
-            action=True
-        )
-        expected = 'Accept'
-        self.assertEqual(request_log.action_to_str(), expected)
-
-    def test_action_to_str_reject(self):
-        request_log = RequestLog.objects.create(
-            group=self.group,
-            request_info='Clark Kent:Superheros',
-            request_actor=self.user_1,
-            action=False
-        )
-        expected = 'Reject'
-        self.assertEqual(request_log.action_to_str(), expected)
-
-    def test_req_char(self):
-        request_log = RequestLog.objects.create(
-            group=self.group,
-            request_info='Clark Kent:Superheros',
-            request_actor=self.user_1,
-            action=False
-        )
-        expected = self.user_2.profile.main_character
-        self.assertEqual(request_log.req_char(), expected)
+        self.assertEqual(str(log), str(log.pk))
 
 
 class TestAuthGroup(TestCase):

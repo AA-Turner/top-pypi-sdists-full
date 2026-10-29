@@ -103,3 +103,52 @@ def test_every_input_the_tool_sends_is_declared_by_the_workflow() -> None:
 
     assert sent, "the tool sent no inputs, so this asserts nothing"
     assert set(sent) <= _declared_inputs()
+
+
+def test_regression_jobs_are_routed_by_residency() -> None:
+    """EU runs cannot reach the normal regression-test job."""
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text())
+    jobs = workflow["jobs"]
+
+    assert jobs["regression-test"]["needs"] == "resolve-residency"
+    assert (
+        jobs["regression-test"]["if"]
+        == "needs.resolve-residency.outputs.residency == 'us'"
+    )
+    assert jobs["regression-test-eu"]["needs"] == "resolve-residency"
+    assert (
+        jobs["regression-test-eu"]["if"]
+        == "needs.resolve-residency.outputs.residency == 'eu'"
+    )
+    assert "dataplane_group" in jobs["resolve-residency"]["outputs"]
+
+
+def test_internal_failure_defaults_to_true_when_jobs_are_skipped() -> None:
+    """A failed residency resolver remains classified as an internal failure."""
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text())
+    triggers = workflow[True] if True in workflow else workflow["on"]
+
+    assert triggers["workflow_call"]["outputs"]["internal_failure"]["value"] == (
+        "${{ jobs.regression-test.outputs.internal_failure || "
+        "jobs.regression-test-eu.outputs.internal_failure || 'true' }}"
+    )
+
+
+def test_every_workflow_output_has_an_eu_job_fallback() -> None:
+    """An EU run hands a `workflow_call` caller a defined value for every output.
+
+    The US job is skipped on an EU run, so an output that reads only from it
+    resolves to an empty string. Each output must fall back to the EU job, and
+    the EU job must define it.
+    """
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text())
+    triggers = workflow[True] if True in workflow else workflow["on"]
+    call_outputs = triggers["workflow_call"]["outputs"]
+    eu_outputs = workflow["jobs"]["regression-test-eu"]["outputs"]
+
+    assert call_outputs, "the workflow declares no outputs, so this asserts nothing"
+    for name, output in call_outputs.items():
+        assert f"jobs.regression-test.outputs.{name}" in output["value"], name
+        assert f"jobs.regression-test-eu.outputs.{name}" in output["value"], name
+        assert name in eu_outputs, name
+        assert str(eu_outputs[name]).strip(), name

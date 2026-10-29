@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 import uuid
 
 from django.contrib import messages
@@ -20,10 +23,13 @@ from .managers import SRPManager
 from .models import SrpFleetMain, SrpUserRequest
 from .providers import get_universe_types_type_id
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 
-def random_string(string_length=10):
+def random_string(string_length: int = 10) -> str:
     """Returns a random string of length string_length."""
     random = str(uuid.uuid4())  # Convert UUID format to a Python string.
     random = random.upper()  # Make all characters uppercase.
@@ -33,7 +39,7 @@ def random_string(string_length=10):
 
 @login_required
 @permission_required('srp.access_srp')
-def srp_management(request, all=False):
+def srp_management(request: "HttpRequest", all: bool = False) -> "HttpResponse":
     logger.debug(f"srp_management called by user {request.user}")
     fleets = SrpFleetMain.objects.select_related('fleet_commander').prefetch_related('srpuserrequest_set').all()
     if not all:
@@ -47,7 +53,7 @@ def srp_management(request, all=False):
 
 @login_required
 @permission_required('srp.access_srp')
-def srp_fleet_view(request, fleet_id):
+def srp_fleet_view(request: "HttpRequest", fleet_id: int) -> "HttpResponse":
     logger.debug(f"srp_fleet_view called by user {request.user} for fleet id {fleet_id}")
     try:
         fleet_main = SrpFleetMain.objects.get(id=fleet_id)
@@ -62,7 +68,7 @@ def srp_fleet_view(request, fleet_id):
 
 @login_required
 @permissions_required(('auth.srp_management', 'srp.add_srpfleetmain'))
-def srp_fleet_add_view(request):
+def srp_fleet_add_view(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"srp_fleet_add_view called by user {request.user}")
     completed = False
     completed_srp_code = ""
@@ -96,7 +102,7 @@ def srp_fleet_add_view(request):
 
 @login_required
 @permission_required('auth.srp_management')
-def srp_fleet_remove(request, fleet_id):
+def srp_fleet_remove(request: "HttpRequest", fleet_id: int) -> "HttpResponse":
     logger.debug(f"srp_fleet_remove called by user {request.user} for fleet id {fleet_id}")
     srpfleetmain = get_object_or_404(SrpFleetMain, id=fleet_id)
     srpfleetmain.delete()
@@ -107,7 +113,7 @@ def srp_fleet_remove(request, fleet_id):
 
 @login_required
 @permission_required('auth.srp_management')
-def srp_fleet_disable(request, fleet_id):
+def srp_fleet_disable(request: "HttpRequest", fleet_id: int) -> "HttpResponse":
     logger.debug(f"srp_fleet_disable called by user {request.user} for fleet id {fleet_id}")
     srpfleetmain = get_object_or_404(SrpFleetMain, id=fleet_id)
     srpfleetmain.fleet_srp_code = ""
@@ -119,7 +125,7 @@ def srp_fleet_disable(request, fleet_id):
 
 @login_required
 @permission_required('auth.srp_management')
-def srp_fleet_enable(request, fleet_id):
+def srp_fleet_enable(request: "HttpRequest", fleet_id: int) -> "HttpResponse":
     logger.debug(f"srp_fleet_enable called by user {request.user} for fleet id {fleet_id}")
     srpfleetmain = get_object_or_404(SrpFleetMain, id=fleet_id)
     srpfleetmain.fleet_srp_code = random_string(8)
@@ -131,7 +137,7 @@ def srp_fleet_enable(request, fleet_id):
 
 @login_required
 @permission_required('auth.srp_management')
-def srp_fleet_mark_completed(request, fleet_id):
+def srp_fleet_mark_completed(request: "HttpRequest", fleet_id: int) -> "HttpResponse":
     logger.debug(f"srp_fleet_mark_completed called by user {request.user} for fleet id {fleet_id}")
     srpfleetmain = get_object_or_404(SrpFleetMain, id=fleet_id)
     srpfleetmain.fleet_srp_status = "Completed"
@@ -144,7 +150,7 @@ def srp_fleet_mark_completed(request, fleet_id):
 
 @login_required
 @permission_required('auth.srp_management')
-def srp_fleet_mark_uncompleted(request, fleet_id):
+def srp_fleet_mark_uncompleted(request: "HttpRequest", fleet_id: int) -> "HttpResponse":
     logger.debug(f"srp_fleet_mark_uncompleted called by user {request.user} for fleet id {fleet_id}")
     srpfleetmain = get_object_or_404(SrpFleetMain, id=fleet_id)
     srpfleetmain.fleet_srp_status = ""
@@ -157,7 +163,7 @@ def srp_fleet_mark_uncompleted(request, fleet_id):
 
 @login_required
 @permission_required('srp.access_srp')
-def srp_request_view(request, fleet_srp):
+def srp_request_view(request: "HttpRequest", fleet_srp: str) -> "HttpResponse":
     logger.debug(f"srp_request_view called by user {request.user} for fleet srp code {fleet_srp}")
 
     if SrpFleetMain.objects.filter(fleet_srp_code=fleet_srp).exists() is False:
@@ -226,7 +232,7 @@ def srp_request_view(request, fleet_srp):
 
 @login_required
 @permission_required('auth.srp_management')
-def srp_request_remove(request):
+def srp_request_remove(request: "HttpRequest") -> "HttpResponse":
     numrequests = len(request.POST) - 1
     logger.debug(f"srp_request_remove called by user {request.user} for {numrequests} srp request id's")
     stored_fleet_view = None
@@ -252,7 +258,7 @@ def srp_request_remove(request):
 
 @login_required
 @permission_required('auth.srp_management')
-def srp_request_approve(request):
+def srp_request_approve(request: "HttpRequest") -> "HttpResponse":
     numrequests = len(request.POST) - 1
     logger.debug(f"srp_request_approve called by user {request.user} for {numrequests} srp request id's")
     stored_fleet_view = None
@@ -287,7 +293,7 @@ def srp_request_approve(request):
 
 @login_required
 @permission_required('auth.srp_management')
-def srp_request_reject(request):
+def srp_request_reject(request: "HttpRequest") -> "HttpResponse":
     numrequests = len(request.POST) - 1
     logger.debug(f"srp_request_reject called by user {request.user} for {numrequests} srp request id's")
     stored_fleet_view = None
@@ -320,7 +326,7 @@ def srp_request_reject(request):
 
 @login_required
 @permission_required('auth.srp_management')
-def srp_request_update_amount(request, fleet_srp_request_id):
+def srp_request_update_amount(request: "HttpRequest", fleet_srp_request_id: int) -> "HttpResponse":
     logger.debug(f"srp_request_update_amount called by user {request.user} for fleet srp request id {fleet_srp_request_id}")
 
     if SrpUserRequest.objects.filter(id=fleet_srp_request_id).exists() is False:
@@ -339,7 +345,7 @@ def srp_request_update_amount(request, fleet_srp_request_id):
 
 @login_required
 @permission_required('auth.srp_management')
-def srp_fleet_edit_view(request, fleet_id):
+def srp_fleet_edit_view(request: "HttpRequest", fleet_id: int) -> "HttpResponse":
     logger.debug(f"srp_fleet_edit_view called by user {request.user} for fleet id {fleet_id}")
     srpfleetmain = get_object_or_404(SrpFleetMain, id=fleet_id)
     if request.method == 'POST':

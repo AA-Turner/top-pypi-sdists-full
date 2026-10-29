@@ -31,10 +31,13 @@ __all__ = (
     "NeptuneDataServiceName",
     "OpenCypherExplainModeType",
     "ParallelismType",
+    "RebuildStatusType",
     "ResourceServiceName",
     "S3BucketRegionType",
+    "ScopeType",
     "ServiceName",
     "StatisticsAutoGenerationModeType",
+    "WriteBufferSizeType",
 )
 
 ActionType = Literal["initiateDatabaseReset", "performDatabaseReset"]
@@ -45,6 +48,9 @@ IteratorTypeType = Literal["AFTER_SEQUENCE_NUMBER", "AT_SEQUENCE_NUMBER", "LATES
 ModeType = Literal["AUTO", "NEW", "RESUME"]
 OpenCypherExplainModeType = Literal["details", "dynamic", "static"]
 ParallelismType = Literal["HIGH", "LOW", "MEDIUM", "OVERSUBSCRIBE"]
+RebuildStatusType = Literal[
+    "CANCELLED", "CANCELLING", "COMPLETED", "FAILED", "PREPARING", "REBUILDING"
+]
 S3BucketRegionType = Literal[
     "af-south-1",
     "ap-east-1",
@@ -83,7 +89,9 @@ S3BucketRegionType = Literal[
     "us-west-1",
     "us-west-2",
 ]
+ScopeType = Literal["ALL", "DICTIONARIES", "QUADS"]
 StatisticsAutoGenerationModeType = Literal["disableAutoCompute", "enableAutoCompute", "refresh"]
+WriteBufferSizeType = Literal["HIGH", "LOW", "MEDIUM"]
 NeptuneDataServiceName = Literal["neptunedata"]
 ServiceName = Literal[
     "accessanalyzer",

@@ -807,9 +807,11 @@ def test_the_per_script_replica_renders_0_163_0(rel):
     today's routes less the ones added since (the Skill route that refreshes
     Claude Code's skill copies, a no-op under Kimi, which has none; the prompt
     route that moves a session off an old `tap watch`, which leaves Kimi's
-    sessions alone)."""
+    sessions alone; the Stop route that sends an inline agent back, notes
+    parity N3)."""
+    added = ("tap_handover.py", "owed_hook.py")
     routes = {
-        e: [{**g, "hooks": [h for h in g["hooks"] if "tap_handover.py" not in h["command"]]}
+        e: [{**g, "hooks": [h for h in g["hooks"] if not any(name in h["command"] for name in added)]}
             for g in groups if g.get("matcher") != "^Skill$"]
         for e, groups in _routes(rel).items() if e != "TurnStarted"
     }

@@ -27,11 +27,10 @@ from collections.abc import MutableMapping
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterator
+    from typing import Self
 
-    from typing_extensions import Self
 
-
-class Command(str, enum.Enum):
+class Command(enum.StrEnum):
     """Abstract commands that a :class:`CommandMap` maps keystrokes to."""
 
     REDRAW_SCREEN = "redraw screen"
@@ -47,6 +46,12 @@ class Command(str, enum.Enum):
     MENU = "menu"
     SELECT_NEXT = "next selectable"
     SELECT_PREVIOUS = "prev selectable"
+    WORD_LEFT = "cursor word left"
+    WORD_RIGHT = "cursor word right"
+    DELETE_WORD_LEFT = "delete word left"
+    DELETE_WORD_RIGHT = "delete word right"
+    DELETE_TO_LINE_START = "delete to start of line"
+    DELETE_TO_LINE_END = "delete to end of line"
 
 
 REDRAW_SCREEN: typing.Literal[Command.REDRAW_SCREEN] = Command.REDRAW_SCREEN
@@ -61,7 +66,7 @@ CURSOR_MAX_RIGHT: typing.Literal[Command.MAX_RIGHT] = Command.MAX_RIGHT
 ACTIVATE: typing.Literal[Command.ACTIVATE] = Command.ACTIVATE
 
 
-class CommandMap(MutableMapping[str, typing.Union[str, Command, None]]):
+class CommandMap(MutableMapping[str, str | Command | None]):
     """
     dict-like object for looking up commands from keystrokes.
 
@@ -83,6 +88,25 @@ class CommandMap(MutableMapping[str, typing.Union[str, Command, None]]):
         ``'cursor max left'``, ``'cursor max right'``
     :kbd:`space`, :kbd:`enter`
         ``'activate'``
+
+    Only containers created with ``select_navigation=True`` handle ``'next selectable'`` and
+    ``'prev selectable'``, see :ref:`select-navigation`.
+
+    :class:`Edit` also handles these readline-style commands, which no key is mapped to by default:
+    ``'cursor word left'``, ``'cursor word right'``, ``'delete word left'``, ``'delete word right'``,
+    ``'delete to start of line'`` and ``'delete to end of line'``.
+    A word is a run of letters, digits and underscores, and a line ends at a newline.
+
+    * ``'delete word left'`` stops at punctuation, as readline's ``backward-kill-word`` (:kbd:`meta backspace`) does,
+      except that an underscore is part of a word here.
+      It is not bash's :kbd:`ctrl w` (``unix-word-rubout``), which deletes back to the previous whitespace.
+    * ``'delete to start of line'`` and ``'delete to end of line'`` work on lines that end at a newline.
+      ``'cursor max left'`` and ``'cursor max right'`` move to the edge of the screen row instead,
+      so on a wrapped line they stop earlier than the deletes reach.
+
+    >>> cm = CommandMap()
+    >>> cm.bind(Command.WORD_LEFT, "meta b")
+    >>> cm.bind(Command.DELETE_TO_LINE_START, "ctrl u")
     """
 
     def __iter__(self) -> Iterator[str]:
@@ -139,6 +163,33 @@ class CommandMap(MutableMapping[str, typing.Union[str, Command, None]]):
     def __delitem__(self, key: str) -> None:
         """Remove the command mapping for `key`."""
         del self._command[key]
+
+    def bind(self, command: str | Command, *keys: str) -> None:
+        """Bind ``keys`` to ``command``, refusing a key that is already bound to a different command.
+
+        A key already bound to ``command`` is accepted.
+        Item assignment (``command_map[key] = command``) remains the way to rebind a key on purpose.
+
+        >>> cm = CommandMap()
+        >>> cm.bind("quit", "q", "ctrl c")
+        >>> cm.bind("quit", "ctrl l")
+        Traceback (most recent call last):
+        ...
+        ValueError: Key 'ctrl l' is already bound to 'redraw screen', cannot also bind it to 'quit'
+
+        :param command: the command to bind.
+        :param keys: keystrokes to bind to ``command``, added to those it already has.
+        :raises ValueError: a key in ``keys`` is already bound to a different command;
+            the command map is left unchanged.
+        """
+        for key in keys:
+            bound = self._command.get(key)
+            if bound is not None and bound != command:
+                raise ValueError(
+                    f"Key {key!r} is already bound to {str(bound)!r}, cannot also bind it to {str(command)!r}"
+                )
+        for key in keys:
+            self._command[key] = command
 
     def clear_command(self, command: str | Command) -> None:
         """Remove every keystroke currently mapped to ``command``."""

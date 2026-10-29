@@ -875,10 +875,21 @@ class Coordinator:
                     color="green",
                 )
             except Exception as exc:
+                from matrx_orm.session.errors import FlushError
+
+                # The Session's own flush already preserved this exact op in
+                # system_write_failure (FlushError.captured is its receipt); a
+                # second record_failures would file a duplicate replayable row.
+                already_captured = isinstance(exc, FlushError) and exc.captured
                 vcprint(
                     f"[Coordinator] late one-shot {op_type} on {table} "
-                    f"FAILED outside Session: {type(exc).__name__}: {exc}. "
-                    f"Capturing to system_write_failure for replay.",
+                    + (
+                        f"REFUSED by the database inside its Session: {getattr(exc, "cause", exc)!r}. "
+                        "Already captured to system_write_failure by the Session."
+                        if already_captured
+                        else f"FAILED outside Session: {type(exc).__name__}: {exc}. "
+                        "Capturing to system_write_failure for replay."
+                    ),
                     color="red",
                 )
                 logger.exception(
@@ -908,6 +919,13 @@ class Coordinator:
                     # The replay sink below remains authoritative for the row;
                     # capture must never prevent it from being preserved.
                     pass
+                if already_captured:
+                    logger.error(
+                        "one_shot_refused_already_captured table=%s op_type=%s pk=%s "
+                        "request_id=%s conversation_id=%s cause=%r",
+                        table, op_type, pk_value, request_id, conversation_id, getattr(exc, "cause", exc),
+                    )
+                    return
                 # A late write that one-shotted and then FAILED must NOT vanish
                 # (the exact silent loss that left research_web's cx_tool_call
                 # stuck 'running' until the 600s watchdog). Capture the op to
@@ -957,7 +975,7 @@ class Coordinator:
         try:
             from matrx_utils import detached_task
 
-            task = detached_task(_runner(), name=f"coord_one_shot_{table}")
+            task = detached_task(_runner(), name=f"coord_one_shot_{table}", carry_test_run=True)
             self._late_one_shot_tail = task
             self._late_one_shots.add(task)
             task.add_done_callback(self._late_one_shots.discard)
@@ -1362,7 +1380,7 @@ class Coordinator:
         try:
             from matrx_utils import detached_task
 
-            task = detached_task(_runner(), name=f"coord_commit_{reason}")
+            task = detached_task(_runner(), name=f"coord_commit_{reason}", carry_test_run=True)
         except RuntimeError as exc:
             end_turn(my_turn)
             raise PersistenceBarrierError(

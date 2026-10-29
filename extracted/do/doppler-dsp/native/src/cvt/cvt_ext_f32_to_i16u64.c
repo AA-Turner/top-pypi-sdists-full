@@ -49,8 +49,8 @@ F32ToI16U64Obj_init (F32ToI16U64Object *self, PyObject *args, PyObject *kwds)
   self->handle = dp_f32_to_i16u64_create (scale);
   if (!self->handle)
     {
-      PyErr_SetString (PyExc_MemoryError,
-                       "dp_f32_to_i16u64_create returned NULL");
+      PyErr_SetString (PyExc_ValueError,
+                       "F32ToI16U64: scale must be positive and finite");
       return -1;
     }
   return 0;
@@ -267,9 +267,8 @@ static PyMethodDef F32ToI16U64Obj_methods[] = {
     "Clear the sticky clip flag, starting a fresh saturation history.\n"
     "\n"
     "Zeroes clipped so a subsequent clipped query reflects only samples seen\n"
-    "after this call; the immutable scale is preserved. Call it at a buffer\n"
-    "or segment boundary so a saturation on one block does not leak into the\n"
-    "next.\n"
+    "after this call; scale is preserved. Call it at a buffer or segment\n"
+    "boundary so a saturation on one block does not leak into the next.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -289,6 +288,9 @@ static PyMethodDef F32ToI16U64Obj_methods[] = {
     "zero-extends the 16-bit two's-complement pattern into the lower 16 bits\n"
     "of a uint64 (upper 48 bits are always zero — headroom for the NCO phase\n"
     "accumulator). Latches the sticky clipped flag on saturation.\n"
+    "\n"
+    "A NaN input counts as clipped: it latches clipped and returns the\n"
+    "negative full-scale code, -32768 (0x8000).\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -316,8 +318,8 @@ static PyMethodDef F32ToI16U64Obj_methods[] = {
     "Process a block of float samples to Q15-in-uint64.\n"
     "\n"
     "Applies step() to every element. The clipped flag is updated\n"
-    "cumulatively across the block. Accepts an optional pre-allocated output\n"
-    "array; allocates a fresh one when output is NULL.\n"
+    "cumulatively across the block. In C, output must be non-NULL; the\n"
+    "Python binding allocates a fresh array when no `out=` is passed.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -442,7 +444,15 @@ static PyTypeObject F32ToI16U64ObjType = {
                 "(default:\n"
                 "    32768.0f). Use 32768.0 to convert normalised `[-1, +1]` "
                 "samples to Q15\n"
-                "    packed into the low 16 bits of a uint64.\n"
+                "    packed into the low 16 bits of a uint64. Must be positive "
+                "and finite.\n"
+                "\n"
+                "Raises\n"
+                "------\n"
+                "ValueError\n"
+                "    If construction fails. The exception message is "
+                "``F32ToI16U64: scale\n"
+                "    must be positive and finite``.\n"
                 "\n"
                 "Examples\n"
                 "--------\n"

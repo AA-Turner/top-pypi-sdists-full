@@ -1295,22 +1295,31 @@ class CreateOptions:
 @jsii.data_type(
     jsii_type="projen.github.workflows.CronScheduleOptions",
     jsii_struct_bases=[],
-    name_mapping={"cron": "cron"},
+    name_mapping={"cron": "cron", "timezone": "timezone"},
 )
 class CronScheduleOptions:
-    def __init__(self, *, cron: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        cron: builtins.str,
+        timezone: typing.Optional[builtins.str] = None,
+    ) -> None:
         '''(experimental) CRON schedule options.
 
         :param cron: 
+        :param timezone: (experimental) IANA time zone name used to evaluate the cron expression, e.g. ``America/New_York``. Default: - UTC
 
         :stability: experimental
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b942d3c2ff8727f2ff55175941fa65b503b9b9b5509291efe52190850c93afaa)
             check_type(argname="argument cron", value=cron, expected_type=type_hints["cron"])
+            check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cron": cron,
         }
+        if timezone is not None:
+            self._values["timezone"] = timezone
 
     @builtins.property
     def cron(self) -> builtins.str:
@@ -1321,6 +1330,18 @@ class CronScheduleOptions:
         result = self._values.get("cron")
         assert result is not None, "Required property 'cron' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def timezone(self) -> typing.Optional[builtins.str]:
+        '''(experimental) IANA time zone name used to evaluate the cron expression, e.g. ``America/New_York``.
+
+        :default: - UTC
+
+        :see: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+        :stability: experimental
+        '''
+        result = self._values.get("timezone")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3955,7 +3976,7 @@ class Triggers:
         :param registry_package: (experimental) Runs your workflow anytime a package is published or updated.
         :param release: (experimental) Runs your workflow anytime the release event occurs.
         :param repository_dispatch: (experimental) You can use the GitHub API to trigger a webhook event called repository_dispatch when you want to trigger a workflow for activity that happens outside of GitHub.
-        :param schedule: (experimental) You can schedule a workflow to run at specific UTC times using POSIX cron syntax. Scheduled workflows run on the latest commit on the default or base branch. The shortest interval you can run scheduled workflows is once every 5 minutes.
+        :param schedule: (experimental) You can schedule a workflow to run at specific times using POSIX cron syntax. Times are in UTC unless a ``timezone`` is set. Scheduled workflows run on the latest commit on the default or base branch. The shortest interval you can run scheduled workflows is once every 5 minutes.
         :param status: (experimental) Runs your workflow anytime the status of a Git commit changes, which triggers the status event.
         :param watch: (experimental) Runs your workflow anytime the watch event occurs.
         :param workflow_call: (experimental) Can be called from another workflow.
@@ -4435,11 +4456,11 @@ class Triggers:
 
     @builtins.property
     def schedule(self) -> typing.Optional[typing.List["CronScheduleOptions"]]:
-        '''(experimental) You can schedule a workflow to run at specific UTC times using POSIX cron syntax.
+        '''(experimental) You can schedule a workflow to run at specific times using POSIX cron syntax.
 
-        Scheduled workflows run on the latest commit on the default or
-        base branch. The shortest interval you can run scheduled workflows is
-        once every 5 minutes.
+        Times are in UTC unless a ``timezone`` is set. Scheduled workflows
+        run on the latest commit on the default or base branch. The shortest
+        interval you can run scheduled workflows is once every 5 minutes.
 
         :see: https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html#tag_20_25_07
         :stability: experimental
@@ -6512,6 +6533,7 @@ def _typecheckingstub__3745b83f4463c4fc52b9717275f5271dfc3bca86f6f6742576a53ec83
 def _typecheckingstub__b942d3c2ff8727f2ff55175941fa65b503b9b9b5509291efe52190850c93afaa(
     *,
     cron: builtins.str,
+    timezone: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

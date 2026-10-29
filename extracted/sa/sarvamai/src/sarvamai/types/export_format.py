@@ -2,4 +2,4 @@
 
 import typing
 
-ExportFormat = typing.Union[typing.Literal["pdf", "docx", "html", "txt", "epub"], typing.Any]
+ExportFormat = typing.Union[typing.Literal["pdf", "docx", "html", "txt", "epub", "md"], typing.Any]

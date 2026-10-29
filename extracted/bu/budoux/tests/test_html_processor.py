@@ -13,13 +13,7 @@
 # limitations under the License.
 "Tests the HTML Processor."
 
-import os
-import sys
 import unittest
-
-# module hack
-LIB_PATH = os.path.join(os.path.dirname(__file__), '..')
-sys.path.insert(0, os.path.abspath(LIB_PATH))
 
 from budoux import html_processor
 
@@ -234,4 +228,11 @@ class TestResolve(unittest.TestCase):
     expected = (
       '<span style="word-break: keep-all; overflow-wrap: anywhere;">abc\u200bdef</span>'
     )
+    self.assertEqual(result, expected)
+
+  def test_without_wrap(self) -> None:
+    chunks = ['abc', 'def']
+    html = 'ab<a href="http://example.com">cd</a>ef'
+    result = html_processor.resolve(chunks, html, wrap=False)
+    expected = 'ab<a href="http://example.com">c\u200bd</a>ef'
     self.assertEqual(result, expected)

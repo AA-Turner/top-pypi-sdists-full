@@ -1,10 +1,16 @@
 """Menu item hooks."""
 
+__lazy_modules__ = ["django.http", "django.utils.functional"]
+
+from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
-from django.utils.functional import Promise
 
 from allianceauth.menu.constants import DEFAULT_MENU_ITEM_ORDER
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
+    from django.utils.functional import Promise
 
 
 class MenuItemHook:
@@ -30,12 +36,12 @@ class MenuItemHook:
 
     def __init__(
         self,
-        text: str | Promise,
+        text: "str | Promise",
         classes: str,
         url_name: str,
         order: int | None = None,
         navactive: list[str] | None = None,
-    ):
+    ) -> None:
         self.text = text
         self.classes = classes
         self.url_name = url_name
@@ -53,6 +59,6 @@ class MenuItemHook:
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(text="{self.text}")'
 
-    def render(self, request) -> str:
+    def render(self, request: "HttpRequest") -> str:
         """Render this menu item and return resulting HTML."""
         return render_to_string(self.template, {"item": self}, request=request)

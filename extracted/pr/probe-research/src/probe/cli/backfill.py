@@ -97,7 +97,10 @@ def _backfill_agent_env(path_prepend: str | None = None) -> dict[str, str]:
     path = _backfill_cli_bin().name + os.pathsep + os.environ.get("PATH", "")
     if path_prepend:
         path = path_prepend + os.pathsep + path
-    return {**os.environ, "PROBE_ATTRIBUTION": "backfill", "PATH": path}
+    # No Claude Code auto memory either (see `readonly_settings`): headless flags alone
+    # leave it on, so the variable is set beside the setting.
+    return {**os.environ, "PROBE_ATTRIBUTION": "backfill", "PATH": path,
+            "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"}
 
 
 #: The classifier's filing tool, as the agent types it. See `plan_tool_launcher`.
@@ -444,30 +447,17 @@ AGENT_COPY: dict[Agent, tuple[str, str]] = {
 #: would route around the deny rule with one `echo >`.
 AGENT_TOOLS = "Bash(probe-backfill-plan:*),Read,Glob,Grep,Task,Write,Edit"
 
-#: The RECONSTRUCTION lane's allowlist, PER AGENT. Its one caller is
-#: `backfill_reconstruction.py`, which launches a project-summary draft with
-#: `tools=bf.DIGEST_TOOLS.get(agent)`; the `DIGEST_` name is the job these
-#: tables were sized for -- one agent, one rendered input file, one written
-#: output -- and the reconstruction draft is that same job. (The
-#: per-transcript digest lane that shared them retired server-side, and with
-#: it the digest's model table: a draft's model is the `draft` lane's,
-#: `import_agent_settings.BUILTIN`.) Per agent
-#: because the tool names are not a shared vocabulary: Claude Code spells them
-#: `Read,Write` and pi spells them `read,write`, and a lowercase name in
-#: Claude's `--allowedTools` is not an error, it is an allowlist that matches
-#: nothing. Keyed by agent so the caller writes
-#: `DIGEST_TOOLS[agent]` and cannot pick the wrong spelling; Codex is None
-#: because it has no allowlist flag at all (its confinement is the OS
-#: sandbox), not because it is unrestricted. The pi entry is also what
-#: `agent_argv` falls back to for `--tools`, so it stays although no lane
-#: launches pi today.
-#:
-#: What every entry has in common: no Bash AT ALL. The input is pre-rendered
-#: text the lane writes into the agent's scratch dir (`evidence.json` for a
-#: reconstruction draft), so there is nothing to parse and nothing a shell is
-#: for. The 84-denial flail of 2026-08-29 was the model reaching for
-#: python3/jq over raw JSONL; with a rendered view, read+write is the whole
-#: job. Also no edit and no subagents: the output is one written file.
+#: A read-and-write-only allowlist, PER AGENT, for a lane that hands its agent
+#: a rendered file and takes one written file back. The claims draft it was
+#: sized for is gone (the record pass has its own, `backfill_record.RECORD_TOOLS`);
+#: the pi entry is what `agent_argv` falls back to for `--tools`, so the table
+#: stays although no lane launches pi today. Per agent because the tool names
+#: are not a shared vocabulary: Claude Code spells them `Read,Write` and pi
+#: `read,write`, and a lowercase name in Claude's `--allowedTools` is not an
+#: error, it is an allowlist that matches nothing. Codex is None because it
+#: has no allowlist flag at all (its confinement is the OS sandbox), not
+#: because it is unrestricted. No Bash at all: the 84-denial flail of
+#: 2026-08-29 was a model reaching for python3/jq over raw JSONL.
 DIGEST_TOOLS: dict[Agent, str | None] = {
     Agent.CLAUDE: "Read,Write",
     Agent.CODEX: None,
@@ -498,15 +488,11 @@ CODEX_EFFORT_CONFIG: dict[str, str] = {
 #: the same pattern.
 MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,79}")
 
-#: How long ONE reconstruction draft may take (`backfill_reconstruction.py`
-#: passes it as `timeout=`). Far tighter than the import's deadlines
-#: (`backfill_run.UNIT_TIMEOUT_S` 45 min, `CLASSIFY_TIMEOUT_S` 90 min) and for a
-#: different reason: those bound an open-ended traversal of somebody's drive,
-#: where thinking for minutes is legitimate work. A draft reads ONE file whose
-#: size is already capped (`MAX_INPUT_BYTES`) and writes one small JSON --
-#: there is no input that makes it long. And there is one PER PROJECT, up to
-#: `MAX_PROJECTS` of them: a lane cannot spend 45 minutes apiece discovering
-#: that each is wedged. Also the default bound for a pi launch (`_run_pi`).
+#: The default bound for a pi launch (`_run_pi`): far tighter than the
+#: import's deadlines (`backfill_run.UNIT_TIMEOUT_S` 45 min,
+#: `CLASSIFY_TIMEOUT_S` 90 min), which bound an open-ended traversal of
+#: somebody's drive. Sized for the retired claims draft, one bounded file in
+#: and one small file out.
 DIGEST_TIMEOUT_S = 300.0
 
 #: NOT `--bare`, which removes more and is the obvious-looking answer: it takes
@@ -550,13 +536,20 @@ def readonly_settings(folder: Path | None) -> str:
     tenant on 2026-10-25). Its confinement does not come from hooks: it is the
     tool allowlist and this deny rule.
 
+    And with NO AUTO MEMORY: Claude Code otherwise saves notes about the folder into
+    the researcher's own `~/.claude/projects/<work dir>/memory/` (seen 2026-10-28: a
+    classifier session wrote `MEMORY.md` and a note there). Headless flags leave it
+    on; this setting turns it off, and so does `CLAUDE_CODE_DISABLE_AUTO_MEMORY`,
+    which `_backfill_agent_env` sets too, so a Claude that ignores one still gets
+    the other (each alone verified on Claude Code 2.1.296).
+
     Returned as a JSON string for `--settings`, which takes either that or a
     path. A string keeps the rule in the argv the test can read, rather than in
     a temp file whose lifetime is one more thing to get wrong.
     """
     import json
 
-    settings: dict = {"disableAllHooks": True}
+    settings: dict = {"disableAllHooks": True, "autoMemoryEnabled": False}
     if folder is not None:
         settings["permissions"] = {"deny": [f"Edit({folder}/**)"]}
     return json.dumps(settings)

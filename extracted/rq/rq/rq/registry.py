@@ -2,19 +2,23 @@ from __future__ import annotations
 
 import calendar
 import logging
-import time
-import traceback
 import warnings
-from datetime import datetime, timedelta, timezone
+from collections.abc import Sequence
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
+
+from redis.exceptions import WatchError
 
 from rq.serializers import resolve_serializer
 
+from .callbacks import execute_failure_callback
 from .connections import get_connection_kwargs
-from .defaults import DEFAULT_FAILURE_TTL
+from .defaults import DEFAULT_FAILURE_TTL, FORMAT_KEY_PREFIX
 from .exceptions import AbandonedJobError, InvalidJobOperation, NoSuchJobError
 from .job import Job, JobStatus
+from .job_lifecycle import call_exception_handlers, record_job_failure
 from .queue import Queue
+from .rate_limit import RateLimitRegistry, release_slot
 from .timeouts import BaseDeathPenalty, UnixSignalDeathPenalty
 from .utils import as_text, backend_class, current_timestamp, now, parse_composite_key
 
@@ -38,7 +42,8 @@ class BaseRegistry:
 
     job_class = Job
     death_penalty_class = UnixSignalDeathPenalty
-    key_template = 'rq:registry:{0}'
+    key_template = FORMAT_KEY_PREFIX + ':registry:{0}'
+    connection: Redis
 
     def __init__(
         self,
@@ -212,12 +217,15 @@ class BaseRegistry:
         if not result:
             raise InvalidJobOperation
 
+        queue = Queue(job.origin, connection=self.connection, job_class=self.job_class, serializer=serializer)
+        job.started_at = None
+        job.ended_at = None
+        job._exc_info = ''  # TODO: this should be removed
+        if job.has_rate_limit:
+            # Requeued jobs must reacquire capacity.
+            job.enqueue_at_front = at_front
+            return queue._enqueue_rate_limited_job(job)
         with self.connection.pipeline() as pipeline:
-            queue = Queue(job.origin, connection=self.connection, job_class=self.job_class, serializer=serializer)
-            job.started_at = None
-            job.ended_at = None
-            job._exc_info = ''  # TODO: this should be removed
-            job.save()
             job = queue._enqueue_job(job, pipeline=pipeline, at_front=at_front)
             pipeline.execute()
         return job
@@ -255,64 +263,78 @@ class StartedJobRegistry(BaseRegistry):
     Each entry is a {job_id}:{execution_id}
     """
 
-    key_template = 'rq:wip:{0}'
+    key_template = FORMAT_KEY_PREFIX + ':wip:{0}'
 
     def cleanup(self, timestamp: float | None = None, exception_handlers: list | None = None):
-        """Remove abandoned jobs from registry and add them to FailedJobRegistry.
+        """Handles abandoned jobs whose execution expired before `timestamp`.
 
-        Removes jobs with an expiry time earlier than timestamp, specified as
-        seconds since the Unix epoch. timestamp defaults to call time if
-        unspecified. Removed jobs are added to the global failed job queue.
+        Each one is retried if it has retries left, otherwise moved to the FailedJobRegistry.
+        Its rate limit slot is freed unless the job was requeued.
 
         Args:
-            timestamp (datetime): The datetime to use as the limit.
+            timestamp (float, optional): Unix timestamp to use as the cutoff. Defaults to now.
+            exception_handlers (list, optional): Handlers to call for each abandoned job.
         """
         score = timestamp if timestamp is not None else current_timestamp()
         job_ids = self.get_expired_job_ids(score)
 
-        if job_ids:
-            queue = self.get_queue()
+        if not job_ids:
+            return
 
-            with self.connection.pipeline() as pipeline:
-                for job_id in job_ids:
-                    try:
-                        job = self.job_class.fetch(job_id, connection=self.connection, serializer=self.serializer)
-                    except NoSuchJobError:
-                        continue
+        queue = self.get_queue()
+        processed_jobs = []
+        failed_jobs = []
 
-                    job.execute_failure_callback(
-                        self.death_penalty_class, AbandonedJobError, AbandonedJobError(), traceback.extract_stack()
+        with self.connection.pipeline() as pipeline:
+            for job_id in job_ids:
+                try:
+                    job = self.job_class.fetch(job_id, connection=self.connection, serializer=self.serializer)
+                except NoSuchJobError:
+                    continue
+
+                # Leftover registry entries after success/failure are not abandoned
+                # jobs. Only STARTED still means the worker died mid-request.
+                if job.get_status(refresh=False) != JobStatus.STARTED:
+                    continue
+
+                # The work-horse died in another process, so there is no traceback to pass.
+                # A raising callback must not abort the batch, so log and swallow it.
+                try:
+                    execute_failure_callback(
+                        job, self.death_penalty_class, AbandonedJobError, AbandonedJobError(), None
                     )
+                except Exception:
+                    logger.exception('%s cleanup: failure callback for job %s raised', self.__class__.__name__, job.id)
 
-                    if exception_handlers:
-                        for handler in exception_handlers:
-                            fallthrough = handler(
-                                job, AbandonedJobError, AbandonedJobError(), traceback.extract_stack()
-                            )
-                            # Only handlers with explicit return values should disable further
-                            # exc handling, so interpret a None return value as True.
-                            if fallthrough is None:
-                                fallthrough = True
+                if exception_handlers:
+                    call_exception_handlers(exception_handlers, job, AbandonedJobError, AbandonedJobError(), None)
 
-                            if not fallthrough:
-                                break
+                retry = job.retries_left and job.retries_left > 0
 
-                    retry = job.retries_left and job.retries_left > 0
+                if retry:
+                    job.retry(queue, pipeline)
+                else:
+                    exc_string = (
+                        f'Moved to {FailedJobRegistry.__name__}, due to {AbandonedJobError.__name__}, at {now()}'
+                    )
+                    logger.warning('%s cleanup: %s %s', self.__class__.__name__, job.id, exc_string)
+                    record_job_failure(job, exc_string, pipeline)
+                    # Use the cached status: FAILED is still buffered in the pipeline.
+                    queue.enqueue_dependents(job, refresh_job_status=False)
+                    failed_jobs.append((job, exc_string))
 
-                    if retry:
-                        job.retry(queue, pipeline)
-                    else:
-                        exc_string = (
-                            f'Moved to {FailedJobRegistry.__name__}, due to {AbandonedJobError.__name__}, at {now()}'
-                        )
-                        logger.warning('%s cleanup: %s %s', self.__class__.__name__, job.id, exc_string)
-                        job.set_status(JobStatus.FAILED, pipeline=pipeline)
-                        job._handle_failure(exc_string, pipeline, worker_name='')
-                        # don't refresh the job status, because the job state is still in the pipeline
-                        queue.enqueue_dependents(job, refresh_job_status=False)
+                processed_jobs.append(job)
 
-                pipeline.zremrangebyscore(self.key, 0, score)
-                pipeline.execute()
+            pipeline.zremrangebyscore(self.key, 0, score)
+            pipeline.execute()
+
+        # Fire failed webhooks only after the terminal failures are persisted.
+        for failed_job, exc_string in failed_jobs:
+            failed_job.send_webhooks(JobStatus.FAILED, exc_string=exc_string)
+
+        # Release only after the commit, so promotion sees each job's persisted status.
+        for job in processed_jobs:
+            release_slot(job)
 
     def add_execution(self, execution: Execution, pipeline: Pipeline, ttl: int = 0, xx: bool = False) -> int:
         """Adds an execution to a registry with expiry time of now + ttl, unless it's -1 which is set to +inf
@@ -422,7 +444,7 @@ class FinishedJobRegistry(BaseRegistry):
     registry after they have successfully completed for monitoring purposes.
     """
 
-    key_template = 'rq:finished:{0}'
+    key_template = FORMAT_KEY_PREFIX + ':finished:{0}'
 
     def cleanup(self, timestamp: float | None = None, exception_handlers: list | None = None):
         """Remove expired jobs from registry.
@@ -440,7 +462,7 @@ class FailedJobRegistry(BaseRegistry):
     Registry of containing failed jobs.
     """
 
-    key_template = 'rq:failed:{0}'
+    key_template = FORMAT_KEY_PREFIX + ':failed:{0}'
 
     def cleanup(self, timestamp: float | None = None, exception_handlers: list | None = None):
         """Remove expired jobs from registry.
@@ -486,7 +508,7 @@ class DeferredJobRegistry(BaseRegistry):
     Registry of deferred jobs (waiting for another job to finish).
     """
 
-    key_template = 'rq:deferred:{0}'
+    key_template = FORMAT_KEY_PREFIX + ':deferred:{0}'
 
     def cleanup(self, timestamp: float | None = None, exception_handlers: list | None = None):
         """Deferred jobs don't expire based on time, so cleanup is a no-op."""
@@ -499,12 +521,115 @@ class DeferredJobRegistry(BaseRegistry):
         return connection.zadd(self.key, {job.id: score}, xx=xx)
 
 
+class ReadyJobRegistry(BaseRegistry):
+    """
+    Registry of jobs whose dependencies have been met and are awaiting
+    enqueue onto the queue list. This is a transient, internal recovery
+    state: the happy path enqueues these jobs synchronously after the
+    dependency transaction commits; if the process dies in between,
+    maintenance cleanup picks them up.
+    """
+
+    key_template = FORMAT_KEY_PREFIX + ':ready:{0}'
+
+    def cleanup(self, timestamp: float | None = None, exception_handlers: list | None = None) -> list[Job]:
+        """Recover any jobs that were left in the registry by enqueuing them onto the queue."""
+        job_ids = [self.parse_job_id(job_id) for job_id in self.connection.zrange(self.key, 0, -1)]
+        return self.enqueue_jobs(job_ids)
+
+    def add(self, job: Job, ttl: int | None = None, pipeline: Pipeline | None = None, xx: bool = False) -> int:
+        """Adds a job to the ready registry, scored by creation time."""
+        score = current_timestamp()
+        connection = pipeline if pipeline is not None else self.connection
+        return connection.zadd(self.key, {job.id: score}, xx=xx)
+
+    def register_jobs(self, jobs: Sequence[Job], pipeline: Pipeline) -> None:
+        """Move dependents into the ready state inside the caller's watched transaction.
+
+        For each job, appends three ops to ``pipeline``:
+          1. remove from this queue's DeferredJobRegistry
+          2. set status to READY_TO_ENQUEUE
+          3. add to this ReadyJobRegistry
+
+        All jobs must belong to this registry's queue (``job.origin == self.name``).
+        The caller owns WATCH/MULTI/EXEC; this method only queues commands.
+        """
+        deferred_registry = DeferredJobRegistry(
+            name=self.name, connection=self.connection, job_class=self.job_class, serializer=self.serializer
+        )
+        for job in jobs:
+            deferred_registry.remove(job, pipeline=pipeline)
+            job.set_status(JobStatus.READY_TO_ENQUEUE, pipeline=pipeline)
+            self.add(job, pipeline=pipeline)
+
+    def enqueue_jobs(self, job_ids: list[str]) -> list[Job]:
+        """Move jobs from the ready registry onto the queue list.
+
+        Uses optimistic locking (WATCH/MULTI) per job: if another caller mutates the
+        registry entry or the job's status between read and commit, this method skips
+        that job for now — a later cleanup pass revisits it. This guarantees no
+        duplicate enqueues at the cost of occasionally conceding a contended job.
+
+        For each id:
+          - if the job no longer exists, drop the stale registry entry;
+          - if the job's status is no longer READY_TO_ENQUEUE under WATCH, remove the
+            stale entry inside the watched transaction;
+          - otherwise remove from the registry and enqueue atomically.
+        """
+        if not job_ids:
+            return []
+
+        queue = Queue(name=self.name, connection=self.connection, job_class=self.job_class, serializer=self.serializer)
+        fetched = self.job_class.fetch_many(job_ids, connection=self.connection, serializer=self.serializer)
+
+        enqueued: list[Job] = []
+        for job_id, job in zip(job_ids, fetched):
+            if job is None:
+                self.connection.zrem(self.key, job_id)
+                continue
+            if job.get_status(refresh=False) != JobStatus.READY_TO_ENQUEUE:
+                self.connection.zrem(self.key, job_id)
+                continue
+            try:
+                with self.connection.pipeline() as pipe:
+                    pipe.watch(self.key, job.key)
+
+                    # Claim check: this registry must still own the job id.
+                    if pipe.zscore(self.key, job.id) is None:
+                        pipe.unwatch()
+                        continue
+
+                    status = cast('bytes | str | None', pipe.hget(job.key, 'status'))
+                    if not status or JobStatus(as_text(status)) != JobStatus.READY_TO_ENQUEUE:
+                        pipe.multi()
+                        self.remove(job, pipeline=pipe)
+                        pipe.execute()
+                        continue
+
+                    pipe.multi()
+                    self.remove(job, pipeline=pipe)
+                    if job.has_rate_limit:
+                        # Rate-limited dependents wait for a slot instead of going straight onto the queue.
+                        queue._enqueue_rate_limited_job(job, pipeline=pipe)
+                    else:
+                        queue._enqueue_job(job, pipeline=pipe, at_front=job.should_enqueue_at_front())
+                    pipe.execute()
+            except WatchError:
+                logger.info('Ready job %s changed while enqueueing; skipping for now', job_id)
+                continue
+            except Exception:
+                logger.exception('Failed to enqueue ready job %s; leaving in ReadyJobRegistry', job_id)
+                continue
+            enqueued.append(job)
+        return enqueued
+
+
 class ScheduledJobRegistry(BaseRegistry):
     """
     Registry of scheduled jobs.
     """
 
-    key_template = 'rq:scheduled:{0}'
+    key_template = FORMAT_KEY_PREFIX + ':scheduled:{0}'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -518,13 +643,13 @@ class ScheduledJobRegistry(BaseRegistry):
         Adds job to registry, scored by its execution time (in UTC).
         If datetime has no tzinfo, it will assume local timezone.
         """
-        # If datetime has no timezone, assume server's local timezone
+        # If datetime has no timezone, assume server's local timezone (with that date's DST offset)
         if not scheduled_datetime.tzinfo:
-            tz = timezone(timedelta(seconds=-(time.timezone if time.daylight == 0 else time.altzone)))
-            scheduled_datetime = scheduled_datetime.replace(tzinfo=tz)
+            scheduled_datetime = scheduled_datetime.astimezone()
 
         timestamp = calendar.timegm(scheduled_datetime.utctimetuple())
-        return self.connection.zadd(self.key, {job.id: timestamp})
+        connection = pipeline if pipeline is not None else self.connection
+        return connection.zadd(self.key, {job.id: timestamp})
 
     def remove_jobs(self, timestamp: int | None = None, pipeline: Pipeline | None = None):
         """Remove jobs whose timestamp is in the past from registry.
@@ -579,14 +704,14 @@ class ScheduledJobRegistry(BaseRegistry):
 
 
 class CanceledJobRegistry(BaseRegistry):
-    key_template = 'rq:canceled:{0}'
+    key_template = FORMAT_KEY_PREFIX + ':canceled:{0}'
 
     def get_expired_job_ids(self, timestamp: float | None = None):
         raise NotImplementedError
 
 
 def clean_registries(queue: Queue, exception_handlers: list | None = None):
-    """Cleans StartedJobRegistry, FinishedJobRegistry and FailedJobRegistry, and DeferredJobRegistry of a queue.
+    """Cleans StartedJobRegistry, FinishedJobRegistry, FailedJobRegistry, DeferredJobRegistry, and ReadyJobRegistry.
 
     Args:
         queue (Queue): The queue to clean
@@ -606,3 +731,10 @@ def clean_registries(queue: Queue, exception_handlers: list | None = None):
     DeferredJobRegistry(
         name=queue.name, connection=queue.connection, job_class=queue.job_class, serializer=queue.serializer
     ).cleanup()
+
+    ReadyJobRegistry(
+        name=queue.name, connection=queue.connection, job_class=queue.job_class, serializer=queue.serializer
+    ).cleanup()
+
+    for rate_limit_registry in RateLimitRegistry.all(queue.connection):
+        rate_limit_registry.cleanup()

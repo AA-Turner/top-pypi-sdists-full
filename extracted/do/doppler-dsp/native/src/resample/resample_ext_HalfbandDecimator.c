@@ -76,15 +76,18 @@ HalfbandDecimatorObj_init (HalfbandDecimatorObject *self, PyObject *args,
 
 static PyObject *
 HalfbandDecimatorObj_execute_max_out (HalfbandDecimatorObject *self,
-                                      PyObject *Py_UNUSED (ignored))
+                                      PyObject                *args)
 {
   if (!self->handle)
     {
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
+  Py_ssize_t x_len = 0;
+  if (!PyArg_ParseTuple (args, "n", &x_len))
+    return NULL;
   return PyLong_FromSize_t (
-      dp_HalfbandDecimator_execute_max_out (self->handle));
+      dp_HalfbandDecimator_execute_max_out (self->handle, (size_t)x_len));
 }
 
 static PyObject *
@@ -141,10 +144,9 @@ HalfbandDecimatorObj_execute (HalfbandDecimatorObject *self, PyObject *args,
           PyErr_SetString (PyExc_RuntimeError, "destroyed");
           return NULL;
         }
-      size_t _omax    = dp_HalfbandDecimator_execute_max_out (self->handle);
-      size_t _min_cap = _omax > (size_t)PyArray_SIZE (x_arr)
-                            ? _omax
-                            : ((size_t)PyArray_SIZE (x_arr));
+      size_t _omax = dp_HalfbandDecimator_execute_max_out (
+          self->handle, (size_t)PyArray_SIZE (x_arr));
+      size_t _min_cap = _omax;
       if (_cap < _min_cap)
         {
           PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
@@ -197,9 +199,9 @@ HalfbandDecimatorObj_execute (HalfbandDecimatorObject *self, PyObject *args,
       return NULL;
     }
   size_t _need = (size_t)PyArray_SIZE (x_arr);
-  size_t _cap  = dp_HalfbandDecimator_execute_max_out (self->handle);
-  if (!_cap || _cap < _need)
-    _cap = _need;
+  size_t _cap  = dp_HalfbandDecimator_execute_max_out (
+      self->handle, (size_t)PyArray_SIZE (x_arr));
+  (void)_need;
   size_t _adim_need = (size_t)(_cap);
   if (_adim_need > (size_t)NPY_MAX_INTP)
     {
@@ -351,18 +353,20 @@ HalfbandDecimator_getprop_num_taps (HalfbandDecimatorObject *self,
       (unsigned long long)dp_HalfbandDecimator_get_num_taps (self->handle));
 }
 
-static PyGetSetDef HalfbandDecimator_getset[]
-    = { { "rate", (getter)HalfbandDecimator_getprop_rate, NULL,
-          "Fixed decimation rate — always 0.5. The halfband decimator is "
-          "structurally 2:1; this property exists for API parity with "
-          "Resampler and RateConverter.\n",
-          NULL },
-        { "num_taps", (getter)HalfbandDecimator_getprop_num_taps, NULL,
-          "Number of FIR branch taps as passed to create. The all-pass "
-          "(even-phase) branch has no taps; only the odd-phase FIR branch has "
-          "length num_taps. The total prototype length is 2 * num_taps - 1.\n",
-          NULL },
-        { NULL, NULL, NULL, NULL, NULL } };
+static PyGetSetDef HalfbandDecimator_getset[] = {
+  { "rate", (getter)HalfbandDecimator_getprop_rate, NULL,
+    "Fixed decimation rate — always 0.5. The halfband decimator is "
+    "structurally 2:1; this property exists for API parity with Resampler and "
+    "RateConverter.\n",
+    NULL },
+  { "num_taps", (getter)HalfbandDecimator_getprop_num_taps, NULL,
+    "Number of FIR branch taps as passed to create. The pure-delay branch has "
+    "no taps; only the FIR branch has length num_taps (it runs on the "
+    "even-indexed inputs when num_taps is even, the odd-indexed ones when it "
+    "is odd). The total prototype length is 2 * num_taps - 1.\n",
+    NULL },
+  { NULL, NULL, NULL, NULL, NULL }
+};
 
 static PyObject *
 HalfbandDecimatorObj_destroy (HalfbandDecimatorObject *self,
@@ -402,24 +406,30 @@ static PyMethodDef HalfbandDecimatorObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "execute(x, out) -> ndarray\n"
     "\n"
-    "Decimate x by 2 using the polyphase halfband FIR filter. Processes\n"
-    "every second input sample through the FIR branch and passes the other\n"
-    "branch through the all-pass (zero-delay) path. State persists between\n"
-    "calls — contiguous blocks give identical output to one large block.\n"
-    "Output length is floor(x_len / 2).\n"
+    "Decimate x by 2 using the polyphase halfband FIR filter. Each (even,\n"
+    "odd) input pair yields one output: one phase runs through the symmetric\n"
+    "FIR branch and the other through a pure delay weighted 0.5. State\n"
+    "persists between calls: a sample left unpaired at the end of a block\n"
+    "(counting one held from the previous call) is held for the next, so\n"
+    "contiguous blocks give identical output to one large block.\n"
     "\n"
     "Parameters\n"
     "----------\n"
     "x : npt.NDArray[np.complex64]\n"
-    "    CF32 input array. Length must be even for exact half-rate output;\n"
-    "    odd lengths write floor(x_len/2).\n"
+    "    CF32 input array. A sample left unpaired at the end is held for the\n"
+    "    next call.\n"
     "out : npt.NDArray[np.complex64] | None\n"
-    "    Output buffer; must hold at least floor(x_len/2) samples.\n"
+    "    Output buffer; must hold at least (x_len + 1) / 2 samples, which is\n"
+    "    dp_HalfbandDecimator_execute_max_out(). Python refuses a shorter\n"
+    "    `out=`. In C a shorter one drops nothing: the call stops at a pair\n"
+    "    boundary and dp_hbdecim_consumed() says how much input it took.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "NDArray[np.complex64]\n"
-    "    CF32 decimated output; length is min(floor(x_len / 2), max_out).\n"
+    "    Number of CF32 samples written to out: min((x_len + held) / 2,\n"
+    "    max_out), where held is 1 if a trailing sample was carried in from\n"
+    "    the previous call. 0 if x_len or max_out is 0.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -432,22 +442,36 @@ static PyMethodDef HalfbandDecimatorObj_methods[] = {
     ">>> y.shape, y.dtype\n"
     "((50,), dtype('complex64'))\n" },
   { "execute_max_out", (PyCFunction)HalfbandDecimatorObj_execute_max_out,
-    METH_NOARGS,
-    "execute_max_out() -> int\n"
+    METH_VARARGS,
+    "execute_max_out(x_len) -> int\n"
     "\n"
-    "Always returns HBDECIM_MAX_OUT.\n"
+    "The most outputs one dp_HalfbandDecimator_execute() call over x_len\n"
+    "inputs can write: `(x_len + 1) / 2`.\n"
+    "\n"
+    "A 2:1 decimator emits one output per input pair, and at most one sample\n"
+    "is held over from the previous call, so `(x_len + held) / 2` never\n"
+    "exceeds this. It is a true per-call bound, which is what lets the\n"
+    "binding accept an `out=` of `len(x) // 2 + 1` and allocate no more than\n"
+    "that when it sizes the output itself (doppler#2644; this used to return\n"
+    "a fixed 32768, which the binding then demanded of every `out=`).\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x_len : int\n"
+    "    Number of inputs the call will be given.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    `(x_len + 1) / 2`; 0 for an empty call.\n" },
   { "reset", (PyCFunction)HalfbandDecimatorObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"
     "Zero all delay lines. Coefficients and num_taps preserved. Call\n"
     "between signal bursts to suppress transient ringing from prior filter\n"
     "state. The next execute() after reset produces the same output as a\n"
-    "freshly created decimator fed the same input.\n"
+    "freshly created decimator fed the same input. Any sample held for the\n"
+    "next call is dropped too.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -572,9 +596,14 @@ static PyTypeObject HalfbandDecimatorObjType = {
     "Parameters\n"
     "----------\n"
     "h : NDArray[np.float32]\n"
-    "    Float32 FIR branch coefficients. Must be a symmetric halfband "
+    "    Float32 FIR branch coefficients (the branch of the halfband "
     "prototype\n"
-    "    (antisymmetric even-indexed taps zeroed).\n"
+    "    with more than one nonzero tap, not the whole prototype). Must be\n"
+    "    symmetric, `h[k] == h[h_len-1-k]`: only the first h_len/2 are read, "
+    "and\n"
+    "    for odd h_len the centre tap is ignored in favor of the fixed 0.5 "
+    "delay\n"
+    "    branch. Copied and scaled by 0.5; must be non-NULL.\n"
     "\n"
     "Examples\n"
     "--------\n"

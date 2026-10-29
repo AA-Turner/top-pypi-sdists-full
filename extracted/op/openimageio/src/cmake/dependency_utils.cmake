@@ -4,16 +4,24 @@
 
 
 set_cache (${PROJECT_NAME}_REQUIRED_DEPS ""
-           "Additional dependencies to consider required (semicolon-separated list, or ALL)")
+           "Additional dependencies to consider required (comma- or semicolon-separated list, or ALL)")
 set_cache (${PROJECT_NAME}_OPTIONAL_DEPS ""
-           "Additional dependencies to consider optional (semicolon-separated list, or ALL)")
+           "Additional dependencies to consider optional (comma- or semicolon-separated list, or ALL)")
 set_option (${PROJECT_NAME}_ALWAYS_PREFER_CONFIG
             "Prefer a dependency's exported config file if it's available" OFF)
 
 set_cache (${PROJECT_NAME}_BUILD_MISSING_DEPS ""
-     "Try to download and build any of these missing dependencies (or 'all' or 'required')")
+     "Try to download and build any of these missing dependencies (comma- or semicolon-separated list, or 'all' or 'required')")
 set_cache (${PROJECT_NAME}_BUILD_LOCAL_DEPS ""
-     "Force local builds of these dependencies if possible (or 'all')")
+     "Force local builds of these dependencies if possible (comma- or semicolon-separated list, or 'all')")
+
+# Accept commas as well as semicolons as list separators, since semicolons are
+# awkward in shells and env variables.
+foreach (_deplist REQUIRED_DEPS OPTIONAL_DEPS BUILD_MISSING_DEPS BUILD_LOCAL_DEPS)
+    string (REPLACE "," ";" ${PROJECT_NAME}_${_deplist}
+            "${${PROJECT_NAME}_${_deplist}}")
+endforeach ()
+unset (_deplist)
 
 set_cache (${PROJECT_NAME}_LOCAL_DEPS_ROOT "${PROJECT_BINARY_DIR}/deps"
            "Directory were we do local builds of dependencies")
@@ -540,14 +548,17 @@ macro (checked_find_package pkgname)
             # A prior find_package() may have left a bunch of cruft from a
             # rejected, unsuitable system install in its Find module. Clear it
             # here so it does not pollute our attempt to use the one we just
-            # built and are about to re-find.
+            # built and are about to re-find. This includes the version, or a
+            # stale one from the rejected install would be reported.
             foreach (_v IN ITEMS
                      ${pkgname}_LIBRARY ${pkgname}_LIBRARIES
                      ${pkgname}_LIBRARY_RELEASE ${pkgname}_LIBRARY_DEBUG
                      ${pkgname}_INCLUDE_DIR ${pkgname}_INCLUDE_DIRS
                      ${pkgname_upper}_LIBRARY ${pkgname_upper}_LIBRARIES
                      ${pkgname_upper}_LIBRARY_RELEASE ${pkgname_upper}_LIBRARY_DEBUG
-                     ${pkgname_upper}_INCLUDE_DIR ${pkgname_upper}_INCLUDE_DIRS)
+                     ${pkgname_upper}_INCLUDE_DIR ${pkgname_upper}_INCLUDE_DIRS
+                     ${pkgname}_VERSION ${pkgname}_VERSION_STRING
+                     ${pkgname_upper}_VERSION ${pkgname_upper}_VERSION_STRING)
                 unset (${_v})
                 unset (${_v} CACHE)
             endforeach ()
@@ -1100,3 +1111,43 @@ macro (alias_library_if_not_exists newalias realtarget)
         add_library(${newalias} ALIAS ${realtarget})
     endif ()
 endmacro ()
+
+
+option (IGNORE_HOMEBREWED_DEPS "If ON, will ignore homebrew-installed dependencies" OFF)
+if (IGNORE_HOMEBREWED_DEPS)
+    # Define the list of prefixes to ignore
+    set (HOMEBREW_PREFIXES
+         /opt/homebrew
+         /opt/homebrew/Cellar
+         /usr/local
+         /usr/local/Cellar
+         /usr/X11
+         /usr/X11R6
+         /opt/X11
+    )
+    message (STATUS "Ignoring Homebrew dependencies and adjusted environment and CMake variables accordingly.")
+    foreach (_cmake_var
+             CMAKE_SYSTEM_INCLUDE_PATH
+             CMAKE_SYSTEM_LIBRARY_PATH
+             CMAKE_PREFIX_PATH)
+        remove_prefixes_from_variable (CMAKE ${_cmake_var} "${HOMEBREW_PREFIXES}")
+    endforeach ()
+
+    # Adjust CMAKE_IGNORE_PATH
+    foreach (_prefix IN LISTS HOMEBREW_PREFIXES)
+        list (APPEND CMAKE_IGNORE_PATH
+              "${_prefix}"
+              "${_prefix}/lib"
+              "${_prefix}/bin"
+              "${_prefix}/include"
+             )
+    endforeach ()
+
+    # Also ignore the whole prefixes, which (unlike CMAKE_IGNORE_PATH) is
+    # honored by config-package searches, and is forwarded to local
+    # dependency child builds so they can't quietly resolve a Homebrew
+    # package (e.g. a mismatched Imath) that we ourselves are ignoring.
+    list (APPEND CMAKE_IGNORE_PREFIX_PATH ${HOMEBREW_PREFIXES})
+
+    message (STATUS "CMAKE_IGNORE_PATH: ${CMAKE_IGNORE_PATH}")
+endif ()

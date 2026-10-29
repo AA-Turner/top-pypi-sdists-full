@@ -42,17 +42,17 @@ from ..errors import (
 )
 from ..redaction import (
     collect_addon_secret_values,
-    redact_addon_options,
+    redact_addon_info,
     redaction_enabled,
     register_known_secret_values,
     sentinel_option_keys,
-    sentinel_replacement,
 )
 from ..utils.python_sandbox import (
     PythonSandboxError,
     format_sandbox_error,
     safe_execute_expression,
 )
+from .addon_connection_hints import addon_connection_failure_suggestions
 from .coercion import ANSI_ESCAPE_RE, JSON_STRING_COERCION
 from .helpers import (
     exception_to_structured_error,
@@ -800,37 +800,6 @@ async def _supervisor_api_call(
         return None  # unreachable: raise_tool_error always raises
 
 
-def _addon_connection_failure_suggestions(
-    client: HomeAssistantClient, port: int | None
-) -> list[str]:
-    """Suggestions for connect/timeout failures against an app (add-on).
-
-    Three modes — direct-port hits a container IP, the app-mode ingress
-    route hits a sibling container's ingress port, the off-host ingress route
-    hits HA Core. Each mode fails for different reasons, so suggest different
-    next steps.
-    """
-    if port:
-        return [
-            "Check that the app (add-on) is running",
-            "Direct-port access requires the MCP host to share Home "
-            + "Assistant's container network. On PyPI/uvx installs, drop "
-            + "the 'port' parameter to route through Ingress instead.",
-        ]
-    if is_running_in_addon():
-        return [
-            "The target app (add-on) container may not be reachable from this "
-            + "MCP app. Check that the target app is running.",
-            "If the failure persists, the app (add-on) Docker network may be "
-            + "unhealthy — try restarting the target app, then this "
-            + "MCP app.",
-        ]
-    return [
-        f"Verify Home Assistant is reachable at {client.base_url}",
-        "Check network connectivity from the MCP host to HA Core",
-    ]
-
-
 async def _create_ingress_session(client: HomeAssistantClient) -> str:
     """Create a Supervisor ingress session and return its token.
 
@@ -1027,34 +996,9 @@ async def get_addon_info(client: HomeAssistantClient, slug: str) -> dict[str, An
     result: dict[str, Any] = {"success": True, "addon": addon}
 
     if redaction_enabled():
-        options = addon.get("options")
-        schema = addon.get("schema")
-        if isinstance(options, dict) and options:
-            if isinstance(schema, list) and schema:
-                register_known_secret_values(
-                    collect_addon_secret_values(options, schema)
-                )
-                result["addon"] = {
-                    **addon,
-                    "options": redact_addon_options(options, schema),
-                }
-            else:
-                # No readable schema (absent, malformed, or empty) — the
-                # password fields cannot be told apart, so fail closed like
-                # the integration surface does rather than passing raw
-                # options through.
-                result["addon"] = {
-                    **addon,
-                    "options": {
-                        key: sentinel_replacement(value)
-                        for key, value in options.items()
-                    },
-                }
-                result.setdefault("warnings", []).append(
-                    f"redact_secrets: no options schema readable for '{slug}' — "
-                    "every option value was redacted conservatively (the "
-                    "password fields cannot be told apart without the schema)"
-                )
+        result["addon"], warnings = redact_addon_info(addon, slug)
+        if warnings:
+            result["warnings"] = warnings
 
     # Extracted AFTER redaction so an app (add-on) that schema-marks log_level as
     # a password surfaces the sentinel here, never the live value.
@@ -1451,7 +1395,7 @@ def _raise_connect_failure(
             f"Failed to connect to {label}: {e!s}",
             details=f"url={url}",
             context={"slug": slug, "direct_port": bool(port)},
-            suggestions=_addon_connection_failure_suggestions(client, port),
+            suggestions=addon_connection_failure_suggestions(client, port, slug),
         )
     )
 
@@ -1790,7 +1734,9 @@ async def _call_addon_ws(
                     "timeout_seconds": timeout,
                     "direct_port": bool(port),
                 },
-                suggestions=_addon_connection_failure_suggestions(client, port),
+                suggestions=addon_connection_failure_suggestions(
+                    client, port, slug, timed_out=True
+                ),
             )
         )
     except OSError as e:
@@ -2387,6 +2333,15 @@ async def _call_addon_api(
                 headers=headers,
                 content=request_content,
             )
+    except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+        _raise_connect_failure(
+            client,
+            e,
+            label=f"app (add-on) '{addon_name}'",
+            url=url,
+            slug=slug,
+            port=port,
+        )
     except httpx.TimeoutException:
         raise_tool_error(
             create_error_response(
@@ -2400,19 +2355,11 @@ async def _call_addon_api(
                     "timeout_seconds": timeout,
                     "direct_port": bool(port),
                 },
-                suggestions=_addon_connection_failure_suggestions(client, port),
+                suggestions=addon_connection_failure_suggestions(
+                    client, port, slug, timed_out=True
+                ),
             )
         )
-    except httpx.ConnectError as e:
-        _raise_connect_failure(
-            client,
-            e,
-            label=f"app (add-on) '{addon_name}'",
-            url=url,
-            slug=slug,
-            port=port,
-        )
-
     # 6. Parse response body
     response_data: Any = _parse_response_body(response)
 
@@ -3092,22 +3039,22 @@ class AddOnTools:
             merged_options = _merge_options(current_options, config_data["options"])
 
             # Both the live current options and the merged result are
-            # password-bearing; remember them for the global known-value
+            # secret-bearing; remember them for the global known-value
             # scrub (this path fetches info directly, bypassing
             # get_addon_info's harvesting). The merged copy carries any
-            # password the caller is submitting right now — without it a
+            # secret the caller is submitting right now — without it a
             # freshly written secret stays unknown to the scrub until some
             # later read harvests it.
-            if redaction_enabled() and isinstance(addon_info.get("schema"), list):
+            schema_ui: list | None = addon_info.get("schema")
+            if redaction_enabled() and isinstance(schema_ui, list):
                 register_known_secret_values(
-                    collect_addon_secret_values(current_options, addon_info["schema"])
-                    | collect_addon_secret_values(merged_options, addon_info["schema"])
+                    collect_addon_secret_values(current_options, schema_ui, slug)
+                    | collect_addon_secret_values(merged_options, schema_ui, slug)
                 )
 
             # Pre-write schema check: identify fields not in the app's schema.
             # Supervisor silently drops unknown fields on write; surfacing them
             # here lets the caller correct mistakes before any state is changed.
-            schema_ui: list | None = addon_info.get("schema")
             if schema_ui is not None:
                 allowed_keys = {item["name"] for item in schema_ui if "name" in item}
                 ignored_fields = [
@@ -3836,7 +3783,9 @@ def register_addon_tools(mcp: Any, client: HomeAssistantClient, **kwargs: Any) -
             Field(
                 description="Proxy mode: API path relative to the app (add-on) root "
                 "(e.g., '/flows', '/api/events', '/api/stats'). "
-                "Required for proxy mode.",
+                "Required for proxy mode. ESPHome 2026.10+: POST JSON-RPC to '/api/mcp' "
+                "(initialize, notifications/initialized, tools/list, then tools/call); "
+                "check response.error first, then response.result.isError.",
                 default=None,
             ),
         ] = None,
@@ -3867,7 +3816,7 @@ def register_addon_tools(mcp: Any, client: HomeAssistantClient, **kwargs: Any) -
             Field(
                 description="Proxy mode only. Connect to this port instead of the Ingress port. Use"
                 " ha_get_app(slug='...') to find available ports. Some apps, including "
-                "Node-RED, reject direct access unless their leave_front_door_open "
+                "Node-RED and ESPHome, reject direct access unless their leave_front_door_open "
                 "option is enabled and the app is restarted.",
                 default=None,
             ),

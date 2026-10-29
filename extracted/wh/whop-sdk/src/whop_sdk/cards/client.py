@@ -5,6 +5,9 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawCardsClient, RawCardsClient
+from .types.create_cards_request_billing import CreateCardsRequestBilling
+from .types.create_cards_request_cardholder import CreateCardsRequestCardholder
+from .types.create_cards_request_kind import CreateCardsRequestKind
 from .types.create_cards_request_spend_limit_frequency import CreateCardsRequestSpendLimitFrequency
 from .types.create_cards_response import CreateCardsResponse
 from .types.list_cards_response import ListCardsResponse
@@ -64,7 +67,7 @@ class CardsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -78,6 +81,9 @@ class CardsClient:
         *,
         account_id: typing.Optional[str] = OMIT,
         assigned_user_id: typing.Optional[str] = OMIT,
+        billing: typing.Optional[CreateCardsRequestBilling] = OMIT,
+        cardholder: typing.Optional[CreateCardsRequestCardholder] = OMIT,
+        kind: typing.Optional[CreateCardsRequestKind] = OMIT,
         name: typing.Optional[str] = OMIT,
         spend_limit: typing.Optional[float] = OMIT,
         spend_limit_frequency: typing.Optional[CreateCardsRequestSpendLimitFrequency] = OMIT,
@@ -86,7 +92,7 @@ class CardsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateCardsResponse:
         """
-        Issues a virtual card, or applies for card issuing. An account with no application files one here and gets back a `202`; call again to issue the card once it is approved.
+        Issues a virtual card, or applies for card issuing. An account with no application files one here and gets back a `202`; call again to issue the card once it is approved. An account whose application was denied or canceled applies again the same way, replacing that application.
 
         Parameters
         ----------
@@ -94,7 +100,16 @@ class CardsClient:
             The owning account ID (a biz_ identifier). Provide this or user_id.
 
         assigned_user_id : typing.Optional[str]
-            The account member (a user_ identifier) to assign the card to. Required for business card issuing accounts, and whenever a company API key files an account's first card application.
+            The account member (a user_ identifier) to assign the card to. Required for business card issuing accounts. When this call files the card application, the member applies with their identity; a company API key that sends neither this nor kind is refused.
+
+        billing : typing.Optional[CreateCardsRequestBilling]
+            The card's initial billing address. On a company card it also registers the assigned member as a cardholder if they are not one yet. For an individual card, region is also required.
+
+        cardholder : typing.Optional[CreateCardsRequestCardholder]
+            Details for a company card's assigned member when they are not registered as a cardholder yet. Send with billing to register them and start provisioning in one call instead of sending them an onboarding invitation. The legal name comes from the member's approved identity verification when they have one, and from these fields when they do not.
+
+        kind : typing.Optional[CreateCardsRequestKind]
+            Who the card application verifies, set only on the call that files it; sending it while the account's application is in progress or approved is a 400. `business` applies as the account with its approved KYB. `individual` applies as a person: assigned_user_id when given, otherwise the account owner, using the identity verified on the account. Omit it to apply as the business when its KYB is approved, and as an individual otherwise.
 
         name : typing.Optional[str]
             A display name for the card.
@@ -124,7 +139,7 @@ class CardsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -133,6 +148,9 @@ class CardsClient:
         _response = self._raw_client.create(
             account_id=account_id,
             assigned_user_id=assigned_user_id,
+            billing=billing,
+            cardholder=cardholder,
+            kind=kind,
             name=name,
             spend_limit=spend_limit,
             spend_limit_frequency=spend_limit_frequency,
@@ -177,7 +195,7 @@ class CardsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -265,7 +283,7 @@ class CardsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -340,7 +358,7 @@ class AsyncCardsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -360,6 +378,9 @@ class AsyncCardsClient:
         *,
         account_id: typing.Optional[str] = OMIT,
         assigned_user_id: typing.Optional[str] = OMIT,
+        billing: typing.Optional[CreateCardsRequestBilling] = OMIT,
+        cardholder: typing.Optional[CreateCardsRequestCardholder] = OMIT,
+        kind: typing.Optional[CreateCardsRequestKind] = OMIT,
         name: typing.Optional[str] = OMIT,
         spend_limit: typing.Optional[float] = OMIT,
         spend_limit_frequency: typing.Optional[CreateCardsRequestSpendLimitFrequency] = OMIT,
@@ -368,7 +389,7 @@ class AsyncCardsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateCardsResponse:
         """
-        Issues a virtual card, or applies for card issuing. An account with no application files one here and gets back a `202`; call again to issue the card once it is approved.
+        Issues a virtual card, or applies for card issuing. An account with no application files one here and gets back a `202`; call again to issue the card once it is approved. An account whose application was denied or canceled applies again the same way, replacing that application.
 
         Parameters
         ----------
@@ -376,7 +397,16 @@ class AsyncCardsClient:
             The owning account ID (a biz_ identifier). Provide this or user_id.
 
         assigned_user_id : typing.Optional[str]
-            The account member (a user_ identifier) to assign the card to. Required for business card issuing accounts, and whenever a company API key files an account's first card application.
+            The account member (a user_ identifier) to assign the card to. Required for business card issuing accounts. When this call files the card application, the member applies with their identity; a company API key that sends neither this nor kind is refused.
+
+        billing : typing.Optional[CreateCardsRequestBilling]
+            The card's initial billing address. On a company card it also registers the assigned member as a cardholder if they are not one yet. For an individual card, region is also required.
+
+        cardholder : typing.Optional[CreateCardsRequestCardholder]
+            Details for a company card's assigned member when they are not registered as a cardholder yet. Send with billing to register them and start provisioning in one call instead of sending them an onboarding invitation. The legal name comes from the member's approved identity verification when they have one, and from these fields when they do not.
+
+        kind : typing.Optional[CreateCardsRequestKind]
+            Who the card application verifies, set only on the call that files it; sending it while the account's application is in progress or approved is a 400. `business` applies as the account with its approved KYB. `individual` applies as a person: assigned_user_id when given, otherwise the account owner, using the identity verified on the account. Omit it to apply as the business when its KYB is approved, and as an individual otherwise.
 
         name : typing.Optional[str]
             A display name for the card.
@@ -408,7 +438,7 @@ class AsyncCardsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -423,6 +453,9 @@ class AsyncCardsClient:
         _response = await self._raw_client.create(
             account_id=account_id,
             assigned_user_id=assigned_user_id,
+            billing=billing,
+            cardholder=cardholder,
+            kind=kind,
             name=name,
             spend_limit=spend_limit,
             spend_limit_frequency=spend_limit_frequency,
@@ -469,7 +502,7 @@ class AsyncCardsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -565,7 +598,7 @@ class AsyncCardsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

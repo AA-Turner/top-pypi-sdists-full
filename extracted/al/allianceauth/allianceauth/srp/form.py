@@ -19,7 +19,7 @@ class SrpFleetUserRequestForm(forms.Form):
 
     )
 
-    def clean_killboard_link(self):
+    def clean_killboard_link(self) -> str:
         data = self.cleaned_data['killboard_link']
 
         # Check if it's a link from one of the accepted kill boards

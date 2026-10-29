@@ -23,14 +23,17 @@ Field naming conventions match the journald expectations documented in
 
 from __future__ import annotations
 
+import itertools
+import re
 import socket
+import struct
 import sys
 import types
 import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Final, cast
 
-from lib_log_rich.adapters._formatting import format_process_chain
+from lib_log_rich.adapters._formatting import format_process_chain, traceback_text
 from lib_log_rich.adapters._text_utils import strip_emoji
 from lib_log_rich.application.ports.structures import StructuredBackendPort
 from lib_log_rich.domain.levels import LogLevel
@@ -78,7 +81,77 @@ _RESERVED_FIELDS: set[str] = {
     "ENVIRONMENT",
     "PROCESS_ID",
     "PROCESS_ID_CHAIN",
+    "EXCEPTION_TEXT",
+    "STACK_TEXT",
 }
+
+# journald takes a field name only when it is 1-64 characters of A-Z, 0-9 and "_" and does not start
+# with a digit; a leading "_" marks the trusted fields journald sets itself. Any other name is not
+# refused but lost: the field silently disappears, "A=B" arrives as field "A" holding "B=...", and
+# "A=B" with a multi-line value corrupts the datagram so the whole entry is dropped. So every name
+# built from a caller's key is mapped into that alphabet before it is sent.
+_MAX_FIELD_NAME_LENGTH: Final[int] = 64
+_INVALID_FIELD_NAME_CHARS: Final[re.Pattern[str]] = re.compile(r"[^A-Z0-9_]")
+_FIELD_PREFIX: Final[str] = "EXTRA_"
+
+
+def _journal_field_name(key: str) -> str:
+    """Return the journald field name for a caller's key.
+
+    The key is uppercased, every character outside ``A-Z``, ``0-9`` and ``_``
+    becomes ``_``, a name that would start with a digit or ``_`` (or be empty)
+    gets the ``EXTRA_`` prefix, and the result is cut to 64 characters.
+
+    Examples
+    --------
+    >>> _journal_field_name("request-id")
+    'REQUEST_ID'
+    >>> _journal_field_name("A=B")
+    'A_B'
+    >>> _journal_field_name("_private")
+    'EXTRA__PRIVATE'
+    >>> len(_journal_field_name("k" * 70))
+    64
+
+    """
+    name = _INVALID_FIELD_NAME_CHARS.sub("_", key.upper())
+    if not name[:1].isalpha():
+        name = _FIELD_PREFIX + name
+    return name[:_MAX_FIELD_NAME_LENGTH]
+
+
+def _free_field_name(name: str, taken: Mapping[str, Any]) -> str:
+    """Return ``name``, or a free variant of it when it is reserved or already used.
+
+    A clash adds the ``EXTRA_`` prefix, repeatedly, so earlier values are never
+    overwritten. Once the prefix no longer fits in 64 characters a numeric
+    suffix takes over.
+
+    Examples
+    --------
+    >>> _free_field_name("MESSAGE", {})
+    'EXTRA_MESSAGE'
+    >>> _free_field_name("THEME", {"THEME": 1, "EXTRA_THEME": 2})
+    'EXTRA_EXTRA_THEME'
+
+    """
+    candidate = name
+    while candidate in _RESERVED_FIELDS or candidate in taken:
+        prefixed = (_FIELD_PREFIX + candidate)[:_MAX_FIELD_NAME_LENGTH]
+        if prefixed == candidate:
+            return _numbered_field_name(candidate, taken)
+        candidate = prefixed
+    return candidate
+
+
+def _numbered_field_name(name: str, taken: Mapping[str, Any]) -> str:
+    """Return the first ``<name>_<n>`` (n >= 2, cut to fit 64 characters) not in ``taken``."""
+    for number in itertools.count(2):
+        suffix = f"_{number}"
+        candidate = name[: _MAX_FIELD_NAME_LENGTH - len(suffix)] + suffix
+        if candidate not in taken and candidate not in _RESERVED_FIELDS:
+            return candidate
+    raise AssertionError("unreachable")  # pragma: no cover - itertools.count never ends
 
 
 def _try_get_existing_sender(module_name: str) -> Sender | None:
@@ -123,7 +196,7 @@ def _send_via_socket(**fields: Any) -> None:
             "UNIX domain sockets unavailable; install python-systemd for native support.",
         )
 
-    message = _encode_journal_fields(fields)
+    message = encode_journal_fields(fields)
     last_error: OSError | None = None
     for socket_path in _JOURNAL_SOCKETS:
         try:
@@ -153,14 +226,36 @@ def _ensure_systemd_journal_module() -> Sender:
     return cast("Sender", journal_module.send)
 
 
-def _encode_journal_fields(fields: Mapping[str, Any]) -> bytes:
-    """Encode journald fields using the native datagram format."""
-    encoded_lines: list[bytes] = []
+def encode_journal_fields(fields: Mapping[str, Any]) -> bytes:
+    """Encode journald fields using the native datagram format.
+
+    A value holding a newline uses the protocol's binary form (``KEY``, a
+    newline, the value's length as a little-endian 64-bit integer, the value):
+    journald drops the whole datagram when such a value is sent as
+    ``KEY=value``, which made every multi-line message and traceback vanish
+    without an error.
+
+    Args:
+        fields: Journal field names and values.
+
+    Returns:
+        The datagram, every field terminated by a newline.
+
+    Examples:
+        >>> encode_journal_fields({'MESSAGE': 'hi', 'PRIORITY': 6})
+        b'MESSAGE=hi\\nPRIORITY=6\\n'
+        >>> encode_journal_fields({'MESSAGE': 'a\\nb'})
+        b'MESSAGE\\n\\x03\\x00\\x00\\x00\\x00\\x00\\x00\\x00a\\nb\\n'
+    """
+    encoded: list[bytes] = []
     for key, value in fields.items():
         key_bytes = key.encode("utf-8", errors="strict")
         value_bytes = value if isinstance(value, bytes) else str(value).encode("utf-8", errors="strict")
-        encoded_lines.append(key_bytes + b"=" + value_bytes)
-    return b"\n".join(encoded_lines) + b"\n"
+        if b"\n" in value_bytes:
+            encoded.append(key_bytes + b"\n" + struct.pack("<Q", len(value_bytes)) + value_bytes + b"\n")
+        else:
+            encoded.append(key_bytes + b"=" + value_bytes + b"\n")
+    return b"".join(encoded)
 
 
 def _resolve_systemd_sender() -> Sender:
@@ -201,7 +296,7 @@ class JournaldAdapter(StructuredBackendPort):
     def __init__(self, *, sender: Sender | None = None, service_field: str = "SERVICE") -> None:
         """Initialise the adapter with an optional sender and service field."""
         self._sender = sender or _resolve_systemd_sender()
-        self._service_field = service_field.upper()
+        self._service_field = _journal_field_name(service_field)
 
     def emit(self, event: LogEvent) -> None:
         """Send ``event`` to journald using the configured sender."""
@@ -216,18 +311,11 @@ class JournaldAdapter(StructuredBackendPort):
         """Handle ENVIRONMENT field mapping."""
         fields["ENVIRONMENT"] = value
 
-    def _handle_extra_fields(self, fields: dict[str, Any], extras: Mapping[str, Any]) -> None:
-        """Handle EXTRA fields with conflict resolution."""
+    @staticmethod
+    def _handle_extra_fields(fields: dict[str, Any], extras: Mapping[str, Any]) -> None:
+        """Add caller extras under valid journald names, never replacing a field already set."""
         for extra_key, extra_value in extras.items():
-            target = self._resolve_field_name(extra_key.upper(), fields)
-            fields[target] = extra_value
-
-    def _resolve_field_name(self, key_upper: str, existing_fields: dict[str, Any]) -> str:
-        """Resolve field name avoiding conflicts with reserved fields."""
-        target = key_upper if key_upper not in _RESERVED_FIELDS else f"EXTRA_{key_upper}"
-        if target in existing_fields:
-            target = f"EXTRA_{target}"
-        return target
+            fields[_free_field_name(_journal_field_name(extra_key), fields)] = extra_value
 
     def _build_fields(self, event: LogEvent) -> dict[str, Any]:
         """Construct a journald field dictionary for ``event``.
@@ -251,9 +339,13 @@ class JournaldAdapter(StructuredBackendPort):
         """
         context = event.context
 
-        # Base fields - strip emoji from MESSAGE for structured logging
+        # Base fields - strip emoji from MESSAGE for structured logging. The
+        # traceback goes into MESSAGE as well as its own fields, as python-systemd's
+        # JournalHandler does, because plain journalctl prints MESSAGE only.
+        message = strip_emoji(event.message)
+        trace = traceback_text(event)
         fields: dict[str, Any] = {
-            "MESSAGE": strip_emoji(event.message),
+            "MESSAGE": f"{message}\n{trace}" if trace else message,
             "PRIORITY": _LEVEL_MAP[event.level],
             "LOGGER_NAME": event.logger_name,
             "LOGGER_LEVEL": event.level.severity.upper(),
@@ -274,6 +366,8 @@ class JournaldAdapter(StructuredBackendPort):
             "HOSTNAME": context.hostname,
             "TRACE_ID": context.trace_id,
             "SPAN_ID": context.span_id,
+            "EXCEPTION_TEXT": event.exc_info,
+            "STACK_TEXT": event.stack_info,
         }
         fields.update({name: value for name, value in optional_fields.items() if value})
 
@@ -282,15 +376,9 @@ class JournaldAdapter(StructuredBackendPort):
             fields["PROCESS_ID"] = context.process_id
         if context.process_id_chain:
             fields["PROCESS_ID_CHAIN"] = format_process_chain(context.process_id_chain)
-        if context.extra:
-            self._handle_extra_fields(fields, context.extra)
-
-        # Process extra fields with conflict resolution
-        for key, value in event.extra.items():
-            target = self._resolve_field_name(key.upper(), fields)
-            fields[target] = value
-
+        self._handle_extra_fields(fields, context.extra)
+        self._handle_extra_fields(fields, event.extra)
         return fields
 
 
-__all__ = ["JournaldAdapter"]
+__all__ = ["JournaldAdapter", "encode_journal_fields"]

@@ -1,11 +1,18 @@
 """Static text the server publishes about its tools.
 
 Holds the search tool description, the BM25 keyword boosts, the lite
-docstring variants with their destinations, and the skill keyword block.
-``HomeAssistantSmartMCPServer`` exposes each one as a class attribute.
+docstring variants with their destinations and the skill keyword block,
+which ``HomeAssistantSmartMCPServer`` exposes as class attributes, plus the
+skill tool's name and the instruction notices ``server_instructions`` uses.
 """
 
 from __future__ import annotations
+
+# Name of the consolidated skill tool. Defined as a module constant so the
+# tool registration, the instructions, the mandatory-tool set, the default
+# pins and the tests agree on one canonical string. 18 chars — well under
+# the 40-char cap that Cloudflare's MCP portal enforces (#1121).
+SKILL_TOOL_NAME = "ha_get_skill_guide"
 
 # Description for the unified search tool
 SEARCH_TOOL_DESCRIPTION = (
@@ -381,17 +388,14 @@ LITE_DOCSTRINGS: dict[str, str] = {
         "entity_id over device_id, impact analysis before renaming — see "
         "ha_get_skill_guide."
     ),
-    # ha_manage_backup: the full description is 4571 dedented chars at
-    # BACKUP_HINT=normal (4672 strong / 4598 weak) and the lite value is
-    # a little over a quarter of that. No exact pair is quoted here on
-    # purpose — three successive edits left a stale figure in this
-    # comment, so the ratio is pinned by
-    # test_backup_lite_description_stays_substantially_smaller instead,
-    # which measures both sides at test time.
+    # ha_manage_backup: the lite value is a fraction of the full
+    # description. test_backup_lite_description_stays_substantially_smaller
+    # bounds it (under 45% of the full text, over 900 chars) and measures
+    # both sides at test time, so no figure is quoted here.
     #
     # It was the largest full description in the GATEWAY catalog this was
-    # measured against, not in the repo: ha_get_system_health (5811) is
-    # larger and unmapped.
+    # measured against, not in the repo: ha_get_system_health is larger
+    # and unmapped.
     # The reduction is smaller than pure compression would give because
     # the safety content below is kept inline. The routing matrix STAYS —
     # the `action` parameter's own Field description says "Valid (scope,
@@ -411,19 +415,25 @@ LITE_DOCSTRINGS: dict[str, str] = {
     # destructiveHint is set on this tool, so the lite text keeps every
     # irreversibility marker inline rather than deferring it: the
     # restart, the confirm, the human-only enable_snapshot_delete, and
-    # each individual delete guard. It also keeps the two diagnostics
-    # that have no fallback anywhere else — the enable_auto_backup
-    # empty-list ambiguity, and the {backup_hint_text} timing sentence
-    # (resolved per-instance; see _lite_docstring_tokens).
+    # each individual delete guard. It also keeps the diagnostics that
+    # have no fallback anywhere else: a slow `create` is not a hang
+    # (retrying starts a second backup), and the enable_auto_backup
+    # empty-list ambiguity.
     "ha_manage_backup": (
         "Manage Home Assistant backups: full HA snapshots "
         "(`scope='snapshot'`) and per-entity auto-backups of agent edits "
         "(`scope='edits'`). Pick the scope first — the wrong one routes "
         "through the wrong code path.\n\n"
-        "`scope='snapshot'` actions: `create` (slow on a large "
+        "`scope='snapshot'` actions: `create` (a full backup with Home "
+        "Assistant's automatic-backup settings, counted by their "
+        "retention, or on the default location without automatic-backup "
+        "locations, holding the apps those settings select; any "
+        "`include_*` makes a custom backup of just those "
+        "parts instead; slow on a large "
         "instance — progress heartbeats are sent while waiting, so a "
         "long wait is not a hang; retrying starts a SECOND backup), "
-        "`list`, `restore` (**restarts HA**), `delete` (needs "
+        "`list`, `restore` (**restarts HA**; `safety_backup=True`, off "
+        "by default, first backs up what the restore replaces), `delete` (needs "
         "`confirm=True`; disabled until a human sets "
         "`enable_snapshot_delete` — an agent cannot enable it. Even then "
         "a delete is refused for scheduled/automatic backups, for "
@@ -432,7 +442,7 @@ LITE_DOCSTRINGS: dict[str, str] = {
         "remaining).\n\n"
         "`scope='edits'` actions: `create` (needs `domain` + "
         "`entity_id`), `list`, `view`, `diff`, `restore` (takes a fresh "
-        "safety snapshot first; no HA restart), `delete`. Automatic "
+        "per-entity backup first; no HA restart), `delete`. Automatic "
         "capture on write is gated by `enable_auto_backup`, so an empty "
         '`list` means "nothing saved" OR "the toggle is off" — check it '
         "before concluding there is nothing to restore. Either way "
@@ -440,8 +450,8 @@ LITE_DOCSTRINGS: dict[str, str] = {
         "the request is explicit.\n\n"
         "Use `edits` to undo a recent agent edit to an "
         "automation/script/scene/dashboard/helper; use `snapshot` for "
-        "system-wide recovery and before irreversible operations. "
-        "{backup_hint_text}\n\n"
+        "system-wide recovery. A snapshot backup is the user's call: ask "
+        "before making one, and make it only when they say so.\n\n"
         "For which recovery path fits which failure, what an archive "
         "actually contains, and the encryption key a restore needs, see "
         "ha_get_skill_guide (`references/backups.md`)."

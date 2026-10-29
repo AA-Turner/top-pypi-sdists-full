@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-16T15:14:49.240788                                                            #
+# Generated on 2026-10-28T20:25:47.901376                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.exceptions
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
 
 from ._state_machine import LogLine as LogLine
 

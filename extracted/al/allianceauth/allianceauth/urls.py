@@ -1,8 +1,11 @@
-from collections.abc import Callable, Iterable
+__lazy_modules__ = ["collections.abc", "django.urls"]
 
+from typing import TYPE_CHECKING
+
+from django.apps import apps
 from django.conf import settings
 from django.contrib import admin
-from django.urls import URLPattern, include, path
+from django.urls import include, path
 from django.views.generic.base import TemplateView
 
 import esi.urls
@@ -14,15 +17,23 @@ import allianceauth.notifications.urls
 import allianceauth.services.urls
 from allianceauth import NAME, views
 from allianceauth.authentication import hmac_urls
-from allianceauth.authentication.decorators import decorate_url_patterns, main_character_required
+from allianceauth.authentication.decorators import (
+    decorate_url_patterns, main_character_required,
+)
 from allianceauth.hooks import get_hooks
+from allianceauth.impersonate.decorators import not_while_impersonating
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
+    from django.urls import URLPattern
 
 admin.site.site_header = NAME
 
 
 def urls_from_apps(
-    apps_hook_functions: Iterable[Callable], public_views_allowed: list[str]
-) -> list[URLPattern]:
+    apps_hook_functions: "Iterable[Callable]", public_views_allowed: list[str]
+) -> "list[URLPattern]":
     """Return urls from apps and add default decorators."""
 
     url_patterns = []
@@ -61,7 +72,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # SSO
-    path('sso/', include((esi.urls, 'esi'), namespace='esi')),
+    # Blocked while impersonating, so the impersonator's characters can't be bound to the impersonated user
+    path('sso/', decorate_url_patterns((esi.urls.urlpatterns, 'esi'), not_while_impersonating)),
     path('sso/login', allianceauth.authentication.views.sso_login, name='auth_sso_login'),
 
     # Notifications
@@ -82,6 +94,10 @@ urlpatterns = [
     # Minimize Menu
     path('minimize-sidebar/', views.MinimizeSidebarRedirectView.as_view(), name='minimize_sidebar')
 ]
+
+if apps.is_installed('allianceauth.impersonate'):
+    # Not decorated with main_character_required, stopping must work for any impersonated user
+    urlpatterns += [path('impersonate/', include('allianceauth.impersonate.urls'))]
 
 url_hooks = get_hooks("url_hook")
 public_views_allows = getattr(settings, "APPS_WITH_PUBLIC_VIEWS", [])

@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-16T15:14:49.261267                                                            #
+# Generated on 2026-10-28T20:25:47.939996                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.runner.deployer_impl
     import typing
     import metaflow.plugins.argo.argo_workflows_deployer_objects
+    import metaflow.runner.deployer_impl
 
 from ...runner.deployer_impl import DeployerImpl as DeployerImpl
 

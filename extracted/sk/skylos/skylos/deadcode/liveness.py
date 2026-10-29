@@ -33,6 +33,8 @@ from skylos.analysis.ast_cache import releases_python_ast_cache
 from skylos.constants import AUTO_CALLED
 from skylos.deadcode.python_ast import ParsedPythonFile, parse_python_files
 from skylos.deadcode.provider_method_liveness import find_provider_method_targets
+from skylos.deadcode.logging_config_liveness import find_logging_config_targets
+from skylos.deadcode.property_descriptor_liveness import classify_property_descriptors
 
 
 SENTINEL_CALLER = "<skylos.deadcode.liveness>"
@@ -131,6 +133,7 @@ def apply_dead_code_liveness(
     root = Path(project_root).resolve()
     py_files = _python_files(root, files)
     parsed_files = parse_python_files(py_files)
+    classify_property_descriptors(definitions, parsed_files, module_names)
     docs_text = _read_public_docs(root)
 
     classes: dict[str, Any] = {}
@@ -142,6 +145,13 @@ def apply_dead_code_liveness(
             defn, "name", ""
         ):
             class_methods[defn.name.rsplit(".", 1)[0]].append(defn)
+
+    for target, caller in find_logging_config_targets(definitions, parsed_files, root):
+        _mark(target, "logging_config_factory", report)
+        target.heuristic_refs["reachable_from_root"] = 1.0
+        if caller is not None:
+            caller.calls.add(target.name)
+            target.called_by.add(caller.name)
 
     _rescue_optional_import_fallbacks(definitions, refs, report)
     _rescue_protocol_overrides(classes, class_methods, report)

@@ -13,13 +13,7 @@
 # limitations under the License.
 """Tests the BudouX parser."""
 
-import os
-import sys
 import unittest
-
-# module hack
-LIB_PATH = os.path.join(os.path.dirname(__file__), '..')
-sys.path.insert(0, os.path.abspath(LIB_PATH))
 
 from budoux import parser
 
@@ -122,6 +116,13 @@ class TestParser(unittest.TestCase):
       output_html, expected_html, 'Should keep trailing text with an ampersand.'
     )
 
+    input_html = 'xyza<a href="#" hidden>bc</a>abc'
+    expected_html = 'xyz\u200ba<a href="#" hidden>bc</a>\u200babc'
+    output_html = p.translate_html_string(input_html, wrap=False)
+    self.assertEqual(
+      output_html, expected_html, 'Should omit the wrapping SPAN when wrap=False.'
+    )
+
 
 class TestDefaultParser(unittest.TestCase):
   def test_load_default_japanese_parser(self) -> None:
@@ -163,8 +164,7 @@ class TestDefaultParser(unittest.TestCase):
         '大众',
         '使用，',
         '让',
-        '人',
-        '人',
+        '人人',
         '受益。',
       ],
     )
@@ -186,12 +186,12 @@ class TestDefaultParser(unittest.TestCase):
         '大眾',
         '使用，',
         '使',
-        '人',
-        '人',
+        '人人',
         '受惠。',
       ],
     )
 
-
-if __name__ == '__main__':
-  unittest.main()
+  def test_load_default_thai_parser(self) -> None:
+    p_th = parser.load_default_thai_parser()
+    phrases = p_th.parse('วันนี้อากาศดี')
+    self.assertListEqual(phrases, ['วัน', 'นี้', 'อากาศ', 'ดี'])

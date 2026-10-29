@@ -861,15 +861,18 @@ def credential_verdicts(
 
 def capture_conditions(receipts: Mapping, now: float, still: dict | None = None) -> dict[str, dict]:
     """`{sid: facts}` for each session whose transcript has waited
-    CAPTURE_STALL_S past its last receipt, not finalized: complete lines (or,
-    not yet counted, bytes) or a staged batch waiting. Its age is
-    `received_at`'s; a receipt without one (a tap before 0.10.6, or a session
-    none of whose batches ever landed) is aged from when `still` (the
-    caller's, kept across calls: sid -> (`received_bytes`, since when, last
-    seen offline)) first saw its cursor where it is now. A session whose last
-    upload had no network (`offline`) is not stalled, and once back is aged
-    from the last time it was offline. A trailing line with no newline yet is
-    not waiting."""
+    CAPTURE_STALL_S, not finalized: complete lines (or, not yet counted, bytes)
+    or a staged batch waiting. Its age is from when `still` (the caller's, kept
+    across calls: sid -> (`received_bytes`, since when, last seen offline))
+    first saw it waiting with its cursor where it is now (never before its last
+    receipt, `received_at`). A receipt says when the last batch landed, not
+    when what waits now was written: aged from it, a session idle 11 h and then
+    used again read as stalled 11 h minutes after its next prompt (10-28, New
+    Workspace), as did one resumed after hours closed. So a stall already
+    running when this watch first sees it (a service just started) is reported
+    an hour after that sighting. A session whose last upload had no network
+    (`offline`) is not stalled, and once back is aged from the last time it
+    was offline. A trailing line with no newline yet is not waiting."""
     still = {} if still is None else still
     found = {}
     for sid in [s for s in still if s not in receipts]:
@@ -896,13 +899,16 @@ def capture_conditions(receipts: Mapping, now: float, still: dict | None = None)
         still[sid] = seen
         received_at = receipt.get("received_at")
         stamped = isinstance(received_at, (int, float))
-        since = received_at if stamped else seen[1]
+        since = max(received_at, seen[1]) if stamped else seen[1]
         offline_at = seen[2] if len(seen) > 2 else None
         if offline_at is not None:
             since = max(since, offline_at)
         if now - since < CAPTURE_STALL_S:
             continue
-        found[sid] = {"received_h": round((now - since) / 3600.0, 1),
+        # `received_h`: since its last receipt (the oldest first in the report);
+        # `waiting_h`: how long what waits has been seen waiting.
+        found[sid] = {"received_h": round((now - (received_at if stamped else seen[1])) / 3600.0, 1),
+                      "waiting_h": round((now - since) / 3600.0, 1),
                       "receipt": "received_at" if stamped else "unmoved",
                       "pending_bytes": receipt.get("pending_bytes"), "pending_lines": lines,
                       "pending_batch": bool(receipt.get("pending_batch")), "retrying": bool(receipt.get("retrying"))}
@@ -1109,7 +1115,8 @@ class Watch:
         self._credentials_after = 0.0
         #: Serializes `watch.json`'s writes (snapshot to file), from any thread.
         self._state_write = threading.Lock()
-        #: sid -> (receipt cursor, since when it has not moved) (`capture_conditions`).
+        #: sid -> (receipt cursor, since when seen waiting there, last seen offline)
+        #: (`capture_conditions`); kept through a receipt read that failed.
         self._capture_still: dict = {}
         self._closed = False
         self.reports = 0
@@ -1440,8 +1447,10 @@ class Watch:
             receipts = None
         if isinstance(receipts, Mapping):
             read.add(Family.CAPTURE_STALLED)
-        receipts = receipts if isinstance(receipts, Mapping) else {}
-        stalled = capture_conditions(receipts, now, self._capture_still)
+        # Unread: nothing said about them, and what `still` saw is kept (an
+        # empty read would forget it, and the next one age from scratch).
+        stalled = (capture_conditions(receipts, now, self._capture_still)
+                   if isinstance(receipts, Mapping) else {})
         if stalled:
             # One report for the machine, naming its sessions: an hour-long
             # stall of the server's ingestion stalls every session at once,

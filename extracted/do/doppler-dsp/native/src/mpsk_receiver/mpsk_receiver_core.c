@@ -365,10 +365,9 @@ mpsk_rx_create_impl (int real, int m, double sps, size_t m_out, int pulse,
      real face's bound is 2*m_out and strict: the cascade behind the R2C
      halfband runs at twice the overall rate, and Ddcr requires that below
      0.5. */
-  const int sps_ok
-      = real ? (sps > 2.0 * (double)m_out) : (sps >= (double)m_out);
-  if (!dp_ratesync_m_ok (m_out) || !sps_ok || !(rrc_beta >= 0.0)
-      || !(rrc_beta <= 1.0)
+  const int sps_ok = real ? mpsk_rx_m_out_ok (0.5 * sps, m_out, 1)
+                          : mpsk_rx_m_out_ok (sps, m_out, 0);
+  if (!sps_ok || !(rrc_beta >= 0.0) || !(rrc_beta <= 1.0)
       || rrc_span < 1
       /* The loop filter's own domain, once per loop (doppler#2103). */
       || !dp_loop_filter_params_ok (bn_carrier, zeta, 1.0)
@@ -628,10 +627,13 @@ dp_mpsk_receiver_steps_real (dp_mpsk_receiver_state_t *state, const float *x,
 }
 
 size_t
-dp_mpsk_receiver_bits_max_out (dp_mpsk_receiver_state_t *state)
+dp_mpsk_receiver_bits_max_out (dp_mpsk_receiver_state_t *state, size_t x_len)
 {
-  (void)state;
-  return 0; /* one bit per symbol, and symbols <= inputs */
+  /* At most one symbol per input sample (mpsk_rx_step_at yields at most one
+     per call), and log2(M) bits per symbol. The old "0, size to the input"
+     was one bit per symbol, which 8PSK at sps below 3 outruns, and the
+     excess bits were dropped silently (doppler#2643). */
+  return x_len * (size_t)mpsk_bps (state->l.m);
 }
 
 size_t
@@ -683,14 +685,24 @@ dp_mpsk_receiver_get_nco_freq (const dp_mpsk_receiver_state_t *state)
   return state->centre_freq - mpsk_rx_lo_to_input (state) * state->l.freq_ctrl;
 }
 
-void
-dp_mpsk_receiver_set_norm_freq (dp_mpsk_receiver_state_t *state, double val)
+/* The centre and the front end's LO it maps to, set together: one mapping
+   for set_norm_freq() and for a restore, which carries the centre because
+   set_norm_freq() moves it (#2022's rule, doppler#2642) while the LO leaf's
+   blob does not carry its frequency. */
+static void
+mpsk_rx_apply_centre (dp_mpsk_receiver_state_t *state, double val)
 {
   state->centre_freq = val;
   if (state->real)
     dp_ddcr_set_norm_freq (state->fe.r, -(2.0 * val + 0.5));
   else
     dp_ddc_set_norm_freq (state->fe.c, -val);
+}
+
+void
+dp_mpsk_receiver_set_norm_freq (dp_mpsk_receiver_state_t *state, double val)
+{
+  mpsk_rx_apply_centre (state, val);
   dp_mpsk_rx_set_freq_est (&state->l, 0.0);
 }
 
@@ -857,7 +869,7 @@ mpsk_rx_state_version (const dp_mpsk_receiver_state_t *s)
 size_t
 dp_mpsk_receiver_state_bytes (const dp_mpsk_receiver_state_t *s)
 {
-  return sizeof (dp_state_hdr_t) + mpsk_rx_fe_state_bytes (s)
+  return sizeof (dp_state_hdr_t) + sizeof (double) + mpsk_rx_fe_state_bytes (s)
          + dp_mpsk_rx_loops_state_bytes (&s->l);
 }
 
@@ -867,6 +879,7 @@ dp_mpsk_receiver_get_state (const dp_mpsk_receiver_state_t *s, void *blob)
   const size_t total = dp_mpsk_receiver_state_bytes (s);
   dp_writer_t  w     = dp_writer_init (blob, total);
   dp_w_hdr (&w, mpsk_rx_state_magic (s), mpsk_rx_state_version (s), total);
+  dp_w_f64 (&w, s->centre_freq);
   char *p = (char *)blob + w.off;
   if (s->real)
     dp_ddcr_get_state (s->fe.r, p);
@@ -884,11 +897,20 @@ dp_mpsk_receiver_set_state (dp_mpsk_receiver_state_t *s, const void *blob)
                                           mpsk_rx_state_version (s));
   if (rc != DP_OK)
     return rc;
-  const char *p = (const char *)blob + sizeof (dp_state_hdr_t);
-  rc            = s->real ? dp_ddcr_set_state (s->fe.r, p)
-                          : dp_ddc_set_state (s->fe.c, p);
+  dp_reader_t r       = dp_reader_init (blob, total);
+  r.off               = sizeof (dp_state_hdr_t);
+  const double centre = dp_r_f64 (&r);
+  const char  *p      = (const char *)blob + r.off;
+  rc                  = s->real ? dp_ddcr_set_state (s->fe.r, p)
+                                : dp_ddc_set_state (s->fe.c, p);
   if (rc != DP_OK)
     return rc;
   p += mpsk_rx_fe_state_bytes (s);
-  return dp_mpsk_rx_loops_set_state (&s->l, p);
+  rc = dp_mpsk_rx_loops_set_state (&s->l, p);
+  if (rc != DP_OK)
+    return rc;
+  /* Last, once both children accepted: the centre, and the LO it maps to,
+     which the front end's blob restored at the target's own frequency. */
+  mpsk_rx_apply_centre (s, centre);
+  return DP_OK;
 }

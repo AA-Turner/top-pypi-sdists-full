@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.34.0
+Version: 1.35.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -18,29 +18,27 @@ Requires-Dist: opentelemetry-api>=1.26,<2 ; extra == 'cloud-run-worker-otel'
 Requires-Dist: opentelemetry-sdk>=1.26,<2 ; extra == 'cloud-run-worker-otel'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.11.1,<2 ; extra == 'cloud-run-worker-otel'
 Requires-Dist: protobuf<7 ; extra == 'cloud-run-worker-otel'
-Requires-Dist: deepagents>=0.7,<0.8 ; python_full_version >= '3.11' and extra == 'deepagents'
-Requires-Dist: langchain>=1.3.14,<2 ; python_full_version >= '3.11' and extra == 'deepagents'
-Requires-Dist: langchain-core>=1.5.0,<2 ; python_full_version >= '3.11' and extra == 'deepagents'
-Requires-Dist: google-adk>=2.8.0,<3 ; extra == 'google-adk'
-Requires-Dist: mcp>=1.24,<2 ; extra == 'google-adk'
-Requires-Dist: google-genai>=2.21.0,<3.0.0 ; extra == 'google-genai'
+Requires-Dist: temporalio-deepagents>=0.0.1 ; python_full_version >= '3.11' and extra == 'deepagents'
+Requires-Dist: gcloud-aio-storage>=9.6.4,<10 ; extra == 'gcloud-aio-storage'
+Requires-Dist: temporalio-google-adk[mcp]>=0.0.1 ; extra == 'google-adk'
+Requires-Dist: temporalio-google-genai[mcp]>=0.1.0 ; extra == 'google-genai'
 Requires-Dist: grpcio>=1.48.2,<2 ; extra == 'grpc'
 Requires-Dist: opentelemetry-api>=1.26,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-sdk>=1.26,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.11.1,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-semantic-conventions>=0.40b0,<1 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-sdk-extension-aws>=2.0.0,<3 ; extra == 'lambda-worker-otel'
-Requires-Dist: langgraph>=1.1.0 ; extra == 'langgraph'
-Requires-Dist: langsmith>=0.7.34,<0.13 ; extra == 'langsmith'
-Requires-Dist: openai-agents>=0.19.2,<0.20 ; extra == 'openai-agents'
-Requires-Dist: mcp>=1.9.4,<2 ; extra == 'openai-agents'
+Requires-Dist: temporalio-langgraph>=0.1.0 ; extra == 'langgraph'
+Requires-Dist: temporalio-langsmith>=0.1.0 ; extra == 'langsmith'
+Requires-Dist: temporalio-openai-agents>=1.0.0 ; extra == 'openai-agents'
 Requires-Dist: opentelemetry-api>=1.26,<2 ; extra == 'opentelemetry'
 Requires-Dist: opentelemetry-sdk>=1.26,<2 ; extra == 'opentelemetry'
 Requires-Dist: pydantic>=2.0.0,<3 ; extra == 'pydantic'
-Requires-Dist: strands-agents>=1.51.0 ; extra == 'strands-agents'
+Requires-Dist: temporalio-strands-agents>=0.1.0 ; extra == 'strands-agents'
 Provides-Extra: aioboto3
 Provides-Extra: cloud-run-worker-otel
 Provides-Extra: deepagents
+Provides-Extra: gcloud-aio-storage
 Provides-Extra: google-adk
 Provides-Extra: google-genai
 Provides-Extra: grpc
@@ -68,8 +66,6 @@ Project-URL: Repository, https://github.com/temporalio/sdk-python
 [![Python 3.10+](https://img.shields.io/pypi/pyversions/temporalio.svg?style=for-the-badge)](https://pypi.org/project/temporalio)
 [![PyPI](https://img.shields.io/pypi/v/temporalio.svg?style=for-the-badge)](https://pypi.org/project/temporalio)
 [![MIT](https://img.shields.io/pypi/l/temporalio.svg?style=for-the-badge)](LICENSE)
-
-**📣 News: Integration between OpenAI Agents SDK and Temporal is now in public preview. [Learn more](temporalio/contrib/openai_agents/README.md).**
 
 [Temporal](https://temporal.io/) is a distributed, scalable, durable, and highly available orchestration engine used to
 execute asynchronous, long-running business logic in a scalable and resilient way.
@@ -395,7 +391,7 @@ The default data converter supports converting multiple types including:
   * Anything that [`json.dump`](https://docs.python.org/3/library/json.html#json.dump) supports natively
   * [dataclasses](https://docs.python.org/3/library/dataclasses.html)
   * Iterables including ones JSON dump may not support by default, e.g. `set`
-  * [IntEnum, StrEnum](https://docs.python.org/3/library/enum.html) based enumerates
+  * [IntEnum, StrEnum](https://docs.python.org/3/library/enum.html) based enumerates, including enums that mix in `int` or `str`
   * [UUID](https://docs.python.org/3/library/uuid.html)
   * `datetime.datetime`
 
@@ -541,7 +537,8 @@ A `StorageDriver` handles uploading and downloading payloads. Temporal provides 
 ```python
 import aioboto3
 import dataclasses
-from temporalio.client import Client, ClientConfig
+from temporalio.client import Client
+from temporalio.envconfig import ClientConfig
 from temporalio.contrib.aws.s3driver import S3StorageDriver
 from temporalio.contrib.aws.s3driver.aioboto3 import new_aioboto3_client
 from temporalio.converter import DataConverter
@@ -622,6 +619,7 @@ Some things to note about driver selection:
 
 ###### Built-in Drivers
 
+- **[GCS Storage Driver](temporalio/contrib/gcp/gcsdriver/)**: ⚠️ **Experimental** ⚠️ Google Cloud Storage driver. Ships with a gcloud-aio-storage client adapter, or bring your own by subclassing `GCSStorageDriverClient`.
 - **[S3 Storage Driver](temporalio/contrib/aws/s3driver/)**: ⚠️ **Experimental** ⚠️ Amazon S3 driver. Ships with an aioboto3 client, or bring your own by subclassing `S3StorageDriverClient`.
 
 ###### Custom Drivers
@@ -1677,8 +1675,10 @@ code](https://github.com/temporalio/samples-python/blob/main/context_propagation
 [Nexus](https://github.com/nexus-rpc/) is a synchronous RPC protocol. Arbitrary duration operations that can respond
 asynchronously are modeled on top of a set of pre-defined synchronous RPCs.
 
-Temporal supports calling Nexus operations **from a workflow**. See https://docs.temporal.io/nexus. There is no support
-currently for calling a Nexus operation from non-workflow code.
+Temporal supports calling Nexus operations **from a workflow** or directly from a client using
+[Standalone Nexus Operations](https://docs.temporal.io/develop/python/nexus/standalone-operations).
+Standalone Nexus Operations are in [Public Preview](https://docs.temporal.io/evaluate/development-production-features/release-stages#public-preview).
+We aim to preserve backward compatibility and avoid breaking changes. See https://docs.temporal.io/nexus.
 
 To get started quickly using Nexus with Temporal, see the Python Nexus sample:
 https://github.com/temporalio/samples-python/tree/nexus/hello_nexus.

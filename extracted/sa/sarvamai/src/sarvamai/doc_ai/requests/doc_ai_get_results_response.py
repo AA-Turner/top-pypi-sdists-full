@@ -5,7 +5,10 @@ from __future__ import annotations
 import typing
 
 import typing_extensions
-from ...requests.doc_ai_digitise_results_documents_item import DocAiDigitiseResultsDocumentsItemParams
+from ...requests.doc_ai_classify_result import DocAiClassifyResultParams
+from ...requests.doc_ai_job_usage import DocAiJobUsageParams
+from ...requests.doc_ai_parse_results_documents_item import DocAiParseResultsDocumentsItemParams
+from ...requests.doc_ai_split_result import DocAiSplitResultParams
 from ...requests.doc_ai_usage import DocAiUsageParams
 
 
@@ -19,14 +22,38 @@ class DocAiGetResultsResponse_ExtractParams(typing_extensions.TypedDict):
     version: int
 
 
-class DocAiGetResultsResponse_DigitiseParams(typing_extensions.TypedDict):
-    type: typing.Literal["digitise"]
+class DocAiGetResultsResponse_ParseParams(typing_extensions.TypedDict):
+    type: typing.Literal["parse"]
     job_id: str
     status: str
     usage: DocAiUsageParams
-    documents: typing.Sequence[DocAiDigitiseResultsDocumentsItemParams]
+    documents: typing.Sequence[DocAiParseResultsDocumentsItemParams]
+
+
+class DocAiGetResultsResponse_ClassifyParams(typing_extensions.TypedDict):
+    type: typing.Literal["classify"]
+    job_id: str
+    status: str
+    result_revision: typing_extensions.NotRequired[int]
+    usage: typing_extensions.NotRequired[DocAiJobUsageParams]
+    result: DocAiClassifyResultParams
+    pagination: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    provenance: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+
+
+class DocAiGetResultsResponse_SplitParams(typing_extensions.TypedDict):
+    type: typing.Literal["split"]
+    job_id: str
+    status: str
+    result_revision: typing_extensions.NotRequired[int]
+    usage: typing_extensions.NotRequired[DocAiJobUsageParams]
+    result: DocAiSplitResultParams
+    pagination: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
 
 
 DocAiGetResultsResponseParams = typing.Union[
-    DocAiGetResultsResponse_ExtractParams, DocAiGetResultsResponse_DigitiseParams
+    DocAiGetResultsResponse_ExtractParams,
+    DocAiGetResultsResponse_ParseParams,
+    DocAiGetResultsResponse_ClassifyParams,
+    DocAiGetResultsResponse_SplitParams,
 ]

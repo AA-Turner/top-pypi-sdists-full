@@ -30,6 +30,11 @@ urlpatterns = [
         name="audit_log",
     ),
     path(
+        "groupmanagement/membership/<int:group_id>/audit-log/table-data/",
+        views.AuditLogTableData.as_view(),
+        name='audit_log_table_data'
+    ),
+    path(
         "groupmanagement/membership/<int:group_id>/remove/<int:user_id>/",
         views.group_membership_remove,
         name="membership_remove",

@@ -1,6 +1,6 @@
 [project]
 name = "kernels"
-version = "0.17.2"
+version = "0.18.0"
 description = "Download compute kernels"
 authors = [
   { name = "Daniel de Kok", email = "daniel@huggingface.co" },
@@ -10,7 +10,7 @@ license = { text = "Apache-2.0" }
 readme = "README.md"
 requires-python = ">= 3.10"
 dependencies = [
-  "huggingface-hub>=1.10.0",
+  "huggingface-hub>=1.32.0",
   "packaging>=20.0",
   "pyyaml>=6",
   "sigstore>=4,<5",

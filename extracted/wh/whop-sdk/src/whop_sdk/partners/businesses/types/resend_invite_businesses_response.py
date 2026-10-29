@@ -17,6 +17,7 @@ from .resend_invite_businesses_response_payout_percentages import ResendInviteBu
 from .resend_invite_businesses_response_pending_owner_invites_item import (
     ResendInviteBusinessesResponsePendingOwnerInvitesItem,
 )
+from .resend_invite_businesses_response_referring_business import ResendInviteBusinessesResponseReferringBusiness
 from .resend_invite_businesses_response_second_tier_partner import ResendInviteBusinessesResponseSecondTierPartner
 from .resend_invite_businesses_response_status import ResendInviteBusinessesResponseStatus
 from .resend_invite_businesses_response_volume_usd import ResendInviteBusinessesResponseVolumeUsd
@@ -38,9 +39,19 @@ class ResendInviteBusinessesResponse(UniversalBaseModel):
     CPA terms for the referring partner. Omitted for other callers. An offer token requires partner:commission_advance:accept permission.
     """
 
+    commission_advance_projections_allowed: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether this referral meets the partner and ownership requirements for saving commission advance projections. Returned only to the referring partner; existing advance terms and update permissions still apply.
+    """
+
     created_at: dt.datetime = pydantic.Field()
     """
     When the partner business was created.
+    """
+
+    deal_closed_reason: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    How the partner closed this business, in their own words. Null until the partner saves one.
     """
 
     earnings_usd: ResendInviteBusinessesResponseEarningsUsd
@@ -85,6 +96,11 @@ class ResendInviteBusinessesResponse(UniversalBaseModel):
     referral_started_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
     When the referral became active.
+    """
+
+    referring_business: typing.Optional[ResendInviteBusinessesResponseReferringBusiness] = pydantic.Field(default=None)
+    """
+    The partner business whose team member made this referral, the one its commission is paid to. Null for a solo partner's referral.
     """
 
     second_tier_partner: typing.Optional[ResendInviteBusinessesResponseSecondTierPartner] = pydantic.Field(default=None)

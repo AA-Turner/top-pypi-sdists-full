@@ -260,6 +260,23 @@ class OcrOptions(BaseOptions):
         ),
     ] = 3.0
 
+    replace_broken_text_layer: Annotated[
+        bool,
+        Field(
+            description=(
+                "Replace a broken PDF text layer with OCR, page by page. When enabled,"
+                " Docling checks the visible text layer of each page. A page whose"
+                " text layer is broken, for example from a font whose glyphs were not"
+                " mapped to real characters, is read with full-page OCR, and its OCR"
+                " text is used instead of its PDF text for that page only. Its"
+                " `parse_score` drops to 0 and keeps describing the PDF text layer. A"
+                " low `parse_score` alone does not replace a page. Other pages, and"
+                " pages without a text layer, keep the usual behavior."
+            ),
+            examples=[False, True],
+        ),
+    ] = False
+
     model_config = ConfigDict(
         validate_assignment=True,
         validate_default=True,
@@ -1977,10 +1994,9 @@ class HeadingHierarchyOptions(BaseModel):
           When a bookmark confidently matches a detected heading it is authoritative; entries
           that match nothing fall back to numbering/style, so partial/noisy outlines never
           degrade the numbering result.
-        - ``use_style`` requires the parsed PDF cells to still be available when the
-          heading-hierarchy step runs, i.e.
-          ``PdfPipelineOptions.generate_parsed_pages=True``. Without them, style inference is
-          silently skipped (numbering still applies).
+        - ``use_style`` reads the text lines of the headings from the parsed PDF cells. The PDF
+          pipeline keeps those lines until the heading-hierarchy step has run, so
+          ``PdfPipelineOptions.generate_parsed_pages`` is not needed.
     """
 
     enabled: Annotated[
@@ -2020,7 +2036,7 @@ class HeadingHierarchyOptions(BaseModel):
             description=(
                 "Use the visual style of the heading (font size, and with `use_font_style` also "
                 "weight, slant and letter case) as a fallback for headings without recognizable "
-                "numbering. Requires `generate_parsed_pages=True`."
+                "numbering."
             )
         ),
     ] = True

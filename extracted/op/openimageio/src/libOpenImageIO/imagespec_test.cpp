@@ -3,6 +3,8 @@
 // https://github.com/AcademySoftwareFoundation/OpenImageIO
 
 
+#include <limits>
+
 #include <OpenImageIO/imagebuf.h>
 #include <OpenImageIO/imageio.h>
 #include <OpenImageIO/unittest.h>
@@ -45,6 +47,7 @@ const char* imagespec_xml_string = R"EOF(
 <attrib name="screenWindowCenter" type="float2">0, 0</attrib>
 <attrib name="screenWindowWidth" type="float">1</attrib>
 <attrib name="oiio:subimages" type="int">1</attrib>
+<attrib name="FramesPerSecond" type="rational">30000/1001</attrib>
 </ImageSpec>
 )EOF";
 
@@ -323,6 +326,27 @@ test_get_attribute()
 
 
 static void
+test_default_channel_names()
+{
+    ImageSpec spec(2, 2, 6, TypeFloat);
+    OIIO_CHECK_EQUAL(spec.channelnames.size(), 6);
+    OIIO_CHECK_EQUAL(spec.channel_name(5), "channel5");
+
+    // Beyond limits:channels, only the first `limit` channels get names
+    int oldlimit = OIIO::get_int_attribute("limits:channels");
+    OIIO::attribute("limits:channels", 4);
+    spec.default_channel_names();
+    OIIO_CHECK_EQUAL(spec.channelnames.size(), 4);
+    OIIO_CHECK_EQUAL(spec.channel_name(3), "A");
+    OIIO_CHECK_EQUAL(spec.alpha_channel, 3);
+    OIIO_CHECK_EQUAL(spec.channel_name(4), "");
+    OIIO_CHECK_EQUAL(spec.channel_name(5), "");
+    OIIO::attribute("limits:channels", oldlimit);
+}
+
+
+
+static void
 test_imagespec_from_ROI()
 {
     ROI roi(0, 640, 0, 480, 0, 1, 0, 3);
@@ -356,6 +380,61 @@ test_imagespec_from_xml()
     OIIO_CHECK_EQUAL(spec.format, TypeFloat);
     OIIO_CHECK_EQUAL(spec.get_string_attribute("oiio:ColorSpace"),
                      "scene_linear");
+    OIIO_CHECK_EQUAL(spec.getattributetype("FramesPerSecond"), TypeRational);
+    OIIO_CHECK_EQUAL_THRESH(spec.get_float_attribute("FramesPerSecond", -1.0f),
+                            30000.0f / 1001.0f, 1.0e-5f);
+
+    std::string xml = spec.to_xml();
+    OIIO_CHECK_ASSERT(xml.find("name=\"FramesPerSecond\" type=\"rational\"")
+                      != std::string::npos);
+    ImageSpec roundtripped;
+    roundtripped.from_xml(xml.c_str());
+    OIIO_CHECK_EQUAL(roundtripped.getattributetype("FramesPerSecond"),
+                     TypeRational);
+    OIIO_CHECK_EQUAL_THRESH(roundtripped.get_float_attribute("FramesPerSecond",
+                                                             -1.0f),
+                            30000.0f / 1001.0f, 1.0e-5f);
+}
+
+
+
+static void
+test_valid_tile_range()
+{
+    std::cout << "test_valid_tile_range\n";
+    // 100x50 image at origin (10,20), 32x32 tiles, so the last tiles are
+    // partial: x tiles at 10,42,74,106 and y tiles at 20,52.
+    ImageSpec spec(100, 50, 3, TypeFloat);
+    spec.x          = 10;
+    spec.y          = 20;
+    spec.tile_width = spec.tile_height = 32;
+    OIIO_CHECK_ASSERT(spec.valid_tile_range(10, 110, 20, 70));   // whole
+    OIIO_CHECK_ASSERT(spec.valid_tile_range(42, 74, 52, 70));    // one tile
+    OIIO_CHECK_ASSERT(spec.valid_tile_range(106, 138, 52, 84));  // padded edge
+    OIIO_CHECK_ASSERT(spec.valid_tile_range(42, 42, 20, 20));    // empty
+    OIIO_CHECK_ASSERT(spec.valid_tile_range(42, 74, 52, 70, 0, 1));
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(11, 42, 20, 52));    // misaligned
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(10, 41, 20, 52));    // misaligned
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(-22, 10, 20, 52));   // before
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(138, 170, 20, 52));  // past end
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(42, 10, 20, 52));    // reversed
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(42, 74, 52, 70, 1, 2));
+    // Hostile coordinates must not overflow
+    const int imin = std::numeric_limits<int>::min();
+    const int imax = std::numeric_limits<int>::max();
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(imin, imax, 20, 52));
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(10, 42, imin, imax, imin, imax));
+    spec.x = imin;
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(imax - 31, imax, 20, 52));
+    spec.x = 10;
+    // Not tiled, or a zero tile dimension, is never valid (and must not
+    // divide by zero)
+    spec.tile_depth = 0;
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(42, 74, 52, 70, 0, 1));
+    spec.tile_height = 0;
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(42, 74, 52, 70));
+    spec.tile_width = 0;
+    OIIO_CHECK_ASSERT(!spec.valid_tile_range(42, 74, 52, 70));
 }
 
 
@@ -369,8 +448,10 @@ main(int /*argc*/, char* /*argv*/[])
     test_imagespec_metadata_val();
     test_imagespec_attribute_from_string();
     test_get_attribute();
+    test_default_channel_names();
     test_imagespec_from_ROI();
     test_imagespec_from_xml();
+    test_valid_tile_range();
 
     return unit_test_failures;
 }

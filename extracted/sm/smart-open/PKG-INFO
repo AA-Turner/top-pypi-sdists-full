@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smart_open
-Version: 8.0.4
+Version: 9.0.0
 Summary: Utils for streaming large files (S3, HDFS, GCS, SFTP, Azure Blob Storage, gzip, bz2, zst...)
 Author-email: Radim Rehurek <me@radimrehurek.com>
 Project-URL: Repository, https://github.com/piskvorky/smart_open
@@ -38,13 +38,13 @@ Requires-Dist: lz4; extra == "lz4"
 Provides-Extra: s3
 Requires-Dist: boto3>=1.9.17; extra == "s3"
 Provides-Extra: ssh
-Requires-Dist: paramiko; extra == "ssh"
+Requires-Dist: paramiko>=3.2; extra == "ssh"
 Provides-Extra: dev
 Requires-Dist: smart_open[all]; extra == "dev"
 Requires-Dist: moto[server]; extra == "dev"
 Requires-Dist: responses; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest<9.2; extra == "dev"
 Requires-Dist: pytest-rerunfailures; extra == "dev"
 Requires-Dist: pytest_benchmark; extra == "dev"
 Requires-Dist: pytest-timeout; extra == "dev"

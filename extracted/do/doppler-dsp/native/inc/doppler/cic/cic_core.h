@@ -19,7 +19,7 @@
  * the peaks clipping against a bound the average never approached.
  *
  * **So check @c clipped** — a sticky flag raised by any saturating component
- * and cleared only by dp_cic_reset(), following the same convention as the
+ * and cleared by dp_cic_reset(), following the same convention as the
  * quantizing `cvt` converters (adc, f32_to_uq15, ...).  It is free: the four
  * boundary comparisons run on every sample regardless, so recording that one
  * fired costs a register OR.  There is no reason to run a CIC without
@@ -108,14 +108,26 @@ extern "C" {
  * All comb state fits in-struct — no heap members.
  */
 typedef struct {
-    uint64_t integ_re[CIC_N]; /* integrator accumulators, real path    */
-    uint64_t integ_im[CIC_N]; /* integrator accumulators, imag path    */
-    uint64_t comb_re[CIC_N];  /* previous comb input per stage, real   */
-    uint64_t comb_im[CIC_N];  /* previous comb input per stage, imag   */
-    uint32_t R;               /* decimation ratio (power of two)       */
-    uint32_t phase;           /* input sample counter 0..R-1           */
-    uint32_t shift;           /* CIC_N * log2(R) — right-shift to norm */
-    uint8_t  clipped;         /* sticky: input exceeded +-2.0          */
+    uint64_t integ_re[CIC_N]; /**< Integrator accumulators, real path
+                                   (UQ16 input, wrapping mod 2^64);
+                                   running state. */
+    uint64_t integ_im[CIC_N]; /**< Integrator accumulators, imag path;
+                                   running state. */
+    uint64_t comb_re[CIC_N];  /**< Previous comb input per stage, real
+                                   path; running state. */
+    uint64_t comb_im[CIC_N];  /**< Previous comb input per stage, imag
+                                   path; running state. */
+    uint32_t R;               /**< Decimation ratio, a power of two in
+                                   `[2, CIC_R_MAX]`; config, set by create
+                                   and dp_cic_reconfigure(). */
+    uint32_t phase;           /**< Input samples since the last output,
+                                   0..R-1; running state. */
+    uint32_t shift;           /**< Normalizing right-shift in bits,
+                                   `CIC_N * log2(R)`; derived from R. */
+    uint8_t  clipped;         /**< Sticky: 1 once an input component
+                                   exceeded +-2.0 (CIC_PAPR_HEADROOM);
+                                   cleared by reset/reconfigure, and
+                                   overwritten by set_state(). */
 } dp_cic_state_t;
 
 /**
@@ -144,14 +156,20 @@ typedef struct {
  */
 dp_cic_state_t *dp_cic_create(uint32_t R);
 
-/** Free resources.  NULL is a no-op. */
+/**
+ * @brief Free the filter state.
+ * @param state  State from dp_cic_create(); NULL is a no-op.
+ */
 void dp_cic_destroy(dp_cic_state_t *state);
 
 /**
  * @brief Zero all integrator and comb accumulators; preserve R and shift.
  * The first output sample after reset arrives after R more input samples,
  * matching post-create behaviour. Use between signal bursts to eliminate
- * transient artefacts caused by residual pipeline state.
+ * transient artefacts caused by residual pipeline state. Also clears the
+ * sticky @c clipped flag.
+ *
+ * @param state  Pointer to a valid dp_cic_state_t.
  *
  * @code
  * >>> from doppler.resample import CIC
@@ -163,16 +181,20 @@ void dp_cic_destroy(dp_cic_state_t *state);
  */
 void dp_cic_reset(dp_cic_state_t *state);
 
-/* Serializable state (reusable elastic-resume convention): the integrator and
- * comb accumulators, the decimation phase counter and the sticky clip flag —
- * R/shift are config (rebuilt from R on the resumed instance).  `clipped` is
+/* Serializable state (reusable elastic-resume convention): the decimation
+ * rate R, the integrator and comb accumulators, the decimation phase counter
+ * and the sticky clip flag.  R travels because dp_cic_reconfigure() changes
+ * it (#2022's rule, doppler#2642); shift is derived from it on restore, so
+ * the two cannot disagree.  `clipped` is
  * running state, not a diagnostic bolted on the side: a resumed stream that
  * silently forgot it had clipped would answer the question wrongly. */
 
-/* Standard bytes interface (see dp_state.h): [dp_state_hdr_t][integ_re/im,
- * comb_re/im (CIC_N u64 each)][u32 phase][u8 clipped]. */
+/* Standard bytes interface (see dp_state.h): [dp_state_hdr_t][u32 R]
+ * [integ_re/im, comb_re/im (CIC_N u64 each)][u32 phase][u8 clipped]. */
+/** FourCC type tag ("CIC_") stamped in a CIC state blob's header. */
 #define CIC_STATE_MAGIC DP_FOURCC ('C', 'I', 'C', '_')
-#define CIC_STATE_VERSION 2u
+/** Layout version of the CIC state blob (2 added @c clipped, 3 added R). */
+#define CIC_STATE_VERSION 3u
 
 /**
  * @brief Peak-to-average headroom the input encoding reserves, as a voltage
@@ -199,12 +221,34 @@ void dp_cic_reset(dp_cic_state_t *state);
  */
 #define CIC_PAPR_HEADROOM 2.0f
 
-/** @brief Bytes dp_cic_get_state() writes (envelope + payload). */
+/**
+ * @brief Bytes dp_cic_get_state() writes (envelope + payload).
+ * @param state  CIC state (unused: the size is fixed).
+ * @return `sizeof(dp_state_hdr_t) + 4 + 4 * CIC_N * 8 + 4 + 1` bytes, the
+ *         same for every R.
+ */
 size_t dp_cic_state_bytes(const dp_cic_state_t *state);
-/** @brief Serialize the integrator/comb/phase state into @p blob. */
+/**
+ * @brief Serialize R, the integrator/comb/phase state and @c clipped into
+ *        @p blob. shift is not written: it is derived from R.
+ * @param state  Pointer to a valid dp_cic_state_t.
+ * @param blob   Destination; at least dp_cic_state_bytes() bytes.
+ */
 void dp_cic_get_state(const dp_cic_state_t *state, void *blob);
-/** @brief Restore the integrator/comb/phase state from @p blob.
- *  @return DP_OK, or DP_ERR_INVALID if the blob's envelope rejects. */
+/**
+ * @brief Restore R, the integrator/comb/phase state and @c clipped from
+ *        @p blob.
+ *
+ * R is the writer's, as dp_cic_reconfigure() would set it, and shift is
+ * recomputed from it, so a blob restores into a CIC built with any R
+ * (doppler#2642).  A blob whose R is not one dp_cic_create() accepts, or
+ * whose phase is not below that R, is refused and @p state is unchanged.
+ *
+ * @param state  Pointer to a valid dp_cic_state_t.
+ * @param blob   A blob from dp_cic_get_state().
+ * @return DP_OK, or DP_ERR_INVALID if the envelope rejects, R is invalid or
+ *         the phase is not below R.
+ */
 int dp_cic_set_state(dp_cic_state_t *state, const void *blob);
 
 /**
@@ -213,6 +257,10 @@ int dp_cic_set_state(dp_cic_state_t *state, const void *blob);
  * The Python extension allocates n_in elements on the first call.
  * Since n_in >= ceil(n_in/R) = n_out for all R >= 1, the buffer is
  * always large enough as long as block size stays consistent.
+ *
+ * @param state  CIC state (unused).
+ * @return Always 0, meaning "no fixed cap": size the output to the input
+ *         length.
  */
 size_t dp_cic_decimate_max_out(dp_cic_state_t *state);
 
@@ -260,8 +308,9 @@ double dp_cic_dc_gain(const dp_cic_state_t *state);
  *               -- the pipeline is a running filter and cannot be left
  *               half-fed -- but emission stops, so the samples past the
  *               capacity are dropped rather than written past the end.
- * @return       CF32 output array; length is
- *               min(floor((phase + n_in) / R), max_out).
+ * @return       Number of CF32 samples written to @p out:
+ *               min(floor((phase + n_in) / R), max_out), where phase is
+ *               the input count carried from the previous call.
  *
  * @code
  * >>> from doppler.resample import CIC
@@ -338,7 +387,7 @@ dp_cic_decimate(dp_cic_state_t *state, const float _Complex *in,
             ((float)(uint16_t)(im >> shift) - 32768.0f)
                 * (CIC_PAPR_HEADROOM / 32768.0f));
     }
-    state->clipped |= (uint8_t)clip;   /* sticky; cleared only by reset() */
+    state->clipped |= (uint8_t)clip;   /* sticky; cleared by reset() */
     return n_out;
 }
 

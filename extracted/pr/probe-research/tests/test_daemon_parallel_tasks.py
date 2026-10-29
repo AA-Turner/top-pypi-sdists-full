@@ -671,13 +671,14 @@ def test_task_usage(tmp_path):
 def test_a_tasks_deps_carry_nothing_of_its_runs_bookkeeping(tmp_path):
     deps = _deps(tmp_path)
     deps.lost_writes, deps.asked = 2, 1
-    deps.summaries_owed.add("project:p")
+    deps.concluded.add("experiment:p")
     deps.sent["x"] = ("d", 1)
     child = tools.task_deps(deps)
     assert child.task and child.task_runner is None and child.lost_writes == 0 and child.asked == 0
-    assert child.summaries_owed == set() and child.sent == {} and child.store is deps.store
-    child.summaries_owed.add("experiment:e")
-    assert deps.summaries_owed == {"project:p"}
+    assert child.concluded == set() and child.sent == {} and child.store is deps.store
+    assert child.summaries_owed_asked and child.notes_owed_asked and child.visuals_owed_asked, "never sent back"
+    child.concluded.add("experiment:e")
+    assert deps.concluded == {"experiment:p"}
 
 
 # ---------------------------------------------------------------------------

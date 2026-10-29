@@ -174,6 +174,7 @@ QDataStream &operator<<(QDataStream &out, const PyQt_PyObject &obj)
             else
             {
                 pyqt6_err_print();
+                PyErr_Clear();
             }
         }
 
@@ -227,6 +228,12 @@ QDataStream &operator>>(QDataStream &in, PyQt_PyObject &obj)
                 obj.pyobject = PyObject_CallFunctionObjArgs(loads, ser_obj, 0);
                 Py_DECREF(ser_obj);
             }
+        }
+
+        if (!obj.pyobject)
+        {
+            pyqt6_err_print();
+            PyErr_Clear();
         }
 
         SIP_UNBLOCK_THREADS

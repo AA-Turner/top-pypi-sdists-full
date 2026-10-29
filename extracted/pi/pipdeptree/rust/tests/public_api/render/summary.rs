@@ -97,6 +97,21 @@ fn preserves_wrapped_summary_licenses(
 }
 
 #[rstest]
+fn renders_summary_licenses_with_unterminated_escapes(
+    #[with(&format!("\x1b] {}", "\x1b[0000000000 ".repeat(40)))] licensed_site: PackageSite,
+) {
+    let output = execute_at_width(&licensed_site, 200, "utf-8", false);
+
+    assert_eq!(
+        (
+            output.code,
+            text(&output).contains("(\u{fffd}] \u{fffd}[0000000000")
+        ),
+        (0, true)
+    );
+}
+
+#[rstest]
 fn aligns_unicode_summary_borders(
     #[with("许可证许可证许可证许可证许可证")] licensed_site: PackageSite,
 ) {
@@ -221,6 +236,51 @@ fn measures_depth_through_reachable_cycles() {
         ),
         (Some(3), Some(2))
     );
+}
+
+#[test]
+fn measures_depth_of_mutually_dependent_packages() {
+    let site = PackageSite::new();
+    let count: u64 = 24;
+    for package in 0..count {
+        let requires = (0..count)
+            .filter(|other| *other != package)
+            .map(|other| format!("Requires-Dist: pkg{other:02}\n"))
+            .collect::<Vec<_>>()
+            .concat();
+        site.write(
+            &format!("pkg{package:02}-1.dist-info"),
+            &format!("Name: pkg{package:02}\nVersion: 1\n{requires}"),
+        );
+    }
+
+    let output = execute(&site, &["--summary", "--output", "json"]);
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+
+    assert_eq!(value["max_depth"].as_u64(), Some(count));
+}
+
+#[test]
+fn counts_every_cycle_member_towards_depth() {
+    let site = PackageSite::new();
+    site.write(
+        "root-1.dist-info",
+        "Name: root\nVersion: 1\nRequires-Dist: loop-a\n",
+    );
+    site.write(
+        "loop-a-1.dist-info",
+        "Name: loop-a\nVersion: 1\nRequires-Dist: leaf\nRequires-Dist: loop-b\n",
+    );
+    site.write(
+        "loop-b-1.dist-info",
+        "Name: loop-b\nVersion: 1\nRequires-Dist: loop-a\n",
+    );
+    site.write("leaf-1.dist-info", "Name: leaf\nVersion: 1\n");
+
+    let output = execute(&site, &["--summary", "--output", "json"]);
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+
+    assert_eq!(value["max_depth"].as_u64(), Some(4));
 }
 
 #[test]

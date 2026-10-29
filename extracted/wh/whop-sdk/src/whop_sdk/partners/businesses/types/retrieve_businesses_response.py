@@ -15,6 +15,7 @@ from .retrieve_businesses_response_object import RetrieveBusinessesResponseObjec
 from .retrieve_businesses_response_owner import RetrieveBusinessesResponseOwner
 from .retrieve_businesses_response_payout_percentages import RetrieveBusinessesResponsePayoutPercentages
 from .retrieve_businesses_response_pending_owner_invites_item import RetrieveBusinessesResponsePendingOwnerInvitesItem
+from .retrieve_businesses_response_referring_business import RetrieveBusinessesResponseReferringBusiness
 from .retrieve_businesses_response_second_tier_partner import RetrieveBusinessesResponseSecondTierPartner
 from .retrieve_businesses_response_status import RetrieveBusinessesResponseStatus
 from .retrieve_businesses_response_volume_usd import RetrieveBusinessesResponseVolumeUsd
@@ -36,9 +37,24 @@ class RetrieveBusinessesResponse(UniversalBaseModel):
     CPA terms for the referring partner. Omitted for other callers. An offer token requires partner:commission_advance:accept permission.
     """
 
+    commission_advance_projections_allowed: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether this referral meets the partner and ownership requirements for saving commission advance projections. Returned only to the referring partner; existing advance terms and update permissions still apply.
+    """
+
+    commission_advance_rate: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Estimated upfront advance per USD of annual card and BNPL payments, including advance share and remaining term. Multiply annual payments by this rate, cap at 2500 USD, and round down to cents. Uses observed commissions or, without history, reference US card fees minus estimated percentage costs times the partner share. Null when projections or pricing are unavailable. Only returned to the referring partner. Qualification and final offers use actual activity.
+    """
+
     created_at: dt.datetime = pydantic.Field()
     """
     When the partner business was created.
+    """
+
+    deal_closed_reason: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    How the partner closed this business, in their own words. Null until the partner saves one.
     """
 
     earnings_usd: RetrieveBusinessesResponseEarningsUsd
@@ -83,6 +99,11 @@ class RetrieveBusinessesResponse(UniversalBaseModel):
     referral_started_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
     When the referral became active.
+    """
+
+    referring_business: typing.Optional[RetrieveBusinessesResponseReferringBusiness] = pydantic.Field(default=None)
+    """
+    The partner business whose team member made this referral, the one its commission is paid to. Null for a solo partner's referral.
     """
 
     second_tier_partner: typing.Optional[RetrieveBusinessesResponseSecondTierPartner] = pydantic.Field(default=None)

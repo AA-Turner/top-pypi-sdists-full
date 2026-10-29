@@ -2919,7 +2919,36 @@ class BinProvider(BaseModel):
                 ) as proc:
                     try:
                         stdout, stderr = proc.communicate(input_data, timeout=timeout)
-                    except BaseException:
+                    except BaseException as error:
+                        if isinstance(
+                            error,
+                            subprocess.TimeoutExpired,
+                        ) and sys.platform.startswith("linux"):
+                            # Nested installers can finish downloading but stall in
+                            # postinstall. Capture the live session before cleanup
+                            # destroys that evidence; never log arguments or env.
+                            try:
+                                snapshot = subprocess.run(
+                                    [
+                                        "ps",
+                                        "-ww",
+                                        "--sid",
+                                        str(proc.pid),
+                                        "-o",
+                                        "pid,lstart,state,time,wchan:32,comm",
+                                    ],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=2,
+                                    check=False,
+                                )
+                                if snapshot.returncode == 0:
+                                    logger.warning(
+                                        "Timed-out command session before termination:\n%s",
+                                        "\n".join(snapshot.stdout.splitlines()[:65]),
+                                    )
+                            except (OSError, subprocess.SubprocessError):
+                                pass
                         # Killing sudo alone leaves privileged descendants alive.
                         # Signal our fresh group with the same installation authority.
                         for signum in (signal.SIGTERM, signal.SIGKILL):
@@ -4092,8 +4121,20 @@ class EnvProvider(BinProvider):
         "python": ("PYTHON_BINARY",),
         "python3": ("PYTHON_BINARY",),
     }
-    PATH: PATHStr = (
-        DEFAULT_ENV_PATH  # Ambient runtime PATH; no provider-specific setup step.
+    # Capture the caller's ambient PATH when constructing this provider, not
+    # when importing abxpkg: installer bootstrap can follow a runtime switch.
+    PATH: PATHStr = Field(
+        default_factory=lambda: TypeAdapter(PATHStr).validate_python(
+            list(
+                dict.fromkeys(
+                    [
+                        PYTHON_BIN_DIR,
+                        *os.environ.get("PATH", DEFAULT_PATH).split(":"),
+                        *DEFAULT_PATH.split(":"),
+                    ],
+                ),
+            ),
+        ),
     )
     install_root: Path | None = Field(
         default_factory=lambda: (

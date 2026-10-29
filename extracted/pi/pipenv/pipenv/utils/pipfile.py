@@ -880,11 +880,27 @@ class Pipfile:
         is_pipfile = Path(path).resolve() == Path(self.location).resolve()
         newlines = self._newlines if is_pipfile else DEFAULT_NEWLINES
         formatted_data = cleanup_toml(formatted_data)
-        with open(path, "w", newline=newlines) as f:
+        with open(path, "w", encoding="utf-8", newline=newlines) as f:
             f.write(formatted_data)
         if is_pipfile:
             self._parsed_cache = None
             self._parsed_mtime_ns = None
+
+    def snapshot(self) -> bytes | None:
+        """Return the Pipfile's raw bytes (``None`` if it doesn't exist)."""
+        try:
+            return Path(self.location).read_bytes()
+        except FileNotFoundError:
+            return None
+
+    def restore(self, content: bytes | None) -> None:
+        """Put back exactly what :meth:`snapshot` returned."""
+        if content is None:
+            Path(self.location).unlink(missing_ok=True)
+        else:
+            Path(self.location).write_bytes(content)
+        self._parsed_cache = None
+        self._parsed_mtime_ns = None
 
     # ---- key lookup / casing --------------------------------------------
 
@@ -1351,7 +1367,7 @@ class Pipfile:
             """Return a new dict with all keys canonicalized (PEP 503)."""
             return {canonicalize_name(k): v for k, v in section.items()}
 
-        with open(self.location) as pf:
+        with open(self.location, encoding="utf-8-sig") as pf:
             p = plette.Pipfile.load(pf)
 
         raw = p._data

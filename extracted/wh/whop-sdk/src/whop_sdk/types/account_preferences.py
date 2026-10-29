@@ -8,6 +8,7 @@ from .account_economic_intelligence_offer import AccountEconomicIntelligenceOffe
 from .account_economic_intelligence_previous_period import AccountEconomicIntelligencePreviousPeriod
 from .account_preferences_preferred_settlement_currency import AccountPreferencesPreferredSettlementCurrency
 from .account_preferences_subscription_failure_behavior import AccountPreferencesSubscriptionFailureBehavior
+from .customer_tracking_preferences import CustomerTrackingPreferences
 from .feedback_option import FeedbackOption
 
 
@@ -46,6 +47,16 @@ class AccountPreferences(UniversalBaseModel):
     cards_notifications: bool = pydantic.Field()
     """
     Whether Whop Card notifications reach this account's team. `true` by default, including when the account has no cards balance. Set it to `false` to stop every card email and push notification for the account — application status, verification and action-required alerts, card-ready alerts, declines, large charges, and cashback summaries. Cardholder onboarding invitations still send, because they carry the only link an invited cardholder can onboard with. Requesting a card is rejected while notifications are off, since the request reaches nobody. Cards on personal accounts are unaffected.
+    """
+
+    covers_connected_account_negative_balances: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether this account covers its connected accounts' negative balances. When a connected account's balance drops below zero (from refunds, disputes, or fees), this account's available balance in the same currency pays it back, up to what is available. Refunds on its connected accounts may also take them negative by up to this account's available balance. `null` when the account has no connected accounts.
+    """
+
+    customer_tracking: typing.Optional[CustomerTrackingPreferences] = pydantic.Field(default=None)
+    """
+    The saved customer tracking settings for the hosted tracking page and Element, exactly as saved. `null` until set; tracking is off unless `enabled` is `true`.
     """
 
     dispute_fighter_enabled: bool = pydantic.Field()
@@ -96,7 +107,7 @@ class AccountPreferences(UniversalBaseModel):
 
     preferred_settlement_currency_changeable_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    When `preferred_settlement_currency` may next be changed or turned off, as an ISO 8601 timestamp. It can change at most once every 7 days. `null` when it may change now.
+    When `preferred_settlement_currency` may next be changed or turned off, as an ISO 8601 timestamp. It can change at most once a day. `null` when it may change now.
     """
 
     subscription_failure_behavior: AccountPreferencesSubscriptionFailureBehavior = pydantic.Field()

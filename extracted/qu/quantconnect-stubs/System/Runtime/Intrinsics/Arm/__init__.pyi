@@ -5869,6 +5869,33 @@ class Crc32(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
         ...
 
 
+class SveAes(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def decrypt(value: System.Numerics.Vector[int], round_key: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def encrypt(value: System.Numerics.Vector[int], round_key: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def inverse_mix_columns(value: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def mix_columns(value: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+
 class Sha3(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -6137,6 +6164,25 @@ class Aes(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
 
     @staticmethod
     def polynomial_multiply_widening_upper(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+
+class SvePmull128(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    def polynomial_multiply_widening_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def polynomial_multiply_widening_odd(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
 

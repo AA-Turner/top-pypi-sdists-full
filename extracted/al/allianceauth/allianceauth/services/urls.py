@@ -1,6 +1,8 @@
 from django.urls import include, path
 
+from allianceauth.authentication.decorators import decorate_url_patterns
 from allianceauth.hooks import get_hooks
+from allianceauth.impersonate.decorators import not_while_impersonating
 
 from . import views
 
@@ -14,6 +16,7 @@ urlpatterns = [
 ]
 
 # Append hooked service urls
+# Blocked while impersonating, so the impersonator's external accounts can't be bound to the impersonated user
 services = get_hooks('services_hook')
 for svc in services:
-    urlpatterns += svc().urlpatterns
+    urlpatterns += [path('', decorate_url_patterns(svc().urlpatterns, not_while_impersonating))]

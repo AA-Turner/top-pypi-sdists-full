@@ -98,6 +98,23 @@ test_theory (void)
       DP_CHECK (isnan (dp_ber_esn0_db_for_ser (m, 1.0)));
     }
 
+  /* #2651: no signal is a coin flip per bit, for every M -- as theory_ser
+     gives its chance rate there. A negative ratio used to reach sqrt() and
+     return NaN for BPSK/QPSK. 0.5 is CHOSEN, not the formulas' limit: BPSK
+     and QPSK approach it from just above 0, but 8PSK's SER/3 approaches
+     2Q(0)/3 = 1/3, so its curve steps there by design. */
+  {
+    static const int ms[] = { 2, 4, 8 };
+    for (size_t i = 0; i < 3; i++)
+      {
+        DP_CHECK (dp_ber_theory_ber (ms[i], -1.0) == 0.5);
+        DP_CHECK (dp_ber_theory_ber (ms[i], 0.0) == 0.5);
+      }
+    DP_CHECK (fabs (dp_ber_theory_ber (2, 1e-12) - 0.5) < 1e-5);
+    DP_CHECK (fabs (dp_ber_theory_ber (4, 1e-12) - 0.5) < 1e-5);
+    DP_CHECK (fabs (dp_ber_theory_ber (8, 1e-12) - 1.0 / 3.0) < 1e-5);
+  }
+
   /* An M with no closed form here is refused, never answered with another
      M's formula: 16 used to read as 8-PSK and 0/1 as BPSK (#1913). The
      inverse needs its own guard -- a NaN bound passes every comparison in
@@ -467,6 +484,9 @@ test_settle (void)
   for (int i = 800; i < N; i++)
     f[i] = 1;
   DP_CHECK (dp_ber_lock_symbol (f, N, 200, 0.9) == 800);
+  /* #2651: the index is 64-bit, so a lock past 2^31 symbols is returned
+     whole; it used to return `int` and truncate. */
+  DP_CHECK (sizeof (dp_ber_lock_symbol (f, N, 200, 0.9)) == sizeof (int64_t));
 
   /* One late dip must NOT move the reported lock -- the failure that once
      reported 2286 instead of 415 and left no measurement window. */

@@ -8,6 +8,7 @@ import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.billing_type_pb2
 import sentry_protos.billing.v1.common.v1.line_item_details_pb2
 import sentry_protos.billing.v1.common.v1.pricing_tier_pb2
 import typing
@@ -25,10 +26,12 @@ class RateCardLineItem(google.protobuf.message.Message):
     RESERVED_RATE_FIELD_NUMBER: builtins.int
     UNCAPPED_RATE_FIELD_NUMBER: builtins.int
     IS_ENABLED_FIELD_NUMBER: builtins.int
+    BILLING_TYPE_FIELD_NUMBER: builtins.int
     is_unlimited: builtins.bool
     num_reserved_units: builtins.int
     is_enabled: builtins.bool
     """Whether this line item is currently enabled"""
+    billing_type: sentry_protos.billing.v1.common.v1.billing_type_pb2.BillingType.ValueType
     @property
     def line_item_detail(self) -> sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails: ...
     @property
@@ -47,9 +50,10 @@ class RateCardLineItem(google.protobuf.message.Message):
         reserved_rate: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
         uncapped_rate: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
         is_enabled: builtins.bool = ...,
+        billing_type: sentry_protos.billing.v1.common.v1.billing_type_pb2.BillingType.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["is_unlimited", b"is_unlimited", "line_item_detail", b"line_item_detail", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units", "uncapped_rate", b"uncapped_rate"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["is_enabled", b"is_enabled", "is_unlimited", b"is_unlimited", "line_item_detail", b"line_item_detail", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units", "uncapped_rate", b"uncapped_rate"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["billing_type", b"billing_type", "is_enabled", b"is_enabled", "is_unlimited", b"is_unlimited", "line_item_detail", b"line_item_detail", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units", "uncapped_rate", b"uncapped_rate"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["reserved_units", b"reserved_units"]) -> typing.Literal["is_unlimited", "num_reserved_units"] | None: ...
 
 global___RateCardLineItem = RateCardLineItem

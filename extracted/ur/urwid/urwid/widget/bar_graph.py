@@ -6,6 +6,7 @@ import math
 import typing
 from collections import deque
 
+from urwid import _deprecation
 from urwid.canvas import CanvasCombine, CompositeCanvas, SolidCanvas
 from urwid.util import get_encoding_mode
 
@@ -15,9 +16,9 @@ from .widget import Widget, WidgetError, WidgetMeta, nocache_widget_render, noca
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
+    from typing import Literal
 
-    from typing_extensions import Literal
-
+    from urwid.canvas import Canvas
     from urwid.util import _TagMarkup
 
 
@@ -26,8 +27,7 @@ class BarGraphMeta(WidgetMeta):
     Detect subclass get_data() method and dynamic change to get_data() method and disable caching in these cases.
 
     .. deprecated:: 4.0.10
-        Overriding ``get_data()`` in a :class:`BarGraph` subclass is supported for backwards compatibility only.
-        Call :meth:`BarGraph.set_data` instead, so that the rendered canvas can be cached.
+        Both cases are deprecated, see :class:`BarGraph`.
     """
 
     def __init__(  # noqa: D107 -- BarGraphMeta is deprecated for backwards compatibility only
@@ -41,7 +41,12 @@ class BarGraphMeta(WidgetMeta):
         super().__init__(name, bases, d)
 
         if "get_data" in d:
-            cls.render = nocache_widget_render(cls)
+            _deprecation.warn(
+                f"{cls.__module__}.{cls.__qualname__} overrides BarGraph.get_data(). Call BarGraph.set_data() instead.",
+                since="4.0.10",
+                removed_in="7.0",
+            )
+            setattr(cls, "render", nocache_widget_render(cls))  # noqa: B010  # see WidgetMeta.__init__
             cls._get_data = cls.get_data  # type: ignore[has-type]
         cls.get_data = property(lambda self: self._get_data, nocache_bargraph_get_data)
 
@@ -53,7 +58,15 @@ def nocache_bargraph_get_data(
         tuple[Sequence[Sequence[float | int]], float, Sequence[float | int] | None],
     ],
 ) -> None:
-    """Disable caching on this bargraph because get_data_fn needs to be polled to get the latest data."""
+    """Disable caching on this bargraph because get_data_fn needs to be polled to get the latest data.
+
+    :warns DeprecationWarning: always, since assigning ``BarGraph.get_data`` is deprecated.
+    """
+    _deprecation.warn(
+        "Assigning BarGraph.get_data is deprecated. Call BarGraph.set_data() instead.",
+        since="4.0.10",
+        removed_in="7.0",
+    )
     self.render = nocache_widget_render_instance(self)  # type: ignore[assignment]
     self._get_data = get_data_fn  # type: ignore[assignment]  # pylint: disable=protected-access
 
@@ -63,12 +76,20 @@ class BarGraphError(WidgetError):
 
 
 class BarGraph(Widget, metaclass=BarGraphMeta):
-    """Box widget that renders a bar graph from a sequence of data values."""
+    """Box widget that renders a bar graph from a sequence of data values.
+
+    .. deprecated:: 4.0.10
+        Overriding ``get_data()`` in a subclass, or assigning ``get_data`` on an instance,
+        is supported for backwards compatibility only.
+        Call :meth:`set_data` instead, so that the rendered canvas can be cached.
+        This API will be removed in version 7.0.
+    """
 
     _sizing = frozenset([Sizing.BOX])
 
     ignore_focus = True
 
+    # pyrefly: ignore[unsupported-operation]  # a str enum member is a str
     eighths = BAR_SYMBOLS.VERTICAL[:8]  # Full height is done by style
     hlines = "_⎺⎻─⎼⎽"
 
@@ -318,7 +339,7 @@ class BarGraph(Widget, metaclass=BarGraphMeta):
         rhl: list[float] = []
         for h in hlines:
             try:
-                rh = float(top - h) * maxrow / top - shiftr
+                rh = float(top - h) * maxrow / top - shiftr  # noqa: FURB123  # an int too big for a float must overflow
             except (OverflowError, ZeroDivisionError):
                 # out of float range, or a zero top: the line has no row in the graph
                 continue
@@ -479,7 +500,7 @@ class BarGraph(Widget, metaclass=BarGraphMeta):
         (maxcol, maxrow) = size
         disp = self.calculate_display((maxcol, maxrow))
 
-        combinelist = []
+        combinelist: list[tuple[Canvas, typing.Any, bool]] = []
         for y_count, row in disp:
             widget_list = []
             for bar_type, width in row:
@@ -503,6 +524,9 @@ class BarGraph(Widget, metaclass=BarGraphMeta):
                 raise BarGraphError("Invalid characters in BarGraph!")
             combinelist += [(c, None, False)] * y_count
 
+        if not combinelist:
+            # No rows: an empty combination would lose the width.
+            return CompositeCanvas(SolidCanvas(" ", maxcol, maxrow))
         canv = CanvasCombine(combinelist)
         return canv
 
@@ -519,19 +543,13 @@ def calculate_bargraph_display(
     :param top: maximal value for bardata segments
     :param bar_widths: list of integer column widths for each bar
     :param maxrow: rows for display of bargraph
+    :returns: ``[(y_count, [(bar_type, width), ...]), ...]``, one outer tuple per set of identical rows.
+        *y_count* is the number of rows in the set,
+        and the list holds the runs displayed in the row repeated through the set.
+        Each inner tuple is a run of *width* characters of *bar_type*:
+        0 for the background, 1 for the 1st segment, 2 for the 2nd segment and so on.
     :raises BarGraphError: *bardata* and *bar_widths* have different lengths.
     :raises ValueError: a bar segment falls outside the rendered columns.
-
-    Returns a structure as follows:
-      [ ( y_count, [ ( bar_type, width), ... ] ), ... ]
-
-    The outer tuples represent a set of identical rows. y_count is
-    the number of rows in this set, the list contains the data to be
-    displayed in the row repeated through the set.
-
-    The inner tuple describes a run of width characters of bar_type.
-    bar_type is an integer starting from 0 for the background, 1 for
-    the 1st segment, 2 for the 2nd segment etc..
 
     This function should complete in approximately O(n+m) time, where
     n is the number of bars displayed and m is the number of rows.
@@ -722,7 +740,7 @@ class GraphVScale(Widget):
 
         combinelist = []
         rows = 0
-        for p, t in zip(pl, self.txt):
+        for p, t in zip(pl, self.txt, strict=False):
             p -= 1  # noqa: PLW2901
             if p >= maxrow:
                 break
@@ -757,7 +775,8 @@ def scale_bar_values(
     A *top* that is zero, not a number, infinite or too large for a float gives ``maxrow + 1`` for every value.
     """
     try:
-        valid_top = math.isfinite(top) and math.isfinite(float(top)) and top != 0
+        # float() raises OverflowError for an int too large for a float; GraalPy's math.isfinite() accepts one.
+        valid_top = math.isfinite(top) and math.isfinite(float(top)) and top != 0  # noqa: FURB123
     except OverflowError:
         valid_top = False
     if not valid_top:

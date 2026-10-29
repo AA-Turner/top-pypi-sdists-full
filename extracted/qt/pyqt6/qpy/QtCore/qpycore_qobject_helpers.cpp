@@ -50,7 +50,7 @@ static int qt_metacall_worker(sipSimpleWrapper *pySelf, PyTypeObject *pytype,
 const QMetaObject *qpycore_qobject_metaobject(sipSimpleWrapper *pySelf,
         sipTypeDef *base)
 {
-    sipWrapperType *wt = (pySelf ? (sipWrapperType *)Py_TYPE(pySelf) : 0);
+    sipWrapperType *wt = (pySelf ? (sipWrapperType *)Py_TYPE((PyObject *)pySelf) : 0);
 
     return qpycore_get_qmetaobject(wt, base);
 }
@@ -64,7 +64,8 @@ int qpycore_qobject_qt_metacall(sipSimpleWrapper *pySelf, sipTypeDef *base,
     if (!pySelf)
         return -1;
 
-    return qt_metacall_worker(pySelf, Py_TYPE(pySelf), base, _c, _id, _a);
+    return qt_metacall_worker(pySelf, Py_TYPE((PyObject *)pySelf), base, _c,
+            _id, _a);
 }
 
 
@@ -220,10 +221,10 @@ bool qpycore_qobject_qt_metacast(sipSimpleWrapper *pySelf,
 
     // We only need to look at the MRO if the object is a wrapped type (rather
     // than a user sub-class).
-    if (base_pytype != Py_TYPE(pySelf))
+    if (base_pytype != Py_TYPE((PyObject *)pySelf))
     {
-        PyObject *mro = PyObject_GetAttr((PyObject *)Py_TYPE(pySelf),
-                qpycore_dunder_mro);
+        PyObject *mro = PyObject_GetAttr(
+                (PyObject *)Py_TYPE((PyObject *)pySelf), qpycore_dunder_mro);
         Q_ASSERT(mro);
 
         for (Py_ssize_t i = 0; i < PyTuple_Size(mro); ++i)

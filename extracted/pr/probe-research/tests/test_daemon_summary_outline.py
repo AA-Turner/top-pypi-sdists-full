@@ -275,6 +275,34 @@ def test_a_fresh_start_carries_the_outline_in_its_first_message(tmp_path, monkey
     assert history is None and built.prompt.startswith("# Summaries you keep (outline ")
 
 
+def test_the_page_skills_ride_in_once(tmp_path, monkeypatch, lean):
+    """The writer read artifact-design in 2 of 53 sessions that pushed a page
+    when the page skills were a `read` away: they are in the conversation
+    whole, once."""
+    replay = CheckoutReplay()
+    script = Script([("shell", "probe experiment set b2 --conclusion yes"), ("done", "set it")])
+    w = _worker(tmp_path, model=FunctionModel(script), replay=replay, mode="conversation", monkeypatch=monkeypatch)
+    w.read_new()
+    assert asyncio.run(w.run_bite("turn end")) is True
+    first = "\n".join(p.content for m in script.seen[0][0] for p in m.parts if isinstance(getattr(p, "content", None), str))
+    assert "# Page skills (shown here whole, no need to read their files; " in first
+    for name in ("overview-page", "overview-contract", "overview-charts", "artifact-design", "artifact-diagramming"):
+        assert f"# Skill: {name}" in first, name
+    nxt = _next_message(w, "NEXT: run three seeds of B2decay")
+    assert "# Page skills" not in nxt, "shown once per conversation"
+    assert nxt.startswith("# Summaries you keep (outline "), "the outline still leads the message"
+
+
+def test_the_first_page_of_a_new_experiment_is_written_with_the_page_skills(tmp_path, monkeypatch, lean):
+    """A run that creates an experiment writes its first page in that run,
+    before any draft exists: the skills are in its first message anyway."""
+    w = _worker(tmp_path, model=FunctionModel(Script([("done", "x")])), replay=CheckoutReplay(),
+                mode="conversation", monkeypatch=monkeypatch)
+    w.read_new()
+    _, _, built = w._next_in_conversation("prompt", None)
+    assert "# Page skills (shown here whole" in built.prompt
+
+
 def test_no_summary_no_outline(tmp_path, monkeypatch, lean):
     w = _worker(tmp_path, model=FunctionModel(Script([("done", "x")])), replay=CheckoutReplay(),
                 mode="conversation", monkeypatch=monkeypatch)

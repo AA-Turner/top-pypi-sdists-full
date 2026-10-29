@@ -32,4 +32,14 @@ class TranslationStatusItemParams(typing_extensions.TypedDict):
     Total text segments for this target language (Office format jobs).
     """
 
+    chunks_completed: typing_extensions.NotRequired[int]
+    """
+    Number of chunks translated so far (Markdown / plain-text jobs).
+    """
+
+    chunks_failed: typing_extensions.NotRequired[int]
+    """
+    Number of chunks that failed translation (Markdown / plain-text jobs).
+    """
+
     error_message: typing_extensions.NotRequired[str]

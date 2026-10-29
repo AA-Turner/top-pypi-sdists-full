@@ -1,10 +1,9 @@
 import calendar
 import logging
-import random
 import re
 import datetime as dt
-import string
 
+from django.utils.crypto import get_random_string
 from passlib.apps import phpbb3_context
 
 from django.conf import settings
@@ -53,11 +52,11 @@ class Phpbb3Manager:
 
     SQL_DEL_AUTOLOGIN = rf"DELETE FROM {TABLE_PREFIX}sessions_keys where user_id = %s"
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @staticmethod
-    def __add_avatar(username, characterid):
+    def __add_avatar(username: str, characterid: int) -> None:
         logger.debug(f"Adding EVE character id {characterid} portrait as phpbb avater for user {username}")
         avatar_url = EveCharacter.generic_portrait_url(characterid, 64)
         cursor = connections['phpbb3'].cursor()
@@ -65,26 +64,22 @@ class Phpbb3Manager:
         cursor.execute(Phpbb3Manager.SQL_ADD_USER_AVATAR, [avatar_url, userid])
 
     @staticmethod
-    def __generate_random_pass():
-        return ''.join([random.choice(string.ascii_letters + string.digits) for n in range(16)])
-
-    @staticmethod
-    def __gen_hash(password):
+    def __gen_hash(password: str) -> str:
         return phpbb3_context.encrypt(password)
 
     @staticmethod
-    def __santatize_username(username):
+    def __santatize_username(username: str) -> str:
         sanatized = username.replace(" ", "_")
         sanatized = sanatized.replace("'", "_")
         return sanatized.lower()
 
     @staticmethod
-    def _sanitize_groupname(name):
+    def _sanitize_groupname(name: str) -> str:
         name = name.strip(' _')
         return re.sub(r'[^\w.-]', '', name)
 
     @staticmethod
-    def __get_group_id(groupname):
+    def __get_group_id(groupname: str) -> int:
         logger.debug(f"Getting phpbb3 group id for groupname {groupname}")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_GET_GROUP_ID, [groupname])
@@ -93,7 +88,7 @@ class Phpbb3Manager:
         return row[0]
 
     @staticmethod
-    def __get_user_id(username):
+    def __get_user_id(username: str) -> int | None:
         logger.debug(f"Getting phpbb3 user id for username {username}")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_USER_ID_FROM_USERNAME, [username])
@@ -106,7 +101,7 @@ class Phpbb3Manager:
             return None
 
     @staticmethod
-    def __get_all_groups():
+    def __get_all_groups() -> dict[str, int]:
         logger.debug("Getting all phpbb3 groups.")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_GET_ALL_GROUPS)
@@ -118,7 +113,7 @@ class Phpbb3Manager:
         return out
 
     @staticmethod
-    def __get_user_groups(userid):
+    def __get_user_groups(userid: int) -> list[int]:
         logger.debug(f"Getting phpbb3 user id {userid} groups")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_GET_USER_GROUPS, [userid])
@@ -127,13 +122,13 @@ class Phpbb3Manager:
         return out
 
     @staticmethod
-    def __get_current_utc_date():
+    def __get_current_utc_date() -> int:
         d = dt.datetime.now(dt.timezone.utc)
         unixtime = calendar.timegm(d.utctimetuple())
         return unixtime
 
     @staticmethod
-    def __create_group(groupname):
+    def __create_group(groupname: str) -> int:
         logger.debug(f"Creating phpbb3 group {groupname}")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_ADD_GROUP, [groupname, groupname])
@@ -141,7 +136,7 @@ class Phpbb3Manager:
         return Phpbb3Manager.__get_group_id(groupname)
 
     @staticmethod
-    def __add_user_to_group(userid, groupid):
+    def __add_user_to_group(userid: int, groupid: int) -> None:
         logger.debug(f"Adding phpbb3 user id {userid} to group id {groupid}")
         try:
             cursor = connections['phpbb3'].cursor()
@@ -153,7 +148,7 @@ class Phpbb3Manager:
             pass
 
     @staticmethod
-    def __remove_user_from_group(userid, groupid):
+    def __remove_user_from_group(userid: int, groupid: int) -> None:
         logger.debug(f"Removing phpbb3 user id {userid} from group id {groupid}")
         try:
             cursor = connections['phpbb3'].cursor()
@@ -165,12 +160,12 @@ class Phpbb3Manager:
             pass
 
     @staticmethod
-    def add_user(username, email, groups, characterid):
+    def add_user(username: str, email: str, groups: list[str], characterid: int) -> tuple[str, str]:
         logger.debug(f"Adding phpbb user with username {username}, email {email}, groups {groups}, characterid {characterid}")
         cursor = connections['phpbb3'].cursor()
 
         username_clean = Phpbb3Manager.__santatize_username(username)
-        password = Phpbb3Manager.__generate_random_pass()
+        password = get_random_string(length=20)
         pwhash = Phpbb3Manager.__gen_hash(password)
         logger.debug(f"Proceeding to add phpbb user {username_clean} and pwhash starting with {pwhash[0:5]}")
         # check if the username was simply revoked
@@ -193,11 +188,11 @@ class Phpbb3Manager:
         return username_clean, password
 
     @staticmethod
-    def disable_user(username):
+    def disable_user(username: str) -> bool:
         logger.debug(f"Disabling phpbb user {username}")
         cursor = connections['phpbb3'].cursor()
 
-        password = Phpbb3Manager.__gen_hash(Phpbb3Manager.__generate_random_pass())
+        password = Phpbb3Manager.__gen_hash(get_random_string(length=20))
         revoke_email = "revoked@localhost"
         try:
             pwhash = Phpbb3Manager.__gen_hash(password)
@@ -213,7 +208,7 @@ class Phpbb3Manager:
             return False
 
     @staticmethod
-    def delete_user(username):
+    def delete_user(username: str) -> bool:
         logger.debug(f"Deleting phpbb user {username}")
         cursor = connections['phpbb3'].cursor()
 
@@ -225,7 +220,7 @@ class Phpbb3Manager:
         return False
 
     @staticmethod
-    def update_groups(username, groups):
+    def update_groups(username: str, groups: list[str]) -> None:
         userid = Phpbb3Manager.__get_user_id(username)
         logger.debug(f"Updating phpbb user {username} with id {userid} groups {groups}")
         if userid is not None:
@@ -244,7 +239,7 @@ class Phpbb3Manager:
                 Phpbb3Manager.__remove_user_from_group(userid, forum_groups[g])
 
     @staticmethod
-    def remove_group(username, group):
+    def remove_group(username: str, group: str) -> None:
         logger.debug(f"Removing phpbb user {username} from group {group}")
         cursor = connections['phpbb3'].cursor()
         userid = Phpbb3Manager.__get_user_id(username)
@@ -262,7 +257,7 @@ class Phpbb3Manager:
                         pass
 
     @staticmethod
-    def check_user(username):
+    def check_user(username: str) -> bool:
         logger.debug(f"Checking phpbb username {username}")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_USER_ID_FROM_USERNAME, [Phpbb3Manager.__santatize_username(username)])
@@ -274,11 +269,11 @@ class Phpbb3Manager:
         return False
 
     @staticmethod
-    def update_user_password(username, characterid, password=None):
+    def update_user_password(username: str, characterid: int, password: str | None = None) -> str:
         logger.debug(f"Updating phpbb user {username} password")
         cursor = connections['phpbb3'].cursor()
         if not password:
-            password = Phpbb3Manager.__generate_random_pass()
+            password = get_random_string(length=20)
         if Phpbb3Manager.check_user(username):
             pwhash = Phpbb3Manager.__gen_hash(password)
             logger.debug(
@@ -291,7 +286,7 @@ class Phpbb3Manager:
         return ""
 
     @staticmethod
-    def __update_user_info(username, email, password):
+    def __update_user_info(username: str, email: str, password: str) -> None:
         logger.debug(
             f"Updating phpbb user {username} info: username {email} password of length {len(password)}")
         cursor = connections['phpbb3'].cursor()

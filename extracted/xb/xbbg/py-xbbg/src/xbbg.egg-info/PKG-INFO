@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbbg
-Version: 1.6.0
+Version: 1.6.1
 Summary: Independent client for Bloomberg-connected data workflows
 Author: xbbg contributors
 Maintainer: xbbg contributors
@@ -43,7 +43,7 @@ Requires-Dist: pytest-asyncio>=0.24; extra == "test"
 Requires-Dist: pyarrow>=22.0.0; extra == "test"
 Requires-Dist: pandas<4,>=2.2.2; extra == "test"
 Requires-Dist: polars[timezone]>=0.20.4; extra == "test"
-Requires-Dist: duckdb>=1.5.1; python_version < "3.15" and extra == "test"
+Requires-Dist: duckdb>=1.5.1; extra == "test"
 Dynamic: license-file
 
 <!-- markdownlint-disable MD013 MD031 MD032 MD033 MD041 MD051 -->
@@ -68,7 +68,7 @@ Dynamic: license-file
 ---
 
 <!-- xbbg:latest-release-start -->
-Latest release: xbbg==1.6.0 (release: [notes](https://github.com/underloam/xbbg/releases/tag/v1.6.0))
+Latest release: xbbg==1.6.1 (release: [notes](https://github.com/underloam/xbbg/releases/tag/v1.6.1))
 <!-- xbbg:latest-release-end -->
 
 > This `main` branch is the Rust-powered v1 release. For the legacy pure-Python line, use [`release/0.x`](https://github.com/underloam/xbbg/tree/release/0.x).
@@ -127,7 +127,7 @@ The short version: if all you need is a tiny one-off `bdp()` wrapper, several pa
 | Rust request/parsing engine with Arrow-shaped output | yes | no | no | no | no |
 | Output backends beyond pandas | Narwhals, native, PyArrow, pandas, Polars, DuckDB | application-owned | pandas-first | pandas-first | Polars-first |
 | Typed errors, diagnostics, field cache, testing helpers | yes | application-owned | limited | limited | limited |
-| Usable install footprint (Windows x64, Python 3.14) | xbbg 1.5.1 + narwhals 2.26.0, no `blpapi` = 18.650 MiB | blpapi 3.26.8.1 = 14.702 MiB | pdblp 0.1.8 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 130.816 MiB / blp 0.0.4 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 131.002 MiB | bbg-fetch 3.2.0 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 130.863 MiB | polars-bloomberg 0.6.0 + polars 1.44.2 + blpapi 3.26.8.1 = 191.118 MiB |
+| Usable install footprint (Windows x64, Python 3.14) | xbbg 1.6.0 + narwhals 2.27.1, no `blpapi` = 19.127 MiB | blpapi 3.26.8.1 = 14.702 MiB | pdblp 0.1.8 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 130.816 MiB / blp 0.0.4 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 131.002 MiB | bbg-fetch 3.2.0 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 130.863 MiB | polars-bloomberg 0.6.0 + polars 1.44.2 + blpapi 3.26.8.1 = 191.118 MiB |
 
 ## Installation
 
@@ -327,7 +327,7 @@ pip install langchain langchain-openai
 pip install "langgraph>=1.2,<2"
 ```
 
-Requires Python 3.11–3.14, xbbg 1.5.0+, and `langchain-core` 1.4+. Graph workflows target LangGraph 1.2+. The adapter installs `langchain-core` and Pydantic; ordinary xbbg installs remain unchanged. Live requests still require authorized Bloomberg connectivity and SDK runtime libraries. Tool creation and schema inspection do not import the native extension or start a session.
+Requires Python 3.11–3.14, xbbg 1.6.0+, and `langchain-core` 1.4+. Graph workflows target LangGraph 1.2+. The adapter installs `langchain-core` and Pydantic; ordinary xbbg installs remain unchanged. Live requests still require authorized Bloomberg connectivity and SDK runtime libraries. Tool creation and schema inspection do not import the native extension or start a session.
 
 ```python
 from langchain.agents import create_agent
@@ -613,6 +613,17 @@ as_duckdb = blp.bdh("SPX Index", "PX_LAST", "2024-01-01", "2024-12-31", backend=
 ```
 
 Output shape is controlled with `format=`, including `long`, `long_typed`, `long_metadata`, and `semi_long`.
+
+`field_types` accepts `float64`, `int64`, `int32`, `string`, `bool`, `date32`, `timestamp`, and `time64`, plus their supported aliases. Unknown type names raise `BlpValidationError` before a data request is sent. Text-delivered fields remain strings when their dictionary metadata combines `Datetime` with a textual field kind; stale field-type caches are refreshed automatically.
+
+If a non-null value cannot fit the output column's type, xbbg retains the declared schema, writes a null, and emits one request-level warning containing only field names and failure counts. Missing or already-null values do not count. Counts are available as:
+
+- Native Python: `table.type_misses`.
+- PyArrow: JSON in `table.schema.metadata[b"xbbg.type_misses"]`.
+- pandas: `frame.attrs["xbbg_type_misses"]`, including direct native and Narwhals conversions.
+- Node Arrow/JSON: JSON in `result.metadata["xbbg.type_misses"]`.
+
+Counts describe source conversion attempts, not a recount of nulls after local dataframe operations. Slices and filters retain source-batch diagnostics. Concatenation sums the supplied batch maps, so combining reused views of the same response can repeat their shared diagnostics. Polars and DuckDB have no stable diagnostic-metadata side channel; use native Arrow, PyArrow, or pandas when the counts are required.
 
 - Native `ArrowTable`, `ArrowRecordBatch`, and `ArrowColumn` slices can retain their source allocations. Use `.compact()` when retaining a small result should release that backing storage: it returns an independent copy of the logical values with right-sized buffers, preserving schema, nulls, and physical batch/chunk boundaries. Native zero-column tables retain their row count.
 - Polars conversion preserves Arrow chunks rather than implicitly rechunking. The supported floor is **Polars >=0.20.4**; older supported versions use PyArrow when available or schema-aware per-batch materialization, while capsule-capable versions consume the native Arrow stream. Install `xbbg[polars]` to include the timezone data required on Windows.

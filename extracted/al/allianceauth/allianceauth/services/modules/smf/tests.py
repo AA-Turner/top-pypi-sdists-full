@@ -195,12 +195,6 @@ class SmfManagerTestCase(TestCase):
         from .manager import SmfManager
         self.manager = SmfManager
 
-    def test_generate_random_password(self):
-        password = self.manager.generate_random_pass()
-
-        self.assertEqual(len(password), 16)
-        self.assertIsInstance(password, str)
-
     def test_gen_hash(self):
         pwhash = self.manager.gen_hash('username', 'test')
 

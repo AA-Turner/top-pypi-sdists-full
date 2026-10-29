@@ -76,6 +76,7 @@ from datamodel_code_generator.enums import (
     ClientSignatureStyle,
     ClientType,
     CollapseRootModelsNameStrategy,
+    ConstructorFieldOrder,
     CustomFileHeaderMode,
     DataclassArguments,
     DataModelType,
@@ -88,6 +89,7 @@ from datamodel_code_generator.enums import (
     JsonSchemaVersion,
     ModuleSplitMode,
     NamingStrategy,
+    OpenAPIAsDefinitions,
     OpenAPIScope,
     OpenAPIVersion,
     ProtobufVersion,
@@ -101,7 +103,6 @@ from datamodel_code_generator.enums import (
     TargetPydanticVersion,
     VersionMode,
     XMLSchemaVersion,
-    _is_pydantic_version_at_least,
 )
 
 # Pydantic 2.5 cannot build schemas from stdlib TypeAliasType on Python 3.12.
@@ -248,10 +249,13 @@ if TYPE_CHECKING:
         _SharedParserConfigDict,
         _PythonTypeExpressions | None,
     ]
-    _ParsedGeneration: TypeAlias = tuple[_ParserResults, ModelMetadata | None, DataModelSet, bool]
+    _ParsedGeneration: TypeAlias = tuple[
+        _ParserResults, ModelMetadata | None, tuple[str, ...], DataModelSet, bool, bool
+    ]
     _ParsedRun: TypeAlias = tuple[
         _ParserResults,
         ModelMetadata | None,
+        tuple[str, ...],
         DataModelSet,
         bool,
         _GenerationInput,
@@ -259,6 +263,7 @@ if TYPE_CHECKING:
         str | None,
         Path,
         RemoteReferenceLock | None,
+        bool,
         bool,
         InputFileType,
     ]
@@ -352,10 +357,15 @@ DEFAULT_MAX_VARIABLE_LENGTH: int = 100
 
 
 _pysnooper_default_state_set: bool = False
+_LAYER_MODULE_PREFIX = "datamodel_code_generator.parser._passes."
 
 
 def snooper_to_methods() -> Callable[..., Any]:
-    """Class decorator to add pysnooper tracing to all methods."""
+    """Class decorator to add pysnooper tracing to all methods.
+
+    It also traces the functions of the pass layer modules (``parser/_passes/<layer>.py``) the pipeline of ``Parser``
+    calls through their modules, once each.
+    """
 
     def inner(cls: type[T]) -> type[T]:
         global _pysnooper_default_state_set  # noqa: PLW0603
@@ -375,6 +385,12 @@ def snooper_to_methods() -> Callable[..., Any]:
         for name, method in methods:
             snooper_method = pysnooper.snoop(max_variable_length=DEFAULT_MAX_VARIABLE_LENGTH)(method)
             setattr(cls, name, snooper_method)
+        for module_name, module in [*sys.modules.items()]:
+            if not module_name.startswith(_LAYER_MODULE_PREFIX) or module_name.rpartition(".")[2].startswith("_"):
+                continue
+            for name, function in inspect.getmembers(module, predicate=inspect.isfunction):
+                if function.__module__ == module_name and not hasattr(function, "__wrapped__"):
+                    setattr(module, name, pysnooper.snoop(max_variable_length=DEFAULT_MAX_VARIABLE_LENGTH)(function))
         return cls
 
     return inner
@@ -486,6 +502,10 @@ class Error(Exception):
     def __str__(self) -> str:
         """Return string representation."""
         return self.message
+
+
+class _StructuredOutputUnavailableError(Error):
+    """Raised when the installed Pydantic is too old for the payload models of the JSON output of the CLI."""
 
 
 def _normalized_absolute_path(path: Path, *, resolve_aliases: bool = False) -> Path:
@@ -645,10 +665,13 @@ def _apply_missing_sentinel_config(config: GenerateConfig) -> GenerateConfig:
         )
         raise Error(msg)
 
+    from datamodel_code_generator._requirements import REQUIREMENTS, pydantic_target_meets  # noqa: PLC0415
+
+    minimum = TargetPydanticVersion(REQUIREMENTS["pydantic.experimental_missing_sentinel"].minimum)
     match target_version := config.target_pydantic_version:
         case None:
-            return config.model_copy(update={"target_pydantic_version": TargetPydanticVersion.V2_12})
-        case _ if _is_pydantic_version_at_least(target_version, TargetPydanticVersion.V2_12):
+            return config.model_copy(update={"target_pydantic_version": minimum})
+        case _ if pydantic_target_meets("pydantic.experimental_missing_sentinel", target_version):
             return config
         case _:
             target_version_value = (
@@ -656,7 +679,7 @@ def _apply_missing_sentinel_config(config: GenerateConfig) -> GenerateConfig:
             )
             msg = (
                 "`--use-missing-sentinel` requires "
-                f"`--target-pydantic-version {TargetPydanticVersion.V2_12.value}` or later; "
+                f"`--target-pydantic-version {minimum.value}` or later; "
                 f"got {target_version_value!r}"
             )
             raise Error(msg)
@@ -1166,6 +1189,7 @@ def _openapi_shared_options(config: GenerateConfig) -> OpenAPIParserConfigDict:
         "use_status_code_in_response_name": config.use_status_code_in_response_name,
         "openapi_include_paths": config.openapi_include_paths,
         "openapi_include_info_version": config.openapi_include_info_version,
+        "openapi_as_definitions": config.openapi_as_definitions,
     }
 
 
@@ -1559,6 +1583,10 @@ def _emit_stdout_results(
 _SINGLE_MODULE_OUTPUT_DIRECTORY_ERROR = "Single-module output requires a file path, not a directory"
 _MODULAR_OUTPUT_FILE_ERROR = "Modular references require an output directory, not a file"
 _MODEL_METADATA_OUTPUT_DIRECTORY_ERROR = "Model metadata output requires a file path, not a directory"
+_INLINE_OBJECT_BODIES_HINT = (
+    "request or response bodies of the paths or webhooks scope are typed inline, and "
+    "--openapi-as-definitions paths-bodies gives them the models their schema definitions get"
+)
 
 
 def _ensure_file_output_path(path: Path, error_message: str) -> None:
@@ -1728,6 +1756,7 @@ def _emit_results(  # noqa: PLR0913
     data_model_types: DataModelSet,
     settings_path: Path,
     allow_empty_api: bool = False,
+    inline_object_bodies: bool = False,
 ) -> str | GeneratedModules | None:
     if not input_filename:  # pragma: no cover
         input_filename = _default_input_filename(input_)
@@ -1735,6 +1764,8 @@ def _emit_results(  # noqa: PLR0913
         if allow_empty_api:
             return None
         msg = "Models not found in the input data"
+        if inline_object_bodies:
+            msg += f"; {_INLINE_OBJECT_BODIES_HINT}"
         raise Error(msg)
 
     custom_file_header = _read_custom_file_header(custom_file_header, config.custom_file_header_path, config.encoding)
@@ -2623,8 +2654,10 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
         python_type_expressions=python_type_expressions,
         openapi_parser_factory=openapi_parser_factory,
     )
+    from datamodel_code_generator.parser.base import pydantic_floors_recorded  # noqa: PLC0415
+
     # Phase 4: initial parse, disposal, and the complete retry flow share the output cwd.
-    with chdir(output_context_path if use_output_cwd else None):  # noqa: PLR1702
+    with chdir(output_context_path if use_output_cwd else None), pydantic_floors_recorded() as floors:  # noqa: PLR1702
         try:
             results = _parse_with_disposal(
                 input_,
@@ -2735,9 +2768,11 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
             else:
                 discarded_parser = parser
                 parser, results, data_model_types, defer_formatting, extra_template_data = untyped_parse
-        model_metadata = parser.model_metadata
+        model_metadata, model_identities = parser.model_metadata, parser.model_metadata_identities
         parser.record_dropped_constraints()
+        pydantic_floor = floors.of(parser)
         class_names = parser.generated_class_names
+        inline_object_bodies: bool = getattr(parser, "inline_object_bodies", False)
         if repair_modules := parser.invalid_dotted_stdout_repair_modules:
             legacy_inventory = parser.generated_model_inventory
             legacy_source_fingerprint = parser.source_data_fingerprint
@@ -2816,8 +2851,12 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
                             candidate_attempt = capture.freeze_attempt(retry_parser, retry_results)
                         retry_accepted = True
                         results = retry_results
-                        model_metadata = retry_parser.model_metadata
+                        model_metadata, model_identities = (
+                            retry_parser.model_metadata,
+                            retry_parser.model_metadata_identities,
+                        )
                         retry_parser.record_dropped_constraints()
+                        pydantic_floor = floors.of(retry_parser)
                         class_names = retry_parser.generated_class_names
                         data_model_types = retry_data_model_types
                         defer_formatting = retry_defer_formatting
@@ -2837,7 +2876,20 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
     from datamodel_code_generator._naming_hint import record_class_names  # noqa: PLC0415
 
     record_class_names(class_names)
-    return results, model_metadata, data_model_types, defer_formatting
+    if pydantic_floor is not None:
+        from datamodel_code_generator._requirements import pydantic_floor_message  # noqa: PLC0415
+
+        warnings.warn(
+            pydantic_floor_message(
+                pydantic_floor,
+                target_from="--use-missing-sentinel"
+                if config.use_missing_sentinel and pydantic_floor.target == TargetPydanticVersion.V2_12.value
+                else None,
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+    return results, model_metadata, model_identities, data_model_types, defer_formatting, inline_object_bodies
 
 
 def _emit_generation(  # noqa: PLR0913
@@ -2853,6 +2905,7 @@ def _emit_generation(  # noqa: PLR0913
     settings_path: Path,
     owned_remote_lock: RemoteReferenceLock | None,
     allow_empty_api: bool = False,
+    inline_object_bodies: bool = False,
 ) -> str | GeneratedModules | None:
     """Emit generated artifacts and commit a generation-owned remote lock.
 
@@ -2876,6 +2929,7 @@ def _emit_generation(  # noqa: PLR0913
         defer_formatting=defer_formatting,
         data_model_types=data_model_types,
         settings_path=settings_path,
+        inline_object_bodies=inline_object_bodies,
     )
     if metadata is not None:
         _write_model_metadata(*metadata, config.encoding)
@@ -2909,6 +2963,7 @@ def _run_generation(
             (
                 results,
                 model_metadata,
+                _,
                 data_model_types,
                 defer_formatting,
                 input_,
@@ -2917,6 +2972,7 @@ def _run_generation(
                 emit_settings_path,
                 owned_remote_lock,
                 allow_empty_api,
+                inline_object_bodies,
                 _,
             ) = _parse_run(
                 input_,
@@ -2939,6 +2995,7 @@ def _run_generation(
                 settings_path=emit_settings_path,
                 owned_remote_lock=owned_remote_lock,
                 allow_empty_api=allow_empty_api,
+                inline_object_bodies=inline_object_bodies,
             )
     except BaseException:
         if capture is not None:
@@ -2959,8 +3016,10 @@ def _parse_run(  # noqa: PLR0913, PLR0914
 ) -> _ParsedRun:
     """Prepare one generation run and parse it up to its results and model metadata, writing nothing.
 
-    Returns what emitting needs: the parse results and metadata, the prepared input and config, and the emit
-    settings, remote lock and API-scope switch; last, the input file type the run parsed, detected when it was auto.
+    Returns what emitting needs: the parse results and metadata, the prepared input and config, the emit settings,
+    remote lock and API-scope switch, and whether paths bodies were typed inline that
+    ``--openapi-as-definitions paths-bodies`` models; last, the input file type the run parsed, detected when it was
+    auto.
     """
     config, output_context_path, emit_settings_path = _prepare_generation_config(config, caller_cwd)
     input_filename = config.input_filename
@@ -3019,32 +3078,35 @@ def _parse_run(  # noqa: PLR0913, PLR0914
         parser_factory = capture.parser_factory
         parse_generation = partial(_parse_generation, openapi_parser_factory=parser_factory)
         allow_empty_api = getattr(parser_factory, "_supports_api_scope", False) is True
-    results, model_metadata, data_model_types, defer_formatting = parse_generation(
-        input_,
-        input_text,
-        input_file_type,
-        source_override,
-        config,
-        source,
-        additional_options,
-        data_model_types,
-        defer_formatting,
-        extra_template_data,
-        dataclass_arguments,
-        python_type_expressions=python_type_expressions,
-        skip_root_model=skip_root_model,
-        schema_versions=schema_versions,
-        diagnostic_source_path=diagnostic_source_path,
-        prefetched_source=prefetched_source,
-        parser_settings_path=parser_settings_path,
-        use_output_cwd=use_output_cwd,
-        output_context_path=output_context_path,
-        collect_model_metadata=collect_model_metadata,
-        capture=capture,
+    results, model_metadata, model_identities, data_model_types, defer_formatting, inline_object_bodies = (
+        parse_generation(
+            input_,
+            input_text,
+            input_file_type,
+            source_override,
+            config,
+            source,
+            additional_options,
+            data_model_types,
+            defer_formatting,
+            extra_template_data,
+            dataclass_arguments,
+            python_type_expressions=python_type_expressions,
+            skip_root_model=skip_root_model,
+            schema_versions=schema_versions,
+            diagnostic_source_path=diagnostic_source_path,
+            prefetched_source=prefetched_source,
+            parser_settings_path=parser_settings_path,
+            use_output_cwd=use_output_cwd,
+            output_context_path=output_context_path,
+            collect_model_metadata=collect_model_metadata,
+            capture=capture,
+        )
     )
     return (
         results,
         model_metadata,
+        model_identities,
         data_model_types,
         defer_formatting,
         input_,
@@ -3053,6 +3115,7 @@ def _parse_run(  # noqa: PLR0913, PLR0914
         emit_settings_path,
         owned_remote_lock,
         allow_empty_api,
+        inline_object_bodies,
         input_file_type,
     )
 
@@ -3062,13 +3125,15 @@ def _collect_model_metadata(
     config: GenerateConfig,
     *,
     remote_text_cache: DefaultPutDict[str, str],
-) -> tuple[ModelMetadata | None, InputFileType]:
+) -> tuple[ModelMetadata | None, tuple[str, ...], InputFileType]:
     """Return the metadata of the models generate() would write for a config, writing nothing, and the input type.
 
     The run takes generate()'s preparation, parse and compatibility retries, so the class names are the names
     generation gives; formatting, every output, and a selected server or client are left out. The remote lock is
-    checked, and with ``update_lock`` updated, in memory only: nothing commits it. The input type is the one the run
-    parsed, detected when the config's is auto. Runs that share ``remote_text_cache`` fetch each remote document once.
+    checked, and with ``update_lock`` updated, in memory only: nothing commits it. Beside the metadata come the
+    identity paths of its models, in the same order: internal keys that match a class across configurations, never
+    written. The input type is the one the run parsed, detected when the config's is auto. Runs that share
+    ``remote_text_cache`` fetch each remote document once.
     """
     config = _prepare_generate_facade_config(
         config.model_copy(
@@ -3093,7 +3158,7 @@ def _collect_model_metadata(
             remote_text_cache=remote_text_cache,
             collect_model_metadata=True,
         )
-        return parsed[1], parsed[-1]
+        return parsed[1], parsed[2], parsed[-1]
 
 
 def infer_input_type(text: str) -> InputFileType:  # noqa: PLR0911, PLR0912
@@ -3239,6 +3304,7 @@ __all__ = [
     "ClientSignatureStyle",
     "ClientType",
     "CollapseRootModelsNameStrategy",
+    "ConstructorFieldOrder",
     "CustomFileHeaderMode",
     "DanglingRefWarning",
     "DateClassType",
@@ -3262,6 +3328,7 @@ __all__ = [
     "ModuleSplitMode",
     "NamingHintWarning",
     "NamingStrategy",
+    "OpenAPIAsDefinitions",
     "OpenAPIScope",
     "OpenAPIVersion",
     "ProtobufVersion",

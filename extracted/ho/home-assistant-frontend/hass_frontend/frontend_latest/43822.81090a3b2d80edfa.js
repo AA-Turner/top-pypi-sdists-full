@@ -1,0 +1,2 @@
+export const __rspack_esm_id=43822;export const __rspack_esm_ids=[43822];export const __webpack_modules__={96253(e,t,o){o.d(t,{JQ:()=>i,fetchStoreRepositories:()=>a,oE:()=>r,CH:()=>p});const s=async(e,t,o)=>e.callWS({type:"supervisor/api",endpoint:t,method:o?.method||"get",timeout:o?.timeout??null,data:o?.data}),r=async e=>s(e,"/store"),a=async e=>s(e,"/store/repositories"),i=async(e,t)=>s(e,"/store/repositories",{method:"post",data:{repository:t}}),p=async(e,t)=>s(e,`/store/repositories/${t}`,{method:"delete"})}};
+//# sourceMappingURL=43822.81090a3b2d80edfa.js.map

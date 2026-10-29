@@ -66,9 +66,14 @@ oiio_exr_error_handler(exr_const_context_t ctxt, exr_result_t code,
 static int64_t
 oiio_exr_query_size_func(exr_const_context_t ctxt, void* userdata)
 {
+    // OpenEXR uses the file size to validate header attribute and chunk
+    // table sizes; -1 means unknown and disables those checks.
     oiioexr_filebuf_struct* fb = static_cast<oiioexr_filebuf_struct*>(userdata);
-    if (fb)
-        return static_cast<int64_t>(fb->m_io->tell());
+    if (fb && fb->m_io) {
+        size_t size = fb->m_io->size();
+        if (size > 0)
+            return static_cast<int64_t>(size);
+    }
     return -1;
 }
 
@@ -182,11 +187,7 @@ private:
         std::vector<exr_pixel_type_t> pixeltype;  ///< Imf pixel type for each chan
         std::vector<int> chanbytes;  ///< Size (in bytes) of each channel
 
-        PartInfo()
-            : initialized(false)
-            , validated(false)
-        {
-        }
+        PartInfo() : initialized(false), validated(false) {}
         PartInfo(const PartInfo& p)
             : initialized((bool)p.initialized)
             , validated((bool)p.validated)
@@ -271,8 +272,7 @@ private:
     public:
         DecoderDestroyer(exr_const_context_t ctx,
                          exr_decode_pipeline_t* decoder)
-            : ctx(ctx)
-            , decoder(decoder) {};
+            : ctx(ctx), decoder(decoder) {};
         ~DecoderDestroyer() { exr_decoding_destroy(ctx, decoder); }
 
     private:
@@ -604,8 +604,11 @@ OpenEXRCoreInput::PartInfo::parse_header(OpenEXRCoreInput* in,
     spec.deep = (storage == EXR_STORAGE_DEEP_TILED
                  || storage == EXR_STORAGE_DEEP_SCANLINE);
 
-    if (levelmode != EXR_TILE_ONE_LEVEL)
+    if (levelmode != EXR_TILE_ONE_LEVEL) {
         spec.attribute("openexr:roundingmode", (int)roundingmode);
+        if (nmiplevels > 1)
+            spec.attribute("oiio:miplevels", nmiplevels);
+    }
 
     exr_envmap_t envmap;
     rv = exr_attr_get_envmap(ctxt, subimage, "envmap", &envmap);
@@ -1222,11 +1225,6 @@ OpenEXRCoreInput::seek_subimage(int subimage, int miplevel)
     m_subimage = subimage;
     m_miplevel = miplevel;
     m_spec     = part.spec;
-
-    //! Add the number of miplevels as an attribute for the first miplevel.
-    //! TOFIX: adding the following attribute breaks unit tests
-    // if (m_miplevel == 0 && part.nmiplevels > 1)
-    //     m_spec.attribute("oiio:miplevels", part.nmiplevels);
 
     // The checks below reject this subimage, so don't leave it as the
     // current one with a spec that failed validation.

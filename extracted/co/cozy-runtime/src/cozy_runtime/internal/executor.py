@@ -109,7 +109,6 @@ from cozy_runtime.author._invoke import (
     Invocation,
     PreparedRequest,
     prepare,
-    prepare_program,
     run_prepared,
 )
 from cozy_runtime.author._loader import Artifact, Config, ModelFitRefused
@@ -128,7 +127,9 @@ from cozy_runtime.author._services import Attempt as AuthorAttempt
 from cozy_runtime.author._weights import Weights as RawWeights
 from cozy_runtime.author.kernels import _SETS as KERNEL_SETS
 from cozy_runtime.author.kernels import Launch, Plan, TritonKernels
+from cozy_runtime.derive import recipes as declared_recipes
 from cozy_runtime.derive.operations import app as builtin_operations_app
+from cozy_runtime.derive.operations import run_recipe
 from cozy_runtime.internal import (
     accel,
     arch,
@@ -162,11 +163,16 @@ from cozy_runtime.internal import (
     w4a8_linear,
     zygote,
 )
+from cozy_runtime.internal.accel import ResidencyError
 from cozy_runtime.internal.config import inherited_environment, restore_seal, seal_snapshot
 from cozy_runtime.internal.derive import Observations, serving_substrate
 from cozy_runtime.internal.discovery import discover_installed
-from cozy_runtime.internal.encoding import launch_providers, measure_device, measure_runtime
 from cozy_runtime.internal.encoding.leaves import FORMATS, serving
+from cozy_runtime.internal.encoding.selection import (
+    launch_providers,
+    measure_device,
+    measure_runtime,
+)
 from cozy_runtime.internal.executor_commands import (
     Activate,
     Attention,
@@ -744,12 +750,12 @@ def _dense(kernels: Iterable[str]) -> str:
     return ", ".join(dict.fromkeys(attention.dense_identity(name) for name in sparse))
 
 
-def _attention_divergence(mine: attention.Choice, reply: Mapping[str, object]) -> str:
+def _attention_divergence(mine: executor_commands.Choice, reply: Mapping[str, object]) -> str:
     """How a follower's answer to rank 0's selection differs from it; "" when it serves it."""
     if not reply.get("ok"):
         return f"{reply.get('code', '')}: {reply.get('detail', '')}"
     try:
-        theirs = msgspec.convert(reply.get("choice"), attention.Choice)
+        theirs = msgspec.convert(reply.get("choice"), executor_commands.Choice)
     except msgspec.ValidationError as exc:
         return f"an unreadable selection: {exc}"
     return attention.difference(mine, theirs)
@@ -814,6 +820,8 @@ class Executor:
         self.requests: dict[str, MemoryRequest] = {}
         #: HOST ONLY: each open or just-ended request's cut rows (`measurements.execution.cuts`)
         self.cuts: dict[str, object] = {}
+        #: each request's `author.denoise_loop` rows (`internal.loop.ROWS`), once memory opens
+        self.loops: dict[str, list[dict[str, object]]] = {}
         #: HOST ONLY: TensorD's lease namespace from `Start` (None: no lease, its rows alone);
         #: rank 0 forwards it in its followers' Start
         #: The machine's sealed TensorFS cache directory.
@@ -993,7 +1001,6 @@ class Executor:
             "memory_backend": "rust-local" if self.device_kind == "cuda" else "torch",
             # Correlated PrepareRequest replies and cancellation-safe publication.
             "request_lookahead": True,
-            "program_preparation": True,
             "sealed": dict(_SEALED),
             "rank": self.rank,
             "world": self.world,
@@ -1034,8 +1041,6 @@ class Executor:
                 "detail": "Torch CUDA was already initialized before Runtime's explicit "
                 "allocator boundary; package execution is refused",
             }
-        from cozy_runtime.internal.residency import ResidencyError
-
         try:
             accel.initialize(torch, self.device_kind)
             if self.world > 1 and self.device_kind == "cuda":
@@ -1051,7 +1056,7 @@ class Executor:
 
     def _open_memory(self, torch: Any) -> None:
         """This executor's local residency and its pure-site execution helpers."""
-        from cozy_runtime.internal import execution
+        from cozy_runtime.internal import execution, loop
         from cozy_runtime.internal.residency import Memory
 
         host = self.host
@@ -1063,6 +1068,8 @@ class Executor:
             DEVICE[:] = [execution.Steps()]
         _split.install(execution)
         attention_ulysses.install(execution)
+        loop.install()
+        host.loops = loop.ROWS
 
     def _rank_identity(self) -> dict[str, Any]:
         owner = self.host
@@ -1942,7 +1949,8 @@ class Executor:
                 modules = set().union(*(KERNEL_SETS[name].modules for name in sets))
                 return zygote.expect_kernels(entries, sorted(modules))
             archs = sorted({accel.device_capability(entry) for entry in entries} - {0})
-            built = importlib.import_module("cozy_runtime.internal.triton_kernels")
+            from cozy_runtime.internal import triton_kernels as built
+
             return "; ".join(
                 f"{name} sm{arch} {built.expect(KERNEL_SETS[name], arch)}"
                 for name in sets
@@ -3540,6 +3548,7 @@ class Executor:
                         ),
                         max_output_bytes=command.max_output_bytes,
                         sources=sources,
+                        weights_bytes=weights_store.read_into,
                         weights_values=functools.partial(read_values_into, self.torch),
                         tensorfs_source=(
                             functools.partial(
@@ -3720,6 +3729,7 @@ class Executor:
                 "cuts": self.host.cuts.pop(
                     command.request_id, {"sites": [], "levels": {}, "oom_floor": 0}
                 ),
+                "loops": self.host.loops.pop(command.request_id, []),
             },
             "quiescent": quiescent,
             **_env_document(),
@@ -4102,7 +4112,9 @@ class Executor:
                 )
         return None
 
-    def _adopt_attention(self, command: Attention, choice: attention.Choice) -> dict[str, Any]:
+    def _adopt_attention(
+        self, command: Attention, choice: executor_commands.Choice
+    ) -> dict[str, Any]:
         """A follower's half of `_agree_attention`: rank 0's whole selection installed here as
         this construction's prepared one, and what this GPU then serves."""
         target = self._follower_target(command.construction, command.model_key)
@@ -4704,103 +4716,6 @@ class Executor:
         if checked != set(declarations):
             raise InvalidRequest("a prepared model slot is absent", code="prepared_use_binding")
 
-    def _prepare_program(self, command: Map) -> dict[str, Any]:
-        """A GPU warm command, alone under the existing process order and GPU permit.
-
-        Normal preflight and the declared factory run on the actual loaded models. This
-        neither enters the generation handler nor grants output or inference submission.
-        The returned readiness is a point-in-time fact, not a residency reservation.
-        """
-        record: AuthorAttempt | None = None
-        entered = False
-        reply: dict[str, Any]
-        try:
-            if command.level != "gpu" or not command.request_id:
-                raise InvalidRequest("program warming needs a GPU request", code="prepare_request")
-            if self.world != 1 or self.device_kind != "cuda":
-                raise CapabilityError(
-                    "program warming requires one CUDA device", code="prepare_device"
-                )
-            if not self.ready or self.poisoned:
-                raise CapabilityError("construction is not ready", code="executor_not_ready")
-            if command.entrypoint not in self.surface_names:
-                raise InvalidRequest("unknown warm entrypoint", code="unknown_entrypoint")
-            if not isinstance(command.payload, Mapping):
-                raise InvalidRequest(
-                    "warm payload must be a request object", code="prepare_payload"
-                )
-            registration = self.discovered.app.get(command.entrypoint)
-            if registration.prepare is None:
-                raise CapabilityError(
-                    "entrypoint declares no preparation factory", code="prepare_absent"
-                )
-            self._check_prepared_use(registration, command.payload)
-            prepared = prepare(registration, command.payload)
-            if prepared.asset_bounds:
-                raise CapabilityError(
-                    "program warming takes no input assets", code="prepare_assets"
-                )
-            if self.host.mux.cancelled(command.request_id):
-                raise InvalidRequest("warm preparation was canceled", code="cancelled")
-            entered = True
-            refused = self._grant(self, first=True)
-            if refused is not None:
-                reply = refused
-            else:
-                with self._request(command.request_id):
-                    if prepared.phases:
-                        self._plan_request(command.request_id, prepared.phases)
-                    ready, record = prepare_program(
-                        registration,
-                        prepared,
-                        Invocation(
-                            request_id=command.request_id,
-                            spool=self.root / "preparation",
-                            deadline=float("inf"),
-                            device=self._device(),
-                            cancel=functools.partial(self.host.mux.cancelled, command.request_id),
-                            models=self.models,
-                            progress=self._progress_sink(command.request_id),
-                            plan=functools.partial(self._plan_request, command.request_id),
-                        ),
-                    )
-                reply = {"ok": True, "prepared": ready, **prepared.digests()}
-        except Exception as exc:
-            outcome = classify(exc)
-            unwind(exc)
-            reply = {
-                "ok": False,
-                "code": outcome.code,
-                "detail": ends(outcome.message, 1024),
-                "terminal": outcome.terminal,
-                "origin": outcome.origin,
-                "traceback": outcome.traceback,
-            }
-            if outcome.code == DEVICE_FAULT:
-                self.poisoned = (
-                    self.poisoned or f"preparation device fault: {outcome.message}"[:300]
-                )
-        finally:
-            self.host.cuts.pop(command.request_id, None)
-        quiet = not entered
-        if entered:
-            try:
-                # Capture warmups and fills may use side streams. The whole device joins
-                # before the permit can be reused, including clean eligibility refusals.
-                accel.synchronize(self.torch, self.device_kind)
-                if self.residency is not None:
-                    self.residency.release()
-                quiet = self._quiescent()
-            except Exception as exc:
-                self.poisoned = self.poisoned or f"preparation did not settle: {exc}"[:300]
-            if not quiet:
-                self.poisoned = self.poisoned or "preparation completion was not proven"
-        self.host.poisoned = self.host.poisoned or self.poisoned
-        if record is not None:
-            reply["observations"] = record.ring.rows()
-            reply["adjustments"] = [adjustment_row(row) for row in record.rows]
-        return {**reply, "quiescent": quiet, "poisoned": self.poisoned}
-
     def map(self, command: Map) -> dict[str, Any]:
         """TensorD's warming: one loaded construction's models at `command.level`, on every GPU
         of a group."""
@@ -4811,8 +4726,6 @@ class Executor:
             return self._refusal(
                 "construction_not_loaded", f"{command.construction!r} is not loaded"
             )
-        if command.payload is not None:
-            return child._prepare_program(command)
         group = self.group if self.rank == 0 else None
         try:
             if group is not None:
@@ -5130,6 +5043,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _capture_seal()
     _remember_distributions()
+    declared_recipes.install(run_recipe)
     kernel_cache.configure(kernel_cache.from_sealed(_SEALED))
     # cr-042: the executor's ONE network fence, installed BEFORE the seam dials so the
     # AF_UNIX exemption is exercised on every boot rather than asserted. It refuses

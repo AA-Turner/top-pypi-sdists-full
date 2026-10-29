@@ -553,6 +553,14 @@ class CxObservationalMemoryEventManager(CxObservationalMemoryEventBase):
         }
 
 
+#: Inbox sources whose rows are NEWS for the running agent: taken at every boundary of a run
+#: (``claim_reports_now``), never held for its final one. A helper's report (``deferred_tool``),
+#: agent mail, a background run's end, a due wake-up, a steer returned because its helper ended.
+LIVE_REPORT_SOURCES = frozenset(
+    {"deferred_tool", "agent_message", "background_run", "scheduled_wake", "agent_steer_returned"}
+)
+
+
 def _row_seq(row: Any) -> int:
     """FIFO key for claim results — RETURNING rows may be raw dicts."""
     val = (
@@ -715,6 +723,49 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
             take = [head]
         else:
             take = [r for r in ordered if str(getattr(r, "kind", "") or "") != "user_message"]
+        claimed: list[CxPendingInjection] = []
+        for row in take:
+            result = await self.update_where(
+                {"id": str(row.id), "status": str(getattr(row, "status", "pending") or "pending")},
+                status="consumed",
+                consumed_at=datetime.now(UTC),
+                consumed_by_request_id=request_id,
+            )
+            claimed.extend(result.updated_rows or [])
+        return claimed
+
+    async def claim_reports_now(
+        self, conversation_id: str, *, request_id: str | None = None
+    ) -> list[CxPendingInjection]:
+        """Atomically claim every waiting REPORT for a conversation at ANY boundary of a run.
+
+        A helper's report, an agent's mail, a background run's end, a due wake-up and a
+        returned steer are news the running agent is waiting on, not a person's queued
+        message (Arman 2026-10-28: "Subagent results need to go to the agent immediately as
+        they finish"). They used to wait for the run's FINAL boundary, so a parent working
+        through a long loop, or answering the person's next message, acted without them and
+        re-asked finished helpers for answers already waiting (conversation 12313527). A
+        person's queued message is never taken here: it keeps the one-per-turn queue.
+        """
+        from datetime import UTC, datetime
+
+        candidates: list[CxPendingInjection] = []
+        for state in ("pending", "failed"):
+            candidates.extend(
+                await self.filter_items(
+                    conversation_id=conversation_id, status=state, delivery="turn_end"
+                )
+            )
+        take = [
+            r
+            for r in sorted(candidates, key=lambda r: int(r.enqueued_seq or 0))
+            if str(getattr(r, "kind", "") or "") != "user_message"
+            and str(getattr(r, "source", "") or "") in LIVE_REPORT_SOURCES
+            and not (
+                request_id
+                and str((r.metadata or {}).get("enqueued_by_request_id") or "") == str(request_id)
+            )
+        ]
         claimed: list[CxPendingInjection] = []
         for row in take:
             result = await self.update_where(

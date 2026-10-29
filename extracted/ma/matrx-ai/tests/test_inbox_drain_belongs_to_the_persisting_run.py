@@ -68,6 +68,10 @@ def _claim_spy(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
     monkeypatch.setattr(cxm.pending_injection, "claim_pending", claim_pending)
     monkeypatch.setattr(cxm.pending_injection, "claim_next_turn_end", claim_next_turn_end)
+    async def _no_reports(_cid, *, request_id=None):
+        return []
+
+    monkeypatch.setattr(cxm.pending_injection, "claim_reports_now", _no_reports)
     return claims
 
 

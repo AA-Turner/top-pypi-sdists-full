@@ -33,8 +33,7 @@ if typing.TYPE_CHECKING:
     from collections.abc import Callable
     from concurrent.futures import Executor, Future
     from types import FrameType
-
-    from typing_extensions import ParamSpec
+    from typing import ParamSpec
 
     _T = typing.TypeVar("_T")
     _Spec = ParamSpec("_Spec")
@@ -48,6 +47,7 @@ class SupportsFileno(typing.Protocol):
 
     def fileno(self) -> int:
         """Return the OS-level file descriptor for this object."""
+        ...
 
 
 class ExitMainLoop(Exception):
@@ -76,7 +76,7 @@ class EventLoop(abc.ABC):
         :param func: function to call
         :param args: arguments to function (positional only)
         :param kwargs: keyword arguments to function (keyword only)
-        :return: future object for the function call outcome.
+        :returns: future object for the function call outcome.
                  (exact future type depends on the event loop type)
         :raises NotImplementedError: this event loop cannot run callables in an executor.
         """
@@ -88,20 +88,19 @@ class EventLoop(abc.ABC):
 
         No parameters are passed to callback. This method has no default implementation.
 
-        Returns a handle that may be passed to remove_alarm().
-
         :param seconds: floating point time to wait before calling callback
         :param callback: function to call from event loop
+        :returns: a handle that may be passed to remove_alarm().
         """
 
     @abc.abstractmethod
-    def enter_idle(self, callback: typing.Any) -> typing.Any:
+    def enter_idle(self, callback: Callable[[], typing.Any]) -> typing.Any:
         """
         Add a callback for entering idle.
 
         This method has no default implementation.
 
-        Returns a handle that may be passed to remove_idle()
+        :returns: a handle that may be passed to remove_enter_idle()
         """
 
     @abc.abstractmethod
@@ -111,7 +110,7 @@ class EventLoop(abc.ABC):
 
         This method has no default implementation.
 
-        Returns True if the alarm exists, False otherwise
+        :returns: True if the alarm exists, False otherwise
         """
 
     @abc.abstractmethod
@@ -121,7 +120,7 @@ class EventLoop(abc.ABC):
 
         This method has no default implementation.
 
-        Returns True if the handle was removed.
+        :returns: True if the handle was removed.
         """
 
     @abc.abstractmethod
@@ -131,7 +130,7 @@ class EventLoop(abc.ABC):
 
         This method has no default implementation.
 
-        Returns True if the input file exists, False otherwise
+        :returns: True if the input file exists, False otherwise
         """
 
     @abc.abstractmethod
@@ -148,10 +147,9 @@ class EventLoop(abc.ABC):
 
         No parameters are passed to callback. This method has no default implementation.
 
-        Returns a handle that may be passed to remove_watch_file().
-
         :param fd: file descriptor to watch for input
         :param callback: function to call when input is available
+        :returns: a handle that may be passed to remove_watch_file().
         """
 
     def set_signal_handler(
@@ -166,7 +164,7 @@ class EventLoop(abc.ABC):
         and returns the resulting value.
 
         :param signum: signal number
-        :param handler: function (taking signum as its single argument),
+        :param handler: function taking the signal number and the current stack frame,
             or `signal.SIG_IGN`, or `signal.SIG_DFL`
         """
         return signal.signal(signum, handler)

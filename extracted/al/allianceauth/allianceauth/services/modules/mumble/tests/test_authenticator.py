@@ -390,7 +390,7 @@ class TestIdlerHandler(TestCase):
 
             # allowlist does NOT include current channel -> handler should return early
             idler_cfg = SimpleNamespace(
-                seconds=300, denylist=False, list=[1, 2, 3], channel=99, interval=1
+                seconds=300, denylist=False, list='1, 2, 3', channel=99, interval=1
             )
             server_config_obj = SimpleNamespace(idler_handler=idler_cfg)
 
@@ -420,7 +420,7 @@ class TestIdlerHandler(TestCase):
 
             # denylist True and includes channel 7 -> should return early
             idler_cfg = SimpleNamespace(
-                seconds=300, denylist=True, list=[7, 8], channel=99, interval=1
+                seconds=300, denylist=True, list='7, 8', channel=99, interval=1
             )
             server_config_obj = SimpleNamespace(idler_handler=idler_cfg)
 
@@ -464,7 +464,7 @@ class TestIdlerHandler(TestCase):
             server.getState.return_value = state
 
             idler_cfg = SimpleNamespace(
-                seconds=300, denylist=False, list=[1], channel=50, interval=7
+                seconds=300, denylist=False, list='1', channel=50, interval=7
             )
             server_config_obj = SimpleNamespace(idler_handler=idler_cfg)
 
@@ -495,7 +495,7 @@ class TestIdlerHandler(TestCase):
             server.getState.return_value = state
 
             idler_cfg = SimpleNamespace(
-                seconds=300, denylist=False, list=[99], channel=99, interval=1
+                seconds=300, denylist=False, list='99', channel=99, interval=1
             )
             server_config_obj = SimpleNamespace(idler_handler=idler_cfg)
 

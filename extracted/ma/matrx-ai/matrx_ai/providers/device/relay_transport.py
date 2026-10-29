@@ -51,8 +51,14 @@ RELAY_PROTOCOL_VERSION = "1.76"
 RELAY_VERSION_HEADER = "x-matrx-protocol-version"
 #: The relay's own defaults (relay/README.md): the first byte may wait for a model to load;
 #: idle is the silence allowed between DATA frames. The relay caps each at 900 000 ms.
-DEFAULT_FIRST_BYTE_TIMEOUT_MS = 300_000
-DEFAULT_IDLE_TIMEOUT_MS = 120_000
+#: Both are knobs (``ai.device_relay``); a host may still pin a value through ``configure_device_relay``.
+RELAY_KNOB_FEATURE = "ai.device_relay"
+FIRST_BYTE_TIMEOUT_KEY = "first_byte_timeout_ms"
+#: KNOB MIRROR of platform.feature_knob "ai.device_relay" "first_byte_timeout_ms"
+FIRST_BYTE_TIMEOUT_MS_MIRROR = 300_000
+IDLE_TIMEOUT_KEY = "idle_timeout_ms"
+#: KNOB MIRROR of platform.feature_knob "ai.device_relay" "idle_timeout_ms"
+IDLE_TIMEOUT_MS_MIRROR = 120_000
 #: Our backstop beyond the relay's own deadline, so the relay's typed answer arrives first.
 _HOP_HEADROOM_S = 15.0
 _CONNECT_TIMEOUT_S = 15.0
@@ -79,8 +85,8 @@ class DeviceCallTarget:
 class _RelaySeam:
     url: RelayUrl | None = None
     bearer: RelayBearer | None = None
-    first_byte_timeout_ms: int = DEFAULT_FIRST_BYTE_TIMEOUT_MS
-    idle_timeout_ms: int = DEFAULT_IDLE_TIMEOUT_MS
+    first_byte_timeout_ms: int | None = None
+    idle_timeout_ms: int | None = None
     #: The hop's own httpx transport (``None`` = the network). Tests bind a fake relay here.
     http_transport: httpx.AsyncBaseTransport | None = None
     peer_version: RelayPeerVersion | None = None
@@ -94,21 +100,43 @@ def configure_device_relay(
     *,
     url: RelayUrl | None,
     bearer: RelayBearer | None,
-    first_byte_timeout_ms: int = DEFAULT_FIRST_BYTE_TIMEOUT_MS,
-    idle_timeout_ms: int = DEFAULT_IDLE_TIMEOUT_MS,
+    first_byte_timeout_ms: int | None = None,
+    idle_timeout_ms: int | None = None,
     http_transport: httpx.AsyncBaseTransport | None = None,
     peer_version: RelayPeerVersion | None = None,
 ) -> None:
-    """Bind the host's relay URL and bearer; ``url=None`` unbinds (every device call refused)."""
+    """Bind the host's relay URL and bearer; ``url=None`` unbinds (every device call refused).
+
+    The two waits are read live from their knobs unless the host pins one here."""
     global _seam
     _seam = _RelaySeam(
         url=url,
         bearer=bearer,
-        first_byte_timeout_ms=int(first_byte_timeout_ms),
-        idle_timeout_ms=int(idle_timeout_ms),
+        first_byte_timeout_ms=None if first_byte_timeout_ms is None else int(first_byte_timeout_ms),
+        idle_timeout_ms=None if idle_timeout_ms is None else int(idle_timeout_ms),
         http_transport=http_transport,
         peer_version=peer_version,
     )
+
+
+def first_byte_timeout_ms() -> int:
+    """How long a device call waits for its first byte: the host's pinned value, else the live knob."""
+    if _seam.first_byte_timeout_ms is not None:
+        return _seam.first_byte_timeout_ms
+    from matrx_ai.knobs import package_knob_number
+
+    return package_knob_number(RELAY_KNOB_FEATURE, FIRST_BYTE_TIMEOUT_KEY, FIRST_BYTE_TIMEOUT_MS_MIRROR,
+                               low=1_000, high=900_000)  # the relay's own cap
+
+
+def idle_timeout_ms() -> int:
+    """The silence allowed between DATA frames: the host's pinned value, else the live knob."""
+    if _seam.idle_timeout_ms is not None:
+        return _seam.idle_timeout_ms
+    from matrx_ai.knobs import package_knob_number
+
+    return package_knob_number(RELAY_KNOB_FEATURE, IDLE_TIMEOUT_KEY, IDLE_TIMEOUT_MS_MIRROR,
+                               low=1_000, high=900_000)  # the relay's own cap
 
 
 #: The first desktop-protocol minor whose ``models.llm.chat`` takes ``chat_title`` (a strict schema refuses it before).
@@ -163,8 +191,8 @@ def relay_stream_envelope(target: DeviceCallTarget, body: dict[str, Any]) -> dic
             "start_if_stopped": True,
             **({"chat_title": target.chat_title.strip()[:200]} if target.chat_title and target.chat_title.strip() else {}),
         },
-        "first_byte_timeout_ms": _seam.first_byte_timeout_ms,
-        "idle_timeout_ms": _seam.idle_timeout_ms,
+        "first_byte_timeout_ms": first_byte_timeout_ms(),
+        "idle_timeout_ms": idle_timeout_ms(),
     }
 
 
@@ -241,7 +269,7 @@ class RelayStreamTransport(httpx.AsyncBaseTransport):
         loop = asyncio.get_running_loop()
         bound = _seam.http_transport
         if self._hop is None or self._hop_loop is not loop or self._hop_transport is not bound:
-            read_s = _seam.first_byte_timeout_ms / 1000 + _HOP_HEADROOM_S
+            read_s = first_byte_timeout_ms() / 1000 + _HOP_HEADROOM_S
             self._hop = httpx.AsyncClient(
                 transport=bound,
                 timeout=httpx.Timeout(
@@ -300,7 +328,7 @@ class RelayStreamTransport(httpx.AsyncBaseTransport):
         except httpx.TimeoutException:
             raise _refuse(
                 "DeviceTimeoutError",
-                f"the relay gave no answer within {_seam.first_byte_timeout_ms} ms (+ headroom)",
+                f"the relay gave no answer within {first_byte_timeout_ms()} ms (+ headroom)",
                 reason="hop_timeout",
             ) from None
         except httpx.TransportError as exc:
@@ -333,7 +361,7 @@ class RelayStreamTransport(httpx.AsyncBaseTransport):
             headers={"content-type": content_type or "text/event-stream"},
             stream=_GuardedSseStream(
                 upstream,
-                idle_s=_seam.idle_timeout_ms / 1000 + _HOP_HEADROOM_S,
+                idle_s=idle_timeout_ms() / 1000 + _HOP_HEADROOM_S,
                 is_sse=content_type.lower().startswith("text/event-stream"),
             ),
             request=request,
@@ -346,8 +374,10 @@ class RelayStreamTransport(httpx.AsyncBaseTransport):
 
 
 __all__ = [
-    "DEFAULT_FIRST_BYTE_TIMEOUT_MS",
-    "DEFAULT_IDLE_TIMEOUT_MS",
+    "FIRST_BYTE_TIMEOUT_MS_MIRROR",
+    "IDLE_TIMEOUT_MS_MIRROR",
+    "first_byte_timeout_ms",
+    "idle_timeout_ms",
     "RELAY_CAP",
     "RELAY_OP",
     "RELAY_PROTOCOL_VERSION",

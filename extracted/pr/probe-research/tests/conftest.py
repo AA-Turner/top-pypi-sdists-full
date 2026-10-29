@@ -895,6 +895,7 @@ _EXP_RUNS = re.compile(r"^/v1/experiments/([^/]+)/runs$")
 _PROJ_RUNS = re.compile(r"^/v1/projects/([^/]+)/runs$")
 _EXP_ITEM = re.compile(r"^/v1/experiments/([^/]+)$")
 _PROJ_ITEM = re.compile(r"^/v1/projects/([^/]+)$")
+_PROJ_REFERENCES = re.compile(r"^/v1/projects/([^/]+)/references$")
 _WS_ITEM = re.compile(r"^/v1/workspaces/([^/]+)$")
 _WS_DEFAULT = re.compile(r"^/v1/workspaces/([^/]+)/default$")
 _WS_FILES = re.compile(r"^/v1/workspaces/([^/]+)/files$")
@@ -1804,6 +1805,8 @@ class FakeApp:
         #: project id -> its papers (0152).
         #: project id -> its reference edges (0153).
         self.project_references: dict[str, list[dict]] = {}
+        #: Every `POST /v1/projects/{id}/references` body, with its `from` (0401).
+        self.reference_writes: list[dict] = []
         self.papers: dict[str, list[dict]] = {}
         # Phase 6 derived code reads, seeded by tests as canned payloads: the
         # real assembly is SQL over stored link rows, which the fake has no
@@ -1968,6 +1971,14 @@ class FakeApp:
         self.web_responses: dict[str, dict | None] = {}
         self.web_status: int | None = None
         self.web_detail: str = "web search is not configured on this deployment"
+        # GET /public/v1/docs (Probe's own docs). Answered by default with no
+        # sections; `docs_response` is returned verbatim and `docs_status`
+        # overrides it with that status. Every request's params and whether it
+        # carried a credential are kept: the route is public, and the MCP's docs
+        # search must never fall through to POST /v1/search.
+        self.docs_requests: list[dict] = []
+        self.docs_response: dict | None = None
+        self.docs_status: int | None = None
         # /v1/search (workspaces+kb fold-in): None = a backend that predates the
         # endpoint (404); a dict is returned verbatim. Bodies are captured either way.
         # search_responses (a queue, popped per request) takes precedence over
@@ -3660,6 +3671,14 @@ class FakeApp:
                 return httpx.Response(404, json={"detail": "Not Found"})
             return httpx.Response(200, json=self._echo_scope(self.search_response, body))
 
+        if path == "/public/v1/docs" and method == "GET":
+            self.docs_requests.append(
+                {**request.url.params, "authorized": "authorization" in request.headers}
+            )
+            if self.docs_status is not None:
+                return httpx.Response(self.docs_status, json={"detail": "docs refused"})
+            return httpx.Response(200, json=self.docs_response or {"state": "ok", "sections": []})
+
         # -- the open web (POST /v1/web/*) ------------------------------------
         # Answered by default, unlike /v1/search above, and for the opposite
         # reason: an unconfigured deployment 503s rather than 404s, so "the
@@ -3708,7 +3727,11 @@ class FakeApp:
                 )
             workspace_id = body.get("workspace_id")
             if workspace_id is None:
-                parent = self.projects.get(body.get("parent_project_id"))
+                # 0401: a linked create with no workspace is filed beside its
+                # first `part_of` target, as a parented one was beside its parent.
+                parent = self.projects.get(body.get("parent_project_id")) or self.projects.get(
+                    (body.get("part_of") or [None])[0]
+                )
                 workspace_id = (
                     parent["workspace_id"]
                     if parent is not None
@@ -3746,6 +3769,13 @@ class FakeApp:
                 "metadata": body.get("metadata") or {},
                 # 0148/0149: the fields the tree + kind surfaces write.
                 "parent_project_id": body.get("parent_project_id"),
+                # 0401: what it is a part of, the parent first, as the server links them.
+                "part_of": list(
+                    dict.fromkeys(
+                        ([body["parent_project_id"]] if body.get("parent_project_id") else [])
+                        + list(body.get("part_of") or [])
+                    )
+                ),
                 "kind": body.get("kind", "general"),
                 "created_at": _T0,
             }
@@ -3774,7 +3804,23 @@ class FakeApp:
             parent_id = request.url.params.get("parent_id")
             if parent_id:
                 rows = [r for r in rows if r.get("parent_project_id") == parent_id]
+            # 0401: one hop of `part_of` links. Same reason as parent_id above.
+            whole = request.url.params.get("part_of")
+            if whole:
+                rows = [r for r in rows if whole in (r.get("part_of") or [])]
             return httpx.Response(200, json=rows)
+
+        m = _PROJ_REFERENCES.match(path)
+        if m and method == "POST":
+            # 0153/0401: one link per ordered pair. Recorded as sent; a part_of
+            # one also lands on the row's `part_of`, as the server reads it.
+            pid, to = m.group(1), body.get("to_project_id")
+            if pid not in self.projects or to not in self.projects:
+                return httpx.Response(404, json={"detail": "project not found"})
+            self.reference_writes.append({"from": pid, **body})
+            if body.get("relation") == "part_of" and to not in self.projects[pid].setdefault("part_of", []):
+                self.projects[pid]["part_of"].append(to)
+            return httpx.Response(204)
 
         m = _PROJ_ITEM.match(path)
         if m and method == "DELETE":

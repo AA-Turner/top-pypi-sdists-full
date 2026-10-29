@@ -10,7 +10,6 @@ class AnalyticsIdentifierAdmin(SingletonModelAdmin):
     readonly_fields = ['identifier', ]
 
 
-
 @admin.register(AnalyticsTokens)
 class AnalyticsTokensAdmin(admin.ModelAdmin):
     search_fields = ['name', ]

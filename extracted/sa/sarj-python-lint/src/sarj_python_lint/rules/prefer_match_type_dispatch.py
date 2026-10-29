@@ -9,23 +9,26 @@ from sarj_python_lint.rule_base import (
     Diagnostic,
     ExampleFile,
     ExampleOutcome,
-    Rule,
+    ProjectRule,
     RuleCategory,
     RuleDocumentation,
     RuleExample,
     Severity,
 )
 from sarj_python_lint.rules._annotation_semantics import bit_or_members as _flatten_union
+from sarj_python_lint.rules._declared_contracts import MODEL_BASES, DeclaredContracts
 
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
     from pathlib import Path
 
     from sarj_python_lint._file_context import PythonFileContext
     from sarj_python_lint.rules._imports import ImportIndex
 
 
-_MIN_BRANCHES = 3
+_MIN_BRANCHES = 2
+_MIN_REVIEW_BRANCHES = 2
 _ISINSTANCE_ARGS = 2
 _BUILTIN_TYPES = frozenset(
     {
@@ -78,19 +81,25 @@ class _TypeBranch(NamedTuple):
     types: frozenset[str]
 
 
+class _ReviewBranch(NamedTuple):
+    subject: str
+    types: frozenset[str]
+    model_or_enum: bool
+
+
 class _Dispatch(NamedTuple):
     subject: str
     branch_count: int
 
 
 @final
-class PreferMatchTypeDispatch(Rule):
+class PreferMatchTypeDispatch(ProjectRule):
     id: str = "prefer-match-type-dispatch"
     code: str = "SARJ080"
     documentation: ClassVar[RuleDocumentation | None] = RuleDocumentation(
         summary="Prefer `match` for structural runtime type dispatch.",
         rationale=(
-            "A long mutually exclusive `isinstance` dispatch repeats its subject and hides the closed list of "
+            "A repeated mutually exclusive `isinstance` dispatch repeats its subject and hides the closed list of "
             "runtime shapes. Class patterns make the alternatives explicit without repeating the dispatch subject."
         ),
         remediation=(
@@ -101,7 +110,8 @@ class PreferMatchTypeDispatch(Rule):
         autofix=AutofixPolicy.SAFE,
         limitations=(
             "Safe fixes require a closed private nested synchronous helper with proven inert containing scopes and exact primitive literal callers. Only comment-free builtin class-check ladders on one parameter qualify; unknown subjects, callbacks, frame/closure escapes, sibling checks, grouped conditions, guards and custom classes remain review-only.",
-            "General dispatch requires three or more adjacent, unguarded `isinstance` branches over the same simple name. Two arms are checked only for an exact `ast.Name.id` / `ast.Attribute.attr` projection followed by a None-returning fallback.",
+            "General dispatch requires two or more adjacent, unguarded `isinstance` branches over the same simple name. Repeated isinstance calls joined only by or on that same name are also checked; use an OR class pattern for shared behavior. A single isinstance call with a type union remains allowed.",
+            "Additional review warnings require at least one source-proven Pydantic/Enum branch. Native-only sequences retain the established proof and exclusions. Mixed model/builtin dispatch is supported; review warnings have no automatic fixes.",
             "A terminating sibling prefix may precede a two-arm if/elif tail whose bodies can fall through. Preserve nested checks inside case bodies rather than moving them into case guards.",
             "The checked types must be unshadowed builtins, undecorated module-local classes without an explicit or known locally inherited custom metaclass, or proven stdlib ast classes; unresolved imports, runtime type groups, repeated type references, generated files, and non-terminating sibling checks are excluded.",
             "Local ancestry must resolve to stable undeclared-metaclass classes or proven builtin/stdlib ast bases. External bases, runtime base aliases, and parameterized base expressions remain excluded because their metaclass or __class_getitem__ effects are unproven.",
@@ -229,6 +239,66 @@ class PreferMatchTypeDispatch(Rule):
                 public=True,
             ),
             RuleExample(
+                example_id="two-type-dispatch",
+                scenario="two-type-dispatch",
+                title="Two branches already repeat the same type dispatch",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/types.py",
+                        "def label(value):\n    if isinstance(value, str):\n        return 'text'\n    elif isinstance(value, bytes):\n        return 'binary'\n    return 'other'\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/types.py"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="two-class-patterns",
+                scenario="two-type-dispatch",
+                title="Class patterns name both alternatives",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/types.py",
+                        "def label(value):\n    match value:\n        case str():\n            return 'text'\n        case bytes():\n            return 'binary'\n    return 'other'\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/types.py"),
+                expected_count=0,
+                public=True,
+            ),
+            RuleExample(
+                example_id="repeated-isinstance-or",
+                scenario="or-type-dispatch",
+                title="Repeated boolean checks share one type subject",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/types.py",
+                        "def is_text(value):\n    if isinstance(value, str) or isinstance(value, bytes):\n        return True\n    return False\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/types.py"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="or-class-pattern",
+                scenario="or-type-dispatch",
+                title="One OR pattern declares shared handling",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/types.py",
+                        "def is_text(value):\n    match value:\n        case str() | bytes():\n            return True\n    return False\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/types.py"),
+                expected_count=0,
+                public=True,
+            ),
+            RuleExample(
                 example_id="safe-autofix-subset",
                 title="A proven subset has a convergent automatic fix",
                 outcome=ExampleOutcome.MATCH,
@@ -279,22 +349,25 @@ class PreferMatchTypeDispatch(Rule):
         if not imports.builtin_is_unshadowed("isinstance") or "isinstance" in unsafe_bindings or has_wildcard_import:
             return []
         local_classes = _unshadowed_module_classes(tree, all_nodes, imports, unsafe_bindings)
-        findings = _ladder_findings(
+        covered: set[int] = set()
+        findings = _sibling_findings(
             all_nodes,
             path,
             self.code,
             imports,
             local_classes,
             unsafe_bindings=unsafe_bindings,
+            covered=covered,
         )
         findings.extend(
-            _sibling_findings(
+            _ladder_findings(
                 all_nodes,
                 path,
                 self.code,
                 imports,
                 local_classes,
                 unsafe_bindings=unsafe_bindings,
+                covered=covered,
             )
         )
         findings.extend(
@@ -307,10 +380,174 @@ class PreferMatchTypeDispatch(Rule):
                 unsafe_bindings=unsafe_bindings,
             )
         )
+        findings.extend(
+            _or_dispatch_findings(
+                all_nodes,
+                path,
+                self.code,
+                imports,
+                local_classes,
+                unsafe_bindings=unsafe_bindings,
+                covered=covered,
+                occupied={(finding.line, finding.col) for finding in findings},
+            )
+        )
+        findings.extend(_review_dispatch_findings(context, local_classes, unsafe_bindings, findings))
         if findings and context.session.python_target.has_declared_support_before(path, (3, 10)):
             return []
+        findings = list({(finding.line, finding.col): finding for finding in findings}.values())
         findings.sort(key=lambda diagnostic: (diagnostic.line, diagnostic.col))
         return findings
+
+
+def _or_dispatch_findings(
+    all_nodes: tuple[ast.AST, ...],
+    path: Path,
+    code: str,
+    imports: ImportIndex,
+    local_classes: frozenset[str],
+    *,
+    unsafe_bindings: frozenset[str],
+    covered: set[int],
+    occupied: set[tuple[int, int]],
+) -> list[Diagnostic]:
+    findings: list[Diagnostic] = []
+    for node in all_nodes:
+        if (
+            not isinstance(node, ast.If)
+            or id(node) in covered
+            or not isinstance(node.test, ast.BoolOp)
+            or not isinstance(node.test.op, ast.Or)
+        ):
+            continue
+        branch = _type_branch(node.test, imports, local_classes, unsafe_bindings)
+        if (
+            branch is not None
+            and len(branch.types) >= _MIN_BRANCHES
+            and (node.lineno, node.col_offset + 1) not in occupied
+        ):
+            findings.append(
+                _diagnostic(
+                    path,
+                    code,
+                    node,
+                    _Dispatch(branch.subject, len(node.test.values)),
+                    "isinstance OR condition",
+                )
+            )
+    return findings
+
+
+def _review_dispatch_findings(
+    context: PythonFileContext,
+    local_classes: frozenset[str],
+    unsafe_bindings: frozenset[str],
+    existing: list[Diagnostic],
+) -> list[Diagnostic]:
+    contracts = DeclaredContracts(context)
+    used = {item.line for item in existing}
+    findings: list[Diagnostic] = []
+    for candidates in _review_sequences(context, used):
+        branches = _review_dispatch_proven(candidates, context, contracts, local_classes, unsafe_bindings)
+        if branches is None:
+            continue
+        used.update(branch.lineno for branch in branches)
+        statement = branches[0]
+        findings.append(
+            Diagnostic(
+                context.path,
+                statement.lineno,
+                statement.col_offset + 1,
+                "SARJ080",
+                "Review this runtime type dispatch as match/case class patterns; preserve branch order, "
+                "fallbacks and nested guards. This broader recommendation has no automatic rewrite.",
+                severity=Severity.WARNING,
+            )
+        )
+    return findings
+
+
+def _review_sequences(context: PythonFileContext, used: set[int]) -> Iterator[Iterator[ast.If]]:
+    blocks = (block for owner in context.nodes(ast.AST) for block in _statement_blocks(owner))
+    for block in blocks:
+        yield from _review_block(block, used)
+
+
+def _review_block(statements: list[ast.stmt], used: set[int]) -> Iterator[Iterator[ast.If]]:
+    for index, statement in enumerate(statements):
+        if not isinstance(statement, ast.If):
+            continue
+        branches = _review_branches(statements, index)
+        if statement.lineno in used:
+            used.update(branch.lineno for branch in branches)
+        else:
+            yield branches
+
+
+def _review_dispatch_proven(
+    branches: Iterable[ast.If],
+    context: PythonFileContext,
+    contracts: DeclaredContracts,
+    local_classes: frozenset[str],
+    unsafe_bindings: frozenset[str],
+) -> list[ast.If] | None:
+    proven: list[ast.If] = []
+    subject: str | None = None
+    seen: set[str] = set()
+    has_model_or_enum = False
+    for node in branches:
+        branch = _review_branch(node, context, contracts, local_classes, unsafe_bindings)
+        if branch is None or (subject is not None and branch.subject != subject) or seen & branch.types:
+            return None
+        subject = branch.subject
+        seen.update(branch.types)
+        has_model_or_enum |= branch.model_or_enum
+        proven.append(node)
+    return proven if len(proven) >= _MIN_REVIEW_BRANCHES and has_model_or_enum else None
+
+
+def _review_branches(statements: list[ast.stmt], index: int) -> Iterator[ast.If]:
+    first = statements[index]
+    if not isinstance(first, ast.If):
+        return
+    yield first
+    current = first
+    while len(current.orelse) == 1 and isinstance(current.orelse[0], ast.If):
+        current = current.orelse[0]
+        yield current
+    if current is not first:
+        return
+    for position in range(index + 1, len(statements)):
+        statement = statements[position]
+        if current.orelse or not _body_terminates(current.body) or not isinstance(statement, ast.If):
+            return
+        yield statement
+        current = statement
+        if statement.orelse:
+            return
+
+
+def _review_branch(
+    node: ast.If,
+    context: PythonFileContext,
+    contracts: DeclaredContracts,
+    local_classes: frozenset[str],
+    unsafe_bindings: frozenset[str],
+) -> _ReviewBranch | None:
+    test = node.test
+    match test:
+        case ast.Call(func=ast.Name(id="isinstance"), args=[ast.Name(id=subject), kind], keywords=[]):
+            pass
+        case _:
+            return None
+    if known := _type_references(kind, context.imports, local_classes, unsafe_bindings):
+        return _ReviewBranch(subject, known, model_or_enum=False)
+    if not isinstance(kind, ast.Name | ast.Attribute):
+        return None
+    model = contracts.class_type(kind, at=test)
+    if model is None or not contracts.inherits(model, MODEL_BASES | {"enum.Enum", "enum.IntEnum", "enum.StrEnum"}):
+        return None
+    return _ReviewBranch(subject, frozenset({f"{model.unit.module}.{model.declaration.name}"}), model_or_enum=True)
 
 
 def _unshadowed_module_classes(
@@ -455,9 +692,10 @@ def _ladder_findings(
     local_classes: frozenset[str],
     *,
     unsafe_bindings: frozenset[str],
+    covered: set[int],
 ) -> list[Diagnostic]:
     findings: list[Diagnostic] = []
-    continuations: set[int] = set()
+    continuations = set(covered)
     for node in all_nodes:
         if not isinstance(node, ast.If) or id(node) in continuations:
             continue
@@ -468,9 +706,14 @@ def _ladder_findings(
             current = current.orelse[0]
             branches.append(current)
             child_ids.append(id(current))
+        if any(
+            isinstance(part, ast.Call) and isinstance(part.func, ast.Name) and part.func.id == "isinstance"
+            for part in ast.walk(node.test)
+        ):
+            continuations.update(child_ids)
         dispatch = _dispatch(branches, imports, local_classes, unsafe_bindings)
         if dispatch is not None:
-            continuations.update(child_ids)
+            covered.update(child_ids)
             findings.append(_diagnostic(path, code, node, dispatch, "isinstance ladder"))
     return findings
 
@@ -483,6 +726,7 @@ def _sibling_findings(
     local_classes: frozenset[str],
     *,
     unsafe_bindings: frozenset[str],
+    covered: set[int],
 ) -> list[Diagnostic]:
     findings: list[Diagnostic] = []
 
@@ -500,6 +744,7 @@ def _sibling_findings(
                         cursor += 1
             dispatch = _dispatch(run, imports, local_classes, unsafe_bindings)
             if dispatch is not None:
+                covered.update(id(branch) for branch in run[1:])
                 shape = (
                     "terminating isinstance prefix with if/elif tail"
                     if run[-2].orelse
@@ -697,6 +942,8 @@ def _type_branch(
     local_classes: frozenset[str],
     unsafe_bindings: frozenset[str],
 ) -> _TypeBranch | None:
+    if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.Or):
+        return _or_type_branch(test, imports, local_classes, unsafe_bindings)
     if not (
         isinstance(test, ast.Call)
         and isinstance(test.func, ast.Name)
@@ -708,6 +955,26 @@ def _type_branch(
         return None
     types = _type_references(test.args[1], imports, local_classes, unsafe_bindings)
     return _TypeBranch(test.args[0].id, types) if types else None
+
+
+def _or_type_branch(
+    test: ast.BoolOp,
+    imports: ImportIndex,
+    local_classes: frozenset[str],
+    unsafe_bindings: frozenset[str],
+) -> _TypeBranch | None:
+    parts = [_type_branch(value, imports, local_classes, unsafe_bindings) for value in test.values]
+    if any(part is None for part in parts):
+        return None
+    branches = [part for part in parts if part is not None]
+    if len({part.subject for part in branches}) != 1:
+        return None
+    combined_types: set[str] = set()
+    for part in branches:
+        if combined_types & part.types:
+            return None
+        combined_types.update(part.types)
+    return _TypeBranch(branches[0].subject, frozenset(combined_types))
 
 
 def _type_references(

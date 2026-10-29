@@ -97,7 +97,9 @@ PyQtSlot::Result PyQtSlot::invoke(void **qargs, PyObject *self, void *result,
     else
     {
         // Use the value we have if one wasn't supplied.
-        if (!self)
+        if (self)
+            Py_INCREF(self);
+        else
             self = instance();
 
         // If self is NULL then we didn't have a method in the first place.
@@ -108,12 +110,18 @@ PyQtSlot::Result PyQtSlot::invoke(void **qargs, PyObject *self, void *result,
 
         // See if the instance has gone (which isn't an error).
         if (self == Py_None)
+        {
+            Py_DECREF(self);
             return PyQtSlot::Ignored;
+        }
 
         // If the receiver wraps a C++ object then ignore the call if it no
         // longer exists.
         if (!no_receiver_check && PyObject_TypeCheck(self, sipSimpleWrapper_Type) && !sipGetAddress((sipSimpleWrapper *)self))
+        {
+            Py_DECREF(self);
             return PyQtSlot::Ignored;
+        }
 
         sipMethodDef callable_m;
 
@@ -121,6 +129,7 @@ PyQtSlot::Result PyQtSlot::invoke(void **qargs, PyObject *self, void *result,
         callable_m.pm_self = self;
 
         callable = sipFromMethod(&callable_m);
+        Py_DECREF(self);
     }
 
     // Convert the C++ arguments to Python objects.
@@ -181,7 +190,11 @@ bool PyQtSlot::operator==(PyObject *callable) const
         if (other)
             return false;
 
-        return (mfunc == callable_m.pm_function && instance() == callable_m.pm_self);
+        PyObject *instance_obj = instance();
+        bool res = (mfunc == callable_m.pm_function && instance_obj == callable_m.pm_self);
+        Py_XDECREF(instance_obj);
+
+        return res;
     }
 
     if (!other)
@@ -202,14 +215,30 @@ bool PyQtSlot::operator==(PyObject *callable) const
 }
 
 
-// Get the instance object.
+// Get a strong reference to the instance object, otherwise return NULL or a
+// strong referenc to Py_None.
 PyObject *PyQtSlot::instance() const
 {
+    PyObject *instance_obj;
+
     // Use the weak reference if possible.
     if (mself_wr)
-        return PyWeakref_GetObject(mself_wr);
+    {
+#if PY_VERSION_HEX >= 0x030f0000
+        if (PyWeakref_GetRef(mself_wr, &instance_obj) < 0)
+            instance_obj = NULL;
+#else
+        instance_obj = PyWeakref_GetObject(mself_wr);
+        Py_XINCREF(instance_obj);
+#endif
+    }
+    else
+    {
+        instance_obj = mself;
+        Py_XINCREF(instance_obj);
+    }
 
-    return mself;
+    return instance_obj;
 }
 
 

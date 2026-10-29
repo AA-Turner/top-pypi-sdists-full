@@ -19,7 +19,11 @@ from dbos import (
     SetWorkflowTimeout,
     WorkflowHandleAsync,
 )
-from dbos._context import assert_current_dbos_context, get_local_dbos_context
+from dbos._context import (
+    assert_current_dbos_context,
+    get_local_dbos_context,
+    get_workflow_start_options,
+)
 from dbos._dbos import WorkflowHandle
 from dbos._error import DBOSAwaitedWorkflowCancelledError, DBOSPatchNondeterminismError
 from dbos._event_loop import BackgroundEventLoop
@@ -762,7 +766,7 @@ async def test_workflow_timeout_async(dbos: DBOS) -> None:
 
     @DBOS.workflow()
     async def blocked_workflow() -> None:
-        assert assert_current_dbos_context().workflow_timeout_ms is None
+        assert get_workflow_start_options().workflow_timeout_ms is None
         while True:
             await DBOS.sleep_async(0.1)
 
@@ -791,7 +795,7 @@ async def test_workflow_timeout_async(dbos: DBOS) -> None:
 
     @DBOS.workflow()
     async def parent_workflow() -> None:
-        assert assert_current_dbos_context().workflow_timeout_ms is None
+        assert get_workflow_start_options().workflow_timeout_ms is None
         assert assert_current_dbos_context().workflow_deadline_epoch_ms is not None
         with SetWorkflowID(start_child):
             await DBOS.start_workflow_async(blocked_workflow)
@@ -1512,3 +1516,24 @@ def test_failed_dequeued_async_workflow_leaves_no_unretrieved_future(
         retry_until_success(control_detected, interval=0.1, max_attempts=50)
     finally:
         loop.set_exception_handler(previous_handler)
+
+
+def test_asyncio_run_keeps_dbos_executor(dbos: DBOS) -> None:
+    @DBOS.workflow()
+    def workflow(x: int) -> int:
+        return x + 1
+
+    @DBOS.step()
+    def step(x: int) -> int:
+        return x + 1
+
+    @DBOS.workflow()
+    async def async_workflow(x: int) -> int:
+        return await asyncio.to_thread(step, x)
+
+    # asyncio.run() shuts down its loop's default executor on exit
+    asyncio.run(DBOS.list_workflows_async())
+
+    assert DBOS.start_workflow(workflow, 1).get_result() == 2
+    assert asyncio.run(async_workflow(2)) == 3
+    assert DBOS.start_workflow(workflow, 3).get_result() == 4

@@ -31,6 +31,7 @@ from cozy_runtime.author.kernels import (
     INT8_CONVROT,
     ROWWISE_FP8,
     PreQuantized,
+    read,
     readable,
     shared_operand,
 )
@@ -229,24 +230,27 @@ def _native_leaf_class(torch: ModuleType) -> type:
             # modulation heads) has its weight read in (cr-208).
             ops = _NATIVE_OPS[self.provider]
             out_dtype = self.out_dtype
-            with readable(self.data, self.scale, self.bias) as (data, scale, bias):
-                if isinstance(x, PreQuantized):
-                    # A producer's prologue (`kernels.int8_rows`) hands the operand in place of x.
-                    if torch.is_autocast_enabled(x.payload.device.type):
-                        out_dtype = torch.get_autocast_dtype(x.payload.device.type)
-                    return ops.gemm(torch, x, data, scale, bias, out_dtype)
-                cast = x
-                if torch.is_autocast_enabled(x.device.type):
-                    # As the replaced `nn.Linear` does: from and to the autocast dtype.
-                    out_dtype = torch.get_autocast_dtype(x.device.type)
-                    cast = x.to(out_dtype)
-                if prequantized is None or prequantized.provider != self.provider:
-                    prequantized = shared_operand(
-                        x, self.provider, lambda: ops.quantize(torch, cast)
-                    )
-                if prequantized is not None:
-                    return ops.gemm(torch, prequantized, data, scale, bias, out_dtype)
+            data, scale, bias = read(self.data), read(self.scale), read(self.bias)
+            if isinstance(x, PreQuantized):
+                # A producer's prologue (`kernels.int8_rows`) hands the operand in place of x.
+                if torch.is_autocast_enabled(x.payload.device.type):
+                    out_dtype = torch.get_autocast_dtype(x.payload.device.type)
+                return ops.gemm(torch, x, data, scale, bias, out_dtype)
+            cast = x
+            if torch.is_autocast_enabled(x.device.type):
+                # As the replaced `nn.Linear` does: from and to the autocast dtype.
+                out_dtype = torch.get_autocast_dtype(x.device.type)
+                cast = x.to(out_dtype)
+            few = ops is int8_linear and x.numel() <= int8_linear.GEMV_ROWS * x.shape[-1]
+            if prequantized is None and few:
+                # A decode step's row or few: the op's one GEMV launch, which no shared operand
+                # serves (`int8_linear.quantize` declines so few rows).
                 return ops.linear(torch, cast, data, scale, bias, out_dtype)
+            if prequantized is None or prequantized.provider != self.provider:
+                prequantized = shared_operand(x, self.provider, lambda: ops.quantize(torch, cast))
+            if prequantized is not None:
+                return ops.gemm(torch, prequantized, data, scale, bias, out_dtype)
+            return ops.linear(torch, cast, data, scale, bias, out_dtype)
 
         def int8_prologue(
             self,
@@ -803,6 +807,8 @@ def _svdq_leaf_class(torch: ModuleType) -> type:
         #: factors and branch bound at these addresses.
         _merged: tuple[tuple[object, ...], dict[str, Tensor] | None, tuple[Tensor, Tensor]] | None
         _merged = None
+        #: Whether the weight is in the prebuilt GEMM's tiles (`svdq_linear.tiled`).
+        tiled = False
 
         def adopt(
             self, lora: Callable[[], list[tuple[object, Tensor, Tensor, float]]] | None
@@ -837,7 +843,7 @@ def _svdq_leaf_class(torch: ModuleType) -> type:
                     if merged is not None:
                         roles.update(merged)
                         apart = None
-                y = svdq_linear.linear(torch, x, roles, bias, out_dtype)
+                y = svdq_linear.linear(torch, x, roles, bias, out_dtype, self.tiled)
             if apart is not None:  # more ranks than the kernels take: the LoRAs' own term
                 down, up = apart
                 y = y + ((x.to(down.dtype) @ down.t()) @ up.t()).to(y.dtype)
@@ -970,10 +976,15 @@ class SvdqNvfp4NativeLeaf:
             "lowrank_down": down,
             "lowrank_up": up,
         }
+        placed = placed_device()
+        tiled = placed.type == "cuda" and svdq_linear.tiled(torch, placed.index or 0, out_features)
+        if tiled:  # the prebuilt kernels' tiles (RTX 50); asking starts their probe beside the fill
+            svdq_linear.native(torch, placed.index or 0)
+            roles["weight"], roles["scale"] = svdq_linear.tiles(torch, weight, scale)
         for role in ("channel_scale", "input_scale"):
             if role in parts:
                 roles[role] = parts[role].to(torch.float32)
-        return _svdq_leaf_class(torch)(
+        leaf = _svdq_leaf_class(torch)(
             None,
             roles,
             getattr(replaced, "bias", None),
@@ -983,6 +994,8 @@ class SvdqNvfp4NativeLeaf:
             in_features,
             out_features,
         )
+        leaf.tiled = tiled
+        return leaf
 
 
 def quantize_activation_mx(torch: ModuleType, x: Tensor) -> tuple[Tensor, Tensor]:

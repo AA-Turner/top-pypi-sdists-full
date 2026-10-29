@@ -520,6 +520,12 @@ def skills_root() -> Path | None:
 #: summaries (writer-owns-summary §3.6); `overview-visuals` is a `read` away,
 #: named by track-work's Close line.
 SHARED_SKILLS = ("track-work", "write-summary", "edit-notes")
+#: The skills a page is written by (custom Claude artifacts, 2026-10-28), shown
+#: whole in the conversation once (`worker._page_skills`): write-summary named
+#: them as a read away and the writer read `artifact-design` in 2 of 53
+#: sessions that pushed a page.
+PAGE_SKILLS = ("overview-page", "overview-contract", "overview-charts", "artifact-design", "artifact-diagramming")
+PAGE_SKILLS_HEADER = "# Page skills (shown here whole, no need to read their files; {digest})"
 #: The skills the team-note audit runs by (daemon-team-note-audit), shown whole:
 #: the audit itself, and how the team note is edited.
 AUDIT_SKILLS = ("audit-team-note", "edit-notes")

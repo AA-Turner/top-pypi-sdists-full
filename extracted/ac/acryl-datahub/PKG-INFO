@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.7.0.17
+Version: 1.7.0.18
 Summary: DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog
 Home-page: https://datahub.com/
 License-Expression: Apache-2.0
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
@@ -111,6 +112,7 @@ Requires-Dist: azure-identity<2.0.0,>=1.21.0; extra == "azure-auth"
 Provides-Extra: azure-data-factory
 Requires-Dist: azure-identity<2.0.0,>=1.21.0; extra == "azure-data-factory"
 Requires-Dist: azure-mgmt-datafactory<10.0.0,>=9.0.0; extra == "azure-data-factory"
+Requires-Dist: sqlglot[c]==30.12.0; extra == "azure-data-factory"
 Provides-Extra: bigid
 Requires-Dist: requests<3.0,>=2.28.0; extra == "bigid"
 Provides-Extra: bigquery
@@ -156,7 +158,8 @@ Requires-Dist: wcmatch<11.0.0; extra == "bigquery-slim"
 Provides-Extra: cassandra
 Requires-Dist: cachetools<6.0.0; extra == "cassandra"
 Requires-Dist: cassandra-driver<4.0.0,>=3.30.1; extra == "cassandra"
-Requires-Dist: numpy<2; extra == "cassandra"
+Requires-Dist: numpy<2; python_version < "3.13" and extra == "cassandra"
+Requires-Dist: numpy<3; python_version >= "3.13" and extra == "cassandra"
 Provides-Extra: circuit-breaker
 Provides-Extra: clickhouse
 Requires-Dist: cachetools<6.0.0; extra == "clickhouse"
@@ -360,7 +363,8 @@ Provides-Extra: feast
 Requires-Dist: dask[dataframe]<2024.7.0; extra == "feast"
 Requires-Dist: feast<1,>=0.47.0; extra == "feast"
 Requires-Dist: flask-openid<2.0.0,>=1.3.0; extra == "feast"
-Requires-Dist: numpy<2; extra == "feast"
+Requires-Dist: numpy<2; python_version < "3.13" and extra == "feast"
+Requires-Dist: numpy<3; python_version >= "3.13" and extra == "feast"
 Requires-Dist: starlette<2.0.0,>=1.3.1; extra == "feast"
 Provides-Extra: fivetran
 Requires-Dist: cachetools<6.0.0; extra == "fivetran"
@@ -956,7 +960,8 @@ Requires-Dist: msal<2.0.0,>=1.31.1; extra == "all"
 Requires-Dist: neo4j<7.0.0; extra == "all"
 Requires-Dist: nest-asyncio<2.0.0; extra == "all"
 Requires-Dist: networkx<4.0.0,>=2.6.2; extra == "all"
-Requires-Dist: numpy<2; extra == "all"
+Requires-Dist: numpy<2; python_version < "3.13" and extra == "all"
+Requires-Dist: numpy<3; python_version >= "3.13" and extra == "all"
 Requires-Dist: okta<2.0.0,~=1.7.0; extra == "all"
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == "all"
 Requires-Dist: opensearch-py<4.0.0,>=3.0.0; extra == "all"
@@ -1108,7 +1113,8 @@ Requires-Dist: neo4j<7.0.0; extra == "dev"
 Requires-Dist: nest-asyncio<2.0.0; extra == "dev"
 Requires-Dist: networkx<4.0.0,>=2.6.2; extra == "dev"
 Requires-Dist: nltk!=3.10.1; extra == "dev"
-Requires-Dist: numpy<2; extra == "dev"
+Requires-Dist: numpy<2; python_version < "3.13" and extra == "dev"
+Requires-Dist: numpy<3; python_version >= "3.13" and extra == "dev"
 Requires-Dist: okta<2.0.0,~=1.7.0; extra == "dev"
 Requires-Dist: opensearch-py<4.0.0,>=3.0.0; extra == "dev"
 Requires-Dist: oracledb<4.0.0; extra == "dev"
@@ -1303,7 +1309,8 @@ Requires-Dist: neo4j<7.0.0; extra == "docs"
 Requires-Dist: nest-asyncio<2.0.0; extra == "docs"
 Requires-Dist: networkx<4.0.0,>=2.6.2; extra == "docs"
 Requires-Dist: nltk!=3.10.1; extra == "docs"
-Requires-Dist: numpy<2; extra == "docs"
+Requires-Dist: numpy<2; python_version < "3.13" and extra == "docs"
+Requires-Dist: numpy<3; python_version >= "3.13" and extra == "docs"
 Requires-Dist: okta<2.0.0,~=1.7.0; extra == "docs"
 Requires-Dist: opensearch-py<4.0.0,>=3.0.0; extra == "docs"
 Requires-Dist: oracledb<4.0.0; extra == "docs"
@@ -1441,7 +1448,8 @@ Requires-Dist: JPype1<2.0.0; extra == "integration-tests"
 Requires-Dist: kerberos<2.0.0,>=1.3.0; extra == "integration-tests"
 Requires-Dist: lark<2.0,>=1.3.1; extra == "integration-tests"
 Requires-Dist: more-itertools<11.0.0,>=8.12.0; extra == "integration-tests"
-Requires-Dist: numpy<2; extra == "integration-tests"
+Requires-Dist: numpy<2; python_version < "3.13" and extra == "integration-tests"
+Requires-Dist: numpy<3; python_version >= "3.13" and extra == "integration-tests"
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == "integration-tests"
 Requires-Dist: pandas<3.0.0; extra == "integration-tests"
 Requires-Dist: parse<2.0.0,>=1.19.0; extra == "integration-tests"

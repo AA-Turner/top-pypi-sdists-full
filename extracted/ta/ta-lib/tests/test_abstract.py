@@ -174,6 +174,40 @@ def test_info():
     assert expected == abstract.Function('BBANDS').info
 
 
+_TA_VERSION = tuple(int(p) for p in talib.__ta_version__.split()[0].split(b'.'))
+
+
+@pytest.mark.skipif(_TA_VERSION < (0, 8, 2),
+                    reason='these flags are newer than TA-Lib C 0.8.1')
+def test_flags_newer_than_0_8_1():
+    pattern = ['Line',
+               'Bull/Bear Pattern (Bearish < 0, Neutral = 0, Bullish > 0)',
+               'Output can be positive',
+               'Output can be negative',
+               'Output can be zero']
+    assert abstract.Function('CDLENGULFING').output_flags == OrderedDict([
+        ('integer', pattern + ['Weak Pattern (+/-80 = a weaker form of the pattern)']),
+        ])
+    assert abstract.Function('CDLHIKKAKE').output_flags == OrderedDict([
+        ('integer', ['Line',
+                     'Bull/Bear Pattern (Bearish < 0, Neutral = 0, Bullish > 0)',
+                     'Confirmation Pattern (+/-200 = this bar confirms an earlier pattern)',
+                     'Output can be positive',
+                     'Output can be negative',
+                     'Output can be zero']),
+        ])
+
+    dpo = abstract.Function('DPO')
+    assert 'An output is display-shifted' in dpo.function_flags
+    assert dpo.output_flags == OrderedDict([
+        ('real', ['Line', 'Output is display-shifted']),
+        ])
+
+    ln_flags = abstract.Function('LN').function_flags
+    assert 'Uses a transcendental math function' in ln_flags
+    assert 'Input must be positive' in ln_flags
+
+
 def test_input_names():
     expected = OrderedDict([('price', 'close')])
     assert expected == abstract.Function('MAMA').input_names
@@ -305,6 +339,49 @@ def test_parameter_type_checking(ford_2012):
         sma.set_parameters(timeperiod=35.5)
 
 
+def test_real_parameter_accepts_any_real_number(ford_2012):
+    expected = func.BBANDS(ford_2012['close'], 20, 3.0, 1.0)
+    bbands = abstract.Function('BBANDS')
+
+    for up, dn in ((3, 1), (np.int64(3), np.int64(1)),
+                   (np.float32(3.0), np.float32(1.0))):
+        assert_array_equal(expected, bbands(ford_2012, 20, up, dn))
+        assert_array_equal(expected, bbands(ford_2012, nbdevup=up,
+                                            nbdevdn=dn, timeperiod=20))
+
+    bbands.set_parameters(timeperiod=20, nbdevup=3, nbdevdn=np.int64(1))
+    assert bbands.parameters['nbdevup'] == 3.0
+    assert type(bbands.parameters['nbdevup']) is float
+    assert type(bbands.parameters['nbdevdn']) is float
+    assert_array_equal(expected, bbands(ford_2012))
+
+    bbands.set_parameters(nbdevup=np.float64(3.0))
+    assert type(bbands.parameters['nbdevup']) is np.float64
+
+    with pytest.raises(TypeError, match=re.escape(
+            'Invalid parameter value for nbdevup (expected float, got str)')):
+        bbands(ford_2012, nbdevup='2')
+
+
+def test_integer_parameter_accepts_any_integer(ford_2012):
+    expected = func.SMA(ford_2012['close'], 10)
+
+    sma = abstract.Function('SMA', timeperiod=np.int64(10))
+    assert type(sma.parameters['timeperiod']) is int
+    assert sma.lookback == 9
+    assert_array_equal(expected, sma(ford_2012))
+    assert_array_equal(expected, abstract.SMA(ford_2012, np.int32(10)))
+
+    class Period(int):
+        pass
+    sma.set_parameters(timeperiod=Period(10))
+    assert type(sma.parameters['timeperiod']) is Period
+
+    with pytest.raises(TypeError, match=re.escape(
+            'Invalid parameter value for timeperiod (expected int, got float64)')):
+        sma(ford_2012, timeperiod=np.float64(10))
+
+
 def test_call_doesnt_cache_parameters(ford_2012):
     sma = abstract.Function('SMA', timeperiod=10)
 
@@ -319,6 +396,29 @@ def test_call_doesnt_cache_parameters(ford_2012):
     expected = func.SMA(ford_2012['close'], 10)
     output = sma(ford_2012)
     assert_array_equal(expected, output)
+
+
+def test_failed_call_doesnt_cache_parameters(ford_2012):
+    sma = abstract.Function('SMA', timeperiod=10)
+    expected = func.SMA(ford_2012['close'], 10)
+
+    with pytest.raises(Exception, match='TA_BAD_PARAM'):
+        sma(ford_2012, timeperiod=0)
+    assert_array_equal(expected, sma(ford_2012))
+
+    with pytest.raises(Exception, match='missing required data key'):
+        sma(ford_2012, timeperiod=20, price='missing')
+    assert_array_equal(expected, sma(ford_2012))
+    assert sma.parameters == {'timeperiod': 10}
+    assert sma.input_names == {'price': 'close'}
+
+
+def test_rejected_set_parameters_changes_nothing():
+    macd = abstract.Function('MACD')
+    with pytest.raises(TypeError):
+        macd.set_parameters(fastperiod=5, slowperiod='26')
+    assert macd.parameters == {'fastperiod': 12, 'slowperiod': 26,
+                               'signalperiod': 9}
 
 
 def test_call_without_arguments():

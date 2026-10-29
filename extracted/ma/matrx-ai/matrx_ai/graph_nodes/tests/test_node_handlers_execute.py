@@ -412,6 +412,42 @@ def _fx_conversation_continue(monkeypatch):
     )
 
 
+@node_fixture("ai.conversation.fork_and_run")
+def _fx_conversation_fork_and_run(monkeypatch):
+    from matrx_ai.graph_nodes.conversation_action import ConversationForkAndRunInput
+
+    class _FakeForkEvent:
+        forked_at_position = 3
+
+    async def _fake_fork_runner(_conversation_id: str, _request: Any, _app: Any) -> Any:
+        return _FakeForkEvent(), _FakeCompleted()
+
+    monkeypatch.setitem(_ext._registry, "conversation_fork_runner", _fake_fork_runner)
+    monkeypatch.setitem(_ext._registry, "ForkAndRunRequest", _PermissiveHostRequest)
+    return (
+        ConversationForkAndRunInput(conversation_id="conv-1", question="what went wrong?"),
+        _ctx(),
+    )
+
+
+@node_fixture("ai.conversation.fork_and_run")
+def _fx_conversation_fork_and_run(monkeypatch):
+    from matrx_ai.graph_nodes.conversation_action import ConversationForkAndRunInput
+
+    class _FakeForkEvent:
+        forked_at_position = 3
+
+    async def _fake_fork_runner(_conversation_id: str, _request: Any, _app: Any) -> Any:
+        return _FakeForkEvent(), _FakeCompleted()
+
+    monkeypatch.setitem(_ext._registry, "conversation_fork_runner", _fake_fork_runner)
+    monkeypatch.setitem(_ext._registry, "ForkAndRunRequest", _PermissiveHostRequest)
+    return (
+        ConversationForkAndRunInput(conversation_id="conv-1", question="what went wrong?"),
+        _ctx(),
+    )
+
+
 @node_fixture("ai.conversation.revise")
 def _fx_conversation_revise(monkeypatch):
     from matrx_graph.checks import ResponseCheckSpec
@@ -614,13 +650,6 @@ def _fx_transcribe(monkeypatch):
     return TranscribeInput(audio_source="/tmp/fake.wav"), _ctx()
 
 
-@node_fixture("ai.search.rank_sources")
-def _fx_search_rank_sources(monkeypatch):
-    from matrx_ai.graph_nodes.search_action import RankSourcesInput
-
-    return RankSourcesInput(results=[{"url": "https://ex.com/a", "rank": 1}]), _ctx()
-
-
 @node_fixture("ai.search.brave")
 def _fx_search_brave(monkeypatch):
     from matrx_ai.graph_nodes.search_action import BraveSearchInput
@@ -701,7 +730,12 @@ def _fx_util_parse_llm_json(_monkeypatch):
 # The sweep
 # ---------------------------------------------------------------------------
 
-_ALL_REGISTERED_NAMES = sorted(a.name for a in default_action_registry().all())
+# The default registry is process-global: in a host run (aidream) it also holds the HOST's nodes
+# (admin.sql.*, records.*, text.* ...). This package fixtures and owns only ITS nodes, so the sweep
+# is scoped by where each node is defined — a host node needing a fixture is the host's test to own.
+_ALL_REGISTERED_NAMES = sorted(
+    a.name for a in default_action_registry().all() if (a.source_module or "").split(".")[0] == "matrx_ai"
+)
 
 
 @pytest.mark.asyncio

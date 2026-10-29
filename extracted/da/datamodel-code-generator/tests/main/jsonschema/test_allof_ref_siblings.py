@@ -62,6 +62,7 @@ def test_allof_ref_siblings(
                 DataModelType.PydanticV2BaseModel.value,
                 "--allof-merge-mode",
                 merge_mode,
+                "--filter-literal-values",
                 *(["--field-constraints"] if field_constraints else []),
                 *(["--generate-schema-validators"] if schema_validators else []),
                 *(["--use-tuple-for-fixed-items"] if case.get("use_tuple") else []),
@@ -78,6 +79,7 @@ def test_allof_ref_siblings(
             output_model_type=DataModelType.PydanticV2BaseModel,
             disable_timestamp=True,
             allof_merge_mode=merge_mode,
+            filter_literal_values=True,
             field_constraints=field_constraints,
             generate_schema_validators=schema_validators,
             use_tuple_for_fixed_items=case.get("use_tuple", False),
@@ -164,16 +166,15 @@ def test_allof_ref_siblings(
 
 @pytest.mark.parametrize("case_name", ALLOF_REF_SIBLING_DIAGNOSTICS)
 def test_allof_ref_sibling_empty_intersection(output_file: Path, case_name: str) -> None:
-    """Reject disjoint literal intersections, including JSON booleans versus numbers."""
+    """Write the referenced literals of a disjoint literal intersection with a warning, also booleans versus numbers."""
     schema_path = JSON_SCHEMA_DATA_PATH / "allof_ref_siblings" / f"{case_name}.json"
     schema = json.loads(schema_path.read_text())
     validator = validator_for(schema)(schema)
     for value in ALLOF_REF_SIBLING_DIAGNOSTICS[case_name]:
         with pytest.raises(JsonSchemaValidationError):
             validator.validate(value)
-    run_main_and_assert(input_path=schema_path, output_path=output_file, expected_exit=Exit.ERROR)
-    with pytest.raises(Error, match="unsatisfiable"):
-        generate(schema_path, input_file_type=InputFileType.JsonSchema)
+    with pytest.warns(UserWarning, match="no value satisfies every part of this schema"):
+        run_main_and_assert(input_path=schema_path, output_path=output_file)
 
 
 @pytest.mark.parametrize("entrypoint", ["cli", "api"])
@@ -394,3 +395,38 @@ def test_allof_ref_siblings_pattern_properties(output_file: Path) -> None:
         expected_file="allof_ref_siblings/items_pattern.py",
         force_exec_validation=True,
     )
+
+
+def test_allof_ref_siblings_integer_multiple_of_beyond_float(output_file: Path, tmp_path: Path) -> None:
+    """Intersect integer ``multipleOf`` values too large for a float as integers, to their least common multiple."""
+    multiple = 10**400
+    schema = tmp_path / "huge_multiple_of.json"
+    schema.write_text(
+        json.dumps({
+            "title": "Model",
+            "type": "object",
+            "properties": {"huge": {"$ref": "#/$defs/Huge", "multipleOf": 2 * multiple}},
+            "$defs": {"Huge": {"type": "integer", "multipleOf": multiple}},
+        }),
+        encoding="utf-8",
+    )
+    run_main_and_assert(
+        input_path=schema,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--disable-timestamp", "--formatters", "builtin"],
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, "huge_multiple_of", "Model") as model:
+        adapter = TypeAdapter(model)
+        results = [_validation_outcome(adapter, json.dumps({"huge": value})) for value in (0, 2 * multiple, multiple)]
+    assert_output("".join(f"{result}\n" for result in results), name="values")
+
+
+def _validation_outcome(adapter: TypeAdapter[object], payload: str) -> str:
+    """Return whether the adapter accepts the JSON payload."""
+    try:
+        adapter.validate_json(payload)
+    except ValidationError:
+        return "rejected"
+    return "accepted"

@@ -175,7 +175,7 @@ class GetAttributeExpression(ExpressionBase):
             return resolved_obj
         if resolved_obj is None and DataType.is_type(self.object.result_type, DataType.NULLABLE):
             raise errors.EvaluationError(
-                    "attribute access on a null value (use ?. to safely navigate a NULLABLE expression)"
+                    "attribute access on a null value (use &. to safely navigate a NULLABLE expression)"
             )
 
         if self._object_type is not None:
@@ -417,7 +417,7 @@ class GetSliceExpression(ExpressionBase):
             _assert_is_integer_number(resolved_stop)
             resolved_stop = int(resolved_stop)
         value = operator.getitem(resolved_obj, slice(resolved_start, resolved_stop))
-        return coerce_value(value, verify_type=False)
+        return coerce_value(value, verify_type=False, int_max_digits=self.context.int_max_digits)
 
     def reduce(self) -> ExpressionBase:
         if not _is_reduced(self.container, self.start, self.stop):

@@ -180,6 +180,7 @@ ROUTE_CLASSES = {
     ("session-end", "telemetry.py session-end"): True,
     ("session-end", "team-note-sync.sh"): True,  # a detached `probe notes sync`, silent
     ("stop", "statusline_notify.py"): False,  # a status change as a message, once (queued, it is lost)
+    ("stop", "owed_hook.py"): False,  # sends an inline agent back: a decision the turn waits on
     ("stop", "team-note-sync.sh"): True,  # a detached `probe notes sync --push-only`, silent
     ("turn-started", "tracking_guard.py"): False,
 }

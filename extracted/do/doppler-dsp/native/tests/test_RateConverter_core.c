@@ -29,6 +29,56 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* ── Allocation-failure injection (glibc, no sanitizer) ──────────────────
+ *
+ * dp_RateConverter_set_rate() builds the new cascade on a scratch copy and
+ * commits it only once all of it exists (doppler#2640). Every rate it can
+ * plan builds, so the rollback runs only when an allocation fails, and the
+ * review of #2659 showed the old destroy-first body passing the suite.
+ * glibc exports its allocator as __libc_malloc and friends, so this test
+ * binary can define malloc/calloc/realloc over them and fail exactly the
+ * Nth call after arming. A sanitizer brings its own allocator, and another
+ * libc has no such export, so elsewhere the test reports itself skipped. */
+#if defined(__GLIBC__) && !defined(__SANITIZE_ADDRESS__)                      \
+    && !defined(__SANITIZE_THREAD__)
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer)       \
+    || __has_feature(memory_sanitizer)
+#define RC_NO_ALLOC_INJECT 1
+#endif
+#endif
+#ifndef RC_NO_ALLOC_INJECT
+#define RC_ALLOC_INJECT 1
+extern void *__libc_malloc (size_t);
+extern void *__libc_calloc (size_t, size_t);
+extern void *__libc_realloc (void *, size_t);
+/* Allocations to let through before the one that fails; -1 is off. */
+static long rc_fail_at = -1;
+static int
+rc_fail_now (void)
+{
+  if (rc_fail_at < 0)
+    return 0;
+  return rc_fail_at-- == 0;
+}
+void *
+malloc (size_t n)
+{
+  return rc_fail_now () ? NULL : __libc_malloc (n);
+}
+void *
+calloc (size_t m, size_t n)
+{
+  return rc_fail_now () ? NULL : __libc_calloc (m, n);
+}
+void *
+realloc (void *p, size_t n)
+{
+  return rc_fail_now () ? NULL : __libc_realloc (p, n);
+}
+#endif
+#endif
+
 static inline int
 _near (double a, double b, double tol)
 {
@@ -53,6 +103,183 @@ test_invalid_rate (void)
 {
   DP_CHECK (dp_RateConverter_create (0.0, 0) == NULL);
   DP_CHECK (dp_RateConverter_create (-1.0, 0) == NULL);
+  /* NaN passed `rate <= 0.0` and reached `(int)round(NaN)` in the planner
+     (doppler#2640); an infinite rate is no ratio either. */
+  DP_CHECK (dp_RateConverter_create (NAN, 0) == NULL);
+  DP_CHECK (dp_RateConverter_create (INFINITY, 0) == NULL);
+  DP_CHECK (dp_RateConverter_create_matched (INFINITY, 0, RC_PULSE_RRC, 0.35,
+                                             8, 2.0, 1024)
+            == NULL);
+}
+
+/* A refused set_rate leaves the converter exactly as it was: same rate, same
+   cascade, same filter memory, so the stream continues as if the call never
+   happened (doppler#2640). The comparison is against an untouched twin fed
+   the same input, bit for bit, and against the serialized state. */
+static void
+test_set_rate_refusal_changes_nothing (void)
+{
+  enum
+  {
+    N = 512
+  };
+  float _Complex *in = malloc (N * sizeof (float _Complex));
+  float _Complex *ya = malloc (N * sizeof (float _Complex));
+  float _Complex *yb = malloc (N * sizeof (float _Complex));
+  DP_CHECK (in && ya && yb);
+  for (int k = 0; k < N; k++)
+    in[k] = CMPLXF ((float)cos (0.05 * k), (float)sin (0.03 * k));
+
+  dp_RateConverter_state_t *a = dp_RateConverter_create (0.3, 1);
+  dp_RateConverter_state_t *b = dp_RateConverter_create (0.3, 1);
+  DP_CHECK (a && b);
+  dp_RateConverter_execute (a, in, N, ya, N);
+  dp_RateConverter_execute (b, in, N, yb, N);
+
+  size_t nbytes = dp_RateConverter_state_bytes (a);
+  char  *snap   = malloc (nbytes);
+  char  *now    = malloc (nbytes);
+  DP_CHECK (snap && now);
+  dp_RateConverter_get_state (a, snap);
+  int   ns0    = a->n_stages;
+  void *stage0 = a->stage_ptrs[0];
+
+  const double bad[] = { 0.0, -2.0, NAN, INFINITY };
+  for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++)
+    {
+      dp_RateConverter_set_rate (a, bad[i]);
+      DP_CHECK (dp_RateConverter_get_rate (a) == 0.3);
+      DP_CHECK (a->n_stages == ns0 && a->stage_ptrs[0] == stage0);
+      DP_CHECK (dp_RateConverter_state_bytes (a) == nbytes);
+    }
+  dp_RateConverter_get_state (a, now);
+  DP_CHECK (memcmp (snap, now, nbytes) == 0);
+
+  size_t na = dp_RateConverter_execute (a, in, N, ya, N);
+  size_t nb = dp_RateConverter_execute (b, in, N, yb, N);
+  DP_CHECK (na == nb && na > 0);
+  DP_CHECK (memcmp (ya, yb, na * sizeof (float _Complex)) == 0);
+
+  /* A good rate still re-plans, and an enabled AGC survives it. */
+  dp_RateConverter_set_rate (a, 2.0);
+  DP_CHECK (dp_RateConverter_get_rate (a) == 2.0 && a->n_stages == 1);
+
+  dp_RateConverter_state_t *m = dp_RateConverter_create_matched (
+      0.5, 0, RC_PULSE_RRC, 0.35, 8, 2.0, 1024);
+  DP_CHECK (m != NULL);
+  if (m)
+    {
+      DP_CHECK (dp_RateConverter_enable_agc (m, 0.01, 0.05) == DP_OK);
+      DP_CHECK (m->agc != NULL);
+      dp_RateConverter_set_rate (m, NAN);
+      DP_CHECK (m->agc != NULL && dp_RateConverter_get_rate (m) == 0.5);
+      dp_RateConverter_set_rate (m, 0.25);
+      DP_CHECK (m->agc != NULL && dp_RateConverter_get_rate (m) == 0.25);
+      dp_RateConverter_destroy (m);
+    }
+
+  free (snap);
+  free (now);
+  dp_RateConverter_destroy (a);
+  dp_RateConverter_destroy (b);
+  free (in);
+  free (ya);
+  free (yb);
+}
+
+/* A failed rebuild changes nothing (doppler#2640, review of #2659). Fail
+ * the 1st, 2nd, ... allocation set_rate makes, each on its own attempt,
+ * until one attempt makes them all: every failed attempt must leave the
+ * converter at its old rate with its old stages and AGC, and running on
+ * bit-identical to a twin that was never asked -- the destroy-first body
+ * left a stageless converter that emitted nothing. A matched converter
+ * with the AGC on reaches every allocation the rebuild makes, the AGC's
+ * last, so the sweep also covers an AGC that cannot be rebuilt: the whole
+ * change is refused rather than the AGC dropped. */
+static void
+test_set_rate_rollback_on_a_failed_build (void)
+{
+#ifndef RC_ALLOC_INJECT
+  printf ("  SKIP set_rate rollback: no allocation injection on this "
+          "toolchain\n");
+#else
+  enum
+  {
+    N = 256
+  };
+  float _Complex *in = malloc (N * sizeof (float _Complex));
+  float _Complex *ya = malloc (2 * N * sizeof (float _Complex));
+  float _Complex *yb = malloc (2 * N * sizeof (float _Complex));
+  DP_CHECK (in && ya && yb);
+  for (int k = 0; k < N; k++)
+    in[k] = CMPLXF ((float)cos (0.05 * k), (float)sin (0.03 * k));
+  dp_RateConverter_state_t *a = dp_RateConverter_create_matched (
+      0.5, 1, RC_PULSE_RRC, 0.35, 8, 2.0, 1024);
+  dp_RateConverter_state_t *b = dp_RateConverter_create_matched (
+      0.5, 1, RC_PULSE_RRC, 0.35, 8, 2.0, 1024);
+  DP_CHECK (a && b);
+  if (a && b && in && ya && yb)
+    {
+      DP_CHECK (dp_RateConverter_enable_agc (a, 0.01, 0.05) == DP_OK);
+      DP_CHECK (dp_RateConverter_enable_agc (b, 0.01, 0.05) == DP_OK);
+      size_t failed = 0, k = 0;
+      for (; k < 10000; k++)
+        {
+          (void)dp_RateConverter_execute (a, in, N, ya, 2 * N);
+          (void)dp_RateConverter_execute (b, in, N, yb, 2 * N);
+          int   ns    = a->n_stages;
+          void *first = a->stage_ptrs[0];
+          void *agc   = a->agc;
+          rc_fail_at  = (long)k;
+          dp_RateConverter_set_rate (a, 0.125);
+          /* The counter reaches -1 only by failing the k-th allocation;
+             fewer than k + 1 allocations leave it armed. */
+          int fired  = rc_fail_at == -1;
+          rc_fail_at = -1;
+          if (!fired)
+            {
+              /* Every allocation succeeded: the change took. */
+              DP_CHECK (dp_RateConverter_get_rate (a) == 0.125);
+              break;
+            }
+          failed++;
+          DP_CHECK (dp_RateConverter_get_rate (a) == 0.5);
+          DP_CHECK (a->n_stages == ns && a->stage_ptrs[0] == first);
+          DP_CHECK (a->agc == agc && a->agc != NULL);
+          size_t na = dp_RateConverter_execute (a, in, N, ya, 2 * N);
+          size_t nb = dp_RateConverter_execute (b, in, N, yb, 2 * N);
+          DP_CHECK (na == nb && na > 0);
+          DP_CHECK (memcmp (ya, yb, na * sizeof *ya) == 0);
+        }
+      /* Non-vacuous: several allocations were failed, and the sweep ended
+         because one attempt finally built. */
+      DP_CHECK (failed >= 3);
+      DP_CHECK (dp_RateConverter_get_rate (a) == 0.125 && a->agc != NULL);
+    }
+  dp_RateConverter_destroy (a);
+  dp_RateConverter_destroy (b);
+  free (in);
+  free (ya);
+  free (yb);
+#endif
+}
+
+/* bank_shape_value() read the last stage as a Resampler without asking
+   whether there was one; a C caller is not bounded by num_bank_shape the way
+   the generated loop is (doppler#2640). A cascade ending in an integer
+   decimator has no bank, and the answer is 0. */
+static void
+test_bank_shape_value_without_a_bank (void)
+{
+  dp_RateConverter_state_t *rc = dp_RateConverter_create (0.25, 0);
+  DP_CHECK (rc != NULL);
+  if (!rc)
+    return;
+  DP_CHECK (rc->stage_types[rc->n_stages - 1] == RC_STAGE_HB);
+  DP_CHECK (dp_RateConverter_num_bank_shape (rc) == 0);
+  DP_CHECK (dp_RateConverter_bank_shape_value (rc, 0) == 0);
+  DP_CHECK (dp_RateConverter_bank_shape_value (rc, 1) == 0);
+  dp_RateConverter_destroy (rc);
 }
 
 /* ------------------------------------------------------------------ */
@@ -231,7 +458,7 @@ test_set_rate (void)
   size_t n2 = dp_RateConverter_execute (rc, in, N, out, N);
   DP_CHECK (n2 == N / 4);
 
-  /* rate <= 0 silently ignored */
+  /* A rate outside dp_resamp_rate_ok() is refused, not ignored. */
   dp_RateConverter_set_rate (rc, 0.0);
   DP_CHECK (_near (dp_RateConverter_get_rate (rc), 0.25, 1e-9));
 
@@ -377,6 +604,61 @@ test_state_roundtrip (void)
   free (in);
   free (outA);
   free (outB);
+}
+
+/* A blob restores only into a converter at the rate that wrote it
+ * (doppler#2642). 1/64 and 1/128 build chains that differ only in the CIC's
+ * R, so their blobs are the same size and the envelope passes; the CIC child
+ * restores the R its sub-blob carries, so before the rate became a reject key
+ * a 1/64 blob ran a 1/64 chain inside a converter reporting 1/128 (64
+ * outputs per 4096 inputs against a fresh 1/128's 32). The refusal leaves
+ * the target byte-identical, and the same-rate restore is the control. */
+static void
+test_cross_rate_restore_is_refused (void)
+{
+  static const double pairs[][2] = {
+    { 1.0 / 64, 1.0 / 128 },
+    { 1.0 / 128, 1.0 / 64 },
+    { 1.0 / 32, 1.0 / 64 },
+  };
+  for (size_t k = 0; k < sizeof pairs / sizeof pairs[0]; k++)
+    {
+      dp_RateConverter_state_t *src = dp_RateConverter_create (pairs[k][0], 0);
+      dp_RateConverter_state_t *dst = dp_RateConverter_create (pairs[k][1], 0);
+      DP_CHECK (src && dst);
+      if (!src || !dst)
+        {
+          dp_RateConverter_destroy (src);
+          dp_RateConverter_destroy (dst);
+          continue;
+        }
+      size_t sb = dp_RateConverter_state_bytes (src);
+      /* Non-vacuous: the size check alone does not tell these apart. */
+      DP_CHECK (sb == dp_RateConverter_state_bytes (dst));
+      unsigned char *blob   = malloc (sb);
+      unsigned char *before = malloc (sb);
+      unsigned char *after  = malloc (sb);
+      DP_CHECK (blob && before && after);
+      if (blob && before && after)
+        {
+          dp_RateConverter_get_state (src, blob);
+          dp_RateConverter_get_state (dst, before);
+          DP_CHECK (dp_RateConverter_set_state (dst, blob) == DP_ERR_INVALID);
+          dp_RateConverter_get_state (dst, after);
+          DP_CHECK (memcmp (before, after, sb) == 0);
+          DP_CHECK (dp_RateConverter_get_rate (dst) == pairs[k][1]);
+          /* Control: the blob restores at its own rate. */
+          dp_RateConverter_state_t *same
+              = dp_RateConverter_create (pairs[k][0], 0);
+          DP_CHECK (same && dp_RateConverter_set_state (same, blob) == DP_OK);
+          dp_RateConverter_destroy (same);
+        }
+      free (blob);
+      free (before);
+      free (after);
+      dp_RateConverter_destroy (src);
+      dp_RateConverter_destroy (dst);
+    }
 }
 
 /* A stage that refuses its part of the blob is reported (doppler#2104).
@@ -1612,6 +1894,9 @@ int
 main (void)
 {
   test_invalid_rate ();
+  test_set_rate_refusal_changes_nothing ();
+  test_set_rate_rollback_on_a_failed_build ();
+  test_bank_shape_value_without_a_bank ();
   test_capped_cic_still_delivers_the_requested_rate ();
   test_cic_ratio_is_capped_at_both_layers ();
   test_stage_labels ();
@@ -1622,6 +1907,7 @@ main (void)
   test_execute_max_out ();
   test_convert ();
   test_state_roundtrip ();
+  test_cross_rate_restore_is_refused ();
   /* Each stage type's refusal is returned, first and last of a cascade. */
   DP_CHECK (stage_refusal_is_returned (0.25, 0, HBDECIM_STATE_MAGIC, 0));
   DP_CHECK (stage_refusal_is_returned (0.25, 0, HBDECIM_STATE_MAGIC, -1));

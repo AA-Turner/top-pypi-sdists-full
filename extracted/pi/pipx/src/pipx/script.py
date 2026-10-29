@@ -29,6 +29,8 @@ from pipx.util import PipxError, redact_url_credentials
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from http.client import HTTPResponse
+    from urllib.response import addinfourl
     from zipfile import ZipFile
 
 
@@ -96,8 +98,9 @@ def read_script_metadata(content: str | Path) -> ScriptMetadata | None:
         for dependency in dependencies:
             normalized.append(str(Requirement(dependency)))
     except InvalidRequirement as error:
-        msg = f"Invalid requirement {dependency}: {error}"
-        raise PipxError(msg) from error
+        msg = f"Invalid requirement {redact_url_credentials(dependency)}: {redact_url_credentials(str(error))}"
+        # packaging quotes the requirement in its message, so chaining it would log the credentials with the traceback
+        raise PipxError(msg) from None
 
     requires_python: Final[str | None] = _normalize_requires_python(raw.get("requires-python"))
     return ScriptMetadata(tuple(normalized), requires_python)
@@ -140,8 +143,16 @@ def is_script_spec(package_spec: str) -> bool:
 
 
 def local_script(package_spec: str) -> Path | None:
+    # a single-letter scheme is a Windows drive; any longer one is a URL, whose path must not resolve below the cwd
+    if len(urllib.parse.urlsplit(package_spec).scheme) > 1:
+        return None
     path: Final[Path] = Path(package_spec).expanduser()
-    if path.is_file() and (path.suffix.lower() == ".py" or (not path.suffix and _has_inline_script_metadata(path))):
+    if not path.is_file():
+        return None
+    if path.suffix.lower() == ".py":
+        return path.resolve()
+    # a bare name is a package on the index, as pip reads it, so a file in the working directory must not shadow it
+    if not path.suffix and package_spec != path.name and _has_inline_script_metadata(path):
         return path.resolve()
     return None
 
@@ -162,9 +173,10 @@ def _script_app(package_spec: str, expected_apps: tuple[str, ...]) -> str:
 
 
 def _read_script(package_or_url: str, expected_apps: tuple[str, ...]) -> _Script:
-    path: Final[Path] = Path(package_or_url).expanduser()
     content: Final[str] = (
-        path.read_text(encoding="utf-8") if path.is_file() else _read_url(package_or_url)
+        script.read_text(encoding="utf-8")
+        if (script := local_script(package_or_url)) is not None
+        else download_script(package_or_url)
     ).removeprefix("\ufeff")
     try:
         metadata: Final[ScriptMetadata | None] = read_script_metadata(content)
@@ -177,28 +189,45 @@ def _read_script(package_or_url: str, expected_apps: tuple[str, ...]) -> _Script
     return _Script(_script_app(package_or_url, expected_apps), content, metadata)
 
 
-_URL_TIMEOUT: Final[int] = 30
 # a PEP 723 script larger than this is almost certainly the wrong URL; bound the read so a stalled or huge response
 # cannot hang pipx or exhaust memory
 _MAX_SCRIPT_BYTES: Final[int] = 10 * 1024 * 1024
 
 
-def _read_url(url: str) -> str:
+def download_script(url: str) -> str:
+    from http.client import HTTPException  # ruff:ignore[import-outside-top-level]  # slows startup
     from urllib.request import urlopen  # ruff:ignore[import-outside-top-level]  # pulls in http.client, slows startup
 
+    _reject_url_credentials(url)
     try:
-        with urlopen(url, timeout=_URL_TIMEOUT) as response:  # ruff:ignore[suspicious-url-open-usage]  # http(s) only, validated upstream
+        with urlopen(url, timeout=30) as response:  # ruff:ignore[suspicious-url-open-usage]  # callers choose the allowed schemes
             data = response.read(_MAX_SCRIPT_BYTES + 1)
-            if len(data) > _MAX_SCRIPT_BYTES:
-                msg = (
-                    f"Script {redact_url_credentials(url)} is larger than {_MAX_SCRIPT_BYTES} bytes; "
-                    "refusing to download it."
-                )
-                raise PipxError(msg)
+            _reject_incomplete_script(url, response, data)
             return data.decode(response.headers.get_content_charset() or "utf-8")
-    except OSError as error:
+    # a body in another encoding than declared or an unknown charset name fails the decode, not the download
+    except (OSError, HTTPException, UnicodeDecodeError, LookupError) as error:
         msg = f"Unable to read script {redact_url_credentials(url)}: {error}"
         raise PipxError(msg) from error
+
+
+def _reject_url_credentials(url: str) -> None:
+    # urllib's HTTP handler keeps the userinfo in the host it connects to (python/cpython#78809), so credentials never
+    # authenticate the download and a failed host:port split puts the password into the error message; its FTP handler
+    # does log in with them
+    if (parts := urllib.parse.urlsplit(url)).scheme in {"http", "https"} and parts.username is not None:
+        msg = f"Script URL {redact_url_credentials(url)} must not contain credentials."
+        raise PipxError(msg)
+
+
+def _reject_incomplete_script(url: str, response: HTTPResponse | addinfourl, data: bytes) -> None:
+    if len(data) > _MAX_SCRIPT_BYTES:
+        msg = f"Script {redact_url_credentials(url)} is larger than {_MAX_SCRIPT_BYTES} bytes; refusing to download it."
+        raise PipxError(msg)
+    # read(amt) returns a body cut short of its Content-Length without raising (python/cpython#115997) and leaves the
+    # missing byte count in length, which file:// responses lack; a script missing its tail can still run halfway
+    if missing := getattr(response, "length", None):
+        msg = f"Script {redact_url_credentials(url)} ended {missing} bytes short of its Content-Length."
+        raise PipxError(msg)
 
 
 def _normalize_requires_python(value: str | list[str] | None) -> str | None:
@@ -280,6 +309,7 @@ def _digest(data: bytes) -> str:
 
 __all__ = [
     "ScriptMetadata",
+    "download_script",
     "installable_script",
     "is_script_spec",
     "local_script",

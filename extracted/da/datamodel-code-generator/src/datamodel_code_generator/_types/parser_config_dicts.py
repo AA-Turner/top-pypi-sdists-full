@@ -19,12 +19,14 @@ if TYPE_CHECKING:
         AsyncAPIVersion,
         ClassNameAffixScope,
         CollapseRootModelsNameStrategy,
+        ConstructorFieldOrder,
         DataclassArguments,
         DefaultValueType,
         FieldTypeCollisionStrategy,
         HTTPBackend,
         JsonSchemaVersion,
         NamingStrategy,
+        OpenAPIAsDefinitions,
         OpenAPIScope,
         OpenAPIVersion,
         ProtobufVersion,
@@ -63,12 +65,14 @@ class ParserConfigDict(TypedDict):
     extra_template_data: NotRequired[defaultdict[str, dict[str, Any]] | None]
     validators: NotRequired[Mapping[str, ModelValidators] | None]
     generate_schema_validators: NotRequired[bool]
+    check_pattern_maps_strictly: NotRequired[bool]
     schema_validator_base_class_name: NotRequired[str | None]
     target_python_version: NotRequired[PythonVersion]
     dump_resolve_reference_action: NotRequired[Callable[[Iterable[str]], str] | None]
     validation: NotRequired[bool]
     field_constraints: NotRequired[bool]
     alias_generator: NotRequired[AliasGenerator | None]
+    pin_aliases_with_alias_generator: NotRequired[bool]
     snake_case_field: NotRequired[bool]
     strip_default_none: NotRequired[bool]
     aliases: NotRequired[Mapping[str, str | list[str]] | None]
@@ -106,6 +110,7 @@ class ParserConfigDict(TypedDict):
     use_subclass_enum: NotRequired[bool]
     use_specialized_enum: NotRequired[bool]
     strict_nullable: NotRequired[bool]
+    omit_redundant_reference_null: NotRequired[bool]
     use_generic_container_types: NotRequired[bool]
     enable_faux_immutability: NotRequired[bool]
     remote_text_cache: NotRequired[DefaultPutDict[str, str] | None]
@@ -125,6 +130,7 @@ class ParserConfigDict(TypedDict):
     use_operation_id_as_name: NotRequired[bool]
     use_unique_items_as_set: NotRequired[bool]
     use_tuple_for_fixed_items: NotRequired[bool]
+    use_tuple_for_closed_arrays: NotRequired[bool]
     use_tuple_for_fixed_length_arrays: NotRequired[bool]
     use_total_false_for_typed_dict: NotRequired[bool]
     use_closed_typed_dict: NotRequired[bool]
@@ -142,12 +148,16 @@ class ParserConfigDict(TypedDict):
     use_serialize_as_any: NotRequired[bool]
     use_non_positive_negative_number_constrained_types: NotRequired[bool]
     use_decimal_for_multiple_of: NotRequired[bool]
+    use_decimal_in_field_forms: NotRequired[bool]
+    omit_redundant_constraints: NotRequired[bool]
+    use_site_models_for_constrained_refs: NotRequired[bool]
     original_field_name_delimiter: NotRequired[str | None]
     use_double_quotes: NotRequired[bool]
     use_union_operator: NotRequired[bool]
     allow_responses_without_content: NotRequired[bool]
     collapse_root_models: NotRequired[bool]
     collapse_root_models_name_strategy: NotRequired[CollapseRootModelsNameStrategy | None]
+    collapse_shared_parent_wrappers: NotRequired[bool]
     collapse_reuse_models: NotRequired[bool]
     skip_root_model: NotRequired[bool]
     use_root_model_sequence_interface: NotRequired[bool]
@@ -156,12 +166,23 @@ class ParserConfigDict(TypedDict):
     remove_special_field_name_prefix: NotRequired[bool]
     capitalise_enum_members: NotRequired[bool]
     keep_model_order: NotRequired[bool]
+    order_constructor_fields_by: NotRequired[Sequence[ConstructorFieldOrder]]
     use_one_literal_as_default: NotRequired[bool]
     use_enum_values_in_discriminator: NotRequired[bool]
     use_msgspec_tagged_unions: NotRequired[bool]
+    tag_msgspec_by_payload_name: NotRequired[bool]
     use_msgspec_nullable_enum_alias: NotRequired[bool]
     use_typed_nullable_map_values: NotRequired[bool]
+    use_typed_map_values_beside_other_types: NotRequired[bool]
+    use_single_dict_for_object_maps: NotRequired[bool]
+    read_unevaluated_properties: NotRequired[bool]
     use_single_value_enum_as_const: NotRequired[bool]
+    read_const_beside_enum: NotRequired[bool]
+    filter_literal_values: NotRequired[bool]
+    intersect_allof_keywords: NotRequired[bool]
+    read_nullable_beside_type_list: NotRequired[bool]
+    keep_field_defaults_off_branch_roots: NotRequired[bool]
+    keep_enum_member_values: NotRequired[bool]
     known_third_party: NotRequired[list[str] | None]
     custom_formatters: NotRequired[list[str] | None]
     custom_formatters_kwargs: NotRequired[dict[str, Any] | None]
@@ -193,6 +214,7 @@ class ParserConfigDict(TypedDict):
     type_mappings: NotRequired[list[str] | None]
     type_overrides: NotRequired[dict[str, str] | None]
     read_only_write_only_model_type: NotRequired[ReadOnlyWriteOnlyModelType | None]
+    dedupe_request_response_variants: NotRequired[bool]
     field_type_collision_strategy: NotRequired[FieldTypeCollisionStrategy | None]
     target_pydantic_version: NotRequired[TargetPydanticVersion | None]
     default_value_overrides: NotRequired[Mapping[str, Any] | None]
@@ -220,6 +242,7 @@ class OpenAPIParserConfigDict(JSONSchemaParserConfigDict, closed=True):
     use_status_code_in_response_name: NotRequired[bool]
     openapi_include_paths: NotRequired[list[str] | None]
     openapi_include_info_version: NotRequired[bool]
+    openapi_as_definitions: NotRequired[Sequence[OpenAPIAsDefinitions]]
     openapi_version: NotRequired[OpenAPIVersion | None]
 
 
@@ -229,6 +252,7 @@ class AsyncAPIParserConfigDict(JSONSchemaParserConfigDict, closed=True):
     use_status_code_in_response_name: NotRequired[bool]
     openapi_include_paths: NotRequired[list[str] | None]
     openapi_include_info_version: NotRequired[bool]
+    openapi_as_definitions: NotRequired[Sequence[OpenAPIAsDefinitions]]
     openapi_version: NotRequired[OpenAPIVersion | None]
     asyncapi_version: NotRequired[AsyncAPIVersion | None]
 

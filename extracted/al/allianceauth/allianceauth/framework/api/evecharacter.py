@@ -2,10 +2,16 @@
 Alliance Auth Evecharacter API
 """
 
+__lazy_modules__ = ["allianceauth.authentication.models"]
 
-from allianceauth.authentication.models import CharacterOwnership, User
+from typing import TYPE_CHECKING
+
+from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.framework.api.user import get_sentinel_user
+
+if TYPE_CHECKING:
+    from allianceauth.authentication.models import User
 
 
 def get_main_character_from_evecharacter(
@@ -32,7 +38,7 @@ def get_main_character_from_evecharacter(
     return userprofile.main_character
 
 
-def get_user_from_evecharacter(character: EveCharacter) -> User:
+def get_user_from_evecharacter(character: EveCharacter) -> "User":
     """
     Get the user for an EveCharacter or the sentinel user when no user is found
 

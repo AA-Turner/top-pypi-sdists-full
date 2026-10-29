@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-api
-Version: 0.16.8
+Version: 0.16.9
 Author-email: Will Fu-Hinthorn <will@langchain.dev>, Josh Rogers <josh@langchain.dev>, Parker Rule <parker@langchain.dev>
 License: Elastic-2.0
 License-File: LICENSE
@@ -35,7 +35,7 @@ Requires-Dist: structlog<26,>=24.1.0
 Requires-Dist: tenacity>=8.0.0
 Requires-Dist: truststore>=0.1
 Requires-Dist: uuid-utils>=0.16.2
-Requires-Dist: uvicorn>=0.26.0
+Requires-Dist: uvicorn>=0.29.0
 Requires-Dist: uvloop>=0.18.0; platform_system != 'Windows'
 Requires-Dist: watchfiles>=0.13
 Requires-Dist: websockets>=13.0

@@ -29,6 +29,7 @@ from omnimarket.nodes.node_claude_code_hook_adapter_effect.handlers.handler_clau
 from omnimarket.nodes.node_claude_code_hook_adapter_effect.handlers.handler_claude_code_hook_cli import (
     EXIT_BAD_INPUT,
     EXIT_NO_CLIENT,
+    EXIT_RESERVE_MS,
     main,
     watch_parent,
 )
@@ -254,6 +255,44 @@ def test_entry_prints_nothing_for_a_native_verdict(replacing_binding) -> None:
     assert (code, out.getvalue()) == (0, "")
 
 
+def test_entry_spends_only_the_deadline_left_after_startup(replacing_binding) -> None:
+    client = RecordingClient({"action": "proceed_native"})
+    times = iter((100.0, 101.5))
+    code = main(
+        ["--binding", "delegation"],
+        client=client,
+        stdin=io.StringIO("{}"),
+        stdout=io.StringIO(),
+        stderr=io.StringIO(),
+        section=_section(replacing_binding),
+        clock=lambda: next(times),
+    )
+    assert code == 0
+    (call,) = client.calls
+    assert call["deadline_ms"] == 30000 - 1500 - EXIT_RESERVE_MS
+
+
+def test_entry_answers_native_when_startup_spent_the_deadline(
+    replacing_binding,
+) -> None:
+    client = RecordingClient()
+    out = io.StringIO()
+    times = iter((0.0, 40.0))
+    code = main(
+        ["--binding", "delegation"],
+        client=client,
+        stdin=io.StringIO("{}"),
+        stdout=out,
+        stderr=io.StringIO(),
+        section=_section(replacing_binding),
+        clock=lambda: next(times),
+    )
+    assert code == 0
+    assert out.getvalue() == ""
+    (call,) = client.calls
+    assert call["deadline_ms"] == 1
+
+
 def test_entry_exits_nonzero_with_empty_stdout_on_garbage_input(
     replacing_binding,
 ) -> None:
@@ -429,11 +468,13 @@ def test_the_parent_watch_returns_when_stopped() -> None:
     watch_parent(stop, get_ppid=lambda: 100, on_orphaned=lambda: pytest.fail("fired"))
 
 
-def test_the_shipped_contract_loads_an_empty_inventory_until_a_binding_ticket_adds_rows() -> (
+def test_the_shipped_contract_loads_the_manual_compaction_row_and_nothing_else() -> (
     None
 ):
     section = load_client_section()
-    assert section.bindings == ()
+    assert [(b.name, b.hook_event, b.matcher_tool) for b in section.bindings] == [
+        ("compaction", "session.compact", "manual")
+    ]
 
 
 def test_a_handler_built_without_a_client_refuses_to_handle(replacing_binding) -> None:

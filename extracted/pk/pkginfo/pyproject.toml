@@ -1,0 +1,239 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project]
+name = "pkginfo"
+version = "2.0"
+description = "Query metadata from sdists / bdists / installed packages"
+readme = {file = "README.rst", content-type = "text/x-rst"}
+requires-python = ">=3.11"
+keywords = ["distribution", "sdist", "installed", "metadata"]
+license-files = [
+    "LICENSE.txt",
+]
+authors = [
+  { name = "Tres Seaver, Agendaless Consulting", email = "tseaver@agendaless.com" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Software Distribution",
+]
+
+[project.urls]
+Documentation = "https://tseaver.github.io/pkginfo"
+Repository = "https://github.com/tseaver/pkginfo"
+Issues = "https://github.com/tseaver/pkginfo/issues"
+Changelog = "https://github.com/tseaver/pkginfo/releases"
+
+[project.entry-points.console_scripts]
+pkginfo = "pkginfo.commandline:main"
+
+[dependency-groups]
+test = [
+    "pytest",
+    "pytest-cov",
+    "coverage",
+    "wheel",
+]
+dev = [
+    "tox",
+    "tox-uv",
+    "uv",
+]
+docs = [
+    "sphinx",
+]
+lint = [
+    "ruff",
+    "check-manifest",
+    "breezy",
+    "build",
+    "twine",
+]
+typechecking = [
+    "mypy",
+    "types-setuptools",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.tox]
+requires = [
+    "tox >= 4.20",
+    "tox-uv-bare >= 1.3.7",
+    "uv >= 0.13",
+]
+envlist = [
+    "clean",
+    "py311",
+    "py312",
+    "py313",
+    "py314",
+    "py315",
+    "pypy312",
+    "cover",
+    "docs",
+    "mypy",
+    "manifest"
+]
+
+[tool.tox.env.clean]
+basepython = "python3.13"
+commands = [
+    [
+        "python",
+            "-c",
+            "import os; os.path.exists('.coverage') and os.remove('.coverage')"
+    ],
+]
+depends = []
+
+[tool.tox.env_run_base]
+runner = "uv-venv-runner"
+usedevelop = true
+commands = [
+    ["pytest", "--cov=pkginfo", "--cov-append", "--cov-report="],
+]
+dependency_groups = [
+    "test",
+]
+depends = [
+    "clean",
+]
+
+[tool.tox.env.cover]
+basepython = "python3.13"
+commands = [
+    ["coverage", "report", "--fail-under=100"],
+]
+dependency_groups = [
+    "test",
+]
+depends = [
+    "py311",
+    "py312",
+    "py313",
+    "py314",
+    "py315",
+    "pypy312",
+]
+
+[tool.tox.env.docs]
+basepython = "python3.13"
+commands = [
+    [
+        "sphinx-build",
+            "-b", "html",
+            "-d", "docs/_build/doctrees",
+            "docs", "docs/_build/html",
+    ],
+    [
+        "sphinx-build",
+            "-b", "doctest",
+            "-d","docs/_build/doctrees",
+            "docs", "docs/_build/doctest",
+    ],
+]
+dependency_groups = [
+    "docs",
+]
+
+[tool.tox.env.mypy]
+usedevelop = true
+# ---------------------------------------------------------------------------
+# Patches accepted to move this stanza beyond 3.12.
+# ---------------------------------------------------------------------------
+# python3.13 introduces `__firstlineno__` and `__static_attributes__`, which
+# stubtest then whines aren't declared in the stubs.
+# ---------------------------------------------------------------------------
+basepython = "python3.12"
+commands = [
+    ["mypy"],
+    ["stubtest", "pkginfo.bdist"],
+    ["stubtest", "pkginfo.commandline"],
+    ["stubtest", "pkginfo.develop"],
+    ["stubtest", "pkginfo.distribution"],
+    ["stubtest", "pkginfo.index"],
+    ["stubtest", "pkginfo.installed"],
+    ["stubtest", "pkginfo.sdist"],
+    ["stubtest", "pkginfo.utils"],
+    ["stubtest", "pkginfo.wheel"],
+]
+dependency_groups = [
+    "typechecking",
+]
+
+[tool.tox.env.manifest]
+basepython = "python3.13"
+dependency_groups = [
+    "lint",
+]
+allowlist_externals = [
+    "ln",
+]
+commands = [
+    ["ln", "-sf", "{envdir}/bin/brz", "{envdir}/bin/bzr",],
+    ["check-manifest",],
+]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "tests/unit"]
+minversion = "6.0"
+python_files = "test_*.py"
+testpaths = [ "tests" ]
+
+[tool.coverage.run]
+source=["pkginfo", "tests"]
+omit = []
+
+[tool.coverage.report]
+show_missing = true
+
+
+[tool.check-manifest]
+# We actually *do* mean to check these into version control:  they are
+# testcase pacakge metadata.
+ignore-bad-ideas = [
+    "PKG-INFO",
+    "*.egg-info",
+]
+# dev-lock files:  tracked here, but not shippped in the sdist
+ignore = [
+    "uv.lock",
+]
+
+[tool.mypy]
+packages = "pkginfo"
+exclude = "tests"
+# --strict settings
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+# Enabling this will fail on subclasses of untyped imports, e.g. pkginfo
+# disallow_subclassing_any = true
+disallow_any_generics = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_return_any = true
+no_implicit_reexport = true
+strict_equality = true

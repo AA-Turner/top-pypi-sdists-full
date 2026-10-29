@@ -6,20 +6,24 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .doc_ai_digitise_request_content_type import DocAiDigitiseRequestContentType
     from .doc_ai_extract_request_output_format import DocAiExtractRequestOutputFormat
     from .doc_ai_get_results_response import (
         DocAiGetResultsResponse,
-        DocAiGetResultsResponse_Digitise,
+        DocAiGetResultsResponse_Classify,
         DocAiGetResultsResponse_Extract,
+        DocAiGetResultsResponse_Parse,
+        DocAiGetResultsResponse_Split,
     )
+    from .doc_ai_parse_request_content_type import DocAiParseRequestContentType
     from .format import Format
 _dynamic_imports: typing.Dict[str, str] = {
-    "DocAiDigitiseRequestContentType": ".doc_ai_digitise_request_content_type",
     "DocAiExtractRequestOutputFormat": ".doc_ai_extract_request_output_format",
     "DocAiGetResultsResponse": ".doc_ai_get_results_response",
-    "DocAiGetResultsResponse_Digitise": ".doc_ai_get_results_response",
+    "DocAiGetResultsResponse_Classify": ".doc_ai_get_results_response",
     "DocAiGetResultsResponse_Extract": ".doc_ai_get_results_response",
+    "DocAiGetResultsResponse_Parse": ".doc_ai_get_results_response",
+    "DocAiGetResultsResponse_Split": ".doc_ai_get_results_response",
+    "DocAiParseRequestContentType": ".doc_ai_parse_request_content_type",
     "Format": ".format",
 }
 
@@ -46,10 +50,12 @@ def __dir__():
 
 
 __all__ = [
-    "DocAiDigitiseRequestContentType",
     "DocAiExtractRequestOutputFormat",
     "DocAiGetResultsResponse",
-    "DocAiGetResultsResponse_Digitise",
+    "DocAiGetResultsResponse_Classify",
     "DocAiGetResultsResponse_Extract",
+    "DocAiGetResultsResponse_Parse",
+    "DocAiGetResultsResponse_Split",
+    "DocAiParseRequestContentType",
     "Format",
 ]

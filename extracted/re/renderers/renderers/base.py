@@ -1012,6 +1012,8 @@ MODEL_RENDERER_MAP: dict[str, str] = {
     "zai-org/GLM-5.1": "glm-5.1",
     "zai-org/GLM-5.3": "glm-5.3",
     "zai-org/GLM-5.3-BF16": "glm-5.3",
+    "zai-org/GLM-5.3-Flash": "glm-5.3-flash",
+    "zai-org/GLM-5.3-Flash-BF16": "glm-5.3-flash",
     # GLM-4.5.
     "THUDM/GLM-4.5-Air": "glm-4.5",
     "zai-org/GLM-4.5-Air": "glm-4.5",
@@ -1061,6 +1063,8 @@ MODEL_RENDERER_MAP: dict[str, str] = {
     # GPT-OSS.
     "openai/gpt-oss-20b": "gpt-oss",
     "openai/gpt-oss-120b": "gpt-oss",
+    # Muse Glimmer (ATEM channel format; images as one <|patch|> each).
+    "meta-models/Muse-Glimmer-30B": "muse-glimmer",
     # Thinking Machines Inkling checkpoints share byte-identical tokenizer,
     # chat-template, and processor assets (vision + audio; transformers >= 5.14).
     "thinkingmachines/Inkling": "inkling",
@@ -1353,7 +1357,12 @@ def _populate_registry():
     from renderers.deepseek_v4 import DeepSeekV4Renderer
     from renderers.default import DefaultRenderer
     from renderers.gemma4 import Gemma4Renderer
-    from renderers.glm5 import GLM5Renderer, GLM51Renderer, GLM53Renderer
+    from renderers.glm5 import (
+        GLM5Renderer,
+        GLM51Renderer,
+        GLM53FlashRenderer,
+        GLM53Renderer,
+    )
     from renderers.glm45 import GLM45Renderer
     from renderers.gpt_oss import GptOssRenderer
     from renderers.hy3 import Hy3Renderer
@@ -1368,6 +1377,7 @@ def _populate_registry():
     )
     from renderers.llama_3 import Llama3Renderer
     from renderers.minimax_m2 import MiniMaxM2Renderer
+    from renderers.muse_glimmer import MuseGlimmerRenderer
     from renderers.nemotron3 import (
         Nemotron3Renderer,
         Nemotron3UltraRenderer,
@@ -1393,6 +1403,7 @@ def _populate_registry():
             "glm-5": GLM5Renderer,
             "glm-5.1": GLM51Renderer,
             "glm-5.3": GLM53Renderer,
+            "glm-5.3-flash": GLM53FlashRenderer,
             "glm-4.5": GLM45Renderer,
             "minimax-m2": MiniMaxM2Renderer,
             "deepseek-v3": DeepSeekV3Renderer,
@@ -1411,6 +1422,7 @@ def _populate_registry():
             "nemotron-3-ultra": Nemotron3UltraRenderer,
             "nemotron-3.5": Nemotron35Renderer,
             "gpt-oss": GptOssRenderer,
+            "muse-glimmer": MuseGlimmerRenderer,
         }
     )
 

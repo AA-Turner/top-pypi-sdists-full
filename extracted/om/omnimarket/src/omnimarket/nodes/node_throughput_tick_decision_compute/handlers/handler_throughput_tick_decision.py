@@ -33,7 +33,8 @@ and the `.codex-sandbox-<host>` marks (landing workers only) are not judged.
 
 OMN-20864 (2026-10-13, h202 read 3 free slots while placement refused it on swap traffic): when the caller
 sets `live_admission`, each host's free slots are the runner's live pool admission (`admission`), per engine,
-and the receipts, marks and parses decide nothing. A refused engine is named with its rule and the other engine
+and the receipts and parses decide nothing. A current Codex usage mark still refuses Codex
+when the live reading preceded its write. A refused engine is named with its rule and the other engine
 keeps its slots; Claude and Codex lanes draw from one shared slot budget, so the pr-land fallback counts the
 host's slots once; a host the probe could not read is UNKNOWN.
 
@@ -48,6 +49,8 @@ watcher state, state.json and tick lines already in the request (merging normall
 red, merge queue ejecting, shared red unowned, parked or escalated). An unowned shared red or an ejecting
 queue is a MISSING `repo-status:<repo>` line whose FIX names one cause lane or the controller; every other
 verdict is a NOTE. A verdict event is due only when no unit is open for the repository or its verdict changed.
+
+OMN-21396: ledger experiment STATUS rows yield per-engine attempts, successes and escalations over a configurable 24h window.
 """
 
 from __future__ import annotations
@@ -59,8 +62,16 @@ from typing import Any
 
 from omnibase_core.types import JsonType
 
+from omnimarket.handlers.handler_engine_ladder import load_engine_ladder
 from omnimarket.handlers.rules_lab_fill_pr_land import plan_pr_land_fallback
 from omnimarket.models.lab_fill import ModelLabFillPrLandFacts, ModelLabFillPrLandPlan
+from omnimarket.models.model_engine_experiment import (
+    NO_ENGINE,
+    SUCCESS_OUTCOME,
+)
+from omnimarket.nodes.node_lane_model_policy_compute.handlers.handler_lane_model_policy import (
+    require_lane_model,
+)
 from omnimarket.nodes.node_throughput_tick_decision_compute.models.model_throughput_tick_decision import (
     ModelCodexHeadroom,
     ModelLabAdmission,
@@ -103,7 +114,7 @@ FLOOR_FIX = (
 # has stopped landing is that case (OMN-20840: three repositories read as parked notes for 8 to 12 hours).
 PARK_FIX = (
     "nothing lands in {repo} until the park ends at {until}: under RULING 2026-10-09T04:10:56Z "
-    "lane=orchestrator-9f8a the orchestrator dispatches ONE Codex or Opus fix lane for cause {key} now "
+    "lane=orchestrator-9f8a the orchestrator dispatches ONE {model} fix lane for cause {key} now "
     "(read the cause through /omni:landing-controller status first, and pr_claim_registry_cli.py list for a "
     "peer already on it); gates still decide, no bypass; the tick dispatches nothing"
 )
@@ -735,7 +746,12 @@ def report_floors(
                 loop,
                 f"{rest.rpartition(' | FIX: ')[0]}; {cover.note()}, {left:.1f}h from now "
                 f"(> {park_max_hours:g}h)",
-                PARK_FIX.format(repo=repo, until=cover.parked_until, key=cover.key),
+                PARK_FIX.format(
+                    repo=repo,
+                    until=cover.parked_until,
+                    key=cover.key,
+                    model=require_lane_model(lane_kind="cause-red"),
+                ),
             )
         elif cover is not None:
             rep.note(f"{loop} | {rest.rpartition(' | FIX: ')[0]} | {cover.note()}")
@@ -820,6 +836,12 @@ def _codex_headroom(
     def none(why: str, **cells: Any) -> ModelCodexHeadroom:
         return ModelCodexHeadroom(host=host.name, free=0, refusal=why, **cells)
 
+    try:
+        until = _mark_until(host.codex_limited_mark)
+        if until is not None and until > now:
+            return none(f"Codex usage limit until {host.codex_limited_mark.until}")
+    except (ValueError, TypeError):
+        return none("Codex usage limit mark unreadable")
     cached = latest.get(host.name)
     if cached is None or not timedelta(0) <= now - cached[0] <= READING_WINDOW:
         return none(
@@ -913,8 +935,15 @@ def check_lab_headroom(
     if facts.placement_error is not None:
         rep.note(f"lab-headroom: cannot read placement state ({facts.placement_error})")
         return None
+    if facts.codex_429_counts:
+        counts = ",".join(
+            f"{host}:{count}" for host, count in sorted(facts.codex_429_counts.items())
+        )
+        rep.note(f"engines | codex_429={counts}")
     if facts.live_admission:
-        return _pr_land_fallback(rep, _check_live_admission(rep, facts), now, pr_land)
+        return _pr_land_fallback(
+            rep, _check_live_admission(rep, facts, now), now, pr_land
+        )
     free_lines: list[
         tuple[int, int]
     ] = []  # (index in rep.lines, free slots), host order
@@ -1025,7 +1054,7 @@ def _live_fix(host: str, admission: ModelLabAdmission) -> str:
 
 
 def _check_live_admission(
-    rep: Report, facts: ModelLabHeadroomFacts
+    rep: Report, facts: ModelLabHeadroomFacts, now: datetime
 ) -> list[tuple[int, int]]:
     """One finding per host from the runner's live admission (OMN-20864): free slots are what placement would
     admit now, per engine, never the cap minus the lanes a receipt shows. A refused engine is named with the rule
@@ -1043,6 +1072,19 @@ def _check_live_admission(
                 LIVE_UNREAD_FIX.format(host=host.name),
             )
             continue
+        try:
+            until = _mark_until(host.codex_limited_mark)
+            codex_refusal = (
+                f"Codex usage limit until {host.codex_limited_mark.until}"
+                if until is not None and until > now
+                else None
+            )
+        except (ValueError, TypeError):
+            codex_refusal = "Codex usage limit mark unreadable"
+        if codex_refusal:
+            adm = adm.model_copy(
+                update={"codex_slots": 0, "codex_refusal": codex_refusal}
+            )
         rep.codex.append(
             ModelCodexHeadroom(
                 host=host.name,
@@ -1299,28 +1341,60 @@ def check_deploy_drift(
             rep.note(f"{loop} | {why}")
 
 
+def check_engine_experiments(
+    rep: Report, request: ModelThroughputTickRequest, now: datetime
+) -> None:
+    """Count finished attempts per rung from the ledger window (OMN-21396)."""
+    rep.checked.append("engine-experiments")
+    hours = request.engine_experiment_window_hours
+    window = timedelta(hours=hours)
+    rows = [
+        row
+        for row in request.engine_experiments or []
+        if row.at is None or now - parse_stamp(row.at) <= window
+    ]
+    rungs = load_engine_ladder().rungs
+    extra_engines = sorted({row.engine for row in rows} - set(rungs))
+    for engine in (*rungs, *extra_engines):
+        attempts = [row for row in rows if row.engine == engine]
+        successes = sum(row.outcome == SUCCESS_OUTCOME for row in attempts)
+        escalations = sum(row.next_engine != NO_ENGINE for row in attempts)
+        rep.note(
+            f"engine-experiments:{engine} | {hours}h attempts={len(attempts)} "
+            f"successes={successes} escalations={escalations}"
+        )
+
+
 def _pr_short(text: object) -> str:
     """`Owner/repo#n` or `repo#n` to `repo#n`."""
     return str(text).rsplit("/", 1)[-1]
 
 
 def _base_red(data: dict[str, Any], repo: str) -> list[str]:
-    """Checks whose newest run on the repository's default branch failed, sorted."""
+    """Newest default-branch failures, sorted, preferring non-roll-up checks."""
     repos = data.get("repos") or {}
     base = (repos.get(repo) or {}).get("default_branch") or "main"
     branch = (data.get("branches") or {}).get(f"{repo}@{base}") or {}
     rows = (branch.get("checks") or {}).get("rows") or []
+    foreign_runs = {
+        str(row[0])
+        for row in (branch.get("runs") or {}).get("rows") or []
+        if isinstance(row, list) and len(row) >= 9 and row[8] and row[8] != base
+    }
     newest: dict[str, list[Any]] = {}
     for row in rows:
         if isinstance(row, list) and len(row) >= 4:
+            if len(row) >= 8 and str(row[7]) in foreign_runs:
+                continue
             name = str(row[0])
             if name not in newest or str(row[3]) > str(newest[name][3]):
                 newest[name] = row
-    return sorted(
+    reds = sorted(
         name
         for name, row in newest.items()
         if row[1] == "completed" and row[2] in BASE_RED
     )
+    return [name for name in reds if name not in ROLLUP_CONTEXTS] or reds
 
 
 def _repo_verdict(
@@ -1333,7 +1407,7 @@ def _repo_verdict(
 ) -> tuple[RepoStatusVerdict, str | None, str, float | None, list[str]]:
     """(verdict, check, reason, queue wait, prs) for one repository, most urgent first.
 
-    A roll-up counts only for a PR whose reds are all roll-ups.
+    A roll-up counts only for a PR or base branch whose reds are all roll-ups.
     """
     keys = [key for key, _ in prs]
     repo_covers = [
@@ -1563,6 +1637,8 @@ class HandlerThroughputTickDecision:
             check_venv_divergence(rep, request, now)
         if request.deploy_drifts is not None:
             check_deploy_drift(rep, request, now)
+        if request.engine_experiments is not None:
+            check_engine_experiments(rep, request, now)
         repo_status = (
             check_repo_status(rep, request, request.repo_status, covers, ticks, now)
             if request.repo_status is not None

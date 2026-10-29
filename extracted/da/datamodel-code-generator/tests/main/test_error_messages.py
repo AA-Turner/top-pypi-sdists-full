@@ -18,12 +18,14 @@ from graphql import Source as GraphQLSource
 
 from datamodel_code_generator import (
     DanglingRefWarning,
+    DataModelType,
     Error,
     InputFileType,
     InvalidFileFormatError,
     SchemaResourceRefWarning,
     YamlValue,
     generate,
+    snooper_to_methods,
 )
 from datamodel_code_generator.__main__ import Exit
 from datamodel_code_generator.config import GenerateConfig
@@ -80,16 +82,16 @@ ERROR_CASES: tuple[tuple[str, InputFileTypeLiteral, str], ...] = (
     (
         "pointer_through_scalar_openapi.yaml",
         "openapi",
-        "Error at schema path 'pointer_through_scalar_openapi.yaml/#/components/schemas/Name'",
+        "Error at schema path 'pointer_through_scalar_openapi.yaml#/components/schemas/Name'",
     ),
     (
         "pointer_through_scalar.json",
         "jsonschema",
-        "Error at schema path 'pointer_through_scalar.json/#/definitions/Name': ValidationError",
+        "Error at schema path 'pointer_through_scalar.json#/definitions/Name': ValidationError",
     ),
-    ("wrong_type_properties.json", "jsonschema", "Error at schema path 'wrong_type_properties.json'"),
-    ("required_as_string.json", "jsonschema", "Error at schema path 'required_as_string.json'"),
-    ("enum_as_dict.json", "jsonschema", "Error at schema path 'enum_as_dict.json'"),
+    ("wrong_type_properties.json", "jsonschema", "Error at schema path 'wrong_type_properties.json#'"),
+    ("required_as_string.json", "jsonschema", "Error at schema path 'required_as_string.json#'"),
+    ("enum_as_dict.json", "jsonschema", "Error at schema path 'enum_as_dict.json#'"),
     ("missing_external_ref.json", "jsonschema", "$ref file not found:"),
     ("malformed_external_ref.json", "jsonschema", "truncated_jsonschema.json"),
     ("empty_jsonschema.json", "jsonschema", "Models not found in the input data"),
@@ -959,6 +961,630 @@ def test_malformed_input_error_messages(
 
 
 @pytest.mark.parametrize(
+    ("fixture_name", "input_file_type", "extra_args", "expected_stderr_contains"),
+    [
+        pytest.param(
+            "schema_location_definition.json",
+            "jsonschema",
+            [],
+            "Error at schema path 'schema_location_definition.json#/definitions/a~1b~0c': ValidationError",
+            id="definition",
+        ),
+        pytest.param(
+            "schema_location_documents",
+            "jsonschema",
+            [],
+            "Error at schema path 'ext/invalid.json#/definitions/Invalid': ValidationError",
+            id="referenced-document",
+        ),
+        pytest.param(
+            "schema_location_ref_scalar.json",
+            "jsonschema",
+            [],
+            "Error at schema path 'schema_location_ref_scalar.json#/misc/a~1b': ValidationError",
+            id="ref-target-scalar-keeps-reference",
+        ),
+        pytest.param(
+            "schema_location_scalar_component.yaml",
+            "openapi",
+            [],
+            "Error at schema path 'schema_location_scalar_component.yaml#/components/schemas/a~1b': ValidationError",
+            id="scalar-component",
+        ),
+        pytest.param(
+            "schema_location_scalar_component.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'schema_location_scalar_component.yaml#/components/schemas/a~1b': ValidationError",
+            id="scalar-component-api",
+        ),
+        pytest.param(
+            "integer_component_parameter.yaml",
+            "openapi",
+            ["--openapi-scopes", "schemas", "api"],
+            "Error at schema path 'integer_component_parameter.yaml#/components/parameters/1': "
+            "component name 1 is not a string",
+            id="integer-parameter-name-api",
+        ),
+        pytest.param(
+            "integer_component_schema.yaml",
+            "openapi",
+            [],
+            "Error at schema path 'integer_component_schema.yaml#/components/schemas/1': "
+            "component name 1 is not a string",
+            id="integer-schema-name",
+        ),
+        pytest.param(
+            "integer_component_schema.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_component_schema.yaml#/components/schemas/1': "
+            "component name 1 is not a string",
+            id="integer-schema-name-api",
+        ),
+        pytest.param(
+            "integer_component_request_body.yaml",
+            "openapi",
+            ["--openapi-scopes", "schemas", "requestbodies"],
+            "Error at schema path 'integer_component_request_body.yaml#/components/requestBodies/1': "
+            "component name 1 is not a string",
+            id="integer-request-body-name",
+        ),
+        pytest.param(
+            "integer_component_request_body.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_component_request_body.yaml#/components/requestBodies/1': "
+            "component name 1 is not a string",
+            id="integer-request-body-name-api",
+        ),
+        pytest.param(
+            "integer_component_path_item.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_component_path_item.yaml#/components/pathItems/1': "
+            "component name 1 is not a string",
+            id="integer-path-item-name-api",
+        ),
+        pytest.param(
+            "integer_component_callback.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_component_callback.yaml#/components/callbacks/1': "
+            "component name 1 is not a string",
+            id="integer-callback-name-api",
+        ),
+        pytest.param(
+            "integer_path.yaml",
+            "openapi",
+            ["--openapi-scopes", "paths"],
+            "Error at schema path 'integer_path.yaml#/paths/1': path 1 is not a string",
+            id="integer-path",
+        ),
+        pytest.param(
+            "integer_path.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_path.yaml#/paths/1': path 1 is not a string",
+            id="integer-path-api",
+        ),
+        pytest.param(
+            "integer_webhook.yaml",
+            "openapi",
+            ["--openapi-scopes", "webhooks"],
+            "Error at schema path 'integer_webhook.yaml#/webhooks/1': webhook name 1 is not a string",
+            id="integer-webhook-name",
+        ),
+        pytest.param(
+            "integer_webhook.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_webhook.yaml#/webhooks/1': webhook name 1 is not a string",
+            id="integer-webhook-name-api",
+        ),
+        pytest.param(
+            "integer_callback_name.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_callback_name.yaml#/paths/~1pets/post/callbacks/1': "
+            "callback name 1 is not a string",
+            id="integer-operation-callback-name-api",
+        ),
+        pytest.param(
+            "integer_callback_expression.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_callback_expression.yaml#/paths/~1pets/post/callbacks/onEvent/1': "
+            "callback expression 1 is not a string",
+            id="integer-callback-expression-api",
+        ),
+        pytest.param(
+            "integer_additional_operation.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_additional_operation.yaml#/paths/~1pets/additionalOperations/1': "
+            "method 1 is not a string",
+            id="integer-additional-operation-api",
+        ),
+        pytest.param(
+            "integer_additional_operation_ref.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path "
+            "'integer_additional_operation_ref.yaml#/components/pathItems/Pets/additionalOperations/1': "
+            "method 1 is not a string",
+            id="integer-additional-operation-referenced-api",
+        ),
+        pytest.param(
+            "integer_header_name.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_header_name.yaml#/paths/~1pets/get/responses/200/headers/1': "
+            "header name 1 is not a string",
+            id="integer-header-name-api",
+        ),
+        pytest.param(
+            "integer_media_type.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_media_type.yaml#/paths/~1pets/get/responses/200/content/1': "
+            "media type 1 is not a string",
+            id="integer-media-type-api",
+        ),
+        pytest.param(
+            "integer_media_type_item_schema.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_media_type_item_schema.yaml#/paths/~1pets/get/responses/200/content/1': "
+            "media type 1 is not a string",
+            id="integer-media-type-of-item-schema-api",
+        ),
+        pytest.param(
+            "integer_media_type_encoding.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_media_type_encoding.yaml#/paths/~1pets/post/requestBody/content/1': "
+            "media type 1 is not a string",
+            id="integer-media-type-beside-encoding-api",
+        ),
+        pytest.param(
+            "integer_encoding_header_name.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_encoding_header_name.yaml"
+            "#/paths/~1pets/post/requestBody/content/multipart~1form-data/encoding/name/headers/1': "
+            "header name 1 is not a string",
+            id="integer-encoding-header-name-api",
+        ),
+        pytest.param(
+            "integer_encoding_property_name.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'integer_encoding_property_name.yaml"
+            "#/paths/~1pets/post/requestBody/content/multipart~1form-data/encoding/1': "
+            "encoding property name 1 is not a string",
+            id="integer-encoding-property-name-api",
+        ),
+        pytest.param(
+            "integer_asyncapi_component.yaml",
+            "asyncapi",
+            [],
+            "Error at schema path 'integer_asyncapi_component.yaml#/components/schemas/1': name 1 is not a string",
+            id="integer-asyncapi-component-name",
+        ),
+        pytest.param(
+            "integer_asyncapi_channel.yaml",
+            "asyncapi",
+            [],
+            "Error at schema path 'integer_asyncapi_channel.yaml#/channels/1/messages/petAdded/payload': "
+            "name 1 is not a string",
+            id="integer-asyncapi-channel-name",
+        ),
+        pytest.param(
+            "integer_asyncapi_schema_format.yaml",
+            "asyncapi",
+            [],
+            "AsyncAPI message schemaFormat must be a string at "
+            "integer_asyncapi_schema_format.yaml/#/channels/1/messages/petAdded",
+            id="integer-asyncapi-channel-name-beside-invalid-schema-format",
+        ),
+        pytest.param(
+            "ref_sibling_cycle.yaml",
+            "openapi",
+            [],
+            "Error at schema path 'ref_sibling_cycle.yaml#/components/schemas/A': its $ref chain loops back without "
+            "reaching a schema to type it by: ref_sibling_cycle.yaml#/components/schemas/A -> "
+            "ref_sibling_cycle.yaml#/components/schemas/B -> ref_sibling_cycle.yaml#/components/schemas/A",
+            id="ref-sibling-cycle",
+        ),
+        pytest.param(
+            "ref_sibling_cycle_additional_properties.yaml",
+            "openapi",
+            ["--output-model-type", "typing.TypedDict"],
+            "Error at schema path 'ref_sibling_cycle_additional_properties.yaml#/components/schemas/A': its $ref "
+            "chain loops back without reaching a schema to type it by: "
+            "ref_sibling_cycle_additional_properties.yaml#/components/schemas/A -> "
+            "ref_sibling_cycle_additional_properties.yaml#/components/schemas/B -> "
+            "ref_sibling_cycle_additional_properties.yaml#/components/schemas/A",
+            id="ref-sibling-cycle-additional-properties-typeddict",
+        ),
+        pytest.param(
+            "ref_alias_cycle.yaml",
+            "openapi",
+            ["--output-model-type", "pydantic_v2.dataclass"],
+            "Holder uses a $ref chain that loops back without reaching a schema, which Pydantic cannot "
+            "build: A (ref_alias_cycle.yaml#/components/schemas/A) -> B (ref_alias_cycle.yaml#/components/schemas/B) "
+            "-> A (ref_alias_cycle.yaml#/components/schemas/A)",
+            id="ref-alias-cycle-pydantic-dataclass",
+        ),
+        pytest.param(
+            "ref_alias_cycle_through_alias.json",
+            "jsonschema",
+            ["--output-model-type", "pydantic_v2.dataclass"],
+            "Model uses a $ref chain that loops back without reaching a schema, which Pydantic cannot "
+            "build: A (ref_alias_cycle_through_alias.json#/$defs/A) -> B (ref_alias_cycle_through_alias.json#/$defs/B) "
+            "-> A (ref_alias_cycle_through_alias.json#/$defs/A)",
+            id="ref-alias-cycle-through-alias-pydantic-dataclass",
+        ),
+        pytest.param(
+            "ref_alias_cycle.yaml",
+            "openapi",
+            ["--output-model-type", "msgspec.Struct"],
+            "Holder uses a $ref chain that loops back without reaching a schema, which msgspec cannot "
+            "decode: A (ref_alias_cycle.yaml#/components/schemas/A) -> B (ref_alias_cycle.yaml#/components/schemas/B) "
+            "-> A (ref_alias_cycle.yaml#/components/schemas/A)",
+            id="ref-alias-cycle-msgspec",
+        ),
+        pytest.param(
+            "ref_alias_cycle_through_alias.json",
+            "jsonschema",
+            ["--output-model-type", "msgspec.Struct"],
+            "Model uses a $ref chain that loops back without reaching a schema, which msgspec cannot "
+            "decode: A (ref_alias_cycle_through_alias.json#/$defs/A) -> "
+            "B (ref_alias_cycle_through_alias.json#/$defs/B) -> A (ref_alias_cycle_through_alias.json#/$defs/A)",
+            id="ref-alias-cycle-through-alias-msgspec",
+        ),
+        *(
+            pytest.param(
+                "ref_self_reference.yaml",
+                "openapi",
+                ["--output-model-type", output_model_type],
+                f"Holder uses a $ref chain that loops back without reaching a schema, which {failure}: "
+                "A (ref_self_reference.yaml#/components/schemas/A) -> "
+                "A (ref_self_reference.yaml#/components/schemas/A)",
+                id=f"ref-self-reference-{output_model_type}",
+            )
+            for output_model_type, failure in (
+                ("pydantic_v2.BaseModel", "Pydantic cannot build"),
+                ("pydantic_v2.dataclass", "Pydantic cannot build"),
+                ("msgspec.Struct", "msgspec cannot decode"),
+            )
+        ),
+        *(
+            pytest.param(
+                "ref_self_reference_through_alias.json",
+                "jsonschema",
+                ["--output-model-type", output_model_type],
+                f"{user} uses a $ref chain that loops back without reaching a schema, which {failure}: "
+                "A (ref_self_reference_through_alias.json#/$defs/A) -> "
+                "A (ref_self_reference_through_alias.json#/$defs/A)",
+                id=f"ref-self-reference-through-alias-{output_model_type}",
+            )
+            for output_model_type, user, failure in (
+                ("pydantic_v2.BaseModel", "C", "Pydantic cannot build"),
+                ("pydantic_v2.dataclass", "Model", "Pydantic cannot build"),
+                ("msgspec.Struct", "Model", "msgspec cannot decode"),
+                ("dataclasses.dataclass", "C", "Python cannot evaluate as the module runs"),
+                ("typing.TypedDict", "C", "Python cannot evaluate as the module runs"),
+            )
+        ),
+        *(
+            pytest.param(
+                fixture_name,
+                "openapi",
+                ["--output-model-type", output_model_type, *extra_args],
+                f"{user} uses a $ref chain that loops back without reaching a schema, which "
+                f"Python cannot evaluate as the module runs: A ({fixture_name}#/components/schemas/A) -> "
+                f"A ({fixture_name}#/components/schemas/A)",
+                id=f"ref-self-reference-{case}-{output_model_type}",
+            )
+            for case, fixture_name, output_model_type, extra_args, user in (
+                ("unused-alias", "ref_self_reference_unused.yaml", "pydantic_v2.dataclass", [], "C"),
+                ("unused-alias", "ref_self_reference_unused.yaml", "msgspec.Struct", [], "C"),
+                ("unused-alias", "ref_self_reference_unused.yaml", "dataclasses.dataclass", [], "C"),
+                ("unused-alias", "ref_self_reference_unused.yaml", "typing.TypedDict", [], "C"),
+                ("functional", "ref_self_reference_functional.yaml", "typing.TypedDict", [], "Holder"),
+                (
+                    "eager-annotations",
+                    "ref_self_reference.yaml",
+                    "dataclasses.dataclass",
+                    ["--disable-future-imports"],
+                    "Holder",
+                ),
+                (
+                    "eager-annotations",
+                    "ref_self_reference.yaml",
+                    "typing.TypedDict",
+                    ["--disable-future-imports"],
+                    "Holder",
+                ),
+            )
+        ),
+        pytest.param(
+            "schema_location_request_body.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'schema_location_request_body.yaml"
+            "#/paths/~1pets~1{id}/post/requestBody/content/application~1json/schema': ValidationError",
+            id="request-body-api",
+        ),
+        pytest.param(
+            "schema_location_request_body.yaml",
+            "openapi",
+            ["--openapi-scopes", "schemas", "paths", "parameters"],
+            "Error at schema path 'schema_location_request_body.yaml"
+            "#/paths/~1pets~1{id}/post/requestBody/content/application~1json/schema': ValidationError: "
+            "1 validation error for JsonSchemaObject",
+            id="request-body-paths",
+        ),
+        pytest.param(
+            "schema_location_request_body_ref.yaml",
+            "openapi",
+            ["--openapi-scopes", "paths"],
+            "Error at schema path 'schema_location_request_body_ref.yaml"
+            "#/components/requestBodies/Pet/content/application~1json/schema': ValidationError: "
+            "1 validation error for JsonSchemaObject",
+            id="referenced-request-body-paths",
+        ),
+        pytest.param(
+            "schema_location_response_after_reference.yaml",
+            "openapi",
+            ["--openapi-scopes", "paths"],
+            "Error at schema path 'schema_location_response_after_reference.yaml"
+            "#/paths/~1pets/get/responses/200/content/application~1json/schema': ValidationError: "
+            "1 validation error for JsonSchemaObject",
+            id="response-after-reference-paths",
+        ),
+        pytest.param(
+            "invalid_operation.yaml",
+            "openapi",
+            ["--openapi-scopes", "paths"],
+            "Error at schema path 'invalid_operation.yaml#/paths/~1pets/post': ValidationError: ",
+            id="invalid-operation-paths",
+        ),
+        pytest.param(
+            "invalid_operation_null_schema.yaml",
+            "openapi",
+            ["--openapi-scopes", "paths"],
+            "Error at schema path 'invalid_operation_null_schema.yaml#/paths/~1pets/post': ValidationError: ",
+            id="invalid-operation-beside-null-schemas-paths",
+        ),
+        pytest.param(
+            "schema_location_unsatisfiable_request_body.yaml",
+            "openapi",
+            ["--openapi-scopes", "paths"],
+            "Error at schema path 'schema_location_unsatisfiable_request_body.yaml"
+            "#/paths/~1pets~1{id}/post/requestBody/content/application~1json/schema/properties/value': "
+            "allOf contains a boolean false schema that makes the schema unsatisfiable",
+            id="unsatisfiable-request-body",
+        ),
+        pytest.param(
+            "schema_location_unsatisfiable_payload.yaml",
+            "asyncapi",
+            [],
+            "Error at schema path 'schema_location_unsatisfiable_payload.yaml"
+            "#/channels/user~1signup/messages/UserSignedUp/payload/properties/address': "
+            "allOf contains a boolean false schema that makes the schema unsatisfiable",
+            id="unsatisfiable-payload",
+        ),
+        pytest.param(
+            "schema_location_unsatisfiable_payload.yaml",
+            "asyncapi",
+            ["--openapi-scopes", "api"],
+            "The 'api' scope of --openapi-scopes is not available for AsyncAPI input, "
+            "which generates models from every location that holds a schema",
+            id="asyncapi-api-scope",
+        ),
+        pytest.param(
+            "schema_location_mapped_ref_without_fragment/api.yaml",
+            "openapi",
+            ["--external-ref-mapping", "common.yaml=mypackage.shared.models"],
+            "Error at schema path 'api.yaml#/components/schemas/UserResponse/properties/wrapper': "
+            "$ref 'common.yaml#' names no schema of the document that --external-ref-mapping maps to "
+            "'mypackage.shared.models'; a mapped $ref needs a fragment that names a schema of that document",
+            id="mapped-ref-without-fragment",
+        ),
+        pytest.param(
+            "schema_location_python_import_expression_base.yaml",
+            "openapi",
+            [],
+            "A Parser can not resolve classes: "
+            "[class: schema_location_python_import_expression_base.yaml#/components/schemas/Branch "
+            "references: frozenset({'schema_location_python_import_expression_base.yaml#/components/schemas/Twig'})].",
+            id="python-import-expression-base",
+        ),
+    ],
+)
+def test_schema_location_error_messages(
+    fixture_name: str,
+    input_file_type: InputFileTypeLiteral,
+    extra_args: list[str],
+    expected_stderr_contains: str,
+    output_file: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Errors name the document and the JSON Pointer of the schema they reject, as model metadata does."""
+    run_main_and_assert(
+        input_path=MALFORMED_DATA_PATH / fixture_name,
+        output_path=output_file,
+        input_file_type=input_file_type,
+        extra_args=extra_args,
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr_contains=expected_stderr_contains,
+        output_should_not_exist=True,
+    )
+
+
+def _object_with_ref(name: str) -> dict[str, YamlValue]:
+    return {"type": "object", "properties": {"value": {"$ref": f"#/$defs/{name}"}}}
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected_location", "keyword"),
+    [
+        pytest.param(
+            {"type": "object", "properties": {"a/b": {"allOf": [{"type": "string"}, False]}}},
+            "#/properties/a~1b",
+            "allOf",
+            id="property-allof",
+        ),
+        pytest.param(
+            {
+                "type": "object",
+                "properties": {
+                    "values": {"type": "array", "items": {"allOf": [{"type": "string"}, False], "minLength": 1}}
+                },
+            },
+            "#/properties/values/items",
+            "allOf",
+            id="items-allof",
+        ),
+        pytest.param(
+            {
+                "$defs": {"Direct": {"allOf": [False, {"type": "object", "properties": {"name": {"type": "string"}}}]}},
+                **_object_with_ref("Direct"),
+            },
+            "#/$defs/Direct",
+            "allOf",
+            id="allof-direct",
+        ),
+        pytest.param(
+            {"$defs": {"Nested": {"allOf": [{"allOf": [False]}]}}, **_object_with_ref("Nested")},
+            "#/$defs/Nested/allOf/0",
+            "allOf",
+            id="allof-nested",
+        ),
+        pytest.param(
+            {"$defs": {"Never": False, "Single": {"allOf": [{"$ref": "#/$defs/Never"}]}}, **_object_with_ref("Single")},
+            "#/$defs/Single",
+            "allOf",
+            id="allof-single-ref",
+        ),
+        pytest.param(
+            {
+                "$defs": {
+                    "Never": False,
+                    "Member": {
+                        "allOf": [
+                            {"$ref": "#/$defs/Never"},
+                            {"type": "object", "properties": {"name": {"type": "string"}}},
+                        ]
+                    },
+                },
+                **_object_with_ref("Member"),
+            },
+            "#/$defs/Member",
+            "allOf",
+            id="allof-member-ref",
+        ),
+        pytest.param(
+            {
+                "$defs": {
+                    "Base": {"type": "object", "properties": {"id": {"type": "string"}}},
+                    "Never": False,
+                    "Merged": {"allOf": [{"$ref": "#/$defs/Base"}, {"$ref": "#/$defs/Never"}]},
+                },
+                **_object_with_ref("Merged"),
+            },
+            "#/$defs/Merged",
+            "allOf",
+            id="allof-merged-ref",
+        ),
+        pytest.param(
+            {"type": "object", "properties": {"value": {"anyOf": [False, False]}}},
+            "#/properties/value",
+            "anyOf",
+            id="anyof-all-false",
+        ),
+    ],
+)
+def test_unsatisfiable_schema_error_names_location(
+    schema: dict[str, YamlValue],
+    expected_location: str,
+    keyword: str,
+    output_file: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """An error about branches that leave no value names the schema that holds them."""
+    (input_path := output_file.parent / "schema.json").write_text(json.dumps(schema), encoding="utf-8")
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr_contains=(
+            f"Error at schema path 'schema.json{expected_location}': "
+            f"{keyword} contains a boolean false schema that makes the schema unsatisfiable"
+        ),
+        output_should_not_exist=True,
+    )
+
+
+def test_schema_validation_error_details_name_the_model(output_file: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Pydantic's error details name the schema model inside a union, as in 0.86.0, beside the schema location."""
+    (input_path := output_file.parent / "schema.json").write_text(
+        json.dumps({"type": "object", "properties": {"x": {"type": "integer", "minimum": "low"}}}), encoding="utf-8"
+    )
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr_contains="\nproperties.x.JsonSchemaObject.minimum.",
+        output_should_not_exist=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "input_file_type", "extra_args"),
+    [
+        pytest.param("schema_location_strict_draft4.json", "jsonschema", [], id="draft4"),
+        pytest.param("schema_location_strict_draft2020.json", "jsonschema", [], id="draft2020"),
+        pytest.param("schema_location_strict_openapi.yaml", "openapi", [], id="openapi"),
+        pytest.param("schema_location_strict_openapi.yaml", "openapi", ["--openapi-scopes", "api"], id="openapi-api"),
+        pytest.param("schema_location_strict_asyncapi.yaml", "asyncapi", [], id="asyncapi"),
+    ],
+)
+def test_schema_version_warnings_name_location(
+    fixture_name: str,
+    input_file_type: InputFileTypeLiteral,
+    extra_args: list[str],
+    output_file: Path,
+) -> None:
+    """Strict-mode warnings name the document and the JSON Pointer of the schema that uses the feature."""
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=MALFORMED_DATA_PATH / fixture_name,
+            output_path=output_file,
+            input_file_type=input_file_type,
+            extra_args=[
+                "--schema-version-mode",
+                "strict",
+                "--disable-timestamp",
+                "--formatters",
+                "builtin",
+                *extra_args,
+            ],
+        )
+    messages = dict.fromkeys(str(record.message) for record in recorded if "Schema path:" in str(record.message))
+    assert_output("".join(f"{message}\n" for message in messages), name="warnings")
+
+
+@pytest.mark.parametrize(
     ("parser", "source"),
     [
         (JsonSchemaParser(""), Source(path=MALFORMED_DATA_PATH / "truncated_jsonschema.json", text="{")),
@@ -1022,6 +1648,99 @@ def test_dangling_local_ref_warns_and_preserves_generated_output(
             f"{filename}\n" for filename in dict.fromkeys(Path(warning.filename).name for warning in dangling_warnings)
         ),
         EXPECTED_MALFORMED_PATH / "dangling_ref_warning_location.txt",
+    )
+
+
+def test_dangling_component_ref_warning_names_the_parse_caller(output_file: Path) -> None:
+    """The diagnostics warnings of an OpenAPI document name ``OpenAPIParser.parse()``, which calls the base one."""
+    with pytest.warns(DanglingRefWarning) as warning_records:
+        run_main_with_args([
+            "--input",
+            str(MALFORMED_DATA_PATH / "dangling_component_ref.yaml"),
+            "--input-file-type",
+            "openapi",
+            "--output",
+            str(output_file),
+        ])
+    assert_output(
+        "".join(
+            f"{filename}\n"
+            for filename in dict.fromkeys(
+                Path(warning.filename).name for warning in warning_records if warning.category is DanglingRefWarning
+            )
+        )
+    )
+
+
+def test_dangling_ref_warning_names_the_caller_of_a_traced_parse(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Under the tracing wrappers that ``--debug`` installs, the diagnostics warnings name the caller of ``parse()``."""
+    pysnooper = pytest.importorskip("pysnooper")
+    monkeypatch.setattr(pysnooper.tracer, "DISABLED", False)
+
+    @snooper_to_methods()
+    class TracedParser(JsonSchemaParser):
+        """A parser whose methods, ``parse()`` included, run inside the tracing wrappers."""
+
+    parser = TracedParser(MALFORMED_DATA_PATH / "dangling_local_ref.json", formatters=[Formatter.BUILTIN])
+    with pytest.warns(DanglingRefWarning) as warning_records:
+        parser.parse()
+    assert_output(
+        "".join(
+            f"{filename}\n"
+            for filename in dict.fromkeys(
+                Path(warning.filename).name for warning in warning_records if warning.category is DanglingRefWarning
+            )
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "input_file_type", "options"),
+    [
+        (DATA_PATH / "jsonschema" / "msgspec_wide_int_enums.json", InputFileType.JsonSchema, {}),
+        (
+            DATA_PATH / "openapi" / "discriminator_msgspec_tagged_unions_inherited.yaml",
+            InputFileType.OpenAPI,
+            {"use_msgspec_tagged_unions": True, "snake_case_field": True},
+        ),
+    ],
+    ids=["finish-pass", "module-pass"],
+)
+def test_pass_warnings_name_the_package_once_traced(
+    monkeypatch: pytest.MonkeyPatch, source: Path, input_file_type: InputFileType, options: dict[str, object]
+) -> None:
+    """Once the tracing that ``--debug`` installs has wrapped the pass functions, their warnings still name the caller.
+
+    The frame they name is the package's frame that called the pass, and a filter on module ``parser.base`` matches
+    them, as without the wrappers.
+    """
+    pysnooper = pytest.importorskip("pysnooper")
+    monkeypatch.setattr(pysnooper.tracer, "DISABLED", False)
+
+    @snooper_to_methods()
+    class TracedParser(JsonSchemaParser):
+        """A parser whose decoration wraps the functions of the pass modules, which stay wrapped."""
+
+    monkeypatch.setattr(pysnooper.tracer, "DISABLED", True)
+
+    def warned(*filters: str) -> list[warnings.WarningMessage]:
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            for module in filters:
+                warnings.filterwarnings("ignore", module=module)
+            generate(
+                source,
+                input_file_type=input_file_type,
+                output_model_type=DataModelType.MsgspecStruct,
+                formatters=[Formatter.BUILTIN],
+                **options,
+            )
+        return [record for record in records if record.category is UserWarning]
+
+    kept = warned(r"datamodel_code_generator\.parser\.base$")
+    assert_output(
+        "".join(f"{Path(record.filename).name}: {str(record.message)[:60]}\n" for record in warned())
+        + f"kept by a parser.base module filter: {len(kept)}\n"
     )
 
 

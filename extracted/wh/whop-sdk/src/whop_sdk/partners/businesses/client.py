@@ -61,6 +61,8 @@ class BusinessesClient:
         direction: typing.Optional[ListBusinessesRequestDirection] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
+        first_sale_before: typing.Optional[str] = None,
+        first_sale_after: typing.Optional[str] = None,
         referred_user_id: typing.Optional[str] = None,
         referred_username: typing.Optional[str] = None,
         tier: typing.Optional[ListBusinessesRequestTier] = None,
@@ -73,7 +75,7 @@ class BusinessesClient:
         Parameters
         ----------
         referring_account_id : typing.Optional[str]
-            List the referrals this business's team members made, past members included, instead of the authenticated user's own. Requires company:basic:read on that business, which every team member holds, and cannot be combined with user_id.
+            List the referrals this business's team members made, past members included, instead of the authenticated user's own. Requires company:basic:read on that business, which every team member holds, and cannot be combined with user_id. The owner role reads every referral; anyone else reads only the referrals made by themselves and by the people under them in the org chart.
 
         advance_status : typing.Optional[ListBusinessesRequestAdvanceStatus]
             Filter the authenticated partner's CPA offers by status. Use offered for every state after qualification.
@@ -108,6 +110,12 @@ class BusinessesClient:
         created_after : typing.Optional[str]
             Only return partner businesses created after this timestamp.
 
+        first_sale_before : typing.Optional[str]
+            Only return partner businesses whose first paid sale above zero happened before this timestamp.
+
+        first_sale_after : typing.Optional[str]
+            Only return partner businesses whose first paid sale above zero happened after this timestamp. Combined with first_sale_before, this is the net new set: businesses that processed their first $1 inside the window.
+
         referred_user_id : typing.Optional[str]
             Filter to referrals attributed to this user. For first-tier referrals, this is the referred account owner; for second-tier referrals, this is the partner you recruited.
 
@@ -133,7 +141,7 @@ class BusinessesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -157,6 +165,8 @@ class BusinessesClient:
             direction=direction,
             created_before=created_before,
             created_after=created_after,
+            first_sale_before=first_sale_before,
+            first_sale_after=first_sale_after,
             referred_user_id=referred_user_id,
             referred_username=referred_username,
             tier=tier,
@@ -188,7 +198,7 @@ class BusinessesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -204,6 +214,7 @@ class BusinessesClient:
         id: str,
         *,
         annual_processing_usd: typing.Optional[str] = OMIT,
+        deal_closed_reason: typing.Optional[str] = OMIT,
         withdraw_projections: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateBusinessesResponse:
@@ -217,6 +228,9 @@ class BusinessesClient:
 
         annual_processing_usd : typing.Optional[str]
             Annual projected card and BNPL processing combined, in USD.
+
+        deal_closed_reason : typing.Optional[str]
+            How the partner closed this business. Send it on its own to save it; the response is then the business ID and the saved reason.
 
         withdraw_projections : typing.Optional[bool]
             Remove unaccepted projections and invalidate the offer. The original CPA term is retained if projections are later added again.
@@ -234,7 +248,7 @@ class BusinessesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -245,6 +259,7 @@ class BusinessesClient:
         _response = self._raw_client.update(
             id,
             annual_processing_usd=annual_processing_usd,
+            deal_closed_reason=deal_closed_reason,
             withdraw_projections=withdraw_projections,
             request_options=request_options,
         )
@@ -292,7 +307,7 @@ class BusinessesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -341,7 +356,7 @@ class BusinessesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -394,6 +409,8 @@ class AsyncBusinessesClient:
         direction: typing.Optional[ListBusinessesRequestDirection] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
+        first_sale_before: typing.Optional[str] = None,
+        first_sale_after: typing.Optional[str] = None,
         referred_user_id: typing.Optional[str] = None,
         referred_username: typing.Optional[str] = None,
         tier: typing.Optional[ListBusinessesRequestTier] = None,
@@ -406,7 +423,7 @@ class AsyncBusinessesClient:
         Parameters
         ----------
         referring_account_id : typing.Optional[str]
-            List the referrals this business's team members made, past members included, instead of the authenticated user's own. Requires company:basic:read on that business, which every team member holds, and cannot be combined with user_id.
+            List the referrals this business's team members made, past members included, instead of the authenticated user's own. Requires company:basic:read on that business, which every team member holds, and cannot be combined with user_id. The owner role reads every referral; anyone else reads only the referrals made by themselves and by the people under them in the org chart.
 
         advance_status : typing.Optional[ListBusinessesRequestAdvanceStatus]
             Filter the authenticated partner's CPA offers by status. Use offered for every state after qualification.
@@ -441,6 +458,12 @@ class AsyncBusinessesClient:
         created_after : typing.Optional[str]
             Only return partner businesses created after this timestamp.
 
+        first_sale_before : typing.Optional[str]
+            Only return partner businesses whose first paid sale above zero happened before this timestamp.
+
+        first_sale_after : typing.Optional[str]
+            Only return partner businesses whose first paid sale above zero happened after this timestamp. Combined with first_sale_before, this is the net new set: businesses that processed their first $1 inside the window.
+
         referred_user_id : typing.Optional[str]
             Filter to referrals attributed to this user. For first-tier referrals, this is the referred account owner; for second-tier referrals, this is the partner you recruited.
 
@@ -468,7 +491,7 @@ class AsyncBusinessesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -499,6 +522,8 @@ class AsyncBusinessesClient:
             direction=direction,
             created_before=created_before,
             created_after=created_after,
+            first_sale_before=first_sale_before,
+            first_sale_after=first_sale_after,
             referred_user_id=referred_user_id,
             referred_username=referred_username,
             tier=tier,
@@ -532,7 +557,7 @@ class AsyncBusinessesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -554,6 +579,7 @@ class AsyncBusinessesClient:
         id: str,
         *,
         annual_processing_usd: typing.Optional[str] = OMIT,
+        deal_closed_reason: typing.Optional[str] = OMIT,
         withdraw_projections: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateBusinessesResponse:
@@ -567,6 +593,9 @@ class AsyncBusinessesClient:
 
         annual_processing_usd : typing.Optional[str]
             Annual projected card and BNPL processing combined, in USD.
+
+        deal_closed_reason : typing.Optional[str]
+            How the partner closed this business. Send it on its own to save it; the response is then the business ID and the saved reason.
 
         withdraw_projections : typing.Optional[bool]
             Remove unaccepted projections and invalidate the offer. The original CPA term is retained if projections are later added again.
@@ -586,7 +615,7 @@ class AsyncBusinessesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -603,6 +632,7 @@ class AsyncBusinessesClient:
         _response = await self._raw_client.update(
             id,
             annual_processing_usd=annual_processing_usd,
+            deal_closed_reason=deal_closed_reason,
             withdraw_projections=withdraw_projections,
             request_options=request_options,
         )
@@ -652,7 +682,7 @@ class AsyncBusinessesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -709,7 +739,7 @@ class AsyncBusinessesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

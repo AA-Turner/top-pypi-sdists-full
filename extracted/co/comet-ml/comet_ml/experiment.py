@@ -218,6 +218,7 @@ from .logging_messages import (
     CODECARBON_NOT_INSTALLED,
     CODECARBON_START_FAILED,
     CODECARBON_STOP_FAILED,
+    COPY_TO_TMP_ARGUMENT_IGNORED_FOR_FILE_LIKE,
     CREATE_SYMLINK_ONLINE_ONLY_ERROR,
     DEPRECATED_COPY_TO_TEMP_ARGUMENT,
     DEPRECATED_WORKSPACE_MODEL_REGISTRY_ARGUMENT,
@@ -2705,6 +2706,20 @@ class CometExperiment(CommonExperiment):
 
         return copy_to_tmp
 
+    def _honor_copy_to_tmp_for_paths_only(
+        self, copy_to_tmp: bool, file_data: Any, function_name: str
+    ) -> bool:
+        # copy_to_tmp=False is honored only for file or folder paths. File-like objects
+        # are always copied to a temporary file, as their content may change or the
+        # object may be closed before the asynchronous upload happens.
+        if not copy_to_tmp and hasattr(file_data, "read"):
+            debug_helpers.log_warning_or_raise(
+                COPY_TO_TMP_ARGUMENT_IGNORED_FOR_FILE_LIKE, function_name, logger=LOGGER
+            )
+            return True
+
+        return copy_to_tmp
+
     def log_model(
         self,
         name: str,
@@ -2729,16 +2744,24 @@ class CometExperiment(CommonExperiment):
                 Does not apply to folders.
             metadata (dict): Some additional data to attach to the the data.
                 Must be a JSON-encodable dict.
-            copy_to_tmp (bool): Deprecated. For file name or file-like; if True copy to
-                temporary location before uploading; if False, then
-                upload from current location
+            copy_to_tmp (bool): If True, then the model file(s) are copied to a temporary
+                location before uploading. If False and `file_or_folder` is a file or
+                folder path, then the file(s) are uploaded from their current location,
+                which avoids a synchronous copy and the extra disk usage for large
+                models. In this case, the file(s) must not be modified or deleted until
+                `Experiment.flush()` or `Experiment.end()` returns. If the experiment
+                falls back to offline mode, then the offline archive references the
+                original file(s), which must still exist when the archive is uploaded.
+                Has no effect for file-like objects, which are always copied.
             prepend_folder_name (bool): If True and logging a folder, prepend file
                 path by the folder name.
 
         Returns:
             dict: Dictionary of model URLs
         """
-        copy_to_tmp = self._deprecate_copy_to_tmp(copy_to_tmp, "log_model")
+        copy_to_tmp = self._honor_copy_to_tmp_for_paths_only(
+            copy_to_tmp, file_or_folder, "log_model"
+        )
         event_tracker.register("experiment.log_model-called", self.id)
         return self._log_model(
             model_name=name,
@@ -2789,6 +2812,7 @@ class CometExperiment(CommonExperiment):
                     grouping_name=model_name,  # model name
                     folder_name=folder_name,
                     prepend_folder_name=prepend_folder_name,
+                    copy_to_tmp=copy_to_tmp,
                 )
         elif hasattr(file_or_folder, "read"):  # file-like object
             return self._log_asset(
@@ -3402,6 +3426,7 @@ class CometExperiment(CommonExperiment):
         log_file_name: Optional[bool] = None,
         recursive: bool = False,
         metadata: Optional[Dict[str, Any]] = None,
+        copy_to_tmp: bool = True,
     ) -> Union[None, List[Tuple[str, Dict[str, str]]]]:
         """Logs all the files located in the given folder as assets.
 
@@ -3411,6 +3436,14 @@ class CometExperiment(CommonExperiment):
             log_file_name (bool): if True, log the file path with each file.
             recursive (bool): if True, recurse folder and save file names.
             metadata: Some additional data to attach to the asset data.
+            copy_to_tmp (bool): If True, then each file is copied to a temporary
+                location before uploading. If False, then the files are uploaded
+                from their current location, which avoids a synchronous copy and
+                the extra disk usage for large files. In this case, the files must
+                not be modified or deleted until `Experiment.flush()` or
+                `Experiment.end()` returns. If the experiment falls back to offline
+                mode, then the offline archive references the original files, which
+                must still exist when the archive is uploaded.
 
         Note:
             If log_file_name is set to True, each file in the given folder will be
@@ -3451,6 +3484,7 @@ class CometExperiment(CommonExperiment):
             log_file_name=log_file_name,
             recursive=recursive,
             metadata=metadata,
+            copy_to_tmp=copy_to_tmp,
         )
 
     def _log_asset_folder(
@@ -3466,6 +3500,7 @@ class CometExperiment(CommonExperiment):
         extension_filter: Optional[List[str]] = None,
         prepend_folder_name: bool = True,
         overwrite: bool = False,
+        copy_to_tmp: bool = True,
     ) -> Optional[List[Tuple[str, Dict[str, str]]]]:
         self._set_step(step)
 
@@ -3503,6 +3538,7 @@ class CometExperiment(CommonExperiment):
                         metadata=metadata,
                         grouping_name=grouping_name,
                         overwrite=overwrite,
+                        copy_to_tmp=copy_to_tmp,
                     )
                 else:
                     asset_url = self._log_asset(
@@ -3511,6 +3547,7 @@ class CometExperiment(CommonExperiment):
                         metadata=metadata,
                         grouping_name=grouping_name,
                         overwrite=overwrite,
+                        copy_to_tmp=copy_to_tmp,
                     )
 
                 # Ignore files that has failed to be logged
@@ -3547,9 +3584,15 @@ class CometExperiment(CommonExperiment):
             file_name (str): A custom file name to be displayed. If not
                 provided the filename from the `file_data` argument will be used.
             overwrite (bool): If True will overwrite all existing assets with the same name.
-            copy_to_tmp (bool): (Deprecated) If `file_data` is a file-like object, then this flag determines
-                if the file is first copied to a temporary file before upload. If
-                `copy_to_tmp` is False, then it is sent directly to the cloud.
+            copy_to_tmp (bool): If True, then the file is copied to a temporary location
+                before uploading. If False and `file_data` is a file path, then the file
+                is uploaded from its current location, which avoids a synchronous copy
+                and the extra disk usage for large files. In this case, the file must
+                not be modified or deleted until `Experiment.flush()` or
+                `Experiment.end()` returns. If the experiment falls back to offline
+                mode, then the offline archive references the original file, which
+                must still exist when the archive is uploaded. Has no effect for
+                file-like objects, which are always copied.
             step (int): Used to associate the asset to a specific step.
             metadata (Any): Some additional data to attach to the asset. Must be a
                 JSON-encodable dict.
@@ -3575,7 +3618,9 @@ class CometExperiment(CommonExperiment):
             exp.end()
             ```
         """
-        copy_to_tmp = self._deprecate_copy_to_tmp(copy_to_tmp, "log_asset")
+        copy_to_tmp = self._honor_copy_to_tmp_for_paths_only(
+            copy_to_tmp, file_data, "log_asset"
+        )
 
         return self._log_asset(
             file_data,
@@ -3745,8 +3790,11 @@ class CometExperiment(CommonExperiment):
                     new_upload_filepath, new_copy_to_tmp=False
                 )
             else:
-                new_upload_tmp_file = write_file_like_to_tmp_file(
-                    preprocessed_asset.local_path_or_data, self.tmpdir
+                # wrap to mark the copy as temporary, so it would be removed after upload
+                new_upload_tmp_file = TemporaryFilePath(
+                    write_file_like_to_tmp_file(
+                        preprocessed_asset.local_path_or_data, self.tmpdir
+                    )
                 )
 
                 preprocessed_asset = preprocessed_asset.to_preprocessed_file_asset(
@@ -3759,6 +3807,16 @@ class CometExperiment(CommonExperiment):
 
                 # if "figName" in self.url_params and self.url_params["figName"] is None:
                 #     self.url_params["figName"] = os.path.basename(file_path)
+        elif isinstance(preprocessed_asset, PreprocessedFileAsset):
+            # the file is uploaded asynchronously from its current location, so resolve a
+            # relative path now to not depend on the working directory at upload time
+            local_path = preprocessed_asset.local_path_or_data
+            if not os.path.isabs(local_path):
+                # keep the path type, as TemporaryFilePath marks the file to be cleaned
+                preprocessed_asset = preprocessed_asset.copy(
+                    type(local_path)(os.path.abspath(local_path)),
+                    new_copy_to_tmp=False,
+                )
 
         # Clean only temporary files
         if isinstance(preprocessed_asset.local_path_or_data, TemporaryFilePath):

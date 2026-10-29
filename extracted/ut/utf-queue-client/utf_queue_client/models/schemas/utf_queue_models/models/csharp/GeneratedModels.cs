@@ -1642,6 +1642,12 @@ namespace com.silabs.utf.models
         [Newtonsoft.Json.JsonProperty("custom_fields", Required = Newtonsoft.Json.Required.DisallowNull, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
         public System.Collections.Generic.ICollection<Custom_fields> Custom_fields { get; set; }
 
+        [Newtonsoft.Json.JsonProperty("test_run_fields", Required = Newtonsoft.Json.Required.DisallowNull, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+        public System.Collections.Generic.ICollection<Custom_fields> Test_run_fields { get; set; }
+
+        [Newtonsoft.Json.JsonProperty("search_jql", Required = Newtonsoft.Json.Required.DisallowNull, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string Search_jql { get; set; }
+
 
 
         private System.Collections.Generic.IDictionary<string, object> _additionalProperties = new System.Collections.Generic.Dictionary<string, object>();
@@ -1895,6 +1901,12 @@ namespace com.silabs.utf.models
 
         [Newtonsoft.Json.JsonProperty("custom_fields", Required = Newtonsoft.Json.Required.DisallowNull, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
         public System.Collections.Generic.ICollection<Custom_fields> Custom_fields { get; set; }
+
+        [Newtonsoft.Json.JsonProperty("test_run_fields", Required = Newtonsoft.Json.Required.DisallowNull, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+        public System.Collections.Generic.ICollection<Custom_fields> Test_run_fields { get; set; }
+
+        [Newtonsoft.Json.JsonProperty("search_jql", Required = Newtonsoft.Json.Required.DisallowNull, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string Search_jql { get; set; }
 
 
 

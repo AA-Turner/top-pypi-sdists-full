@@ -19,6 +19,8 @@ import logging
 import time
 from typing import Any
 
+from matrx_orm import db_sqlstate
+
 from matrx_ai.tools.arg_models.dictionary_args import DictionaryArgs
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 
@@ -270,12 +272,9 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     except Exception as exc:  # noqa: BLE001
         # DB-raised auth violations (42501) and everything else land here.
+        # dictionary.dict_assert_access refuses with SQLSTATE 42501 — decided by the code.
         msg = str(exc)
-        etype = (
-            "permission_denied"
-            if "outside your organizations" in msg or "another user" in msg
-            else "db_error"
-        )
+        etype = "permission_denied" if db_sqlstate(exc) == "42501" else "db_error"
         logger.warning("[dictionary] %s failed: %s", action, msg)
         return _err(ctx, started, etype, msg)
 

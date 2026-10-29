@@ -33,6 +33,7 @@ from ...types import (
     browser_create_params,
     browser_update_params,
     browser_retrieve_params,
+    browser_save_profile_params,
     browser_load_extensions_params,
 )
 from .process import (
@@ -88,6 +89,7 @@ from .webmcp.webmcp import (
     AsyncWebmcpResourceWithStreamingResponse,
 )
 from ..._base_client import AsyncPaginator, make_request_options
+from ...types.profile import Profile
 from ...types.tags_param import TagsParam
 from .playwright.playwright import (
     PlaywrightResource,
@@ -219,6 +221,7 @@ class BrowsersResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BrowserCreateResponse:
         """
         Create a new browser session from within an action.
@@ -328,6 +331,8 @@ class BrowsersResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         return self._post(
             "/browsers",
@@ -359,7 +364,11 @@ class BrowsersResource(SyncAPIResource):
                 browser_create_params.BrowserCreateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BrowserCreateResponse,
         )
@@ -427,6 +436,7 @@ class BrowsersResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BrowserUpdateResponse:
         """
         Update a browser session.
@@ -486,6 +496,8 @@ class BrowsersResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id_or_name:
             raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
@@ -508,7 +520,11 @@ class BrowsersResource(SyncAPIResource):
                 browser_update_params.BrowserUpdateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BrowserUpdateResponse,
         )
@@ -602,6 +618,7 @@ class BrowsersResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BrowserCurlResponse:
         """
         Sends an HTTP request through Chrome's HTTP request stack, inheriting the
@@ -628,6 +645,8 @@ class BrowsersResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id_or_name:
             raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
@@ -645,7 +664,11 @@ class BrowsersResource(SyncAPIResource):
                 browser_curl_params.BrowserCurlParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BrowserCurlResponse,
         )
@@ -718,6 +741,7 @@ class BrowsersResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> None:
         """
         Delete a browser session by ID or name
@@ -730,6 +754,8 @@ class BrowsersResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id_or_name:
             raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
@@ -737,7 +763,11 @@ class BrowsersResource(SyncAPIResource):
         return self._delete(
             path_template("/browsers/{id_or_name}", id_or_name=id_or_name),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=NoneType,
         )
@@ -753,6 +783,7 @@ class BrowsersResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> None:
         """
         Loads one or more unpacked extensions using live CDP activation when eligible.
@@ -768,6 +799,8 @@ class BrowsersResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id_or_name:
             raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
@@ -783,7 +816,11 @@ class BrowsersResource(SyncAPIResource):
             body=maybe_transform(body, browser_load_extensions_params.BrowserLoadExtensionsParams),
             files=files,
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=NoneType,
         )
@@ -801,6 +838,7 @@ class BrowsersResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BrowserReplResult:
         """
         Execute JavaScript in a persistent Node.js runtime inside the browser VM.
@@ -836,6 +874,8 @@ class BrowsersResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id_or_name:
             raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
@@ -850,9 +890,93 @@ class BrowsersResource(SyncAPIResource):
                 browser_repl_params.BrowserReplParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BrowserReplResult,
+        )
+
+    def save_profile(
+        self,
+        id_or_name: str,
+        *,
+        id: str | Omit = omit,
+        name: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> Profile:
+        """
+        Saves the running browser's current user-data state to an existing or new
+        profile without ending the browser session.
+
+        Saving restarts the browser. Active CDP and WebDriver connections are closed and
+        must reconnect, and WebDriver clients must create a new session. Open tabs are
+        restored, but pages reload and in-memory page state is lost. The browser is
+        stopped only while its user data is copied; this request returns once the
+        restarted browser accepts CDP connections again and the profile has been
+        uploaded. Caches, Service Worker storage and Google Drive IndexedDB data are
+        left out of the saved profile but kept in the running browser.
+
+        This does not attach the destination profile to the browser or change its
+        save_changes setting. Active browsers that already loaded the destination
+        profile keep their in-memory state. Pools with refresh_on_profile_update enabled
+        flush idle sessions and replenish them from the new snapshot; other browsers
+        receive it the next time they load the profile. When saves made with this
+        endpoint to the same profile overlap, the save that started most recently wins,
+        even if an earlier one finishes later. The automatic save at the end of a
+        session whose profile has save_changes enabled is ordered against these saves by
+        when each finishes.
+
+        A successful save restarts the browser's inactivity timeout (timeout_seconds). A
+        failed save leaves it unchanged.
+
+        Returns 409 when the browser is no longer active, when a pooled browser was
+        released or reacquired after the request was made (browser_lease_changed), or
+        when the browser is briefly unable to accept a save (browser_busy), in which
+        case the request can be retried.
+
+        Args:
+          id: Existing profile ID to overwrite.
+
+          name: Profile name to overwrite or create.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not id_or_name:
+            raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
+        return self._post(
+            path_template("/browsers/{id_or_name}/profiles", id_or_name=id_or_name),
+            body=maybe_transform(
+                {
+                    "id": id,
+                    "name": name,
+                },
+                browser_save_profile_params.BrowserSaveProfileParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=Profile,
         )
 
 
@@ -951,6 +1075,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BrowserCreateResponse:
         """
         Create a new browser session from within an action.
@@ -1060,6 +1185,8 @@ class AsyncBrowsersResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         return await self._post(
             "/browsers",
@@ -1091,7 +1218,11 @@ class AsyncBrowsersResource(AsyncAPIResource):
                 browser_create_params.BrowserCreateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BrowserCreateResponse,
         )
@@ -1159,6 +1290,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BrowserUpdateResponse:
         """
         Update a browser session.
@@ -1218,6 +1350,8 @@ class AsyncBrowsersResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id_or_name:
             raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
@@ -1240,7 +1374,11 @@ class AsyncBrowsersResource(AsyncAPIResource):
                 browser_update_params.BrowserUpdateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BrowserUpdateResponse,
         )
@@ -1334,6 +1472,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BrowserCurlResponse:
         """
         Sends an HTTP request through Chrome's HTTP request stack, inheriting the
@@ -1360,6 +1499,8 @@ class AsyncBrowsersResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id_or_name:
             raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
@@ -1377,7 +1518,11 @@ class AsyncBrowsersResource(AsyncAPIResource):
                 browser_curl_params.BrowserCurlParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BrowserCurlResponse,
         )
@@ -1450,6 +1595,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> None:
         """
         Delete a browser session by ID or name
@@ -1462,6 +1608,8 @@ class AsyncBrowsersResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id_or_name:
             raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
@@ -1469,7 +1617,11 @@ class AsyncBrowsersResource(AsyncAPIResource):
         return await self._delete(
             path_template("/browsers/{id_or_name}", id_or_name=id_or_name),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=NoneType,
         )
@@ -1485,6 +1637,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> None:
         """
         Loads one or more unpacked extensions using live CDP activation when eligible.
@@ -1500,6 +1653,8 @@ class AsyncBrowsersResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id_or_name:
             raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
@@ -1515,7 +1670,11 @@ class AsyncBrowsersResource(AsyncAPIResource):
             body=await async_maybe_transform(body, browser_load_extensions_params.BrowserLoadExtensionsParams),
             files=files,
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=NoneType,
         )
@@ -1533,6 +1692,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> BrowserReplResult:
         """
         Execute JavaScript in a persistent Node.js runtime inside the browser VM.
@@ -1568,6 +1728,8 @@ class AsyncBrowsersResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id_or_name:
             raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
@@ -1582,9 +1744,93 @@ class AsyncBrowsersResource(AsyncAPIResource):
                 browser_repl_params.BrowserReplParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=BrowserReplResult,
+        )
+
+    async def save_profile(
+        self,
+        id_or_name: str,
+        *,
+        id: str | Omit = omit,
+        name: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> Profile:
+        """
+        Saves the running browser's current user-data state to an existing or new
+        profile without ending the browser session.
+
+        Saving restarts the browser. Active CDP and WebDriver connections are closed and
+        must reconnect, and WebDriver clients must create a new session. Open tabs are
+        restored, but pages reload and in-memory page state is lost. The browser is
+        stopped only while its user data is copied; this request returns once the
+        restarted browser accepts CDP connections again and the profile has been
+        uploaded. Caches, Service Worker storage and Google Drive IndexedDB data are
+        left out of the saved profile but kept in the running browser.
+
+        This does not attach the destination profile to the browser or change its
+        save_changes setting. Active browsers that already loaded the destination
+        profile keep their in-memory state. Pools with refresh_on_profile_update enabled
+        flush idle sessions and replenish them from the new snapshot; other browsers
+        receive it the next time they load the profile. When saves made with this
+        endpoint to the same profile overlap, the save that started most recently wins,
+        even if an earlier one finishes later. The automatic save at the end of a
+        session whose profile has save_changes enabled is ordered against these saves by
+        when each finishes.
+
+        A successful save restarts the browser's inactivity timeout (timeout_seconds). A
+        failed save leaves it unchanged.
+
+        Returns 409 when the browser is no longer active, when a pooled browser was
+        released or reacquired after the request was made (browser_lease_changed), or
+        when the browser is briefly unable to accept a save (browser_busy), in which
+        case the request can be retried.
+
+        Args:
+          id: Existing profile ID to overwrite.
+
+          name: Profile name to overwrite or create.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not id_or_name:
+            raise ValueError(f"Expected a non-empty value for `id_or_name` but received {id_or_name!r}")
+        return await self._post(
+            path_template("/browsers/{id_or_name}/profiles", id_or_name=id_or_name),
+            body=await async_maybe_transform(
+                {
+                    "id": id,
+                    "name": name,
+                },
+                browser_save_profile_params.BrowserSaveProfileParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=Profile,
         )
 
 
@@ -1615,6 +1861,9 @@ class BrowsersResourceWithRawResponse:
         )
         self.repl = to_raw_response_wrapper(
             browsers.repl,
+        )
+        self.save_profile = to_raw_response_wrapper(
+            browsers.save_profile,
         )
 
     @cached_property
@@ -1690,6 +1939,9 @@ class AsyncBrowsersResourceWithRawResponse:
         self.repl = async_to_raw_response_wrapper(
             browsers.repl,
         )
+        self.save_profile = async_to_raw_response_wrapper(
+            browsers.save_profile,
+        )
 
     @cached_property
     def telemetry(self) -> AsyncTelemetryResourceWithRawResponse:
@@ -1764,6 +2016,9 @@ class BrowsersResourceWithStreamingResponse:
         self.repl = to_streamed_response_wrapper(
             browsers.repl,
         )
+        self.save_profile = to_streamed_response_wrapper(
+            browsers.save_profile,
+        )
 
     @cached_property
     def telemetry(self) -> TelemetryResourceWithStreamingResponse:
@@ -1837,6 +2092,9 @@ class AsyncBrowsersResourceWithStreamingResponse:
         )
         self.repl = async_to_streamed_response_wrapper(
             browsers.repl,
+        )
+        self.save_profile = async_to_streamed_response_wrapper(
+            browsers.save_profile,
         )
 
     @cached_property

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fastapi-injectable
-Version: 1.6.1
+Version: 1.6.2
 Summary: Use FastAPI's Depends() anywhere — in CLI tools, Celery tasks, background workers, and more. No refactoring needed.
 Project-URL: Homepage, https://github.com/JasperSui/fastapi-injectable
 Project-URL: Repository, https://github.com/JasperSui/fastapi-injectable
@@ -133,7 +133,7 @@ print(result) # Output: 'data'
 
 ### Requirements
 
-- Python `3.10` or higher (including `3.13t`, `3.14t` free-threaded builds)
+- Python `3.10` or higher (including the `3.14t` free-threaded build)
 - FastAPI `>=0.112.4,<1.0.0`
 
 > `fastapi-injectable` resolves dependencies through FastAPI's internal

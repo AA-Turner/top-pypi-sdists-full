@@ -34,10 +34,12 @@ class CredentialKind(StrEnum):
 
 
 class ClientAuth(StrEnum):
-    """How the token call sends the client secret (RFC 6749 2.3.1)."""
+    """How the token call sends the client secret (RFC 6749 2.3.1); ``none``: a public client (its
+    id in the body, no secret), as a dynamically registered client may be."""
 
     basic = "client_secret_basic"
     post = "client_secret_post"
+    none = "none"
 
 
 class PkceMethod(StrEnum):
@@ -341,6 +343,8 @@ class VaultLine(BaseModel):
     emails: list[str] | None = None
     # The sign-in step (sign_in): the detect or fill result (counts and flags, never a value).
     sign_in: Any = None
+    # `plato vault mint token` (app_mint): what the agent made, in its words (it never saw a secret).
+    summary: str | None = None
 
 
 class PortalSecretFile(BaseModel):

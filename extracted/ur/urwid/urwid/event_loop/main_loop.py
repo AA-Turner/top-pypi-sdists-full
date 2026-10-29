@@ -31,7 +31,7 @@ import os
 import sys
 import time
 import typing
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 
 from urwid import display, signals
 from urwid.command_map import Command, command_map
@@ -43,9 +43,8 @@ from .abstract_loop import ExitMainLoop
 from .select_loop import SelectEventLoop
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
-
-    from typing_extensions import Literal, Self
+    from collections.abc import Callable, Iterable, Iterator
+    from typing import Literal, Self
 
     from urwid.display import BaseScreen
     from urwid.display.common import PaletteEntry
@@ -78,6 +77,7 @@ if typing.TYPE_CHECKING:
 
         def get_input(self, raw_keys: Literal[True]) -> tuple[list[str | tuple[str, int, int, int]], list[int]]:
             """Return the input received since the last call, alongside its raw key codes."""
+            ...
 
         def set_input_timeouts(self, max_wait: float | None = ...) -> None:
             """Set the maximum time to wait for input before returning, in seconds."""
@@ -109,7 +109,7 @@ class MainLoop:
 
     :param palette: initial palette for screen
 
-    :param screen: screen to use, default is a new :class:`raw_display.Screen`
+    :param screen: screen to use, default is a new :class:`display.raw.Screen`
                    instance; stored as :attr:`screen`
 
     :param handle_mouse: ``True`` to ask :attr:`.screen` to process mouse events
@@ -125,7 +125,8 @@ class MainLoop:
                        stored as :attr:`.event_loop`
 
     :param pop_ups: `True` to wrap :attr:`.widget` with a :class:`PopUpTarget`
-                    instance to allow any widget to open a pop-up anywhere on the screen
+                    instance to allow any widget to open a pop-up anywhere on the screen;
+                    required by :class:`DropDown` and other :class:`PopUpLauncher` widgets
 
 
     .. attribute:: screen
@@ -173,7 +174,7 @@ class MainLoop:
         unhandled_input: Callable[[str | tuple[str, int, int, int]], bool | None] | None = None,
         event_loop: EventLoop | None = None,
         pop_ups: bool = False,
-    ):
+    ) -> None:
         """
         Set up the main loop around a top-level widget, a screen and an event loop.
 
@@ -210,7 +211,8 @@ class MainLoop:
             # signal handlers
             typing.cast("_ExternalLoopScreen", self.screen).signal_handler_setter = self.event_loop.set_signal_handler
 
-        self._watch_pipes: dict[int, tuple[Callable[[], typing.Any], int]] = {}
+        # write end -> (event loop watch handle, read end)
+        self._watch_pipes: dict[int, tuple[typing.Any, int]] = {}
 
     @property
     def widget(self) -> AbstractWidget:
@@ -224,6 +226,7 @@ class MainLoop:
     def widget(self, widget: AbstractWidget) -> None:
         self._widget = widget
         if self.pop_ups and hasattr(self._topmost_widget, "original_widget"):
+            # pyrefly: ignore[missing-attribute]  # hasattr() does not narrow
             self._topmost_widget.original_widget = self._widget
         else:
             self._topmost_widget = self._widget
@@ -254,17 +257,27 @@ class MainLoop:
 
         :param callback: function to call with this main loop object and *user_data*
         :param user_data: user data to pass to *callback*
-        :return: a zero-argument callback suitable for :meth:`EventLoop.alarm`
+        :returns: a zero-argument callback suitable for :meth:`EventLoop.alarm`
         """
         if inspect.iscoroutinefunction(callback):
 
             async def cb() -> None:
-                await callback(self, user_data)
+                try:
+                    await callback(self, user_data)
+                except ExitMainLoop:
+                    raise
+                except Exception:
+                    self.logger.exception("Unhandled exception in alarm callback %r", callback)
 
         else:
 
             def cb() -> None:  # type: ignore[misc]  # intentionally the sync variant of the branch above
-                callback(self, user_data)
+                try:
+                    callback(self, user_data)
+                except ExitMainLoop:
+                    raise
+                except Exception:
+                    self.logger.exception("Unhandled exception in alarm callback %r", callback)
 
         return cb
 
@@ -280,10 +293,18 @@ class MainLoop:
         :param callback: function to call with two parameters: this main loop
                          object and *user_data*
         :param user_data: optional user data to pass to the callback
+        :returns: a handle that may be passed to :meth:`remove_alarm`.
 
         .. note::
             *callback* may be an ``async def`` function on an :attr:`event_loop`
             implementation that supports one; see the note on :class:`MainLoop`.
+
+        .. note::
+            *callback* is called as ``callback(loop, user_data)``.
+            Exceptions raised by *callback* (for example from a callback
+            declared with the wrong signature) are logged with their
+            traceback, naming the callback, and do not stop the loop.
+            :exc:`ExitMainLoop` still exits the loop as usual.
         """
         self.logger.debug(f"Setting alarm in {sec!r} seconds with callback {callback!r}")
         return self.event_loop.alarm(sec, self._make_alarm_callback(callback, user_data))
@@ -296,16 +317,20 @@ class MainLoop:
     ) -> typing.Any:
         """Schedule an alarm at *tm* time that will call *callback* from the within the :meth:`run` function.
 
-        Returns a handle that may be passed to :meth:`remove_alarm`.
-
         :param tm: time to call callback e.g. ``time.time() + 5``
         :param callback: function to call with two parameters: this main loop
                          object and *user_data*
         :param user_data: optional user data to pass to the callback
+        :returns: a handle that may be passed to :meth:`remove_alarm`.
 
         .. note::
             *callback* may be an ``async def`` function on an :attr:`event_loop`
             implementation that supports one; see the note on :class:`MainLoop`.
+
+        .. note::
+            Exceptions raised by *callback* are logged with their traceback,
+            naming the callback, and do not stop the loop.
+            :exc:`ExitMainLoop` still exits the loop as usual.
         """
         sec = tm - time.time()
         self.logger.debug(f"Setting alarm in {sec!r} seconds with callback {callback!r}")
@@ -385,9 +410,9 @@ class MainLoop:
             """
             Close the read end of the pipe and remove the watch created by :meth:`watch_pipe`.
 
-            ..note:: You are responsible for closing the write end of the pipe.
+            :returns: ``True`` if the watch pipe exists, ``False`` otherwise
 
-            Returns ``True`` if the watch pipe exists, ``False`` otherwise
+            .. note:: You are responsible for closing the write end of the pipe.
             """
             try:
                 watch_handle, pipe_rd = self._watch_pipes.pop(write_fd)
@@ -401,7 +426,7 @@ class MainLoop:
     def watch_file(self, fd: int, callback: Callable[[], typing.Any]) -> typing.Any:
         """Call *callback* when *fd* has some data to read. No parameters are passed to callback.
 
-        Returns a handle that may be passed to :meth:`remove_watch_file`.
+        :returns: a handle that may be passed to :meth:`remove_watch_file`.
 
         .. note::
             *callback* is passed to :attr:`event_loop` unwrapped, so it may be an ``async def``
@@ -513,6 +538,48 @@ class MainLoop:
 
         self.screen.stop()
 
+    @contextmanager
+    def paused(self) -> Iterator[None]:
+        """Hand the terminal to another program for the duration of the block.
+
+        The :attr:`screen` is stopped on entry, which gives the terminal back its normal mode and buffer
+        and stops reading its input, and is started again on exit, also when the block raises.
+        On exit the mouse tracking is restored when :attr:`handle_mouse` is set,
+        the screen is cleared and the screen size is read again, so the next draw repaints all of it
+        at the terminal's current size.
+        A screen that is not started is left alone on both sides of the block.
+        The screen is restarted the way :meth:`start` starts it:
+        an application that started its screen with ``alternate_buffer=False`` comes back in the alternate buffer.
+
+        Run an editor on a file:
+
+        >>> editor = shlex.split(os.environ.get("EDITOR", "")) or ["vi"]  # doctest: +SKIP
+        >>> with loop.paused():  # doctest: +SKIP
+        ...     subprocess.run([*editor, path], check=False)
+
+        The block runs in the event loop's thread and holds it until the block ends,
+        so no input, alarm or watched file is handled meanwhile: the terminal belongs to the other program.
+
+        .. important::
+            Call it only from the thread running the event loop, like every other widget and screen change.
+
+        .. warning::
+            Do not use it with the web display, :class:`urwid.display.web.Screen`, which has no terminal to hand over:
+            stopping it ends the browser session, and starting it again reads a new client request from standard input.
+        """
+        was_started = self.screen.started
+        if was_started:
+            self.screen.stop()
+        try:
+            yield
+        finally:
+            if was_started:
+                self.screen.start()
+                if self.handle_mouse:
+                    self.screen.set_mouse_tracking()
+                self.screen.clear()
+                self.screen_size = None
+
     def _reset_input_descriptors(self) -> None:
         screen = typing.cast("_ExternalLoopScreen", self.screen)
         screen.unhook_event_loop(self.event_loop)
@@ -572,39 +639,29 @@ class MainLoop:
         screen = typing.cast("_ExternalLoopScreen", self.screen)
         event_loop = typing.cast("_EventLoopWithAlarmsStore", self.event_loop)
 
-        next_alarm: tuple[float, int, Callable[[], typing.Any]] | None = None
+        # The alarms stay in the heap until they run, so a callback can add an earlier alarm or remove a pending one.
+        alarms = event_loop._alarms
 
         while True:
             self.draw_screen()
 
-            if not next_alarm and event_loop._alarms:
-                next_alarm = heapq.heappop(event_loop._alarms)
-
             keys: list[str | tuple[str, int, int, int]] = []
             raw: list[int] = []
             while not keys:
-                if next_alarm:
-                    sec = max(0.0, next_alarm[0] - time.time())
-                    screen.set_input_timeouts(sec)
+                if alarms:
+                    screen.set_input_timeouts(max(0.0, alarms[0][0] - time.monotonic()))
                 else:
                     screen.set_input_timeouts(None)
                 keys, raw = screen.get_input(True)
-                if not keys and next_alarm and next_alarm[0] - time.time() <= 0:
+                if not keys and alarms and alarms[0][0] <= time.monotonic():
                     break
 
             if keys := self.input_filter(keys, raw):
                 self.process_input(keys)
 
-            while next_alarm:
-                if (next_alarm[0] - time.time()) > 0:
-                    break
-                _tm, _tie_break, callback = next_alarm
+            while alarms and alarms[0][0] <= time.monotonic():
+                _tm, _tie_break, callback = heapq.heappop(alarms)
                 callback()
-
-                if event_loop._alarms:
-                    next_alarm = heapq.heappop(event_loop._alarms)
-                else:
-                    next_alarm = None
 
             if "window resize" in keys:
                 self.screen_size = None
@@ -618,7 +675,7 @@ class MainLoop:
         >>> scr.get_input_rval = [], []
         >>> ml = MainLoop(w, screen=scr)
         >>> def stop_now(loop, data):
-        ...     raise ExitMainLoop()
+        ...     raise ExitMainLoop
         >>> handle = ml.set_alarm_in(0, stop_now)
         >>> try:
         ...     ml._run_screen_event_loop()
@@ -637,12 +694,9 @@ class MainLoop:
         This method is called automatically from the :meth:`run` method when
         there is input, but may also be called to simulate input from the user.
 
-        *keys* is a list of input returned from :attr:`screen`'s get_input()
-        or get_input_nonblocking() methods.
+        *keys* is a list of input returned from :attr:`screen`'s get_input() method or its event loop hook.
 
-        Returns ``True`` if any key was handled by a widget or the
-        :meth:`unhandled_input` method.
-
+        :returns: ``True`` if any key was handled by a widget or the :meth:`unhandled_input` method.
         :raises TypeError: an item of *keys* is neither a key name nor a mouse event tuple.
         """
         self.logger.debug(f"Processing input: keys={keys!r}")
@@ -654,6 +708,10 @@ class MainLoop:
         for key in keys:
             if key == "window resize":
                 continue
+
+            # a handler of an earlier key may have paused the loop, which drops the screen size
+            if not self.screen_size:
+                self.screen_size = self.screen.get_cols_rows()
 
             if isinstance(key, str):
                 if self._topmost_widget.selectable():
@@ -789,11 +847,11 @@ def _refl(name: str, rval: _T | None = None, loop_exit: bool = False) -> Callabl
     class Reflect:
         """Callable stand-in that records its calls and returns a fixed value."""
 
-        def __init__(self, name: str, rval: _T | None = None) -> None:
+        def __init__(self, name: str, rval: typing.Any = None) -> None:
             self._name = name
             self._rval = rval
 
-        def __call__(self, *argl: typing.Any, **argd: typing.Any) -> _T | None:
+        def __call__(self, *argl: typing.Any, **argd: typing.Any) -> typing.Any:
             """
             Record the call and return the configured return value.
 
@@ -805,7 +863,7 @@ def _refl(name: str, rval: _T | None = None, loop_exit: bool = False) -> Callabl
             args += ", ".join([f"{k}={v!r}" for k, v in argd.items()])
             print(f"{self._name}({args})")
             if loop_exit:
-                raise ExitMainLoop()
+                raise ExitMainLoop
             return self._rval
 
         def __getattr__(self, attr: str) -> Reflect:  # pylint: disable=undefined-variable
@@ -815,7 +873,7 @@ def _refl(name: str, rval: _T | None = None, loop_exit: bool = False) -> Callabl
             :raises AttributeError: *attr* names a return-value slot rather than a call.
             """
             if attr.endswith("_rval"):
-                raise AttributeError()
+                raise AttributeError
             # print(self._name+"."+attr)
             if hasattr(self, f"{attr}_rval"):
                 return Reflect(f"{self._name}.{attr}", getattr(self, f"{attr}_rval"))

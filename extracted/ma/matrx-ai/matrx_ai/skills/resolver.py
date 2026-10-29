@@ -28,6 +28,7 @@ from matrx_ai.skills.preamble import render_overview_lines
 from matrx_ai.skills.sections import compact_outline
 
 if TYPE_CHECKING:
+    from matrx_ai.agents.definition import Agent
     from matrx_ai.agents.types import AgentConfig
     from matrx_ai.skills.providers import SkillProvider
 
@@ -90,7 +91,7 @@ async def expand_skill_sets(
 
 
 async def resolve_skills_for_agent(
-    agent_config: "AgentConfig",
+    agent_config: "AgentConfig | Agent",
     provider: "SkillProvider",
     *,
     user_id: UUID | None = None,

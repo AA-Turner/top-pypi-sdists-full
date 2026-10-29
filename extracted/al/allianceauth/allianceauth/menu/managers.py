@@ -1,3 +1,5 @@
+__lazy_modules__ = ["allianceauth.menu.core.menu_item_hooks", "allianceauth.menu.models"]
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -6,9 +8,10 @@ from django.db.models import Case, Q, Value, When
 
 from allianceauth.hooks import get_hooks
 
-from .core.menu_item_hooks import MenuItemHookParams, gather_params
+from .core.menu_item_hooks import gather_params
 
 if TYPE_CHECKING:
+    from .core.menu_item_hooks import MenuItemHookParams
     from .models import MenuItem
 
 
@@ -16,11 +19,11 @@ logger = logging.getLogger(__name__)
 
 
 class MenuItemQuerySet(models.QuerySet["MenuItem"]):
-    def filter_folders(self):
+    def filter_folders(self) -> "MenuItemQuerySet":
         """Add filter to include folders only."""
         return self.filter(hook_hash__isnull=True, url="")
 
-    def annotate_item_type_2(self):
+    def annotate_item_type_2(self) -> "MenuItemQuerySet":
         """Add calculated field with item type."""
         return self.annotate(
             item_type_2=Case(
@@ -38,29 +41,29 @@ class MenuItemManager(models.Manager["MenuItem"]):
     def get_queryset(self) -> MenuItemQuerySet:
         return MenuItemQuerySet(self.model, using=self._db)
 
-    def filter_folders(self):
+    def filter_folders(self) -> MenuItemQuerySet:
         """Add filter to include folders only."""
         return self.get_queryset().filter_folders()
 
-    def annotate_item_type_2(self):
+    def annotate_item_type_2(self) -> MenuItemQuerySet:
         """Add calculated field with item type."""
         return self.get_queryset().annotate_item_type_2()
 
-    def sync_all(self):
+    def sync_all(self) -> None:
         """Sync all menu items from hooks."""
         hook_params = self._gather_menu_item_hook_params()
         self._delete_obsolete_app_items(hook_params)
         self._update_or_create_app_items(hook_params)
 
-    def _gather_menu_item_hook_params(self) -> list[MenuItemHookParams]:
+    def _gather_menu_item_hook_params(self) -> "list[MenuItemHookParams]":
         params = [gather_params(hook()) for hook in get_hooks("menu_item_hook")]
         return params
 
-    def _delete_obsolete_app_items(self, params: list[MenuItemHookParams]):
+    def _delete_obsolete_app_items(self, params: "list[MenuItemHookParams]") -> None:
         hashes = [obj.hash for obj in params]
         self.exclude(hook_hash__isnull=True).exclude(hook_hash__in=hashes).delete()
 
-    def _update_or_create_app_items(self, params: list[MenuItemHookParams]):
+    def _update_or_create_app_items(self, params: "list[MenuItemHookParams]") -> None:
         for param in params:
             try:
                 obj: MenuItem = self.get(hook_hash=param.hash)

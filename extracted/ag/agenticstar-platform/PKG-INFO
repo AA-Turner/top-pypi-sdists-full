@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agenticstar-platform
-Version: 3.2.0
+Version: 3.2.1
 Summary: AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure
 Project-URL: Homepage, https://developers.fd.agenticstar.tm.softbank.jp/
 Project-URL: Documentation, https://developers.fd.agenticstar.tm.softbank.jp/
@@ -687,7 +687,9 @@ What `context` provides: correlation (`execution_id` / `run_id` / `operation_key
 do not start an external write without that acknowledgement), `is_cancel_requested()` /
 `ensure_can_act()` / `deadline_remaining()`, `skip(reason)` (a step with nothing to do: `no_target` /
 `not_applicable` / `nothing_to_do` → `skipped`), `policy_unavailable()` (the policy could not be
-checked before any external action → `skipped/policy_unavailable`), `log(message)` (written to the runner's
+checked before any external action → `skipped/policy_unavailable`), `incomplete(reason, comment=None)` (SDK ≥ 3.2.1:
+the step could not be completed and running it again would not help → `incomplete/<reason>`; see below),
+`log(message)` (written to the runner's
 log; `run()` sends SDK logs at INFO to stderr when the process has not configured logging),
 `gate_decision` (SDK ≥ 3.0.9: the review decision that started this run — `None` unless the run follows a
 review; otherwise a read-only mapping `{gate_id, decision, decided_by, note, decided_at}` where `decision` is
@@ -730,11 +732,46 @@ async def run(context):
     ...
 ```
 
+**Ending a step as not completed** (SDK ≥ 3.2.1). When your agent cannot complete the step and running it again would
+give the same result — the instructions are missing, a setting is wrong — call `context.incomplete(reason, comment)` and
+return. The platform does not retry the step automatically; it asks a person to check it and shows the reason and the
+comment in the execution record.
+
+```python
+async def run(context):
+    instructions = (context.work_dir / "instructions.md").read_text(encoding="utf-8")
+    if not instructions.strip():
+        await context.incomplete("missing_instructions",
+                                 comment="instructions.md is empty. Write the instructions and run the step again.")
+        return
+    ...
+```
+
+- `reason` is a reason code with the same rules as `report_completion()` of cycle executions: lowercase snake_case of at
+  most 32 characters (`-` and spaces become `_`, upper case becomes lower case). Any other value (a sentence, an exception
+  string) becomes `incomplete` and a warning is logged
+- `comment` (optional) is a short explanation for the person who checks the step. It is cut at 2,048 characters (counted
+  as UTF-16 code units, like JavaScript). Do not put secrets or personal data in it
+- Declare once. A second call is not recorded (the first one is kept and the runner logs a warning). An exception after
+  the declaration still ends the step as `incomplete`
+- An audit persistence failure, cancellation, the deadline, the execution being closed elsewhere, a pod stop signal and
+  a denied tool call decide the outcome before the declaration
+- For a failure that may go away on its own (a timeout of an external service, a rate limit), raise an exception
+  instead: the platform retries `failed/agent_error` (up to its retry limit) when the contract's effect mode is
+  `read_only` or `idempotent_write` and the effects are known
+
+The completion then carries an **end-of-run report**, `completion_report`, in the same form as the platform's own agents:
+`{"completed": false, "reason_code": ..., "comment": ...}`. For `incomplete` the comment is yours (no `comment` key when
+you gave none); for an exception (`failed/agent_error`) the comment is the cause chain the runner writes to stderr —
+class names, the SDK's error code, the HTTP status and the destination host name only, never messages, URLs or tokens.
+Other outcomes carry no report. A platform that does not read the report yet keeps the completion and drops the report.
+
 The outcome describes how the run ended, with 7 values (`completed` / `incomplete` / `failed` /
 `timeout` / `stopped` / `denied` / `skipped`). **Success means the agent ran to completion**: the agent
 function returns normally → `completed/completed`, unless an audit persistence failure, a denied tool
-call, an invalid declared output, a skip or a missing required output decides otherwise (failed writes,
-unobserved effects or zero observations do not lower the outcome); an exception → `failed/agent_error`; cancellation →
+call, a declared `incomplete`, an invalid declared output, a skip or a missing required output decides otherwise (failed writes,
+unobserved effects or zero observations do not lower the outcome); `context.incomplete(reason)` → `incomplete/<reason>`;
+an exception → `failed/agent_error`; cancellation →
 `stopped/cancelled`; deadline → `timeout/execution_timeout`; pod stop signal → `failed/runner_stopped`;
 a call reported with `audit.tool_denied` → `denied`.
 What was written is kept in `counts` / `tools` and `had_mutating_success` (true = success observed /
@@ -742,6 +779,83 @@ false = confirmed no effect / **null = unknown**); unsuccessful runs with null a
 automatically and go to a human (effects that already happened are never undone). Samples are in the
 source distribution: `docs/examples/workflow_reply_agent.py` (drafting a reply) /
 `workflow_mock_send_agent.py` (a mock send).
+
+**Testing an agent without ASTER** (SDK ≥ 3.2.1). `agenticstar_platform.workflow.testing.FakeRuntime` answers the
+platform's runtime API in memory. Give it your contract, the step's parameters, the input files, the connection tokens,
+the effect mode and the deadline, run one step with `arun(...)`, then read what the runner saved. With this layout:
+
+```text
+my_project/
+  my_agent/__init__.py    (empty)
+  my_agent/main.py        (your agent)
+  try_it.py               (the script below)
+```
+
+```python
+# my_agent/main.py
+async def run(context):
+    instructions = (context.work_dir / "instructions.md").read_text(encoding="utf-8")
+    (context.output_dir / "reply.md").write_text(f"# Reply\n\n{instructions}", encoding="utf-8")
+```
+
+```python
+# try_it.py
+import asyncio
+import tempfile
+
+from agenticstar_platform.workflow import arun
+from agenticstar_platform.workflow.testing import FakeRuntime
+
+CONTRACT = {
+    "runtime_protocol": "mp-workflow/1", "effect_mode": "read_only",
+    "files": [{"name": "instructions", "path": "instructions.md", "format": "markdown", "required": True}],
+    "outputs": [{"name": "reply", "path": "reply.md", "format": "markdown", "required": True}],
+    "limits": {"execution_timeout_seconds": 600},
+}
+
+
+async def main():
+    fake = FakeRuntime(
+        contract=CONTRACT,
+        parameters={"product_code": "P-100", "language": "en"},
+        inputs={"instructions": b"Thank the customer.\n"},       # by the name of a contract file
+        connections={"crm": "test-access-token"},                # slot -> token, or (token, expires_at)
+        deadline_seconds=600,
+    )
+    with tempfile.TemporaryDirectory() as workspace:
+        result = await arun("my_agent.main:run", env=fake.runner_env(), workspace=workspace, transport=fake.transport)
+    print(result.outcome, result.outcome_reason_code)               # completed completed
+    print(fake.saved_artifacts()["reply"]["content"])               # the saved output, by its name
+    print([e["event_type"] for e in fake.saved_audit_events()])     # context.manifest x2, then your audit events
+    print(fake.saved_completion()["envelope"])                      # the completion_envelope
+
+
+asyncio.run(main())
+```
+
+```bash
+cd my_project
+PYTHONPATH="$PWD" python try_it.py
+```
+
+- The runner starts your entrypoint in a child process whose current directory is the work directory, so `my_agent.main`
+  must be importable from `PYTHONPATH` **as an absolute path** (`PYTHONPATH="$PWD"`, not `PYTHONPATH=.`: the child would
+  look for `.` in the work directory) or installed. In a test, set `os.environ["PYTHONPATH"]` to the absolute path before
+  calling `arun`
+- The fake copies the current behaviour of the runtime API (only declared outputs are saved, a `completed` outcome needs
+  the required outputs, writes after cancellation, the end of the run or the deadline are refused except the audit
+  records of what the agent already did (`tool.effect` / `tool.denied`), ...). It **does not check the parameters
+  against `parameters_schema` or validate the contract**: the platform checks those before a run (the admin console's
+  check before registration and the executor). Parameters are passed to your agent as given
+- **Supported surface**: the constructor arguments, `runner_env()`, `transport`, `saved_artifacts()` /
+  `saved_audit_events()` / `saved_completion()`, `sample_contract()` / `sample_parameters()`, the constants
+  `EXECUTION_ID` / `TOKEN` / `BASE_URL`, and the attributes that simulate the platform, which you can change before or
+  during a run: `contract` (a copy of the one you passed; later requests see your changes), `cancel_requested_at` (an ISO time = cancellation
+  was requested), `run_closed`, `deadline_passed`, `gate_decision`, `start_input`, `fail_audit_types`,
+  `fail_upload_times`, `fail_completion_times`, `fail_download_times` (see the module's docstring). Everything else is
+  internal and may change
+- Without arguments the fake uses the contract and parameters of `docs/examples/workflow_reply_agent.py`; run
+  `python docs/examples/workflow_reply_agent.py` (source distribution) to see one step end to end
 
 ### Policy Module — `agenticstar_platform.policy` (SDK ≥ 1.0.0a1)
 
@@ -992,6 +1106,16 @@ api_version = "2024-02-15-preview"
 See the [developer portal](https://developers.fd.agenticstar.tm.softbank.jp/) for the SDK guides and API reference.
 
 ## Changelog
+
+### 3.2.1 (2026-10-28) — workflow: end a step as not completed (`context.incomplete`) with an end-of-run report / a fake runtime for testing (`agenticstar_platform.workflow.testing`)
+
+- **New `WorkflowContext.incomplete(reason, comment=None)`.** An agent that cannot complete its step, where running it again would give the same result (missing instructions, a wrong setting), ends the step as `incomplete` with `reason` as the reason code. The platform does not retry it automatically and asks a person to check it. `reason` follows the rules of `report_completion()` (lowercase snake_case of at most 32 characters; any other value becomes `incomplete` with a warning); `comment` is cut at 2,048 UTF-16 code units. The declaration comes after an audit persistence failure, cancellation, the deadline, the execution being closed elsewhere, a pod stop signal and a denied tool call, and before an exception (an exception after the declaration still ends as `incomplete`), an invalid output, a skip and a missing required output. A second declaration is not recorded. See "Ending a step as not completed" in the Workflow Runner section.
+- **The completion carries an end-of-run report** (`completion_report`: `completed: false`, `reason_code`, `comment`) for `incomplete` (the agent's comment) and for an agent exception, `failed/agent_error` (the redacted cause chain the child already writes to stderr since 3.1.3: class names, the SDK's error code, the HTTP status and the host name; at most 2,048 UTF-16 code units, also with `ASTER_WORKFLOW_DEBUG_TRACEBACK=1`). Other outcomes carry no report, so their completion is the same as in 3.2. A platform that does not read the report yet keeps the completion and drops the report. A `comment` that is not a string (an exception, for example) is left out with a warning, so its message never reaches the report.
+- **The cause chain shows an `error_code` only in the SDK's own form** (upper-case snake_case of at most 64 characters, such as `REQUEST_ERROR`), in stderr and in the report. An SDK exception that agent code created with another value no longer shows that value.
+- **New `agenticstar_platform.workflow.testing`**: `FakeRuntime`, an in-memory copy of the platform's runtime API for testing an agent without ASTER. It takes the contract, parameters, input files, connection tokens, effect mode, deadline and instructions as arguments, and `saved_artifacts()` / `saved_audit_events()` / `saved_completion()` read what the runner saved. It does not check the parameters or the contract (the platform checks them before a run). Like the platform, it accepts the audit records of what the agent already did (`tool.effect` / `tool.denied`) after cancellation, the end of the run or the deadline, and reports the end of the run in the context's `cancel_requested_at`. The supported surface (constructor arguments, `runner_env()`, `transport`, the `saved_*()` readers and the listed simulation attributes) is described in the module's docstring; everything else is internal. The SDK's own tests now use it. `import agenticstar_platform.workflow` does not import it.
+- The sample `docs/examples/workflow_reply_agent.py` ends as `incomplete/missing_instructions` when the instructions are empty, and running the file runs one step against `FakeRuntime`.
+- `build_envelope(...)` accepts an optional `completion_report`. Other public functions of the runner and the context are unchanged.
+- To use it, rebuild the agent image with this SDK.
 
 ### 3.2.0 (2026-10-26) — auth: the `api_key` authentication mode (`X-Internal-API-Key` header) is removed
 
@@ -1429,4 +1553,4 @@ Marketplace SDK reliability fixes (surfaced while building agents from the guide
 
 ## Version
 
-3.2.0
+3.2.1

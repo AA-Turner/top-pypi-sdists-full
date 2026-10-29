@@ -1644,6 +1644,9 @@ class Worker:
                     block, built.writes_mark = self._writes_since()
                     built.prompt = f"{block}\n\n{built.prompt}"
                 outline = self._summary_outline(history)
+                skills = self._page_skills(history)
+                if skills:
+                    built.prompt = f"{skills}\n\n{built.prompt}"
                 if outline:
                     built.prompt = f"{outline}\n\n{built.prompt}"
                 mark = f"{live['id']}:{live['compactions']}"
@@ -1664,6 +1667,9 @@ class Worker:
         if built is None:
             return None, None, None
         outline = self._summary_outline(None)
+        skills = self._page_skills(None)
+        if skills:
+            built.prompt = f"{skills}\n\n{built.prompt}"
         if outline:  # a fresh start from disk shows no earlier outline: it rides its first message
             built.prompt = f"{outline}\n\n{built.prompt}"
         if live is not None:  # opened, but its first run never finished: open it again with today's facts
@@ -1683,6 +1689,20 @@ class Worker:
         if history and _shows_text(history, header):
             return ""
         return f"{header}\n\n{block}"
+
+    def _page_skills(self, history) -> str:
+        """The page skills whole (`bite.PAGE_SKILLS`), once per conversation
+        (again after a compaction summarised them away, or when a CLI update
+        changed them): its header names their digest. Not gated on a kept
+        page: a run that creates an experiment writes its first page in that
+        same run, before any draft exists to key on. "" with no skills found."""
+        text = bite_mod.skills_text(bite_mod.PAGE_SKILLS)
+        if not text:
+            return ""
+        header = bite_mod.PAGE_SKILLS_HEADER.format(digest=hashlib.sha256(text.encode("utf-8")).hexdigest()[:8])
+        if history and _shows_text(history, header):
+            return ""
+        return f"{header}\n\n{text}"
 
     async def _autoload_summaries(self, workdirs: list[Path] | None) -> None:
         """Before a writer run: check out what the session touched

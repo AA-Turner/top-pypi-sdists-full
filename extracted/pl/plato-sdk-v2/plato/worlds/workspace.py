@@ -102,6 +102,8 @@ class Workspace:
         self._lazy_mounts: dict[str, Any] = {}
         self._commit_lock = asyncio.Lock()
         self._tree_changed = False
+        # The .dvc contents of the last smart commit whose ref was recorded; None before one in this process.
+        self._recorded_dvc_files: dict[str, str] | None = None
         # Gzipped agent-VM fuse worker configs, keyed by (manifest_md5,
         # credentials expiry, mountpoint, cache_dir, manifest_by_ref): the
         # manifest JSON for a large dataset is ~100 MB, so serialize+gzip once
@@ -466,6 +468,8 @@ class Workspace:
             overlay_dir = mount.overlay_dir
             mountpoint = mount.mountpoint
             overlay_dir.mkdir(parents=True, exist_ok=True)
+            # rsync writes the overlay behind FUSE's back: its save journal misses these changes.
+            mount.journal_invalid = True
             exit_code, _, stderr = await run_local(
                 " ".join(
                     [
@@ -714,17 +718,23 @@ class Workspace:
 
         dvc_files: dict[str, str] = {}
         for dir_name, mount in list(self._lazy_mounts.items()):
-            manifest_md5, dvc_yaml = await smart_commit(
+            _manifest_md5, dvc_yaml, _ = await smart_commit(
                 mount, s3_config, dir_name=dir_name, ignore_patterns=ignore_patterns
             )
             dvc_path = self._repo_root / f"{dir_name}.dvc"
             dvc_path.write_text(dvc_yaml)
             dvc_files[dir_name] = dvc_yaml
 
-        await self._validate_dvc_files_restorable(dvc_files)
-        await self._record_workspace_ref(step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id)
+        # Manifests are content-addressed: the same .dvc files as the last recorded commit's mean the same tree.
+        changed = dvc_files != self._recorded_dvc_files
+        if changed:
+            await self._validate_dvc_files_restorable(dvc_files)
+        await self._record_workspace_ref(
+            step_name, "output", dvc_files, changed=changed, trigger_span_id=trigger_span_id
+        )
+        self._recorded_dvc_files = dvc_files
 
-        return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys())})
+        return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys()), "changed": changed})
 
     async def _archive_commit(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
         """Commit workspace as a single tar.gz archive to S3."""

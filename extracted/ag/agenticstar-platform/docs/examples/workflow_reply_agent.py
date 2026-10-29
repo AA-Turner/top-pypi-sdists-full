@@ -21,8 +21,18 @@ directory and writes its declared outputs to `/workspace/output`. External reads
 
 When a reviewer sends the step back, the step runs again with the reviewer's reason in `context.gate_decision`
 (`None` on a run that does not follow a review). Pass it to your processing so the new draft fixes what was asked.
+
+When the instructions are empty, running the step again would give the same result, so the agent ends the step as
+"could not complete" with `context.incomplete(...)` (SDK >= 3.2.1): the platform does not retry it and asks a person to
+check it, showing the reason and the comment.
+
+Try one step without ASTER (SDK >= 3.2.1; the fake runtime of the SDK answers in place of the platform)::
+
+    python docs/examples/workflow_reply_agent.py
 """
 from __future__ import annotations
+
+import asyncio
 
 
 async def create_reply(*, product_code: str, instructions: str, language: str) -> str:
@@ -35,6 +45,11 @@ async def run(context) -> None:
     inv = await context.audit.tool_invoked("read_instructions", effect_kind="read", target="instructions.md")
     instructions = (context.work_dir / "instructions.md").read_text(encoding="utf-8")
     await context.audit.tool_effect(inv, status="ok", count=1)
+    if not instructions.strip():
+        # Running again would give the same result: end as "could not complete" (not retried; a person checks it)
+        await context.incomplete("missing_instructions",
+                                 comment="instructions.md is empty. Write the instructions and run the step again.")
+        return
 
     review = context.gate_decision
     if review and review["decision"] == "send_back" and review["note"]:
@@ -43,3 +58,30 @@ async def run(context) -> None:
     reply = await create_reply(product_code=context.parameters["product_code"], instructions=instructions,
                                language=context.parameters.get("language", "ja"))
     (context.output_dir / "reply.md").write_text(reply, encoding="utf-8")
+
+
+async def try_one_step() -> None:
+    """Run one step of this agent against the SDK's fake runtime and print what it saved."""
+    import os
+    import tempfile
+    from pathlib import Path
+
+    from agenticstar_platform.workflow import arun
+    from agenticstar_platform.workflow.testing import FakeRuntime
+
+    # The runner starts the agent in a child process: make this module importable there
+    here = str(Path(__file__).resolve().parent)
+    os.environ["PYTHONPATH"] = os.pathsep.join(p for p in (here, os.environ.get("PYTHONPATH")) if p)
+
+    fake = FakeRuntime(parameters={"product_code": "P-100", "language": "en"},
+                       inputs={"instructions": b"Thank the customer and confirm the delivery date.\n"})
+    with tempfile.TemporaryDirectory() as workspace:
+        result = await arun("workflow_reply_agent:run", env=fake.runner_env(), workspace=workspace,
+                            transport=fake.transport)
+    print("outcome:", result.outcome, result.outcome_reason_code)
+    print("audit:", [e["event_type"] for e in fake.saved_audit_events()])
+    print(fake.saved_artifacts()["reply"]["content"].decode("utf-8"))
+
+
+if __name__ == "__main__":
+    asyncio.run(try_one_step())

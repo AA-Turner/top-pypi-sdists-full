@@ -17,8 +17,10 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from arthur_client.api_bindings.models.dataset_locator import DatasetLocator
 from arthur_client.api_bindings.models.model_problem_type import ModelProblemType
 from arthur_client.api_bindings.models.post_dataset_join_spec import PostDatasetJoinSpec
@@ -36,7 +38,10 @@ class PutAvailableDataset(BaseModel):
     model_problem_type: Optional[ModelProblemType] = None
     dataset_join_spec: Optional[PostDatasetJoinSpec] = None
     is_static: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["name", "dataset_locator", "dataset_schema", "model_problem_type", "dataset_join_spec", "is_static"]
+    trace_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = None
+    inference_count: Optional[Annotated[int, Field(strict=True, ge=0)]] = None
+    last_activity_at: Optional[datetime] = None
+    __properties: ClassVar[List[str]] = ["name", "dataset_locator", "dataset_schema", "model_problem_type", "dataset_join_spec", "is_static", "trace_count", "inference_count", "last_activity_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -116,6 +121,21 @@ class PutAvailableDataset(BaseModel):
         if self.is_static is None and "is_static" in self.model_fields_set:
             _dict['is_static'] = None
 
+        # set to None if trace_count (nullable) is None
+        # and model_fields_set contains the field
+        if self.trace_count is None and "trace_count" in self.model_fields_set:
+            _dict['trace_count'] = None
+
+        # set to None if inference_count (nullable) is None
+        # and model_fields_set contains the field
+        if self.inference_count is None and "inference_count" in self.model_fields_set:
+            _dict['inference_count'] = None
+
+        # set to None if last_activity_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.last_activity_at is None and "last_activity_at" in self.model_fields_set:
+            _dict['last_activity_at'] = None
+
         return _dict
 
     @classmethod
@@ -133,7 +153,10 @@ class PutAvailableDataset(BaseModel):
             "dataset_schema": PutDatasetSchema.from_dict(obj["dataset_schema"]) if obj.get("dataset_schema") is not None else None,
             "model_problem_type": obj.get("model_problem_type"),
             "dataset_join_spec": PostDatasetJoinSpec.from_dict(obj["dataset_join_spec"]) if obj.get("dataset_join_spec") is not None else None,
-            "is_static": obj.get("is_static")
+            "is_static": obj.get("is_static"),
+            "trace_count": obj.get("trace_count"),
+            "inference_count": obj.get("inference_count"),
+            "last_activity_at": obj.get("last_activity_at")
         })
         return _obj
 

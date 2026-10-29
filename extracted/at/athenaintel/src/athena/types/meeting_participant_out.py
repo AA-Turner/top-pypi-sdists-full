@@ -16,6 +16,11 @@ class MeetingParticipantOut(UniversalBaseModel):
     Email address of the participant, when known
     """
 
+    invited_only: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    True when the person is known only from the invite on the recorder's own calendar (a meeting recorded with the Athena desktop app, matched to its calendar event after the fact): they were invited, and nothing says they joined. False for everyone a meeting bot's calendar or call roster lists
+    """
+
     name: typing.Optional[str] = pydantic.Field(default=None)
     """
     Display name of the participant, when known

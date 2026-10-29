@@ -1544,14 +1544,11 @@ static PyGetSetDef AsyncDsssReceiver_getset[] = {
   { "cn0_dbhz_est", (getter)AsyncDsssReceiver_getprop_cn0_dbhz_est, NULL,
     "The seed's C/N0 estimate, dB-Hz, unchanged until reset().\n", NULL },
   { "segments", (getter)AsyncDsssReceiver_getprop_segments, NULL,
-    "The live-tracking Dll's partial correlations per code period "
-    "(refine_segments is the refine collector's).\n",
-    NULL },
+    "The live-tracking Dll's partial correlations per code period.\n", NULL },
   { "sps", (getter)AsyncDsssReceiver_getprop_sps, NULL,
     "MpskReceiver's samples per symbol.\n", NULL },
   { "n", (getter)AsyncDsssReceiver_getprop_n, NULL,
-    "MpskReceiver's terminal outputs per symbol (`m_out`: even, 2..8).\n",
-    NULL },
+    "MpskReceiver's terminal outputs per symbol (even, 2..8).\n", NULL },
   { "chip_phase", (getter)AsyncDsssReceiver_getprop_chip_phase, NULL,
     "The live Dll's code phase, chips, in the Dll's instantaneous convention "
     "-- the mirror of acq_result_t::code_phase's correlation-lag convention "
@@ -2040,7 +2037,10 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     "    MpskReceiver samples per symbol (the resample target), >= 2.\n"
     "n : int\n"
     "    MpskReceiver's terminal outputs per symbol (`m_out`): inside\n"
-    "    dp_ratesync_m_ok() (even, 2..8), and dividing sps.\n"
+    "    dp_ratesync_m_ok() (even, 2..8) and at most sps --\n"
+    "    mpsk_rx_m_out_ok(), the rule create()'s own derived `n` satisfies,\n"
+    "    so get_n() always re-applies (doppler#2650). It need not divide\n"
+    "    sps.\n"
     "\n"
     "Raises\n"
     "------\n"

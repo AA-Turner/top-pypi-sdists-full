@@ -122,11 +122,20 @@ def test_terminal_statuses_never_block() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _unique_violation(constraint: str) -> Exception:
+    """What the driver raises: SQLSTATE 23505 naming the constraint (words are irrelevant)."""
+    import asyncpg
+
+    err = asyncpg.exceptions.UniqueViolationError("any words")
+    err.constraint_name = constraint
+    return err
+
+
 def _claim_violation() -> IntegrityError:
     return IntegrityError(
         constraint="unique",
         constraint_name=START_CLAIM_INDEX,
-        original_error=f'duplicate key value violates unique constraint "{START_CLAIM_INDEX}"',
+        original_error=_unique_violation(START_CLAIM_INDEX),
     )
 
 
@@ -135,7 +144,7 @@ def test_only_the_start_claim_index_counts_as_a_claim_conflict() -> None:
     other = IntegrityError(
         constraint="unique",
         constraint_name="crawl_event_session_sequence_unique",
-        original_error="duplicate key value violates unique constraint",
+        original_error=_unique_violation("crawl_event_session_sequence_unique"),
     )
     assert not is_start_claim_conflict(other)
 

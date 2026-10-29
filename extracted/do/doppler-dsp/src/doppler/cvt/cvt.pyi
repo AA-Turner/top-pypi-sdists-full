@@ -15,6 +15,12 @@ class F32ToI8:
         128.0f). Use 128.0 to convert a normalised `[-1, +1]` signal to the
         full 8-bit range.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``F32ToI8: scale must
+        be positive and finite``.
+
     Examples
     --------
     Create with defaults:
@@ -29,9 +35,8 @@ class F32ToI8:
         """Clear the sticky clip flag, starting a fresh saturation history.
 
         Zeroes clipped so a subsequent clipped query reflects only samples seen
-        after this call; the immutable scale is preserved. Call it at a buffer
-        or segment boundary so a saturation on one block does not leak into the
-        next.
+        after this call; scale is preserved. Call it at a buffer or segment
+        boundary so a saturation on one block does not leak into the next.
 
         Examples
         --------
@@ -50,8 +55,12 @@ class F32ToI8:
 
         Computes round(x * scale), clamps to the int8 range `[-128, 127]`, and
         latches the sticky clipped flag if the scaled value fell outside that
-        range before clamping. At the default scale of 128 a normalised `[-1,
-        +1]` input maps to the full 8-bit code range.
+        range before clamping (and before rounding, so 127.3 latches it even
+        though it would round to 127). At the default scale of 128 a normalised
+        `[-1, +1]` input maps to the full 8-bit code range.
+
+        A NaN input counts as clipped: it latches clipped and returns the
+        negative full-scale code, -128.
 
         Parameters
         ----------
@@ -85,8 +94,9 @@ class F32ToI8:
 
         Applies step() to every element. The clipped flag is updated
         cumulatively across the block — a single saturating sample raises it
-        for the entire call. Accepts an optional pre-allocated output array;
-        allocates a fresh one when output is NULL.
+        for the entire call. The C function writes into output and never
+        allocates; the Python binding allocates the output array when its
+        optional out is omitted.
 
         Parameters
         ----------
@@ -227,6 +237,12 @@ class F32ToI16:
         32768.0f). Use 32768.0 to convert a normalised `[-1, +1]` signal to
         full Q15 range.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``F32ToI16: scale must
+        be positive and finite``.
+
     Examples
     --------
     Create with defaults:
@@ -241,9 +257,8 @@ class F32ToI16:
         """Clear the sticky clip flag, starting a fresh saturation history.
 
         Zeroes clipped so a subsequent clipped query reflects only samples seen
-        after this call; the immutable scale is preserved. Call it at a buffer
-        or segment boundary so a saturation on one block does not leak into the
-        next.
+        after this call; scale is preserved. Call it at a buffer or segment
+        boundary so a saturation on one block does not leak into the next.
 
         Examples
         --------
@@ -264,6 +279,9 @@ class F32ToI16:
         and latches the sticky clipped flag if the scaled value fell outside
         that range before clamping. At the default scale of 32768 a normalised
         `[-1, +1]` input maps to the full Q15 code range.
+
+        A NaN input counts as clipped: it latches clipped and returns the
+        negative full-scale code, -32768.
 
         Parameters
         ----------
@@ -297,8 +315,9 @@ class F32ToI16:
 
         Applies step() to every element. The clipped flag is updated
         cumulatively across the block — a single saturating sample raises it
-        for the entire call. Accepts an optional pre-allocated output array;
-        allocates a fresh one when output is NULL.
+        for the entire call. The C function writes into the caller's output and
+        never allocates; the Python binding allocates a fresh array when no
+        `out=` buffer is passed.
 
         Parameters
         ----------
@@ -439,6 +458,12 @@ class F32ToI32:
         2147483648.0f). Use 2^31 to convert a normalised `[-1, +1]` signal to
         the full 32-bit range.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``F32ToI32: scale must
+        be positive and finite``.
+
     Examples
     --------
     Create with defaults:
@@ -453,9 +478,8 @@ class F32ToI32:
         """Clear the sticky clip flag, starting a fresh saturation history.
 
         Zeroes clipped so a subsequent clipped query reflects only samples seen
-        after this call; the immutable scale is preserved. Call it at a buffer
-        or segment boundary so a saturation on one block does not leak into the
-        next.
+        after this call; scale is preserved. Call it at a buffer or segment
+        boundary so a saturation on one block does not leak into the next.
 
         Examples
         --------
@@ -484,6 +508,9 @@ class F32ToI32:
         overflows. The float32 input still bounds the useful precision at 24
         bits; the double is there to make the CLAMP exact, not to invent
         significance.
+
+        A NaN input counts as clipped: it latches clipped and returns the
+        negative full-scale code, -2147483648.
 
         Parameters
         ----------
@@ -517,8 +544,9 @@ class F32ToI32:
 
         Applies step() to every element. The clipped flag is updated
         cumulatively across the block — a single saturating sample raises it
-        for the entire call. Accepts an optional pre-allocated output array;
-        allocates a fresh one when output is NULL.
+        for the entire call. In C, output must be a caller-owned array of at
+        least n elements (NULL is not accepted). From Python it is the optional
+        `out=` array; the binding allocates a fresh one when omitted.
 
         Parameters
         ----------
@@ -656,7 +684,14 @@ class I8ToF32:
     ----------
     scale : float, default 128.0
         Denominator scale; 1/scale is applied to each sample (default: 128.0f).
-        Use 128.0 to recover normalised floats from a signed 8-bit stream.
+        Use 128.0 to recover normalised floats from a signed 8-bit stream. Must
+        be positive and finite.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``I8ToF32: scale must
+        be positive and finite``.
 
     Examples
     --------
@@ -721,8 +756,8 @@ class I8ToF32:
     ) -> NDArray[np.float32]:
         """Process a block of int8 samples to float32.
 
-        Applies step() to every element. Accepts an optional pre-allocated
-        output array; allocates a fresh one when output is NULL.
+        Applies step() to every element. In C, output must be non-NULL; the
+        Python binding allocates a fresh array when no `out=` is passed.
 
         Parameters
         ----------
@@ -939,7 +974,7 @@ class U8ToF32:
 
 @final
 class I16ToF32:
-    """Create a i16_to_f32 instance.
+    """Create a signed int16 to float32 converter.
 
     Parameters
     ----------
@@ -947,6 +982,12 @@ class I16ToF32:
         Denominator scale; 1/scale is applied to each sample (default:
         32768.0f). Use 32768.0 to recover normalised `[-1, +1]` floats from a
         Q15 int16 stream.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``I16ToF32: scale must
+        be positive and finite``.
 
     Examples
     --------
@@ -1011,8 +1052,10 @@ class I16ToF32:
     ) -> NDArray[np.float32]:
         """Process a block of int16 samples to float32.
 
-        Applies step() to every element. Accepts an optional pre-allocated
-        output array; allocates a fresh one when output is NULL.
+        Applies step() to every element. In C, output must be a caller-owned
+        array of at least n elements (NULL is not accepted). From Python it is
+        the optional `out=` array; the binding allocates a fresh one when
+        omitted.
 
         Parameters
         ----------
@@ -1092,6 +1135,12 @@ class I32ToF32:
         2147483648.0f). Use 2^31 to recover normalised floats from a full-range
         int32 stream.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``I32ToF32: scale must
+        be positive and finite``.
+
     Examples
     --------
     Create with defaults:
@@ -1155,8 +1204,10 @@ class I32ToF32:
     ) -> NDArray[np.float32]:
         """Process a block of int32 samples to float32.
 
-        Applies step() to every element. Accepts an optional pre-allocated
-        output array; allocates a fresh one when output is NULL.
+        Applies step() to every element. In C, output must be a caller-owned
+        array of at least n elements (NULL is not accepted). From Python it is
+        the optional `out=` array; the binding allocates a fresh one when
+        omitted.
 
         Parameters
         ----------
@@ -1234,7 +1285,13 @@ class F32ToI16U32:
     scale : float, default 32768.0
         Multiply factor applied before quantisation and saturation (default:
         32768.0f). Use 32768.0 to convert normalised `[-1, +1]` samples to Q15
-        packed into a uint32.
+        packed into a uint32. Must be positive and finite.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``F32ToI16U32: scale
+        must be positive and finite``.
 
     Examples
     --------
@@ -1250,9 +1307,8 @@ class F32ToI16U32:
         """Clear the sticky clip flag, starting a fresh saturation history.
 
         Zeroes clipped so a subsequent clipped query reflects only samples seen
-        after this call; the immutable scale is preserved. Call it at a buffer
-        or segment boundary so a saturation on one block does not leak into the
-        next.
+        after this call; scale is preserved. Call it at a buffer or segment
+        boundary so a saturation on one block does not leak into the next.
 
         Examples
         --------
@@ -1272,7 +1328,11 @@ class F32ToI16U32:
         Computes round(x * scale), saturates to `[-32768, 32767]`, then
         zero-extends the 16-bit two's-complement pattern into the lower 16 bits
         of a uint32 (upper 16 bits are always zero). Latches the sticky clipped
-        flag on saturation.
+        flag on saturation. A NaN input maps to 0x8000 (-32768) without setting
+        clipped.
+
+        A NaN input counts as clipped: it latches clipped and returns the
+        negative full-scale code, -32768 (0x8000).
 
         Parameters
         ----------
@@ -1303,8 +1363,9 @@ class F32ToI16U32:
         """Process a block of float samples to Q15-in-uint32.
 
         Applies step() to every element. The clipped flag is updated
-        cumulatively across the block. Accepts an optional pre-allocated output
-        array; allocates a fresh one when output is NULL.
+        cumulatively across the block. In C the caller supplies output; the
+        Python binding accepts an optional pre-allocated out array and
+        allocates a fresh one when it is omitted.
 
         Parameters
         ----------
@@ -1443,7 +1504,13 @@ class F32ToI16U64:
     scale : float, default 32768.0
         Multiply factor applied before quantisation and saturation (default:
         32768.0f). Use 32768.0 to convert normalised `[-1, +1]` samples to Q15
-        packed into the low 16 bits of a uint64.
+        packed into the low 16 bits of a uint64. Must be positive and finite.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``F32ToI16U64: scale
+        must be positive and finite``.
 
     Examples
     --------
@@ -1459,9 +1526,8 @@ class F32ToI16U64:
         """Clear the sticky clip flag, starting a fresh saturation history.
 
         Zeroes clipped so a subsequent clipped query reflects only samples seen
-        after this call; the immutable scale is preserved. Call it at a buffer
-        or segment boundary so a saturation on one block does not leak into the
-        next.
+        after this call; scale is preserved. Call it at a buffer or segment
+        boundary so a saturation on one block does not leak into the next.
 
         Examples
         --------
@@ -1482,6 +1548,9 @@ class F32ToI16U64:
         zero-extends the 16-bit two's-complement pattern into the lower 16 bits
         of a uint64 (upper 48 bits are always zero — headroom for the NCO phase
         accumulator). Latches the sticky clipped flag on saturation.
+
+        A NaN input counts as clipped: it latches clipped and returns the
+        negative full-scale code, -32768 (0x8000).
 
         Parameters
         ----------
@@ -1512,8 +1581,8 @@ class F32ToI16U64:
         """Process a block of float samples to Q15-in-uint64.
 
         Applies step() to every element. The clipped flag is updated
-        cumulatively across the block. Accepts an optional pre-allocated output
-        array; allocates a fresh one when output is NULL.
+        cumulatively across the block. In C, output must be non-NULL; the
+        Python binding allocates a fresh array when no `out=` is passed.
 
         Parameters
         ----------
@@ -1651,7 +1720,14 @@ class I16U32ToF32:
     ----------
     scale : float, default 32768.0
         Denominator scale; 1/scale is applied after sign-extension (default:
-        32768.0f). Use 32768.0 to match F32ToI16U32 at its default scale.
+        32768.0f). Use 32768.0 to match F32ToI16U32 at its default scale. Must
+        be positive and finite.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``I16U32ToF32: scale
+        must be positive and finite``.
 
     Examples
     --------
@@ -1716,8 +1792,10 @@ class I16U32ToF32:
     ) -> NDArray[np.float32]:
         """Process a block of Q15-in-uint32 samples to float32.
 
-        Applies step() to every element. Accepts an optional pre-allocated
-        output array; allocates a fresh one when output is NULL.
+        Applies step() to every element. In C, output must be a caller-owned
+        array of at least n elements (NULL is not accepted). From Python it is
+        the optional `out=` array; the binding allocates a fresh one when
+        omitted.
 
         Parameters
         ----------
@@ -1787,13 +1865,20 @@ class I16U32ToF32:
 
 @final
 class I16U64ToF32:
-    """Create a i16u64_to_f32 instance.
+    """Create an I16U64ToF32 converter (Q15-in-uint64 to float).
 
     Parameters
     ----------
     scale : float, default 32768.0
         Denominator scale; 1/scale is applied after sign-extension (default:
-        32768.0f). Use 32768.0 to match F32ToI16U64 at its default scale.
+        32768.0f). Use 32768.0 to match F32ToI16U64 at its default scale. Must
+        be positive and finite.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``I16U64ToF32: scale
+        must be positive and finite``.
 
     Examples
     --------
@@ -1858,8 +1943,10 @@ class I16U64ToF32:
     ) -> NDArray[np.float32]:
         """Process a block of Q15-in-uint64 samples to float32.
 
-        Applies step() to every element. Accepts an optional pre-allocated
-        output array; allocates a fresh one when output is NULL.
+        Applies step() to every element. In C, output must be a caller-owned
+        array of at least n elements (NULL is not accepted). From Python it is
+        the optional `out=` array; the binding allocates a fresh one when
+        omitted.
 
         Parameters
         ----------
@@ -1936,7 +2023,14 @@ class F32ToUQ15:
     scale : float, default 32768.0
         Multiply factor applied before quantisation and saturation (default:
         32768.0f). Use 32768.0 to convert normalised `[-1, +1]` floats to the
-        full UQ15 range `[0, 65535]`. Must be > 0; returns NULL otherwise.
+        full UQ15 range `[0, 65535]`. Must be positive and finite; NULL
+        otherwise.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``F32ToUQ15: scale must
+        be positive and finite``.
 
     Examples
     --------
@@ -1952,9 +2046,8 @@ class F32ToUQ15:
         """Clear the sticky clip flag, starting a fresh saturation history.
 
         Zeroes clipped so a subsequent clipped query reflects only samples seen
-        after this call; the immutable scale is preserved. Call it at a buffer
-        or segment boundary so a saturation on one block does not leak into the
-        next.
+        after this call; scale is preserved. Call it at a buffer or segment
+        boundary so a saturation on one block does not leak into the next.
 
         Examples
         --------
@@ -1976,6 +2069,9 @@ class F32ToUQ15:
         unsigned uint16 range. Latches the sticky clipped flag if the scaled
         value saturated before clamping. Suits DAC and file formats that store
         only unsigned integers.
+
+        A NaN input counts as clipped: it latches clipped and returns the
+        negative full-scale code, 0 (offset-binary -32768).
 
         Parameters
         ----------
@@ -2007,8 +2103,9 @@ class F32ToUQ15:
         """Process a block of float samples to UQ15 uint16.
 
         Applies step() to every element. The clipped flag is updated
-        cumulatively across the block. Accepts an optional pre-allocated output
-        array; allocates a fresh one when output is NULL.
+        cumulatively across the block. The C function writes into the caller's
+        output, which must be non-NULL; the Python binding allocates a fresh
+        array when no output array is passed.
 
         Parameters
         ----------
@@ -2140,14 +2237,21 @@ class F32ToUQ15:
 
 @final
 class UQ15ToF32:
-    """Create a uq15_to_f32 instance.
+    """Create an offset-binary uint16 (UQ15) to float32 converter.
 
     Parameters
     ----------
     scale : float, default 32768.0
         Denominator applied after offset-binary bias removal (default:
         32768.0f). Use 32768.0 to recover normalised `[-1, +1]` floats from
-        UQ15 data written by F32ToUQ15. Must be > 0; returns NULL otherwise.
+        UQ15 data written by F32ToUQ15. Must be positive and finite; NULL
+        otherwise.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``UQ15ToF32: scale must
+        be positive and finite``.
 
     Examples
     --------
@@ -2214,8 +2318,9 @@ class UQ15ToF32:
         """Process a block of UQ15 samples to float32.
 
         Applies step() to every element. State is not mutated (no clipped
-        flag). Accepts an optional pre-allocated output array; allocates a
-        fresh one when output is NULL.
+        flag). In C, output must be a caller-owned array of at least n elements
+        (NULL is not accepted). From Python it is the optional `out=` array;
+        the binding allocates a fresh one when omitted.
 
         Parameters
         ----------
@@ -2290,13 +2395,14 @@ class ADC:
     Parameters
     ----------
     bits : int, default 16
-        ADC resolution in bits (1..64).
+        ADC resolution in bits (1..64; default 16).
     dbfs : float, default -10.0
         Full-scale reference level in dBFS (typically negative, e.g. -10.0). A
         signal with amplitude 10^(dbfs/20) fills the converter's integer range
-        exactly.
+        exactly (default -10.0).
     dithering : int, default 0
-        0 = no dither; non-zero = TPDF dither before rounding.
+        0 = no dither (default); positive = TPDF dither before rounding. A
+        negative value is rejected (NULL).
 
     Examples
     --------
@@ -2340,8 +2446,10 @@ class ADC:
         Multiplies x by the pre-computed double-precision scale, optionally
         adds TPDF dither (when the object was built with dithering enabled),
         rounds with llround, and clamps to the signed integer range `[clip_min,
-        clip_max]`. Latches the sticky clipped flag if the sample saturated. A
-        sample at amplitude 10^(dbfs/20) reaches full scale.
+        clip_max]`. Latches the sticky clipped flag when the scaled (and
+        dithered) value lies outside `[clip_min, clip_max]` BEFORE rounding, so
+        a value such as clip_max + 0.3 latches it even though it rounds to
+        clip_max. A sample at amplitude 10^(dbfs/20) reaches full scale.
 
         Parameters
         ----------
@@ -2373,11 +2481,18 @@ class ADC:
     ) -> NDArray[np.int64]:
         """Process a block of float samples to int64.
 
-        When dithering is disabled the float-to-double multiply can use SIMD
-        widening (jm_simd.h); the int64_t conversion and clamp remain scalar.
-        When dithering is enabled the loop is scalar to preserve sequential
-        PRNG state. Accepts an optional pre-allocated output array; allocates a
-        fresh one when output is NULL.
+        When dithering is disabled and a SIMD tier is available (jm_simd.h),
+        whole SIMD-width groups are scaled by scale rounded to float32,
+        multiplied in float32, rounded with llroundf and clamped; the clip flag
+        latches on the same double-precision pre-rounding value step() uses, so
+        it does not depend on which path a sample took. The remaining tail
+        samples, and every sample when dithering is enabled, go through
+        dp_adc_step() (double precision, sequential PRNG). For converters wider
+        than ~24 bits the float32 path can therefore differ from step() in the
+        last codes.
+
+        The C function writes into output and never allocates; the Python
+        binding allocates the output array when its optional out is omitted.
 
         Parameters
         ----------
@@ -2459,15 +2574,19 @@ class ADC:
 
     @property
     def clipped(self) -> bool:
-        """Clipped."""
+        """Sticky saturation flag: 1 once any sample saturated, 0 otherwise.
+        Running state, set by step()/steps(), cleared by reset().
+        """
 
     @property
     def scale(self) -> float:
-        """Scale."""
+        """Input-to-code gain, 2^(bits-1) * 10^(-dbfs/20) (codes per unit
+        input). Config, set by create().
+        """
 
     @property
     def bits(self) -> int:
-        """Bits."""
+        """ADC resolution in bits, 1..64.  Config."""
 
     def destroy(self) -> None:
         """Release the underlying C resources immediately.

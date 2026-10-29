@@ -8,6 +8,7 @@ import sys
 from copy import deepcopy
 from fractions import Fraction
 from functools import cache, partial, partialmethod
+from itertools import starmap
 from typing import TYPE_CHECKING, Any
 
 from attrs import fields
@@ -32,6 +33,8 @@ if TYPE_CHECKING:
 _REGEX_CLASS_ESCAPE = re.compile(r"(?<!\\)(?:\\\\)*\\([dDsSwWbB])")
 _REGEX_CLASS_BY_ESCAPE = dict.fromkeys("dD", r"\d") | dict.fromkeys("sS", r"\s") | dict.fromkeys("wWbB", r"\w")
 """The character class each escape depends on; word boundaries depend on word characters."""
+_REGEX_END_ANCHOR = re.compile(r"\\.|\[\^?\]?(?:\\.|[^\]\\])*\]|(?P<anchor>\$)")
+"""An escape or a character class, which keep their ``$``, or the ``$`` anchor itself."""
 
 _SourceSchemaCacheKey = tuple[str, str, str]
 _source_schema_validator_cache: dict[_SourceSchemaCacheKey, SourceSchemaValidator] = {}
@@ -91,18 +94,19 @@ def validate_with_source_schema(case: SchemaCase, payload: Any) -> None:
 def _bound_float_multiples(schema: dict[str, Any]) -> None:
     """Bound the copied sampling domain before integer multipliers become floats.
 
+    hypothesis-jsonschema samples every multipleOf as an unbounded integer times the multiple: a float multiple
+    turns the product into a float, and a ``number`` schema the model reads as a float. Hypothesis also draws
+    integers from the constants of the modules a worker has loaded, so unbounded products can leave the float range.
     The original schema remains the validation oracle. Intervals outside this
     sampling domain need a different strategy, even when their schema is valid.
     """
     for node in _iter_schema_nodes(schema):
-        if (
-            not isinstance(multiple := node.get("multipleOf"), float)
-            or multiple.is_integer()
-            or "enum" in node
-            or "const" in node
-        ):
+        multiple = node.get("multipleOf")
+        if isinstance(multiple, bool) or not isinstance(multiple, int | float) or "enum" in node or "const" in node:
             continue
-        if (schema_types := _schema_types(node)) and not schema_types & {"integer", "number"}:
+        schema_types = _schema_types(node)
+        numeric_types = schema_types & {"integer", "number"}
+        if numeric_types != {"number"} and not (isinstance(multiple, float) and (numeric_types or not schema_types)):
             continue
 
         # hypothesis-jsonschema multiplies an integer by multipleOf. Bound both
@@ -111,6 +115,12 @@ def _bound_float_multiples(schema: dict[str, Any]) -> None:
         limit = sys.float_info.max / 2 * min(1, multiple)
         minimum = node.get("minimum", -limit)
         maximum = node.get("maximum", limit)
+        if "minimum" in node and "maximum" in node and minimum == maximum:
+            # Sample the exact JSON endpoint; binary multiplication can miss it.
+            # The unchanged source validator still enforces multipleOf afterward.
+            node["enum"] = [minimum]
+            del node["multipleOf"]
+            continue
         outside_domain = (
             minimum > limit
             or maximum < -limit
@@ -125,12 +135,6 @@ def _bound_float_multiples(schema: dict[str, Any]) -> None:
         if outside_domain:
             msg = "Numeric interval lies outside the finite multipleOf sampling domain"
             raise ValueError(msg)
-        if "minimum" in node and "maximum" in node and minimum == maximum:
-            # Sample the exact JSON endpoint; binary multiplication can miss it.
-            # The unchanged source validator still enforces multipleOf afterward.
-            node["enum"] = [minimum]
-            del node["multipleOf"]
-            continue
         node["minimum"] = max(minimum, -limit)
         node["maximum"] = min(maximum, limit)
 
@@ -152,6 +156,31 @@ def _regex_engines_agree(regex_class: str, character: str) -> bool:
 def _regex_classes(regex: str) -> frozenset[str]:
     """Return the character classes that a regex's escapes depend on."""
     return frozenset(_REGEX_CLASS_BY_ESCAPE[escape[1]] for escape in _REGEX_CLASS_ESCAPE.finditer(regex))
+
+
+def _end_of_input(match: re.Match[str]) -> str:
+    """Return the anchor that matches only at the end of the input, as in JSON Schema, for a ``$`` of ``re``."""
+    return r"(?:(?!\n\Z)$)" if match["anchor"] else match[0]
+
+
+@cache
+def _end_of_input_regex(regex: str) -> re.Pattern[str] | None:
+    """Return the regex with every ``$`` anchoring only the end of the input, or None when it has none."""
+    return re.compile(_REGEX_END_ANCHOR.sub(_end_of_input, regex)) if "$" in regex else None
+
+
+def _end_anchors_agree(regex: str, string: str) -> bool:
+    """Return whether Python's ``$``, which also matches before a final newline, decides like the end of the input."""
+    if not string.endswith("\n") or (end_of_input := _end_of_input_regex(regex)) is None:
+        return True
+    return (re.search(regex, string) is None) is (end_of_input.search(string) is None)
+
+
+def _engines_agree(regex: str, string: str) -> bool:
+    """Return whether the regex engines decide alike on the string: its characters' classes and its final newline."""
+    return _end_anchors_agree(regex, string) and all(
+        _regex_engines_agree(regex_class, character) for regex_class in _regex_classes(regex) for character in string
+    )
 
 
 class _RegexEnginesDisagreeError(Exception):
@@ -189,13 +218,8 @@ def _agreed(
     instance: Any,
     schema: dict[str, Any],
 ) -> Iterator[ValidationError]:
-    """Apply a keyword unless the regex engines classify a character of a string it matches differently."""
-    if not all(
-        _regex_engines_agree(regex_class, character)
-        for regex, string in matches(validator, value, instance, schema)
-        for regex_class in _regex_classes(regex)
-        for character in string
-    ):
+    """Apply a keyword unless the regex engines decide differently on a string it matches."""
+    if not all(starmap(_engines_agree, matches(validator, value, instance, schema))):
         raise _RegexEnginesDisagreeError
     yield from keyword(validator, value, instance, schema)
 

@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -11,6 +14,9 @@ from .manager import Phpbb3Manager
 from .models import Phpbb3User
 from .tasks import Phpbb3Tasks
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 ACCESS_PERM = 'phpbb3.access_phpbb3'
@@ -18,7 +24,7 @@ ACCESS_PERM = 'phpbb3.access_phpbb3'
 
 @login_required
 @permission_required(ACCESS_PERM)
-def activate_forum(request):
+def activate_forum(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"activate_forum called by user {request.user}")
     # Valid now we get the main characters
     character = request.user.profile.main_character
@@ -45,7 +51,7 @@ def activate_forum(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def deactivate_forum(request):
+def deactivate_forum(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"deactivate_forum called by user {request.user}")
     # false we failed
     if Phpbb3Tasks.delete_user(request.user):
@@ -59,7 +65,7 @@ def deactivate_forum(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def reset_forum_password(request):
+def reset_forum_password(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"reset_forum_password called by user {request.user}")
     if Phpbb3Tasks.has_account(request.user):
         character = request.user.profile.main_character
@@ -81,7 +87,7 @@ def reset_forum_password(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def set_forum_password(request):
+def set_forum_password(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"set_forum_password called by user {request.user}")
     if request.method == 'POST':
         logger.debug("Received POST request with form.")

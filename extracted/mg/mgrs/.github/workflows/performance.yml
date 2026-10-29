@@ -55,11 +55,16 @@ jobs:
           persist-credentials: false
 
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version-file: candidate/ci/requirements.txt
           python-version: '3.13'
           activate-environment: true
+
+      - name: Install Rust backend toolchain
+        run: |
+          rustup toolchain install 1.90.0 --profile minimal
+          rustup default 1.90.0
 
       - name: Install shared build tools
         run: uv pip install -r candidate/benchmarks/requirements-ci.txt
@@ -73,6 +78,8 @@ jobs:
           g++ --version >> toolchain.txt
           cmake --version >> toolchain.txt
           ninja --version >> toolchain.txt
+          rustc --version >> toolchain.txt
+          cargo --version >> toolchain.txt
           lscpu >> toolchain.txt
           printf '\nCFLAGS=%s\nImageOS=%s\nImageVersion=%s\n' \
             "$CFLAGS" "$ImageOS" "$ImageVersion" >> toolchain.txt

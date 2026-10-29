@@ -60,6 +60,9 @@ from omnimarket.models.delegation.delegation_ticket_id import TICKET_ID_PATTERN
 from omnimarket.models.delegation.local_credential_refusal import (
     ModelLocalCredentialRefusal,
 )
+from omnimarket.models.delegation.wire.model_attempt_configuration import (
+    ModelAttemptConfiguration,
+)
 from omnimarket.models.delegation.wire.model_attempt_rubric_verdict import (
     ModelAttemptRubricVerdict,
 )
@@ -104,13 +107,9 @@ from omnimarket.models.model_delegation_split_recombine import EnumDelegationSiz
 # OMN-20717 declared ``usage_source`` on the attempt and ``cost_measured`` on
 # the metrics below, after the release that carried their consumer-first keys.
 #
-# OMN-20168 adds ``configuration``: the call parameters and context strategy an
-# attempt was sent with, so a capability map can tell which configuration swap
-# recovered which failure. The producer and the declared field land in the
-# change after omniclaude's pin carries this consumer.
-_FORTHCOMING_ATTEMPT_KEYS: frozenset[str] = frozenset(
-    {"backend_pinned", "configuration"}
-)
+# OMN-20168 declared ``configuration`` on the attempt below, after omniclaude's
+# pin carried the consumer that dropped it.
+_FORTHCOMING_ATTEMPT_KEYS: frozenset[str] = frozenset({"backend_pinned"})
 # OMN-20274: the savings baseline keys omnimarket#3172 (OMN-19969) declares.
 _FORTHCOMING_BASELINE_RESPONSE_KEYS: frozenset[str] = frozenset(
     {"baseline_source", "baseline_state"}
@@ -337,7 +336,12 @@ class ModelDelegateSkillAttemptRecord(BaseModel):
         description="Hostname of the endpoint for this attempt.",
     )
     size_band: EnumDelegationSizeBand | None = Field(
-        default=None, description="Size band of the attempted work; not yet produced."
+        default=None,
+        description="Size band of the attempted work; None when the class declares no thresholds.",
+    )
+    configuration: ModelAttemptConfiguration | None = Field(
+        default=None,
+        description="Call parameters and context strategy this attempt was sent with.",
     )
 
     @model_validator(mode="after")
@@ -1230,10 +1234,14 @@ class ModelDelegateSkillResponse(BaseModel):
             self.status == "timeout"
             and cause is EnumDelegationTerminalFailureCause.TIMEOUT
         )
+        # OMN-21264: a run handed back to its caller is not a provider claim;
+        # the gate refusals stay on their rungs, the hand-back is the outcome.
+        returned = cause is EnumDelegationTerminalFailureCause.RETURNED_TO_CALLER
         if (
             cause is not None
             and cause is not EnumDelegationTerminalFailureCause.QUALITY_GATE_REFUSED
             and not budget_cancelled
+            and not returned
             and _gate_decided(self.attempts)
         ):
             refused = sum(

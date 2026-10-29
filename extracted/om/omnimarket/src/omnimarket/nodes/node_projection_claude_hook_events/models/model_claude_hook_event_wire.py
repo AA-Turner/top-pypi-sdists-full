@@ -249,7 +249,8 @@ class ModelClaudeHookEventWire(BaseModel):
     schema_version: Literal["1.0.0"]
     hook_event_name: EnumClaudeHookEventName
     emitted_at: AwareDatetime
-    actor: Literal["claude"]
+    #: OMN-19513: the producer's hook_actor_envelope.yaml declares claude, codex, unknown.
+    actor: Literal["claude", "codex", "unknown"]
     claude_code_version: str | None = None
     #: OMN-17427: the hostname of the machine that emitted the event.
     host: str | None = Field(default=None, min_length=1)
@@ -259,8 +260,8 @@ class ModelClaudeHookEventWire(BaseModel):
     #: OMN-18531: the capture hook's item-identity stamp on a lineage event. This
     #: topic carries the lineage stream only (the content stream travels on the
     #: restricted content family), so any other stream value is refused. The
-    #: sequence is per session and per stream, starting at 1. Neither is stored:
-    #: the fold keys rows on ``event_id``.
+    #: sequence is per session and per stream, starting at 1. The row retains
+    #: it for the session barrier; its identity remains ``event_id``.
     stream: Literal["lineage"] | None = None
     producer_seq: int | None = Field(default=None, ge=1, strict=True)
     lineage: ModelClaudeHookLineageWire

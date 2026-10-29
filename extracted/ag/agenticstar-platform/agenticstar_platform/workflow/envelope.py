@@ -2,7 +2,10 @@
 
 - outcome は「どう終わったか」の 7 値: completed / incomplete / failed / timeout / stopped / denied / skipped。
   **成否 = Agent が完遂したか**。Agent の関数が正常に戻れば `completed`。write の失敗・未観測の効果・tool 記録が無いことは
-  outcome を下げない（Agent が完遂できなかったなら、Agent が例外で終わる）。何を書いたかは `counts` / `tools` / `had_mutating_success` の側に残す
+  outcome を下げない（Agent が完遂できなかったなら、Agent が `incomplete()` で宣言するか（3.2.1。やり直しても同じ結果になる失敗。
+  front は自動で再実行せず人の確認に回す）、例外で終わる）。何を書いたかは `counts` / `tools` / `had_mutating_success` の側に残す
+- `incomplete` と、Agent の例外による `failed/agent_error` には、終了時の報告 `completion_report`（SaaS の worker と同じ形:
+  `completed: false`・`reason_code`・`comment`）を載せる（3.2.1）。ほかの終わり方では載せない（欄ごと無い）
 - tally は runner が保存済み（ack 済み）監査から数える
 - mutating な tool.invoked は **呼出し（invoked event_id）単位** で effect の status を対応付け、成功 / 失敗 / 不明を区別する
   （`action_ref` は外部の冪等キーで、集計キーではない = 同じ action_ref を共有する 2 回の呼出しが結果を共有しない）
@@ -30,11 +33,47 @@ SKIP_REASONS = ("no_target", "not_applicable", "nothing_to_do")
 # 外部行為の **前** に policy を照合できなかった: front は budget 内で再照合（retryOrHold）する。次工程へは進めない
 PRE_ACTION_SKIP_REASONS = ("policy_unavailable",)
 _REASON_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+# 終了時の報告の comment の上限。front は JS の length（UTF-16 の単位）で 2,048 まで残す
+COMPLETION_REPORT_COMMENT_MAX = 2048
 
 
 def reason_code(value: Any, default: str) -> str:
     v = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
     return v if _REASON_RE.match(v) else default
+
+
+def cut_utf16(text: str, limit: int) -> str:
+    """JS の length（UTF-16 の単位。BMP の外の文字は 2）で `limit` までに切る（runner の `_error_class` と同じ数え方）。"""
+    units = 0
+    for i, ch in enumerate(text):
+        units += 2 if ord(ch) > 0xFFFF else 1
+        if units > limit:
+            return text[:i]
+    return text
+
+
+def report_comment(value: Any) -> Optional[str]:
+    """終了時の報告の comment: 文字列だけを 2,048 単位までに切る。空・UTF-8 にできない値（孤立したサロゲート）は None
+    （front へ送れない値で completion ごと落とさない）。"""
+    if not isinstance(value, str):
+        return None
+    text = cut_utf16(value, COMPLETION_REPORT_COMMENT_MAX)
+    if not text:
+        return None
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return None
+    return text
+
+
+def build_completion_report(reason: str, comment: Optional[str]) -> dict[str, Any]:
+    """終了時の報告（SaaS の worker の `completion_report` と同じ形）。完遂できなかったときだけ作るので `completed` は false。
+    comment が無ければ欄なし。"""
+    report: dict[str, Any] = {"completed": False, "reason_code": reason}
+    if comment:
+        report["comment"] = comment
+    return report
 
 
 @dataclass
@@ -47,6 +86,8 @@ class EffectTally:
     denials: list[str] = field(default_factory=list)                   # reason codes
     persist_failures: int = 0                                          # 必須監査（manifest / invoked / effect / denied）の保存失敗
     skip_reason: Optional[str] = None                                  # Agent が宣言した skip 理由（SKIP_REASONS / PRE_ACTION）
+    incomplete_reason: Optional[str] = None                            # Agent が宣言した「完遂できなかった」の理由（incomplete()）
+    incomplete_comment: Optional[str] = None                           # その説明（終了時の報告の comment）
 
     def record(self, event_type: str, event_id: str, metadata: dict[str, Any], reason: Optional[str] = None) -> None:
         if event_type == "tool.invoked":
@@ -68,7 +109,8 @@ class EffectTally:
     def to_dict(self) -> dict[str, Any]:
         return {"invoked": self.invoked, "effects": self.effects, "orphan_effects": self.orphan_effects,
                 "effect_conflicts": self.effect_conflicts, "denials": list(self.denials),
-                "persist_failures": self.persist_failures, "skip_reason": self.skip_reason}
+                "persist_failures": self.persist_failures, "skip_reason": self.skip_reason,
+                "incomplete_reason": self.incomplete_reason, "incomplete_comment": self.incomplete_comment}
 
     @classmethod
     def from_dict(cls, data: Any) -> "EffectTally":
@@ -85,6 +127,9 @@ class EffectTally:
         t.persist_failures = int(data.get("persist_failures") or 0)
         sr = data.get("skip_reason")
         t.skip_reason = sr if sr in SKIP_REASONS + PRE_ACTION_SKIP_REASONS else None
+        ir = data.get("incomplete_reason")
+        t.incomplete_reason = ir if isinstance(ir, str) and _REASON_RE.match(ir) else None
+        t.incomplete_comment = report_comment(data.get("incomplete_comment")) if t.incomplete_reason else None
         return t
 
     @property
@@ -155,7 +200,8 @@ def decide_outcome(*, tally: EffectTally, agent_error: Optional[str], stop_reaso
                    outputs_collected: int, required_missing: list[str], effect_mode: str,
                    collection_failed: bool = False, effects_uncertain: bool = False) -> tuple[str, str, Optional[bool]]:
     """(outcome, outcome_reason_code, had_mutating_success)。優先順位（00 §7 / 03 §4）:
-    監査保存失敗 → 取消 → 期限 → 他所終端 → runner 停止 → 拒否 → 例外
+    監査保存失敗 → 取消 → 期限 → 他所終端 → runner 停止 → 拒否 → 宣言された incomplete（3.2.1。宣言の後に例外で抜けても
+    incomplete）→ 例外
     → 回収失敗（宣言 output が不正 / 読めない。skip でも隠さない）→ skip（成功が無い場合。skip = 成果物を作らないので
     必須 output の **欠落** より先）→ 必須 output 欠落 → 完遂。
 
@@ -179,6 +225,9 @@ def decide_outcome(*, tally: EffectTally, agent_error: Optional[str], stop_reaso
         return "failed", "runner_stopped", had
     if tally.denied:
         return "denied", tally.denials[0], had        # 成功 / 必須 output より優先（front は hold / on_denied）
+    if tally.incomplete_reason:
+        # Agent が宣言した「完遂できなかった」。例外・回収の失敗・skip・必須 output の欠落より先（front は自動で再実行せず人へ）
+        return "incomplete", tally.incomplete_reason, had
     if agent_error:
         return "failed", "agent_error", had
     if collection_failed:
@@ -195,11 +244,13 @@ def decide_outcome(*, tally: EffectTally, agent_error: Optional[str], stop_reaso
 
 
 def build_envelope(*, outcome: str, reason: str, had_mutating_success: Optional[bool], tally: EffectTally,
-                   error_class: Optional[str] = None, runner: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-    """`runner`: runner 自身の終わり方（停止理由 / 再起動 / cleanup 未完）。Agent の成否ではなく実行環境の記録。"""
+                   error_class: Optional[str] = None, runner: Optional[dict[str, Any]] = None,
+                   completion_report: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """`runner`: runner 自身の終わり方（停止理由 / 再起動 / cleanup 未完）。Agent の成否ではなく実行環境の記録。
+    `completion_report`: 終了時の報告（`build_completion_report`）。None なら欄ごと載せない（3.2 までと同じ envelope）。"""
     if outcome not in OUTCOMES:
         raise ValueError(f"unknown outcome {outcome}")
-    return {
+    envelope = {
         "version": ENVELOPE_VERSION,
         "envelope_version": ENVELOPE_VERSION,
         "outcome": outcome,
@@ -212,3 +263,6 @@ def build_envelope(*, outcome: str, reason: str, had_mutating_success: Optional[
         "runner": runner,
         "written_by": "agenticstar-platform-sdk",
     }
+    if completion_report is not None:
+        envelope["completion_report"] = completion_report
+    return envelope

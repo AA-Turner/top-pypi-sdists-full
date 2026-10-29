@@ -1,0 +1,12 @@
+# Production stack configuration for EU connector regression testing
+#
+# GCP Project: internal-airbyte-ai-infra
+# Region: europe-west9
+#
+# Authentication:
+#   GCP credentials are provided via GOOGLE_CREDENTIALS or gcloud auth
+#
+# Tracking issue: https://github.com/airbytehq/airbyte-ops-mcp/issues/1480
+config:
+  gcp:project: internal-airbyte-ai-infra
+  gcp:region: europe-west9

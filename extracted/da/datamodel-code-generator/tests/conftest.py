@@ -12,6 +12,7 @@ import re
 import shlex
 import socket
 import sys
+import tempfile
 import time
 from collections import Counter
 from collections.abc import Callable, Generator, Mapping, Sequence
@@ -78,6 +79,30 @@ CLI_DOC_COLLECTION_OUTPUT = Path(__file__).parent / "cli_doc" / ".cli_doc_collec
 CI_SHARD_WEIGHTS_PATH = Path(__file__).parents[1] / "scripts" / "ci_shard_weights.json"
 CLI_DOC_SCHEMA_VERSION = 1
 TEST_DEFAULT_FORMATTER_ENV = "DATAMODEL_CODE_GENERATOR_TEST_DEFAULT_FORMATTER"
+CHECK_SCHEMA_LOCATIONS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_SCHEMA_LOCATIONS"
+CHECK_MODEL_GRAPH_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_MODEL_GRAPH"
+CHECK_SCHEMA_GRAPH_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_SCHEMA_GRAPH"
+CHECK_MODULE_IMPORTS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_MODULE_IMPORTS"
+CHECK_GENERATED_CODE_REQUIREMENTS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_GENERATED_CODE_REQUIREMENTS"
+CHECK_RENDER_PLANS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_RENDER_PLANS"
+CHECK_RENDER_MEMOS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_RENDER_MEMOS"
+CHECK_FACT_FINALITY_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_FACT_FINALITY"
+CHECK_AREA_ENVS = (
+    CHECK_SCHEMA_LOCATIONS_ENV,
+    CHECK_MODEL_GRAPH_ENV,
+    CHECK_SCHEMA_GRAPH_ENV,
+    CHECK_MODULE_IMPORTS_ENV,
+    CHECK_GENERATED_CODE_REQUIREMENTS_ENV,
+    CHECK_RENDER_PLANS_ENV,
+    CHECK_RENDER_MEMOS_ENV,
+    CHECK_FACT_FINALITY_ENV,
+)
+"""The variable of every debug check area (`CheckArea` in `datamodel_code_generator/_checks.py`) set to `1`."""
+CHECK_FACT_FINALITY_SWEEP_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_FACT_FINALITY_SWEEP"
+SWEEP_PYTHON = (3, 15)
+"""The Python from which the test suite also sets `CHECK_FACT_FINALITY_SWEEP_ENV` to `1`: one CI lane runs the sweep."""
+CHECK_STORE_WRITES_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_STORE_WRITES"
+"""The debug check area that reports into a file during each test, which `StoreWritesCheck` checks after the test."""
 BUILTIN_FORMATTER_VALUE = "builtin"
 TARGET_PYTHON = (3, 11)
 TARGET_TEST_ROOTS = (Path(__file__).parent / "api_generation", Path(__file__).parent / "model_codecs")
@@ -215,6 +240,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Run one of TOTAL shards of the selected tests, split by their measured CI durations",
     )
     parser.addoption(
+        "--test-part",
+        action="append",
+        default=[],
+        metavar="NODEID@INDEX/TOTAL",
+        help="Of the selected tests under NODEID, run only the INDEX/TOTAL shard that --test-shard would select",
+    )
+    parser.addoption(
         "--expected-observe",
         metavar="DIR",
         help="Record every expected-output comparison into DIR without failing on unrecorded or changed output "
@@ -239,7 +271,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register the cli_doc marker."""
+    """Register the cli_doc marker and turn on every debug check area that is not set, except in CodSpeed benchmarks.
+
+    The finality sweep is turned on only from `SWEEP_PYTHON`.
+    """
+    benchmarks = config.getoption("codspeed", default=False)
+    for name in () if benchmarks else CHECK_AREA_ENVS:
+        os.environ.setdefault(name, "1")
+    if not benchmarks and sys.version_info >= SWEEP_PYTHON:
+        os.environ.setdefault(CHECK_FACT_FINALITY_SWEEP_ENV, "1")
+    if not benchmarks and CHECK_STORE_WRITES_ENV not in os.environ:
+        config.pluginmanager.register(store_writes_check := StoreWritesCheck(), "store-writes-check")
+        config.add_cleanup(store_writes_check.report.unlink)
     config.addinivalue_line(
         "markers",
         "cli_doc(options, option_description, cli_args, input_schema=None, golden_output=None, "
@@ -437,6 +480,19 @@ def order_slow_tests_first(items: list[pytest.Item], durations: dict[str, int], 
     return ordered
 
 
+def _shard_nodeids(items: list[pytest.Item], durations: dict[str, int], index: int, total: int) -> set[str]:
+    from scripts.select_ci_test_shard import median_weight, select_shard
+
+    measured = {item.nodeid: durations[item.nodeid] for item in items if item.nodeid in durations}
+    fallback = median_weight(measured)
+    return set(select_shard({item.nodeid: measured.get(item.nodeid, fallback) for item in items}, index, total))
+
+
+def _keep_selected(config: pytest.Config, items: list[pytest.Item], selected: set[str]) -> list[pytest.Item]:
+    config.hook.pytest_deselected(items=[item for item in items if item.nodeid not in selected])
+    return [item for item in items if item.nodeid in selected]
+
+
 def select_test_shard(
     config: pytest.Config, items: list[pytest.Item], durations: dict[str, int], shard: str
 ) -> list[pytest.Item]:
@@ -444,23 +500,86 @@ def select_test_shard(
 
     Tests without a measured duration weigh the median of the measured ones, and the rest are deselected.
     """
-    from scripts.select_ci_test_shard import median_weight, select_shard
-
     index, total = map(int, shard.split("/"))
-    measured = {item.nodeid: durations[item.nodeid] for item in items if item.nodeid in durations}
-    fallback = median_weight(measured)
-    selected = set(select_shard({item.nodeid: measured.get(item.nodeid, fallback) for item in items}, index, total))
-    config.hook.pytest_deselected(items=[item for item in items if item.nodeid not in selected])
-    return [item for item in items if item.nodeid in selected]
+    return _keep_selected(config, items, _shard_nodeids(items, durations, index, total))
+
+
+def select_test_parts(
+    config: pytest.Config, items: list[pytest.Item], durations: dict[str, int], parts: list[str]
+) -> list[pytest.Item]:
+    """Keep each ``NODEID@INDEX/TOTAL`` part of the items under its node id, split like ``--test-shard``.
+
+    Each item belongs to the longest listed node id it is under.
+    Items under no listed node id stay selected, so a CI shard runs whole files beside parts of heavy ones.
+    """
+    wanted: dict[str, list[tuple[int, int]]] = {}
+    for part in parts:
+        base, _, shard = part.rpartition("@")
+        index, total = map(int, shard.split("/"))
+        wanted.setdefault(base, []).append((index, total))
+    groups: dict[str, list[pytest.Item]] = {base: [] for base in wanted}
+    selected: set[str] = set()
+    for item in items:
+        if (base := max(filter(lambda base: _is_under(item.nodeid, base), wanted), key=len, default=None)) is None:
+            selected.add(item.nodeid)
+        else:
+            groups[base].append(item)
+    for base, shards in wanted.items():
+        for index, total in shards:
+            selected |= _shard_nodeids(groups[base], durations, index, total)
+    return _keep_selected(config, items, selected)
+
+
+def _is_under(nodeid: str, base: str) -> bool:
+    return nodeid == base or nodeid.startswith((f"{base}::", f"{base}["))
+
+
+class StoreWritesCheck:
+    """Fail a test whose generations write model facts outside store operations where the allowlist does not say so.
+
+    During each test, `DATAMODEL_CODE_GENERATOR_CHECK_STORE_WRITES` reports into a file of this test process (so pytest
+    workers and the generator runs that tests start share nothing); after the test,
+    `scripts/check_generation_store_usage.py` names each write of the package as its scan names findings, and the test
+    fails for a write that `scripts/generation_store_allowlist.toml` does not list.
+    """
+
+    def __init__(self) -> None:
+        """Create the report file and read the allowlist once."""
+        from scripts import check_generation_store_usage
+
+        handle, name = tempfile.mkstemp(prefix="dcg-store-writes-", suffix=".jsonl")
+        os.close(handle)
+        self.report = Path(name)
+        self.checker = check_generation_store_usage
+        self.allowlist = check_generation_store_usage.load_allowlist()
+        self.witnesses = check_generation_store_usage.load_witnesses()
+
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_runtest_setup(self) -> None:
+        """Report the writes of the test into this process's file."""
+        os.environ[CHECK_STORE_WRITES_ENV] = f"report:{self.report}"
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_runtest_teardown(self) -> Generator[None, None, None]:
+        """Fail the test for the writes of the package that the allowlist does not list."""
+        try:
+            yield
+        finally:
+            os.environ.pop(CHECK_STORE_WRITES_ENV, None)
+            lines = self.report.read_text(encoding="utf-8").splitlines()
+            self.report.write_text("", encoding="utf-8")
+        self.checker.check_runtime_writes(lines, allowlist=self.allowlist, witnesses=self.witnesses)
 
 
 class SlowTestOrdering:
-    """Select the requested test shard, then reorder it so every xdist worker chunk starts with measured slow tests."""
+    """Select the requested test parts and shard, then start each xdist worker chunk with measured slow tests."""
 
     @pytest.hookimpl(trylast=True)
     def pytest_collection_modifyitems(self, config: pytest.Config, items: list[pytest.Item]) -> None:
         """Run after marker and keyword deselection so shards and chunk boundaries match what xdist distributes."""
         durations = slow_test_durations()
+        if parts := config.getoption("--test-part"):
+            items[:] = select_test_parts(config, items, durations, parts)
         if (shard := config.getoption("--test-shard")) is not None:
             items[:] = select_test_shard(config, items, durations, shard)
         workers = getattr(config, "workerinput", {}).get("workercount", 1)
@@ -2528,6 +2647,17 @@ def _isolate_builtin_formatter_config(
         encoding="utf-8",
     )
     monkeypatch.chdir(settings_path)
+
+
+@pytest.fixture
+def parse_memo() -> Generator[None, None, None]:
+    """Make a per-parse memo current, as `Parser.parse` does, so that model and field memos are kept and forgotten."""
+    from datamodel_code_generator.parser.base import PARSE_MEMO
+    from datamodel_code_generator.parser.generation import ParseMemo
+
+    token = PARSE_MEMO.set(ParseMemo())
+    yield
+    PARSE_MEMO.reset(token)
 
 
 @pytest.fixture(scope="session")

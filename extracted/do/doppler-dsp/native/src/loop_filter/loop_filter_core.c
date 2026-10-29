@@ -74,6 +74,14 @@ dp_loop_filter_params_ok (double bn, double zeta, double t)
   return isfinite (kp) && isfinite (ki);
 }
 
+int
+dp_loop_filter_fll_bn_ok (double bn_fll)
+{
+  /* NaN fails the comparison; the gain itself must be finite, which refuses
+     +inf and the finite values whose 4x overflows. */
+  return bn_fll >= 0.0 && isfinite (4.0 * bn_fll);
+}
+
 /* Whether a stored filter (a restored blob's) is one a live filter could
  * hold. Its gains are restored verbatim, so they are not recomputed; they are
  * checked against the one gains body at the filter's own bandwidth, zeta and
@@ -144,10 +152,16 @@ dp_loop_filter_reset (dp_loop_filter_state_t *state)
   state->integ = 0.0;
 }
 
-/* Serializable state — pointer-free POD whole-struct snapshot
- * (see DP_DEFINE_POD_STATE in dp_state.h). */
-DP_DEFINE_POD_STATE (dp_loop_filter, dp_loop_filter_state_t,
-                     LOOP_FILTER_STATE_MAGIC, LOOP_FILTER_STATE_VERSION)
+/* Serializable state — pointer-free POD whole-struct snapshot, restored
+ * only when dp_loop_filter_state_ok() accepts it: the gains are taken
+ * verbatim, so a forged NaN or infinite gain would otherwise reach every
+ * embedder that restores a loop filter -- LoopFilter itself, the ratesync
+ * loop and the MPSK carrier filter (doppler#2641). See
+ * DP_DEFINE_POD_STATE_CHECKED in dp_state.h. */
+DP_DEFINE_POD_STATE_CHECKED (dp_loop_filter, dp_loop_filter_state_t,
+                             LOOP_FILTER_STATE_MAGIC,
+                             LOOP_FILTER_STATE_VERSION,
+                             dp_loop_filter_state_ok)
 
 void
 dp_loop_filter_steps (dp_loop_filter_state_t *state, const double *x,

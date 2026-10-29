@@ -8,33 +8,33 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 class MeetingArtifactsOut(UniversalBaseModel):
     """
-    Legacy asset IDs of the downloadable artifacts attached to a meeting.
+    Deprecated: legacy asset IDs of a meeting's downloadable artifacts.
 
-    Meetings captured since September 2026 are a single asset: their
-    recording, transcript and chat are stored on the meeting itself, so every
-    ID here is null for them and the artifacts are downloaded through the
-    meeting download endpoint (``GET /meetings/{asset_id}/download``), which
-    serves both shapes. Older meetings keep their child assets and their IDs.
+    Every meeting stores its recording, transcript and chat on the meeting
+    itself (older meetings were migrated in October 2026), so every ID here is
+    null. Download artifacts through the meeting download endpoint
+    (``GET /meetings/{asset_id}/download``). The object and its fields stay in
+    the response so existing integrations keep parsing it.
     """
 
     chat_asset_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Asset ID of the in-meeting chat transcript (JSON) for meetings captured before September 2026; null for newer meetings, whose chat is downloaded via the meeting download endpoint
+    Deprecated, always null. Download the in-meeting chat (JSON) via the meeting download endpoint with artifact=chat
     """
 
     formatted_transcript_asset_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Asset ID of the formatted meeting transcript (JSON) for meetings captured before September 2026; null for newer meetings
+    Deprecated, always null. Download a legacy meeting's formatted transcript via the meeting download endpoint with artifact=formatted_transcript
     """
 
     recording_asset_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Asset ID of the meeting video recording (MP4) for meetings captured before September 2026; null for newer meetings, whose recording is downloaded via the meeting download endpoint
+    Deprecated, always null. Download the meeting recording (MP4) via the meeting download endpoint with artifact=recording
     """
 
     transcript_asset_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Asset ID of the raw meeting transcript (JSON) for meetings captured before September 2026; null for newer meetings, whose transcript is downloaded via the meeting download endpoint
+    Deprecated, always null. Download the raw meeting transcript (JSON) via the meeting download endpoint with artifact=transcript
     """
 
     if IS_PYDANTIC_V2:

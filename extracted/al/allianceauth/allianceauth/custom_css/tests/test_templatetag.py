@@ -28,9 +28,9 @@ class TestCustomCssTemplateTag(TestCase):
 
         self.assertEqual(result, "")
 
-    def test_returns_style_tag_with_compressed_css(self):
+    def test_returns_compressed_css_when_css_compressed_is_not_empty(self):
         """
-        Test that the custom_css template tag returns a style tag with the compressed CSS when css_compressed is not empty.
+        Test that the custom_css template tag returns the compressed CSS when css_compressed is not empty.
 
         :return:
         :rtype:
@@ -43,4 +43,4 @@ class TestCustomCssTemplateTag(TestCase):
         )
         result = return_custom_css()
 
-        self.assertEqual(result, "<style>body{color:red}</style>")
+        self.assertEqual(result, "body{color:red}")

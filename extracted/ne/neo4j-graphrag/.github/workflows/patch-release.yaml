@@ -9,11 +9,11 @@ jobs:
       version: ${{ steps.get-version.outputs.version }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ secrets.GIT_PUSH_PAT }}
       - name: Set up uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
       - name: Bump version
         run: uv version --bump patch --frozen
@@ -27,7 +27,7 @@ jobs:
       - name: Update CHANGELOG.md (cross platform supported)
         run: |
           sed -i.bak -e 's/## Next/## Next\n\n## ${{ steps.get-version.outputs.version }}/' CHANGELOG.md && rm CHANGELOG.md.bak
-      - uses: EndBug/add-and-commit@290ea2c423ad77ca9c62ae0f5b224379612c0321 # v10.0.0
+      - uses: EndBug/add-and-commit@cc9c08ba6c8df3b93a8f2db63e89b98368ae2ae8 # v11.1.1
         with:
           author_name: 'Neo4j-GraphRAG GitHub Action'
           author_email: 'team-gen-ai@neo4j.com'

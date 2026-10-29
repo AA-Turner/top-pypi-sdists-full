@@ -29,13 +29,14 @@ mod parse;
 pub mod v3;
 pub mod v4;
 pub mod v5;
+pub mod v6;
 
 use itertools::Itertools;
 
 use crate::version::Version;
 
-pub type CurrentConfig = v5::Build;
-pub const CURRENT_EDITION: usize = 5;
+pub type CurrentConfig = v6::Build;
+pub const CURRENT_EDITION: usize = 6;
 
 /// Baseline `kernels` version that can load kernels built with the current
 /// metadata format.
@@ -53,7 +54,7 @@ pub struct Build {
 impl Build {
     pub fn open(kernel_dir: impl AsRef<Path>) -> Result<Build> {
         let build_compat = parse::parse_and_validate(kernel_dir)?;
-        Ok(build_compat.into())
+        Ok(build_compat.try_into()?)
     }
 
     pub fn is_noarch(&self) -> bool {
@@ -343,13 +344,19 @@ impl TvmFfi {
 }
 
 pub enum Kernel {
-    Cpu {
+    CppCpu {
         cxx_flags: Option<Vec<String>>,
         depends: Vec<Dependency>,
         include: Option<Vec<String>>,
         src: Vec<String>,
     },
-    Cuda {
+    RustCpu {
+        /// Path of the crate's `Cargo.toml`, relative to the kernel directory.
+        cargo_manifest: String,
+        depends: Vec<Dependency>,
+        src: Vec<String>,
+    },
+    CppCuda {
         cuda_capabilities: Option<Vec<String>>,
         cuda_flags: Option<Vec<String>>,
         cuda_minver: Option<Version<2>>,
@@ -358,13 +365,13 @@ pub enum Kernel {
         include: Option<Vec<String>>,
         src: Vec<String>,
     },
-    Metal {
+    CppMetal {
         cxx_flags: Option<Vec<String>>,
         depends: Vec<Dependency>,
         include: Option<Vec<String>>,
         src: Vec<String>,
     },
-    Rocm {
+    CppRocm {
         cxx_flags: Option<Vec<String>>,
         depends: Vec<Dependency>,
         rocm_archs: Option<Vec<String>>,
@@ -372,7 +379,7 @@ pub enum Kernel {
         include: Option<Vec<String>>,
         src: Vec<String>,
     },
-    Xpu {
+    CppXpu {
         cxx_flags: Option<Vec<String>>,
         depends: Vec<Dependency>,
         sycl_flags: Option<Vec<String>>,
@@ -384,60 +391,83 @@ pub enum Kernel {
 impl Kernel {
     pub fn cxx_flags(&self) -> Option<&[String]> {
         match self {
-            Kernel::Cpu { cxx_flags, .. }
-            | Kernel::Cuda { cxx_flags, .. }
-            | Kernel::Metal { cxx_flags, .. }
-            | Kernel::Rocm { cxx_flags, .. }
-            | Kernel::Xpu { cxx_flags, .. } => cxx_flags.as_deref(),
+            Kernel::CppCpu { cxx_flags, .. }
+            | Kernel::CppCuda { cxx_flags, .. }
+            | Kernel::CppMetal { cxx_flags, .. }
+            | Kernel::CppRocm { cxx_flags, .. }
+            | Kernel::CppXpu { cxx_flags, .. } => cxx_flags.as_deref(),
+            Kernel::RustCpu { .. } => None,
         }
     }
 
     pub fn include(&self) -> Option<&[String]> {
         match self {
-            Kernel::Cpu { include, .. }
-            | Kernel::Cuda { include, .. }
-            | Kernel::Metal { include, .. }
-            | Kernel::Rocm { include, .. }
-            | Kernel::Xpu { include, .. } => include.as_deref(),
+            Kernel::CppCpu { include, .. }
+            | Kernel::CppCuda { include, .. }
+            | Kernel::CppMetal { include, .. }
+            | Kernel::CppRocm { include, .. }
+            | Kernel::CppXpu { include, .. } => include.as_deref(),
+            Kernel::RustCpu { .. } => None,
         }
     }
 
     pub fn sycl_flags(&self) -> Option<&[String]> {
         match self {
-            Kernel::Xpu { sycl_flags, .. } => sycl_flags.as_deref(),
+            Kernel::CppXpu { sycl_flags, .. } => sycl_flags.as_deref(),
             _ => None,
         }
     }
 
     pub fn backend(&self) -> Backend {
         match self {
-            Kernel::Cpu { .. } => Backend::Cpu,
-            Kernel::Cuda { .. } => Backend::Cuda,
-            Kernel::Metal { .. } => Backend::Metal,
-            Kernel::Rocm { .. } => Backend::Rocm,
-            Kernel::Xpu { .. } => Backend::Xpu,
+            Kernel::CppCpu { .. } | Kernel::RustCpu { .. } => Backend::Cpu,
+            Kernel::CppCuda { .. } => Backend::Cuda,
+            Kernel::CppMetal { .. } => Backend::Metal,
+            Kernel::CppRocm { .. } => Backend::Rocm,
+            Kernel::CppXpu { .. } => Backend::Xpu,
+        }
+    }
+
+    pub fn language(&self) -> Language {
+        match self {
+            Kernel::CppCpu { .. }
+            | Kernel::CppCuda { .. }
+            | Kernel::CppMetal { .. }
+            | Kernel::CppRocm { .. }
+            | Kernel::CppXpu { .. } => Language::Cpp,
+            Kernel::RustCpu { .. } => Language::Rust,
         }
     }
 
     pub fn depends(&self) -> &[Dependency] {
         match self {
-            Kernel::Cpu { depends, .. }
-            | Kernel::Cuda { depends, .. }
-            | Kernel::Metal { depends, .. }
-            | Kernel::Rocm { depends, .. }
-            | Kernel::Xpu { depends, .. } => depends,
+            Kernel::CppCpu { depends, .. }
+            | Kernel::RustCpu { depends, .. }
+            | Kernel::CppCuda { depends, .. }
+            | Kernel::CppMetal { depends, .. }
+            | Kernel::CppRocm { depends, .. }
+            | Kernel::CppXpu { depends, .. } => depends,
         }
     }
 
     pub fn src(&self) -> &[String] {
         match self {
-            Kernel::Cpu { src, .. }
-            | Kernel::Cuda { src, .. }
-            | Kernel::Metal { src, .. }
-            | Kernel::Rocm { src, .. }
-            | Kernel::Xpu { src, .. } => src,
+            Kernel::CppCpu { src, .. }
+            | Kernel::RustCpu { src, .. }
+            | Kernel::CppCuda { src, .. }
+            | Kernel::CppMetal { src, .. }
+            | Kernel::CppRocm { src, .. }
+            | Kernel::CppXpu { src, .. } => src,
         }
     }
+}
+
+/// Source language of a kernel.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub enum Language {
+    Cpp,
+    Rust,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -518,6 +548,8 @@ impl FromStr for Backend {
 pub enum ConfigError {
     #[error("Cannot migrate configuration: {reason:?}")]
     Migration { reason: String },
+    #[error("Kernel `{name}`: {reason}")]
+    InvalidKernel { name: String, reason: String },
 }
 
 #[cfg(test)]
@@ -590,5 +622,171 @@ mod tests {
 
         let err = toml::from_str::<v5::Build>(toml).unwrap_err().to_string();
         assert!(err.contains("unknown field `minver`"), "{err}");
+    }
+
+    #[test]
+    fn v6_cpp_cuda_round_trip() {
+        let config = r#"
+            [general]
+            name = "relu"
+            version = 1
+            edition = 6
+            license = "Apache-2.0"
+            backends = ["cuda"]
+
+            [torch]
+            src = []
+
+            [kernel.relu]
+            language = "cpp-cuda"
+            depends = ["torch"]
+            src = ["relu_cuda/relu.cu"]
+            cuda-flags = ["-O3"]
+        "#;
+
+        let parsed: v6::Build = toml::from_str(config).unwrap();
+        let serialized = toml::to_string(&parsed).unwrap();
+        let build = Build::try_from(toml::from_str::<v6::Build>(&serialized).unwrap()).unwrap();
+
+        assert_eq!(build.kernels["relu"].backend(), Backend::Cuda);
+        assert_eq!(build.kernels["relu"].language(), Language::Cpp);
+    }
+
+    #[test]
+    fn v5_upgrades_to_v6_cpp_language() {
+        let config = r#"
+            [general]
+            name = "relu"
+            version = 1
+            edition = 5
+            license = "Apache-2.0"
+            backends = ["cuda"]
+
+            [torch]
+            src = []
+
+            [kernel.relu]
+            backend = "cuda"
+            depends = ["torch"]
+            src = ["relu_cuda/relu.cu"]
+            cxx-flags = ["-O2"]
+        "#;
+
+        let build = Build::from(toml::from_str::<v5::Build>(config).unwrap());
+        assert_eq!(build.kernels["relu"].language(), Language::Cpp);
+
+        let v6_build: v6::Build = build.into();
+        let serialized = toml::to_string_pretty(&v6_build).unwrap();
+        assert!(serialized.contains("edition = 6"), "{serialized}");
+        assert!(
+            serialized.contains("language = \"cpp-cuda\""),
+            "{serialized}"
+        );
+        assert!(!serialized.contains("backend = "), "{serialized}");
+    }
+
+    #[test]
+    fn v6_kernel_rejects_options_of_other_backends() {
+        let config = r#"
+            [general]
+            name = "relu"
+            version = 1
+            edition = 6
+            license = "Apache-2.0"
+            backends = ["cpu"]
+
+            [torch]
+            src = []
+
+            [kernel.relu]
+            language = "cpp-cpu"
+            depends = ["torch"]
+            src = []
+            cuda-flags = ["-O3"]
+        "#;
+
+        let err = toml::from_str::<v6::Build>(config).unwrap_err().to_string();
+        assert!(err.contains("unknown field `cuda-flags`"), "{err}");
+    }
+
+    #[test]
+    fn v6_rust_cpu_round_trip() {
+        let config = r#"
+            [general]
+            name = "rust-cpu"
+            version = 1
+            edition = 6
+            license = "Apache-2.0"
+            backends = ["cpu"]
+
+            [tvm-ffi]
+
+            [kernel.cpu_kernel]
+            language = "rust-cpu"
+            cargo-manifest = "cpu/Cargo.toml"
+            depends = []
+            src = ["cpu/src/lib.rs"]
+        "#;
+
+        let parsed: v6::Build = toml::from_str(config).unwrap();
+        let serialized = toml::to_string(&parsed).unwrap();
+        let build = Build::try_from(toml::from_str::<v6::Build>(&serialized).unwrap()).unwrap();
+
+        assert_eq!(build.kernels["cpu_kernel"].language(), Language::Rust);
+    }
+
+    #[test]
+    fn v6_rust_kernel_rejects_invalid_config() {
+        let cases = [
+            (
+                "[tvm-ffi]",
+                "rust-cpu",
+                r#"cxx-flags = ["-O3"]"#,
+                "unknown field `cxx-flags`",
+            ),
+            (
+                "[tvm-ffi]",
+                "rust-cpu",
+                r#"include = ["."]"#,
+                "unknown field `include`",
+            ),
+            (
+                "[torch]\nsrc = []",
+                "rust-cpu",
+                "",
+                "require a `[tvm-ffi]` framework",
+            ),
+        ];
+
+        for (framework, language, extra, expected) in cases {
+            let config = format!(
+                r#"
+                [general]
+                name = "rust-cpu"
+                version = 1
+                edition = 6
+                license = "Apache-2.0"
+                backends = ["cpu"]
+
+                {framework}
+
+                [kernel.cpu_kernel]
+                language = "{language}"
+                cargo-manifest = "Cargo.toml"
+                depends = []
+                src = []
+                {extra}
+            "#
+            );
+
+            let err = match toml::from_str::<v6::Build>(&config) {
+                Ok(build) => Build::try_from(build)
+                    .err()
+                    .expect("conversion should fail")
+                    .to_string(),
+                Err(err) => err.to_string(),
+            };
+            assert!(err.contains(expected), "{err}");
+        }
     }
 }

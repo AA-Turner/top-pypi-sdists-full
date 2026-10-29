@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 35.1.0
+Version: 35.2.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -355,7 +355,8 @@ Class | Method | HTTP request | Description
 *ComplianceApi* | [**deactivate_byork_config**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#deactivate_byork_config) | **POST** /screening/byork/config/deactivate | Deactivate BYORK Light
 *ComplianceApi* | [**delete_counterparty_group**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#delete_counterparty_group) | **DELETE** /counterparty_groups/{groupId} | Delete a counterparty group
 *ComplianceApi* | [**delete_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#delete_legal_entity) | **DELETE** /legal_entities/{legalEntityId} | Delete a legal entity
-*ComplianceApi* | [**get_address_registry_tenant_participation_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_address_registry_tenant_participation_status) | **GET** /address_registry/tenant | Get address registry participation status for the authenticated workspace
+*ComplianceApi* | [**get_address_registry_customer_participation_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_address_registry_customer_participation_status) | **GET** /address_registry/customer | Get your customer&#39;s address registry default
+*ComplianceApi* | [**get_address_registry_tenant_participation_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_address_registry_tenant_participation_status) | **GET** /address_registry/tenant | Get address registry status for this workspace
 *ComplianceApi* | [**get_address_registry_vault_opt_out**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_address_registry_vault_opt_out) | **GET** /address_registry/vaults/{vaultAccountId} | Get whether a vault account is opted out of the address registry
 *ComplianceApi* | [**get_aml_post_screening_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_aml_post_screening_policy) | **GET** /screening/aml/post_screening_policy | AML - View Post-Screening Policy
 *ComplianceApi* | [**get_aml_screening_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_aml_screening_policy) | **GET** /screening/aml/screening_policy | AML - View Screening Policy
@@ -371,8 +372,10 @@ Class | Method | HTTP request | Description
 *ComplianceApi* | [**list_counterparty_groups**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#list_counterparty_groups) | **GET** /counterparty_groups | List counterparty groups
 *ComplianceApi* | [**list_legal_entities**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#list_legal_entities) | **GET** /legal_entities | List legal entities (Paginated)
 *ComplianceApi* | [**list_vaults_for_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#list_vaults_for_legal_entity) | **GET** /legal_entities/{legalEntityId}/vaults | List vault accounts for a legal entity (Paginated)
-*ComplianceApi* | [**opt_in_address_registry_tenant**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#opt_in_address_registry_tenant) | **POST** /address_registry/tenant | Opt the workspace in to the address registry
-*ComplianceApi* | [**opt_out_address_registry_tenant**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#opt_out_address_registry_tenant) | **DELETE** /address_registry/tenant | Opt the workspace out of the address registry
+*ComplianceApi* | [**opt_in_address_registry_customer**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#opt_in_address_registry_customer) | **POST** /address_registry/customer | Opt your customer in to the address registry
+*ComplianceApi* | [**opt_in_address_registry_tenant**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#opt_in_address_registry_tenant) | **POST** /address_registry/tenant | Opt this workspace in to the address registry
+*ComplianceApi* | [**opt_out_address_registry_customer**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#opt_out_address_registry_customer) | **DELETE** /address_registry/customer | Opt your customer out of the address registry
+*ComplianceApi* | [**opt_out_address_registry_tenant**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#opt_out_address_registry_tenant) | **DELETE** /address_registry/tenant | Opt this workspace out of the address registry
 *ComplianceApi* | [**register_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#register_legal_entity) | **POST** /legal_entities | Register a new legal entity
 *ComplianceApi* | [**remove_address_registry_vault_opt_out**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#remove_address_registry_vault_opt_out) | **DELETE** /address_registry/vaults/{vaultAccountId} | Remove a single vault account from the address registry opt-out list
 *ComplianceApi* | [**remove_all_address_registry_vault_opt_outs**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#remove_all_address_registry_vault_opt_outs) | **DELETE** /address_registry/vaults | Remove all vault-level address registry opt-outs for the workspace
@@ -862,6 +865,7 @@ Class | Method | HTTP request | Description
  - [AddressRegistryAddVaultOptOutsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryAddVaultOptOutsResponse.md)
  - [AddressRegistryCreateProofOfOwnershipRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryCreateProofOfOwnershipRequest.md)
  - [AddressRegistryCreateProofOfOwnershipResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryCreateProofOfOwnershipResponse.md)
+ - [AddressRegistryCustomerRegistryResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryCustomerRegistryResponse.md)
  - [AddressRegistryGetVaultOptOutResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryGetVaultOptOutResponse.md)
  - [AddressRegistryLegalEntity](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryLegalEntity.md)
  - [AddressRegistryListVaultOptOutsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryListVaultOptOutsResponse.md)
@@ -1590,6 +1594,7 @@ Class | Method | HTTP request | Description
  - [PreScreening](https://github.com/fireblocks/py-sdk/tree/master/docs/PreScreening.md)
  - [PrefundedSettlement](https://github.com/fireblocks/py-sdk/tree/master/docs/PrefundedSettlement.md)
  - [PrefundedSettlementType](https://github.com/fireblocks/py-sdk/tree/master/docs/PrefundedSettlementType.md)
+ - [PricingSide](https://github.com/fireblocks/py-sdk/tree/master/docs/PricingSide.md)
  - [ProgramCallConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/ProgramCallConfig.md)
  - [ProgramCallDecodedDataItem](https://github.com/fireblocks/py-sdk/tree/master/docs/ProgramCallDecodedDataItem.md)
  - [Provider](https://github.com/fireblocks/py-sdk/tree/master/docs/Provider.md)
@@ -1790,6 +1795,7 @@ Class | Method | HTTP request | Description
  - [SolanaInstructionWithValue](https://github.com/fireblocks/py-sdk/tree/master/docs/SolanaInstructionWithValue.md)
  - [SolanaRewardsBreakdown](https://github.com/fireblocks/py-sdk/tree/master/docs/SolanaRewardsBreakdown.md)
  - [SolanaSimpleCreateParams](https://github.com/fireblocks/py-sdk/tree/master/docs/SolanaSimpleCreateParams.md)
+ - [SorobanCallData](https://github.com/fireblocks/py-sdk/tree/master/docs/SorobanCallData.md)
  - [SourceConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/SourceConfig.md)
  - [SourceOfFunds](https://github.com/fireblocks/py-sdk/tree/master/docs/SourceOfFunds.md)
  - [SourceTransferPeerPath](https://github.com/fireblocks/py-sdk/tree/master/docs/SourceTransferPeerPath.md)

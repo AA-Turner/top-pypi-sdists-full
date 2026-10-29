@@ -1,18 +1,27 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
+
+from allianceauth.impersonate.utils import is_impersonating
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
 
 logger = logging.getLogger(__name__)
 
 
 class UserSettingsMiddleware(MiddlewareMixin):
-    def process_response(self, request, response):
+    def process_response(self, request: "HttpRequest", response: "HttpResponse") -> "HttpResponse":
         """Django Middleware: User Settings."""
 
         # Intercept the built in django /setlang/ view and also save it to Database.
         # Note the annoymous user check, only logged in users will ever hit the DB here
-        if request.path == '/i18n/setlang/' and not request.user.is_anonymous:
+        # Don't overwrite an impersonated user's saved preference
+        if request.path == '/i18n/setlang/' and not request.user.is_anonymous and not is_impersonating(request):
             try:
                 request.user.profile.language = request.POST['language']
                 request.user.profile.save()

@@ -319,14 +319,30 @@ class FakeAPI:
             for row in self.runs.values():
                 if (row["source"], row["external_id"]) == (json_body["source"], json_body["external_id"]):
                     raise errors.ConflictError("exists", detail={"existing_id": row["id"]})
+            # As the server: a run created with no name is titled with its
+            # petname slug and holds NO claim on it (`name_customized` false).
             row = {"id": str(uuid.uuid4()), "target": parts[2], "status": "running",
-                   "ended_at": None, "summary_metrics": {}, **json_body}
+                   "ended_at": None, "summary_metrics": {}, "points": [],
+                   "name": f"run-{len(self.runs) + 1}", **json_body,
+                   "name_customized": "name" in json_body}
             self.runs[row["id"]] = row
             return dict(row)
+        if parts[:2] == ["v1", "runs"] and parts[3:] == ["metrics"]:
+            self.writes.append(("POST", path))
+            row = self.runs[parts[2]]
+            # Unstepped points: the first per (key, wall_clock) is kept.
+            have = {(p["key"], p["wall_clock"]) for p in row["points"]}
+            fresh = [p for p in json_body["points"] if (p["key"], p["wall_clock"]) not in have]
+            row["points"] += fresh
+            return {"inserted": len(fresh), "deduped": len(json_body["points"]) - len(fresh)}
         if parts[:2] == ["v1", "artifacts"] and parts[3:] == ["move"]:
             self.writes.append(("POST", path))
-            self.moves.append((parts[2], json_body["level"], json_body["target_id"]))
-            return {"id": parts[2]}
+            level, target = json_body["level"], json_body.get("target_id")
+            self.moves.append((parts[2], level, target))
+            # As the server answers: the artifact where it now sits.
+            return {"id": parts[2], "run_id": target if level == "run" else None,
+                    "experiment_id": target if level == "experiment" else None,
+                    "project_id": target if level == "project" else None}
         return self.real["post"](path, json_body, **kwargs)
 
     def get(self, path, **kwargs):
@@ -354,8 +370,10 @@ class FakeAPI:
             return dict(row)
         return self.real["patch"](path, json_body)
 
-    def by_name(self) -> dict[str, dict]:
-        return {row["name"]: row for row in self.runs.values()}
+    def by_folder(self) -> dict[str, dict]:
+        """Runs by the last segment of the folder they were read from."""
+        return {row["metadata"]["backfill"]["relative_path"].rsplit("/", 1)[-1]: row
+                for row in self.runs.values()}
 
 
 def _classifier(structure_ops=True, seen=None):
@@ -421,7 +439,7 @@ def test_the_import_creates_experiments_and_runs_after_approval_and_files_each_u
     # Created after approval, every value read from the files.
     (experiment,) = h.api.experiments.values()
     assert (experiment["slug"], experiment["question"]) == ("calib", "Does the model stay calibrated?")
-    runs = h.api.by_name()
+    runs = h.api.by_folder()
     assert sorted(runs) == ["a", "b", "c", "d"]
     assert {row["target"] for row in runs.values()} == {experiment["id"]}
     assert runs["a"]["summary_metrics"] == {"reward": 0.75}
@@ -437,9 +455,18 @@ def test_the_import_creates_experiments_and_runs_after_approval_and_files_each_u
     assert runs["c"]["ended_at"] == "2026-09-01T12:04:10+00:00"
     assert {row["source"] for row in runs.values()} == {"backfill"}
     assert runs["a"]["metadata"]["backfill"]["relative_path"] == "runs/a"
+    # Created unnamed: a folder name sent on create would lock it for good, and
+    # Tokenless's were hex attempt ids.
+    assert not any(row["name_customized"] for row in runs.values())
+    # Each result number is also a one-point series, stamped with its file's mtime.
+    assert runs["a"]["points"] == [
+        {"key": "reward", "value": 0.75, "wall_clock": "2026-09-01T12:00:00+00:00"}]
+    assert sorted(p["key"] for p in runs["c"]["points"]) == ["accuracy", "n_tasks"]
+    assert runs["d"]["points"] == []
     summary = [data for event, data in h.events if event == telemetry.EVENT_BACKFILL_SUMMARY][-1]
     assert summary["runs_created"] == 4 and summary["runs_zero_metrics"] == 1
     assert summary["experiments_created"] == 1
+    assert (summary["metric_points"], summary["metric_points_failed"]) == (4, 0)
     approved = [data for event, data in h.events if event == telemetry.EVENT_BACKFILL_APPROVED][-1]
     assert (approved["experiments_approved"], approved["runs_approved"]) == (1, 4)
     ready = [data for event, data in h.events if event == telemetry.EVENT_BACKFILL_PLAN_READY][-1]
@@ -511,7 +538,7 @@ def test_a_reimport_organizes_files_uploaded_before_without_uploading_them_again
     monkeypatch.setattr(bf, "launch_agent", _classifier(seen=prompts))
     h.run()
     assert "9 of these files were imported before" in prompts[-1]
-    assert sorted(h.api.by_name()) == ["a", "b", "c", "d"]
+    assert sorted(h.api.by_folder()) == ["a", "b", "c", "d"]
     assert len(h.api.moves) == 8
     assert len(h.remote.calls) == uploads, "a re-import must never upload a file again"
     with h.coverage().writer() as coverage:
@@ -540,7 +567,7 @@ def test_a_failed_organize_pass_neither_fails_the_import_nor_settles_it(harness,
     prompts: list[str] = []
     monkeypatch.setattr(bf, "launch_agent", _classifier(seen=prompts))
     h.run()
-    assert prompts and sorted(h.api.by_name()) == ["a", "b", "c", "d"]
+    assert prompts and sorted(h.api.by_folder()) == ["a", "b", "c", "d"]
 
 
 def _artifact_paths(h) -> dict[str, str]:
@@ -569,7 +596,10 @@ def test_a_changed_file_is_filed_again_and_its_run_reads_the_new_value(harness, 
     new = h.api.moves[first_moves:]
     paths = _artifact_paths(h)
     assert [paths[artifact] for artifact, _, _ in new] == ["runs/a/reward.json"]
-    assert h.api.by_name()["a"]["summary_metrics"] == {"reward": 0.9}
+    run = h.api.by_folder()["a"]
+    assert run["summary_metrics"] == {"reward": 0.9}
+    # The changed file adds its value at its own time; the first stays.
+    assert [p["value"] for p in run["points"]] == [0.75, 0.9]
 
 
 def test_files_left_as_they_were_never_join_a_run_named_later(harness, monkeypatch):
@@ -593,7 +623,7 @@ def test_files_left_as_they_were_never_join_a_run_named_later(harness, monkeypat
     h.run(interactive=True, yes=False)
     h.drain()
     h.run()
-    runs = h.api.by_name()
+    runs = h.api.by_folder()
     # The classifier saw only the two new files: run a holds the new one only,
     # run e its own; the eight older files stay where they were.
     assert sorted(runs) == ["a", "e"]
@@ -643,9 +673,12 @@ def test_a_move_the_server_refuses_for_good_is_not_retried(harness, monkeypatch)
 
     monkeypatch.setattr(h.client, "move_artifact", refuse)
     lines = h.run()
-    assert len(calls) == 8 and any("could not be filed" in line for line in lines)
+    # Each of the 8 files: the move, then the way round through its project
+    # (refused too, so the file stays where it is).
+    assert len(calls) == 16 and len(set(calls)) == 8
+    assert any("could not be filed" in line for line in lines)
     h.run()
-    assert len(calls) == 8, "a refused move must not be sent again"
+    assert len(calls) == 16, "a refused move must not be sent again"
 
 
 def test_a_pathological_result_file_costs_its_values_not_the_import(tmp_path):
@@ -693,3 +726,298 @@ def test_someone_elses_experiment_with_the_slug_is_never_adopted():
 def test_a_yaml_block_header_with_a_comment_is_not_a_value(tmp_path):
     _write(tmp_path, "r/config.yml", "optimizer:  # settings\n  lr: 1\nseed: 3 # fixed\n", T0)
     assert structure.read_run(tmp_path, "r", ["r/config.yml"]).config == {"seed": 3}
+
+
+# -- runs are created unnamed; their results chart ------------------------------
+
+
+def test_a_run_an_older_cli_named_is_found_and_keeps_its_name(harness, monkeypatch):
+    """A run made when the import still sent the folder name: its create key
+    differed, so the server's 409 names it. Nothing is created and its name is
+    never touched (a person may have renamed it since)."""
+    h = harness
+    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    h.run()
+    for row in h.api.runs.values():
+        folder = row["metadata"]["backfill"]["relative_path"].rsplit("/", 1)[-1]
+        row.update(name=folder, name_customized=True, creation_key="made-by-an-older-cli")
+    with h.coverage().writer() as coverage:
+        saved = coverage.meta(structure.META_KEY)
+        for spec in saved["runs"].values():
+            spec.pop("id"), spec.pop("digest"), spec.pop("target_id")
+        coverage.put_meta(structure.META_KEY, saved)
+    before = dict(h.api.runs)
+    h.run()
+    assert h.api.runs.keys() == before.keys()
+    assert {row["name"] for row in h.api.runs.values()} == {"a", "b", "c", "d"}
+    assert not any(method == "PATCH" and "name" in str(path) for method, path in h.api.writes)
+    summary = [data for event, data in h.events if event == telemetry.EVENT_BACKFILL_SUMMARY][-1]
+    assert (summary["runs_created"], summary["runs_existing"]) == (0, 4)
+
+
+def test_points_are_sent_once_and_a_refused_chart_is_tried_again(harness, monkeypatch):
+    h = harness
+    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    real_post = h.api.post
+    refusals = {"left": 1}
+
+    def post(path, json_body=None, **kwargs):
+        if path.endswith("/metrics") and refusals["left"]:
+            refusals["left"] -= 1
+            raise errors.RosError("busy", status=503)
+        return real_post(path, json_body, **kwargs)
+
+    monkeypatch.setattr(h.client.transport, "post", post)
+    lines = h.run()
+    assert any("have their numbers but no chart yet" in line for line in lines)
+    charted = {name: len(row["points"]) for name, row in h.api.by_folder().items()}
+    assert sorted(charted.values()) == [0, 0, 1, 2]  # one run's points were refused
+    h.run()
+    assert {name: len(row["points"]) for name, row in h.api.by_folder().items()} == {
+        "a": 1, "b": 1, "c": 2, "d": 0}
+    # And never again once they landed: the run's record is settled.
+    sent = sum(1 for method, path in h.api.writes if path.endswith("/metrics"))
+    h.run()
+    assert sum(1 for method, path in h.api.writes if path.endswith("/metrics")) == sent
+
+
+def test_metric_points_skip_the_servers_own_keys(tmp_path):
+    _write(tmp_path, "r/metrics.json",
+           json.dumps({"loss": 0.5, "__probe_key_metrics_v1__": 1}), T0)
+    record = structure.read_run(tmp_path, "r", ["r/metrics.json"])
+    assert [p["key"] for p in structure.metric_points(record)] == ["loss"]
+
+
+# -- run candidates ------------------------------------------------------------------
+
+
+def test_folders_with_a_config_and_an_output_are_offered_as_run_candidates():
+    paths = ["runs/a/reward.json", "runs/a/trial.log",           # no config: not offered
+             "runs/c/config.toml", "runs/c/run.log",              # config + log
+             "x/attempts/br1-a1/bench-runner-manifest.json",      # manifest + result
+             "x/attempts/br1-a1/reward.json",
+             "config.toml", "run.log",                            # the root never is
+             "deep/run/config.yaml", "deep/run/sub/run.log"]      # output not directly inside
+    assert structure.run_candidates(paths) == ["runs/c", "x/attempts/br1-a1"]
+
+
+def test_the_classifier_is_shown_the_candidates_and_decides(harness, monkeypatch):
+    h = harness
+    prompts: list[str] = []
+    monkeypatch.setattr(bf, "launch_agent", _classifier(seen=prompts))
+    h.run()
+    (prompt,) = prompts
+    assert "RUN CANDIDATES" in prompt and "runs/  1 folder: c" in prompt
+    # The classifier's own `run --each-under runs` still made all four.
+    assert sorted(h.api.by_folder()) == ["a", "b", "c", "d"]
+
+
+# -- re-planning and re-importing ----------------------------------------------------
+
+
+def test_a_reimport_naming_the_same_folder_again_reuses_its_experiment(harness, monkeypatch):
+    h = harness
+    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    h.run()
+    (first,) = h.api.experiments
+    with h.coverage().writer() as coverage:
+        coverage.put_meta(structure.REVIEWED_KEY, None)
+
+    def renamed(folder, prompt, **kwargs):
+        if "Decide which project each file" not in prompt:
+            return True, ""
+        tool(kwargs, "assign", "evals", "--rest")
+        code, out = tool(kwargs, "experiment", "--slug", "calibration", "--project", "evals",
+                         "--name", "Calibration", "--question", "Calibrated?", "--under", "runs")
+        assert code == 0, out
+        tool(kwargs, "run", "--each-under", "runs", "--experiment", "calibration")
+        return True, ""
+
+    monkeypatch.setattr(bf, "launch_agent", renamed)
+    h.run()
+    assert list(h.api.experiments) == [first]
+    assert {row["target"] for row in h.api.runs.values()} == {first}
+
+
+def test_merge_planned_keeps_what_a_folder_was_made_into():
+    saved = {"experiments": {"runs": {"slug": "calib", "id": "E1", "project_id": "P",
+                                      "attempts": ["calib"]}},
+             "runs": {"runs/a": {"under": "runs/a", "id": "R1", "digest": "d", "target_id": "E1"}}}
+    planned = {"experiments": {"runs": {"slug": "calibration", "project": "evals",
+                                        "question": "q", "under": "runs"}},
+               "runs": {"runs/a": {"under": "runs/a", "experiment": "runs"},
+                        "runs/b": {"under": "runs/b", "experiment": "runs"}},
+               "times": False}
+    merged = structure.merge_planned(saved, json.loads(json.dumps(planned)))
+    assert merged["experiments"]["runs"]["id"] == "E1"
+    assert merged["experiments"]["runs"]["slug"] == "calibration"
+    assert merged["runs"]["runs/a"]["id"] == "R1" and "id" not in merged["runs"]["runs/b"]
+    assert merged["runs"]["runs/b"]["times"] is False
+
+
+@pytest.mark.parametrize("stored,version", [
+    (None, 0), (True, 1), ("declined", 1), (1, 1), (2, 2),
+    ({"version": 1, "declined": True}, 1), (False, 0), ("junk", 0),
+])
+def test_the_structure_review_is_read_as_a_version(stored, version):
+    assert structure.reviewed_version(stored) == version
+
+
+def test_a_structure_version_bump_re_plans_an_imported_folder_once(harness, monkeypatch):
+    h = harness
+    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    h.run()
+    h.drain()
+    h.run()
+    paths = sorted(_artifact_paths(h).values())
+    with h.coverage().writer() as coverage:
+        assert coverage.meta(structure.REVIEWED_KEY) == structure.STRUCTURE_VERSION
+        assert structure.restructure_candidates(coverage) == {}
+        later = structure.restructure_candidates(coverage, version=structure.STRUCTURE_VERSION + 1)
+        assert sorted(later) == paths
+        structure.decline(coverage)
+        assert structure.restructure_candidates(coverage) == {}
+        assert structure.restructure_candidates(coverage, version=structure.STRUCTURE_VERSION + 1)
+
+
+# -- the seams a repair calls without a local record ----------------------------------
+
+
+def test_a_plan_builds_from_data_alone_and_finds_its_runs_again(harness, monkeypatch):
+    """`build_plan` takes the specs, the placements and the import's source id
+    as data: no coverage store. Built twice (another machine, a repair), it
+    finds the runs it made by their external id and creates nothing."""
+    h = harness
+    project = "P-1"
+    placements = [{"path": p, "level": "run", "folder": p.rsplit("/", 1)[0], "present": 1,
+                   "exclusion": None, "project_id": project, "project_slug": "evals"}
+                  for p in ("runs/a/reward.json", "runs/a/trial.log", "runs/b/reward.txt")]
+    specs = {"experiments": {}, "runs": {"runs/a": {"under": "runs/a", "experiment": None},
+                                          "runs/b": {"under": "runs/b", "experiment": None}}}
+    plan = json.loads(json.dumps(specs))
+    built, targets = structure.build_plan(h.client, h.folder, source_id="SRC",
+                                          placements=placements, **plan)
+    assert built.runs_created == 2 and not built.problems
+    ids = {row["metadata"]["backfill"]["relative_path"]: row["id"] for row in h.api.runs.values()}
+    assert targets == {"runs/a/reward.json": ids["runs/a"], "runs/a/trial.log": ids["runs/a"],
+                       "runs/b/reward.txt": ids["runs/b"]}
+    again = json.loads(json.dumps(specs))  # no ids: as a different machine would hold it
+    built, _ = structure.build_plan(h.client, h.folder, source_id="SRC",
+                                    placements=placements, **again)
+    assert (built.runs_created, built.runs_existing) == (0, 2) and len(h.api.runs) == 2
+
+
+def test_file_moves_reports_each_move_and_marks_final_refusals(harness, monkeypatch):
+    h = harness
+
+    def move(artifact_id, *, level, target_id=None):
+        if artifact_id == "gone":
+            raise errors.RosError("no such artifact", status=404)
+        if artifact_id == "flaky":
+            raise errors.RosError("busy", status=503)
+
+    monkeypatch.setattr(h.client, "move_artifact", move)
+    filed, failed = structure.file_moves(h.client, [
+        ("a", "A1", "run", "R"), ("b", "gone", "run", "R"), ("c", "flaky", "run", "R")])
+    assert filed == [("a", "A1", "R")]
+    assert [(path, final) for path, _, _, final in failed] == [("b", True), ("c", False)]
+
+
+def test_a_run_an_older_cli_charted_never_gets_its_chart_once(harness, monkeypatch):
+    """A run made before charts existed, whose folder has not changed: its
+    record is settled (same digest), yet it has no points. The next import
+    charts it once, and never again."""
+    h = harness
+    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    h.run()
+    for row in h.api.runs.values():
+        row["points"] = []
+    with h.coverage().writer() as coverage:
+        saved = coverage.meta(structure.META_KEY)
+        for spec in saved["runs"].values():
+            spec.pop("points", None)  # as an older CLI saved it: no charts recorded
+        coverage.put_meta(structure.META_KEY, saved)
+    h.run()
+    charted = {name: len(row["points"]) for name, row in h.api.by_folder().items()}
+    assert charted == {"a": 1, "b": 1, "c": 2, "d": 0}
+    sent = sum(1 for method, path in h.api.writes if path.endswith("/metrics"))
+    h.run()
+    assert sum(1 for method, path in h.api.writes if path.endswith("/metrics")) == sent
+
+
+def test_a_value_changed_under_the_same_file_time_is_reported_not_retried(harness, monkeypatch):
+    h = harness
+    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    h.run()
+    _write(h.folder, "runs/a/reward.json", json.dumps({"reward": 0.9}), T0)  # same mtime
+    lines = h.run()
+    assert any("changed while their file kept its time" in line for line in lines)
+    assert [p["value"] for p in h.api.by_folder()["a"]["points"]] == [0.75]  # first write wins
+    summary = [data for event, data in h.events if event == telemetry.EVENT_BACKFILL_SUMMARY][-1]
+    assert summary["metric_points_stale"] == 1
+    sent = sum(1 for method, path in h.api.writes if path.endswith("/metrics"))
+    h.run()
+    assert sum(1 for method, path in h.api.writes if path.endswith("/metrics")) == sent
+
+
+def test_a_file_moved_from_one_run_to_another_goes_up_then_down(harness, monkeypatch):
+    """The server refuses run -> run (422): the file goes up to its project,
+    then down into the run the new plan gives it. A move counts only where the
+    server's answer says the file landed."""
+    h = harness
+    seen = []
+
+    def move(artifact_id, *, level, target_id=None):
+        seen.append((artifact_id, level, target_id))
+        if artifact_id == "lateral" and level == "run" and len(seen) == 1:
+            raise errors.RosError("run-to-run moves are not supported", status=422)
+        if artifact_id == "elsewhere":
+            return {"id": artifact_id, "run_id": "OTHER", "experiment_id": None, "project_id": "P"}
+        if artifact_id == "moved-project":  # a promote derives the ancestor: P2, not P1
+            return {"id": artifact_id, "run_id": None, "experiment_id": None, "project_id": "P2"}
+        return {"id": artifact_id, "run_id": target_id if level == "run" else None,
+                "experiment_id": target_id if level == "experiment" else None, "project_id": "P"}
+
+    monkeypatch.setattr(h.client, "move_artifact", move)
+    filed, failed = structure.file_moves(h.client, [("a", "lateral", "run", "R2")])
+    assert filed == [("a", "lateral", "R2")]
+    assert seen == [("lateral", "run", "R2"), ("lateral", "project", None), ("lateral", "run", "R2")]
+    # Landed elsewhere (a person moved its run): final, asking again lands it there again.
+    filed, failed = structure.file_moves(h.client, [("b", "elsewhere", "run", "R3"),
+                                                    ("c", "moved-project", "project", "P1")])
+    assert filed == [] and [(path, final) for path, _, _, final in failed] == [
+        ("b", True), ("c", True)]
+
+
+def test_a_move_that_failed_part_way_is_sent_again(harness, monkeypatch):
+    """Up to the project went through, the step down failed: where the file
+    sits is unknown, so the next pass sends the move again, even when a later
+    plan puts it back where it was last filed."""
+    h = harness
+    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    h.run()
+    h.drain()
+    h.run()
+    with h.coverage().writer() as coverage:
+        path, target = next((row["path"], row["filed_target"]) for row in coverage.conn.execute(
+            "SELECT path, filed_target FROM placements WHERE level='run' AND filed_target IS NOT NULL"))
+        assert not [m for m in coverage.unfiled() if m[0] == path]
+        coverage.filing_unknown(path)
+        assert [m[3] for m in coverage.unfiled() if m[0] == path] == [target]
+
+
+def test_a_file_a_re_plan_takes_out_of_its_run_goes_back_to_its_project(harness, monkeypatch):
+    h = harness
+    monkeypatch.setattr(bf, "launch_agent", _classifier())
+    h.run()
+    h.drain()
+    h.run()
+    with h.coverage().writer() as coverage:
+        filed = {row["path"]: row["filed_target"] for row in coverage.conn.execute(
+            "SELECT path, filed_target FROM placements WHERE filed_target IS NOT NULL")}
+        path = next(p for p in sorted(filed) if p.startswith("runs/a/"))
+        project_id = coverage.conn.execute(
+            "SELECT project_id FROM files WHERE path=?", (path,)).fetchone()[0]
+        coverage.plan_placements({}, cleared=[path, "never-filed.txt"])
+        moves = [m for m in coverage.unfiled() if m[0] == path]
+    assert moves and moves[0][2:] == ("project", project_id)

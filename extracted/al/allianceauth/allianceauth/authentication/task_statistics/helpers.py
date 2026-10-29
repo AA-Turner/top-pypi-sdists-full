@@ -1,10 +1,16 @@
 """Helpers for Task Statistics."""
 
-import logging
+__lazy_modules__ = ["redis"]
 
-from redis import Redis, RedisError
+import logging
+from typing import TYPE_CHECKING
+
+from redis import RedisError
 
 from allianceauth.utils.cache import get_redis_client
+
+if TYPE_CHECKING:
+    from redis import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -18,23 +24,23 @@ class _RedisStub:
 
     IS_STUB = True
 
-    def delete(self, *args, **kwargs):
+    def delete(self, *args, **kwargs) -> None:
         pass
 
-    def incr(self, *args, **kwargs):
+    def incr(self, *args, **kwargs) -> int:
         return 0
 
-    def zadd(self, *args, **kwargs):
+    def zadd(self, *args, **kwargs) -> None:
         pass
 
-    def zcount(self, *args, **kwargs):
+    def zcount(self, *args, **kwargs) -> None:
         pass
 
-    def zrangebyscore(self, *args, **kwargs):
+    def zrangebyscore(self, *args, **kwargs) -> None:
         pass
 
 
-def get_redis_client_or_stub() -> Redis:
+def get_redis_client_or_stub() -> "Redis":
     """Return AA's default cache client or a stub if Redis is not available."""
     redis = get_redis_client()
     try:

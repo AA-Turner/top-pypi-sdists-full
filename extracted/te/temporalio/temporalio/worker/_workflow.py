@@ -452,7 +452,7 @@ class _WorkflowWorker:  # type:ignore[reportUnusedClass]
                 try:
                     data_converter.failure_converter.to_failure(
                         err,
-                        data_converter._get_internal_payload_converter(),
+                        data_converter.payload_converter,
                         failure,
                     )
                 except Exception as inner_err:
@@ -468,7 +468,7 @@ class _WorkflowWorker:  # type:ignore[reportUnusedClass]
                 try:
                     data_converter.failure_converter.to_failure(
                         err,
-                        data_converter._get_internal_payload_converter(),
+                        data_converter.payload_converter,
                         completion.failed.failure,
                     )
                 except Exception as inner_err:
@@ -728,9 +728,7 @@ class _WorkflowWorker:  # type:ignore[reportUnusedClass]
 
         # Create instance from details
         det = WorkflowInstanceDetails(
-            # Sharing the underlying converter could let another workflow's state
-            # affect conversion and replay, so each instance needs a fresh one.
-            payload_converter_factory=self._data_converter._new_internal_payload_converter,
+            payload_converter_factory=self._data_converter._new_payload_converter,
             failure_converter_class=self._data_converter.failure_converter_class,
             interceptor_classes=self._interceptor_classes,
             defn=defn,
@@ -957,6 +955,16 @@ class _CommandAwareDataConverter(temporalio.converter.DataConverter):
         store_ctx = self._ca_instance.get_external_store_context(command_info)
         dc = self._get_current_dc()._with_store_context(store_ctx)
         return await dc._external_store_payload_sequence(payloads)
+
+    async def _encode_reference_payload_sequence(
+        self, payloads: Sequence[temporalio.api.common.v1.Payload]
+    ) -> list[temporalio.api.common.v1.Payload]:
+        return await self._get_current_dc()._encode_reference_payload_sequence(payloads)
+
+    async def _decode_reference_payload_sequence(
+        self, payloads: Sequence[temporalio.api.common.v1.Payload]
+    ) -> list[temporalio.api.common.v1.Payload]:
+        return await self._get_current_dc()._decode_reference_payload_sequence(payloads)
 
     async def _external_retrieve_payload_sequence(
         self, payloads: Sequence[temporalio.api.common.v1.Payload]

@@ -67,7 +67,19 @@ workspace_upload_app = typer.Typer(help="Upload workspace snapshots.")
 workspace_app.add_typer(workspace_upload_app, name="upload")
 
 _CHUNK_SIZE = 256 * 1024
+# git >= 2.47 detaches auto-maintenance after commit/push; it would race the tar of
+# repo/.git and .git-bare (vanishing objects/maintenance.lock, or a repack of the loose bare).
+_NO_AUTO_MAINTENANCE_ENV = {
+    "GIT_CONFIG_COUNT": "2",
+    "GIT_CONFIG_KEY_0": "maintenance.auto",
+    "GIT_CONFIG_VALUE_0": "false",
+    "GIT_CONFIG_KEY_1": "gc.auto",
+    "GIT_CONFIG_VALUE_1": "0",
+}
+# git drops env/-c config when it spawns receive-pack in the bare, so pass it there.
+_PUSH_NO_AUTO_GC = ["--receive-pack", "git -c receive.autogc=false receive-pack"]
 _PLATO_GIT_ENV = {
+    **_NO_AUTO_MAINTENANCE_ENV,
     "GIT_AUTHOR_NAME": "Plato",
     "GIT_AUTHOR_EMAIL": "plato@plato.dev",
     "GIT_COMMITTER_NAME": "Plato",
@@ -538,7 +550,7 @@ def _sync_repo_to_bare(repo_dir: Path, bare_dir: Path, *, commit_message: str) -
     # because the bare was updated by another process), fall back to a
     # force push so the upload still succeeds.
     result = subprocess.run(
-        ["git", "push", str(bare_dir), "HEAD:refs/heads/main"],
+        ["git", "push", *_PUSH_NO_AUTO_GC, str(bare_dir), "HEAD:refs/heads/main"],
         cwd=str(repo_dir),
         env={**os.environ, **_PLATO_GIT_ENV},
         capture_output=True,
@@ -546,7 +558,7 @@ def _sync_repo_to_bare(repo_dir: Path, bare_dir: Path, *, commit_message: str) -
         check=False,
     )
     if result.returncode != 0:
-        _run_git(["push", "--force", str(bare_dir), "HEAD:refs/heads/main"], cwd=repo_dir)
+        _run_git(["push", "--force", *_PUSH_NO_AUTO_GC, str(bare_dir), "HEAD:refs/heads/main"], cwd=repo_dir)
     _run_git(["--git-dir", str(bare_dir), "symbolic-ref", "HEAD", "refs/heads/main"])
     _prune_bare_garbage(bare_dir)
     # Invariant gate: after the push, the bare's main must be the working
@@ -1164,7 +1176,10 @@ def upload_data_workspace_via_manifest(
             cache_dir=cache_dir,
             manifest=DVCManifest(entries_list=[], manifest_md5=""),
         )
-        return asyncio.run(smart_commit(mount, s3_config, dir_name=dir_name, ignore_patterns=ignore_patterns))
+        manifest_md5, dvc_yaml, _ = asyncio.run(
+            smart_commit(mount, s3_config, dir_name=dir_name, ignore_patterns=ignore_patterns)
+        )
+        return manifest_md5, dvc_yaml
     finally:
         shutil.rmtree(cache_dir, ignore_errors=True)
 

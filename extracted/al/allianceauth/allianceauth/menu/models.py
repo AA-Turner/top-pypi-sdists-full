@@ -1,15 +1,21 @@
-from typing import ClassVar
+__lazy_modules__ = ["allianceauth.authentication.models", "django.contrib.auth.models"]
 
-from django.contrib.auth.models import AnonymousUser
+from typing import TYPE_CHECKING, ClassVar
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from allianceauth.authentication.models import Permission, User
+from allianceauth.authentication.models import Permission
 from allianceauth.menu.constants import DEFAULT_FOLDER_ICON_CLASSES
 
 from .constants import DEFAULT_MENU_ITEM_ORDER
 from .core.menu_item_hooks import MenuItemHookCustom
 from .managers import MenuItemManager
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AnonymousUser
+
+    from allianceauth.authentication.models import User
 
 
 class MenuItem(models.Model):
@@ -154,7 +160,7 @@ class MenuItem(models.Model):
         """Return True if this item is user defined."""
         return self.item_type is not MenuItem.MenuItemType.APP
 
-    def user_has_access(self, user: User | AnonymousUser) -> bool:
+    def user_has_access(self, user: "User | AnonymousUser") -> bool:
         """Return True if the given user may see this menu item.
 
         Items with no assigned permissions are visible to everyone.

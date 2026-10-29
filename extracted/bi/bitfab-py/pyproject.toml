@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bitfab-py"
-version = "0.72.1"
+version = "0.74.1"
 description = "Bitfab client for provider-based API calls with local BAML execution"
 authors = ["Harvest Team"]
 readme = "README.md"

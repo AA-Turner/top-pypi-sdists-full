@@ -5,7 +5,7 @@ from .views import dashboard_admin, dashboard_characters, dashboard_esi_check, d
 
 
 class UserCharactersHook(DashboardItemHook):
-    def __init__(self):
+    def __init__(self) -> None:
         DashboardItemHook.__init__(
             self,
             dashboard_characters,
@@ -14,7 +14,7 @@ class UserCharactersHook(DashboardItemHook):
 
 
 class UserGroupsHook(DashboardItemHook):
-    def __init__(self):
+    def __init__(self) -> None:
         DashboardItemHook.__init__(
             self,
             dashboard_groups,
@@ -23,7 +23,7 @@ class UserGroupsHook(DashboardItemHook):
 
 
 class AdminHook(DashboardItemHook):
-    def __init__(self):
+    def __init__(self) -> None:
         DashboardItemHook.__init__(
             self,
             dashboard_admin,
@@ -32,7 +32,7 @@ class AdminHook(DashboardItemHook):
 
 
 class ESICheckHook(DashboardItemHook):
-    def __init__(self):
+    def __init__(self) -> None:
         DashboardItemHook.__init__(
             self,
             dashboard_esi_check,
@@ -41,20 +41,20 @@ class ESICheckHook(DashboardItemHook):
 
 
 @hooks.register('dashboard_hook')
-def register_character_hook():
+def register_character_hook() -> UserCharactersHook:
     return UserCharactersHook()
 
 
 @hooks.register('dashboard_hook')
-def register_groups_hook():
+def register_groups_hook() -> UserGroupsHook:
     return UserGroupsHook()
 
 
 @hooks.register('dashboard_hook')
-def register_admin_hook():
+def register_admin_hook() -> AdminHook:
     return AdminHook()
 
 
 @hooks.register('dashboard_hook')
-def register_esi_hook():
+def register_esi_hook() -> ESICheckHook:
     return ESICheckHook()

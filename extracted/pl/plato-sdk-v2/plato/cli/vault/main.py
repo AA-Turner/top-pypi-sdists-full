@@ -24,12 +24,13 @@ from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
 from rich.markup import escape
 from rich.table import Table
 
-from plato.chronos.login_vault import SESSION_ID_ENV_VAR, LoginVault, archive_reason, normalize_key
+from plato.chronos.login_vault import SESSION_ID_ENV_VAR, AccountStatus, LoginVault, archive_reason, normalize_key
 from plato.cli.chronos.settings import get_settings
 from plato.cli.utils import console
 from plato.cli.vault.backends import (
     ARCHIVE_FIELDS,
     ChronosBackend,
+    ChronosVaultMissing,
     ConsoleBackend,
     chronos_errors,
     default_for,
@@ -118,6 +119,14 @@ AutoRefreshArg = Annotated[
     typer.Option(
         "--auto-refresh/--seed-only",
         help="--auto-refresh: runs re-bake a stale snapshot themselves; --seed-only: a human bakes, runs never re-bake",
+    ),
+]
+StatusArg = Annotated[
+    str | None,
+    typer.Option(
+        "--status",
+        help="Whether the account exists on the site yet: not_started (made for a sign-up), in_progress, "
+        'done ("" clears: an account made before the field). Chronos vault only',
     ),
 ]
 MaxSessionsArg = Annotated[
@@ -434,9 +443,17 @@ def _config_fields(
     proxy_exit: str | None = None,
     auto_refresh: bool | None = None,
     max_sessions: int | None = None,
+    account_status: str | None = None,
 ) -> dict[str, Any]:
     """The non-secret flags as vault fields (None = not given)."""
     fields: dict[str, Any] = {}
+    if account_status is not None:
+        status = account_status.strip()
+        if status and status not in {s.value for s in AccountStatus}:
+            raise VaultConsoleError(
+                f'--status must be one of {", ".join(s.value for s in AccountStatus)} (or "" to clear)'
+            )
+        fields["account_status"] = status
     if username is not None:
         fields["username"] = username
     if login_email is not None:
@@ -529,6 +546,21 @@ def list_logins(
     _print_incomplete(vault_error)
 
 
+def _app_settings_or_none(target: Any, login_key: str) -> Any:
+    """The app's shared settings for `show` (Chronos only). None only when there are
+    none to read: not Chronos, or a Chronos without the app route; any other error raises."""
+    if target.via != "chronos" or not target.api_key:
+        return None
+    try:
+        with (
+            chronos_errors(target.chronos_url),
+            LoginVault(api_key=target.api_key, base_url=target.chronos_url) as vault,
+        ):
+            return vault.get_app_settings(login_key)
+    except (ChronosVaultMissing, NotFound):
+        return None
+
+
 def _show(
     login_key: str,
     account: str | None,
@@ -552,12 +584,22 @@ def _show(
                 # The `--account` form 404s; an unknown key must not read as
                 # "exists, no accounts" just because this form asks the list.
                 raise NotFound(f"no such login_key: {login_key}")
+            app = _app_settings_or_none(target, login_key)
         if json_output:
             accounts = [{"account": r.get("account"), "default_for": default_for(r)} for r in rows]
             _print_json(
-                {"source": target.source, "login_key": login_key, "accounts": accounts, "vault_error": vault_error}
+                {
+                    "source": target.source,
+                    "login_key": login_key,
+                    "app_settings": app.model_dump(mode="json") if app else None,
+                    "accounts": accounts,
+                    "vault_error": vault_error,
+                }
             )
             return
+        if app is not None:
+            console.print(f"[bold]{escape(login_key)}[/bold] app-wide settings")
+            _print_app_settings(app)
         console.print(
             f"[bold]{escape(login_key)}[/bold] accounts: " + (", ".join(escape(_account_cell(r)) for r in rows) or "-")
         )
@@ -668,6 +710,7 @@ def create(
     login_hint: LoginHintArg = None,
     proxy_exit: ProxyExitArg = None,
     auto_refresh: AutoRefreshArg = None,
+    status: StatusArg = None,
     creds_stdin: CredsStdinArg = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print what would be created and exit")] = False,
     via: ViaArg = "chronos",
@@ -690,6 +733,7 @@ def create(
             login_hint=login_hint,
             proxy_exit=proxy_exit,
             auto_refresh=auto_refresh,
+            account_status=status,
         )
         if flags.get("browser_mode") == "":
             raise VaultConsoleError('--mode "" clears a mode; a new account has none to clear')
@@ -734,10 +778,55 @@ def create(
         raise typer.Exit(error.exit_code)
 
 
+def _print_app_settings(settings: Any) -> None:
+    for name in ("signup_allowed", "signup_url", "signup_hint", "login_hint"):
+        value = getattr(settings, name, None)
+        _field(name, ("yes" if value else "no") if name == "signup_allowed" else (value or "-"))
+
+
+def _edit_app(
+    login_key: str,
+    fields: dict[str, Any],
+    account_only: list[str],
+    via: str,
+    chronos_url: str | None,
+    api_key: str | None,
+    json_output: bool,
+) -> None:
+    """`edit` with no -a: the app's shared settings (the Chronos vault only)."""
+    with _errors(json_output):
+        if account_only:
+            raise VaultConsoleError(f"{', '.join(account_only)} change one account: pass -a <account>")
+        fields = {k: v for k, v in fields.items() if v is not None}
+        if not fields:
+            raise VaultConsoleError(
+                "nothing to change: pass -a <account> with its fields, or app-wide "
+                "--login-hint, --signup-url, --signup-hint and/or --signup-allowed"
+            )
+        target = _Target(via, chronos_url, api_key, None)
+        if target.via != "chronos" or not target.api_key:
+            raise VaultConsoleError("app-wide settings live in the Chronos vault: set PLATO_API_KEY (no --via console)")
+        with (
+            LoginVault(api_key=target.api_key, base_url=target.chronos_url) as vault,
+            chronos_errors(target.chronos_url),
+        ):
+            settings = vault.update_app_settings(login_key, **fields)
+    if json_output:
+        _print_json({"app_wide": True, **settings.model_dump(mode="json")})
+        return
+    console.print(f"[bold]{escape(settings.login_key)}[/bold] app-wide settings (every account of the app)")
+    _print_app_settings(settings)
+
+
 @vault_app.command()
 def edit(
     login_key: Annotated[str, typer.Argument(help="Which auth system, e.g. slack")],
-    account: AccountArg,
+    account: Annotated[
+        str | None,
+        typer.Option(
+            "--account", "-a", help="The account to change; omit to change what every account of the app shares"
+        ),
+    ] = None,
     username: Annotated[str | None, typer.Option("--username", help='The sign-in name ("" clears)')] = None,
     email: Annotated[
         str | None,
@@ -749,6 +838,21 @@ def edit(
     proxy_exit: ProxyExitArg = None,
     auto_refresh: AutoRefreshArg = None,
     max_sessions: MaxSessionsArg = None,
+    status: StatusArg = None,
+    signup_url: Annotated[
+        str | None, typer.Option("--signup-url", help='App-wide (no -a): the site\'s sign-up page ("" clears)')
+    ] = None,
+    signup_hint: Annotated[
+        str | None,
+        typer.Option("--signup-hint", help='App-wide (no -a): sign-up steps every sign-up of the app gets ("" clears)'),
+    ] = None,
+    signup_allowed: Annotated[
+        bool | None,
+        typer.Option(
+            "--signup-allowed/--no-signup-allowed",
+            help="App-wide (no -a): let runs sign up new accounts on the app (a person's own key only)",
+        ),
+    ] = None,
     creds_stdin: CredsStdinArg = False,
     via: ViaArg = "chronos",
     chronos_url: ChronosUrlArg = None,
@@ -756,12 +860,39 @@ def edit(
     console_url: ConsoleUrlArg = None,
     json_output: JsonArg = False,
 ):
-    """Change some of an account's fields. Only the ones given change; "" clears one.
-    Nothing is launched, so no confirmation: the next bake or run reads the new values.
+    """Change some of an account's fields (-a), or with no -a what every account of
+    the app shares (--login-hint, --signup-url, --signup-hint, --signup-allowed).
+    Only the ones given change; "" clears one. Nothing is launched, so no
+    confirmation: the next bake or run reads the new values.
     --max-sessions N lets N live sessions use the account at once (1 = the default).
     A personal key may edit any account. An org-wide key may edit only accounts an
     org-wide key or a run created (created_by run:* or org-key:*)."""
+    app_wide = {"signup_url": signup_url, "signup_hint": signup_hint, "signup_allowed": signup_allowed}
+    if account is None:
+        account_only = {
+            "--username": username,
+            "--email": email,
+            "--mode": mode,
+            "--login-url": login_url,
+            "--exit": proxy_exit,
+            "--auto-refresh/--seed-only": auto_refresh,
+            "--max-sessions": max_sessions,
+            "--status": status,
+            "--creds-stdin": creds_stdin or None,
+        }
+        _edit_app(
+            login_key,
+            {**app_wide, "login_hint": login_hint},
+            [flag for flag, value in account_only.items() if value is not None],
+            via,
+            chronos_url,
+            api_key,
+            json_output,
+        )
+        return
     with _errors(json_output):
+        if given := [f"--{k.replace('_', '-')}" for k, v in app_wide.items() if v is not None]:
+            raise VaultConsoleError(f"{', '.join(given)} are app-wide: run it without -a")
         fields: dict[str, Any] = {}
         if creds_stdin:
             fields.update(read_stdin_creds(typer.get_text_stream("stdin").read(), keep_clears=True))
@@ -776,12 +907,13 @@ def edit(
                 proxy_exit=proxy_exit,
                 auto_refresh=auto_refresh,
                 max_sessions=max_sessions,
+                account_status=status,
             )
         )
         if not fields:
             raise VaultConsoleError(
                 "nothing to change: pass --mode, --login-url, --login-hint, --proxy-exit, "
-                "--auto-refresh/--seed-only, --max-sessions, --username, --email and/or --creds-stdin"
+                "--auto-refresh/--seed-only, --max-sessions, --status, --username, --email and/or --creds-stdin"
             )
         target = _Target(via, chronos_url, api_key, console_url)
 

@@ -14,6 +14,7 @@ from ..errors.bad_gateway_error import BadGatewayError
 from ..errors.bad_request_error import BadRequestError
 from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
+from ..errors.gateway_timeout_error import GatewayTimeoutError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
@@ -222,6 +223,17 @@ class RawSemanticModelClient:
                         ),
                     ),
                 )
+            if _response.status_code == 504:
+                raise GatewayTimeoutError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -371,6 +383,17 @@ class RawSemanticModelClient:
                 )
             if _response.status_code == 502:
                 raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 504:
+                raise GatewayTimeoutError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],
@@ -582,6 +605,17 @@ class AsyncRawSemanticModelClient:
                         ),
                     ),
                 )
+            if _response.status_code == 504:
+                raise GatewayTimeoutError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -731,6 +765,17 @@ class AsyncRawSemanticModelClient:
                 )
             if _response.status_code == 502:
                 raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 504:
+                raise GatewayTimeoutError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],

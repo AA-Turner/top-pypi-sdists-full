@@ -114,6 +114,44 @@ def deterministic_cli_output(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FORCE_COLOR", raising=False)
 
 
+def _layer_config_file(target: str, redirected_root: Path) -> Path:
+    """Return where ``target``'s ``config.toml`` lives under ``redirected_root``, its directory created.
+
+    The location is asked of lib_layered_config, which shares it between its deploy and its reader,
+    because the layout under the root differs per OS.
+    """
+    from lib_layered_config import deploy_config_paths
+
+    from igittigitt import __init__conf__
+    from igittigitt.adapters.config.loader import get_default_config_path
+
+    paths = deploy_config_paths(
+        get_default_config_path(),
+        vendor=__init__conf__.LAYEREDCONF_VENDOR,
+        app=__init__conf__.LAYEREDCONF_APP,
+        slug=__init__conf__.LAYEREDCONF_SLUG,
+        targets=[target],
+    )
+    config_file = next(path for path in paths if path.name == "config.toml")
+    # Refuse before anything writes: without the redirect this is a real system or user directory,
+    # and the elevated Windows runner would let a write through.
+    assert config_file.is_relative_to(redirected_root.resolve()), config_file
+    config_file.parent.mkdir(parents=True)
+    return config_file
+
+
+@pytest.fixture
+def app_layer_config_file(system_layers_in_tmp_path: Path) -> Path:
+    """Return where the app layer's ``config.toml`` lives under the redirect, its directory created."""
+    return _layer_config_file("app", system_layers_in_tmp_path)
+
+
+@pytest.fixture
+def user_layer_config_file(user_layer_in_tmp_path: Path) -> Path:
+    """Return where the user layer's ``config.toml`` lives under the redirect, its directory created."""
+    return _layer_config_file("user", user_layer_in_tmp_path)
+
+
 @pytest.fixture
 def production_factory() -> Callable[[], object]:
     """The production services factory, passed to the CLI via ``obj=``."""

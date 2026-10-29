@@ -44,7 +44,7 @@ Usage:
 For more examples, see the documentation at https://docs.featrix.com
 """
 
-__version__ = "2.0.13460"
+__version__ = "2.0.13511"
 __author__ = "Featrix"
 __email__ = "support@featrix.com"
 __license__ = "MIT"

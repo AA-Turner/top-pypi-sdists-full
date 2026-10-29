@@ -29,6 +29,7 @@ import datamodel_code_generator
 from datamodel_code_generator import (
     _COMMENT_ONLY_HEADER_FAST_PATH_LIMIT,
     AllExportsScope,
+    CollapseRootModelsNameStrategy,
     CustomFileHeaderMode,
     DanglingRefWarning,
     DataModelType,
@@ -61,6 +62,13 @@ from datamodel_code_generator.parser import LiteralType
 from datamodel_code_generator.parser.mcp import convert_mcp_tools_to_jsonschema
 from datamodel_code_generator.parser.openapi import OpenAPIParser
 from tests.conftest import (
+    CHECK_FACT_FINALITY_ENV,
+    CHECK_MODEL_GRAPH_ENV,
+    CHECK_MODULE_IMPORTS_ENV,
+    CHECK_RENDER_MEMOS_ENV,
+    CHECK_RENDER_PLANS_ENV,
+    CHECK_SCHEMA_LOCATIONS_ENV,
+    CHECK_STORE_WRITES_ENV,
     HttpxGetMockFactory,
     MockHttpxResponse,
     assert_directory_content,
@@ -98,6 +106,9 @@ from tests.main.conftest import (
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
+
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+    from datamodel_code_generator.reference import Reference
 
 assert_file_content = create_assert_file_content(EXPECTED_MAIN_PATH)
 BLACK_VERSION = version.parse(black.__version__)
@@ -235,6 +246,57 @@ def test_collapse_root_models_retry_preserves_circular_schema_output(mocker: Moc
     )
 
 
+@pytest.mark.abnormal_path(
+    "only inputs whose inlined types nest deeper than the recursion limit reach it (a ring of ~500 root models): "
+    "too slow and stack-dependent for a stored-output test"
+)
+@pytest.mark.parametrize("flag", ["check", "report", "off", "off_every_parse"])
+def test_collapse_root_models_recursion_limit_is_a_model_graph_violation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str
+) -> None:
+    """Retry a collapse that reaches the recursion limit, which the model graph check reports.
+
+    The check (`1`, as the test suite sets it) raises; `report:<path>` appends the violation to the file as a JSON line
+    and retries, as the check off (`0`) does. When the retry reaches the limit too, its RecursionError is the error.
+    """
+    from datamodel_code_generator.parser.base import modules
+
+    collapse = modules.collapse_root_models
+    reached_limit = False
+
+    def collapse_past_the_recursion_limit(parser: JsonSchemaParser, *args: Any, **kwargs: Any) -> None:
+        nonlocal reached_limit
+        if not reached_limit or flag == "off_every_parse":
+            reached_limit = True
+            message = "collapse recursed too deep"
+            raise RecursionError(message)
+        collapse(parser, *args, **kwargs)
+
+    monkeypatch.setattr(modules, "collapse_root_models", collapse_past_the_recursion_limit)
+    report_path = tmp_path / "checks.jsonl"
+    check_values = {"check": "1", "report": f"report:{report_path}", "off": "0", "off_every_parse": "0"}
+    monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, check_values[flag])
+    source = JSON_SCHEMA_DATA_PATH / "collapse_root_models_self_reference.json"
+    options: dict[str, Any] = {
+        "collapse_root_models": True,
+        "disable_timestamp": True,
+        "formatters": [Formatter.BUILTIN],
+    }
+    if flag == "check":
+        with pytest.raises(
+            Error, match=rf"^{CHECK_MODEL_GRAPH_ENV}: collapsing root models reached the recursion limit"
+        ):
+            generate(source, input_file_type=InputFileType.JsonSchema, **options)
+        return
+    if flag == "off_every_parse":
+        with pytest.raises(RecursionError, match=r"^collapse recursed too deep$"):
+            generate(source, input_file_type=InputFileType.JsonSchema, **options)
+        return
+    assert_output(cast("str", generate(source, input_file_type=InputFileType.JsonSchema, **options)))
+    if flag == "report":
+        assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
 def test_parser_collects_empty_model_metadata() -> None:
     """Collect an empty metadata payload when parsing emits no models."""
     from datamodel_code_generator.model_metadata import dump_model_metadata
@@ -345,37 +407,22 @@ def test_parser_run_context_preserves_subclass_lifecycle_hooks(tmp_path: Path) -
     )
 
 
-def test_parser_retains_builtin_import_cache_and_invalidates_custom_cache() -> None:
-    """Retain built-in caches while keeping the legacy custom-model invalidation contract."""
+def test_parser_never_calls_the_deprecated_imports_cache_hook() -> None:
+    """Models keep no imports cache: the parser never calls ``clear_imports_cache``, which subclasses may override."""
     from datamodel_code_generator.model import DataModel, get_data_model_types
     from datamodel_code_generator.model.pydantic_v2 import BaseModel
     from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
 
     class CacheProbeJsonSchemaParser(JsonSchemaParser):
-        cache_reuse_manifest: tuple[str, ...] = ()
         module_processing_calls: int = 0
 
         def _process_single_module(self, module_: Any, models: list[Any], *args: Any, **kwargs: Any) -> Any:
             self.module_processing_calls += 1
-            for model in models:
-                _ = model.imports
-            cached_imports = tuple(model.__dict__[model._IMPORTS_CACHE_KEY] for model in models)
-            context = super()._process_single_module(module_, models, *args, **kwargs)
-            self.cache_reuse_manifest += tuple(
-                f"{model.class_name}:"
-                f"{'retained' if cached is model.__dict__.get(model._IMPORTS_CACHE_KEY) else 'invalidated'}"
-                for cached, model in zip(cached_imports, context.models, strict=True)
-            )
-            return context
+            return super()._process_single_module(module_, models, *args, **kwargs)
 
     class CacheAwareBaseModel(BaseModel):
         def clear_imports_cache(self) -> None:
-            cache_state = "cached" if self._IMPORTS_CACHE_KEY in self.__dict__ else "empty"
-            history = self.__dict__.setdefault("cache_clear_history", [])
-            history.append(cache_state)
-            if getattr(self, "_internal_template_data", None) is not None:
-                self._set_internal_template_data("class_body_lines", [f"cache_clear_history = {history!r}"])
-            super().clear_imports_cache()
+            """Override the deprecated hook; the parser never calls it."""
 
     class InjectingJsonSchemaParser(JsonSchemaParser):
         def _create_data_model(
@@ -409,10 +456,6 @@ def test_parser_retains_builtin_import_cache_and_invalidates_custom_cache() -> N
         f"{parser.module_processing_calls}\n",
         EXPECTED_MAIN_PATH / "process_single_module_single_call.txt",
     )
-    assert_output(
-        "\n".join(parser.cache_reuse_manifest) + "\n",
-        EXPECTED_MAIN_PATH / "builtin_import_cache_retention.txt",
-    )
 
     input_path = JSON_SCHEMA_DATA_PATH / "unique_items_unhashable_default.json"
     unhashable_default_parser = CacheProbeJsonSchemaParser(
@@ -431,10 +474,6 @@ def test_parser_retains_builtin_import_cache_and_invalidates_custom_cache() -> N
     assert_output(
         f"{unhashable_default_parser.module_processing_calls}\n",
         EXPECTED_MAIN_PATH / "process_single_module_single_call.txt",
-    )
-    assert_output(
-        "\n".join(unhashable_default_parser.cache_reuse_manifest) + "\n",
-        EXPECTED_MAIN_PATH / "builtin_import_cache_unique_items_unhashable.txt",
     )
 
     input_path = DATA_PATH / "performance" / "large_models.json"
@@ -514,7 +553,7 @@ def test_parser_retains_builtin_import_cache_and_invalidates_custom_cache() -> N
 
 
 def test_parser_preserves_cross_module_external_import_cache_hook() -> None:
-    """Do not invoke an external model's cache hook from another built-in module."""
+    """Generate with an external model that overrides the deprecated imports cache hook, which is never called."""
     from datamodel_code_generator.model import DataModel, get_data_model_types
     from datamodel_code_generator.model.msgspec import Struct
     from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
@@ -523,10 +562,7 @@ def test_parser_preserves_cross_module_external_import_cache_hook() -> None:
         clear_history: ClassVar[list[str]] = []
 
         def clear_imports_cache(self) -> None:
-            state = "cached" if self._IMPORTS_CACHE_KEY in self.__dict__ else "empty"
-            name = getattr(self, "class_name", "") or "?"
-            self.clear_history.append(f"{name}:{state}")
-            super().clear_imports_cache()
+            """Override the deprecated hook; the parser never calls it."""
 
     class SelectiveExternalStructParser(JsonSchemaParser):
         def _create_data_model(
@@ -573,7 +609,7 @@ def test_parser_preserves_cross_module_external_import_cache_hook() -> None:
 
 
 def test_parser_rechecks_external_enum_after_module_materialization() -> None:
-    """Keep the external hook fallback when an inherited enum replaces a built-in wrapper."""
+    """Generate with an external enum that overrides the deprecated imports cache hook, which is never called."""
     from datamodel_code_generator import ModuleSplitMode
     from datamodel_code_generator.model import get_data_model_types
     from datamodel_code_generator.model.enum import Enum
@@ -583,10 +619,7 @@ def test_parser_rechecks_external_enum_after_module_materialization() -> None:
         clear_history: ClassVar[list[str]] = []
 
         def clear_imports_cache(self) -> None:
-            state = "cached" if self._IMPORTS_CACHE_KEY in self.__dict__ else "empty"
-            name = getattr(self, "class_name", "") or "?"
-            self.clear_history.append(f"{name}:{state}")
-            super().clear_imports_cache()
+            """Override the deprecated hook; the parser never calls it."""
 
     class SelectiveExternalEnumParser(OpenAPIParser):
         def _get_enum_model_class(self, type_: Any, enum_values: list[Any]) -> tuple[type[Enum], Any]:
@@ -695,6 +728,320 @@ def _run_generate_from_config_model_copy_updates() -> list[tuple[str, str]]:
             raise TypeError(msg)
         updates.append((key.value, _generate_call_keyword_source(value)))
     return updates
+
+
+@pytest.mark.parametrize("flag", ["check", "report", "off"])
+def test_model_graph_check_reports_a_copied_reference(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str
+) -> None:
+    """A custom parser that types a field with a deep copy of its type puts a copy of a Reference beside the original.
+
+    The copy keeps the model key of its original, so the generation store would take both for one model. The check
+    (`1`, as the test suite sets it) raises when the store meets the copy; `report:<path>` appends it to the file as one
+    JSON line; with the check off (`0`) the copy is generated like its original.
+    """
+    from copy import deepcopy
+
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class CopyingParser(JsonSchemaParser):
+        def parse_raw(self) -> None:
+            super().parse_raw()
+            field = next(field for model in self.results for field in model.fields if field.data_type.reference)
+            self.generation_store.replace_field_type(field, deepcopy(field.data_type))
+
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, {"check": "1", "report": f"report:{report_path}", "off": "0"}[flag])
+    parser = CopyingParser(
+        JSON_SCHEMA_DATA_PATH / "annotated_forward_reference_required_order.json", formatters=[Formatter.BUILTIN]
+    )
+    if flag == "check":
+        with pytest.raises(Error, match=rf"^{CHECK_MODEL_GRAPH_ENV}: a copy of the Reference of Child "):
+            parser.parse()
+        return
+    assert_output(cast("str", parser.parse()))
+    if flag == "report":
+        assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+@pytest.mark.parametrize("flag", ["check", "report", "off"])
+def test_model_graph_check_reports_a_written_model_that_the_store_retired(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str
+) -> None:
+    """A custom parser that retires a model it still writes leaves the written models and the emitted ones apart.
+
+    The check (`1`, as the test suite sets it) raises once the modules are final; `report:<path>` appends it to the
+    file as one JSON line, after the collapse decisions whose answer over the emitted models differs, because the
+    retired root model is the only other user of the root models it references; with the check off (`0`) the model is
+    generated as usual.
+    """
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class RetiringParser(JsonSchemaParser):
+        def parse_raw(self) -> None:
+            super().parse_raw()
+            self.generation_store.retire_model(next(model for model in self.results if model.class_name == "Model"))
+
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, {"check": "1", "report": f"report:{report_path}", "off": "0"}[flag])
+    parser = RetiringParser(
+        JSON_SCHEMA_DATA_PATH / "collapse_root_models_shared_reference.json",
+        collapse_root_models=True,
+        formatters=[Formatter.BUILTIN],
+    )
+    if flag == "check":
+        with pytest.raises(Error, match=rf"^{CHECK_MODEL_GRAPH_ENV}: the model Model \(.*\) is written but is not an"):
+            parser.parse()
+        return
+    assert_output(cast("str", parser.parse()))
+    if flag == "report":
+        assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+def test_model_graph_check_reports_an_emitted_model_that_is_not_written() -> None:
+    """A custom parser that drops a model from its module without retiring it leaves it among the emitted models."""
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class DroppingParser(JsonSchemaParser):
+        def _finalize_modules(self, contexts: Any, *args: Any) -> None:
+            contexts[0].models.pop()
+            super()._finalize_modules(contexts, *args)
+
+    parser = DroppingParser(
+        JSON_SCHEMA_DATA_PATH / "reuse_model_inline_definitions.json", formatters=[Formatter.BUILTIN]
+    )
+    with pytest.raises(
+        Error, match=rf"^{CHECK_MODEL_GRAPH_ENV}: the model Model \(.*\) is an emitted model but is not"
+    ):
+        parser.parse()
+
+
+@pytest.mark.abnormal_path(
+    "a reference graph snapshot answers as the computation it replaced for every input: only a broken computation "
+    "makes the two differ"
+)
+@pytest.mark.parametrize("flag", ["check", "report", "off"])
+def test_model_graph_check_reports_a_differing_reference_graph_answer(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str
+) -> None:
+    """Quoting the containers of an alias cycle reads the cycles of aliases from the reference graph snapshot.
+
+    The computation the snapshot replaces finds the cycles of its own graph; here it finds none. The model graph check
+    (`1`, as the test suite sets it) raises where the two answers differ; `report:<path>` appends the difference to the
+    file as one JSON line; with the check off (`0`) the snapshot's answer quotes the containers of the cycle.
+    """
+    from datamodel_code_generator.parser.base import render_prep
+
+    monkeypatch.setattr(render_prep, "find_circular_sccs", lambda _graph: [])
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, {"check": "1", "report": f"report:{report_path}", "off": "0"}[flag])
+    source = JSON_SCHEMA_DATA_PATH / "type_alias_recursive_container.json"
+    options: dict[str, Any] = {"use_type_alias": True, "formatters": [Formatter.BUILTIN]}
+    if flag == "check":
+        with pytest.raises(
+            Error, match=rf"^{CHECK_MODEL_GRAPH_ENV}: alias cycles: the reference graph and the computation"
+        ):
+            generate(source, input_file_type=InputFileType.JsonSchema, **options)
+        return
+    assert_output(cast("str", generate(source, input_file_type=InputFileType.JsonSchema, **options)))
+    if flag == "report":
+        assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+def test_model_graph_check_reports_a_path_lookup_that_names_two_models(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A custom parser that moves a model to the path of another one leaves two live models under one path.
+
+    The sort tells the two models apart by model key, but a reference the parser builds outside the resolver names no
+    model by its key and both by its path. The model graph check (`1`, as the test suite sets it) raises where the sort
+    looks that path up.
+    """
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+    from datamodel_code_generator.reference import Reference
+    from datamodel_code_generator.types import DataType
+
+    class MovingParser(JsonSchemaParser):
+        def parse_raw(self) -> None:
+            super().parse_raw()
+            top, child = self.results
+            self.generation_store.move_model(child, new_path=top.path)
+            keyless = Reference(path=top.path, name=top.reference.name)
+            self.generation_store.replace_field_type(child.fields[0], DataType(reference=keyless))
+
+    monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, "1")
+    parser = MovingParser(
+        JSON_SCHEMA_DATA_PATH / "annotated_forward_reference_required_order.json", formatters=[Formatter.BUILTIN]
+    )
+    with pytest.raises(
+        Error,
+        match=rf"^{CHECK_MODEL_GRAPH_ENV}: sort_data_models: a lookup by the path "
+        r"annotated_forward_reference_required_order\.json# names 2 models$",
+    ):
+        parser.parse()
+
+
+def test_model_graph_check_reports_models_whose_references_share_a_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A custom parser that adds a deep copy of a model leaves two live models whose Reference objects share a key.
+
+    By model key the sort would take the two models for one. The model graph check (`1`, as the test suite sets it)
+    raises where the sort keys them.
+    """
+    from copy import deepcopy
+
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class DuplicatingParser(JsonSchemaParser):
+        def parse_raw(self) -> None:
+            super().parse_raw()
+            self.results.append(deepcopy(self.results[1]))
+
+    monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, "1")
+    parser = DuplicatingParser(
+        JSON_SCHEMA_DATA_PATH / "annotated_forward_reference_required_order.json", formatters=[Formatter.BUILTIN]
+    )
+    with pytest.raises(
+        Error,
+        match=rf"^{CHECK_MODEL_GRAPH_ENV}: sort_data_models: two Reference objects of live models share the model key "
+        r"of annotated_forward_reference_required_order\.json#/definitions/Child$",
+    ):
+        parser.parse()
+
+
+def test_model_graph_check_reports_a_reference_whose_path_names_another_model(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A custom parser that types a field with a copy of its Reference moved to the path of another model.
+
+    The copy keeps the model key of the model the field references, while its path names another model. With
+    `report:<path>`, the check appends the copy and each site that reads the copy's key and path to the file.
+    """
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+    from datamodel_code_generator.types import DataType
+
+    class RepointingParser(JsonSchemaParser):
+        def parse_raw(self) -> None:
+            super().parse_raw()
+            top = self.results[0]
+            field = next(field for model in self.results for field in model.fields if field.data_type.reference)
+
+            moved = cast("Reference", field.data_type.reference).model_copy(update={"path": top.path})
+            self.generation_store.replace_field_type(field, DataType(reference=moved))
+
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, f"report:{report_path}")
+    parser = RepointingParser(
+        JSON_SCHEMA_DATA_PATH / "annotated_forward_reference_required_order.json", formatters=[Formatter.BUILTIN]
+    )
+    assert_output(cast("str", parser.parse()))
+    assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+def test_process_single_module_override_lists_a_model_for_the_reference_update_action() -> None:
+    """A custom parser whose ``_process_single_module`` lists one more model path gives that model the update action.
+
+    The model takes the call as the models on reference cycles do, though it references no model.
+    """
+    from typing_extensions import override
+
+    from datamodel_code_generator.model import get_data_model_types
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class ListingParser(JsonSchemaParser):
+        @override
+        def _process_single_module(self, *args: Any) -> Any:
+            *_, require_update_action_models, _ = args
+            require_update_action_models.append(args[1][0].path)
+            return super()._process_single_module(*args)
+
+    model_types = get_data_model_types(DataModelType.PydanticV2BaseModel)
+    parser = ListingParser(
+        JSON_SCHEMA_DATA_PATH / "person.json",
+        data_model_type=model_types.data_model,
+        data_model_root_type=model_types.root_model,
+        data_model_field_type=model_types.field_model,
+        data_type_manager_type=model_types.data_type_manager,
+        dump_resolve_reference_action=model_types.dump_resolve_reference_action,
+        formatters=[Formatter.BUILTIN],
+    )
+    assert_output(cast("str", parser.parse(disable_future_imports=True)))
+
+
+def test_model_graph_check_reports_a_module_name_written_by_path_after_its_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A custom parser whose ``_process_single_module`` gives the module's models another module name by path.
+
+    Module names are looked up by model key, which still names the module the models are in. The model graph check
+    (`1`, as the test suite sets it) raises where a later module imports one of the models.
+    """
+    from typing_extensions import override
+
+    from datamodel_code_generator.parser.openapi import OpenAPIParser
+
+    class RelabelingParser(OpenAPIParser):
+        @override
+        def _process_single_module(self, *args: Any) -> Any:
+            context = super()._process_single_module(*args)
+            model_path_to_module_name = args[5]
+            for model in args[1]:
+                model_path_to_module_name[model.path] = "elsewhere"
+            return context
+
+    monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, "1")
+    parser = RelabelingParser(OPEN_API_DATA_PATH / "modular.yaml", formatters=[Formatter.BUILTIN])
+    with pytest.raises(
+        Error, match=rf"^{CHECK_MODEL_GRAPH_ENV}: module names: the lookups by model key and by path disagree$"
+    ):
+        parser.parse()
+
+
+def test_process_single_module_override_passes_a_module_name_map_of_its_own() -> None:
+    """A custom parser whose ``_process_single_module`` hands the base implementation a copy of the module names.
+
+    The module names that the module's processing and root-model collapse write go to that copy, by path only.
+    """
+    from typing_extensions import override
+
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class CopyingParser(JsonSchemaParser):
+        @override
+        def _process_single_module(self, *args: Any) -> Any:
+            *leading, model_path_to_module_name, require_update_action_models, unused_models = args
+            return super()._process_single_module(
+                *leading, dict(model_path_to_module_name), require_update_action_models, unused_models
+            )
+
+    parser = CopyingParser(
+        JSON_SCHEMA_DATA_PATH / "collapse_root_models_name_strategy_reuse",
+        collapse_root_models=True,
+        collapse_root_models_name_strategy=CollapseRootModelsNameStrategy.Parent,
+        reuse_model=True,
+        formatters=[Formatter.BUILTIN],
+    )
+    modules = cast("dict[tuple[str, ...], Any]", parser.parse())
+    assert_output("".join(f"# {'/'.join(module)}\n{modules[module].body}\n" for module in sorted(modules)))
+
+
+def test_model_graph_check_reports_a_model_without_an_owner(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A custom parser that registers a model no model builder built leaves it without an owner and not a root.
+
+    The model graph check (`1`, as the test suite sets it) raises for it at the end of parsing. The location check,
+    which reports the same model, is off here.
+    """
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class AddingParser(JsonSchemaParser):
+        def parse_raw(self) -> None:
+            super().parse_raw()
+            reference = self.model_resolver.add(["#/added"], "Added", class_name=True, loaded=True)
+            self.generation_store.register_model(self.data_model_type(reference=reference, fields=[]))
+
+    monkeypatch.setenv(CHECK_SCHEMA_LOCATIONS_ENV, "0")
+    parser = AddingParser(
+        JSON_SCHEMA_DATA_PATH / "annotated_forward_reference_required_order.json", formatters=[Formatter.BUILTIN]
+    )
+    with pytest.raises(Error, match=rf"^{CHECK_MODEL_GRAPH_ENV}: models without an owner that are not roots: Added "):
+        parser.parse()
 
 
 def test_debug(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1050,6 +1397,37 @@ def test_standard_preset_enum_shapes(output_model_type: str, date: str, expected
         extra_args=["--preset", f"standard-py314-{date}", "--output-model-type", output_model_type],
         assert_func=assert_file_content,
         expected_file=f"preset_enum_shapes/{expected_name}.py",
+    )
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="the 3.14 preset writes type statements")
+@pytest.mark.parametrize("date", ["20261017", "20261027"])
+@pytest.mark.parametrize("output_model_type", ["pydantic_v2.BaseModel", "msgspec.Struct"])
+def test_standard_preset_enums_read_as_their_const(output_model_type: str, date: str, output_file: Path) -> None:
+    """The 20261027 presets read an enum of one value, and an enum that admits its const, as that const.
+
+    The 20261017 presets keep each enum class, as in 0.86.0.
+    """
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always", UserWarning)
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "enum_const_positions.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            extra_args=[
+                "--preset",
+                f"standard-py314-{date}",
+                "--output-model-type",
+                output_model_type,
+            ],
+            force_exec_validation=True,
+        )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
+        ),
+        name="warnings",
     )
 
 
@@ -2618,6 +2996,493 @@ def test_import_overrides_preserve_alias(output_file: Path) -> None:
 
 
 @freeze_time(TIMESTAMP)
+def test_import_overrides_on_a_target_without_shared_imports(output_file: Path) -> None:
+    """Route generated typing imports through a compatibility module when no module shares a future import."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "datetime.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--output-model-type",
+            "typing.TypedDict",
+            "--target-python-version",
+            "3.14",
+            "--import-overrides",
+            '{"TypedDict": "my_project.typing_compat", "NotRequired": "my_project.typing_compat"}',
+            "--formatters",
+            "builtin",
+        ],
+        skip_code_validation=True,
+    )
+
+
+@pytest.mark.parametrize("flag", ["check", "report", "off"])
+def test_module_imports_written_outside_the_import_ledger(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str
+) -> None:
+    """A custom ``_process_single_module`` that appends to the module's imports itself bypasses the import ledger.
+
+    The check (`1`, as the test suite sets it) raises when the module's import text is written; `report:<path>`
+    appends a JSON line and goes on; with the check off (`0`) the import is counted once more and the output reads the
+    same.
+    """
+    from datamodel_code_generator.imports import Import
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class DirectImportWriter(JsonSchemaParser):
+        def _process_single_module(self, *args: Any, **kwargs: Any) -> Any:
+            context = super()._process_single_module(*args, **kwargs)
+            context.imports.append(Import.from_full_path("pydantic.BaseModel"))
+            return context
+
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_MODULE_IMPORTS_ENV, {"check": "1", "report": f"report:{report_path}", "off": "0"}[flag])
+    parser = DirectImportWriter(JSON_SCHEMA_DATA_PATH / "person.json", formatters=[Formatter.BUILTIN])
+    if flag == "check":
+        with pytest.raises(Error, match=f"^{CHECK_MODULE_IMPORTS_ENV}: imports of .+ differ from the replay of"):
+            parser.parse()
+        return
+    assert_output(str(parser.parse()))
+    if flag == "report":
+        assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+def test_models_named_outside_the_import_plan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A custom ``_process_single_module`` that changes a module after its imports were made departs from its plan.
+
+    In ``required.py``, whose ``Model`` imports the other module's ``Model`` as its base class, one field is typed by
+    that model (no import binds the module the field form names), one by a reference to a model no module writes
+    (written by its own name, as the plan writes it), and the base class is written under another name, so the
+    import of its binding is dropped as unused. An import of the model that the second field names is added to the
+    module, which the plan does not hold. With `report:<path>`, the check appends the differences and how many model
+    names of each module it compared.
+    """
+    from datamodel_code_generator.imports import Import
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+    from datamodel_code_generator.reference import Reference
+    from datamodel_code_generator.types import DataType
+
+    class LateRetypingParser(JsonSchemaParser):
+        def _process_single_module(self, *args: Any, **kwargs: Any) -> Any:
+            context = super()._process_single_module(*args, **kwargs)
+            if context.module == ("required.py",):
+                model = context.models[0]
+                imported = next(other for other in self.results if other is not model and other.class_name == "Model")
+                typed_by_import, typed_by_nothing = model.fields
+                self.generation_store.replace_field_type(typed_by_import, DataType(reference=imported.reference))
+                self.generation_store.replace_field_type(
+                    typed_by_nothing, DataType(reference=Reference(path="#/Nowhere", name="Nowhere"))
+                )
+                model.base_classes[0].alias = "Renamed"
+                ledger = self._import_ledger
+                ledger.append(
+                    context.imports,
+                    Import(from_=".referenced", import_="Nowhere", reference_path="#/Nowhere"),
+                    ledger.entries(context.imports)[0].producer,
+                )
+            return context
+
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_MODULE_IMPORTS_ENV, f"report:{report_path}")
+    monkeypatch.setenv(CHECK_FACT_FINALITY_ENV, "0")
+    LateRetypingParser(JSON_SCHEMA_DATA_PATH / "require_referenced_field", formatters=[Formatter.BUILTIN]).parse()
+    assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+@pytest.mark.parametrize("flag", ["check", "report"])
+def test_render_plan_that_drops_a_declared_item(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str) -> None:
+    """A field whose ``Field()`` arguments lose a declared item without a reason fails its render plan's accounting.
+
+    The check (`1`, as the test suite sets it) raises when render preparation freezes the plan; `report:<path>`
+    appends a JSON line and goes on, and the output reads as the field writes it.
+    """
+    from datamodel_code_generator.model.pydantic_v2 import DataModelField
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class SilentlyDroppedDescription(DataModelField):
+        def _process_field_arguments(self, args: Any) -> None:
+            super()._process_field_arguments(args)
+            args.take("description")
+
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_RENDER_PLANS_ENV, {"check": "1", "report": f"report:{report_path}"}[flag])
+    parser = JsonSchemaParser(
+        JSON_SCHEMA_DATA_PATH / "person.json",
+        data_model_field_type=SilentlyDroppedDescription,
+        formatters=[Formatter.BUILTIN],
+    )
+    if flag == "check":
+        with pytest.raises(Error, match=f"^{CHECK_RENDER_PLANS_ENV}: the render plan of Person.firstName leaves"):
+            parser.parse()
+        return
+    assert_output(str(parser.parse()))
+    assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_render_plan_of_a_declared_default_factory_of_none(monkeypatch: pytest.MonkeyPatch, nested: bool) -> None:
+    """A declared ``default_factory`` of ``None`` is not written and passes the render plan's accounting."""
+    from datamodel_code_generator.model import get_data_model_types
+    from datamodel_code_generator.parser.graphql import GraphQLParser
+
+    types = get_data_model_types(DataModelType.PydanticV2BaseModel, PythonVersion.PY_310)
+    monkeypatch.setenv(CHECK_RENDER_PLANS_ENV, "1")
+    schema = "type Inner { x: Int }\ntype Outer { inner: Inner, name: String }\n"
+    parser = GraphQLParser(
+        schema,
+        data_model_type=types.data_model,
+        data_model_root_type=types.root_model,
+        data_model_field_type=types.field_model,
+        data_type_manager_type=types.data_type_manager,
+        dump_resolve_reference_action=types.dump_resolve_reference_action,
+        default_field_extras={"default_factory": None},
+        use_default_factory_for_optional_nested_models=nested,
+        formatters=[Formatter.BUILTIN],
+    )
+    assert_output(str(parser.parse()))
+
+
+def test_msgspec_constraints_on_a_graphql_scalar() -> None:
+    """A field typed by a GraphQL scalar, an alias without a field, keeps its constraints in msgspec ``Meta``."""
+    from datamodel_code_generator.model import get_data_model_types
+    from datamodel_code_generator.parser.graphql import GraphQLParser
+
+    types = get_data_model_types(DataModelType.MsgspecStruct, PythonVersion.PY_310)
+    parser = GraphQLParser(
+        "scalar Long\ntype Thing { long: Long, longs: [Long!]! }\n",
+        data_model_type=types.data_model,
+        data_model_root_type=types.root_model,
+        data_model_field_type=types.field_model,
+        data_type_manager_type=types.data_type_manager,
+        data_model_scalar_type=types.scalar_model,
+        dump_resolve_reference_action=types.dump_resolve_reference_action,
+        default_field_extras={"min_length": 1},
+        field_constraints=True,
+        use_annotated=True,
+        formatters=[Formatter.BUILTIN],
+    )
+    assert_output(str(parser.parse()))
+
+
+@pytest.mark.parametrize("flag", ["check", "report", "off"])
+def test_render_plan_whose_field_changes_after_render_preparation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str
+) -> None:
+    """A field that a pass after render preparation changes writes the change, as 0.86.0 does.
+
+    The check (`1`) raises when the modules are written; `report:<path>` appends a JSON line, and the field's plan is
+    rebuilt when its model renders, with the check off (`0`) too.
+    """
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class LateDescription(JsonSchemaParser):
+        def _check_model_inheritance(self, contexts: Any) -> None:
+            super()._check_model_inheritance(contexts)
+            contexts[0].models[0].fields[0].extras["description"] = "Changed after render preparation."
+
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_FACT_FINALITY_ENV, "0")
+    monkeypatch.setenv(CHECK_RENDER_PLANS_ENV, {"check": "1", "report": f"report:{report_path}", "off": "0"}[flag])
+    parser = LateDescription(JSON_SCHEMA_DATA_PATH / "person.json", formatters=[Formatter.BUILTIN])
+    if flag == "check":
+        with pytest.raises(Error, match=f"^{CHECK_RENDER_PLANS_ENV}: the render plan frozen for field firstName"):
+            parser.parse()
+        return
+    assert_output(str(parser.parse()))
+    if flag == "report":
+        assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+@pytest.mark.parametrize("flag", ["check", "report", "off"])
+def test_type_expression_whose_field_changes_after_render_preparation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str
+) -> None:
+    """A field type that a pass after render preparation puts in a list writes the list, as 0.86.0 does.
+
+    The check (`1`) raises when the modules are written, as the type expression frozen with the field's plan writes no
+    list; `report:<path>` appends a JSON line, and the output is the same with the check off (`0`).
+    """
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class LateList(JsonSchemaParser):
+        def _check_model_inheritance(self, contexts: Any) -> None:
+            super()._check_model_inheritance(contexts)
+            vars(contexts[0].models[0].fields[0].data_type)["is_list"] = True
+
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_FACT_FINALITY_ENV, "0")
+    monkeypatch.setenv(CHECK_RENDER_PLANS_ENV, {"check": "1", "report": f"report:{report_path}", "off": "0"}[flag])
+    parser = LateList(JSON_SCHEMA_DATA_PATH / "person.json", formatters=[Formatter.BUILTIN])
+    if flag == "check":
+        with pytest.raises(Error, match=f"^{CHECK_RENDER_PLANS_ENV}: the type expression frozen for field firstName"):
+            parser.parse()
+        return
+    assert_output(str(parser.parse()))
+    if flag == "report":
+        assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+@pytest.mark.parametrize("flag", ["check", "report", "off"])
+def test_render_memo_that_an_extension_makes_stale(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str) -> None:
+    """A union that an extension gives a name behind the store still spreads the members it joined before, as 0.86.0.
+
+    The check (`1`) raises where the enclosing union reads them; `report:<path>` appends a JSON line at each read, and
+    the union reads as with the check off (`0`).
+    """
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class LateUnionAlias(JsonSchemaParser):
+        def _check_model_inheritance(self, contexts: Any) -> None:
+            super()._check_model_inheritance(contexts)
+            inner = contexts[0].models[0].fields[0].data_type.data_types[1]
+            vars(inner)["alias"] = inner.type_hint
+
+    schema = (
+        '{"title": "M", "type": "object", "properties": {"v": {"anyOf": [{"type": "integer"},'
+        ' {"anyOf": [{"type": "string"}, {"type": "boolean"}]}]}}}'
+    )
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_FACT_FINALITY_ENV, "0")
+    monkeypatch.setenv(CHECK_RENDER_MEMOS_ENV, {"check": "1", "report": f"report:{report_path}", "off": "0"}[flag])
+    parser = LateUnionAlias(schema, formatters=[Formatter.BUILTIN])
+    if flag == "check":
+        with pytest.raises(
+            Error, match=f"^{CHECK_RENDER_MEMOS_ENV}: the union members joined to Union.str, bool. that"
+        ):
+            parser.parse()
+        return
+    assert_output(str(parser.parse()))
+    if flag == "report":
+        assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+@pytest.mark.parametrize("flag", ["check", "report", "off"])
+def test_enum_member_index_that_an_extension_makes_stale(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, flag: str
+) -> None:
+    """A module processed after an extension changes an enum member's value finds the member by the old one, as 0.86.0.
+
+    The extension writes behind the store. The check (`1`) raises at the lookup; `report:<path>` appends a JSON line,
+    and the output keeps the member, as with the check off (`0`).
+    """
+    from datamodel_code_generator.model.enum import Enum
+
+    class LateMemberValue(OpenAPIParser):
+        def _process_single_module(self, module_: Any, models: Any, *args: Any) -> Any:
+            context = super()._process_single_module(module_, models, *args)
+            if module_ == ("two",):
+                kind = next(model for model in self.results if isinstance(model, Enum))
+                vars(kind.fields[0])["default"] = "'c'"
+            return context
+
+    schema = """
+openapi: 3.0.3
+info: {title: t, version: "1"}
+paths: {}
+components:
+  schemas:
+    shared.Kind: {type: string, enum: [a, b]}
+    one.A: {type: object, properties: {k: {$ref: "#/components/schemas/shared.Kind", default: a}}}
+    two.B: {type: object, properties: {k: {$ref: "#/components/schemas/shared.Kind", default: a}}}
+"""
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_FACT_FINALITY_ENV, "0")
+    monkeypatch.setenv(CHECK_RENDER_MEMOS_ENV, {"check": "1", "report": f"report:{report_path}", "off": "0"}[flag])
+    parser = LateMemberValue(schema, formatters=[Formatter.BUILTIN], set_default_enum_member=True)
+    if flag == "check":
+        with pytest.raises(Error, match=f"^{CHECK_RENDER_MEMOS_ENV}: the enum member index of Kind that the memo"):
+            parser.parse()
+        return
+    output = parser.parse()
+    assert_output("".join(f"# {'/'.join(path)}\n{result.body}" for path, result in sorted(output.items())))
+    if flag == "report":
+        assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+@pytest.mark.parametrize(
+    ("input_name", "options"),
+    [
+        pytest.param(
+            "collapse_root_models_name_strategy/two_holders.yaml",
+            {
+                "collapse_root_models": True,
+                "collapse_root_models_name_strategy": CollapseRootModelsNameStrategy.Parent,
+            },
+            id="self-reference",
+        ),
+        pytest.param(
+            "dot_notation_collapse_reuse_models.yaml",
+            {"reuse_model": True, "collapse_reuse_models": True},
+            id="dedup-keys",
+        ),
+    ],
+)
+def test_render_memos_record_the_stale_values_legacy_rows_keep(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, input_name: str, options: dict[str, Any]
+) -> None:
+    """A report file records the stale self references and dedup keys that today's output keeps; they never raise."""
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_RENDER_MEMOS_ENV, f"report:{report_path}")
+    OpenAPIParser(OPEN_API_DATA_PATH / input_name, formatters=[Formatter.BUILTIN], **options).parse()
+    assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
+_FIELD_TYPE_SCHEMA = (
+    '{"title": "M", "type": "object", "required": ["a"], "properties": {"a": {"type": "integer"},'
+    ' "b": {"type": "string", "default": "x"}, "c": {"type": "integer"}}}'
+)
+
+
+@pytest.mark.parametrize("override", ["field", "str", "none"])
+def test_dataclass_field_type_imports_follow_its_field(override: str) -> None:
+    """A dataclass field type that overrides ``field`` or ``__str__`` gets ``field`` imported exactly when it writes it.
+
+    A field writing ``field(...)`` for each optional field imports it; one whose ``field`` is None writes its default
+    alone and imports nothing, though the built-in field would write ``field(default_factory=...)``.
+    """
+    from datamodel_code_generator.model import get_data_model_types
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    types = get_data_model_types(DataModelType.DataclassesDataclass, PythonVersion.PY_311)
+
+    class ReprlessField(types.field_model):
+        @property
+        def field(self) -> str | None:
+            return super().field if self.required else f"field(default={self.represented_default}, repr=False)"
+
+    class ReprlessStr(types.field_model):
+        def __str__(self) -> str:
+            return super().__str__() if self.required else f"field(default={self.represented_default}, repr=False)"
+
+    class PlainDefaults(types.field_model):
+        @property
+        def field(self) -> str | None:
+            return None
+
+    schema = _FIELD_TYPE_SCHEMA
+    if override == "none":
+        schema = '{"title": "M", "type": "object", "properties": {"b": {"type": "array", "default": ["x"]}}}'
+    parser = JsonSchemaParser(
+        schema,
+        data_model_type=types.data_model,
+        data_model_root_type=types.root_model,
+        data_model_field_type={"field": ReprlessField, "str": ReprlessStr, "none": PlainDefaults}[override],
+        data_type_manager_type=types.data_type_manager,
+        dump_resolve_reference_action=types.dump_resolve_reference_action,
+        target_python_version=PythonVersion.PY_311,
+        formatters=[Formatter.BUILTIN],
+    )
+    output = str(parser.parse())
+    assert_output(output)
+    if override != "none":
+        validate_generated_code(output, "<generated>", do_exec=True)
+
+
+@pytest.mark.parametrize(
+    ("override", "call"),
+    [
+        pytest.param("field", "field(metadata={'x': 1})", id="field-metadata"),
+        pytest.param("field", "field(default=0, metadata={'x': 1})", id="field-default"),
+        pytest.param("str", "field(default=0, metadata={'x': 1})", id="str-default"),
+    ],
+)
+def test_dataclass_field_type_orders_fields_by_what_it_writes(override: str, call: str) -> None:
+    """A dataclass field type that overrides ``field`` or ``__str__`` orders fields by the call it writes, as 0.86.0.
+
+    The required ``a`` writes ``call`` and so follows the required ``b``; with a default before ``b`` the dataclass
+    would raise ``TypeError`` at import.
+    """
+    from datamodel_code_generator.model import get_data_model_types
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    types = get_data_model_types(DataModelType.DataclassesDataclass, PythonVersion.PY_311)
+
+    class CallField(types.field_model):
+        @property
+        def field(self) -> str | None:
+            return call if self.name == "a" else super().field
+
+    class CallStr(types.field_model):
+        def __str__(self) -> str:
+            return call if self.name == "a" else super().__str__()
+
+    parser = JsonSchemaParser(
+        '{"title": "M", "type": "object", "required": ["a", "b"], "properties": {"a": {"type": "integer"},'
+        ' "b": {"type": "string"}, "c": {"type": "integer", "default": 3}}}',
+        data_model_type=types.data_model,
+        data_model_root_type=types.root_model,
+        data_model_field_type={"field": CallField, "str": CallStr}[override],
+        data_type_manager_type=types.data_type_manager,
+        dump_resolve_reference_action=types.dump_resolve_reference_action,
+        target_python_version=PythonVersion.PY_311,
+        formatters=[Formatter.BUILTIN],
+    )
+    output = str(parser.parse())
+    assert_output(output)
+    validate_generated_code(output, "<generated>", do_exec=True)
+
+
+@pytest.mark.parametrize(
+    ("output_model_type", "check"),
+    [
+        ("pydantic_v2.BaseModel", "1"),
+        ("pydantic_v2.dataclass", "1"),
+        ("dataclasses.dataclass", "1"),
+        ("msgspec.Struct", "1"),
+        ("typing.TypedDict", "1"),
+        ("dataclasses.dataclass", "0"),
+    ],
+)
+def test_model_that_changes_its_fields_in_render(
+    monkeypatch: pytest.MonkeyPatch, output_model_type: str, check: str
+) -> None:
+    """A model whose ``render`` changes its fields before it renders them writes the changed fields, as 0.86.0 does.
+
+    After their plans froze, ``b`` gets another default, ``c`` becomes required, and ``d``'s extras, ``e``'s type and
+    ``f``'s default list change in place. The field's plan is rebuilt when the model renders, and accounted with the
+    render plan check on (`1`) as with it off (`0`). The fact finality check, which reports the change as a write during
+    rendering, is off.
+    """
+    from datamodel_code_generator.model import get_data_model_types
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    monkeypatch.setenv(CHECK_FACT_FINALITY_ENV, "0")
+    monkeypatch.setenv(CHECK_RENDER_PLANS_ENV, check)
+    types = get_data_model_types(DataModelType(output_model_type), PythonVersion.PY_311)
+
+    class ChangedInRender(types.data_model):
+        def render(self, *, class_name: str | None = None) -> str:
+            for field in self.fields:
+                if field.name == "b":
+                    field.default = "changed"
+                elif field.name == "c":
+                    field.required = True
+                elif field.name == "d":
+                    field.extras["description"] = "Changed in render."
+                elif field.name == "e":
+                    field.data_type.type = "float"
+                elif field.name == "f":
+                    field.default.append("z")
+            return super().render(class_name=class_name)
+
+    parser = JsonSchemaParser(
+        '{"title": "M", "type": "object", "required": ["a"], "properties": {"a": {"type": "integer"},'
+        ' "b": {"type": "array", "items": {"type": "string"}, "default": ["x"]}, "c": {"type": "integer"},'
+        ' "d": {"type": "string", "description": "Declared."}, "e": {"type": "integer"},'
+        ' "f": {"type": "array", "items": {"type": "string"}, "default": ["y"]}}}',
+        data_model_type=ChangedInRender,
+        data_model_root_type=types.root_model,
+        data_model_field_type=types.field_model,
+        data_type_manager_type=types.data_type_manager,
+        dump_resolve_reference_action=types.dump_resolve_reference_action,
+        target_python_version=PythonVersion.PY_311,
+        formatters=[Formatter.BUILTIN],
+    )
+    assert_output(str(parser.parse()))
+
+
+@freeze_time(TIMESTAMP)
 def test_import_overrides_apply_to_additional_imports(output_file: Path) -> None:
     """Override explicitly included imports without rewriting future imports."""
     run_main_and_assert(
@@ -3715,6 +4580,29 @@ def test_all_exports_recursive_local_model_collision_error(
         expected_stderr=(
             "Name collision detected with --all-exports-scope:\n"
             "  'Message' conflicts with a model in __init__.py\n\n"
+            "Use --all-exports-collision-strategy minimal-prefix or full-prefix to prefix the colliding names with "
+            "their module names.\n"
+        ),
+        capsys=capsys,
+    )
+
+
+def test_all_exports_recursive_multiple_collisions_error(output_dir: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Test --all-exports-scope=recursive lists every colliding export name in sorted order."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "all_exports_multiple_collisions.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            "--all-exports-scope",
+            "recursive",
+        ],
+        expected_exit=Exit.ERROR,
+        expected_stderr=(
+            "Name collision detected with --all-exports-scope:\n"
+            "  'Item' is defined in: .foo, .bar\n"
+            "  'Message' conflicts with a model in __init__.py\n"
+            "  'Pet' is defined in: .foo, .bar\n\n"
             "Use --all-exports-collision-strategy minimal-prefix or full-prefix to prefix the colliding names with "
             "their module names.\n"
         ),
@@ -6345,6 +7233,39 @@ def test_use_annotated_deprecation_warning_pydantic_v2(output_file: Path) -> Non
         )
 
 
+@pytest.mark.parametrize(
+    ("extra_args", "expected_stderr_contains"),
+    [
+        pytest.param(
+            ["--output-model-type", "pydantic_v2.BaseModel"],
+            "DeprecationWarning: Pydantic v2 with --use-annotated is recommended",
+            id="model-run-options",
+        ),
+        pytest.param(
+            ["--allow-extra-fields"],
+            "DeprecationWarning: --allow-extra-fields is deprecated",
+            id="config",
+        ),
+    ],
+)
+def test_option_warning_as_error_fails_the_run(
+    extra_args: list[str], expected_stderr_contains: str, output_file: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A warning turned into an error while the options are processed fails the run with exit 2 (#5212)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "simple_string.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            extra_args=extra_args,
+            expected_exit=Exit.ERROR,
+            capsys=capsys,
+            expected_stderr_contains=expected_stderr_contains,
+            output_should_not_exist=True,
+        )
+
+
 def test_use_annotated_no_warning_with_flag(output_file: Path) -> None:
     """Test that no warning is emitted when --use-annotated is explicitly set."""
     with warnings.catch_warnings(record=True) as w:
@@ -6425,6 +7346,7 @@ def test_all_exports_includes_generate_config() -> None:
             ("20260909", ("310", "311", "312", "313", "314")),
             ("20261015", ("310", "311", "312", "313", "314", "315")),
             ("20261017", ("310", "311", "312", "313", "314", "315")),
+            ("20261027", ("310", "311", "312", "313", "314", "315")),
         )
         for family in ("standard", "practical")
         for target in targets
@@ -6544,4 +7466,34 @@ def test_formatter_policy_pyproject(mode: str, override: bool, output_file: Path
     assert_output(
         output_file.read_text(encoding="utf-8"),
         EXPECTED_MAIN_PATH / "formatter_policy" / f"pyproject-{mode}-{'override' if override else 'configured'}.py",
+    )
+
+
+@pytest.mark.parametrize("checks_off", [(CHECK_FACT_FINALITY_ENV,), (CHECK_FACT_FINALITY_ENV, CHECK_STORE_WRITES_ENV)])
+@pytest.mark.parametrize(
+    ("input_name", "args"),
+    [
+        pytest.param(
+            "allof_required_inherited_dataclass_metadata.yaml",
+            ["--output-model-type", "dataclasses.dataclass"],
+            id="constructor-ordering",
+        ),
+        pytest.param(
+            "redundant_reference_null.yaml", ["--strict-nullable", "--omit-redundant-reference-null"], id="decisions"
+        ),
+    ],
+)
+@freeze_time(TIMESTAMP)
+def test_generation_without_parse_checks(
+    monkeypatch: pytest.MonkeyPatch, output_file: Path, checks_off: tuple[str, ...], input_name: str, args: list[str]
+) -> None:
+    """Generation with the finality and store-write checks off, as users run it, writes what the checked run writes."""
+    for name in checks_off:
+        monkeypatch.setenv(name, "0")
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / input_name,
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=args,
+        assert_func=assert_file_content,
     )

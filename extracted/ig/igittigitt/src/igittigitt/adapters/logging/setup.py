@@ -24,6 +24,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import lib_log_rich
 import lib_log_rich.runtime
 from dotenv import dotenv_values
 from pydantic import Field, ValidationError, ValidationInfo, field_validator
@@ -34,6 +35,8 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
     from lib_layered_config import Config
+    from lib_log_rich.demo import LogDemoResult
+    from lib_log_rich.domain import ConsoleTheme
 
 #: Every setting a None value leaves at its default. ``environment`` is not among them: a
 #: ``null`` there is refused, so a deployment that meant to name its environment learns it did not.
@@ -44,7 +47,8 @@ class LoggingConfigModel(lib_log_rich.runtime.RuntimeConfig):
     """lib_log_rich's ``RuntimeConfig`` with this package's defaults: the ``[lib_log_rich]`` section's model.
 
     The section is validated once, by lib_log_rich's own field types; a key it does not know is
-    ignored, as ``RuntimeConfig`` ignores it. On top of that:
+    refused, as ``RuntimeConfig`` refuses it from lib_log_rich 8 on, so a misspelled setting is
+    reported rather than leaving the intended value at its default. On top of that:
 
     * ``service`` defaults to the package name, also when it is empty or None.
     * ``environment`` defaults to ``prod``.
@@ -59,11 +63,17 @@ class LoggingConfigModel(lib_log_rich.runtime.RuntimeConfig):
         ('myapp', 'staging')
 
         >>> default = LoggingConfigModel()
-        >>> default.service, default.environment, default.console_theme
+        >>> default.service, default.environment, str(default.console_theme)
         ('igittigitt', 'prod', 'dark')
 
-        >>> LoggingConfigModel.model_validate({"service": 4711, "console_theme": None, "unknown": 1}).service
+        >>> LoggingConfigModel.model_validate({"service": 4711, "console_theme": None}).service
         '4711'
+
+        >>> try:
+        ...     LoggingConfigModel.model_validate({"console_levle": "DEBUG"})
+        ... except ValidationError as exc:
+        ...     exc.errors()[0]["type"]
+        'extra_forbidden'
     """
 
     service: str = Field(default=__init__conf__.name, coerce_numbers_to_str=True)
@@ -292,8 +302,35 @@ def init_logging(config: Config, *, dotenv_path: str | None = None) -> None:
     lib_log_rich.runtime.attach_std_logging()
 
 
+def run_logdemo(theme: ConsoleTheme) -> LogDemoResult:
+    """Run lib_log_rich's demo; a ``LOG_*`` variable it refuses is refused as :func:`init_logging` refuses it.
+
+    The demo needs the runtime stopped, so a running one is shut down first. It builds its own
+    runtime and reads the ``LOG_*`` variables itself, so an invalid one surfaces here as
+    lib_log_rich's ``ValueError``, which would otherwise reach ``main()``'s catch-all and exit
+    with the OS errno (22 on POSIX, 87 on Windows).
+
+    Args:
+        theme: The console theme to preview.
+
+    Returns:
+        lib_log_rich's report of the demo run.
+
+    Raises:
+        InvalidLoggingConfigError: A ``LOG_*`` variable lib_log_rich refuses, in the same line
+            :func:`init_logging` writes for it.
+    """
+    if lib_log_rich.runtime.is_initialised():
+        lib_log_rich.runtime.shutdown()
+    try:
+        return lib_log_rich.logdemo(theme=theme)
+    except ValueError as exc:  # pydantic's ValidationError is a ValueError
+        raise InvalidLoggingConfigError(_problems(exc)) from exc
+
+
 __all__ = [
     "InvalidLoggingConfigError",
     "LoggingConfigModel",
     "init_logging",
+    "run_logdemo",
 ]

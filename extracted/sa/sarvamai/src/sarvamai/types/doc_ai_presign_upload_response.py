@@ -9,7 +9,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 class DocAiPresignUploadResponse(UniversalBaseModel):
     upload_id: str = pydantic.Field()
     """
-    Handle for the uploaded file. Pass it through `upload_ids` on a later digitise or extract job request.
+    Handle for the uploaded file. Pass it through `upload_ids` on a later parse or extract job request.
     """
 
     method: str = pydantic.Field()

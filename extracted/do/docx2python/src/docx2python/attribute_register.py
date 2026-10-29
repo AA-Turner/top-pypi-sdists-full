@@ -23,9 +23,7 @@ from lxml import etree
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-    from lxml.etree import (
-        _Element as EtreeElement,  # pyright: ignore[reportPrivateUsage]
-    )
+    from lxml.etree import _Element as EtreeElement  # pyright: ignore[reportPrivateUsage]
 
 # ===============================================================================
 # Examine and reformat html tags
@@ -293,6 +291,7 @@ class Tags(str, Enum):
     BR = "w:br"
     COMMENT_RANGE_END = "w:commentRangeEnd"
     COMMENT_RANGE_START = "w:commentRangeStart"
+    CR = "w:cr"
     DOCUMENT = "w:document"
     ENDNOTE = "w:endnote"
     ENDNOTE_REFERENCE = "w:endnoteReference"
@@ -305,6 +304,7 @@ class Tags(str, Enum):
     IMAGEDATA = "v:imagedata"
     IMAGE_ALT = "wp:docPr"
     MATH = "m:oMath"
+    NO_BREAK_HYPHEN = "w:noBreakHyphen"
     PARAGRAPH = "w:p"
     PAR_PROPERTIES = "w:pPr"
     RUN = "w:r"

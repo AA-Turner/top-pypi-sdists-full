@@ -2282,14 +2282,20 @@ class MulticastInputSettingsTypeDef(TypedDict):
 class MulticastSourceCreateRequestTypeDef(TypedDict):
     Url: str
     SourceIp: NotRequired[str]
+    SecondarySourceIp: NotRequired[str]
+    SecondaryUrl: NotRequired[str]
 
 class MulticastSourceTypeDef(TypedDict):
     Url: str
     SourceIp: NotRequired[str]
+    SecondarySourceIp: NotRequired[str]
+    SecondaryUrl: NotRequired[str]
 
 class MulticastSourceUpdateRequestTypeDef(TypedDict):
     Url: str
     SourceIp: NotRequired[str]
+    SecondarySourceIp: NotRequired[str]
+    SecondaryUrl: NotRequired[str]
 
 class MultiplexM2tsSettingsTypeDef(TypedDict):
     AbsentInputAudioBehavior: NotRequired[M2tsAbsentInputAudioBehaviorType]

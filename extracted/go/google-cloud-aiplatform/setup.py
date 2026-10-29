@@ -98,7 +98,8 @@ private_endpoints_extra_require = [
 
 autologging_extra_require = [
     "mlflow>=1.27.0,<=2.16.0; python_version<'3.13'",
-    "mlflow>=1.27.0; python_version>='3.13'",
+    # mlflow requires pyarrow<26, and only pyarrow 26+ has Python 3.15 wheels.
+    "mlflow>=1.27.0; python_version>='3.13' and python_version<'3.15'",
 ]
 
 preview_extra_require = []
@@ -186,7 +187,8 @@ evaluation_extra_require = [
     "ruamel.yaml",
     "pyyaml",
     "litellm>=1.83.7, <1.97.0; python_version<'3.14'",
-    "litellm>=1.93.0, <1.97.0; python_version>='3.14'",
+    # litellm does not support Python 3.15 yet (Requires-Python <3.15).
+    "litellm>=1.93.0, <1.97.0; python_version=='3.14'",
     # For LiteLLM tests. Lower bound: CVE-2026-35030 plus 4 follow-on
     # advisories patched in 1.83.7. Upper bound <1.97.0 for stable interface only.
 ]
@@ -234,7 +236,11 @@ llama_index_testing_extra_require = list(
 )
 
 tokenization_extra_require = ["sentencepiece >= 0.2.0"]
-tokenization_testing_extra_require = tokenization_extra_require + ["nltk"]
+tokenization_testing_extra_require = [
+    # sentencepiece has no Python 3.15 wheels yet and fails to build from source.
+    "sentencepiece >= 0.2.0; python_version<'3.15'",
+    "nltk",
+]
 
 full_extra_require = list(
     set(
@@ -270,6 +276,8 @@ testing_extra_require = (
         "grpcio-testing",
         "grpcio-tools >= 1.63.0; python_version>='3.13'",
         "ipython",
+        # Used by the offline store; previously only installed via mlflow.
+        "jinja2",
         "kfp >= 2.6.0, < 3.0.0; python_version<'3.13'",
         "pytest-asyncio",
         "pytest-cov",
@@ -372,6 +380,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Topic :: Internet",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],

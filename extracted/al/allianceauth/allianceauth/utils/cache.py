@@ -1,4 +1,6 @@
-from redis import Redis
+__lazy_modules__ = ["redis"]
+
+from typing import TYPE_CHECKING
 
 from django.core.cache import caches
 
@@ -7,8 +9,11 @@ try:
 except ImportError:
     django_redis = None
 
+if TYPE_CHECKING:
+    from redis import Redis
 
-def get_redis_client() -> Redis:
+
+def get_redis_client() -> "Redis":
     """Get the configured redis client used by Django for caching.
 
     This function is a wrapper designed to work for both AA2 and AA3

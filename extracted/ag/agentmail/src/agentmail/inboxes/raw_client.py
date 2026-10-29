@@ -28,8 +28,10 @@ from .types.create_inbox_request import CreateInboxRequest
 from .types.display_name import DisplayName
 from .types.inbox import Inbox
 from .types.inbox_id import InboxId
+from .types.inbox_signature import InboxSignature
 from .types.inbox_status import InboxStatus
 from .types.list_inboxes_response import ListInboxesResponse
+from .types.pause_at import PauseAt
 from .types.search_inboxes_response import SearchInboxesResponse
 from .types.update_metadata import UpdateMetadata
 from pydantic import ValidationError as pydantic_ValidationError
@@ -308,6 +310,8 @@ class RawInboxesClient:
         *,
         display_name: typing.Optional[DisplayName] = OMIT,
         status: typing.Optional[InboxStatus] = OMIT,
+        pause_at: typing.Optional[PauseAt] = OMIT,
+        signature: typing.Optional[InboxSignature] = OMIT,
         metadata: typing.Optional[UpdateMetadata] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Inbox]:
@@ -318,7 +322,8 @@ class RawInboxesClient:
         ```
 
         To pause an inbox, set `status` to `paused`; set it back to `active` to
-        resume. See [Pausing an inbox](/inboxes#pausing-an-inbox).
+        resume. To pause it later, set `pause_at`. See
+        [Pausing an inbox](/inboxes#pausing-an-inbox).
 
         Parameters
         ----------
@@ -331,13 +336,21 @@ class RawInboxesClient:
             it. Mail that arrived while the inbox was paused is not delivered on
             resume.
 
+        pause_at : typing.Optional[PauseAt]
+            Schedule a pause, or move one already scheduled. Send null to cancel
+            it. Only an organization- or pod-scoped API key can change it; an
+            inbox-scoped key gets `403`.
+
+        signature : typing.Optional[InboxSignature]
+            Set or replace the inbox's signature. Send null to remove it.
+
         metadata : typing.Optional[UpdateMetadata]
             Metadata to merge into the inbox's existing metadata. Keys you include
             are added or overwritten; keys you omit are left unchanged. To remove a
             single key, send it with a null value. To clear all metadata, send
             `metadata` as null. Sending an empty object is rejected; use null to
             clear. Each update must include at least one of `display_name`,
-            `status`, or `metadata`.
+            `status`, `pause_at`, `signature`, or `metadata`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -353,6 +366,10 @@ class RawInboxesClient:
             json={
                 "display_name": display_name,
                 "status": status,
+                "pause_at": pause_at,
+                "signature": convert_and_respect_annotation_metadata(
+                    object_=signature, annotation=typing.Optional[InboxSignature], direction="write"
+                ),
                 "metadata": convert_and_respect_annotation_metadata(
                     object_=metadata, annotation=typing.Optional[UpdateMetadata], direction="write"
                 ),
@@ -827,6 +844,8 @@ class AsyncRawInboxesClient:
         *,
         display_name: typing.Optional[DisplayName] = OMIT,
         status: typing.Optional[InboxStatus] = OMIT,
+        pause_at: typing.Optional[PauseAt] = OMIT,
+        signature: typing.Optional[InboxSignature] = OMIT,
         metadata: typing.Optional[UpdateMetadata] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Inbox]:
@@ -837,7 +856,8 @@ class AsyncRawInboxesClient:
         ```
 
         To pause an inbox, set `status` to `paused`; set it back to `active` to
-        resume. See [Pausing an inbox](/inboxes#pausing-an-inbox).
+        resume. To pause it later, set `pause_at`. See
+        [Pausing an inbox](/inboxes#pausing-an-inbox).
 
         Parameters
         ----------
@@ -850,13 +870,21 @@ class AsyncRawInboxesClient:
             it. Mail that arrived while the inbox was paused is not delivered on
             resume.
 
+        pause_at : typing.Optional[PauseAt]
+            Schedule a pause, or move one already scheduled. Send null to cancel
+            it. Only an organization- or pod-scoped API key can change it; an
+            inbox-scoped key gets `403`.
+
+        signature : typing.Optional[InboxSignature]
+            Set or replace the inbox's signature. Send null to remove it.
+
         metadata : typing.Optional[UpdateMetadata]
             Metadata to merge into the inbox's existing metadata. Keys you include
             are added or overwritten; keys you omit are left unchanged. To remove a
             single key, send it with a null value. To clear all metadata, send
             `metadata` as null. Sending an empty object is rejected; use null to
             clear. Each update must include at least one of `display_name`,
-            `status`, or `metadata`.
+            `status`, `pause_at`, `signature`, or `metadata`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -872,6 +900,10 @@ class AsyncRawInboxesClient:
             json={
                 "display_name": display_name,
                 "status": status,
+                "pause_at": pause_at,
+                "signature": convert_and_respect_annotation_metadata(
+                    object_=signature, annotation=typing.Optional[InboxSignature], direction="write"
+                ),
                 "metadata": convert_and_respect_annotation_metadata(
                     object_=metadata, annotation=typing.Optional[UpdateMetadata], direction="write"
                 ),

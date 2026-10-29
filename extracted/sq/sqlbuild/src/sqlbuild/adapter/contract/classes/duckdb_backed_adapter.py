@@ -126,6 +126,9 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
 
     execution_duration_limit_seconds: ClassVar[int | None] = CANCELLABLE_DURATION_LIMIT_SECONDS
 
+    def create_table_as_replaces(self) -> bool:
+        return True
+
     def create_sql_test_output(self, *, connection: Any, sql: str, name: str) -> str | None:
         """Store a unit test's output in a temporary table; compare inline on an engine bug."""
 
@@ -1127,16 +1130,21 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         if description is None:
             return QueryResult()
         columns: tuple[str, ...] = tuple(str(column[0]) for column in description)
+        column_types: tuple[str | None, ...] = tuple(
+            None if column[1] is None else str(column[1]) for column in description
+        )
         if limit is None:
             return QueryResult(
                 columns=columns,
                 rows=tuple(tuple(row) for row in cursor.fetchall()),
+                column_types=column_types,
             )
         fetched_rows: list[tuple[object, ...]] = [tuple(row) for row in cursor.fetchmany(limit + 1)]
         return QueryResult(
             columns=columns,
             rows=tuple(fetched_rows[:limit]),
             truncated=len(fetched_rows) > limit,
+            column_types=column_types,
         )
 
     def describe_relation(self, *, connection: Any, relation: str) -> tuple[ColumnInfo, ...]:

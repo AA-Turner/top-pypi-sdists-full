@@ -317,6 +317,12 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
             ),
         ),
     ),
+    "--collapse-shared-parent-wrappers": CLIOptionMeta(
+        name="--collapse-shared-parent-wrappers",
+        category=OptionCategory.MODEL,
+        topic=OptionTopic.MODEL_CUSTOMIZATION,
+        group=OptionGroup.ROOT_MODEL,
+    ),
     "--collapse-reuse-models": CLIOptionMeta(
         name="--collapse-reuse-models",
         category=OptionCategory.MODEL,
@@ -324,6 +330,7 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
         group=OptionGroup.MODEL_REUSE,
     ),
     "--keep-model-order": CLIOptionMeta(name="--keep-model-order", category=OptionCategory.MODEL),
+    "--order-constructor-fields-by": CLIOptionMeta(name="--order-constructor-fields-by", category=OptionCategory.MODEL),
     "--allow-extra-fields": CLIOptionMeta(
         name="--allow-extra-fields",
         category=OptionCategory.MODEL,
@@ -341,6 +348,9 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
     "--use-subclass-enum": CLIOptionMeta(name="--use-subclass-enum", category=OptionCategory.MODEL),
     "--force-optional": CLIOptionMeta(name="--force-optional", category=OptionCategory.MODEL),
     "--strict-nullable": CLIOptionMeta(name="--strict-nullable", category=OptionCategory.MODEL),
+    "--omit-redundant-reference-null": CLIOptionMeta(
+        name="--omit-redundant-reference-null", category=OptionCategory.MODEL
+    ),
     "--use-default": CLIOptionMeta(name="--use-default", category=OptionCategory.MODEL),
     "--use-default-kwarg": CLIOptionMeta(name="--use-default-kwarg", category=OptionCategory.MODEL),
     "--use-missing-sentinel": CLIOptionMeta(
@@ -365,6 +375,7 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
     "--strip-default-none": CLIOptionMeta(name="--strip-default-none", category=OptionCategory.MODEL),
     "--dataclass-arguments": CLIOptionMeta(name="--dataclass-arguments", category=OptionCategory.MODEL),
     "--use-msgspec-tagged-unions": CLIOptionMeta(name="--use-msgspec-tagged-unions", category=OptionCategory.MODEL),
+    "--tag-msgspec-by-payload-name": CLIOptionMeta(name="--tag-msgspec-by-payload-name", category=OptionCategory.MODEL),
     "--use-msgspec-nullable-enum-alias": CLIOptionMeta(
         name="--use-msgspec-nullable-enum-alias", category=OptionCategory.MODEL
     ),
@@ -475,6 +486,9 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
         name="--no-deserialize-default-values", category=OptionCategory.FIELD
     ),
     "--alias-generator": CLIOptionMeta(name="--alias-generator", category=OptionCategory.MODEL),
+    "--pin-aliases-with-alias-generator": CLIOptionMeta(
+        name="--pin-aliases-with-alias-generator", category=OptionCategory.MODEL
+    ),
     "--no-alias": CLIOptionMeta(name="--no-alias", category=OptionCategory.FIELD),
     "--use-serialization-alias": CLIOptionMeta(name="--use-serialization-alias", category=OptionCategory.FIELD),
     "--use-title-as-name": CLIOptionMeta(name="--use-title-as-name", category=OptionCategory.FIELD),
@@ -493,6 +507,10 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
     ),
     "--use-single-line-docstring": CLIOptionMeta(name="--use-single-line-docstring", category=OptionCategory.FIELD),
     "--field-constraints": CLIOptionMeta(name="--field-constraints", category=OptionCategory.FIELD),
+    "--omit-redundant-constraints": CLIOptionMeta(name="--omit-redundant-constraints", category=OptionCategory.FIELD),
+    "--use-site-models-for-constrained-refs": CLIOptionMeta(
+        name="--use-site-models-for-constrained-refs", category=OptionCategory.FIELD
+    ),
     "--field-extra-keys": CLIOptionMeta(name="--field-extra-keys", category=OptionCategory.FIELD),
     "--field-extra-keys-without-x-prefix": CLIOptionMeta(
         name="--field-extra-keys-without-x-prefix", category=OptionCategory.FIELD
@@ -582,6 +600,15 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
     "--use-single-value-enum-as-const": CLIOptionMeta(
         name="--use-single-value-enum-as-const", category=OptionCategory.TYPING
     ),
+    "--read-const-beside-enum": CLIOptionMeta(name="--read-const-beside-enum", category=OptionCategory.TYPING),
+    "--filter-literal-values": CLIOptionMeta(name="--filter-literal-values", category=OptionCategory.TYPING),
+    "--intersect-allof-keywords": CLIOptionMeta(name="--intersect-allof-keywords", category=OptionCategory.TYPING),
+    "--read-nullable-beside-type-list": CLIOptionMeta(
+        name="--read-nullable-beside-type-list", category=OptionCategory.MODEL
+    ),
+    "--keep-field-defaults-off-branch-roots": CLIOptionMeta(
+        name="--keep-field-defaults-off-branch-roots", category=OptionCategory.MODEL
+    ),
     "--disable-future-imports": CLIOptionMeta(
         name="--disable-future-imports",
         category=OptionCategory.TYPING,
@@ -618,6 +645,25 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
         topic=OptionTopic.TYPING_CUSTOMIZATION,
         group=OptionGroup.TYPE_MAPPING,
     ),
+    "--use-typed-map-values-beside-other-types": CLIOptionMeta(
+        name="--use-typed-map-values-beside-other-types",
+        category=OptionCategory.TYPING,
+        topic=OptionTopic.TYPING_CUSTOMIZATION,
+        group=OptionGroup.TYPE_MAPPING,
+    ),
+    "--keep-enum-member-values": CLIOptionMeta(name="--keep-enum-member-values", category=OptionCategory.TYPING),
+    "--read-unevaluated-properties": CLIOptionMeta(
+        name="--read-unevaluated-properties",
+        category=OptionCategory.TYPING,
+        topic=OptionTopic.TYPING_CUSTOMIZATION,
+        group=OptionGroup.TYPE_MAPPING,
+    ),
+    "--use-single-dict-for-object-maps": CLIOptionMeta(
+        name="--use-single-dict-for-object-maps",
+        category=OptionCategory.TYPING,
+        topic=OptionTopic.TYPING_CUSTOMIZATION,
+        group=OptionGroup.TYPE_MAPPING,
+    ),
     "--use-type-checking-imports": CLIOptionMeta(
         name="--use-type-checking-imports",
         category=OptionCategory.TEMPLATE,
@@ -632,6 +678,9 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
     ),
     "--generate-schema-validators": CLIOptionMeta(
         name="--generate-schema-validators", category=OptionCategory.TEMPLATE
+    ),
+    "--check-pattern-maps-strictly": CLIOptionMeta(
+        name="--check-pattern-maps-strictly", category=OptionCategory.TEMPLATE
     ),
     "--schema-validator-type": CLIOptionMeta(name="--schema-validator-type", category=OptionCategory.TEMPLATE),
     "--schema-validator-base-class-name": CLIOptionMeta(
@@ -655,6 +704,12 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
         topic=OptionTopic.TYPING_CUSTOMIZATION,
         group=OptionGroup.TYPE_MAPPING,
     ),
+    "--use-decimal-in-field-forms": CLIOptionMeta(
+        name="--use-decimal-in-field-forms",
+        category=OptionCategory.TYPING,
+        topic=OptionTopic.TYPING_CUSTOMIZATION,
+        group=OptionGroup.TYPE_MAPPING,
+    ),
     "--use-non-positive-negative-number-constrained-types": CLIOptionMeta(
         name="--use-non-positive-negative-number-constrained-types", category=OptionCategory.TYPING
     ),
@@ -666,6 +721,12 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
     ),
     "--use-tuple-for-fixed-items": CLIOptionMeta(
         name="--use-tuple-for-fixed-items",
+        category=OptionCategory.TYPING,
+        topic=OptionTopic.TYPING_CUSTOMIZATION,
+        group=OptionGroup.COLLECTION_TYPES,
+    ),
+    "--use-tuple-for-closed-arrays": CLIOptionMeta(
+        name="--use-tuple-for-closed-arrays",
         category=OptionCategory.TYPING,
         topic=OptionTopic.TYPING_CUSTOMIZATION,
         group=OptionGroup.COLLECTION_TYPES,
@@ -883,6 +944,12 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
         topic=OptionTopic.OPENAPI,
         group=OptionGroup.READ_ONLY_WRITE_ONLY,
     ),
+    "--dedupe-request-response-variants": CLIOptionMeta(
+        name="--dedupe-request-response-variants",
+        category=OptionCategory.OPENAPI,
+        topic=OptionTopic.OPENAPI,
+        group=OptionGroup.READ_ONLY_WRITE_ONLY,
+    ),
     "--include-path-parameters": CLIOptionMeta(
         name="--include-path-parameters",
         category=OptionCategory.OPENAPI,
@@ -897,6 +964,12 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
     ),
     "--openapi-include-info-version": CLIOptionMeta(
         name="--openapi-include-info-version", category=OptionCategory.OPENAPI
+    ),
+    "--openapi-as-definitions": CLIOptionMeta(
+        name="--openapi-as-definitions",
+        category=OptionCategory.OPENAPI,
+        topic=OptionTopic.OPENAPI,
+        group=OptionGroup.OPENAPI_SCOPES,
     ),
     "--validation": CLIOptionMeta(
         name="--validation",

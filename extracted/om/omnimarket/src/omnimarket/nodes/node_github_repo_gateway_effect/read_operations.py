@@ -18,6 +18,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import re
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel
@@ -29,20 +30,25 @@ from omnimarket.github_landing.github_landing_requests import (
     commit_check_runs_request,
     issue_comments_request,
     job_log_request,
+    job_request,
     next_page_request,
     pull_request_request,
     pull_requests_request,
     releases_request,
+    review_threads_request,
     run_artifacts_request,
     run_jobs_request,
     tags_request,
     workflow_runs_request,
 )
+from omnimarket.github_landing.github_landing_transport import JobLogWindow, step_second
 from omnimarket.github_landing.model_github_http_exchange import (
+    ModelGithubBytesResponse,
     ModelGithubHttpRequest,
     ModelGithubHttpResponse,
 )
 from omnimarket.models.model_github_gateway_io import (
+    DEFAULT_LOG_TAIL_BYTES,
     MAX_TEXT_CHARS,
     EnumArtifactFetchRefusal,
     ModelArtifactContent,
@@ -62,6 +68,9 @@ from omnimarket.models.model_github_gateway_io import (
     ModelPrComment,
     ModelPrHead,
     ModelPrHeadsResult,
+    ModelPrReviewThread,
+    ModelPrReviewThreadComment,
+    ModelPrReviewThreadsResult,
     ModelPrStatusResult,
     ModelPrTextResult,
     ModelRelease,
@@ -388,24 +397,131 @@ def read_run_jobs(
 def read_job_log_tail(
     transport: GitHubReadTransportProtocol, request: ModelGithubGatewayRequest
 ) -> ModelJobLogTailResult:
-    """The last ``tail_bytes`` of one job's log."""
+    """The last ``tail_bytes`` of one job's log, or a window of it (OMN-17427).
+
+    With ``offset_bytes`` or ``step`` set the read keeps ``length_bytes`` from
+    that offset of the whole log, or of the named step's region.
+    """
     job_id = _require(request.job_id, "job_id")
+    if request.offset_bytes is not None or request.step is not None:
+        return _read_job_log_window(transport, request, job_id)
     log_request = job_log_request(request.repo, job_id)
     response = transport.send_bytes_sync(
         log_request, limit=request.tail_bytes, keep="tail"
     )
-    if not 200 <= response.status < 300:
-        raise GitHubTransportError(
-            f"GitHub GET {log_request.path} answered HTTP {response.status}: "
-            f"{response.content.decode('utf-8', errors='replace')}"
-        )
+    _check_log(log_request, response)
     return ModelJobLogTailResult(
         repo=request.repo,
         job_id=job_id,
         total_bytes=response.total_bytes,
         truncated=response.over_limit,
         text=response.content.decode("utf-8", errors="replace"),
+        start_offset=response.total_bytes - len(response.content),
     )
+
+
+# An unknown step's refusal lists at most this many step names, each cut.
+_MAX_LISTED_STEPS = 60
+_MAX_LISTED_STEP_CHARS = 120
+
+
+def _check_log(
+    log_request: ModelGithubHttpRequest, response: ModelGithubBytesResponse
+) -> None:
+    if not 200 <= response.status < 300:
+        raise GitHubTransportError(
+            f"GitHub GET {log_request.path} answered HTTP {response.status}: "
+            f"{response.content.decode('utf-8', errors='replace')}"
+        )
+
+
+def _job_step(
+    transport: GitHubReadTransportProtocol, repo: str, job_id: int, name: str
+) -> ModelJobStep:
+    """The job's step named exactly ``name``; an unknown name raises."""
+    meta_request = job_request(repo, job_id)
+    body = _checked(meta_request, transport.send_sync(meta_request))
+    raw = body.get("steps")
+    steps = [
+        _pick(ModelJobStep, step)
+        for step in (raw if isinstance(raw, list) else [])
+        if isinstance(step, dict)
+    ]
+    for step in steps:
+        if step.name == name:
+            return step
+    listed = ", ".join(
+        repr(step.name[:_MAX_LISTED_STEP_CHARS]) for step in steps[:_MAX_LISTED_STEPS]
+    )
+    raise GitHubTransportError(
+        f"job {job_id} has no step named {name!r}; its steps: {listed or 'none'}"
+    )
+
+
+def _read_job_log_window(
+    transport: GitHubReadTransportProtocol,
+    request: ModelGithubGatewayRequest,
+    job_id: int,
+) -> ModelJobLogTailResult:
+    start = request.offset_bytes or 0
+    length = request.length_bytes or DEFAULT_LOG_TAIL_BYTES
+    step: ModelJobStep | None = None
+    bounds = None
+    if request.step is not None:
+        step = _job_step(transport, request.repo, job_id, request.step)
+        if step.started_at is None:
+            # Skipped or never run: the step wrote no lines.
+            return ModelJobLogTailResult(
+                repo=request.repo,
+                job_id=job_id,
+                total_bytes=0,
+                truncated=False,
+                text="",
+                **_step_fields(step),
+            )
+        started = step_second(step.started_at)
+        # A running step has no completion yet: its region runs to the log's end.
+        completed = (
+            step_second(step.completed_at)
+            if step.completed_at is not None
+            else datetime.max.replace(tzinfo=UTC)
+        )
+        bounds = (started, completed)
+    window = JobLogWindow(start=start, length=length, step_bounds=bounds)
+    log_request = job_log_request(request.repo, job_id)
+    response = transport.send_bytes_window_sync(log_request, window=window)
+    _check_log(log_request, response)
+    return ModelJobLogTailResult(
+        repo=request.repo,
+        job_id=job_id,
+        total_bytes=response.total_bytes,
+        truncated=window.truncated,
+        text=response.content.decode("utf-8", errors="replace"),
+        start_offset=window.start_offset,
+        next_offset=window.next_offset,
+        read_ceiling_hit=response.over_limit,
+        **(
+            {
+                **_step_fields(step),
+                "region_start": window.region_start,
+                "region_end": window.region_end,
+                "region_bounds": "timestamp",
+            }
+            if step is not None
+            else {}
+        ),
+    )
+
+
+def _step_fields(step: ModelJobStep) -> dict[str, Any]:
+    return {
+        "step_name": step.name,
+        "step_number": step.number,
+        "step_status": step.status,
+        "step_conclusion": step.conclusion,
+        "step_started_at": step.started_at,
+        "step_completed_at": step.completed_at,
+    }
 
 
 def read_artifacts(
@@ -699,6 +815,110 @@ def read_merged_pr(
     )
 
 
+def read_pr_review_threads(
+    transport: GitHubReadTransportProtocol, request: ModelGithubGatewayRequest
+) -> ModelPrReviewThreadsResult:
+    """A PR's review threads with ids, path, line and resolved state."""
+    pr_number = _require(request.pr_number, "pr_number")
+    threads: list[ModelPrReviewThread] = []
+    total: int | None = None
+    after: str | None = None
+    truncated = False
+    for _page in range(_MAX_PAGES):
+        page_request = review_threads_request(request.repo, pr_number, after=after)
+        body = _checked(page_request, transport.send_sync(page_request))
+        errors = body.get("errors")
+        if errors:
+            raise GitHubTransportError(
+                f"GitHub GraphQL review threads of {request.repo}#{pr_number}: {errors}"
+            )
+        pull = _dict_at(body, "data", "repository", "pullRequest")
+        if pull is None:
+            raise GitHubTransportError(
+                f"GitHub GraphQL found no pull request {request.repo}#{pr_number}"
+            )
+        connection = pull.get("reviewThreads")
+        connection = connection if isinstance(connection, dict) else {}
+        raw_total = connection.get("totalCount")
+        if isinstance(raw_total, int):
+            total = raw_total
+        nodes = connection.get("nodes")
+        for node in nodes if isinstance(nodes, list) else []:
+            thread = _review_thread(node)
+            if thread is None:
+                continue
+            if len(threads) == request.limit:
+                truncated = True
+                break
+            threads.append(thread)
+        page_info = connection.get("pageInfo")
+        cursor = page_info.get("endCursor") if isinstance(page_info, dict) else None
+        more = isinstance(page_info, dict) and bool(page_info.get("hasNextPage"))
+        if truncated or len(threads) >= request.limit:
+            truncated = truncated or more
+            break
+        if not more or not isinstance(cursor, str):
+            break
+        after = cursor
+    else:
+        truncated = True
+    return ModelPrReviewThreadsResult(
+        repo=request.repo,
+        pr_number=pr_number,
+        total_count=total,
+        truncated=truncated,
+        threads=threads,
+    )
+
+
+def _dict_at(raw: object, *path: str) -> dict[str, object] | None:
+    node = raw
+    for key in path:
+        if not isinstance(node, dict):
+            return None
+        node = node.get(key)
+    return node if isinstance(node, dict) else None
+
+
+def _review_thread(node: object) -> ModelPrReviewThread | None:
+    """One GraphQL thread node; None for a thread with no comment left."""
+    if not isinstance(node, dict):
+        return None
+    block = node.get("comments")
+    block = block if isinstance(block, dict) else {}
+    raw_comments = block.get("nodes")
+    comments: list[ModelPrReviewThreadComment] = []
+    for raw in raw_comments if isinstance(raw_comments, list) else []:
+        if not isinstance(raw, dict) or not isinstance(raw.get("databaseId"), int):
+            continue
+        text, cut = _cut(raw.get("body"))
+        comments.append(
+            ModelPrReviewThreadComment(
+                comment_id=raw["databaseId"],
+                author=_login(raw.get("author")),
+                created_at=str(raw.get("createdAt", "")),
+                url=str(raw.get("url", "")),
+                body=text,
+                body_truncated=cut,
+            )
+        )
+    if not comments:
+        return None
+    count = block.get("totalCount")
+    line = node.get("line")
+    path = node.get("path")
+    return ModelPrReviewThread(
+        thread_id=str(node.get("id", "")),
+        is_resolved=bool(node.get("isResolved", False)),
+        is_outdated=bool(node.get("isOutdated", False)),
+        path=path if isinstance(path, str) else None,
+        line=line if isinstance(line, int) else None,
+        root_comment_id=comments[0].comment_id,
+        comment_count=count if isinstance(count, int) else len(comments),
+        comments=comments,
+    )
+
+
 def _require(value: int | None, name: str) -> int:
     if value is None:  # defensive; the request validator already enforces this
         raise ValueError(f"this operation requires {name}.")
@@ -715,6 +935,7 @@ __all__: list[str] = [
     "read_merged_pr",
     "read_open_prs_list",
     "read_pr_heads",
+    "read_pr_review_threads",
     "read_pr_status",
     "read_pr_text",
     "read_releases",

@@ -23,3 +23,18 @@ class DocAiUsageParams(typing_extensions.TypedDict):
     """
     Pages that failed processing.
     """
+
+    pages_selected: typing_extensions.NotRequired[int]
+    """
+    Pages selected for processing (Classify and Split).
+    """
+
+    pages_semantically_inspected: typing_extensions.NotRequired[int]
+    """
+    Pages the model inspected (Classify).
+    """
+
+    pages_source: typing_extensions.NotRequired[int]
+    """
+    Pages in the source document (Classify and Split, while the job runs).
+    """

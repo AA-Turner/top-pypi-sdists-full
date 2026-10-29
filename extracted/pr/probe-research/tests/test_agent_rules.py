@@ -782,7 +782,11 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # 49 / da09ddfedd09: DAEMON_POINTER_BODY's DAEMON MESSAGES section gained the
     # exception for a `[Probe] Message from <your researcher> (dashboard)` (G7, approved 10-25)
     # 50: retire the opt-out; refresh all installed profiles to automatic routing.
-    assert (agent_rules.POINTER_VERSION, digest) == (50, "da09ddfedd09"), (
+    # 51 / 00ccf7e62dc6: DAEMON_POINTER_BODY's intro names `probe docs "<question>"`
+    # (Probe's own docs; the daemon profile has no MCP; docs plan v3 S2, 10-27)
+    # 52 / 0c73a539677d: POINTER_BODY's FYI says projects are flat; a phase of a
+    # bigger effort is its own project linked `--part-of` it (retire subprojects, D11)
+    assert (agent_rules.POINTER_VERSION, digest) == (52, "0c73a539677d"), (
         "POINTER_BODY or DAEMON_POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 

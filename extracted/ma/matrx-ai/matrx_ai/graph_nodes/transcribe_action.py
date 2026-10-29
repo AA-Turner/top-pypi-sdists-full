@@ -2,9 +2,14 @@
 
 Why this exists separately from ``ai.llm.chat``: transcription is a
 non-chat task. The UnifiedAIClient path assumes a messages list and
-returns a chat-shaped response. Here the input is an audio source (path,
-URL, bytes-as-base64) and the output is plain text + timing + language —
-no messages, no finish reason, no tool calls.
+returns a chat-shaped response. Here the input is a platform file
+(``file_id``) or an audio source (path, URL, bytes-as-base64), and the output
+is plain text, timed segments and language — no messages, no finish reason,
+no tool calls.
+
+A ``file_id`` is opened by the HOST through the ``managed_file_transcriber``
+seam (aidream: the files service's access check, streamed download, chunking
+for long audio). This package never fetches a platform file by URL.
 
 Declared IDEMPOTENT because the same audio always transcribes to the same
 text (deterministic temperature=0 path), so resume-after-crash can reuse
@@ -13,15 +18,16 @@ a prior outcome without double-charging Groq.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, success
 from matrx_graph.types.usl import field_extras
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
+from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.graph_nodes.class_pin import (
     class_pin_kwargs,
     model_class_extras,
@@ -33,12 +39,20 @@ from matrx_ai.graph_nodes.shared import AiUsage
 class TranscribeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    audio_source: str = Field(
-        min_length=1,
+    file_id: str | None = Field(
+        default=None,
+        description=(
+            "A platform file to transcribe (audio or video). Opened by the host under "
+            "the run's access; long audio is split and stitched. Give this or audio_source."
+        ),
+        json_schema_extra=field_extras(widget="text"),
+    )
+    audio_source: str | None = Field(
+        default=None,
         description=(
             "Audio location — absolute path, HTTP(S) URL, or base64-encoded "
             "audio (with or without data: prefix). Supported formats: "
-            "flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm."
+            "flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm. Give this or file_id."
         ),
         json_schema_extra=field_extras(widget="text"),
     )
@@ -55,6 +69,35 @@ class TranscribeInput(BaseModel):
     )
     temperature: float = Field(default=0.0, ge=0.0, le=1.0)
     response_format: Literal["json", "verbose_json", "text"] = "verbose_json"
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> TranscribeInput:
+        has_file = bool((self.file_id or "").strip())
+        has_source = bool((self.audio_source or "").strip())
+        if has_file and has_source:
+            raise ValueError(
+                "Transcribe Audio was given both a file and an audio source; give exactly one."
+            )
+        if not has_file and not has_source:
+            raise ValueError(
+                "Transcribe Audio needs something to transcribe: give a file or an audio source."
+            )
+        return self
+
+
+class TranscriptSegment(BaseModel):
+    """One timed stretch of speech, on the audio's own clock (seconds from its start)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    index: int
+    start_s: float = 0.0
+    end_s: float = 0.0
+    text: str
+
+
+#: The host seam that transcribes a platform file by id (aidream: the files service).
+MANAGED_FILE_TRANSCRIBER_EXT = "managed_file_transcriber"
 
 
 class TranscriptionUsage(AiUsage):
@@ -77,6 +120,8 @@ class TranscribeOutput(BaseModel):
     language: str | None = None
     duration_seconds: float = 0.0
     model: str
+    #: Timed segments, in order. Empty when the provider returned none (the "text" format).
+    segments: list[TranscriptSegment] = Field(default_factory=list)
     # Canonical usage shape shared by every matrx-ai graph action, plus the
     # duration-based billing figure.
     usage: TranscriptionUsage = Field(default_factory=TranscriptionUsage)
@@ -97,7 +142,8 @@ class TranscribeOutput(BaseModel):
 async def ai_transcribe(
     ctx: NodeExecutionContext, inputs: TranscribeInput
 ) -> NodeResult[TranscribeOutput]:
-    _ = ctx
+    if inputs.file_id and inputs.file_id.strip():
+        return await _transcribe_file(ctx, inputs)
 
     from matrx_ai.processing.audio.stt import STTRequest, execute_stt
 
@@ -147,6 +193,59 @@ async def ai_transcribe(
             language=language,
             duration_seconds=duration,
             model=result.usage.matrx_model_name,
+            segments=_segments(getattr(result, "segments", None)),
             usage=usage,
+        )
+    )
+
+
+def _segments(raw: list[Any] | None) -> list[TranscriptSegment]:
+    """Provider segments (dicts or objects with start / end / text) as the step's shape."""
+    out: list[TranscriptSegment] = []
+    for item in raw or []:
+        get = item.get if isinstance(item, dict) else (lambda k, _i=item: getattr(_i, k, None))
+        start = float(get("start") or 0.0)
+        out.append(
+            TranscriptSegment(
+                index=len(out),
+                start_s=start,
+                end_s=float(get("end") or start),
+                text=str(get("text") or ""),
+            )
+        )
+    return out
+
+
+async def _transcribe_file(
+    ctx: NodeExecutionContext, inputs: TranscribeInput
+) -> NodeResult[TranscribeOutput]:
+    """A platform file, opened and transcribed by the host. Billing happens at the same
+    provider dispatch seam as the audio-source path; the step reports the billed duration."""
+    if not has_ext(MANAGED_FILE_TRANSCRIBER_EXT):
+        raise RuntimeError(
+            "Transcribe Audio cannot open a platform file on this host: no "
+            f"{MANAGED_FILE_TRANSCRIBER_EXT!r} is installed. Give an audio source instead."
+        )
+    if class_pin_kwargs(inputs.model, inputs.offering_id, where="ai.transcribe"):
+        raise ValueError(
+            "Transcribe Audio cannot pin a provider offering when transcribing a platform file; "
+            "choose the model only, or give an audio source."
+        )
+    response = await get_ext(MANAGED_FILE_TRANSCRIBER_EXT)(
+        str(inputs.file_id).strip(),
+        model=inputs.model,
+        language=inputs.language,
+        organization_id=getattr(ctx, "organization_id", None),
+    )
+    duration = float(getattr(response, "duration", 0.0) or 0.0)
+    meta = getattr(response, "meta", None)
+    return success(
+        TranscribeOutput(
+            text=str(getattr(response, "text", "") or ""),
+            language=getattr(response, "language", None),
+            duration_seconds=duration,
+            model=str(getattr(meta, "model", "") or inputs.model),
+            segments=_segments(getattr(response, "segments", None)),
+            usage=TranscriptionUsage(duration_seconds=duration or None),
         )
     )

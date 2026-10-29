@@ -7,7 +7,7 @@
 #
 # The final step will release to pypi and to Github
 
-__version__ = '3.10.1'
+__version__ = '3.11.0'
 
 from setuptools import setup, find_packages
 import sys, os
@@ -52,10 +52,8 @@ setup(name="Paste",
       packages=find_packages(exclude=['ez_setup', 'examples', 'packages', 'tests*']),
       package_data=finddata.find_package_data(
           exclude_directories=finddata.standard_exclude_directories + ('tests',)),
-      namespace_packages=['paste'],
       zip_safe=False,
       install_requires=[
-        'setuptools',  # pkg_resources
         ],
       extras_require={
         'subprocess': [],

@@ -261,7 +261,8 @@ LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
                wfm-enum-tables fmod-fold lgamma-reentrant full-scale \
                bench-timer bare-libm gnu-flags workflow-tag-triggers \
                version-literals text-encoding cmake-script-policy \
-               why-param doc-claims public-symbols curl-fail \
+               why-param header-file-blocks doc-claims public-symbols \
+               curl-fail \
                warnings-exempt stock-images uv-pin uv-lock tlm-name-join \
                ring-internals named-args acq-pfa-split
 FORMAT_TOOLS = ruff-format ruff mdformat named-args clang-format
@@ -538,6 +539,14 @@ LINT_named-args = $(UV) run python scripts/check_named_args.py --fix
 # every parameter named `why` or `*_why` must be exactly `const char **`.
 # Rule: docs/dev/contributing/error-convention.md. Plain python3: stdlib only.
 LINT_why-param = python3 scripts/check_why_param.py
+
+# doxygen-check's coverage pass (EXTRACT_ALL=NO) skips every member of a
+# header with no @file block, without a warning: 19 headers and 118
+# undocumented members hid that way. Doxygen cannot report it, so this does,
+# over the pass's own scope (the Doxyfile's INPUT and excludes, plus
+# DOXYGEN_COVERAGE_EXCLUDE). Plain python3: stdlib only.
+LINT_header-file-blocks = python3 scripts/check_header_file_blocks.py \
+    $(addprefix --exclude ,$(DOXYGEN_COVERAGE_EXCLUDE))
 
 # The shared libraries export what native/inc/** publishes and nothing else
 # (doppler#1164). cmake/public-symbols.txt is that set, read by the build
@@ -945,7 +954,7 @@ GATES_DEPS    = lint changelog-check release-notes-size-check \
                 gen-c-api-check \
                 validate-check \
                 test-all test-sweep test-stubs test-api-docs test-snippets \
-                test-rust \
+                test-rust bench-run-check \
                 abi-check link-check installed-headers-check \
                 exported-link-check symbol-prefix-check export-check \
                 vendored-collision-check \
@@ -1170,6 +1179,34 @@ endef
 # otherwise inside DOXYGEN_IMAGE, which pins it.
 DOXYGEN_VERSION ?= 1.9.8
 DOXYGEN_CMD      = doxygen Doxyfile
+
+# The coverage pass doxygen-warn-gate runs second, over the headers only.
+#
+# The Doxyfile sets EXTRACT_ALL=YES so the HTML lists every symbol, and with
+# it doxygen treats every symbol as documented: WARN_IF_UNDOCUMENTED never
+# fires. The zero-warning gate therefore could not see an undocumented field,
+# function, macro, @param or @return, and about 1,010 symbols, 529 functions
+# without @param and 385 without @return piled up behind it (doxygen 1.9.8,
+# 2026-10-27). This pass turns EXTRACT_ALL off and WARN_NO_PARAMDOC on, over
+# *.h files alone: a header is the contract jm copies into the .pyi and
+# __doc__. Private structs inside .c files are not in scope here (#2639).
+#
+# HTML generation stays ON, from the Doxyfile. Doxygen 1.9.8 records a
+# function's @param/@return only while it renders output, so with
+# GENERATE_HTML=NO every function reads as undocumented (XML alone is not
+# enough). Turning it off to save time made this pass report 3,659 gaps
+# where 1,970 were real.
+DOXYGEN_COVERAGE_OVERRIDES = EXTRACT_ALL=NO WARN_NO_PARAMDOC=YES \
+                             FILE_PATTERNS=*.h
+
+# Headers the coverage pass leaves out, each because jm writes it: vendored
+# create-only (jm_simd.h, jm_perf.h) or generated (the doppler.h umbrella and
+# the _bridge.h and _procglobal.h seams). Their docs are jm's to add (just-makeit#2405); remove
+# a line when the pin carries them. lint-header-file-blocks reads this same
+# list, so the two never disagree about which headers are in scope.
+DOXYGEN_COVERAGE_EXCLUDE = */jm_simd.h */jm_perf.h */doppler/doppler.h \
+                           */wfm_compose_bridge.h \
+                           */dp_interrupt_guard_procglobal.h
 
 # The same pin, applied to GENERATION rather than checking (gen-c-api).
 #
@@ -1812,7 +1849,8 @@ LOCAL_TARGETS = specan record-demo parallel-record-write acq-surface-record \
                 compile_commands.json \
                 install-docs-deps install-deps-ci install-docs-deps-ci \
                 apt-stall-config deps-budget-check cargo-floor-check \
-                bench-coverage-check kwarg-parity-check issues issues-check \
+                bench-coverage-check bench-run-check kwarg-parity-check \
+                issues issues-check \
                 gates-extra-home-check \
                 doc-sections-check doc-symbols-check state-versions-check \
                 installed-headers-check exported-link-check symbol-prefix-check \
@@ -1968,6 +2006,13 @@ bench-commits-check: ## Fail when a published benchmark names a commit main cann
 # newest published release measures has a plain name, unit and definition in
 # benchmarks/labels.toml, or a line in benchmarks/.labels-exempt -- which may
 # only shrink against BENCH_LABELS_BASE's merge base.
+# The half bench-coverage-check cannot see: a benchmark that builds but
+# crashes or exits nonzero. Discovers every built bench_*_core, so it needs a
+# built tree and runs in CI right after `make test` (#2675). Stdlib-only,
+# so python3: the build-and-test-linux container has no uv.
+bench-run-check: ## Run every built C benchmark; fail on any nonzero exit
+	@python3 scripts/check_bench_runs.py $(BUILD_DIR)
+
 BENCH_LABELS_BASE ?= origin/main
 bench-coverage-check: ## Verify every tested component has a benchmark that runs
 	@$(UV) run python scripts/check_bench_coverage.py
@@ -4062,18 +4107,40 @@ changelog-check: ## A branch changing code must add a changelog entry
 # re-enter it with the pinned doxygen on PATH. Writes NOTHING into the tree:
 # the container mounts the repo read-only, so the generated XML/HTML and the
 # log go to a scratch dir. A gate that mutates the tree it checks is a bug.
+# Each pass reads doxygen's exit status as well as its log: a doxygen that
+# dies (a crash, an OOM kill) writes no warnings, and silence is not a pass.
 doxygen-warn-gate: ## The doxygen warning gate proper (re-entered in Docker)
 	@out=$$(mktemp -d); \
 	{ cat Doxyfile; \
 	  echo "OUTPUT_DIRECTORY=$$out"; \
-	  echo "WARN_LOGFILE="; } | doxygen - > $$out/stdout.log 2>&1; \
+	  echo "WARN_LOGFILE="; } | doxygen - > $$out/stdout.log 2>&1 \
+	  || { cat $$out/stdout.log; \
+	       echo "doxygen-check: doxygen exited non-zero — FAIL"; \
+	       rm -rf $$out; exit 1; }; \
 	n=$$(grep -c 'warning:' $$out/stdout.log || true); \
 	if [ "$$n" != "0" ]; then \
 	  grep 'warning:' $$out/stdout.log; \
 	  echo "doxygen-check: $$n warning(s) — FAIL"; rm -rf $$out; exit 1; \
 	fi; \
+	{ cat Doxyfile; \
+	  printf '%s\n' $(DOXYGEN_COVERAGE_OVERRIDES); \
+	  echo "EXCLUDE_PATTERNS += $(DOXYGEN_COVERAGE_EXCLUDE)"; \
+	  echo "OUTPUT_DIRECTORY=$$out/coverage"; \
+	  echo "WARN_LOGFILE="; } | doxygen - > $$out/coverage.log 2>&1 \
+	  || { cat $$out/coverage.log; \
+	       echo "doxygen-check: doxygen exited non-zero in the coverage pass — FAIL"; \
+	       rm -rf $$out; exit 1; }; \
+	n=$$(grep -c 'warning:' $$out/coverage.log || true); \
+	if [ "$$n" != "0" ]; then \
+	  grep 'warning:' $$out/coverage.log; \
+	  echo "doxygen-check: $$n undocumented header symbol(s) — FAIL"; \
+	  echo "  Every struct field, function, @param, @return, macro, typedef"; \
+	  echo "  and enum in a header needs a doc comment: jm copies them into"; \
+	  echo "  the Python .pyi and __doc__."; \
+	  rm -rf $$out; exit 1; \
+	fi; \
 	rm -rf $$out; \
-	echo "doxygen-check: 0 warnings"
+	echo "doxygen-check: 0 warnings, every header symbol documented"
 
 # ── Examples ─────────────────────────────────────────────────────────────────
 # Smoke-test every standalone C example. Excluded (each needs a live NATS peer

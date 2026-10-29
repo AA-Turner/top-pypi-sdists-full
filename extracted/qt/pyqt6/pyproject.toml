@@ -1,11 +1,11 @@
 # Specify the build system for the project.
 [build-system]
-requires = ["sip >=6.15, <7", "PyQt-builder >=1.19, <2"]
+requires = ["sip >=6.17, <7", "PyQt-builder >=1.20, <2"]
 build-backend = "sipbuild.api"
 
 [project]
 name = "PyQt6"
-version = "6.11.0"
+version = "6.12.0"
 description = "Python bindings for the Qt cross platform application toolkit"
 readme = "README.md"
 urls.homepage = "https://www.riverbankcomputing.com/software/pyqt/"

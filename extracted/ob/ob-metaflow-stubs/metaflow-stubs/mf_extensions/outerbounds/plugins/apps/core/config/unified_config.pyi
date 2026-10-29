@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-16T15:14:49.200114                                                            #
+# Generated on 2026-10-28T20:25:47.859868                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
+    import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
 
 from .config_utils import ConfigFieldContext as ConfigFieldContext
 from .config_utils import ConfigField as ConfigField
@@ -237,6 +237,18 @@ class PackageConfig(object, metaclass=metaflow.mf_extensions.outerbounds.plugins
 def everything_is_string(*args):
     ...
 
+class URLSlugValidations(object, metaclass=type):
+    @staticmethod
+    def slug(url_slug):
+        ...
+    @staticmethod
+    def suffix(suffixes: typing.List[str]):
+        ...
+    @staticmethod
+    def prefix(prefixes: typing.List[str]):
+        ...
+    ...
+
 class BasicAppValidations(object, metaclass=type):
     @staticmethod
     def name(name):
@@ -255,9 +267,6 @@ class BasicAppValidations(object, metaclass=type):
         ...
     @staticmethod
     def capsule_type(capsule_type):
-        ...
-    @staticmethod
-    def url_slug(url_slug):
         ...
     @staticmethod
     def port_required(core_config: CoreConfig) -> bool:

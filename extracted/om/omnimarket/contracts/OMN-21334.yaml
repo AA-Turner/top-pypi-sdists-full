@@ -1,0 +1,178 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-21334"
+title: "TA.11b wire compaction package building and its session barrier"
+summary: >-
+  The compaction orchestrator builds its package over the event bus: it publishes
+  the context-pack command that node_context_pack_orchestrator's contract
+  consumes and awaits the completed or failed reply, correlated by the command's
+  id, inside the compaction deadline, with native fallback and one failure line.
+  It no longer resolves or calls another node's handler. The pack contract
+  declares its failure terminal so the runtime routes a failed build there. The
+  barrier still reads committed sequence stamps from both session projections
+  through the orchestrator's read-only probe: no node yet serves that read on the
+  bus. AC1's live dev-bus built-package readback still requires deployment,
+  source mounts, tenant configuration and a matching adapter package.
+is_seam_ticket: false
+interface_change: true
+interfaces_touched: ["public_api"]
+requirements:
+  - id: "req-runtime-compaction-build"
+    statement: "A compaction command reaches a live pack builder through the declared runtime handler."
+    acceptance:
+      - id: "AC1"
+        statement: >-
+          AC1: the dev runtime registers the compaction orchestrator's handler and a session.compact request on the dev bus returns a built package, not a native fallback -- falsifier: onex run-node node_context_compaction_orchestrator against the dev bus with a recorded session returns status built and a package id
+  - id: "req-session-barrier-before-build"
+    statement: "Compaction waits for both committed projection streams and falls back once at its deadline."
+    acceptance:
+      - id: "AC2"
+        statement: >-
+          AC2: a request whose session barrier has not closed waits for it and then builds, and one that outlives the deadline falls back to native with one failure line -- falsifier: uv run pytest tests -q -k compaction_pack_build_barrier
+evidence_requirements:
+  - kind: "tests"
+    description: "Contract discovery, no-argument construction, typed dispatch and restricted package publication over the real runtime with explicitly labelled fixture sources."
+    command: "uv run pytest tests/nodes/node_context_compaction_orchestrator/test_runtime_compaction_pack_build_barrier.py -q"
+  - kind: "tests"
+    description: "The ticket's barrier falsifier, including deadlines, asynchronous projection progress, source cutoffs and committed sequence stamps."
+    command: "uv run pytest tests -q -k compaction_pack_build_barrier"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-omn21334-ac1-runtime-wiring"
+    description: >-
+      AC1 implementation evidence: actual runtime contract discovery constructs
+      the no-argument handler, dispatches a typed command, builds through the real
+      pack orchestrator over fixture factors, and publishes prepared, activated
+      and a built package reply with package_id and transport correlation on the
+      contract topics. Routing promotions are explicit test fixtures, not a
+      production configuration change. This does not claim the separately
+      outstanding live dev-bus deployment proof.
+    source: "manual"
+    binds_ac: ["AC1"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_compaction_orchestrator/test_runtime_compaction_pack_build_barrier.py tests/nodes/node_context_compaction_orchestrator/test_contracts.py -q"
+  - id: "dod-omn21334-ac1-pack-build-over-bus"
+    description: >-
+      AC1 transport evidence: over an in-memory bus, one compaction request
+      publishes exactly one context-pack command whose envelope correlation_id is
+      the id the orchestrator awaits; the pack node, dispatched through the
+      runtime's consume boundary and result applier, answers on the completed
+      topic and the orchestrator replies built with the package id. A failed or
+      raising build lands on the failure topic and replies native
+      pack_build_failed; a silent pack node falls back native at the deadline with
+      one failure line. No source file of the orchestrator imports the pack
+      node's package or calls importlib.import_module.
+    source: "manual"
+    binds_ac: ["AC1"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_compaction_orchestrator/test_compaction_pack_build_bus.py -q"
+  - id: "dod-omn21334-ac2-barrier"
+    description: >-
+      AC2: a delayed stream blocks package construction until its missing sequence
+      arrives; an expired wait, including a late met read, returns native with
+      exactly one failure line and no package. The async entrypoint lets projection
+      progress continue, and missing default projection configuration never
+      bypasses the barrier. Fractional transcript cutoffs preserve the final prompt.
+    source: "manual"
+    binds_ac: ["AC2"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_compaction_orchestrator/test_compaction_pack_build_barrier.py -q -k compaction_pack_build_barrier"
+  - id: "dod-omn21334-deploy-postgres-barrier"
+    description: >-
+      Hosted executable PostgreSQL proof: an ephemeral loopback-only database
+      receives the real projection migrations and production fold/write SQL.
+      The production read-only probe must see holes in both streams, ignore other
+      sessions, close only after committed missing rows arrive, and recover stamps
+      from a pre-upgrade replay without duplicating events. No lab route or secret
+      is needed. This fails at the merge base, which has no probe or stamp columns;
+      it is database/runtime package evidence, not a live dev deployment claim.
+    source: "manual"
+    binds_ac: ["AC2"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_compaction_orchestrator/test_postgres_compaction_pack_build_barrier.py -q"
+      - check_type: "command"
+        check_value: |-
+          set -eu
+          compaction_probe=$(docker run --detach --rm --label onex.deploy-probe=OMN-21334 --env POSTGRES_HOST_AUTH_METHOD=trust --env POSTGRES_DB=compaction_proof --publish 127.0.0.1::5432 postgres:16-alpine)
+          trap 'docker rm --force "$compaction_probe" >/dev/null' EXIT
+          compaction_ready=0
+          for compaction_attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+            if docker exec "$compaction_probe" pg_isready --username postgres --dbname compaction_proof >/dev/null; then
+              compaction_ready=1
+              break
+            fi
+            sleep 0.5
+          done
+          test "$compaction_ready" = 1
+          compaction_port=$(docker port "$compaction_probe" 5432/tcp)
+          ONEX_TEST_SESSION_BARRIER_DSN="postgresql://postgres@${compaction_port}/compaction_proof" uv run pytest tests/nodes/node_context_compaction_orchestrator/test_postgres_compaction_pack_build_barrier.py -q
+  - id: "dod-omn21334-ac1-slot-probe"
+    description: >-
+      AC1 live-slot probe harness, not the AC1 proof: the test finds a running
+      pre-PR slot's effects runtime, publishes one compaction command on the
+      slot's KAFKA_TOPIC_NAMESPACE topics with a manual trigger and a fresh
+      barrier_id, and asserts the package reply is status built with a package
+      id. It carries the kafka marker, so hosted CI's not-kafka selection never
+      collects it, and it skips when no pre-PR slot is up. Its run
+      against a live pre-PR slot returned native with failure_class
+      source_not_caught_up, so AC1 remains unmet.
+    source: "manual"
+    binds_ac: ["AC1"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/integration/test_compaction_pack_build_slot_probe.py -q"
+      - check_type: "command"
+        check_value: >-
+          grep -q 'f"{ns}.{request}"' tests/integration/test_compaction_pack_build_slot_probe.py
+          && grep -q 'reply.get("status") == "built"' tests/integration/test_compaction_pack_build_slot_probe.py
+          && grep -q 'reply.get("package_id")' tests/integration/test_compaction_pack_build_slot_probe.py
+          && grep -q 'pytest.mark.kafka' tests/integration/test_compaction_pack_build_slot_probe.py
+
+  - id: "dod-omn21334-compaction-absolute-deadline"
+    description: >-
+      Compaction implementation evidence: the same contract-bound handler on the
+      in-memory bus and broker-semantics binding spends publication time from the
+      remaining reply budget, refuses a late package without prepared or activated
+      emissions, closes both subscriptions on expiry, and rejects a revision probe
+      for another session or barrier. The ticket's live dev-bus package proof and
+      epic child-state criteria remain outstanding; these tests do not assert them.
+    source: "manual"
+    binds_ac: ["AC1", "AC2"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "env UV_FROZEN=true uv run pytest tests/nodes/node_context_compaction_orchestrator/test_compaction_pack_build_deadline.py -q -n 0 --no-cov"
+  - id: "dod-omn21334-deploy-compaction-deadline"
+    description: >-
+      Hosted-runner offline deployment probe of the packaged compaction handler
+      using both local bus bindings. A slow publish must reduce the terminal wait,
+      a late terminal must never activate, and expired subscriptions must close.
+      The probe fails on a merge base without the deadline tests or deadline fix.
+      It needs no services or credentials and is not live dev-runtime proof.
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run --frozen pytest tests/nodes/node_context_compaction_orchestrator/test_compaction_pack_build_deadline.py -q -n 0 --no-cov"
+  - id: "dod-omn21334-ac1-session-lane-scope"
+    description: >-
+      AC1 implementation evidence, not the AC1 proof: the compaction pack
+      command names the lane the session's own lineage rows record, so the
+      work-state tiers (orchestration_state, open_work) can match ledger rows
+      by lane. The barrier probe reads the newest lineage lane, the orchestrator
+      passes it to the pack command's caller scope, and a session whose lineage
+      names no lane keeps an empty lane. On the dev bus a compaction for a
+      recorded session replied native because both work-state tiers were
+      unresolved with a null lane; with a lane set, orchestration_state resolved.
+      open_work still needs one open message the lane addressed to itself, so
+      the live built-package readback of AC1 remains outstanding.
+    source: "manual"
+    binds_ac: ["AC1"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_compaction_orchestrator/test_compaction_pack_build_lane.py tests/nodes/node_context_compaction_orchestrator/test_compaction_runtime_binding.py -q"

@@ -30,20 +30,29 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Based on https://github.com/torchbox/wagtail/blob/master/wagtail/wagtailcore/hooks.py
 """
 
+__lazy_modules__ = ["collections.abc", "django.http", "types"]
+
 import logging
 from importlib import import_module
+from typing import TYPE_CHECKING, Any
 
 from django.apps import apps
 from django.utils.module_loading import module_has_submodule
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+    from types import ModuleType
+
+    from django.http import HttpRequest
+
 logger = logging.getLogger(__name__)
 
-_hooks = {}  # Dict of Name: Fn's of registered hooks
+_hooks: "dict[str, list[Callable]]" = {}  # Dict of Name: Fn's of registered hooks
 
 _all_hooks_registered = False  # If all hooks have been searched for and registered yet
 
 
-def register(name, fn=None):
+def register(name: str, fn: "Callable | None" = None) -> "Callable[[Callable], Callable] | None":
     """
     Decorator to register a function as a hook
 
@@ -61,7 +70,7 @@ def register(name, fn=None):
     :param fn: function to register in the hook/callback
     :return: function Decorator if applied as a decorator
     """
-    def _hook_add(func):
+    def _hook_add(func: "Callable") -> None:
         if name not in _hooks:
             logger.debug(f"Creating new hook {name}")
             _hooks[name] = []
@@ -71,7 +80,7 @@ def register(name, fn=None):
 
     if fn is None:
         # Behave like a decorator
-        def decorator(func):
+        def decorator(func: "Callable") -> "Callable":
             _hook_add(func)
             return func
         return decorator
@@ -80,7 +89,7 @@ def register(name, fn=None):
         _hook_add(fn)
 
 
-def get_app_modules():
+def get_app_modules() -> "Iterator[tuple[str, ModuleType]]":
     """
     Get all the modules of the django app
     :return: name, module tuple
@@ -89,7 +98,7 @@ def get_app_modules():
         yield app.name, app.module
 
 
-def get_app_submodules(module_name):
+def get_app_submodules(module_name: str) -> "Iterator[tuple[str, ModuleType]]":
     """pyt
     Get a specific sub module of the app
     :param module_name: module name to get
@@ -100,7 +109,7 @@ def get_app_submodules(module_name):
             yield name, import_module(f'{name}.{module_name}')
 
 
-def register_all_hooks():
+def register_all_hooks() -> None:
     """
     Register all hooks found in 'auth_hooks' sub modules
     :return:
@@ -113,7 +122,7 @@ def register_all_hooks():
         _all_hooks_registered = True
 
 
-def get_hooks(name):
+def get_hooks(name: str) -> "list[Callable]":
     """
     Get all the hook functions for the given hook name
     :param name: str name of the hook to get the functions for
@@ -124,11 +133,11 @@ def get_hooks(name):
 
 
 class DashboardItemHook:
-    def __init__(self, view_function, order:int=10):
+    def __init__(self, view_function: "Callable[[HttpRequest], Any]", order: int = 10) -> None:
         self.view_function = view_function
         self.order = order
 
-    def render(self, request):
+    def render(self, request: "HttpRequest"):
         try:
             logger.debug(f"Rendering {self.view_function} to dashboard")
             return self.view_function(request)

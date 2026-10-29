@@ -9,13 +9,11 @@ import contextvars
 import logging
 import os
 import signal
-import sys
-import traceback
 import threading
+import traceback
 import typing as t
-import typing_extensions as te
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone, tzinfo
+from datetime import UTC, datetime, tzinfo
 
 from croniter import croniter
 
@@ -48,7 +46,7 @@ if t.TYPE_CHECKING:
 logger = logging.getLogger("saq")
 
 # Type that represents arbitrary json
-JsonDict = t.Dict[str, t.Any]
+JsonDict = dict[str, t.Any]
 
 
 class Worker(t.Generic[CtxType]):
@@ -88,10 +86,10 @@ class Worker(t.Generic[CtxType]):
         queue: Queue,
         functions: FunctionsType[CtxType],
         *,
-        id: t.Optional[str] = None,
+        id: str | None = None,
         concurrency: int = 10,
         cron_jobs: Collection[CronJob[CtxType]] | None = None,
-        cron_tz: tzinfo = timezone.utc,
+        cron_tz: tzinfo = UTC,
         startup: LifecycleFunctionsType[CtxType] | None = None,
         shutdown: LifecycleFunctionsType[CtxType] | None = None,
         before_process: LifecycleFunctionsType[CtxType] | None = None,
@@ -102,7 +100,7 @@ class Worker(t.Generic[CtxType]):
         max_burst_jobs: int | None = None,
         shutdown_grace_period_s: int | None = None,
         cancellation_hard_deadline_s: float = 1.0,
-        metadata: t.Optional[JsonDict] = None,
+        metadata: JsonDict | None = None,
         poll_interval: float = 0.0,
     ) -> None:
         self.queue = queue
@@ -197,7 +195,11 @@ class Worker(t.Generic[CtxType]):
 
             self.tasks.update(await self.upkeep())
 
-            for _ in range(self.concurrency):
+            slots = self.concurrency
+            if self.burst and self.max_burst_jobs is not None:
+                slots = min(slots, self.max_burst_jobs)
+
+            for _ in range(slots):
                 self._process()
 
             await self.event.wait()
@@ -220,12 +222,12 @@ class Worker(t.Generic[CtxType]):
             try:
                 all_tasks = list(self.tasks)
                 self.tasks.clear()
-                try:
-                    await asyncio.wait_for(
-                        asyncio.gather(*all_tasks, return_exceptions=True),
-                        timeout=self._shutdown_grace_period_s or 0,
-                    )
-                except asyncio.TimeoutError:
+                # asyncio.wait instead of wait_for(gather(...)): wait_for waits
+                # for the gather to finish even after its timeout, hanging on a
+                # task that doesn't finish promptly.
+                if all_tasks:
+                    await asyncio.wait(all_tasks, timeout=self._shutdown_grace_period_s or 0)
+                if not all(task.done() for task in all_tasks):
                     logger.warning(
                         "Some tasks did not finish within the shutdown grace period, requesting cancellation"
                     )
@@ -236,11 +238,11 @@ class Worker(t.Generic[CtxType]):
                         logger.warning(
                             "Some tasks did not finish cancellation in time, they may be stuck or blocked"
                         )
+                for task in all_tasks:
+                    if task.done() and not task.cancelled():
+                        task.exception()
 
-                if sys.version_info[0:2] < (3, 9):
-                    self.pool.shutdown(True)
-                else:
-                    self.pool.shutdown(True, cancel_futures=True)
+                self.pool.shutdown(True, cancel_futures=True)
 
                 if not self.shutdown:
                     return
@@ -263,11 +265,8 @@ class Worker(t.Generic[CtxType]):
             start_time = datetime.now(self.cron_tz)
             scheduled = croniter(kwargs.pop("cron"), start_time).get_next()
 
-            await self.queue.enqueue(
-                function,
-                scheduled=int(scheduled),
-                **{k: v for k, v in kwargs.items() if v is not None},
-            )
+            # An unset CronJob field is None, which enqueue() reads as "not supplied".
+            await self.queue.enqueue(function, scheduled=int(scheduled), **kwargs)
 
         job_ids = await self.queue.schedule(lock)
 
@@ -368,7 +367,7 @@ class Worker(t.Generic[CtxType]):
                 result = await asyncio.wait_for(
                     asyncio.shield(task), job.timeout if job.timeout else None
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Since we have a shield around the task passed to wait_for,
                 # we need to explicitly cancel it on timeout.
                 task.cancel()
@@ -467,16 +466,16 @@ class Worker(t.Generic[CtxType]):
         return self.burst_condition_met
 
 
-P = te.ParamSpec("P")
-R = te.TypeVar("R")
+P = t.ParamSpec("P")
+R = t.TypeVar("R")
 
-OneOrManyCallable = t.Union[t.Callable[P, R], t.Collection[t.Callable[P, R]]]
+OneOrManyCallable = t.Callable[P, R] | t.Collection[t.Callable[P, R]]
 
 
 def ensure_coroutine_function_many(
     func: OneOrManyCallable[P, R] | OneOrManyCallable[P, Coroutine[t.Any, t.Any, R]],
     pool: ThreadPoolExecutor,
-) -> t.List[Callable[P, Coroutine[t.Any, t.Any, R]]]:
+) -> list[Callable[P, Coroutine[t.Any, t.Any, R]]]:
     if callable(func):
         return [ensure_coroutine_function(func, pool)]
     return [ensure_coroutine_function(f, pool) for f in func]
@@ -500,7 +499,7 @@ def ensure_coroutine_function(
                 # job has already been cancelled, swallow all errors
                 if future is not None:
                     await asyncio.wrap_future(future)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
             raise
 

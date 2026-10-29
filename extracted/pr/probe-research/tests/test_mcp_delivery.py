@@ -853,3 +853,43 @@ def _walk_pinned_notes_batch(ids, notes, *, verbose):
     else:
         pytest.fail("batch did not finish")
     assert joined == notes
+
+
+def test_a_docs_search_crosses_the_real_wire_as_one_whole_page(client, app):
+    """`search_in=["docs"]` has its own fit (whole sections, a cut one marked),
+    not the team search's whole-card fit, so it is checked where the caller
+    reads it: through the hosted HTTP transport and the continuation layer.
+    Every page is a whole envelope -- never JSON fragments of one -- within the
+    budget asked for, and the cut section's `retry_with` reads it whole."""
+    from probe.mcp.service import ResearchReadService
+    from probe.mcp.source import ResearchOSSource
+
+    text = "\n\n".join(f"Paragraph {i}: " + "word " * 120 for i in range(20))
+    app.docs_response = {
+        "state": "ok",
+        "sections": [
+            {
+                "page": "Install",
+                "heading": "Codex",
+                "path": "install#codex",
+                "url": "https://docs.prbe.ai/install#codex",
+                "text": text,
+                "rank": 0,
+            }
+        ],
+    }
+    service = ResearchReadService(ResearchOSSource(client))
+    args = {"query": "codex mcp install", "search_in": ["docs"]}
+    for budget in (512, 2000):
+        page = _bounded(_wire(service, "search", {**args, "token_budget": budget}), limit=budget)
+        [hit] = page["data"]["results"]
+        assert hit["entity_type"] == "document" and hit["truncated"] is True
+        assert text.startswith(hit["card"]["snippet"])
+        assert "next_cursor" not in page
+        retry = hit["retry_with"]["token_budget"]
+        assert budget < retry <= 8000
+    page = _bounded(_wire(service, "search", {**args, "token_budget": retry}), limit=retry)
+    [hit] = page["data"]["results"]
+    assert hit["card"]["snippet"] == text and hit["truncated"] is False
+    assert page["data"]["results"][0]["card"]["source_url"] == "https://docs.prbe.ai/install#codex"
+    assert app.search_requests == []

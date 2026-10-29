@@ -68,6 +68,8 @@ OWNERS: dict[str, str] = {
     "companion report": READ, "companion trace": READ,
     "context delete": SETUP, "context list": READ, "context show": READ, "context use": SETUP,
     "coordinates": READ, "doctor": READ,
+    # Probe's own docs (docs.prbe.ai), not the team's record.
+    "docs": READ,
     # The data catalog (data-catalog C5): registering a dataset by identity, a
     # source, and what a run used are the daemon's; downloading bytes is the
     # researcher's, and so is hosting them (`dataset add --upload`, below).
@@ -132,6 +134,9 @@ OWNERS: dict[str, str] = {
     "ignore check": READ, "session parent": RESEARCHER,
     "session toggle": SWITCH, "session track": SWITCH, "session untrack": SWITCH,
     "session export": RESEARCHER,
+    # Hidden: what the plugin's Stop hook and pi's extension ask at the end of an
+    # inline turn (notes parity N3); the daemon reads the same ledger in process.
+    "session owed": SETUP,
     # A message to one of the researcher's own running sessions (G7): an
     # orchestrator's, never the daemon's (it would speak into another session).
     "session send": RESEARCHER,

@@ -1,9 +1,10 @@
-__version__ = "0.14.0"
+__version__ = "0.15.0"
 
 from .abc import ConsumerRebalanceListener
 from .client import AIOKafkaClient
 from .consumer import AIOKafkaConsumer
 from .errors import ConsumerStoppedError, IllegalOperation
+from .metrics import ProducerMetricsCollector
 from .producer import AIOKafkaProducer
 from .structs import (
     ConsumerRecord,
@@ -17,6 +18,8 @@ __all__ = [  # noqa: RUF022
     "AIOKafkaProducer",
     "AIOKafkaConsumer",
     "AIOKafkaClient",
+    # Metrics
+    "ProducerMetricsCollector",
     # ABC's
     "ConsumerRebalanceListener",
     # Errors

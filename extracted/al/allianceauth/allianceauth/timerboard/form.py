@@ -16,7 +16,7 @@ class TimerForm(forms.ModelForm):
         model = Timer
         fields = ('details', 'system', 'planet_moon', 'structure', 'timer_type', 'objective', 'important', 'corp_timer')
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.user = kwargs.pop('user', None)
         if 'instance' in kwargs and kwargs['instance'] is not None:
             # Do conversion from db datetime to days/hours/minutes
@@ -48,7 +48,7 @@ class TimerForm(forms.ModelForm):
     important = forms.BooleanField(label=_("Important"), required=False)
     corp_timer = forms.BooleanField(label=_("Corp-Restricted"), required=False)
 
-    def save(self, commit=True):
+    def save(self, commit: bool = True) -> Timer:
         timer = super().save(commit=False)
 
         # Get character

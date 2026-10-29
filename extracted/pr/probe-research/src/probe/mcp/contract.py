@@ -80,6 +80,7 @@ class ToolCorpus(StrEnum):
       notes -> notes + experiments
       digests -> digests
       papers -> papers
+      docs -> Probe's own docs, not the team's record
 
     `files` is workspace files (scripts, datasets, configs, protocols -- the
     index does not separate those); `documents` is those PLUS indexed GitHub
@@ -113,6 +114,37 @@ class ToolCorpus(StrEnum):
     #: decide about X", and a caller made to guess which bucket holds the
     #: literature would guess wrong.
     PAPERS = "papers"
+    #: Probe's OWN documentation (docs.prbe.ai), read from `GET /public/v1/docs`
+    #: rather than POST /v1/search: it is not the team's record, so it has no
+    #: backend corpus and is never searched unless named (`is_docs_only`,
+    #: `service.NON_BACKEND_CORPORA`).
+    DOCS = "docs"
+
+
+def is_docs_only(search_in: list[str] | None) -> bool:
+    """Does this `search_in` name Probe's docs and nothing else?
+
+    The one test of "docs only", shared by the MCP service (which then answers
+    from the docs route and never runs the team search) and the daemon's audit
+    (where a read of Probe's docs is not a look at the team's record). Omitted
+    or empty means EVERY team corpus, never the docs."""
+    return bool(search_in) and all(value == ToolCorpus.DOCS for value in search_in)
+
+
+class DocsState(StrEnum):
+    """`state` in a `GET /public/v1/docs` response body (mirrored from the route)."""
+
+    OK = "ok"
+    # The last good copy, served while docs.prbe.ai cannot be read.
+    STALE = "stale"
+    # No copy yet: `sections` is empty.
+    UNAVAILABLE = "unavailable"
+
+
+#: The longest `query` the docs route accepts (it answers 422 past it, and for an
+#: empty one). Checked here first so a docs search says what to fix instead of
+#: reading as "the docs could not be read".
+DOCS_QUERY_MAX_CHARS = 512
 
 
 class EntityType(StrEnum):
@@ -468,6 +500,12 @@ class MissingMarker(StrEnum):
     EXACT_SEARCH = "exact_search"
     SEMANTIC_SEARCH = "semantic_search"
     KB_VALUES = "kb_values"
+    # `search_in` named `docs` and Probe's docs could not be read (the route
+    # answered `unavailable` or failed), or, in a mixed search, were not searched
+    # because the query is outside 1..512 characters (docs alone answers 422):
+    # no docs hits, and `note` / `docs_note` says so. A mixed search's team
+    # results are unaffected.
+    DOCS = "docs"
     # The semantic channel ANSWERED, but one of its retrieval channels was
     # dead, so recall is thinner than a healthy run's. Distinct from
     # SEMANTIC_SEARCH, which means the whole channel failed and returned

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: saq
-Version: 0.26.4
+Version: 0.26.5
 Summary: Distributed Python job queue with asyncio and redis
 Home-page: https://github.com/tobymao/saq
 Author: Toby Mao
@@ -19,16 +19,17 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Systems Administration
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: croniter>=0.3.18
@@ -52,7 +53,7 @@ Requires-Dist: pandas; extra == "dev"
 Requires-Dist: psycopg[pool]>=3.2.0; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: redis<8.0,>=4.2; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
+Requires-Dist: ruff==0.17.0; extra == "dev"
 Requires-Dist: time-machine; extra == "dev"
 Requires-Dist: types-croniter; extra == "dev"
 Requires-Dist: types-redis; extra == "dev"
@@ -69,6 +70,7 @@ Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 # SAQ

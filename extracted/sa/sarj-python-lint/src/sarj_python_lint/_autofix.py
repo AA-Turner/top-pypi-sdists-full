@@ -759,6 +759,8 @@ def _primitive_set(node: ast.expr) -> bool:
 
 
 def _dispatch_fix(source: _Source, diagnostic: Diagnostic) -> list[TextEdit]:
+    if diagnostic.code == "SARJ080" and diagnostic.severity is not Severity.ERROR:
+        return []
     for root in source.context.nodes(ast.If):
         if not _at(root, diagnostic) or source.comments_between(root.lineno, _last_line(root)):
             continue
@@ -993,10 +995,13 @@ def _jwt_required_sequence(required: ast.expr) -> ast.expr | None:
     ):
         return None
     elements = [*required.elts, ast.Constant(value="exp")]
-    if isinstance(required, ast.List):
-        return ast.List(elts=elements, ctx=ast.Load())
-    if isinstance(required, ast.Tuple):
-        return ast.Tuple(elts=elements, ctx=ast.Load())
+    match required:
+        case ast.List():
+            return ast.List(elts=elements, ctx=ast.Load())
+        case ast.Tuple():
+            return ast.Tuple(elts=elements, ctx=ast.Load())
+        case _:
+            pass
     return ast.Set(elts=elements)
 
 

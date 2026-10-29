@@ -72,7 +72,7 @@ class CreatePayoutsResponse(UniversalBaseModel):
 
     id: str = pydantic.Field()
     """
-    Payout ID, prefixed `wdrl_` — the id POST returns is the id GET /payouts lists. Conversion requests created before this version keep answering under their `cofr_` id.
+    Payout ID, prefixed `wdrl_` — the id POST returns is the id GET /payouts lists. Conversion requests created before this version keep answering under their `cofr_` id. A payout paid from a card with `payment_method_id` answers under its card payment's `pay_` id until it is submitted.
     """
 
     markup_fee: str = pydantic.Field()
@@ -123,7 +123,7 @@ class CreatePayoutsResponse(UniversalBaseModel):
 
     statement_descriptor: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Text that appears on the recipient's bank statement, or `null` if no descriptor was set. When set, 5-22 alphanumeric characters (A-Z, a-z, 0-9).
+    The payment description sent with the payout, or `null` if no descriptor was set. When set, 5-80 printable ASCII characters.
     """
 
     status: CreatePayoutsResponseStatus = pydantic.Field()

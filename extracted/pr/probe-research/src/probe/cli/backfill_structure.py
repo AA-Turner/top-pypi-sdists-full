@@ -12,11 +12,12 @@ that is this module's, and none of it passes through a model:
     the files       filed at their run or experiment          (`file_delivered`)
 
 A run's record is READ, never written by a model (Richard 2026-10-25: "the llm
-cant be trusted to be reliable if it has to regurgitate"). Its name is the
-folder's, its start and end the oldest and newest file mtime, its config the
-top-level scalars of config-like files, its metrics the top-level numbers of
-known result files, its status an explicit field. Nothing is computed, averaged
-or guessed: a value that is not in a file does not exist, and a run with no
+cant be trusted to be reliable if it has to regurgitate"). It is created
+UNNAMED (its folder is kept in `metadata.backfill`), its start and end are the
+oldest and newest file mtime, its config the top-level scalars of config-like
+files, its metrics the top-level numbers of known result files (each also a
+one-point series, `metric_points`), its status an explicit field. Nothing is
+computed, averaged or guessed: a value that is not in a file does not exist, and a run with no
 explicit status ends `untracked` (the API's "nothing is known about how it
 ended") rather than claiming success.
 
@@ -54,9 +55,16 @@ RUN_SCHEMA = "1"
 #: The coverage meta key holding the planned and created structure.
 META_KEY = "structure"
 #: Set once a folder's plan has been made by a CLI that names experiments and
-#: runs. A source without it holds files imported before, which the next
-#: import organizes (and never re-uploads).
+#: runs: the `STRUCTURE_VERSION` it was made under. A source without it holds
+#: files imported before, which the next import organizes (and never
+#: re-uploads).
 REVIEWED_KEY = "structure_reviewed"
+#: The rules a folder's experiments and runs were planned under. Bumping it
+#: re-plans every imported folder ONCE on its next import: its files are
+#: classified again and moved, never uploaded again. 1 = the first rules
+#: (#3488, 2026-10-26); a store that saved `True` or "declined" was made under
+#: them.
+STRUCTURE_VERSION = 1
 
 #: Per run, so one result file with a thousand fields cannot become a
 #: thousand-key summary. Kept in sorted key order; the count dropped is recorded.
@@ -78,6 +86,9 @@ REPLAY_HEADER = "Idempotent-Replay"
 class Level(StrEnum):
     RUN = "run"
     EXPERIMENT = "experiment"
+    #: Back at the project: a file a re-plan no longer places in a run or an
+    #: experiment it was filed in (`Coverage.plan_placements`).
+    PROJECT = "project"
 
 
 class Ended(StrEnum):
@@ -113,6 +124,27 @@ def is_config_file(name: str) -> bool:
     return bool(_CONFIG.match(name))
 
 
+_MANIFEST = re.compile(r"\A.*manifest.*\.json\Z", re.I)
+_LOG = re.compile(r"\A.*\.log\Z", re.I)
+
+
+def run_candidates(paths) -> list[str]:
+    """Folders that look like one run's output: a config or manifest AND a
+    result file or a log, directly inside. A hint shown to the classifier,
+    which keeps or drops each; code never makes a run from it. The import's
+    root is never one (the whole folder is not a run by shape alone)."""
+    seen: dict[str, set[str]] = {}
+    for rel in paths:
+        directory, _, name = rel.rpartition("/")
+        if not directory:
+            continue
+        if is_config_file(name) or _MANIFEST.match(name):
+            seen.setdefault(directory, set()).add("config")
+        if is_result_file(name) or _LOG.match(name):
+            seen.setdefault(directory, set()).add("output")
+    return sorted(folder for folder, kinds in seen.items() if len(kinds) == 2)
+
+
 @dataclass
 class RunRecord:
     """Everything a run is created with, read from its folder."""
@@ -125,6 +157,9 @@ class RunRecord:
     metrics: dict = field(default_factory=dict)
     #: `metadata.backfill`: where it came from and which files said what.
     provenance: dict = field(default_factory=dict)
+    #: metric key -> the ISO mtime of the file its value was read from: the
+    #: point's `wall_clock` (`metric_points`). Not in the digest.
+    clocks: dict = field(default_factory=dict)
 
     def digest(self) -> str:
         return hashlib.sha256(json.dumps(
@@ -338,7 +373,8 @@ def read_run(root: Path, under: str, files: list[str], *, times: bool = True) ->
         if _LONE_NUMBER.match(filename):
             value = _lone_number(path)
             if value is not None:
-                metric_rows.append((directory, filename, filename.rsplit(".", 1)[0], value))
+                metric_rows.append((directory, filename, filename.rsplit(".", 1)[0],
+                                    (value, mtimes[-1])))
                 sources["metrics"].append(rel)
         elif _RESULT_JSON.match(filename):
             data = _json_object(path)
@@ -347,7 +383,7 @@ def read_run(root: Path, under: str, files: list[str], *, times: bool = True) ->
                 for key, value in data.items():
                     number = _number(value)
                     if number is not None and str(key) not in ("exit_code",):
-                        metric_rows.append((directory, filename, str(key), number))
+                        metric_rows.append((directory, filename, str(key), (number, mtimes[-1])))
                         found = True
                 if not directory:
                     picked = [(f, data[f]) for f in STATUS_FIELDS if f in data]
@@ -362,12 +398,14 @@ def read_run(root: Path, under: str, files: list[str], *, times: bool = True) ->
                 for key, value in values.items():
                     config_rows.append((directory, filename, key, value))
                 sources["config"].append(rel)
-    metrics = _keyed(metric_rows)
+    timed = _keyed(metric_rows)
     config = _keyed(config_rows)
     dropped = {}
-    if len(metrics) > MAX_METRICS:
-        dropped["metrics"] = len(metrics) - MAX_METRICS
-        metrics = dict(sorted(metrics.items())[:MAX_METRICS])
+    if len(timed) > MAX_METRICS:
+        dropped["metrics"] = len(timed) - MAX_METRICS
+        timed = dict(sorted(timed.items())[:MAX_METRICS])
+    metrics = {key: value for key, (value, _) in timed.items()}
+    clocks = {key: _iso(stamp) for key, (_, stamp) in timed.items()}
     if len(config) > MAX_CONFIG:
         dropped["config"] = len(config) - MAX_CONFIG
         config = dict(sorted(config.items())[:MAX_CONFIG])
@@ -388,7 +426,7 @@ def read_run(root: Path, under: str, files: list[str], *, times: bool = True) ->
         name=(under.rsplit("/", 1)[-1] or "run")[:200],
         started_at=_iso(min(mtimes)) if mtimes and times else None,
         ended_at=_iso(max(mtimes)) if mtimes and times else None,
-        status=status, config=config, metrics=metrics, provenance=provenance,
+        status=status, config=config, metrics=metrics, provenance=provenance, clocks=clocks,
     )
 
 
@@ -524,7 +562,7 @@ def describe(resolved: Resolved, *, fixed: int = 0) -> list[str]:
     if not resolved.experiments and not resolved.runs:
         return []
     files = resolved.files_in()
-    lines = ["", "Experiments and runs (each run's name, times, config, metrics and status "
+    lines = ["", "Experiments and runs (each run's times, config, metrics and status "
                  "are read from its files after you approve):"]
     runs_of: dict[str | None, list[str]] = {}
     for folder, spec in sorted(resolved.runs.items()):
@@ -629,7 +667,23 @@ def remember(coverage, planned: dict | None, paths) -> None:
     placed nowhere loses an older placement.
     """
     planned = planned or {}
-    saved = coverage.meta(META_KEY) or {}
+    coverage.put_meta(META_KEY, merge_planned(coverage.meta(META_KEY), planned))
+    targets = planned.get("targets") or {}
+    coverage.plan_placements(
+        {path: (str(level), str(folder)) for path, (level, folder) in targets.items()},
+        cleared=[path for path in paths if path not in targets],
+    )
+    coverage.put_meta(REVIEWED_KEY, STRUCTURE_VERSION)
+
+
+def merge_planned(saved: dict | None, planned: dict) -> dict:
+    """`Resolved.planned()` (JSON) merged by FOLDER into the specs saved before.
+
+    Returns `{"experiments": ..., "runs": ...}`, `build_plan`'s input: what a
+    folder was made into before (its id, digest, slug attempts) is kept, so a
+    plan made again over the same folders makes nothing twice.
+    """
+    saved = saved or {}
     experiments = dict(saved.get("experiments") or {})
     runs = dict(saved.get("runs") or {})
     for folder, spec in (planned.get("experiments") or {}).items():
@@ -639,15 +693,24 @@ def remember(coverage, planned: dict | None, paths) -> None:
     for folder, spec in (planned.get("runs") or {}).items():
         old = runs.get(folder) or {}
         runs[folder] = {**spec, "times": bool(planned.get("times", True)),
-                        **{k: old[k] for k in ("id", "target_id", "digest", "project_id")
+                        **{k: old[k] for k in ("id", "target_id", "digest", "project_id", "points")
                            if k in old}}
-    coverage.put_meta(META_KEY, {"experiments": experiments, "runs": runs})
-    targets = planned.get("targets") or {}
-    coverage.plan_placements(
-        {path: (str(level), str(folder)) for path, (level, folder) in targets.items()},
-        cleared=[path for path in paths if path not in targets],
-    )
-    coverage.put_meta(REVIEWED_KEY, True)
+    return {"experiments": experiments, "runs": runs}
+
+
+def reviewed_version(value) -> int:
+    """The `STRUCTURE_VERSION` a stored `REVIEWED_KEY` value was made under."""
+    if value is True or value == "declined":
+        return 1
+    if isinstance(value, dict):
+        value = value.get("version")
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def decline(coverage) -> None:
+    """A person chose to leave this folder's imported files as they are: not
+    asked again until the structure rules change."""
+    coverage.put_meta(REVIEWED_KEY, {"version": STRUCTURE_VERSION, "declined": True})
 
 
 def external_id(source_id: str, folder: str) -> str:
@@ -669,13 +732,23 @@ class Built:
     runs_existing: int = 0
     runs_updated: int = 0
     runs_zero_metrics: int = 0
+    metric_points: int = 0
+    metric_points_failed: int = 0
+    #: Result values that changed while their file kept its time: the server
+    #: keeps the first value at a (key, wall_clock), so the chart shows the old
+    #: one (the run summary has the new). Reported, never retried.
+    metric_points_stale: int = 0
     failed: int = 0
     problems: list[str] = field(default_factory=list)
+    chart_problems: list[str] = field(default_factory=list)
 
     def stats(self) -> dict:
         return {"experiments_created": self.experiments_created,
                 "runs_created": self.runs_created, "runs_existing": self.runs_existing,
                 "runs_updated": self.runs_updated, "runs_zero_metrics": self.runs_zero_metrics,
+                "metric_points": self.metric_points,
+                "metric_points_failed": self.metric_points_failed,
+                "metric_points_stale": self.metric_points_stale,
                 "structure_failed": self.failed}
 
 
@@ -776,8 +849,12 @@ def _create_run(client, *, source_id: str, folder: str, target_id: str,
     from ..sdk import errors
 
     external = external_id(source_id, folder)
+    # NO NAME. A name sent on create is a claimed one (`name_customized`), and
+    # that lock is monotonic: nothing could ever rename a run called after its
+    # folder (1,008 of Tokenless's 1,032 were hex attempt ids, 2026-10-26). The
+    # folder stays in `metadata.backfill.relative_path`; the run is titled like
+    # any unnamed run until the import's record pass names it.
     body = {
-        "name": record.name,
         "source": RUN_SOURCE,
         "external_id": external,
         "config": record.config,
@@ -804,6 +881,55 @@ def _create_run(client, *, source_id: str, folder: str, target_id: str,
         raise
 
 
+def metric_points(record: RunRecord) -> list[dict]:
+    """The run's result numbers as one-point series, beside its summary.
+
+    `track-work`: "one headline number -> one-point metric plus the run
+    summary"; the summary alone draws no chart (0 of Tokenless's 1,032 imported
+    runs had one, 2026-10-26). UNSTEPPED, stamped with the mtime of the file the
+    value came from: the server keeps the first point per (key, wall_clock), so
+    sending a run's points again stores nothing, and a result file that changed
+    adds its new value at its new time instead of being dropped as a repeat of
+    step 0. A `__`-prefixed key is the server's own (chart settings), never a
+    result.
+    """
+    return [{"key": key, "value": float(value), "wall_clock": record.clocks[key]}
+            for key, value in sorted(record.metrics.items())
+            if key in record.clocks and not key.startswith("__")]
+
+
+def _chart(client, run_id: str, record: RunRecord, sent: dict | None, built: Built,
+           under: str) -> dict | None:
+    """Send the run's `metric_points` that it does not hold yet.
+
+    `sent` is what this import charted for the run before (key -> [value,
+    wall_clock]), None for a run charted never: one an older CLI made, whose
+    folder has not changed since, still gets its chart once. Returns what the
+    run now holds, or `sent` unchanged when the send was refused (so the next
+    pass tries again). A value whose file kept its time is not stored again by
+    the server (first write wins at a (key, wall_clock)): counted stale.
+    """
+    points = metric_points(record)
+    want = {p["key"]: [p["value"], p["wall_clock"]] for p in points}
+    if want == sent:
+        return sent
+    previous = sent or {}
+    todo = [p for p in points if previous.get(p["key"]) != want[p["key"]]]
+    stale = sum(1 for p in todo
+                if p["key"] in previous and previous[p["key"]][1] == p["wall_clock"])
+    if todo:
+        try:
+            answer = client.transport.post(f"/v1/runs/{run_id}/metrics", {"points": todo})
+        except Exception as exc:  # noqa: BLE001 - the summary holds them; reported
+            built.metric_points_failed += 1
+            built.chart_problems.append(f"run {under}: {str(exc)[:300]}")
+            return sent
+        inserted = (answer or {}).get("inserted") if isinstance(answer, dict) else None
+        built.metric_points += len(todo) if inserted is None else int(inserted)
+        built.metric_points_stale += stale
+    return want
+
+
 #: How many records `build` creates between saves of its local record.
 SAVE_EVERY = 25
 
@@ -814,22 +940,14 @@ def build(client, coverage, folder: Path, *, report=None) -> Built:
     Runs on every import after approval and on every resume, so a create that
     failed (the network, a plan's run cap) is tried again, and a re-import adds
     only what is new. A run is read from, and holds, only the files a plan
-    approved for it (`remember`).
+    approved for it (`remember`). The work is `build_plan`'s; this is the local
+    record around it.
     """
-    built = Built()
     saved = coverage.meta(META_KEY) or {}
     experiments: dict = dict(saved.get("experiments") or {})
     runs: dict = dict(saved.get("runs") or {})
     if not experiments and not runs:
-        return built
-    planned = coverage.planned_placements()
-    project_of_slug: dict[str, str] = {}
-    by_folder: dict[tuple[str, str], list[dict]] = {}
-    for row in planned:
-        if row["project_id"] and row["project_slug"]:
-            project_of_slug.setdefault(row["project_slug"], row["project_id"])
-        if row["present"] and not row["exclusion"] and row["project_id"]:
-            by_folder.setdefault((row["level"], row["folder"]), []).append(row)
+        return Built()
     unsaved = 0
 
     def save(force: bool = False) -> None:
@@ -839,71 +957,10 @@ def build(client, coverage, folder: Path, *, report=None) -> Built:
             coverage.put_meta(META_KEY, {"experiments": experiments, "runs": runs})
             unsaved = 0
 
-    def fail(what: str, why) -> None:
-        built.failed += 1
-        built.problems.append(f"{what}: {str(why)[:300]}")
-
-    targets: dict[str, str] = {}
     try:
-        for under, spec in sorted(experiments.items()):
-            project_id = spec.get("project_id") or project_of_slug.get(spec.get("project"))
-            if spec.get("id") or project_id is None:
-                continue
-            try:
-                spec["id"] = _create_experiment(client, spec, project_id, lambda: save(force=True))
-                spec["project_id"] = project_id
-                built.experiments_created += 1
-                save()
-            except Exception as exc:  # noqa: BLE001 - reported; the files still deliver
-                fail(f"experiment {spec.get('slug')}", exc)
-
-        for under, spec in sorted(runs.items()):
-            found = by_folder.get((Level.RUN.value, under)) or []
-            if not found:
-                continue  # none of its approved files is here any more
-            project_ids = {row["project_id"] for row in found}
-            if len(project_ids) != 1:
-                fail(f"run {under}", f"its files are in {len(project_ids)} projects; they stay there")
-                continue
-            project_id = project_ids.pop()
-            experiment = experiments.get(spec["experiment"]) if spec.get("experiment") is not None else None
-            if experiment is not None and not experiment.get("id"):
-                continue  # its experiment failed above; the next pass retries both
-            if experiment is not None and experiment.get("project_id") != project_id:
-                experiment = None
-            target_id = experiment["id"] if experiment is not None else project_id
-            try:
-                record = read_run(folder, under, [row["path"] for row in found],
-                                  times=spec.get("times", True))
-                digest = hashlib.sha256((record.digest() + target_id).encode()).hexdigest()
-                if not (spec.get("id") and spec.get("target_id") == target_id
-                        and spec.get("digest") == digest):
-                    run_id, created = (spec["id"], False) if (
-                        spec.get("id") and spec.get("target_id") == target_id
-                    ) else _create_run(client, source_id=coverage.source_id, folder=under,
-                                       target_id=target_id, record=record)
-                    wrote = _converge(client, run_id, record, fresh=created,
-                                      experiment_id=experiment["id"] if experiment is not None else None,
-                                      project_id=project_id)
-                    if created:
-                        built.runs_created += 1
-                        built.runs_zero_metrics += int(not record.metrics)
-                    else:
-                        built.runs_existing += 1
-                        built.runs_updated += int(wrote)
-                    spec.update(id=run_id, target_id=target_id, digest=digest, project_id=project_id)
-                    save()
-            except Exception as exc:  # noqa: BLE001 - reported; the files still deliver
-                fail(f"run {under}", exc)
-                continue
-            targets.update({row["path"]: spec["id"] for row in found})
-
-        for under, spec in experiments.items():
-            if not spec.get("id"):
-                continue
-            for row in by_folder.get((Level.EXPERIMENT.value, under)) or []:
-                if row["project_id"] == spec.get("project_id"):
-                    targets[row["path"]] = spec["id"]
+        built, targets = build_plan(client, folder, source_id=coverage.source_id,
+                                    experiments=experiments, runs=runs,
+                                    placements=coverage.planned_placements(), save=save)
     finally:
         coverage.put_meta(META_KEY, {"experiments": experiments, "runs": runs})
     coverage.resolve_placements(targets)
@@ -917,7 +974,109 @@ def build(client, coverage, folder: Path, *, report=None) -> Built:
             report.add(f"{built.failed:,} experiment(s)/run(s) could not be created; their files "
                        "stay at their projects and re-running tries again:",
                        *[f"  {p}" for p in built.problems[:5]])
+        if built.chart_problems:
+            report.add(f"{built.metric_points_failed:,} run(s) have their numbers but no chart "
+                       "yet; re-running sends them again:",
+                       *[f"  {p}" for p in built.chart_problems[:3]])
+        if built.metric_points_stale:
+            report.add(f"{built.metric_points_stale:,} result value(s) changed while their file kept "
+                       "its time; the chart keeps the first value (the run's summary has the new one).")
     return built
+
+
+def build_plan(client, folder: Path, *, source_id: str, experiments: dict, runs: dict,
+               placements: list[dict], save=None) -> tuple[Built, dict[str, str]]:
+    """Create a plan's experiments and runs that do not exist yet. Data in, no store.
+
+    `experiments` and `runs` are the saved specs by folder (`remember`'s shape),
+    updated IN PLACE with what was made (ids, digests); `placements` are the
+    planned rows (`path`, `level`, `folder`, `present`, `exclusion`,
+    `project_id`, `project_slug`, as `Coverage.planned_placements` gives them);
+    `source_id` is the import source whose runs these are (their `external_id`,
+    so a plan built again, here or elsewhere, finds the runs it made). `save()`
+    is called after each record and `save(force=True)` before a create whose
+    answer could be lost. Returns what it did and path -> the id of the run or
+    experiment that file now belongs to.
+    """
+    save = save or (lambda force=False: None)
+    built = Built()
+    project_of_slug: dict[str, str] = {}
+    by_folder: dict[tuple[str, str], list[dict]] = {}
+    for row in placements:
+        if row["project_id"] and row["project_slug"]:
+            project_of_slug.setdefault(row["project_slug"], row["project_id"])
+        if row["present"] and not row["exclusion"] and row["project_id"]:
+            by_folder.setdefault((row["level"], row["folder"]), []).append(row)
+
+    def fail(what: str, why) -> None:
+        built.failed += 1
+        built.problems.append(f"{what}: {str(why)[:300]}")
+
+    targets: dict[str, str] = {}
+    for under, spec in sorted(experiments.items()):
+        project_id = spec.get("project_id") or project_of_slug.get(spec.get("project"))
+        if spec.get("id") or project_id is None:
+            continue
+        try:
+            spec["id"] = _create_experiment(client, spec, project_id, lambda: save(force=True))
+            spec["project_id"] = project_id
+            built.experiments_created += 1
+            save()
+        except Exception as exc:  # noqa: BLE001 - reported; the files still deliver
+            fail(f"experiment {spec.get('slug')}", exc)
+
+    for under, spec in sorted(runs.items()):
+        found = by_folder.get((Level.RUN.value, under)) or []
+        if not found:
+            continue  # none of its approved files is here any more
+        project_ids = {row["project_id"] for row in found}
+        if len(project_ids) != 1:
+            fail(f"run {under}", f"its files are in {len(project_ids)} projects; they stay there")
+            continue
+        project_id = project_ids.pop()
+        experiment = experiments.get(spec["experiment"]) if spec.get("experiment") is not None else None
+        if experiment is not None and not experiment.get("id"):
+            continue  # its experiment failed above; the next pass retries both
+        if experiment is not None and experiment.get("project_id") != project_id:
+            experiment = None
+        target_id = experiment["id"] if experiment is not None else project_id
+        try:
+            record = read_run(folder, under, [row["path"] for row in found],
+                              times=spec.get("times", True))
+            digest = hashlib.sha256((record.digest() + target_id).encode()).hexdigest()
+            if not (spec.get("id") and spec.get("target_id") == target_id
+                    and spec.get("digest") == digest):
+                run_id, created = (spec["id"], False) if (
+                    spec.get("id") and spec.get("target_id") == target_id
+                ) else _create_run(client, source_id=source_id, folder=under,
+                                   target_id=target_id, record=record)
+                wrote = _converge(client, run_id, record, fresh=created,
+                                  experiment_id=experiment["id"] if experiment is not None else None,
+                                  project_id=project_id)
+                if created:
+                    built.runs_created += 1
+                    built.runs_zero_metrics += int(not record.metrics)
+                else:
+                    built.runs_existing += 1
+                    built.runs_updated += int(wrote)
+                spec.update(id=run_id, target_id=target_id, digest=digest, project_id=project_id)
+                save()
+            charted = _chart(client, spec["id"], record, spec.get("points"), built, under)
+            if charted != spec.get("points"):
+                spec["points"] = charted
+                save()
+        except Exception as exc:  # noqa: BLE001 - reported; the files still deliver
+            fail(f"run {under}", exc)
+            continue
+        targets.update({row["path"]: spec["id"] for row in found})
+
+    for under, spec in experiments.items():
+        if not spec.get("id"):
+            continue
+        for row in by_folder.get((Level.EXPERIMENT.value, under)) or []:
+            if row["project_id"] == spec.get("project_id"):
+                targets[row["path"]] = spec["id"]
+    return built, targets
 
 
 #: A move the server refused for good: the artifact or its target is gone (404),
@@ -934,50 +1093,100 @@ def file_delivered(coverage, client, *, report=None) -> dict:
     new upload (a new artifact) is filed again. A move the server refuses for
     good is recorded and not retried.
     """
-    from ..sdk import errors
-
     pending = coverage.unfiled()
     if not pending:
         return {"files_filed": 0, "files_filing_failed": 0}
+    filed, failed = file_moves(client, pending)
+    for path, artifact_id, target_id in filed:
+        coverage.filed(path, target_id, artifact_id)
+    for path, artifact_id, error, final in failed:
+        if final:
+            coverage.filing_refused(path, artifact_id, error)
+        else:
+            # It may have moved part of the way (up to its project, then the
+            # step down failed): where it sits is unknown, so the next pass
+            # sends its move again whatever it was last filed as.
+            coverage.filing_unknown(path)
+    if report is not None:
+        if filed:
+            report.add(f"{len(filed):,} file(s) filed into their runs and experiments "
+                       "(no bytes re-sent).")
+        if failed:
+            report.add(f"{len(failed):,} file(s) could not be filed into their run or experiment; "
+                       "they stay at their project (a refused move is not retried):",
+                       *[f"  {path}: {error}" for path, _, error, _ in failed[:3]])
+    return {"files_filed": len(filed), "files_filing_failed": len(failed)}
+
+
+def _landed(row: dict | None, level: str, target_id: str) -> bool:
+    """Did a move's answer put the artifact at (level, target)? Both storage
+    shapes: an experiment's file reads `project_id = E` until R6, or
+    `experiment_id = E` beside its project."""
+    if not isinstance(row, dict):
+        return True  # an answer without a body: nothing says otherwise
+    if level == Level.RUN.value:
+        return str(row.get("run_id")) == str(target_id)
+    if level == Level.EXPERIMENT.value:
+        return row.get("run_id") is None and target_id in (
+            str(row.get("experiment_id")), str(row.get("project_id")))
+    return (row.get("run_id") is None and not row.get("experiment_id")
+            and str(row.get("project_id") or target_id) == str(target_id))
+
+
+def file_moves(client, moves) -> tuple[list[tuple[str, str, str]], list[tuple[str, str, str, bool]]]:
+    """Move artifacts to their run, experiment or project. Data in, no store.
+
+    `moves` are `(path, artifact id, level, target id)`. Returns the moves made,
+    `(path, artifact id, target id)`, and the ones refused,
+    `(path, artifact id, error, final)`: `final` when the server refused for
+    good (`FINAL_MOVE_STATUSES`), so the caller does not offer it again.
+
+    The server moves a file only along its own chain: up to an ancestor, or
+    down into its own subtree; run to run is refused (422). A file a re-plan
+    takes from one run (or experiment) to another goes up to its project
+    first, then down to its target. A move counts only where the server's
+    answer says the file landed.
+    """
+    from ..sdk import errors
 
     def move(item):
         path, artifact_id, level, target_id = item
         try:
-            client.move_artifact(artifact_id, level=level, target_id=target_id)
+            try:
+                row = client.move_artifact(artifact_id, level=level, target_id=target_id)
+            except errors.RosError as exc:
+                if exc.status != 422 or level == Level.PROJECT.value:
+                    raise
+                # Not in the target's subtree: up to the project, then down.
+                client.move_artifact(artifact_id, level=Level.PROJECT.value)
+                row = client.move_artifact(artifact_id, level=level, target_id=target_id)
+            if not _landed(row, level, target_id):
+                # The server put it somewhere else (a person moved its run,
+                # say): asking again would land it there again.
+                return item, f"the server filed it elsewhere ({level} {target_id} asked)", True
             return item, None, False
         except Exception as exc:  # noqa: BLE001 - recorded per file
             final = isinstance(exc, errors.RosError) and exc.status in FINAL_MOVE_STATUSES
             return item, str(exc)[:300], final
 
-    filed = failed = 0
-    errors_seen: list[str] = []
+    filed: list[tuple[str, str, str]] = []
+    failed: list[tuple[str, str, str, bool]] = []
     with ThreadPoolExecutor(max_workers=FILE_WORKERS) as pool:
-        for (path, artifact_id, _, target_id), error, final in pool.map(move, pending):
+        for (path, artifact_id, _, target_id), error, final in pool.map(move, list(moves)):
             if error is None:
-                coverage.filed(path, target_id, artifact_id)
-                filed += 1
-                continue
-            failed += 1
-            errors_seen.append(f"{path}: {error}")
-            if final:
-                coverage.filing_refused(path, artifact_id, error)
-    if report is not None:
-        if filed:
-            report.add(f"{filed:,} file(s) filed into their runs and experiments (no bytes re-sent).")
-        if failed:
-            report.add(f"{failed:,} file(s) could not be filed into their run or experiment; they "
-                       "stay at their project (a refused move is not retried):",
-                       *[f"  {e}" for e in errors_seen[:3]])
-    return {"files_filed": filed, "files_filing_failed": failed}
+                filed.append((path, artifact_id, target_id))
+            else:
+                failed.append((path, artifact_id, error, final))
+    return filed, failed
 
 
-def restructure_candidates(coverage) -> dict[str, str]:
+def restructure_candidates(coverage, *, version: int = STRUCTURE_VERSION) -> dict[str, str]:
     """Files imported before this folder's plan named experiments and runs.
 
     path -> project slug, for delivered (or referenced) files with a project.
-    Empty once a plan has been made with experiments and runs in view.
+    Empty once a plan has been made, or declined, under `version` or later.
     """
-    if coverage.meta(REVIEWED_KEY):
+    if reviewed_version(coverage.meta(REVIEWED_KEY)) >= version:
         return {}
     report = coverage.report()
     done = set(report["delivered"]) | set(report["references"])
@@ -986,8 +1195,9 @@ def restructure_candidates(coverage) -> dict[str, str]:
 
 
 __all__ = [
-    "Built", "Ended", "Level", "RUN_SOURCE", "Resolved", "RunRecord", "build",
-    "counts_line", "describe", "external_id", "file_delivered", "is_config_file",
-    "is_result_file", "plan_json", "read_run", "remember", "resolve",
-    "restructure_candidates",
+    "STRUCTURE_VERSION", "Built", "Ended", "Level", "RUN_SOURCE", "Resolved", "RunRecord",
+    "build", "build_plan", "counts_line", "decline", "describe", "external_id",
+    "file_delivered", "file_moves", "merge_planned",
+    "is_config_file", "is_result_file", "metric_points", "plan_json", "read_run", "remember",
+    "resolve", "restructure_candidates", "reviewed_version", "run_candidates",
 ]

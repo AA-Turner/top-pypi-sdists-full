@@ -44,6 +44,8 @@ class EnumGithubGatewayOperation(StrEnum):
     # OMN-21146
     COMMIT_CHECK_RUNS = "commit_check_runs"
     MERGED_PR = "merged_pr"
+    # The review threads of a PR, with the resolved state only GraphQL reports.
+    PR_REVIEW_THREADS = "pr_review_threads"
 
 
 # Operations scoped to a single PR require ``pr_number``.
@@ -56,6 +58,7 @@ _PR_SCOPED_OPERATIONS: frozenset[EnumGithubGatewayOperation] = frozenset(
         EnumGithubGatewayOperation.TICKET_REF,
         EnumGithubGatewayOperation.PR_TEXT,
         EnumGithubGatewayOperation.MERGED_PR,
+        EnumGithubGatewayOperation.PR_REVIEW_THREADS,
     }
 )
 # Operations scoped to one workflow run require ``run_id``.
@@ -155,6 +158,23 @@ class ModelGithubGatewayRequest(BaseModel):
         le=MAX_LOG_TAIL_BYTES,
         description="job_log_tail only: bytes kept from the end of the log.",
     )
+    # OMN-17427: a window of the log, or of one step's region, instead of its tail.
+    offset_bytes: int | None = Field(
+        default=None,
+        ge=0,
+        description="job_log_tail only: start the window at this byte of the log or step.",
+    )
+    length_bytes: int | None = Field(
+        default=None,
+        ge=1,
+        le=MAX_LOG_TAIL_BYTES,
+        description="job_log_tail only: window size for an offset or step read.",
+    )
+    step: str | None = Field(
+        default=None,
+        min_length=1,
+        description="job_log_tail only: read the region of the step with this exact name.",
+    )
     max_bytes: int = Field(
         default=DEFAULT_ARTIFACT_MAX_BYTES,
         ge=1,
@@ -193,6 +213,22 @@ class ModelGithubGatewayRequest(BaseModel):
             and self.operation is not EnumGithubGatewayOperation.ARTIFACTS
         ):
             raise ValueError("artifact_id is read only by the artifacts operation.")
+        window = {
+            "offset_bytes": self.offset_bytes,
+            "length_bytes": self.length_bytes,
+            "step": self.step,
+        }
+        given = [name for name, value in window.items() if value is not None]
+        if given and self.operation is not EnumGithubGatewayOperation.JOB_LOG_TAIL:
+            raise ValueError(
+                f"{', '.join(given)} read only by the job_log_tail operation."
+            )
+        if (
+            self.length_bytes is not None
+            and self.offset_bytes is None
+            and self.step is None
+        ):
+            raise ValueError("length_bytes needs offset_bytes or step.")
         return self
 
 
@@ -428,8 +464,39 @@ class ModelJobLogTailResult(BaseModel):
     repo: str
     job_id: int
     total_bytes: int = Field(..., ge=0, description="Length of the whole log.")
-    truncated: bool = Field(..., description="True when the log's head was dropped.")
-    text: str = Field(..., description="The kept tail, decoded as UTF-8.")
+    truncated: bool = Field(
+        ...,
+        description="True when more of the log (or step region) lies outside the kept text.",
+    )
+    text: str = Field(..., description="The kept tail or window, decoded as UTF-8.")
+    # OMN-17427: window and step reads. A plain tail read leaves the defaults
+    # except start_offset.
+    start_offset: int = Field(
+        default=0, ge=0, description="Offset in the whole log of the first kept byte."
+    )
+    next_offset: int | None = Field(
+        default=None,
+        ge=0,
+        description="offset_bytes of the next window; None when the region ended.",
+    )
+    read_ceiling_hit: bool = Field(
+        default=False, description="The read stopped at the transport's byte ceiling."
+    )
+    step_name: str | None = None
+    step_number: int | None = None
+    step_status: str | None = None
+    step_conclusion: str | None = None
+    step_started_at: str | None = None
+    step_completed_at: str | None = None
+    region_start: int | None = Field(
+        default=None, ge=0, description="Offset in the whole log where the step begins."
+    )
+    region_end: int | None = Field(
+        default=None, ge=0, description="Offset in the whole log where the step ends."
+    )
+    region_bounds: Literal["timestamp"] | None = Field(
+        default=None, description="How the step's region was found."
+    )
 
 
 class EnumArtifactFetchRefusal(StrEnum):
@@ -643,6 +710,52 @@ class ModelMergedPrResult(BaseModel):
     merged_at: str | None = None
 
 
+class ModelPrReviewThreadComment(BaseModel):
+    """One comment of a review thread."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    comment_id: int
+    author: str
+    created_at: str
+    url: str
+    body: str
+    body_truncated: bool
+
+
+class ModelPrReviewThread(BaseModel):
+    """One review thread: where it sits, whether it is resolved, its comments.
+
+    ``root_comment_id`` is the id of the thread's first comment, the id a reply
+    to the thread names.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    thread_id: str
+    is_resolved: bool
+    is_outdated: bool
+    path: str | None = None
+    line: int | None = None
+    root_comment_id: int
+    comment_count: int = Field(
+        ..., ge=0, description="GitHub's count; comments holds the first of them."
+    )
+    comments: list[ModelPrReviewThreadComment] = Field(default_factory=list)
+
+
+class ModelPrReviewThreadsResult(_ModelBoundedList):
+    """A PR's review threads, oldest first, with resolved state (GraphQL).
+
+    ``total_count`` and ``truncated`` describe the threads.
+    """
+
+    operation: Literal["pr_review_threads"] = "pr_review_threads"
+    repo: str
+    pr_number: int
+    threads: list[ModelPrReviewThread] = Field(default_factory=list)
+
+
 GithubGatewayResult = Annotated[
     ModelPrStatusResult
     | ModelCiChecksResult
@@ -659,7 +772,8 @@ GithubGatewayResult = Annotated[
     | ModelReleasesResult
     | ModelPrHeadsResult
     | ModelCommitCheckRunsResult
-    | ModelMergedPrResult,
+    | ModelMergedPrResult
+    | ModelPrReviewThreadsResult,
     Field(discriminator="operation"),
 ]
 
@@ -707,6 +821,9 @@ __all__: list[str] = [
     "ModelPrComment",
     "ModelPrHead",
     "ModelPrHeadsResult",
+    "ModelPrReviewThread",
+    "ModelPrReviewThreadComment",
+    "ModelPrReviewThreadsResult",
     "ModelPrStatusResult",
     "ModelPrTextResult",
     "ModelRelease",

@@ -1,40 +1,35 @@
-# pylint: disable=no-self-argument
-
-import sys
 from io import BufferedIOBase
+from typing import Any, Literal
 
-# Disabling pylint no-name-in-module because this is the documented way to
-# import `BaseModel` and it's not broken, so let's keep it.
-from pydantic import (  # pylint: disable=no-name-in-module
+from pydantic import (
     ConfigDict,
     Field,
-    HttpUrl,
     field_validator,
 )
-from typing import Any, Dict, List, Optional, Union
 
 from python_anvil.models import FileCompatibleBaseModel
+from python_anvil.types import operations, rest
 
 from .base import BaseModel
 
 
-if sys.version_info >= (3, 8):
-    from typing import Literal  # pylint: disable=no-name-in-module
-else:
-    from typing_extensions import Literal
-
-
 class EmbeddedLogo(BaseModel):
     src: str
-    max_width: Optional[int] = None
-    max_height: Optional[int] = None
+    max_width: int | None = None
+    max_height: int | None = None
 
 
-class FillPDFPayload(BaseModel):
-    data: Union[List[Dict[str, Any]], Dict[str, Any]]
-    title: Optional[str] = None
-    font_size: Optional[int] = None
-    text_color: Optional[str] = None
+class FillPDFPayload(rest.FillPdfRequest):
+    """The body of a fill PDF request: `data` and the API's styling options.
+
+    See `python_anvil.types.rest.FillPdfRequest` for every option.
+    """
+
+    data: list[dict[str, Any]] | dict[str, Any]
+    # As before 6.0.0, any size; the API says what it accepts
+    font_size: int | None = Field(None, alias="fontSize")
+    # The API defaults this to "pdf"; leave it out rather than always sending it
+    output_format: Literal["pdf", "url"] | None = Field(None, alias="outputFormat")
 
     @field_validator("data")
     @classmethod
@@ -44,15 +39,20 @@ class FillPDFPayload(BaseModel):
         return v
 
 
-class GeneratePDFPayload(BaseModel):
-    data: Union[List[Dict[str, Any]], Dict[Literal["html", "css"], str]]
-    logo: Optional[EmbeddedLogo] = None
-    title: Optional[str] = None
-    type: Optional[Literal["markdown", "html"]] = "markdown"
-    page: Optional[Dict[str, Any]] = None
-    font_size: Optional[int] = None
-    font_family: Optional[str] = None
-    text_color: Optional[str] = None
+class GeneratePDFPayload(rest.GenerateMarkdownPdfRequest):
+    """The body of a generate PDF request, from Markdown (the default) or HTML.
+
+    See `python_anvil.types.rest.GenerateMarkdownPdfRequest` and
+    `GenerateHtmlPdfRequest` for every option.
+    """
+
+    data: list[dict[str, Any]] | dict[Literal["html", "css"], str]  # type: ignore[assignment]
+    logo: EmbeddedLogo | Literal[False] | None = None  # type: ignore[assignment]
+    type: Literal["markdown", "html"] | None = "markdown"
+    # As before 6.0.0, any size; the API says what it accepts
+    font_size: int | None = Field(None, alias="fontSize")
+    # The API defaults this to "pdf"; leave it out rather than always sending it
+    output_format: Literal["pdf", "url"] | None = Field(None, alias="outputFormat")
 
 
 class GenerateEtchSigningURLPayload(BaseModel):
@@ -65,21 +65,23 @@ class SignerField(BaseModel):
     field_id: str
 
 
-class EtchSigner(BaseModel):
-    """Dataclass representing etch signers."""
+class EtchSigner(rest.EtchSigner):
+    """A signer of an Etch packet: who signs, which fields, and how.
+
+    See `python_anvil.types.rest.EtchSigner` for every option.
+    """
 
     name: str
     email: str
-    fields: List[SignerField]
-    signer_type: str = "email"
+    fields: list[SignerField]  # type: ignore[assignment]
+    signer_type: Literal["email", "embedded", "in-person"] = Field(
+        "email", alias="signerType"
+    )
     # id will be generated if `None`
-    id: Optional[str] = None
-    routing_order: Optional[int] = None
-    redirect_url: Optional[str] = Field(None, alias="redirectURL")
-    accept_each_field: Optional[bool] = None
-    enable_emails: Optional[List[str]] = None
-    # signature_mode can be "draw" or "text" (default: text)
-    signature_mode: Optional[str] = None
+    id: str | None = None  # type: ignore[assignment]
+    # As before 6.0.0, any order; the API says what it accepts
+    routing_order: int | None = Field(None, alias="routingOrder")
+    enable_emails: bool | list[str] | None = Field(None, alias="enableEmails")  # type: ignore[assignment]
 
 
 class SignatureField(BaseModel):
@@ -88,7 +90,7 @@ class SignatureField(BaseModel):
     page_num: int
     # Should be in a format similar to:
     # { x: 100.00, y: 121.21, width: 33.00 }
-    rect: Dict[str, float]
+    rect: dict[str, float]
 
 
 class Base64Upload(BaseModel):
@@ -98,27 +100,27 @@ class Base64Upload(BaseModel):
 
 
 class TableColumnAlignment(BaseModel):
-    align: Optional[Literal["left", "center", "right"]] = None
-    width: Optional[str] = None
+    align: Literal["left", "center", "right"] | None = None
+    width: str | None = None
 
 
 # https://www.useanvil.com/docs/api/generate-pdf#table
 class MarkdownTable(BaseModel):
-    rows: List[List[str]]
+    rows: list[list[str]]
 
     # defaults to `True` if not provided.
     # set to false for no header row on the table
-    first_row_headers: Optional[bool] = None
+    first_row_headers: bool | None = None
 
     # defaults to `False` if not provided.
     # set to true to display gridlines in-between rows or columns
-    row_grid_lines: Optional[bool] = True
-    column_grid_lines: Optional[bool] = False
+    row_grid_lines: bool | None = True
+    column_grid_lines: bool | None = False
 
     # defaults to 'top' if not provided.
     # adjust vertical alignment of table text
     # accepts 'top', 'center', or 'bottom'
-    vertical_align: Optional[Literal["top", "center", "bottom"]] = "center"
+    vertical_align: Literal["top", "center", "bottom"] | None = "center"
 
     # (optional) columnOptions - An array of columnOption objects.
     # You do not need to specify all columns. Accepts an
@@ -130,15 +132,15 @@ class MarkdownTable(BaseModel):
     # accepts 'left', 'center', or 'right'; defaults to 'left'
     # width (optional) - adjust the width of the column
     # accepts width in pixels or as percentage of the table width
-    column_options: Optional[List[TableColumnAlignment]] = None
+    column_options: list[TableColumnAlignment] | None = None
 
 
 # https://www.useanvil.com/docs/api/object-references/#verbatimfield
 class MarkdownContent(BaseModel):
-    label: Optional[str] = None
-    heading: Optional[str] = None
-    content: Optional[str] = None
-    table: Optional[MarkdownTable] = None
+    label: str | None = None
+    heading: str | None = None
+    content: str | None = None
+    table: MarkdownTable | None = None
     font_size: int = 14
     text_color: str = "#000000"
 
@@ -148,9 +150,9 @@ class DocumentMarkup(BaseModel):
 
     id: str
     filename: str
-    markup: Dict[Literal["html", "css"], str]
-    fields: Optional[List[SignatureField]] = None
-    title: Optional[str] = None
+    markup: dict[Literal["html", "css"], str]
+    fields: list[SignatureField] | None = None
+    title: str | None = None
     font_size: int = 14
     text_color: str = "#000000"
 
@@ -163,8 +165,8 @@ class DocumentMarkdown(BaseModel):
     # NOTE: Order matters here in the Union[].
     # If `SignatureField` is not first, the types are similar enough that it
     # will use `MarkdownContent` instead.
-    fields: Optional[List[Union[SignatureField, MarkdownContent]]] = None
-    title: Optional[str] = None
+    fields: list[SignatureField | MarkdownContent] | None = None
+    title: str | None = None
     font_size: int = 14
     text_color: str = "#000000"
 
@@ -184,7 +186,7 @@ class DocumentUpload(FileCompatibleBaseModel):
     # NOTE: This field name is referenced in the models.py file, if you change it you
     #   must change the reference
     file: Any = None
-    fields: List[SignatureField]
+    fields: list[SignatureField]
     font_size: int = 14
     text_color: str = "#000000"
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -198,67 +200,48 @@ class EtchCastRef(BaseModel):
 
 
 class CreateEtchFilePayload(BaseModel):
-    payloads: Union[str, Dict[str, FillPDFPayload]]
+    payloads: str | dict[str, FillPDFPayload]
 
 
-class CreateEtchPacketPayload(FileCompatibleBaseModel):
-    """
-    Payload for createEtchPacket.
+class CreateEtchPacketPayload(FileCompatibleBaseModel, operations.CreateEtchPacketArgs):
+    """The variables of the `createEtchPacket` mutation.
 
-    See the full packet payload defined here:
+    See `python_anvil.types.operations.CreateEtchPacketArgs` for every
+    variable, and the full packet payload defined here:
     https://www.useanvil.com/docs/api/e-signatures#tying-it-all-together
     """
 
     name: str
-    signers: List[EtchSigner]
+    signers: list[EtchSigner]  # type: ignore[assignment]
     # NOTE: This is a list of `AttachableEtchFile` objects, but we need to
     # override the default `FileCompatibleBaseModel` to handle multipart/form-data
     # uploads correctly. This field name is referenced in the models.py file.
-    files: List["AttachableEtchFile"]
-    signature_email_subject: Optional[str] = None
-    signature_email_body: Optional[str] = None
-    is_draft: Optional[bool] = False
-    is_test: Optional[bool] = True
-    merge_pdfs: Optional[bool] = Field(None, alias="mergePDFs")
-    data: Optional[CreateEtchFilePayload] = None
-    signature_page_options: Optional[Dict[Any, Any]] = None
-    webhook_url: Optional[str] = Field(None, alias="webhookURL")
-    reply_to_name: Optional[Any] = None
-    reply_to_email: Optional[Any] = None
-    enable_emails: Optional[Union[bool, List[str]]] = None
-    create_cast_templates_from_uploads: Optional[bool] = None
-    duplicate_casts: Optional[bool] = None
+    files: list["AttachableEtchFile"]  # type: ignore[assignment]
+    is_draft: bool | None = Field(False, alias="isDraft")
+    is_test: bool | None = Field(True, alias="isTest")
+    data: CreateEtchFilePayload | None = None
+    signature_page_options: dict[Any, Any] | None = Field(
+        None, alias="signaturePageOptions"
+    )
+    enable_emails: bool | list[str] | None = Field(None, alias="enableEmails")
 
 
-class ForgeSubmitPayload(BaseModel):
-    """
-    Payload for forgeSubmit.
+class ForgeSubmitPayload(operations.ForgeSubmitArgs):
+    """The variables of the `forgeSubmit` mutation.
 
-    See full payload defined here:
+    See `python_anvil.types.operations.ForgeSubmitArgs` for every variable,
+    and the full payload defined here:
     https://www.useanvil.com/docs/api/graphql/reference/#operation-forgesubmit-Mutations
     """
 
-    forge_eid: str
-    payload: Dict[str, Any]
-    weld_data_eid: Optional[str] = None
-    submission_eid: Optional[str] = None
-    # Defaults to True when not provided/is None
-    enforce_payload_valid_on_create: Optional[bool] = None
-    current_step: Optional[int] = None
-    complete: Optional[bool] = None
+    payload: dict[str, Any]
     # Note that if using a development API key, this will be forced to `True`
     # even when `False` is used in the payload.
-    is_test: Optional[bool] = True
-    timezone: Optional[str] = None
-    webhook_url: Optional[HttpUrl] = Field(None, alias="webhookURL")
-    group_array_id: Optional[str] = None
-    group_array_index: Optional[int] = None
+    is_test: bool | None = Field(True, alias="isTest")
 
 
-UploadableFile = Union[Base64Upload, BufferedIOBase]
-AttachableEtchFile = Union[
-    DocumentUpload, EtchCastRef, DocumentMarkup, DocumentMarkdown
-]
+UploadableFile = Base64Upload | BufferedIOBase
+AttachableEtchFile = DocumentUpload | EtchCastRef | DocumentMarkup | DocumentMarkdown
 
 # Classes below use types wrapped in quotes avoid a circular dependency/weird
 # variable assignment locations with the aliases above. We need to manually

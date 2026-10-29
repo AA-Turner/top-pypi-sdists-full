@@ -163,8 +163,9 @@ CorrDetector2DObj_init (CorrDetector2DObject *self, PyObject *args,
   Py_DECREF (ref_arr);
   if (!self->handle)
     {
-      PyErr_SetString (PyExc_MemoryError,
-                       "dp_detector2d_create returned NULL");
+      PyErr_SetString (PyExc_ValueError,
+                       "CorrDetector2D: invalid parameter (need a non-empty "
+                       "2-D ref and dwell >= 1)");
       return -1;
     }
   return 0;
@@ -509,7 +510,10 @@ static PyMethodDef CorrDetector2DObj_methods[] = {
   { "reset", (PyCFunction)CorrDetector2DObj_reset, METH_NOARGS,
     "Reset the 2-D correlator, the carry, and last-corr flag. Discards\n"
     "any partial frame carried between pushes and zeroes the coherent\n"
-    "accumulator. The reference spectrum and FFT plans are preserved.\n"
+    "accumulator. The reference spectrum and FFT plans are preserved. The\n"
+    "last-dump fields (peak_row, peak_col, peak_mag, noise_est, test_stat)\n"
+    "read 0 until the next dump, so the state blob after a reset matches a\n"
+    "fresh object's (doppler#2642).\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -699,7 +703,16 @@ static PyTypeObject CorrDetector2DObjType = {
     "threshold : float, default 0.0\n"
     "    Test-stat gate; 0.0 = always emit.\n"
     "nthreads : int, default 1\n"
-    "    Accepted for API compatibility; ignored.\n"
+    "    Forwarded to dp_corr2d_create(): workers for the "
+    "single-row-reference\n"
+    "    fast path (1 serial, <= 0 every online core); the general 2-D path\n"
+    "    ignores it.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If construction fails. The exception message is ``CorrDetector2D:\n"
+    "    invalid parameter (need a non-empty 2-D ref and dwell >= 1)``.\n"
     "\n"
     "Examples\n"
     "--------\n"

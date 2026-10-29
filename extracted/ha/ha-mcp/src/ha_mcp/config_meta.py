@@ -31,6 +31,7 @@ AdvancedSection = Literal[
     "sidecar",
     "beta_codemode",
     "beta_yamlkeys",
+    "redact_keys",
     "developer",
 ]
 
@@ -49,14 +50,13 @@ class AppOption:
     ``start.py`` exports the option to the setting's env var. An option that
     only some flavors declare is exported only when ``options.json`` has the
     key: an exported value marks the setting as app-managed in the web UI,
-    and Supervisor rejects a save of a key the flavor does not declare.
+    and Supervisor drops a key the flavor does not declare (with only a log
+    warning), so a save of it would silently not persist.
     """
 
     flavors: tuple[Literal["stable", "dev"], ...] = ("stable", "dev")
     # The dev flavor's default when it differs from the field default.
     dev_default: bool | None = None
-    # Supervisor requires the option; every other option is optional ("?").
-    required: bool = False
 
 
 @dataclass(frozen=True)
@@ -75,6 +75,8 @@ class Setting:
     range: tuple[float, float] | None = None
     off_value: int | None = None
     choices: tuple[str, ...] | None = None
+    # Free text whose line breaks matter; the UI edits it in a textarea.
+    multiline: bool = False
     # An env value that does not parse or is out of range logs a warning and
     # gives the default, instead of failing the settings validation.
     lenient: bool = False

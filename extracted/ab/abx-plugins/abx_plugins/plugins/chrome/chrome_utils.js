@@ -38,7 +38,7 @@ ensureNodeModuleResolution(module);
 
 const exportFocusSessions = new WeakMap();
 
-async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null } = {}) {
+async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null, pdfUrls: sharedPdfUrls = null } = {}) {
   // Renderer response buffers apply MIME-driven decoding, corrupting binary
   // downloads mislabeled as text. Inline PDFs become viewer HTML too.
   // Preserve raw bytes from the original request without refetching resources.
@@ -93,6 +93,32 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   const bodies = new Map();
   const streams = new Map();
   const fontBodies = new Map();
+  const readCachedServiceWorkerBody = async (stream) => {
+    if (!stream.fromServiceWorker || stream.method !== "GET" || !stream.frameId ||
+        !stream.cacheStorageCacheName ||
+        stream.serviceWorkerResponseSource !== "cache-storage") return null;
+    const { storageKey } = await session.send("Storage.getStorageKey", {
+      frameId: stream.frameId,
+    });
+    const { caches } = await session.send("CacheStorage.requestCacheNames", {
+      storageKey,
+    });
+    const matchingCaches = caches.filter(
+      (cache) => cache.cacheName === stream.cacheStorageCacheName,
+    );
+    if (matchingCaches.length !== 1) return null;
+    // requestCachedResponse performs CacheStorage's normal Vary-aware match.
+    const requestHeaders = Object.entries(stream.requestHeaders || {}).map(
+      ([name, value]) => ({ name, value: String(value) }),
+    );
+    const { response } = await session.send("CacheStorage.requestCachedResponse", {
+      cacheId: matchingCaches[0].cacheId,
+      requestURL: stream.url,
+      requestHeaders,
+    });
+    if (typeof response?.body !== "string") return null;
+    return Buffer.from(response.body, "base64");
+  };
   const headerIdentity = (headers) => Object.entries(headers || {})
     .map(([name, value]) => [name.toLowerCase(), value]).sort(([a], [b]) => a.localeCompare(b));
   listen("Network.requestServedFromCache", ({ requestId }) => {
@@ -103,6 +129,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     const stream = streams.get(event.requestId);
     if (!stream) return;
     stream.fromServiceWorker = Boolean(event.response.fromServiceWorker);
+    stream.frameId = event.frameId || stream.frameId;
+    stream.cacheStorageCacheName = event.response.cacheStorageCacheName;
+    stream.serviceWorkerResponseSource = event.response.serviceWorkerResponseSource;
     if (stream.resourceType !== "Font") return;
     const responseHeaders = headerIdentity(event.response.headers);
     const requestHeaders = new Map(headerIdentity(stream.requestHeaders));
@@ -165,7 +194,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   };
   page.once("close", onClosed);
   page.browser().once("disconnected", onClosed);
-  const pdfUrls = new Set();
+  // Chrome moves inline PDF viewing into a child target. Its synthetic viewer
+  // navigation has no wire response, even when observed by a different reader.
+  const pdfUrls = sharedPdfUrls || new Set();
   const wireDocuments = new Set();
   const pending = new Set();
   let directory = sharedDirectory;
@@ -179,7 +210,15 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
           !event.type || event.type === "Document" ||
           (resourceTypes.length && !resourceTypes.includes(event.type.toLowerCase()))) return;
       const filename = path.join(directory, crypto.randomUUID());
-      const stream = { filename, receivedBytes: 0, resourceType: event.type, url: event.request.url, method: event.request.method, requestHeaders: event.request.headers };
+      const stream = {
+        filename,
+        receivedBytes: 0,
+        resourceType: event.type,
+        url: event.request.url,
+        method: event.request.method,
+        requestHeaders: event.request.headers,
+        frameId: event.frameId,
+      };
       stream.done = new Promise((resolve) => { stream.finish = () => { stream.complete = true; resolve(); }; });
       streams.set(event.requestId, stream);
       fs.writeFileSync(filename, "");
@@ -207,6 +246,24 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
           stream.filename = stream.previousFont.filename;
           return;
         }
+        // Network.getResponseBody can re-encode CacheStorage text responses.
+        // Read the exact cached body through CDP when Chrome has no streamed
+        // bytes, using the frame's storage partition and the original headers.
+        let cachedBody;
+        try {
+          cachedBody = await readCachedServiceWorkerBody(stream);
+        } catch (error) {
+          stream.cacheStorageError = error;
+        }
+        if (cachedBody && cachedBody.length === stream.receivedBytes) {
+          await fs.promises.writeFile(filename, cachedBody);
+          return;
+        }
+        if (cachedBody) {
+          stream.cacheStorageError = new Error(
+            `CacheStorage body length differs from the response: expected ${stream.receivedBytes}, received ${cachedBody.length}`,
+          );
+        }
         // Spool completed bodies before the remote output queue can delay them
         // and let newer responses evict their raw bytes from Chrome's cache.
         // Durable bodies belong to the root session's collector. The owning
@@ -214,7 +271,10 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
         const result = await (stream.fromServiceWorker ? session : durableCollector).send("Network.getResponseBody", { requestId: event.requestId });
         const body = Buffer.from(result.body, result.base64Encoded ? "base64" : "utf8");
         if (body.length !== stream.receivedBytes) {
-          throw new Error(`Original response bytes unavailable: expected ${stream.receivedBytes}, received ${body.length}`);
+          const cacheError = stream.cacheStorageError
+            ? `; CacheStorage lookup failed: ${stream.cacheStorageError.message}`
+            : "";
+          throw new Error(`Original response bytes unavailable: expected ${stream.receivedBytes}, received ${body.length}${cacheError}`);
         }
         await fs.promises.writeFile(filename, body);
       });
@@ -273,7 +333,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   const attach = (child, documents = true) => {
     if (children.has(child)) return;
     watch(child);
-    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector });
+    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector, pdfUrls });
     children.set(child, reader);
     reader.catch(() => {}); // The owning request or close() reports setup errors.
   };
@@ -390,8 +450,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       const filename = bodies.get(id);
       bodies.delete(id);
       if (filename instanceof Error) throw filename;
-      // Chrome's synthetic viewer documents have no intercepted wire response.
-      if (!filename) return response.request().isNavigationRequest() && pdfUrls.has(response.url()) ? null : undefined;
+      // A genuine later HTML response at a previously PDF URL still has a
+      // wire request above; preserve its normal renderer body handling.
+      if (!filename) return undefined;
       const body = await fs.promises.readFile(filename);
       await fs.promises.unlink(filename);
       return body;
@@ -4073,7 +4134,9 @@ let exportShutdownPromise = null;
 function installExportPageShutdown() {
   if (exportShutdownInstalled) return;
   exportShutdownInstalled = true;
-  const install = require("../base/daemon_lifecycle.js").captureShutdownSignals();
+  // Exporters are finite hooks: share safe signal delivery without inheriting
+  // a recorder daemon's lifetime after downloads and browser disconnect finish.
+  const install = require("../base/daemon_lifecycle.js").captureShutdownSignals({ keepAlive: false });
   install((signal) => {
     if (exportShutdownPromise) return exportShutdownPromise;
     const exitCode = process.exitCode ?? (signal === "SIGINT" ? 130 : 143);

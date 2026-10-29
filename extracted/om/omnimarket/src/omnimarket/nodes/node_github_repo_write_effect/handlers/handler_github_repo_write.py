@@ -22,21 +22,30 @@ Rules this handler enforces:
 - **Expected head.** pr_edit, pr_ready and pr_close read the PR first and
   refuse with ``head_moved`` when its head is not the expected one; pr_create
   and workflow_dispatch check the branch tip when given an expected head, and
-  pr_comment checks the PR's head when given one. No mutation follows.
+  pr_comment and pr_thread_reply check the PR's head when given one. No
+  mutation follows.
 - **Idempotency.** A retried command with the same idempotency key returns the
   first result marked ``replayed`` and sends nothing. Across restarts GitHub
   itself is the record: pr_create finds an open PR for the head, pr_comment
-  finds a comment carrying the key, pr_ready and pr_close find the PR already
+  finds a comment carrying the key, pr_thread_reply finds a review comment
+  carrying the key, pr_ready and pr_close find the PR already
   in the asked-for state. workflow_dispatch has no GitHub-side record, so only
   the in-process record guards a retry. check_run_create likewise only has
   the in-process record; a restart can create another check run.
 - **Claim.** pr_close is refused with ``claim_not_held`` unless the requesting
   lane and run hold a live claim on the PR in node_pr_claim_registry_effect.
   The claim is checked in dry_run too, since it needs no GitHub call.
+- **Lease fence (OMN-21425).** A command carrying a lease is refused before any
+  GitHub call, in either mode, unless the fence port answers ok: stale is
+  lease_fence_stale, expired is lease_expired, unknown, a port error or no port
+  is lease_unreadable. A lease whose expires_at is closer than the contract's
+  descriptor.timeout_ms is refused lease_expired without asking. A command
+  with no lease is not fenced.
 """
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import logging
@@ -49,15 +58,25 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote
 
+import yaml
+from pydantic import SecretStr
+
 from omnimarket.events.pr_landing_github.model_github_quota_reading import (
     ModelGithubQuotaHeadersMissingError,
     ModelGithubQuotaReading,
+)
+from omnimarket.github_api import GitHubApiError
+from omnimarket.github_app_auth import (
+    GitHubAppCredentialMissingError,
+    GitHubAppIdentityError,
+    mint_installation_token,
 )
 from omnimarket.github_landing.github_landing_requests import (
     LIST_PAGE_SIZE,
     convert_to_draft_request,
     create_issue_comment_request,
     create_pull_request_request,
+    create_review_comment_reply_request,
     edit_pull_request_request,
     git_ref_request,
     issue_comments_request,
@@ -65,6 +84,7 @@ from omnimarket.github_landing.github_landing_requests import (
     next_page_request,
     open_pulls_for_head_request,
     pull_request_request,
+    review_comments_request,
     workflow_dispatch_request,
 )
 from omnimarket.github_landing.github_landing_transport import (
@@ -75,6 +95,10 @@ from omnimarket.github_landing.model_github_http_exchange import (
     GITHUB_GRAPHQL_PATH,
     ModelGithubHttpRequest,
     ModelGithubHttpResponse,
+)
+from omnimarket.handlers.handler_lane_write_identity import (
+    ModelLaneWriteIdentity,
+    assert_github_token_is_actor,
 )
 from omnimarket.inference.secret_store_resolver import resolve_api_key_async
 from omnimarket.models.model_github_quota_floor import ModelGithubQuotaFloor
@@ -90,6 +114,7 @@ from omnimarket.nodes.node_github_repo_write_effect.handlers.handler_pr_claim_lo
     registry_claim_refusal,
 )
 from omnimarket.nodes.node_github_repo_write_effect.models import (
+    EnumRepoWriteFenceStatus,
     EnumRepoWriteMode,
     EnumRepoWriteOperation,
     EnumRepoWriteRefusal,
@@ -98,8 +123,12 @@ from omnimarket.nodes.node_github_repo_write_effect.models import (
     ModelRepoWriteFailed,
     ModelRepoWriteRequest,
 )
+from omnimarket.nodes.node_github_repo_write_effect.models.model_repo_write_config import (
+    ModelRepoWriteCredentialChoice,
+)
 from omnimarket.nodes.node_github_repo_write_effect.protocols import (
     ProtocolGithubRepoWriteTransport,
+    ProtocolLeaseFence,
     ProtocolPrClaimLookup,
 )
 
@@ -109,12 +138,25 @@ _SECRET_NAME = "GITHUB_TOKEN"
 _CLAIMS_DIR_ENV = "ONEX_PR_CLAIMS_DIR"
 # How many completed writes the in-process idempotency record keeps.
 _IDEMPOTENCY_RECORD_SIZE = 4096
-# Comment pages scanned for an idempotency marker (300 comments).
+# Comment pages scanned for an idempotency marker (300 comments), for the
+# conversation comments of pr_comment and the review comments of pr_thread_reply.
 _MARKER_SCAN_PAGES = 3
 # A planned node id in dry_run: the real one is read from the PR first.
 _PLANNED_NODE_ID = "<node id read from the pull request>"
 
 Result = ModelRepoWriteCompleted | ModelRepoWriteFailed
+
+
+async def _credential_from_store(ref: str) -> SecretStr | None:
+    """Absence permits the next choice; a broken resolver refuses safely."""
+    try:
+        return await resolve_api_key_async(ref, env_var_fallback=ref, required=False)
+    except Exception:
+        # A store/SDK error may carry a secret. Do not expose its message or cause.
+        raise GitHubAppCredentialMissingError(
+            f"GitHub write: credential lookup failed for declared ref {ref!r}; "
+            "check the secret resolver configuration and read permission"
+        ) from None
 
 
 def idempotency_marker(key: str) -> str:
@@ -303,9 +345,9 @@ class _Run:
 class HandlerGithubRepoWriteEffect:
     """EFFECT: run one PR authoring write against GitHub and report it typed.
 
-    ``transport`` and ``claim_lookup`` are injected in tests (a recorded fake
-    and a stub). Without a transport the handler builds the live urllib
-    transport per call from the contract-declared ``GITHUB_TOKEN`` ref.
+    ``transport``, ``claim_lookup`` and ``fence_port`` are injected in tests
+    (a recorded fake and stubs). Without a transport the handler builds the
+    live urllib transport per call from the contract-declared ``GITHUB_TOKEN`` ref.
     """
 
     def __init__(
@@ -313,12 +355,19 @@ class HandlerGithubRepoWriteEffect:
         transport: ProtocolGithubRepoWriteTransport | None = None,
         *,
         claim_lookup: ProtocolPrClaimLookup | None = None,
+        fence_port: ProtocolLeaseFence | None = None,
+        deadline_seconds: float | None = None,
         runtime_claims_dir: str | None = None,
         quota_floor: ModelGithubQuotaFloor | None = None,
         config: ModelRepoWriteConfig | None = None,
         clock: Callable[[], float] = time.time,
     ) -> None:
         self._transport = transport
+        self._fence = fence_port
+        if deadline_seconds is None:
+            contract = yaml.safe_load(_CONTRACT_PATH.read_text(encoding="utf-8"))
+            deadline_seconds = contract["descriptor"]["timeout_ms"] / 1000
+        self._deadline = deadline_seconds
         self._claims = claim_lookup or HandlerPrClaimLookup()
         # The registry this runtime keeps, which the effect can read. The empty
         # string reads none; None takes $ONEX_PR_CLAIMS_DIR, as the CLI names it.
@@ -360,6 +409,9 @@ class HandlerGithubRepoWriteEffect:
             return done.model_copy(
                 update={"correlation_id": request.correlation_id, "replayed": True}
             )
+        refused = await self._lease_refusal(request)
+        if refused is not None:
+            return refused
         refused = self._claim_refusal(request)
         if refused is not None:
             return refused
@@ -379,7 +431,12 @@ class HandlerGithubRepoWriteEffect:
                 pr_number=request.pr_number,
                 requests=planned_requests(request),
             )
-        transport = self._transport or await self._live_transport()
+        try:
+            transport = self._transport or await self._live_transport(request.repo)
+        except (GitHubAppCredentialMissingError, GitHubAppIdentityError) as exc:
+            return self._preflight_refusal(
+                request, EnumRepoWriteRefusal.CREDENTIAL_UNAVAILABLE, str(exc)
+            )
         run = _Run(self, request, transport)
         try:
             result: Result = await self._run(run)
@@ -398,6 +455,63 @@ class HandlerGithubRepoWriteEffect:
         )
         return result
 
+    async def _lease_refusal(
+        self, request: ModelRepoWriteRequest
+    ) -> ModelRepoWriteFailed | None:
+        lease = request.lease
+        if lease is None:
+            return None
+        left = lease.expires_at.timestamp() - self._clock()
+        if left < self._deadline:
+            expires_at = lease.expires_at.astimezone(UTC)
+            return self._preflight_refusal(
+                request,
+                EnumRepoWriteRefusal.LEASE_EXPIRED,
+                f"lease {lease.kind} {lease.resource} fence {lease.fence} expires "
+                f"at {expires_at:%Y-%m-%dT%H:%M:%SZ} (UTC), {left:.0f}s away, "
+                f"inside the effect's {self._deadline:.0f}s deadline; no call made",
+            )
+        if self._fence is None:
+            return self._preflight_refusal(
+                request,
+                EnumRepoWriteRefusal.LEASE_UNREADABLE,
+                "no fence port is wired in this runtime; a leased write is "
+                "refused, no call made",
+            )
+        try:
+            answer = await self._fence.check_fence(
+                kind=lease.kind, resource=lease.resource, fence=lease.fence
+            )
+        except Exception:
+            _log.warning("repo-write fence port check failed; leased write refused")
+            status = EnumRepoWriteFenceStatus.UNKNOWN
+        else:
+            try:
+                status = EnumRepoWriteFenceStatus(str(answer))
+            except ValueError:
+                status = EnumRepoWriteFenceStatus.UNKNOWN
+        if status is EnumRepoWriteFenceStatus.OK:
+            return None
+        if status is EnumRepoWriteFenceStatus.STALE:
+            reason = EnumRepoWriteRefusal.LEASE_FENCE_STALE
+            detail = (
+                f"fence {lease.fence} on {lease.kind} {lease.resource} is stale: "
+                "a newer grant holds the resource; no call made"
+            )
+        elif status is EnumRepoWriteFenceStatus.EXPIRED:
+            reason = EnumRepoWriteRefusal.LEASE_EXPIRED
+            detail = (
+                f"no live grant holds {lease.kind} {lease.resource} "
+                f"fence {lease.fence}; no call made"
+            )
+        else:
+            reason = EnumRepoWriteRefusal.LEASE_UNREADABLE
+            detail = (
+                f"the fence port could not read {lease.kind} {lease.resource} "
+                f"fence {lease.fence}; no call made"
+            )
+        return self._preflight_refusal(request, reason, detail)
+
     def _claim_refusal(
         self, request: ModelRepoWriteRequest
     ) -> ModelRepoWriteFailed | None:
@@ -409,6 +523,16 @@ class HandlerGithubRepoWriteEffect:
         detail = self._claim_detail(request, now)
         if detail is None:
             return None
+        return self._preflight_refusal(
+            request, EnumRepoWriteRefusal.CLAIM_NOT_HELD, detail
+        )
+
+    def _preflight_refusal(
+        self,
+        request: ModelRepoWriteRequest,
+        reason: EnumRepoWriteRefusal,
+        detail: str,
+    ) -> ModelRepoWriteFailed:
         return ModelRepoWriteFailed(
             correlation_id=request.correlation_id,
             operation=request.operation,
@@ -419,7 +543,7 @@ class HandlerGithubRepoWriteEffect:
             idempotency_key=request.idempotency_key,
             requested_by_lane=request.requested_by_lane,
             pr_number=request.pr_number,
-            reason=EnumRepoWriteRefusal.CLAIM_NOT_HELD,
+            reason=reason,
             detail=detail,
         )
 
@@ -444,16 +568,75 @@ class HandlerGithubRepoWriteEffect:
             return f"no live claim on {request.pr_key}; pr_close needs one"
         return carried_claim_refusal(request.claim, request, now)
 
-    async def _live_transport(self) -> UrllibGithubLandingTransport:
-        ref = contract_secret_ref(_CONTRACT_PATH, _SECRET_NAME)
-        # env_var_fallback (OMN-14452): the lane resolver does not serve the
-        # GitHub token from the store; the literal container env var does.
-        secret = await resolve_api_key_async(ref, env_var_fallback=ref)
+    async def _live_transport(
+        self, repo: str | None = None
+    ) -> UrllibGithubLandingTransport:
+        choice = ModelRepoWriteCredentialChoice.from_contract(_CONTRACT_PATH)
+        ref = contract_secret_ref(_CONTRACT_PATH, choice.token_secret)
+        secret = await _credential_from_store(ref)
         if secret is None:
-            raise RuntimeError(
-                f"api_key_ref {ref!r} resolved to None; set it in the secret store"
-            )
+            secret = await self._app_token(choice, repo)
+        # A resolved but refused token never changes identities by taking the App path.
+        assert_github_token_is_actor(
+            ModelLaneWriteIdentity.from_env(os.environ),
+            token=secret.get_secret_value(),
+        )
         return UrllibGithubLandingTransport(secret)
+
+    async def _app_token(
+        self, choice: ModelRepoWriteCredentialChoice, repo: str | None
+    ) -> SecretStr:
+        app = choice.fallback_app
+        resolved: list[SecretStr | None] = []
+        for name in (
+            app.app_id_secret,
+            app.private_key_secret,
+            app.installation_id_secret,
+        ):
+            ref = contract_secret_ref(_CONTRACT_PATH, name)
+            value = await _credential_from_store(ref)
+            if value is None and name != app.installation_id_secret:
+                raise GitHubAppCredentialMissingError(
+                    f"GitHub write: {choice.token_secret} is absent and App ref "
+                    f"{ref!r} is unreadable or missing from the secret store/environment"
+                )
+            resolved.append(value)
+        app_id, private_key, installation = resolved
+        assert app_id is not None
+        assert private_key is not None
+        installation_id = None
+        if installation is not None:
+            try:
+                installation_id = int(installation.get_secret_value())
+                if installation_id < 1:
+                    raise ValueError
+            except ValueError:
+                raise GitHubAppIdentityError(
+                    f"GitHub write: {app.installation_id_secret} must be a positive integer"
+                ) from None
+        owner, _, name = (repo or "OmniNode-ai").partition("/")
+        try:
+            # The existing synchronous minter must not block the runtime event loop.
+            token = await asyncio.to_thread(
+                mint_installation_token,
+                app_id=app_id.get_secret_value(),
+                private_key_pem=private_key.get_secret_value(),
+                private_key_ref=app.private_key_secret,
+                installation_id=installation_id,
+                org=owner,
+                repositories=[name] if name else None,
+            )
+        except Exception as exc:
+            # SDK/HTTP exceptions can contain response bodies or credential values.
+            # Never forward their text or chained traceback to runtime logging.
+            status = exc.status_code if isinstance(exc, GitHubApiError) else None
+            detail = f" (HTTP {status})" if status is not None else ""
+            raise GitHubAppIdentityError(
+                f"GitHub write App token mint refused{detail}; check permissions and "
+                f"declared refs {app.app_id_secret}, {app.private_key_secret}, "
+                f"{app.installation_id_secret}"
+            ) from None
+        return SecretStr(token)
 
     async def _run(self, run: _Run) -> ModelRepoWriteCompleted:
         op = run.command.operation
@@ -467,6 +650,8 @@ class HandlerGithubRepoWriteEffect:
             return await _pr_close(run)
         if op is EnumRepoWriteOperation.PR_COMMENT:
             return await _pr_comment(run)
+        if op is EnumRepoWriteOperation.PR_THREAD_REPLY:
+            return await _pr_thread_reply(run)
         if op is EnumRepoWriteOperation.CHECK_RUN_CREATE:
             return await _check_run_create(run)
         return await _workflow_dispatch(run)
@@ -663,6 +848,44 @@ async def _pr_comment(run: _Run) -> ModelRepoWriteCompleted:
     )
 
 
+async def _pr_thread_reply(run: _Run) -> ModelRepoWriteCompleted:
+    c = run.command
+    number = c.pr_number or 0
+    head_sha: str | None = None
+    if c.expected_head_sha is not None:
+        head_sha = _str_at(await run.expect_pr_head(), "head", "sha")
+    marker = idempotency_marker(c.idempotency_key)
+    request: ModelGithubHttpRequest | None = review_comments_request(
+        c.repo, number, per_page=LIST_PAGE_SIZE
+    )
+    for _page in range(_MARKER_SCAN_PAGES):
+        if request is None:
+            break
+        response = await run.send(request)
+        page = (response.body or {}).get("value")
+        for comment in page if isinstance(page, list) else []:
+            if isinstance(comment, dict) and marker in str(comment.get("body", "")):
+                return run.completed(
+                    replayed=True,
+                    comment_id=_int_at(comment, "id"),
+                    html_url=_str_at(comment, "html_url"),
+                    head_sha=head_sha,
+                )
+        request = next_page_request(response)
+    created = (
+        await run.send(
+            create_review_comment_reply_request(
+                c.repo, number, c.thread_comment_id or 0, f"{c.body}\n\n{marker}"
+            )
+        )
+    ).body
+    return run.completed(
+        comment_id=_int_at(created, "id"),
+        html_url=_str_at(created, "html_url"),
+        head_sha=head_sha,
+    )
+
+
 def _check_run_create_request(c: ModelRepoWriteRequest) -> ModelGithubHttpRequest:
     body: dict[str, object] = {
         "name": c.name,
@@ -746,6 +969,18 @@ def planned_requests(
             issue_comments_request(c.repo, n, per_page=LIST_PAGE_SIZE),
             create_issue_comment_request(
                 c.repo, n, f"{c.body}\n\n{idempotency_marker(c.idempotency_key)}"
+            ),
+        )
+    if op is EnumRepoWriteOperation.PR_THREAD_REPLY:
+        read = [pull_request_request(c.repo, n)] if c.expected_head_sha else []
+        return (
+            *read,
+            review_comments_request(c.repo, n, per_page=LIST_PAGE_SIZE),
+            create_review_comment_reply_request(
+                c.repo,
+                n,
+                c.thread_comment_id or 0,
+                f"{c.body}\n\n{idempotency_marker(c.idempotency_key)}",
             ),
         )
     read_pr = pull_request_request(c.repo, n)

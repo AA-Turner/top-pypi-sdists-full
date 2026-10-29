@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: mgrs
-Version: 1.6.0
+Version: 1.7.0
 Summary: MGRS coordinate conversion for Python
 Keywords: gis,coordinate,conversion
 Author: Howard Butler
@@ -49,24 +49,76 @@ mgrs: Converting to and from MGRS and Decimal Degrees
 ------------------------------------------------------------------------------
 
 This package exposes scalar and batch GeoTrans_ conversions through
-a pybind11_ extension. The GEOTRANS 3.10 C++ implementation is linked statically
-into that extension; no separate libmgrs shared library or runtime Python
-dependencies are needed.
+a pybind11_ extension. The Rust translation of GEOTRANS 3.10 is linked
+statically into that extension; no separate libmgrs shared library or runtime
+Python dependencies are needed. The C++ binding preserves the Python API;
+all coordinate conversion runs in Rust.
 
 The MGRS, UTM, UPS, Transverse Mercator and Polar Stereographic sources are
 vendored from NGA's GEOTRANS 3.10 distribution. Source provenance and hashes
-are recorded in ``libmgrs/geotrans3.10/SOURCE.json``.
+are recorded in ``libmgrs/geotrans3.10/SOURCE.json``. These C++ sources remain
+as reference material and are not compiled into the Python extension.
 
 Inverse conversion returns the center of the MGRS grid cell. See the 1.6.0
 release notes below for the change from the previous southwest-corner convention.
+The Rust backend retains that convention. Forward strings match the C++
+backend on the fixed million-point dataset at all six precisions; inverse
+coordinates can differ in their last floating-point digits. See the
+`Python backend comparison <benchmarks/python-rust.rst>`_ for measurements.
 
 .. _`GeoTrans`: http://earth-info.nga.mil/GandG/geotrans/
 .. _`pybind11`: https://pybind11.readthedocs.io/
+
+Rust and TypeScript
+------------------------------------------------------------------------------
+
+This repository also contains a native Rust translation of the WGS84 GEOTRANS
+3.10 algorithms and a TypeScript/JavaScript package using that engine through
+WebAssembly in Node.js and browsers. Both follow the Python scalar and batch
+API, including cell-center inverse coordinates and ASCII whitespace handling.
+Rust uses borrowed slices and owned vectors; TypeScript uses ``Float64Array``
+and ``Uint8Array``. Neither requires Python or C++ at runtime.
+
+See the `Rust guide <rust/README.md>`_, `TypeScript guide <typescript/README.md>`_,
+`test coverage <rust/tests/fixtures/README.md>`_, and
+`performance guide <benchmarks/rust-typescript.md>`_ for build instructions,
+language-specific error/warning handling, and fixed-workload comparisons.
+The release workflow attaches a Rust ``.crate`` and a TypeScript ``.tgz``
+with Node/browser WebAssembly builds to each published GitHub release,
+alongside the Python source distribution and all Python wheels. The workflow
+publishes the Python packages to PyPI; Rust and TypeScript packages are
+distributed as release downloads without publishing to crates.io or npm.
+
+Run native tests from the repository root::
+
+    cargo test --workspace --all-features --locked
+
+After installing the WebAssembly toolchain described in the TypeScript guide::
+
+    cd typescript
+    npm ci
+    npm test
+    npx playwright install chromium
+    npm run test:browser
 
 
 
 ChangeLog
 ------------------------------------------------------------------------------
+
+# mgrs 1.7.0 release notes
+
+Changes since [1.6.0](https://github.com/hobuinc/mgrs/releases/tag/1.6.0).
+
+**Cell-center decoding is unchanged from 1.6.0.** The Rust backend preserves GEOTRANS 3.10 behavior; inverse coordinates can differ in their final floating-point digits, with no additional half-cell shift.
+
+- **Rust-backed Python:** Replace the C++ conversion engine while retaining the pybind11 API. Recorded macOS ARM64 benchmarks show 29–53% lower conversion time; see the [performance comparison](https://github.com/hobuinc/mgrs/blob/main/benchmarks/python-rust.rst). Source builds now require Rust/Cargo 1.85+ alongside a C++17 compiler; wheels require no Rust installation. [#62](https://github.com/hobuinc/mgrs/pull/62)
+- **Rust and TypeScript libraries:** Add native Rust and Node.js/browser WebAssembly APIs, including batch conversions, documentation, conformance tests, and performance benchmarks. [#60](https://github.com/hobuinc/mgrs/pull/60)
+- **Cell geometries:** Add `toWKT` and `toGeoJSON` across all three languages (`to_wkt` and `to_geojson` in Rust). They return full grid-cell footprints in WGS84 longitude/latitude, from 100 km to 1 m precision. Python GeoJSON uses dependency-free `__geo_interface__`-compatible mappings. GeoJSON splits antimeridian crossings into `MultiPolygon`; WKT keeps a single polygon with unwrapped longitudes. [#67](https://github.com/hobuinc/mgrs/pull/67)
+- **Release artifacts:** Attach Rust `.crate` and TypeScript/WebAssembly `.tgz` packages alongside the Python source distribution and wheels. Python publication to PyPI continues; Rust and TypeScript packages are available through GitHub releases. [#62](https://github.com/hobuinc/mgrs/pull/62)
+- **Build and CI updates:** Add Windows Rust/WebAssembly coverage and update setup-uv, uv, and cibuildwheel. [#60](https://github.com/hobuinc/mgrs/pull/60), [#61](https://github.com/hobuinc/mgrs/pull/61), [#63](https://github.com/hobuinc/mgrs/pull/63), [#64](https://github.com/hobuinc/mgrs/pull/64), [#65](https://github.com/hobuinc/mgrs/pull/65), [#66](https://github.com/hobuinc/mgrs/pull/66)
+
+[Full changes since 1.6.0](https://github.com/hobuinc/mgrs/compare/1.6.0...1c42f77)
 
 1.6.0
 
@@ -195,9 +247,9 @@ You can also control the precision of the MGRS grid with the MGRSPrecision
 arguments in .toMGRS().  Other than that, there isn't too much to it.
 
 MGRS input accepts ASCII whitespace (spaces, tabs, and line breaks) before,
-after, or between coordinate groups. ``toLatLon`` and ``MGRSToUTM`` remove
-this whitespace before validating the complete coordinate and passing it
-to GEOTRANS. Both ``str`` and ``bytes`` inputs are supported::
+after, or between coordinate groups. ``toLatLon``, ``toWKT``, ``toGeoJSON`` and
+``MGRSToUTM`` remove this whitespace before validating the complete coordinate
+and passing it to GEOTRANS. Both ``str`` and ``bytes`` inputs are supported::
 
     >>> m = mgrs.MGRS()
     >>> lat, lon = m.toLatLon("  04QEJ 97987 90670  ")
@@ -207,39 +259,130 @@ to GEOTRANS. Both ``str`` and ``bytes`` inputs are supported::
 Invalid characters, trailing text, and NUL bytes in scalar inputs raise
 ``mgrs.core.MGRSError`` rather than converting a partial coordinate.
 
+Cell polygons
+------------------------------------------------------------------------------
+
+``toWKT(MGRS)`` returns the cell footprint as a WKT ``POLYGON``::
+
+    >>> m = mgrs.MGRS()
+    >>> polygon = m.toWKT("15TWG0000049776")
+    >>> polygon.startswith("POLYGON ((")
+    True
+
+Coordinates are WGS84 **longitude latitude in degrees**, with no embedded SRID.
+The ID determines the cell size: 100 km at precision 0 through 1 m at precision
+5. The polygon covers the full UTM or UPS grid square, including portions beyond
+zone and latitude-band boundaries. Its corners are derived from the projected
+grid bounds, accounting for the half-cell offset used by ``toLatLon``.
+
+The exterior ring is closed and counterclockwise. Curved projected edges are
+sampled adaptively, targeting a 0.1 m midpoint error, so coarse cells generally
+have more than four vertices. Coordinates are written to 12 decimal places;
+the footprint is an approximation, not an exact representation of curved edges.
+
+To preserve a single polygon across the antimeridian, longitudes are continuous
+and may extend beyond -180 or +180 degrees. Do not wrap individual vertices:
+split the geometry at the antimeridian if a consumer requires that longitude
+range. Cells touching a pole include two vertices at latitude +90 or -90 with
+different longitudes to represent the cell's wedge.
+
+The method accepts ``str`` or ``bytes`` with the same whitespace, validation and
+latitude-band warnings as ``toLatLon``. Rust exposes ``to_wkt(code)`` and
+TypeScript exposes ``toWKT(code)`` with the same geometry conventions.
+
+``toGeoJSON(MGRS)`` returns the same cell footprint as a plain Python geometry
+mapping, using only built-in ``dict``, ``list``, ``str`` and ``float`` values.
+It requires no additional dependencies and can be serialized with the standard
+library's ``json`` module::
+
+    >>> import json
+    >>> geometry = m.toGeoJSON("15TWG0000049776")
+    >>> geometry["type"]
+    'Polygon'
+    >>> geometry["coordinates"][0][0]
+    [-93.0, 41.999997975128]
+    >>> json.loads(json.dumps(geometry)) == geometry
+    True
+
+The mapping follows the `__geo_interface__ convention
+<https://gist.github.com/sgillies/2217756>`_ and can be returned directly from
+that property on a cell object::
+
+    >>> class Cell:
+    ...     def __init__(self, code):
+    ...         self.code = code
+    ...     @property
+    ...     def __geo_interface__(self):
+    ...         return mgrs.MGRS().toGeoJSON(self.code)
+    >>> Cell("15TWG0000049776").__geo_interface__ == geometry
+    True
+
+GeoJSON uses WGS84 longitude/latitude degrees and the same full-cell boundaries,
+precision, edge sampling and warnings as WKT. Antimeridian-crossing cells are
+split into a ``MultiPolygon``, keeping longitudes within -180 to +180 degrees
+as recommended by `RFC 7946 <https://www.rfc-editor.org/rfc/rfc7946#section-3.1.9>`_.
+Other cells return a ``Polygon``, including cells touching a pole. Each result
+owns its nested lists; modifying it does not affect subsequent calls.
+
+TypeScript's ``toGeoJSON(code)`` returns a plain geometry object. Rust's
+``to_geojson(code)`` returns GeoJSON text in ``Conversion.value`` without
+requiring a serialization crate.
+
 Building from source
 ------------------------------------------------------------------------------
 
 Python 3.11 or later is required.
 
-The build uses scikit-build-core and CMake with a C compiler and a C++17
-compiler. GitHub Actions and the commands below use uv to install Python build
-dependencies and obtain CMake/Ninja when needed::
+The build uses scikit-build-core and CMake. You must provide a C++17 compiler
+and Rust/Cargo 1.85 or later on ``PATH`` before building (CI uses Rust 1.90.0).
+The package does not install Rust automatically. Prebuilt wheels do not
+require a Rust installation.
+
+Install Rust with `rustup <https://rustup.rs/>`_. On macOS or Linux::
+
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    . "$HOME/.cargo/env"
+    rustc --version
+    cargo --version
+
+On Windows, use the rustup installer from https://rustup.rs/, install the
+Visual Studio C++ Build Tools when prompted, and open a new terminal so
+``rustc`` and ``cargo`` are on ``PATH``.
+
+Install uv using https://docs.astral.sh/uv/getting-started/installation/.
+Then, from this repository's root, install the Python package with uv::
 
     uv venv
     . .venv/bin/activate
     uv pip install .
-    # Development install:
-    uv pip install -e . pytest
+
+On Windows PowerShell, activate with ``.venv\Scripts\Activate.ps1`` instead.
+uv installs Python build dependencies and the build backend obtains
+CMake/Ninja when needed; Rust is supplied by your existing toolchain.
+Standard PEP 517 frontends such as pip can also build and install the package.
+
+For development, install in editable mode and run the tests. Repeat the
+install command after changing Rust or C++ sources to rebuild the extension::
+
+    uv pip install --reinstall-package mgrs -e . pytest
     python -m pytest tests --doctest-glob='*.txt'
 
 To produce both source and wheel distributions::
 
     uv build
 
-Install uv using https://docs.astral.sh/uv/getting-started/installation/.
-On Windows, activate with ``.venv\Scripts\activate`` instead. Standard PEP 517
-frontends such as pip can also build and install the package.
-
 CI pins uv and cibuildwheel in ``ci/requirements.txt``. Dependabot checks
 GitHub Actions daily and Python dependencies weekly, including the build
 requirements in ``pyproject.toml`` and the pins in ``ci/requirements.txt``
 and ``benchmarks/requirements-ci.txt``.
 
-``CMakeLists.txt`` defines a position-independent static ``mgrs_core`` library
-and the ``mgrs._native`` pybind11 extension. Only the extension and Python
-package are installed. CMake's normal compiler selection, toolchain files,
-and build flags apply; no ``setup.py`` build is required. The scalar and batch
+``CMakeLists.txt`` builds the ``mgrs-python`` Cargo crate as a static library
+and links it into the ``mgrs._native`` pybind11 extension. Only the extension
+and Python package are installed. Cargo uses the locked dependencies and
+release profile; CMake's compiler flags apply to the C++ binding. Cross builds
+require the matching Rust target installed with ``rustup target add``; set
+``MGRS_RUST_TARGET`` for other CMake toolchains. macOS wheels target arm64 or
+x86_64 separately. No ``setup.py`` build is required. The scalar and batch
 ``MGRS`` methods and ``mgrs.core.MGRSError`` remain available. The internal
 ``mgrs.core.rt`` foreign-function handle has been removed.
 
@@ -304,13 +447,17 @@ views and slices of existing buffers; materialize strided numeric data with
 ``array('d', values)`` before conversion. Lists, Unicode strings, and buffers
 with the wrong element type or layout are rejected. Empty inputs work. Buffer
 exports retain the input storage throughout conversion and are released on
-success or failure. Do not mutate input values while conversion is in progress.
+success or failure. The binding copies input storage while holding the GIL,
+then Rust reads that snapshot. As with other Python buffers, external native
+code must not write concurrently while the snapshot is being taken.
 
 Invalid values raise ``mgrs.core.MGRSError`` with the first failing zero-based
 row. No partial output is returned. NaN and infinite coordinates are rejected.
 Latitude warnings are emitted once per batch, identifying the first affected
-row. All scalar and batch conversion methods serialize access to GeoTrans's
-shared projection state through a native mutex. The extension releases the GIL
-during conversion, but calls
-from multiple Python threads do not execute the projection code in parallel.
+row. Rust projection state is immutable and shared safely across calls. The
+extension releases the GIL during conversion, so independent calls from Python
+threads can run concurrently without a global projection mutex. Output is
+written directly into the returned Python buffer. Snapshot storage adds
+16 bytes per input point for forward batches or ``width`` bytes per inverse
+record, released when the call finishes.
 The batch adapter needs no additional dependencies or third-party array ABI.

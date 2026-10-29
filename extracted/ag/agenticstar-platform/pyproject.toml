@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agenticstar-platform"
-version = "3.2.0"
+version = "3.2.1"
 description = "AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure"
 readme = "README.md"
 license = "MIT"

@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -11,6 +14,9 @@ from .manager import Ips4Manager
 from .models import Ips4User
 from .tasks import Ips4Tasks
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 ACCESS_PERM = 'ips4.access_ips4'
@@ -18,7 +24,7 @@ ACCESS_PERM = 'ips4.access_ips4'
 
 @login_required
 @permission_required(ACCESS_PERM)
-def activate_ips4(request):
+def activate_ips4(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"activate_ips4 called by user {request.user}")
     character = request.user.profile.main_character
     logger.debug(f"Adding IPS4 user for user {request.user} with main character {character}")
@@ -43,7 +49,7 @@ def activate_ips4(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def reset_ips4_password(request):
+def reset_ips4_password(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"reset_ips4_password called by user {request.user}")
     if Ips4Tasks.has_account(request.user):
         result = Ips4Manager.update_user_password(request.user.ips4.username)
@@ -64,7 +70,7 @@ def reset_ips4_password(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def set_ips4_password(request):
+def set_ips4_password(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"set_ips4_password called by user {request.user}")
     if request.method == 'POST':
         logger.debug("Received POST request with form.")
@@ -92,7 +98,7 @@ def set_ips4_password(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def deactivate_ips4(request):
+def deactivate_ips4(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"deactivate_ips4 called by user {request.user}")
     if Ips4Tasks.delete_user(request.user):
         logger.info(f"Successfully deactivated IPSuite4 for user {request.user}")

@@ -187,3 +187,20 @@ async def test_research_saves_pages_in_the_organization_the_conversation_carries
         "keep": False,
         "attach_to": [],
     }
+
+
+async def test_research_text_budget_is_the_desktop_research_knob(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``agents.desktop_research.text_max_chars`` (was _RESEARCH_TEXT_BUDGET): the row decides where the cut is."""
+    from matrx_ai import knobs
+
+    _computer(monkeypatch)
+    _search(monkeypatch, {"q": [f"https://p{j}.example/" for j in range(20)]})
+    _bind(DESKTOP)
+    monkeypatch.setattr(knobs, "_reader", None)
+    r = await desktop.desktop_web({"action": "research", "queries": ["q"], "count": 20},
+                                  ToolContext(call_id="r9", tool_name="desktop_web"))
+    assert r.success and "[Cut at" not in r.output["text"], "the seeded 60,000 holds 20 short pages"
+    monkeypatch.setattr(knobs, "_reader", lambda f, k: {("agents.desktop_research", "text_max_chars"): 1_000}[(f, k)])
+    r = await desktop.desktop_web({"action": "research", "queries": ["q"], "count": 20},
+                                  ToolContext(call_id="r10", tool_name="desktop_web"))
+    assert r.success and "[Cut at 1,000 of" in r.output["text"]

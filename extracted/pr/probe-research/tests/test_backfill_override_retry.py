@@ -45,7 +45,7 @@ _UNRELATED = json.dumps({"type": "turn.failed", "error": {"message": json.dumps(
     },
 })}})
 
-#: The settings these tests send. `sonnet` is not one: it is the draft lane's
+#: The settings these tests send. `sonnet` is not one: it is the record lane's
 #: builtin model, the fallback.
 _OVERRIDES = ("gpt-6-astra", "opus", 'model_reasoning_effort="xhigh"', 'model_reasoning_effort="low"')
 
@@ -181,14 +181,14 @@ def test_claude_relaunches_under_a_fresh_session(agent, tmp_path):
     assert fresh != "11111111-1111-4111-8111-111111111111" and told == [fresh]
 
 
-def test_a_refused_draft_model_falls_back_to_the_lanes_builtin_model(agent, tmp_path):
-    """The fallback is what the lane ran with before any setting: Claude drafts
+def test_a_refused_record_model_falls_back_to_the_lanes_builtin_model(agent, tmp_path):
+    """The fallback is what the lane ran with before any setting: Claude records
     on sonnet, not on no model at all."""
     agent(override=(CLAUDE_BAD_MODEL, 1), plain=(CLAUDE_OK, 0))
     agents = settings_mod.resolve(
-        None, bf.Agent.CLAUDE, environ={settings_mod.ENV_VAR: '{"claude": {"draft": {"model": "opus"}}}'},
+        None, bf.Agent.CLAUDE, environ={settings_mod.ENV_VAR: '{"claude": {"record": {"model": "opus"}}}'},
     )
-    ok, _ = _launch(tmp_path, agent=bf.Agent.CLAUDE, settings=agents.lane(Lane.DRAFT))
+    ok, _ = _launch(tmp_path, agent=bf.Agent.CLAUDE, settings=agents.lane(Lane.RECORD))
     first, second = agent.launches()
     assert ok
     assert first[first.index("--model") + 1] == "opus"

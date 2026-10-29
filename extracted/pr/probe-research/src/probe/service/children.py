@@ -191,10 +191,13 @@ async def run_command(
     timeout: float,
     stdin: bytes = b"",
     log_path: Path | None = None,
+    kill_on_cancel: bool = False,
 ) -> int | None:
     """Run `argv` to its end (`spawn_watched`): its exit status, or None when
     it ran past `timeout` (then its whole process group is killed). Raises
-    OSError when it could not start."""
+    OSError when it could not start. With `kill_on_cancel`, a cancelled wait
+    kills it too (a child that must not outlive this service: a status-line
+    refresh reading the service's state after it has gone writes a wrong one)."""
     loop = asyncio.get_running_loop()
     exited: asyncio.Future = loop.create_future()
 
@@ -210,6 +213,10 @@ async def run_command(
         if not exited.done():  # still ours: its pid cannot have been reused yet
             _kill_group(child.pid)
         return None
+    except asyncio.CancelledError:
+        if kill_on_cancel and not exited.done():
+            _kill_group(child.pid)
+        raise
 
 
 def child_env(extra: dict | None = None) -> dict:

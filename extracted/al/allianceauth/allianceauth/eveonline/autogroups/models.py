@@ -1,7 +1,8 @@
-import logging
-from typing import ClassVar
+__lazy_modules__ = ["django.contrib.auth.models"]
 
-from django.contrib.auth.models import UserManager
+import logging
+from typing import TYPE_CHECKING, ClassVar
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 
@@ -9,15 +10,18 @@ from allianceauth.authentication.models import State, User
 from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 from allianceauth.groupmanagement.models import Group
 
+if TYPE_CHECKING:
+    from django.contrib.auth.models import UserManager
+
 logger = logging.getLogger(__name__)
 
 
-def get_users_for_state(state: State) -> UserManager[User]:
+def get_users_for_state(state: State) -> "UserManager[User]":
     return User.objects.select_related('profile')\
         .prefetch_related('profile__main_character')\
         .filter(profile__state_id=state.pk)
 
-class AutogroupsConfigManager(models.Manager):
+class AutogroupsConfigManager(models.Manager["AutogroupsConfig"]):
     def update_groups_for_state(self, state: State) -> None:
         """
         Update all the Group memberships for the users
@@ -101,7 +105,7 @@ class AutogroupsConfig(models.Model):
     def update_all_states_group_membership(self) -> None:
         list(map(self.update_group_membership_for_state, self.states.all()))
 
-    def update_group_membership_for_state(self, state: State):
+    def update_group_membership_for_state(self, state: State) -> None:
         list(map(self.update_group_membership_for_user, get_users_for_state(state)))
 
     @transaction.atomic

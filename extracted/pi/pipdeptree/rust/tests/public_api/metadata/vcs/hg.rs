@@ -1,61 +1,94 @@
+use std::ffi::OsString;
 use std::fs;
+use std::path::Path;
 
 use _pipdeptree::{ProcessError, ProcessOutput};
 use rstest::rstest;
 
-use super::super::super::common::{MockProcesses, expect_process, process_output};
+use super::super::super::common::{MockProcesses, process_output};
 use super::{editable_site, expect_no_git, freeze};
 
+const REMOTE: &str = "[paths]\ndefault = https://example.com/repo\n";
+
 #[rstest]
-#[case::empty_remote(Ok(process_output("")), None, true)]
-#[case::failed_remote(
-    Ok(ProcessOutput { success: false, stdout: Vec::new(), stderr: Vec::new() }),
-    None,
+#[case::plain(REMOTE)]
+#[case::compact("[paths]\ndefault=https://example.com/repo")]
+#[case::windows_line_endings("[paths]\r\ndefault = https://example.com/repo\r\n")]
+#[case::other_sections(
+    "[ui]\ndefault = ui\n[paths]\ndefault = https://example.com/repo\n[web]\ndefault = web\n"
+)]
+#[case::other_paths(
+    "[paths]\nupstream = up\ndefault = https://example.com/repo\ndefault:pushurl = push\n# default = no\n"
+)]
+#[case::last_value("[paths]\ndefault = first\n[paths]\ndefault = https://example.com/repo\n")]
+#[case::continuation(
+    "[paths]\ndefault = https://example.com/repo\n  --index-url=https://example.com\n"
+)]
+fn freezes_hg_repositories(#[case] hgrc: &str) {
+    let repository = tempfile::tempdir().unwrap();
+    write_hgrc(repository.path(), hgrc);
+
+    assert_eq!(
+        freeze_hg(repository.path(), Ok(process_output("abc"))),
+        "-e hg+https://example.com/repo@abc#egg=demo\n"
+    );
+}
+
+fn write_hgrc(repository: &Path, content: &str) {
+    fs::create_dir_all(repository.join(".hg")).unwrap();
+    fs::write(repository.join(".hg/hgrc"), content).unwrap();
+}
+
+fn freeze_hg(repository: &Path, commit: Result<ProcessOutput, ProcessError>) -> String {
+    let site = editable_site(repository);
+    let mut processes = MockProcesses::new();
+    expect_no_git(&mut processes, repository);
+    processes
+        .expect_run()
+        .withf(|request| {
+            request.program == "hg"
+                && request.args == ["parents", "--template={node}"]
+                && request.added_environment
+                    == [(OsString::from("HGRCSKIPREPO"), OsString::from("1"))]
+        })
+        .times(1)
+        .return_once(move |_| commit);
+    freeze(&site, &processes)
+}
+
+#[rstest]
+#[case::missing_hgrc(None, Ok(process_output("abc")), true)]
+#[case::missing_section(
+    Some("default = https://example.com/repo\n"),
+    Ok(process_output("abc")),
     true
 )]
-#[case::missing_hg(Err(ProcessError::NotFound), None, false)]
-#[case::timed_out_hg(Err(ProcessError::TimedOut), None, true)]
-#[case::empty_commit(
-    Ok(process_output("https://example.com/repo")),
-    Some(Ok(process_output(""))),
+#[case::missing_remote(
+    Some("[paths]\nupstream = https://example.com/repo\n"),
+    Ok(process_output("abc")),
     true
 )]
+#[case::empty_remote(Some("[paths]\ndefault =\n"), Ok(process_output("abc")), true)]
+#[case::missing_hg(Some(REMOTE), Err(ProcessError::NotFound), false)]
+#[case::timed_out_hg(Some(REMOTE), Err(ProcessError::TimedOut), true)]
+#[case::empty_commit(Some(REMOTE), Ok(process_output("")), true)]
 #[case::failed_commit(
-    Ok(process_output("https://example.com/repo")),
-    Some(Ok(ProcessOutput { success: false, stdout: Vec::new(), stderr: Vec::new() })),
+    Some(REMOTE),
+    Ok(ProcessOutput { success: false, stdout: Vec::new(), stderr: Vec::new() }),
     true
-)]
-#[case::missing_commit(
-    Ok(process_output("https://example.com/repo")),
-    Some(Err(ProcessError::NotFound)),
-    false
 )]
 fn reports_hg_failures(
-    #[case] remote: Result<ProcessOutput, ProcessError>,
-    #[case] commit: Option<Result<ProcessOutput, ProcessError>>,
+    #[case] hgrc: Option<&str>,
+    #[case] commit: Result<ProcessOutput, ProcessError>,
     #[case] comments: bool,
 ) {
     let repository = tempfile::tempdir().unwrap();
     fs::create_dir(repository.path().join(".hg")).unwrap();
-    let site = editable_site(repository.path());
-    let mut processes = MockProcesses::new();
-    expect_no_git(&mut processes, repository.path());
-    expect_process(
-        &mut processes,
-        "hg",
-        &["showconfig", "paths.default"],
-        remote,
-    );
-    if let Some(commit) = commit {
-        expect_process(
-            &mut processes,
-            "hg",
-            &["parents", "--template={node}"],
-            commit,
-        );
+    if let Some(hgrc) = hgrc {
+        write_hgrc(repository.path(), hgrc);
     }
 
-    let frozen = freeze(&site, &processes);
+    let frozen = freeze_hg(repository.path(), commit);
 
     assert_eq!(
         (
@@ -66,6 +99,40 @@ fn reports_hg_failures(
     );
 }
 
+#[test]
+fn ignores_hgrc_includes() {
+    let repository = tempfile::tempdir().unwrap();
+    let included = repository.path().join("included");
+    fs::write(&included, REMOTE).unwrap();
+    write_hgrc(
+        repository.path(),
+        &format!("%include {}\n", included.display()),
+    );
+
+    assert!(
+        freeze_hg(repository.path(), Ok(process_output("abc")))
+            .contains("Editable hg install with no remote")
+    );
+}
+
+#[cfg(unix)]
+#[rstest]
+#[case::hgrc("hgrc", ".hg/hgrc")]
+#[case::hg_directory("", ".hg")]
+fn ignores_linked_hgrc(#[case] target: &str, #[case] link: &str) {
+    let outside = tempfile::tempdir().unwrap();
+    fs::write(outside.path().join("hgrc"), REMOTE).unwrap();
+    let repository = tempfile::tempdir().unwrap();
+    let link = repository.path().join(link);
+    fs::create_dir_all(link.parent().unwrap()).unwrap();
+    std::os::unix::fs::symlink(outside.path().join(target), link).unwrap();
+
+    assert!(
+        freeze_hg(repository.path(), Ok(process_output("abc")))
+            .contains("Editable hg install with no remote")
+    );
+}
+
 #[rstest]
 #[case::absolute(HgRemote::Absolute, "-e hg+file://")]
 #[case::missing_absolute(HgRemote::MissingAbsolute, "-e hg+file://")]
@@ -73,7 +140,6 @@ fn reports_hg_failures(
 #[case::prefixed(HgRemote::Value("hg:https://example.com/repo"), "-e hg:https://")]
 fn normalizes_hg_remotes(#[case] source: HgRemote, #[case] expected: &str) {
     let repository = tempfile::tempdir().unwrap();
-    fs::create_dir(repository.path().join(".hg")).unwrap();
     let remote = match source {
         HgRemote::Absolute => repository.path().to_string_lossy().into_owned(),
         HgRemote::MissingAbsolute => repository
@@ -83,23 +149,9 @@ fn normalizes_hg_remotes(#[case] source: HgRemote, #[case] expected: &str) {
             .into_owned(),
         HgRemote::Value(value) => value.to_string(),
     };
-    let site = editable_site(repository.path());
-    let mut processes = MockProcesses::new();
-    expect_no_git(&mut processes, repository.path());
-    expect_process(
-        &mut processes,
-        "hg",
-        &["showconfig", "paths.default"],
-        Ok(process_output(remote)),
-    );
-    expect_process(
-        &mut processes,
-        "hg",
-        &["parents", "--template={node}"],
-        Ok(process_output("abc")),
-    );
+    write_hgrc(repository.path(), &format!("[paths]\ndefault = {remote}\n"));
 
-    assert!(freeze(&site, &processes).starts_with(expected));
+    assert!(freeze_hg(repository.path(), Ok(process_output("abc"))).starts_with(expected));
 }
 
 #[derive(Clone, Copy)]

@@ -174,6 +174,12 @@
     - tests/test_lint_best_practices.py
     - tests/test_interop_tests.py
 
+- file: format2/synthetic-untyped-params.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
 - file: native/real-unicycler-assembly.ga
   origin: real
   format: native
@@ -292,6 +298,12 @@
   format: native
   tests:
     - tests/test_lint_best_practices.py
+    - tests/test_interop_tests.py
+
+- file: native/synthetic-untyped-params.ga
+  origin: synthetic
+  format: native
+  tests:
     - tests/test_interop_tests.py
 
 # --- test_normalized.py fixtures ---
@@ -428,12 +440,36 @@
   tests:
     - tests/test_interop_tests.py
 
+- file: native/synthetic-color-directory-uri-inputs.ga
+  origin: synthetic
+  format: native
+  description: Color and directory URI parameter inputs.
+  tests:
+    - tests/test_interop_tests.py
+    - tests/test_export_abstract.py
+
+- file: native/synthetic-multiple-text-validators.ga
+  origin: synthetic
+  format: native
+  description: Multiple text input carrying a regex validator.
+  tests:
+    - tests/test_interop_tests.py
+
 - file: native/synthetic-numeric-range-validators.ga
   origin: synthetic
   format: native
   description: Integer/float parameter inputs with in_range and regex validators.
   tests:
     - tests/test_interop_tests.py
+
+- file: format2/synthetic-color-directory-uri-inputs.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Color and directory URI parameter inputs.
+  tests:
+    - tests/test_interop_tests.py
+    - tests/test_export_abstract.py
+    - tests/test_pydantic_schema.py
 
 - file: format2/synthetic-int-input.gxwf.yml
   origin: synthetic
@@ -651,6 +687,30 @@
   tests:
     - tests/test_interop_tests.py
 
+- file: format2/synthetic-bad-validators-on-color.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-bad-restrictions-on-directory-uri.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-bad-multiple-color.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-bad-multiple-directory-uri.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+
 - file: format2/synthetic-bad-validators-on-int.gxwf.yml
   origin: synthetic
   format: format2
@@ -706,12 +766,26 @@
     - tests/test_interop_tests.py
     - tests/test_schema_rules_catalog.py
 
+- file: format2/synthetic-extra-field-output.gxwf.yml
+  origin: synthetic
+  format: format2
+  tests:
+    - tests/test_interop_tests.py
+    - tests/test_schema_rules_catalog.py
+
 - file: format2/synthetic-missing-steps.gxwf.yml
   origin: synthetic
   format: format2
   tests:
     - tests/test_interop_tests.py
     - tests/test_schema_rules_catalog.py
+
+- file: format2/synthetic-inline-subworkflow-no-class.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Inline subworkflow run without class — normalizes as GalaxyWorkflow.
+  tests:
+    - tests/test_interop_tests.py
 
 - file: native/synthetic-extra-field.ga
   origin: synthetic
@@ -739,9 +813,10 @@
 - file: format2/synthetic-lint-no-class.gxwf.yml
   origin: synthetic
   format: format2
-  description: Missing class key — triggers lint error.
+  description: Missing class key — triggers lint and schema validation errors.
   tests:
     - tests/test_interop_tests.py
+    - tests/test_schema_rules_catalog.py
 
 - file: format2/synthetic-lint-nested-no-steps.gxwf.yml
   origin: synthetic
@@ -750,10 +825,45 @@
   tests:
     - tests/test_interop_tests.py
 
+- file: format2/synthetic-lint-duplicate-default-input-label.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Id-less list-form input defaults to label "Input 0", which a step reuses — triggers duplicate step label lint error.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-lint-duplicate-input-step-label.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Input and step share a label — triggers duplicate step label lint error.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-lint-duplicate-step-label-list.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: List-form steps repeat a label — triggers duplicate step label lint error.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-lint-duplicate-step-label-in-subworkflow.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Two steps of an inline subworkflow share a label — triggers nested lint error.
+  tests:
+    - tests/test_interop_tests.py
+
 - file: format2/synthetic-lint-step-errors.gxwf.yml
   origin: synthetic
   format: format2
   description: Step with errors field set — triggers Galaxy export error warning.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-lint-step-label-reused-in-subworkflow.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Same step label in parent and inline subworkflow — separate namespaces, lints clean.
   tests:
     - tests/test_interop_tests.py
 
@@ -785,10 +895,38 @@
   tests:
     - tests/test_interop_tests.py
 
+- file: format2/synthetic-lint-bad-color-directory-uri-defaults.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Non-string defaults on color and directory URI inputs — triggers type mismatch lint errors.
+  tests:
+    - tests/test_interop_tests.py
+
 - file: format2/synthetic-lint-bad-string-default.gxwf.yml
   origin: synthetic
   format: format2
   description: Integer default on string input — triggers type mismatch lint error.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: format2/synthetic-lint-bad-list-defaults.gxwf.yml
+  origin: synthetic
+  format: format2
+  description: Multiple text/int/float inputs with mistyped default entries and a boolean int default — triggers type mismatch lint errors.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: native/synthetic-lint-bad-color-directory-uri-defaults.ga
+  origin: synthetic
+  format: native
+  description: Non-string defaults on color and directory URI parameter inputs — triggers type mismatch lint errors.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: native/synthetic-lint-bad-parameter-defaults.ga
+  origin: synthetic
+  format: native
+  description: Text and integer parameter inputs (single and multiple) with mistyped defaults — triggers type mismatch lint errors.
   tests:
     - tests/test_interop_tests.py
 
@@ -834,6 +972,34 @@
   origin: synthetic
   format: native
   description: Non-integer step key — triggers lint error.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: native/synthetic-lint-duplicate-step-label.ga
+  origin: synthetic
+  format: native
+  description: Parameter input and tool step share a label (as in IWC PR 310) — triggers lint error.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: native/synthetic-lint-duplicate-step-label-in-subworkflow.ga
+  origin: synthetic
+  format: native
+  description: Two steps of a subworkflow share a label — triggers nested lint error.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: native/synthetic-lint-step-label-reused-in-subworkflow.ga
+  origin: synthetic
+  format: native
+  description: Same step label in parent and subworkflow — separate namespaces, lints clean.
+  tests:
+    - tests/test_interop_tests.py
+
+- file: native/synthetic-lint-unlabeled-steps.ga
+  origin: synthetic
+  format: native
+  description: Several steps with null, empty or missing labels — not duplicates, lints clean.
   tests:
     - tests/test_interop_tests.py
 

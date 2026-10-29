@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-__lazy_modules__ = ["configparser", "pathlib", "pipx", "pipx.fanout", "pipx.interpreter", "pipx.util", "threading"]
+__lazy_modules__ = [
+    "configparser",
+    "packaging.version",
+    "pathlib",
+    "pipx",
+    "pipx.fanout",
+    "pipx.interpreter",
+    "pipx.package_specifier",
+    "pipx.util",
+    "threading",
+]
 
 import datetime as dt
 import logging
@@ -14,12 +24,15 @@ from pathlib import Path
 from threading import RLock
 from typing import TYPE_CHECKING, Final
 
+from packaging.version import Version
+
 from pipx import paths
 from pipx.animate import animate
 from pipx.constants import WINDOWS
 from pipx.emojis import strtobool
 from pipx.fanout import in_turn
 from pipx.interpreter import get_default_python
+from pipx.package_specifier import absolute_path_pip_args
 from pipx.util import (
     PipxError,
     get_site_packages,
@@ -40,6 +53,9 @@ logger = logging.getLogger(__name__)
 SHARED_LIBS_MAX_AGE_SEC: Final[float] = dt.timedelta(days=30).total_seconds()
 DISABLE_SHARED_LIBS_AUTO_UPGRADE: Final[str] = "PIPX_DISABLE_SHARED_LIBS_AUTO_UPGRADE"
 _SKIP_MAINTENANCE: Final[ContextVar[bool]] = ContextVar("skip_maintenance", default=False)
+_COOLDOWN_DAYS: Final[ContextVar[int | None]] = ContextVar("cooldown_days", default=None)
+# pip 26.2.2 vendors a certifi without the distrusted emSign root CA, see https://github.com/pypa/pipx/issues/2183
+_PIP_FLOOR: Final[str] = "26.2.2"
 
 
 def shared_libs_auto_upgrade_disabled() -> bool:
@@ -53,6 +69,15 @@ def skip_shared_libs_maintenance(*, enabled: bool) -> Generator[None, None, None
         yield
     finally:
         _SKIP_MAINTENANCE.reset(token)
+
+
+@contextmanager
+def shared_pip_cooldown(days: int | None) -> Generator[None]:
+    token = _COOLDOWN_DAYS.set(days)
+    try:
+        yield
+    finally:
+        _COOLDOWN_DAYS.reset(token)
 
 
 def _venv_python_is_valid(python_path: Path) -> bool:
@@ -241,7 +266,7 @@ class _SharedLibs:
         if self.has_been_updated_this_run:
             return False
 
-        if not self.pip_path.is_file():
+        if not self.pip_path.is_file() or self._pip_below_floor():
             return True
 
         now = time.time()
@@ -255,6 +280,14 @@ class _SharedLibs:
             )
             self.has_been_logged_this_run = True
         return time_since_last_update_sec > SHARED_LIBS_MAX_AGE_SEC
+
+    def _pip_below_floor(self) -> bool:
+        from importlib.metadata import distributions  # ruff:ignore[import-outside-top-level]  # slows startup
+
+        return any(
+            Version(dist.version) < Version(_PIP_FLOOR)
+            for dist in distributions(name="pip", path=[str(path) for path in self.site_packages])
+        )
 
     def upgrade(self, *, pip_args: list[str], verbose: bool = False, raises: bool = False) -> None:
         with in_turn(lambda: self.has_been_updated_this_run), self._lock, self._maintenance_lock():
@@ -272,9 +305,32 @@ class _SharedLibs:
         self._install_pip(pip_args=pip_args, verbose=verbose, raises=raises)
 
     def _install_pip(self, *, pip_args: list[str], verbose: bool, raises: bool, pythonpath: str | None = None) -> None:
+        cooldown_days: Final[int | None] = _COOLDOWN_DAYS.get()
+        # pip before 26.1 rejects --uploaded-prior-to, and a reinstall under a cooldown fails when no release is old
+        # enough, so first lay down the oldest pip pipx accepts; the cooldown upgrade then keeps it as a candidate
+        if floor_first := bool(cooldown_days) and (
+            pythonpath is not None or "--force-reinstall" in pip_args or self._pip_below_floor()
+        ):
+            self._run_pip_install(
+                pip_args, f"pip == {_PIP_FLOOR}", verbose=verbose, raises=raises, pythonpath=pythonpath
+            )
+            pip_args = [arg for arg in pip_args if arg != "--force-reinstall"]
+            pythonpath = None
+        self._run_pip_install(
+            [*pip_args, *(["--uploaded-prior-to", f"P{cooldown_days}D"] if cooldown_days else [])],
+            f"pip >= {_PIP_FLOOR}",
+            verbose=verbose,
+            raises=raises and not floor_first,
+            pythonpath=pythonpath,
+        )
+
+    def _run_pip_install(
+        self, pip_args: list[str], requirement: str, *, verbose: bool, raises: bool, pythonpath: str | None
+    ) -> None:
         logger.info("Upgrading shared libraries in %s", self.root)
 
-        filtered_pip_args = [arg for arg in pip_args if arg != "--editable"]
+        # pip runs inside the shared venv, so relative path values such as --cert must not follow that directory
+        filtered_pip_args = [arg for arg in absolute_path_pip_args(pip_args, Path.cwd()) if arg != "--editable"]
         if not verbose:
             filtered_pip_args.append("-q")
 
@@ -290,8 +346,9 @@ class _SharedLibs:
                         "install",
                         "--upgrade",
                         *filtered_pip_args,
-                        "pip >= 26.1",
+                        requirement,
                     ],
+                    run_dir=str(self.root),
                     env_overrides={"PYTHONPATH": pythonpath},
                 )
             subprocess_post_check(upgrade_process)
@@ -313,5 +370,6 @@ __all__ = [
     "SHARED_LIBS_MAX_AGE_SEC",
     "shared_libs",
     "shared_libs_auto_upgrade_disabled",
+    "shared_pip_cooldown",
     "skip_shared_libs_maintenance",
 ]

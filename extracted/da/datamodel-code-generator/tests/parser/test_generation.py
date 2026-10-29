@@ -25,7 +25,10 @@ from datamodel_code_generator.model.type_alias import TypeAliasTypeBackport
 from datamodel_code_generator.model.typed_dict import TypedDict
 from datamodel_code_generator.parser.generation import (
     GENERATION_STORE_MUTATION_METHODS,
+    NO_SITE_EFFECT,
+    SITE_EFFECTS,
     DataTypeFact,
+    GenerationIndexBuilder,
     GenerationStore,
     _GenerationModelList,
     set_model_base_classes,
@@ -36,32 +39,8 @@ from datamodel_code_generator.types import DataType
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-IMPORT_CACHE_CLEARING_MUTATION_METHODS = frozenset({
-    "append_field",
-    "collapse_root_data_type",
-    "detach_data_type_ref",
-    "detach_model_data_type_refs",
-    "insert_field",
-    "move_model",
-    "redirect_model_reference_users",
-    "redirect_reference_users",
-    "remove_field",
-    "rename_model",
-    "replace_data_type_ref",
-    "replace_field_type",
-    "replace_nested_data_type",
-    "reset_base_classes",
-    "set_base_classes",
-    "set_fields",
-    "set_nested_data_types",
-    "update_model_reference",
-})
-IMPORT_CACHE_NEUTRAL_MUTATION_METHODS = frozenset({
-    "defer_refresh",
-    "discard_derived_facts",
-    "note_changed_models",
-    "register_model",
-})
+"""Operations that run a model hook, swap a nested type or write a field or model value, and leave the import caches
+to their callers."""
 GENERATION_MODEL_LIST_MUTATION_METHODS = frozenset({
     "__delitem__",
     "__iadd__",
@@ -134,11 +113,12 @@ def _dict_key_reference_classes(
     return store.index.reference_classes_for_model(model)
 
 
-def test_generation_store_import_cache_contract_covers_mutation_surface() -> None:
-    """New store mutation APIs must be classified for import-cache safety."""
-    assert (
-        IMPORT_CACHE_CLEARING_MUTATION_METHODS | IMPORT_CACHE_NEUTRAL_MUTATION_METHODS
-    ) == GENERATION_STORE_MUTATION_METHODS
+def test_generation_store_site_effects_cover_mutation_surface() -> None:
+    """Every store mutation states what it does to the reference sites, once."""
+    assert (sorted(SITE_EFFECTS.keys() & NO_SITE_EFFECT), SITE_EFFECTS.keys() | NO_SITE_EFFECT) == (
+        [],
+        GENERATION_STORE_MUTATION_METHODS,
+    )
 
 
 def test_parser_layers_treat_output_template_metadata_as_opaque() -> None:
@@ -268,7 +248,7 @@ def test_generation_facts_remove_legacy_edge_buckets() -> None:
     assert not hasattr(facts, "field_edges")
     assert not hasattr(facts, "base_edges")
     assert not hasattr(facts, "all_edges")
-    assert [list(data_type_ids) for data_type_ids in facts.reverse_edges.values()] == [[0]]
+    assert [list(data_type_ids) for data_type_ids in facts.sites_by_target.values()] == [[0]]
 
 
 def test_generation_store_replace_data_type_ref_updates_children_and_index() -> None:
@@ -378,7 +358,7 @@ def test_generation_store_defer_refresh_batches_mutations() -> None:
 
     with store.defer_refresh():
         store.replace_data_type_ref(data_type, reference_c)
-        store.update_model_reference(model, reference_name="Renamed", new_path="Renamed")
+        store.rename_model(model, reference_name="Renamed", new_path="Renamed")
         dirty_after_mutation = store._dirty
         version_after_mutation = store.facts_version
         reference_classes_inside_defer = sorted(store.index.reference_classes_for_model(model))
@@ -856,7 +836,8 @@ def test_generation_index_returns_empty_results_for_unknown_objects() -> None:
         "data_types_by_model_property": {
             model_id: list(data_type_ids) for model_id, data_type_ids in store.data_types_by_model.items()
         },
-        "reverse_edges_property": [list(data_type_ids) for data_type_ids in store.reverse_edges.values()],
+        "sites_by_target_property": [list(site_keys) for site_keys in store.sites_by_target.values()],
+        "sites_by_owner": list(store.facts.sites_by_owner.values()),
     } == snapshot(
         {
             "unknown_model_fact": None,
@@ -873,7 +854,8 @@ def test_generation_index_returns_empty_results_for_unknown_objects() -> None:
             "model_by_path_property": {"Model": 0},
             "model_by_ref_id_property": [0],
             "data_types_by_model_property": {0: [0, 1]},
-            "reverse_edges_property": [[0]],
+            "sites_by_target_property": [[0]],
+            "sites_by_owner": [(0,)],
         },
     )
 
@@ -1066,35 +1048,24 @@ def test_generation_store_model_mutations_clear_cached_imports_contract() -> Non
     store.register_model(model)
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
-    store.update_model_reference(model, reference_name="Renamed")
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
+    store.update_model_reference(model, new_file_path=Path("renamed.py"))
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.rename_model(model, reference_name="RenamedAgain")
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.move_model(model, new_path="pkg.RenamedAgain", new_file_path=Path("pkg.py"))
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.set_base_classes(model, [BaseClassDataType(type="object")])
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.reset_base_classes(model)
     assert {
-        "cache_key": model._IMPORTS_CACHE_KEY in model.__dict__,
         "path": model.path,
         "reference_name": model.reference.name,
         "file_path": model.file_path,
     } == snapshot({
-        "cache_key": False,
         "path": "pkg.RenamedAgain",
         "reference_name": "RenamedAgain",
         "file_path": Path("pkg.py"),
@@ -1110,33 +1081,24 @@ def test_generation_store_field_collection_mutations_clear_cached_imports_contra
     set_field = DataModelField(data_type=DataType(is_set=True))
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.append_field(model, list_field)
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
     assert IMPORT_LIST in model.imports
 
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.insert_field(model, 0, set_field)
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
     assert IMPORT_LIST in model.imports
     assert IMPORT_SET in model.imports
 
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.remove_field(model, list_field)
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
     assert IMPORT_LIST not in model.imports
     assert IMPORT_SET in model.imports
 
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.set_fields(model, [DataModelField(data_type=DataType.from_import(IMPORT_DECIMAL))])
     assert {
-        "cache_key": model._IMPORTS_CACHE_KEY in model.__dict__,
         "has_decimal": IMPORT_DECIMAL in model.imports,
         "has_set": IMPORT_SET in model.imports,
         "list_parent": list_field.parent is None,
         "set_parent": set_field.parent is None,
     } == snapshot({
-        "cache_key": False,
         "has_decimal": True,
         "has_set": False,
         "list_parent": True,
@@ -1155,26 +1117,19 @@ def test_generation_store_data_type_mutations_clear_cached_imports_contract() ->
     store.register_model(model)
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.replace_data_type_ref(data_type, new_reference)
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
     assert data_type.reference is new_reference
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.detach_data_type_ref(data_type)
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
     assert data_type.reference is None
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.replace_field_type(field, DataType(is_set=True))
     assert {
-        "cache_key": model._IMPORTS_CACHE_KEY in model.__dict__,
         "has_set": IMPORT_SET in model.imports,
         "field_parent": field.data_type.parent is field,
     } == snapshot({
-        "cache_key": False,
         "has_set": True,
         "field_parent": True,
     })
@@ -1188,25 +1143,21 @@ def test_generation_store_nested_data_type_mutations_clear_cached_imports_contra
     store.register_model(model)
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.set_nested_data_types(list_type, [DataType.from_import(IMPORT_DECIMAL)])
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
     assert IMPORT_DECIMAL in model.imports
 
     nested_type = list_type.data_types[0]
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.replace_nested_data_type(list_type, nested_type, DataType(type="str"))
     assert {
-        "cache_key": model._IMPORTS_CACHE_KEY in model.__dict__,
         "has_decimal": IMPORT_DECIMAL in model.imports,
         "nested_types": [nested.type for nested in list_type.data_types],
     } == snapshot({
-        "cache_key": False,
         "has_decimal": False,
         "nested_types": ["str"],
     })
 
 
+@pytest.mark.usefixtures("parse_memo")
 def test_generation_store_atomic_replace_invalidates_shared_base_owner_cache() -> None:
     """Atomic replacement keeps cache invalidation for a shared field/base DataType."""
 
@@ -1223,8 +1174,7 @@ def test_generation_store_atomic_replace_invalidates_shared_base_owner_cache() -
     store.register_model(field_owner)
     store.register_model(base_owner)
 
-    base_owner.get_dedup_key()
-    assert base_owner._dedup_key_cache
+    original_key = base_owner.get_dedup_key()
 
     replacement = DataType(type="int")
     with store._replace_data_type_and_detach_data_type_ref(
@@ -1240,13 +1190,13 @@ def test_generation_store_atomic_replace_invalidates_shared_base_owner_cache() -
         "old_parent": shared_data_type.parent,
         "old_reference": shared_data_type.reference,
         "old_children": old_reference.children,
-        "base_cache": base_owner._dedup_key_cache,
+        "base_key_changed": base_owner.get_dedup_key() != original_key,
     } == snapshot({
         "field_replaced": True,
         "old_parent": None,
         "old_reference": None,
         "old_children": [],
-        "base_cache": {},
+        "base_key_changed": True,
     })
 
 
@@ -1509,19 +1459,14 @@ def test_generation_store_reference_detach_helpers_clear_cached_imports_contract
     store.register_model(model)
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.collapse_root_data_type(root_type, Reference(path="Inner", original_name="Inner", name="Inner"))
-    assert model._IMPORTS_CACHE_KEY not in model.__dict__
     assert root_type.reference is not None
 
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
     store.detach_model_data_type_refs(model)
     assert {
-        "cache_key": model._IMPORTS_CACHE_KEY in model.__dict__,
         "root_reference": root_type.reference,
     } == snapshot({
-        "cache_key": False,
         "root_reference": None,
     })
 
@@ -1539,17 +1484,14 @@ def test_generation_store_reference_redirects_clear_each_owner_imports_cache_onc
     store = GenerationStore()
     store.register_model(model)
     assert model.imports is not None
-    assert model._IMPORTS_CACHE_KEY in model.__dict__
 
     store.redirect_reference_users(old_reference, new_reference)
 
     assert {
-        "cache_key": model._IMPORTS_CACHE_KEY in model.__dict__,
         "field_references": [field.data_type.reference.path for field in model.fields if field.data_type.reference],
         "old_children": old_reference.children,
         "new_children": len(new_reference.children),
     } == snapshot({
-        "cache_key": False,
         "field_references": ["New", "New"],
         "old_children": [],
         "new_children": 2,
@@ -1567,6 +1509,7 @@ def test_generation_store_reference_redirects_clear_each_owner_imports_cache_onc
     ],
 )
 @pytest.mark.parametrize("starts_self_referencing", [False, True])
+@pytest.mark.usefixtures("parse_memo")
 def test_generation_store_type_mutations_invalidate_semantic_and_render_caches(
     mutation: str,
     *,
@@ -1594,7 +1537,7 @@ def test_generation_store_type_mutations_invalidate_semantic_and_render_caches(
     store.register_model(model)
 
     assert field.self_reference() is starts_self_referencing
-    assert model.get_dedup_key()
+    original_key = model.get_dedup_key()
 
     match mutation:
         case "replace_field_type":
@@ -1609,7 +1552,7 @@ def test_generation_store_type_mutations_invalidate_semantic_and_render_caches(
             pytest.fail(f"Unsupported mutation: {mutation}")
 
     assert field.self_reference() is not starts_self_referencing
-    assert model._dedup_key_cache == {}
+    assert model.get_dedup_key() != original_key
 
 
 @pytest.mark.parametrize(
@@ -1620,6 +1563,7 @@ def test_generation_store_type_mutations_invalidate_semantic_and_render_caches(
         pytest.param("set_fields", id="set"),
     ],
 )
+@pytest.mark.usefixtures("parse_memo")
 def test_generation_store_field_ownership_mutations_invalidate_self_reference_cache(mutation: str) -> None:
     """Moving a cached field to another model must refresh its parent semantics."""
     original_model = _base_model("Original")
@@ -1647,6 +1591,7 @@ def test_generation_store_field_ownership_mutations_invalidate_self_reference_ca
     assert not field.self_reference()
 
 
+@pytest.mark.usefixtures("parse_memo")
 def test_generation_store_field_removal_invalidates_self_reference_cache() -> None:
     """Detaching a cached field must clear parent-dependent semantics."""
     model = _base_model("Model")
@@ -1664,6 +1609,7 @@ def test_generation_store_field_removal_invalidates_self_reference_cache() -> No
     assert not field.self_reference()
 
 
+@pytest.mark.usefixtures("parse_memo")
 def test_generation_store_self_reference_invalidation_updates_pydantic_constraints() -> None:
     """Pydantic constraints must follow the current, not cached, self-reference state."""
     model_reference = Reference(path="Node", original_name="Node", name="Node")
@@ -1722,27 +1668,6 @@ def test_generation_store_redirects_unattached_reference_users() -> None:
     assert data_type.reference is new_reference
 
 
-def test_generation_store_render_cache_invalidation_supports_legacy_model_hook() -> None:
-    """External model implementations with only the legacy import hook remain compatible."""
-
-    class ImportsOnlyModel:
-        def __init__(self) -> None:
-            self.reference = Reference(path="Before", original_name="Before", name="Before")
-            self.class_name = "Before"
-            self.cache_cleared = False
-
-        def clear_imports_cache(self) -> None:
-            self.cache_cleared = True
-
-    model = ImportsOnlyModel()
-    store = GenerationStore()
-
-    store.update_model_reference(model, class_name="After")  # ty: ignore[invalid-argument-type]
-
-    assert model.class_name == "After"
-    assert model.cache_cleared
-
-
 def test_generation_store_model_reference_redirect_clears_only_affected_owner_imports_cache() -> None:
     """Scoped model reference redirects should invalidate only matching owner models."""
     target_model = _base_model("Target")
@@ -1760,8 +1685,6 @@ def test_generation_store_model_reference_redirect_clears_only_affected_owner_im
     store.register_model(other_model)
     assert owner_model.imports is not None
     assert other_model.imports is not None
-    assert owner_model._IMPORTS_CACHE_KEY in owner_model.__dict__
-    assert other_model._IMPORTS_CACHE_KEY in other_model.__dict__
 
     store.redirect_model_reference_users(
         target_model,
@@ -1770,8 +1693,6 @@ def test_generation_store_model_reference_redirect_clears_only_affected_owner_im
     )
 
     assert {
-        "owner_cache_key": owner_model._IMPORTS_CACHE_KEY in owner_model.__dict__,
-        "other_cache_key": other_model._IMPORTS_CACHE_KEY in other_model.__dict__,
         "owner_references": [
             field.data_type.reference.path for field in owner_model.fields if field.data_type.reference
         ],
@@ -1779,13 +1700,12 @@ def test_generation_store_model_reference_redirect_clears_only_affected_owner_im
             field.data_type.reference.path for field in other_model.fields if field.data_type.reference
         ],
     } == snapshot({
-        "owner_cache_key": False,
-        "other_cache_key": True,
         "owner_references": ["NewTarget", "NewTarget"],
         "other_references": ["Target"],
     })
 
 
+@pytest.mark.usefixtures("parse_memo")
 def test_generation_store_reference_redirect_invalidates_base_class_owner_render_cache() -> None:
     """Unscoped redirects must invalidate models that own parentless base class types."""
     target_model = _base_model("Target")
@@ -1803,10 +1723,10 @@ def test_generation_store_reference_redirect_invalidates_base_class_owner_render
     store.redirect_reference_users(target_model.reference, new_reference)
 
     assert owner_model.base_classes[0].reference is new_reference
-    assert owner_model._dedup_key_cache == {}
     assert owner_model.get_dedup_key() != original_key
 
 
+@pytest.mark.usefixtures("parse_memo")
 def test_generation_store_model_reference_redirect_resolves_base_class_owner() -> None:
     """Scoped redirects must resolve base class ownership from generation facts."""
     target_model = _base_model("Target")
@@ -1825,17 +1745,18 @@ def test_generation_store_model_reference_redirect_resolves_base_class_owner() -
     store.register_model(target_model)
     store.register_model(owner_model)
     store.register_model(other_model)
-    assert owner_model.get_dedup_key()
-    assert other_model.get_dedup_key()
+    owner_key = owner_model.get_dedup_key()
+    other_key = other_model.get_dedup_key()
 
     store.redirect_model_reference_users(target_model, [owner_model], new_reference)
 
     assert owner_model.base_classes[0].reference is new_reference
-    assert owner_model._dedup_key_cache == {}
+    assert owner_model.get_dedup_key() != owner_key
     assert other_model.base_classes[0].reference is target_model.reference
-    assert other_model._dedup_key_cache
+    assert other_model.get_dedup_key() == other_key
 
 
+@pytest.mark.usefixtures("parse_memo")
 def test_generation_store_model_reference_redirect_invalidates_shared_base_class_owners() -> None:
     """A shared base class occurrence must invalidate every owning model."""
     target_model = _base_model("Target")
@@ -1852,16 +1773,13 @@ def test_generation_store_model_reference_redirect_invalidates_shared_base_class
     store.set_base_classes(first_model, [shared_base_class])
     store.set_base_classes(second_model, [shared_base_class])
     store.set_base_classes(third_model, [shared_base_class])
-    assert first_model.get_dedup_key()
-    assert second_model.get_dedup_key()
-    assert third_model.get_dedup_key()
+    models = [first_model, second_model, third_model]
+    original_keys = [model.get_dedup_key() for model in models]
 
     store.redirect_model_reference_users(target_model, [first_model], new_reference)
 
     assert shared_base_class.reference is new_reference
-    assert first_model._dedup_key_cache == {}
-    assert second_model._dedup_key_cache == {}
-    assert third_model._dedup_key_cache == {}
+    assert [model.get_dedup_key() != key for model, key in zip(models, original_keys, strict=True)] == [True] * 3
 
 
 def test_generation_store_indexes_each_shared_base_class_owner_once() -> None:
@@ -1880,6 +1798,39 @@ def test_generation_store_indexes_each_shared_base_class_owner_once() -> None:
 
     assert isinstance(owner_ids, list)
     assert [facts.model_facts[model_id].model for model_id in owner_ids] == [first_model, second_model]
+
+
+def test_generation_store_holder_order_after_an_incremental_refresh_matches_a_full_rebuild() -> None:
+    """Holders of a shared node and owners of a shared list keep the order a full rebuild traverses them in."""
+    shared_leaf = DataType(type="int")
+    shared_list = [DataType(type="str")]
+    first = _base_model(
+        "First",
+        [
+            DataModelField(name="x", data_type=DataType(data_types=[shared_leaf])),
+            DataModelField(name="y", data_type=DataType(data_types=shared_list)),
+        ],
+    )
+    second = _base_model(
+        "Second",
+        [
+            DataModelField(name="z", data_type=DataType(data_types=[shared_leaf])),
+            DataModelField(name="w", data_type=DataType(data_types=shared_list)),
+        ],
+    )
+    store = GenerationStore()
+    store.register_model(first)
+    store.register_model(second)
+    store.current_facts()
+
+    store.replace_field_type(first.fields[0], DataType(data_types=[shared_leaf]))
+    store.replace_field_type(first.fields[1], DataType(data_types=shared_list))
+    incremental = store.current_facts()
+    full = GenerationIndexBuilder(store.model_key).build(store.models, previous_model_ids_by_object={}, next_model_id=0)
+
+    assert incremental.holders_by_node == full.facts.holders_by_node
+    assert incremental.child_lists == full.facts.child_lists
+    assert incremental.child_list_owners == full.facts.child_list_owners
 
 
 def test_generation_store_rebuilds_every_fact_after_a_failed_refresh() -> None:
@@ -1946,6 +1897,7 @@ def test_generation_store_refresh_moves_one_owner_of_a_shared_base_class() -> No
     assert owners == snapshot([["First", "Second", "Third"], ["First", "Third"], "Third", ["Second", "Third"]])
 
 
+@pytest.mark.usefixtures("parse_memo")
 def test_generation_store_detach_model_refs_resolves_deferred_base_class_owner() -> None:
     """Deferred mutations must resolve live base class ownership before facts exist."""
     target_model = _base_model("Target")
@@ -1957,12 +1909,12 @@ def test_generation_store_detach_model_refs_resolves_deferred_base_class_owner()
     store = GenerationStore()
     store.register_model(target_model)
     store.register_model(owner_model)
-    assert owner_model.get_dedup_key()
+    original_key = owner_model.get_dedup_key()
 
     store.detach_model_data_type_refs(owner_model)
 
     assert owner_model.base_classes[0].reference is None
-    assert owner_model._dedup_key_cache == {}
+    assert owner_model.get_dedup_key() != original_key
 
 
 def test_generation_store_redirects_model_reference_users_by_owner() -> None:
@@ -2352,13 +2304,13 @@ def test_generation_store_root_collapse_scope_rejects_invalid_deltas() -> None:
     store.register_model(_base_model("Target"))
     store.models[0].reference = target_reference
 
-    assert store._root_collapse_apply_reference_deltas({id(target_reference): 1}) is False
+    assert store._root_collapse_apply_reference_deltas({store.model_key(target_reference): 1}) is False
 
     with store._collapse_root_reference_scope():
         scope = store._active_root_collapse_reference_scope
         assert scope is not None
         unknown_reference = Reference(path="Unknown", original_name="Unknown", name="Unknown")
-        assert store._root_collapse_apply_reference_deltas({id(unknown_reference): 1}) is False
+        assert store._root_collapse_apply_reference_deltas({store.model_key(unknown_reference): 1}) is False
         assert scope.enabled is False
         assert scope.reference_counts == {}
 
@@ -2369,7 +2321,7 @@ def test_generation_store_root_collapse_scope_rejects_invalid_deltas() -> None:
     with store._collapse_root_reference_scope():
         scope = store._active_root_collapse_reference_scope
         assert scope is not None
-        assert store._root_collapse_apply_reference_deltas({id(target_reference): -1}) is False
+        assert store._root_collapse_apply_reference_deltas({store.model_key(target_reference): -1}) is False
         assert scope.enabled is False
         assert scope.reference_counts == {}
 
@@ -2397,7 +2349,7 @@ def test_generation_store_root_collapse_scope_reference_change_fallbacks() -> No
         assert store._root_collapse_prepare_data_type_replacement(
             no_reference_type,
             DataType(reference=target_reference),
-        ) == {id(target_reference): 1}
+        ) == {store.model_key(target_reference): 1}
         assert store._root_collapse_record_reference_change(tracked_type, target_reference, None)
         assert store._root_collapse_record_reference_change(tracked_type, None, new_reference) is False
         assert scope.enabled is False

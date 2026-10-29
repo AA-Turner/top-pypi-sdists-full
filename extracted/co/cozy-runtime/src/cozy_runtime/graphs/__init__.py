@@ -609,18 +609,21 @@ def retire(torch: Any, root: Any) -> None:
         recorder.drop()
 
 
-def retire_stale(torch: Any, root: Any) -> None:
-    """Before a scope binds `root`'s weights: graphs recorded against another fill (a LoRA mode
-    or bake recipe this attempt changed) go first, so nothing replays over a refill."""
-    recorder = _RECORDERS.get(root)
-    if recorder is not None:
+def retire_stale(torch: Any, *roots: Any) -> None:
+    """Before a scope binds `roots`' weights: graphs recorded against another fill (a LoRA mode
+    or bake recipe this attempt changed) go first, so nothing replays over a refill. A
+    definition several roots own is checked once."""
+    recorders = [(root, r) for root in roots if (r := _RECORDERS.get(root)) is not None]
+    prepared: dict[int, Any] = {}
+    for _, recorder in recorders:
         with recorder.lock:
-            prepared = tuple(recorder.prepared)
-        for definition in prepared:
-            if not definition.valid():
-                definition._retire_if_idle()
-    if recorder is not None and recorder.binding is not None and not recorder.binding.valid():
-        retire(torch, root)
+            prepared.update((id(d), d) for d in recorder.prepared)
+    for definition in prepared.values():
+        if not definition.valid():
+            definition._retire_if_idle()
+    for root, recorder in recorders:
+        if recorder.binding is not None and not recorder.binding.valid():
+            retire(torch, root)
 
 
 def own_prepared(root: Any, definition: Any) -> None:
@@ -1208,16 +1211,15 @@ class _State:
             for name, tensor in m._buffers.items()
             if tensor is not None and id(tensor) not in immutable_buffers
         ]
-        from cozy_runtime.internal.residency import Placeholder
-
         self.immutable = []
         for m in self.modules:
             for name, tensor in m._buffers.items():
                 if tensor is None or id(tensor) not in immutable_buffers:
                     continue
-                if isinstance(tensor, Placeholder):
-                    saved = Placeholder(tensor.shape, tensor.dtype, tensor.device)
-                    saved._varena_read = tensor._varena_read
+                read = getattr(tensor, "_varena_read", None)
+                if read is not None:  # residency's unbound weight: keep its reader, not data
+                    saved = type(tensor)(tensor.shape, tensor.dtype, tensor.device)
+                    saved._varena_read = read
                 else:
                     saved = tensor.detach()
                 geometry = (
@@ -1343,27 +1345,39 @@ def _input(torch: Any, leaf: _Leaf, generator: Any) -> Any:
 _CYCLES: dict[int, float] = {}
 #: cycles of the calibrating sleep: ~2 ms at 2 GHz, far above the events' 0.5 us resolution
 _CALIBRATE = 1 << 22
+#: the gate's longest sleep: time for the host to queue about a launch queue's worth of kernels
+#: (~1k). A longer one measures no better: the host only blocks inside a launch, past a request.
+_GATE_MS = 20.0
 
 
 def _busy(torch: Any, run: Callable[[], object], gate_ms: float) -> float:
     """Device-busy ms of one `run` on the current stream: its launches queue behind a sleep as
-    long as its last host submission (`gate_ms`), so the device runs them back to back. A host
-    slower than the gate leaves the device waiting inside: the time is then an upper bound,
-    which only ever keeps a region eager."""
+    long as its last host submission (`gate_ms`, at most `_GATE_MS`), so the device runs them
+    back to back. A host slower than the gate leaves the device waiting inside: the time is then
+    an upper bound, which only ever keeps a region eager. Its waits yield to an arriving command
+    (`_Idle.check`); what it queued stays ordered on its stream."""
     device, stream = torch.cuda.current_device(), torch.cuda.current_stream()
     start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
     if device not in _CYCLES:
         start.record(stream)
         torch.cuda._sleep(_CALIBRATE)
         end.record(stream)
-        end.synchronize()
+        _settled(end)
         _CYCLES[device] = _CALIBRATE / start.elapsed_time(end)
-    torch.cuda._sleep(int(gate_ms * _CYCLES[device]))
+    torch.cuda._sleep(int(min(gate_ms, _GATE_MS) * _CYCLES[device]))
     start.record(stream)
     run()
     end.record(stream)
-    end.synchronize()
+    _settled(end)
     return float(start.elapsed_time(end))
+
+
+def _settled(event: Any) -> None:
+    """Wait for `event`, yielding to a command that arrives meanwhile (`_Idle.check`)."""
+    while not event.query():
+        if (idle := _IDLE.get(None)) is not None:
+            idle.check()
+        time.sleep(0.0005)
 
 
 def _lease(torch: Any, placed: Any, binding: Any) -> Any:

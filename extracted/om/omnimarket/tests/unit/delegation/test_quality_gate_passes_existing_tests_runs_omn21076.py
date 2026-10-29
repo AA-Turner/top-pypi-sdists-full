@@ -162,6 +162,13 @@ def test_named_test_run_requires_a_named_test() -> None:
 # Each evidence set is (response, grounding source, named-test run). A check the
 # gate can run is evaluated under at least one of them.
 _EVIDENCE: tuple[tuple[str, str, ModelNamedTestRun], ...] = (
+    # A request with explicit, supplied CI fields evaluates required_input_content.
+    (
+        "First, Validate metadata failed in upstream run 19482736105. Then fix metadata.yaml.",
+        "Diagnose this CI failure. Name the failing step and upstream run ID.\n"
+        "Failing step: Validate metadata\nUpstream run ID: 19482736105\n",
+        _run(),
+    ),
     (_GOOD_CODE, _CODE_PROMPT, _run()),
     (
         "The service handled 42 requests in the last hour.",
@@ -179,6 +186,14 @@ _EVIDENCE: tuple[tuple[str, str, ModelNamedTestRun], ...] = (
     # OMN-19401: the unit marker is evaluated only where the prompt says the repo
     # marks its tests, so this set is the one that runs it.
     (_GOOD_CODE, f"{_CODE_PROMPT} Mark every test with @pytest.mark.unit.", _run()),
+    # OMN-17427: an evidence-comment draft with the criteria and report blocks
+    # `criteria_covered` and `entry_cites_evidence` read.
+    (
+        "AC1: test_parse passes (3 passed).",
+        "=== ACCEPTANCE CRITERIA ===\nAC1: The parser works.\n"
+        "=== LANE REPORT ===\ntest_parse: 3 passed.\n",
+        _run(),
+    ),
 )
 
 

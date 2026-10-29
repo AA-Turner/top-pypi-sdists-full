@@ -139,6 +139,12 @@ class MandateResolution:
     #: site attaches them to its turn, instead of the pipeline refusing media this call site "has no turn" for.
     #: ``None`` = the mandate declares no media (``materialize`` keeps refusing a media route, never dropping it).
     materialize_media: Callable[[dict[str, Any]], Awaitable[tuple[dict[str, Any], list[dict[str, Any]]]]] | None = None
+    #: THE JOB'S BINDING FOR A STEP THAT RUNS ITS AGENT DIRECTLY (Run Typed Agent, single and batch): takes the
+    #: step's AGENT variables, returns them with every blank one the binding's map fills by itself (an entity-packet
+    #: fact, a builder, a fixed value, a default) filled through the same pipeline; a value the step passes always
+    #: wins. aidream ``consumption.fill_unsupplied_variables``. ``None`` = the host offers none, and a step that
+    #: runs as this job refuses rather than run on blanks.
+    fill_unsupplied: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None = None
     #: WORKFLOW PARITY for code calls: the host's runner for THIS workflow
     #: resolution — ``(supplied, *, correlation_key, stream) -> answer dict``
     #: (``matrx_ai.mandate_workflow_holder``). Set only on a workflow Holder;

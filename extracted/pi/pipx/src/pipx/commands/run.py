@@ -10,8 +10,8 @@ __lazy_modules__ = [
     "pipx",
     "pipx.backends",
     "pipx.commands.common",
-    "pipx.commands.inject",
     "pipx.commands.run_uv",
+    "pipx.package_specifier",
     "pipx.requires_python",
     "pipx.script",
     "pipx.util",
@@ -24,6 +24,7 @@ import datetime as dt
 import hashlib
 import json
 import logging
+import os
 import urllib.parse
 from contextlib import contextmanager
 from pathlib import Path
@@ -31,7 +32,7 @@ from shutil import which
 from typing import TYPE_CHECKING, Final, NoReturn
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Sequence
 
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
@@ -39,12 +40,12 @@ from packaging.utils import canonicalize_name
 from pipx import paths
 from pipx.backends import UV, resolve_backend_name
 from pipx.commands.common import package_name_from_spec
-from pipx.commands.inject import inject_dep
 from pipx.commands.run_uv import run_script_via_uv_run, run_via_uv_tool_run
 from pipx.constants import TEMP_VENV_EXPIRATION_THRESHOLD_DAYS, WINDOWS, FetchPythonOptions
 from pipx.emojis import hazard
+from pipx.package_specifier import absolute_path_pip_args, resolve_local_path
 from pipx.requires_python import interpreter_for, unsatisfied_by_interpreter
-from pipx.script import ScriptMetadata, read_script_metadata
+from pipx.script import ScriptMetadata, download_script, local_script, read_script_metadata
 from pipx.util import (
     PipxError,
     exec_app,
@@ -97,7 +98,7 @@ def maybe_script_content(app: str, *, is_path: bool) -> str | Path | None:
             raise PipxError(msg)
         _LOGGER.info("Detected url. Downloading and executing as a Python file.")
 
-        return _http_get_request(app)
+        return download_script(app)
 
     # Otherwise, it's a package
     return None
@@ -151,8 +152,25 @@ def run_script(  # ruff:ignore[too-many-arguments]  # mirrors the flat `pipx run
 
     if resolved_backend == UV and requirements is not None and not python_args:
         if script_source is not None:
+            # uv keys its own script environment on the path alone and reuses it while it satisfies the script, so a
+            # changed index or cooldown, or --refresh, would keep running what an earlier request installed
+            venv_dir = _get_temporary_venv_path(
+                ["--script", str(script_source.resolve())],
+                python,
+                pip_args,
+                venv_args,
+                UV,
+                cooldown_days=cooldown_days,
+            )
+            with _locked_venv_cache(venv_dir):
+                _prepare_venv_cache(
+                    Venv(venv_dir, backend=backend, env_backend=env_backend), None, use_cache=use_cache, refresh=refresh
+                )
+            # on Windows exec_app waits for the script, so holding the lock across it would block every concurrent run
+            # of this script, including one the script starts itself; uv locks the environment while it syncs
             run_script_via_uv_run(
                 script_path=script_source,
+                venv_dir=venv_dir,
                 app_args=app_args,
                 python=python,
                 pip_args=pip_args,
@@ -187,6 +205,7 @@ def run_script(  # ruff:ignore[too-many-arguments]  # mirrors the flat `pipx run
     # same environment, which means fewer environments need to be
     # managed. The requirements are normalised so that irrelevant differences
     # in whitespace, and similar, don't prevent environment sharing.
+    pip_args = absolute_path_pip_args(pip_args, Path.cwd())
     venv_dir = _get_temporary_venv_path(
         requirements,
         python,
@@ -203,11 +222,11 @@ def run_script(  # ruff:ignore[too-many-arguments]  # mirrors the flat `pipx run
         else:
             venv = Venv(venv_dir, python=python, verbose=verbose, backend=backend, env_backend=env_backend)
             venv.check_upgrade_shared_libs(pip_args=pip_args, verbose=verbose)
-            venv.create_venv(venv_args, pip_args)
             try:
+                venv.create_venv(venv_args, pip_args)
                 venv.install_unmanaged_packages(requirements, pip_args, cooldown_days=cooldown_days)
             except (OSError, PipxError, KeyboardInterrupt):
-                # Package installation failed, so mark the cache as expired.
+                # Venv creation or package installation failed, so mark the cache as expired.
                 # This ensures an attempt is made to re-install requirements
                 # when `pipx run` is next executed, rather than just failing.
                 (venv_dir / _VENV_EXPIRED_FILENAME).touch()
@@ -238,7 +257,7 @@ def _exec_script(
     if isinstance(content, Path):
         exec_app([python_path, *python_args, content, *app_args])
     else:
-        exec_app([python_path, *python_args, "-c", content, *app_args])
+        exec_app([python_path, "-P", *python_args, "-c", content, *app_args])
 
 
 def run_package(  # ruff:ignore[too-many-arguments]  # mirrors the flat `pipx run` options; a struct would only relocate them
@@ -290,12 +309,16 @@ def run_package(  # ruff:ignore[too-many-arguments]  # mirrors the flat `pipx ru
             """
         raise PipxError(msg)
 
-    # ``--with`` packages are injected into this venv, so they are part of its identity: leaving them out of the key let
+    # ``--with`` packages are installed in this venv, so they are part of its identity: leaving them out of the key let
     # ``pipx run foo`` and ``pipx run --with bar foo`` collide on one cache dir and cross-contaminate each other.
+    # the installer resolves local paths against the working directory, so the key must too
     venv_dir = _get_temporary_venv_path(
-        [package_or_url, *dependencies],
+        [
+            str(script) if (script := local_script(spec)) is not None else resolve_local_path(spec)
+            for spec in (package_or_url, *dependencies)
+        ],
         python,
-        pip_args,
+        absolute_path_pip_args(pip_args, Path.cwd()),
         venv_args,
         resolved_backend or "pip",
         cooldown_days=cooldown_days,
@@ -327,22 +350,8 @@ def run_package(  # ruff:ignore[too-many-arguments]  # mirrors the flat `pipx ru
                 backend=backend,
                 env_backend=env_backend,
                 cooldown_days=cooldown_days,
+                dependencies=dependencies,
             )
-            for dependency in dependencies:
-                inject_dep(
-                    venv_dir=venv_dir,
-                    package_name=None,
-                    package_spec=dependency,
-                    pip_args=pip_args,
-                    verbose=verbose,
-                    include_apps=False,
-                    include_dependencies=False,
-                    include_resources_from=(),
-                    force=False,
-                    backend=backend,
-                    env_backend=env_backend,
-                    cooldown_days=cooldown_days,
-                )
         venv.run_app(app, app_filename, app_args, python_args=python_args)
 
 
@@ -492,6 +501,7 @@ def _prepare_venv(  # ruff:ignore[too-many-arguments]  # mirrors the flat run/in
     backend: str | None = None,
     env_backend: str | None = None,
     cooldown_days: int | None = None,
+    dependencies: Sequence[str],
 ) -> tuple[Venv, str, str]:
     venv = Venv(venv_dir, python=python, verbose=verbose, backend=backend, env_backend=env_backend)
     venv.check_upgrade_shared_libs(pip_args=pip_args, verbose=verbose)
@@ -515,17 +525,26 @@ def _prepare_venv(  # ruff:ignore[too-many-arguments]  # mirrors the flat run/in
 
     override_shared = package_name == "pip"
 
-    venv.create_venv(venv_args, pip_args, override_shared=override_shared)
-    venv.install_package(
-        package_name=package_name,
-        package_or_url=package_or_url,
-        pip_args=pip_args,
-        include_dependencies=False,
-        include_resources_from=(),
-        include_apps=True,
-        is_main_package=True,
-        cooldown_days=cooldown_days,
-    )
+    try:
+        venv.create_venv(venv_args, pip_args, override_shared=override_shared)
+        venv.install_package(
+            package_name=package_name,
+            package_or_url=package_or_url,
+            pip_args=pip_args,
+            include_dependencies=False,
+            include_resources_from=(),
+            include_apps=True,
+            is_main_package=True,
+            cooldown_days=cooldown_days,
+            # resolved with the app so a pin or cap on one of its dependencies takes effect
+            extra_requirements=dependencies,
+        )
+    except (OSError, PipxError, KeyboardInterrupt):
+        # a half-built venv has no record of its backend, so the next run must start from scratch; a missing app below
+        # leaves a complete venv the next correct command can reuse
+        if venv_dir.is_dir():
+            (venv_dir / _VENV_EXPIRED_FILENAME).touch()
+        raise
 
     if not venv.has_app(app, app_filename):
         apps = venv.pipx_metadata.main_package.apps
@@ -570,9 +589,61 @@ def _get_temporary_venv_path(  # ruff:ignore[too-many-arguments]  # all inputs f
     *,
     cooldown_days: int | None,
 ) -> Path:
+    # The installer also reads its index, find-links and similar settings from the environment, more of them than a list
+    # could track: pip takes PIP_ followed by any option name or alias, in any case, with - or _. So every PIP_*/UV_*
+    # variable counts except these, which tune timeouts, retries, parallelism, output and the cache, or are set by
+    # `uv run` for its children. Names are compared as pip sees them: upper case with _ for -.
+    prefix, unkeyed = (
+        (
+            "UV_",
+            {
+                "UV_CACHE_DIR",
+                "UV_CONCURRENT_BUILDS",
+                "UV_CONCURRENT_CACHE_READS",
+                "UV_CONCURRENT_DOWNLOADS",
+                "UV_CONCURRENT_INSTALLS",
+                "UV_HTTP_CONNECT_TIMEOUT",
+                "UV_HTTP_RETRIES",
+                "UV_HTTP_TIMEOUT",
+                "UV_NO_CACHE",
+                "UV_NO_PROGRESS",
+                "UV_REQUEST_TIMEOUT",
+                "UV_RUN_RECURSION_DEPTH",
+            },
+        )
+        if backend == UV
+        else (
+            "PIP_",
+            {
+                "PIP_CACHE_DIR",
+                "PIP_DISABLE_PIP_VERSION_CHECK",
+                "PIP_LOCAL_LOG",
+                "PIP_LOG",
+                "PIP_LOG_FILE",
+                "PIP_NO_CACHE_DIR",
+                "PIP_NO_COLOR",
+                "PIP_NO_INPUT",
+                "PIP_NO_PYTHON_VERSION_WARNING",
+                "PIP_NO_WARN_CONFLICTS",
+                "PIP_NO_WARN_SCRIPT_LOCATION",
+                "PIP_PROGRESS_BAR",
+                "PIP_QUIET",
+                "PIP_RESUME_RETRIES",
+                "PIP_RETRIES",
+                "PIP_ROOT_USER_ACTION",
+                "PIP_TIMEOUT",
+                "PIP_VERBOSE",
+            },
+        )
+    )
+    installer_env: Final = sorted(
+        (name, value)
+        for name, value in os.environ.items()
+        if (normalized := name.upper().replace("-", "_")).startswith(prefix) and normalized not in unkeyed
+    )
     # Preserve list and field boundaries so different invocations cannot reuse the same digest input.
     digest: Final = hashlib.sha256(
-        json.dumps([requirements, python, pip_args, venv_args, backend, cooldown_days]).encode()
+        json.dumps([requirements, python, pip_args, venv_args, backend, cooldown_days, installer_env]).encode()
     )
     return Path(paths.ctx.venv_cache) / digest.hexdigest()[:15]
 
@@ -623,33 +694,6 @@ def _remove_expired_venv(venv_dir: Path) -> None:
     if venv_dir.is_dir() and _is_temporary_venv_expired(venv_dir):
         _LOGGER.info("Removing expired venv %s", venv_dir)
         rmdir(venv_dir)
-
-
-_URL_TIMEOUT: Final[int] = 30
-# bound the download so a stalled or oversized script cannot hang pipx or exhaust memory
-_MAX_SCRIPT_BYTES: Final[int] = 10 * 1024 * 1024
-
-
-def _reject_oversized_script(url: str, data: bytes) -> None:
-    if len(data) > _MAX_SCRIPT_BYTES:
-        msg = f"Script {redact_url_credentials(url)} is larger than {_MAX_SCRIPT_BYTES} bytes; refusing to download it."
-        raise PipxError(msg)
-
-
-def _http_get_request(url: str) -> str:
-    from urllib.request import urlopen  # ruff:ignore[import-outside-top-level]  # pulls in http.client, slows startup
-
-    try:
-        with urlopen(url, timeout=_URL_TIMEOUT) as res:  # ruff:ignore[suspicious-url-open-usage]  # scheme validated upstream
-            data = res.read(_MAX_SCRIPT_BYTES + 1)
-            _reject_oversized_script(url, data)
-            return data.decode(res.headers.get_content_charset() or "utf-8")
-    except PipxError:
-        raise
-    except Exception as error:
-        _LOGGER.debug("Uncaught Exception:", exc_info=True)
-        msg = str(error)
-        raise PipxError(msg) from error
 
 
 __all__ = [

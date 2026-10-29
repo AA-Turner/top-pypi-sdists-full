@@ -523,13 +523,17 @@ static PyMethodDef StreamSink_methods[] = {
     "    (gh-869).\n" },
   { "track_clipping", (PyCFunction)(void (*) (void))StreamSink_track_clipping,
     METH_VARARGS | METH_KEYWORDS,
-    "Enable the per-component clip counter (off by default; peak always\n"
-    "on).\n"
+    "Enable or disable the per-component clip counter.\n"
+    "\n"
+    "Off by default; the peak is tracked regardless. Only components sent\n"
+    "while tracking is on are counted, in both the clips and the\n"
+    "dp_wfm_stream_sink_clip_fraction() denominator, so enabling it\n"
+    "mid-stream measures only what follows.\n"
     "\n"
     "Parameters\n"
     "----------\n"
     "on : int\n"
-    "    Input.\n" },
+    "    Non-zero to count clips, 0 to stop counting.\n" },
   { "close", (PyCFunction)StreamSink_close, METH_NOARGS,
     "Release the handle and free resources." },
   { "__enter__", (PyCFunction)StreamSink_enter, METH_NOARGS, NULL },

@@ -483,3 +483,86 @@ async def test_a_step_with_neither_a_node_kind_nor_a_kind_setting_still_refuses(
 
     with pytest.raises(ExecutionError, match="declares no output"):
         await agent_produce(_ctx(None), AgentProduceInput(agent_id=_HOLDER), TypedAgentConfig(output_kind=""))
+
+
+@pytest.mark.asyncio
+async def test_a_MARKDOWN_step_answers_in_the_markdown_kind(monkeypatch, agent_host):
+    """A written-document agent declares ``markdown``: no response_format, answer wrapped as markdown."""
+    from matrx_ai.graph_nodes.agent_produce_action import TypedAgentConfig
+
+    result = _stub_completion(monkeypatch, structured_output=None)
+    result.final_text = "# Report\n\nTen sources."
+    sent, _ = agent_host
+    outcome = await agent_produce(_ctx("markdown"), AgentProduceInput(agent_id=_HOLDER), TypedAgentConfig())
+    assert outcome.status == "success"
+    assert outcome.result.model_dump() == {"__kind": "markdown", "text": "# Report\n\nTen sources."}
+    assert "response_format" not in (getattr(sent["request"], "config_overrides", None) or {})
+
+
+def test_every_text_shaped_kind_is_a_generic_format_kind() -> None:
+    """The class guard: a text-shaped kind is by definition a FORMAT (unbindable), so it must be generic."""
+    from matrx_ai.kinds import GENERIC_KINDS, TEXT_SHAPED_KINDS
+
+    assert {"text", "markdown"} <= TEXT_SHAPED_KINDS <= GENERIC_KINDS
+
+
+@pytest.mark.asyncio
+async def test_a_MEDIA_step_answers_with_the_produced_media_asset(monkeypatch, agent_host):
+    """An image / video agent answers with media, not JSON: a ``media_asset`` step is never bound to
+    a response_format, and its answer is the LAST media block the agent produced, as the registered
+    ``media_asset`` kind (durable handle only - never bytes)."""
+    from matrx_ai.graph_nodes import shared
+    from matrx_ai.graph_nodes.agent_produce_action import TypedAgentConfig
+
+    result = _stub_completion(monkeypatch, structured_output=None)
+    result.messages = [
+        shared.AiMessage(role="user", content=[{"type": "text", "text": "a lighthouse at dusk"}]),
+        shared.AiMessage(
+            role="assistant",
+            content=[
+                {"type": "text", "text": "Here it is."},
+                {
+                    "type": "media",
+                    "kind": "image",
+                    "origin": "matrx",
+                    "file_id": "f-1",
+                    "url": "https://cdn.matrxserver.com/a/b?v=1",
+                    "mime_type": "image/png",
+                    "width": 1024,
+                    "height": 1024,
+                    "base64_data": "iVBORw0KG",
+                    "role": "subject",
+                },
+            ],
+        ),
+    ]
+    sent, _ = agent_host
+    outcome = await agent_produce(
+        _ctx("media_asset"), AgentProduceInput(agent_id=_HOLDER), TypedAgentConfig(run_envelope=["messages"])
+    )
+    assert outcome.status == "success"
+    answer = outcome.result.model_dump()
+    assert {k: v for k, v in answer.items() if k != "messages"} == {
+        "__kind": "media_asset",
+        "media_type": "image",
+        "origin": "matrx",
+        "file_id": "f-1",
+        "url": "https://cdn.matrxserver.com/a/b?v=1",
+        "mime_type": "image/png",
+        "width": 1024,
+        "height": 1024,
+    }
+    assert answer["messages"][-1]["role"] == "assistant"
+    assert "response_format" not in (getattr(sent["request"], "config_overrides", None) or {})
+
+
+@pytest.mark.asyncio
+async def test_a_MEDIA_step_whose_agent_produced_no_media_fails_the_node(monkeypatch, agent_host):
+    from matrx_ai.graph_nodes import shared
+    from matrx_ai.graph_nodes.agent_produce_action import TypedAgentConfig
+
+    result = _stub_completion(monkeypatch, structured_output=None)
+    result.messages = [shared.AiMessage(role="assistant", content=[{"type": "text", "text": "I can't draw that."}])]
+    outcome = await agent_produce(_ctx("media_asset"), AgentProduceInput(agent_id=_HOLDER), TypedAgentConfig())
+    assert outcome.status == "error"
+    assert outcome.error.code == "kind_output_missing"

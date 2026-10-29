@@ -12,7 +12,7 @@ import pytest
 from pydantic import BaseModel as PydanticBaseModel
 
 import datamodel_code_generator._internal_utils as internal_utils
-from datamodel_code_generator import AllOfMergeMode, _CollapseRootModelsRecursionError
+from datamodel_code_generator import AllOfMergeMode
 from datamodel_code_generator.enums import CollapseRootModelsNameStrategy
 from datamodel_code_generator.imports import Import, Imports
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
@@ -38,6 +38,14 @@ from datamodel_code_generator.model.runtime_validation import (
     _make_internal_schema_runtime_validation,
 )
 from datamodel_code_generator.model.type_alias import TypeAlias, TypeAliasTypeBackport, TypeStatement
+from datamodel_code_generator.parser._passes._shared import (
+    _detach_deferred_inherited_field_parents,
+    _get_discriminator_field_value,
+    _get_enum_from_base,
+    _restore_inherited_field_names_for_unique_aliases,
+    exact_import,
+    is_ancestor_package_reference,
+)
 from datamodel_code_generator.parser.base import (
     _DEFERRED_INHERITED_CLASS_KEY,
     _DEFERRED_INHERITED_FIELD_KEY,
@@ -53,29 +61,29 @@ from datamodel_code_generator.parser.base import (
     _copy_data_model_field,
     _copy_data_type,
     _copy_resolved_inherited_field,
-    _detach_deferred_inherited_field_parents,
     _find_field,
-    _get_discriminator_field_value,
-    _get_enum_from_base,
     _get_inherited_type_modifiers,
     _get_pydantic_v2_root_model_type,
     _is_pydantic_v2_data_model_field,
     _merge_data_type_modifiers,
     _needs_validate_default,
-    _remap_imports,
-    _restore_inherited_field_names_for_unique_aliases,
     _unwrap_type_alias,
     add_model_path_to_list,
+    alias_shadowed_imports,
     escape_characters,
-    exact_import,
     get_module_directory,
     get_most_of_parent,
-    is_ancestor_package_reference,
+    modules,
+    override_required_field,
+    plans,
     relative,
+    render_prep,
     sort_data_models,
+    structure,
     to_hashable,
 )
-from datamodel_code_generator.reference import Reference, snake_to_upper_camel
+from datamodel_code_generator.parser.generation import GenerationStore
+from datamodel_code_generator.reference import Reference, model_key_of, snake_to_upper_camel
 from datamodel_code_generator.types import DataType
 
 
@@ -108,15 +116,6 @@ class C(Parser):
         """Parse raw data into models."""
 
 
-def test_remap_imports_empty_fastpath() -> None:
-    """Skip remapping work when no imports were collected."""
-    imports = Imports()
-
-    _remap_imports(imports, {"Model": "target"})
-
-    assert not imports.counter
-
-
 def test_parser() -> None:
     """Test parser initialization."""
     c = C(
@@ -144,10 +143,10 @@ def test_parser_aliases_plain_shadowed_imports_without_structured_consumers(pars
     )
     model = BaseModel(reference=_reference("Model"), fields=[field])
 
-    parser_fixture._Parser__alias_shadowed_imports(
+    alias_shadowed_imports(
+        parser_fixture,
         [model],
         {"date"},
-        can_retain_cache=True,
     )
 
     assert field.data_type.type == "date_aliased"
@@ -330,17 +329,18 @@ def test_sort_data_models() -> None:
     ]
 
     unresolved, resolved, require_update_action_models = sort_data_models(reference)
+    keys = {item.path: model_key_of(item) for item in (reference_a, reference_b, reference_c)}
     expected = OrderedDict()
-    expected["B"] = reference[1]
-    expected["C"] = reference[2]
-    expected["A"] = reference[0]
+    expected[keys["B"]] = reference[1]
+    expected[keys["C"]] = reference[2]
+    expected[keys["A"]] = reference[0]
 
     assert resolved == expected
     assert unresolved == []
-    assert require_update_action_models == ["B", "A"]
+    assert require_update_action_models == [keys["B"], keys["A"]]
 
-    _, _, seeded_require_update_action_models = sort_data_models(reference, require_update_action_models=["B"])
-    assert seeded_require_update_action_models == ["B", "A"]
+    _, _, seeded_require_update_action_models = sort_data_models(reference, require_update_action_models=[keys["B"]])
+    assert seeded_require_update_action_models == [keys["B"], keys["A"]]
 
 
 def test_sort_data_models_unresolved() -> None:
@@ -647,7 +647,7 @@ def test_dataclass_required_override_of_inherited_default_uses_exact_assignment(
         keyword_only=keyword_only,
     )
 
-    parser_fixture._Parser__fix_constructor_field_ordering([child])
+    render_prep.fix_constructor_field_ordering(parser_fixture, [child])
 
     assert required_override.extras == {}
     assert str(required_override) == expected_assignment
@@ -663,7 +663,7 @@ def test_constructor_adjustment_promotes_msgspec_keyword_only_to_model() -> None
         reference=_reference("Struct"),
     )
 
-    _apply_constructor_field_adjustments(model, (field, "keyword_only"), ())
+    _apply_constructor_field_adjustments(GenerationStore().builder(), model, (field, "keyword_only"), ())
 
     assert model.has_keyword_only_definition()
 
@@ -675,7 +675,8 @@ def test_apply_type_overrides_fast_path_preserves_models(parser_fixture: C) -> N
     parser_fixture._type_override_imports = {"Other.value": Import(from_="custom", import_="Value")}
     parser_fixture._model_type_override_imports = {}
 
-    parser_fixture._Parser__apply_type_overrides([model])
+    modules.apply_field_type_overrides(parser_fixture, [model])
+    modules.apply_base_class_type_overrides(parser_fixture, [model])
 
     assert model.fields == [field]
 
@@ -710,7 +711,7 @@ def test_dataclass_inherited_init_cleanup_without_other_adjustments(parser_fixtu
         reference=_reference("InitChild"),
     )
 
-    parser_fixture._Parser__fix_constructor_field_ordering([child])
+    render_prep.fix_constructor_field_ordering(parser_fixture, [child])
 
     assert required_override.extras == {}
     assert not str(required_override)
@@ -740,7 +741,7 @@ def test_dataclass_metadata_assignment_without_default_stays_positional(parser_f
         reference=_reference("MetadataChild"),
     )
 
-    parser_fixture._Parser__fix_constructor_field_ordering([child])
+    render_prep.fix_constructor_field_ordering(parser_fixture, [child])
 
     assert str(metadata_field) == "field(repr=False)"
     assert child_field.extras == {}
@@ -804,7 +805,7 @@ def _create_override_required_models(
 
 
 def _override_required_fields(parser: C, models: list[BaseModel]) -> None:
-    Parser._Parser__override_required_field(parser, models)
+    override_required_field(parser, models)
 
 
 def test_find_field_skips_non_matching_fields() -> None:
@@ -1544,6 +1545,7 @@ def test_find_member_with_mixed_enum() -> None:
     assert enum.find_member("'value_a'") is None
 
 
+@pytest.mark.usefixtures("parse_memo")
 def test_find_member_indexes_preserve_json_semantics_and_invalidate() -> None:
     """Cache member lookup without changing order, coercion, or mutable-field behavior."""
     from datamodel_code_generator.model.enum import NULL_ENUM_MEMBER_VALUE, Enum, EnumMemberValue
@@ -1564,11 +1566,7 @@ def test_find_member_indexes_preserve_json_semantics_and_invalidate() -> None:
     ]
     enum = Enum(fields=fields, reference=Reference(path="mixed", name="Mixed"))
 
-    assert "_member_index" not in enum.__dict__
-    assert "_coerced_member_index" not in enum.__dict__
     assert enum.find_member(True).field.name == "BOOL"  # ty: ignore[union-attr]
-    assert "_member_index" in enum.__dict__
-    assert "_coerced_member_index" not in enum.__dict__
     null_member = enum.find_member(None)
     assert null_member.field.name == "NULL"  # ty: ignore[union-attr]
     assert null_member.value is None  # ty: ignore[union-attr]
@@ -1581,21 +1579,16 @@ def test_find_member_indexes_preserve_json_semantics_and_invalidate() -> None:
     assert enum.find_member("1", coerce_strings=True).field.name == "INT"  # ty: ignore[union-attr]
     assert enum.find_member([1]).field.name == "LIST"  # ty: ignore[union-attr]
     assert enum.find_member([2]) is None
-    assert "_coerced_member_index" in enum.__dict__
 
     fields[1].default = EnumMemberValue("updated_null")
     fields[1].invalidate_semantic_caches()
 
-    assert "_member_index" not in enum.__dict__
-    assert "_coerced_member_index" not in enum.__dict__
     assert enum.find_member(None) is None
     assert enum.find_member("updated_null").field.name == "NULL"  # ty: ignore[union-attr]
 
     fields[4].default = EnumMemberValue("updated")
     fields[4].invalidate_semantic_caches()
 
-    assert "_member_index" not in enum.__dict__
-    assert "_coerced_member_index" not in enum.__dict__
     assert enum.find_member("1") is None
     assert enum.find_member("updated").field.name == "STR"  # ty: ignore[union-attr]
 
@@ -1840,18 +1833,17 @@ def test_get_module_directory(module: tuple[str, ...], expected: tuple[str, ...]
     ids=["name_conflict", "multiple_conflicts", "different_prefix_break"],
 )
 def test_compute_internal_module_path(
-    parser_fixture: C,
     scc_modules: set[tuple[str, ...]],
     existing_modules: set[tuple[str, ...]],
     expected: tuple[str, ...],
 ) -> None:
-    """Test __compute_internal_module_path with various conflict scenarios."""
-    result = parser_fixture._Parser__compute_internal_module_path(scc_modules, existing_modules)
+    """Test compute_internal_module_path with various conflict scenarios."""
+    result = structure.compute_internal_module_path(scc_modules, existing_modules)
     assert result == expected
 
 
-def test_build_module_dependency_graph_with_missing_ref(parser_fixture: C) -> None:
-    """Test __build_module_dependency_graph when reference path is not in path_to_module."""
+def test_module_dependency_cycles_with_missing_ref(parser_fixture: C) -> None:
+    """Test module_dependency_cycles when reference path is not in path_to_module."""
     missing_reference = Reference(path="nonexistent.Model", original_name="Missing", name="Missing")
     model1 = BaseModel(
         fields=[DataModelField(data_type=DataType(reference=missing_reference))],
@@ -1863,9 +1855,7 @@ def test_build_module_dependency_graph_with_missing_ref(parser_fixture: C) -> No
         (("pkg",), [model1]),
     ]
 
-    graph = parser_fixture._Parser__build_module_dependency_graph(module_models_list)
-
-    assert graph == {("pkg",): set()}
+    assert structure.module_dependency_cycles(parser_fixture, module_models_list) == []
 
 
 def test_collapse_root_models_preserves_root_model_used_by_other_modules() -> None:
@@ -1899,7 +1889,7 @@ def test_collapse_root_models_preserves_root_model_used_by_other_modules() -> No
         parser.generation_store.register_model(model)
     unused_models: list[DataModel] = []
 
-    parser._Parser__collapse_root_models([local_model], unused_models, Imports(), parser.model_resolver)
+    modules.collapse_root_models(parser, [local_model], unused_models, Imports(), parser.model_resolver)
 
     assert local_type.reference is inner_reference
     assert external_type.reference is root_reference
@@ -1929,7 +1919,7 @@ def test_collapse_root_models_uses_model_module_names_without_scope_map() -> Non
     for model in (root_model, local_model):
         parser.generation_store.register_model(model)
 
-    parser._Parser__collapse_root_models([local_model], [], Imports(), parser.model_resolver)
+    modules.collapse_root_models(parser, [local_model], [], Imports(), parser.model_resolver)
 
     assert local_model.fields[0].data_type.type == "str"
 
@@ -1952,7 +1942,9 @@ def test_restore_inherited_field_names_handles_noncollisions_and_existing_aliase
         data_type=DataType(type="str"),
     )
 
+    builder = GenerationStore().builder()
     assert not _restore_inherited_field_names_for_unique_aliases(
+        builder,
         [unmatched, unrelated],
         {"wire_name": inherited},
     )
@@ -1964,6 +1956,7 @@ def test_restore_inherited_field_names_handles_noncollisions_and_existing_aliase
         data_type=DataType(type="str"),
     )
     assert _restore_inherited_field_names_for_unique_aliases(
+        builder,
         [unmatched, colliding],
         {"wire_name": inherited},
     )
@@ -1974,7 +1967,7 @@ def test_restore_inherited_field_names_handles_noncollisions_and_existing_aliase
     )
 
 
-def test_root_dict_key_reference_paths_ignores_primitive_keys(parser_fixture: C) -> None:
+def test_root_dict_key_reference_paths_ignores_primitive_keys() -> None:
     """Primitive mapping keys do not create circular model-reference edges."""
     model = BaseModel(
         fields=[
@@ -1990,34 +1983,7 @@ def test_root_dict_key_reference_paths_ignores_primitive_keys(parser_fixture: C)
         reference=_reference("Model"),
     )
 
-    assert not parser_fixture._Parser__root_dict_key_reference_paths(model)
-
-
-def test_process_module_models_wraps_root_collapse_recursion(
-    parser_fixture: C,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """An abnormal root-collapse recursion crosses the parser boundary as the retry sentinel."""
-    recursion_error = RecursionError("root collapse recursion")
-
-    def raise_recursion(*_: Any, **__: Any) -> None:
-        raise recursion_error
-
-    monkeypatch.setattr(Parser, "_Parser__collapse_root_models", raise_recursion)
-
-    with pytest.raises(_CollapseRootModelsRecursionError) as exc_info:
-        parser_fixture._Parser__process_module_models(
-            [],
-            unused_models=[],
-            imports=Imports(),
-            scoped_model_resolver=parser_fixture.model_resolver,
-            model_path_to_module_name={},
-            require_update_action_models=[],
-            use_deferred_annotations=False,
-            can_retain_cache=False,
-        )
-
-    assert isinstance(exc_info.value.__cause__, RecursionError)
+    assert not plans.root_dict_key_references(model)
 
 
 def test_finalize_modules_plans_schema_helpers_after_root_collapse() -> None:

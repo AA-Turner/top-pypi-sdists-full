@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: gotenberg-client
-Version: 1.0.0
+Version: 1.1.0
 Summary: A Python client for interfacing with the Gotenberg API
 Project-URL: Changelog, https://github.com/stumpylog/gotenberg-client/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://stumpylog.github.io/gotenberg-client/
@@ -31,8 +31,12 @@ Requires-Python: >=3.10
 Requires-Dist: typing-extensions; python_version < '3.11'
 Provides-Extra: httpx
 Requires-Dist: httpx[http2]>=0.27; extra == 'httpx'
+Provides-Extra: httpx2
+Requires-Dist: httpx2[http2]>=2; extra == 'httpx2'
 Provides-Extra: magic
 Requires-Dist: python-magic; extra == 'magic'
+Provides-Extra: magika
+Requires-Dist: magika>=1; extra == 'magika'
 Provides-Extra: niquests
 Requires-Dist: niquests>=3; extra == 'niquests'
 Provides-Extra: requests
@@ -78,7 +82,7 @@ capabilities, so you can skip the multipart form-data boilerplate and focus on y
 
 - **Fully typed** with concrete return types and full `py.typed` support
 - **Sync and async** APIs with identical interfaces
-- **Pluggable HTTP backends** -- [httpx](https://github.com/encode/httpx) (with HTTP/2), [niquests](https://github.com/jawah/niquests), or [requests](https://github.com/psf/requests) — install whichever you prefer
+- **Pluggable HTTP backends** -- [httpx](https://github.com/encode/httpx) (with HTTP/2), [httpx2](https://pypi.org/project/httpx2/) (with HTTP/2), [niquests](https://github.com/jawah/niquests), or [requests](https://github.com/psf/requests) — install whichever you prefer
 - **Pathlib-native** -- pass `Path` objects directly, no manual file handling
 - **Thoroughly tested** against a real Gotenberg server across multiple Python versions
 - **Broad route coverage** including Chromium, LibreOffice, PDF merge/convert/split, health checks, and more
@@ -90,6 +94,7 @@ An HTTP backend is required. Pick the one that suits your project:
 
 ```console
 pip install "gotenberg-client[httpx]"      # recommended — HTTP/2 and async support
+pip install "gotenberg-client[httpx2]"     # alternative — HTTP/2 and async support
 pip install "gotenberg-client[niquests]"   # alternative — HTTP/2 and async support
 pip install "gotenberg-client[requests]"   # sync-only
 ```
@@ -99,6 +104,14 @@ If you need MIME-type detection for automatic content-type headers, add the `mag
 ```console
 pip install "gotenberg-client[httpx,magic]"
 ```
+
+On platforms where libmagic is unavailable or unreliable (such as Windows), use the `magika` extra instead, which needs no native library:
+
+```console
+pip install "gotenberg-client[httpx,magika]"
+```
+
+If both are installed, `magic` is preferred. With neither, detection falls back to the standard library's `mimetypes`.
 
 ## Examples
 
@@ -206,6 +219,10 @@ from gotenberg_client import GotenbergClient
 with GotenbergClient("http://localhost:3000", backend="httpx") as client:
     ...
 
+# httpx2 — pip install "gotenberg-client[httpx2]"
+with GotenbergClient("http://localhost:3000", backend="httpx2") as client:
+    ...
+
 # niquests — pip install "gotenberg-client[niquests]"
 with GotenbergClient("http://localhost:3000", backend="niquests") as client:
     ...
@@ -214,7 +231,7 @@ with GotenbergClient("http://localhost:3000", backend="niquests") as client:
 with GotenbergClient("http://localhost:3000", backend="requests") as client:
     ...
 
-# auto — tries httpx first, then niquests (default)
+# auto — tries httpx first, then niquests, then httpx2 (default)
 with GotenbergClient("http://localhost:3000") as client:
     ...
 ```

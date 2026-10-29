@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyPDFForm
-Version: 6.0.1
+Version: 6.0.2
 Summary: The Python library & CLI for PDF forms.
 Author: Jinge Li
 License-Expression: MIT
@@ -27,7 +27,7 @@ License-File: LICENSE
 Requires-Dist: cryptography<51.0.0,>=50.0.0
 Requires-Dist: fonttools<5.0.0,>=4.63.0
 Requires-Dist: pikepdf<11.0.0,>=10.7.2
-Requires-Dist: pillow<13.0.0,>=12.2.0
+Requires-Dist: pillow<14.0.0,>=12.2.0
 Requires-Dist: pypdf<7.0.0,>=6.12.2
 Requires-Dist: reportlab<6.0.0,>=4.5.1
 Provides-Extra: cli
@@ -39,7 +39,7 @@ Requires-Dist: coverage<8.0.0,>=7.14.1; extra == "dev"
 Requires-Dist: mike<3.0.0,>=2.2.0; extra == "dev"
 Requires-Dist: mkdocs<2.0.0,>=1.6.1; extra == "dev"
 Requires-Dist: mkdocs-material<10.0.0,>=9.7.6; extra == "dev"
-Requires-Dist: pudb<2026.0.0,>=2025.1.5; extra == "dev"
+Requires-Dist: pudb<2027.0.0,>=2025.1.5; extra == "dev"
 Requires-Dist: pylint<5.0.0,>=4.0.5; extra == "dev"
 Requires-Dist: pyright<2.0.0,>=1.1.409; extra == "dev"
 Requires-Dist: pytest<10.0.0,>=9.0.3; extra == "dev"

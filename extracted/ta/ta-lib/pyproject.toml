@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools", "Cython", "numpy"]
+requires = ["setuptools", "Cython", "numpy", "cmake"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "TA-Lib"
-version = "0.8.2"
+version = "0.8.3"
 description = "Python wrapper for TA-Lib"
 readme = "README.md"
 license-files = ["LICENSE"]
@@ -34,7 +34,7 @@ classifiers = [
     "Intended Audience :: Financial and Insurance Industry",
 ]
 dependencies = [
-    "cython>=3.3.0",
+    "build>=1.4.4",
     "numpy",
 ]
 requires-python = '>=3.9'

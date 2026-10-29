@@ -85,7 +85,7 @@ FitsOutput::write_scanline(int y, int /*z*/, TypeDesc format, const void* data,
 {
     if (m_spec.width == 0 && m_spec.height == 0)
         return true;
-    if (y > m_spec.height) {
+    if (y < 0 || y >= m_spec.height) {
         errorfmt("Attempt to write too many scanlines to {}", m_filename);
         close();
         return false;
@@ -114,7 +114,7 @@ FitsOutput::write_scanline(int y, int /*z*/, TypeDesc format, const void* data,
 
     if (m_spec.nchannels == 1) {
         // computing scanline offset
-        long scanline_off = (m_spec.height - y) * m_spec.scanline_bytes();
+        long scanline_off = (m_spec.height - 1 - y) * m_spec.scanline_bytes();
         fseek(m_fd, scanline_off, SEEK_CUR);
         size_t byte_count = fwrite(&data_tmp[0], 1, data_tmp.size(), m_fd);
         fsetpos(m_fd, &m_filepos);
@@ -128,7 +128,7 @@ FitsOutput::write_scanline(int y, int /*z*/, TypeDesc format, const void* data,
     size_t comp_size   = m_spec.format.size();
     size_t row_bytes   = size_t(m_spec.width) * comp_size;
     size_t plane_bytes = row_bytes * size_t(m_spec.height);
-    long row_off       = (m_spec.height - y) * long(row_bytes);
+    long row_off       = (m_spec.height - 1 - y) * long(row_bytes);
     std::vector<unsigned char> chan_row(row_bytes);
     bool ok = true;
     for (int c = 0; c < m_spec.nchannels; ++c) {
@@ -175,6 +175,14 @@ FitsOutput::close(void)
         std::vector<unsigned char>().swap(m_tilebuffer);
     }
 
+    // FITS requires the data to be zero-padded to a whole block
+    if (Filesystem::fseek(m_fd, 0, SEEK_END) == 0) {
+        size_t pad = (HEADER_SIZE - Filesystem::ftell(m_fd) % HEADER_SIZE)
+                     % HEADER_SIZE;
+        std::vector<char> zeros(pad, 0);
+        ok &= (fwrite(zeros.data(), 1, pad, m_fd) == pad);
+    }
+
     fclose(m_fd);
     init();
     return ok;
@@ -191,6 +199,16 @@ FitsOutput::create_fits_header(void)
     //we add all keywords stored in ImageSpec to the FITS file
     for (size_t i = 0; i < m_spec.extra_attribs.size(); ++i) {
         std::string keyname = m_spec.extra_attribs[i].name().string();
+
+        // "oiio:" attributes, and ones prefixed with the name of another
+        // format, are hints rather than metadata to store.
+        if (Strutil::istarts_with(keyname, "oiio:"))
+            continue;
+        if (size_t colon = keyname.find(':'); colon != std::string::npos) {
+            std::string prefix = Strutil::lower(keyname.substr(0, colon));
+            if (prefix != format_name() && is_imageio_format_name(prefix))
+                continue;
+        }
 
         std::string value;
         TypeDesc attr_format = m_spec.extra_attribs[i].type();

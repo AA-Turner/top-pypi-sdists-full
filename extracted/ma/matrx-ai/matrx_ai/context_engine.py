@@ -47,7 +47,7 @@ class ContextResolverUnavailable(Exception):
 #
 # The RPC is on the chat critical path (the "user context" block feeds the
 # system prompt). Keyed by ALL its inputs — (user_id, entity_type, entity_id,
-# scope_ids) — so a cache hit is exactly the same answer the DB would return,
+# scope_ids, system refs) plus the run's organization — so a cache hit is exactly the same answer the DB would return,
 # with a short TTL + invalidation on context writes (see
 # invalidate_context_cache, wired from context_writeback). This collapses the
 # RPC to ~0 on turn 2+ of a conversation. Ambient items (current_date/time/…)
@@ -78,10 +78,14 @@ def _context_cache_key(
     *,
     entity_is_new: bool = False,
     system_item_refs: list[str] | tuple[str, ...] | None = None,
+    organization_id: str | None = None,
 ) -> tuple[Any, ...]:
     # The System refs are an INPUT of the resolver (lane CONTEXT-VALUES-NAMED-2: it reads only
     # the System items they name), so they are part of the key — two turns naming different
     # System items never share one cached answer.
+    # The RUN's organization is part of the key too: one person in two organizations running
+    # first turns side by side never shares one slice (live 2026-10-28, run 1e6896c7 — Harbor
+    # Dental's call was handed Ridgeline's organization from the other call's cached answer).
     effective_entity = _NEW_ENTITY_SENTINEL if entity_is_new else entity_id
     return (
         user_id,
@@ -89,6 +93,7 @@ def _context_cache_key(
         effective_entity,
         tuple(sorted(scope_ids or [])),
         tuple(sorted(system_item_refs or [])),
+        str(organization_id or ""),
     )
 
 
@@ -789,6 +794,7 @@ async def build_agent_context(
         scope_ids,
         entity_is_new=entity_is_new,
         system_item_refs=system_item_refs,
+        organization_id=organization_id,
     )
     now = time.monotonic()
     # ``use_cache=False`` is for a caller that must see THIS instant's answer — the agent-context
@@ -841,6 +847,20 @@ async def build_agent_context(
                 f"json/jsonb connection codec is missing or broken "
                 f"(matrx_orm.core.async_db_manager._init_connection_default). "
                 f"Fix the codec; do not decode at this call site."
+            )
+        # The shared first-turn slice holds ONLY an entity-free answer. An answer that names an
+        # organization came from the entity's own committed row (the caller asserted
+        # entity_is_new, but the row already existed — e.g. a workflow step creates its
+        # conversation before the turn), so it is THIS entity's answer and is cached under the
+        # entity's own id, never handed to the next new conversation.
+        if entity_is_new and (resolved.get("context") or {}).get("organization_id"):
+            cache_key = _context_cache_key(
+                user_id,
+                entity_type,
+                entity_id,
+                scope_ids,
+                system_item_refs=system_item_refs,
+                organization_id=organization_id,
             )
         # Store an independent copy so downstream in-place mutation
         # (_apply_ambient) can never corrupt the cached value.

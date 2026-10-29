@@ -1,9 +1,10 @@
-# pylint: disable=too-many-instance-attributes
 import logging
 from io import BufferedIOBase
 from logging import Logger
 from mimetypes import guess_type
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
+
+from pydantic import TypeAdapter
 
 from python_anvil.api_resources.mutations.base import BaseQuery
 from python_anvil.api_resources.payload import (
@@ -13,108 +14,54 @@ from python_anvil.api_resources.payload import (
     DocumentUpload,
     EtchSigner,
 )
-from python_anvil.utils import create_unique_id
+from python_anvil.graphql.mutations.create_etch_packet import (
+    DEFAULT_RESPONSE_QUERY,
+    generate_mutation,
+)
+from python_anvil.utils import camel_to_snake, create_unique_id
 
 
 logger: Logger = logging.getLogger(__name__)
 
-DEFAULT_RESPONSE_QUERY = """{
-  eid
-  name
-  detailsURL
-  documentGroup {
-    eid
-    status
-    files
-    signers {
-      eid
-      aliasId
-      routingOrder
-      name
-      email
-      status
-      signActionType
-    }
-  }
-}"""
+_ATTACHABLE_FILE: TypeAdapter[AttachableEtchFile] = TypeAdapter(AttachableEtchFile)
 
-# NOTE: Since the below will be used as a formatted string (this also applies
-#   to f-strings) any literal curly braces need to be doubled, else they'll be
-#   interpreted as string replacement tokens.
-CREATE_ETCH_PACKET = """
-mutation CreateEtchPacket (
-    $name: String,
-    $files: [EtchFile!],
-    $isDraft: Boolean,
-    $isTest: Boolean,
-    $mergePDFs: Boolean,
-    $signatureEmailSubject: String,
-    $signatureEmailBody: String,
-    $signatureProvider: String,
-    $signaturePageOptions: JSON,
-    $signers: [JSON!],
-    $webhookURL: String,
-    $replyToName: String,
-    $replyToEmail: String,
-    $data: JSON,
-    $enableEmails: JSON,
-    $createCastTemplatesFromUploads: Boolean,
-    $duplicateCasts: Boolean=false,
-  ) {{
-    createEtchPacket (
-      name: $name,
-      files: $files,
-      isDraft: $isDraft,
-      isTest: $isTest,
-      mergePDFs: $mergePDFs,
-      signatureEmailSubject: $signatureEmailSubject,
-      signatureEmailBody: $signatureEmailBody,
-      signatureProvider: $signatureProvider,
-      signaturePageOptions: $signaturePageOptions,
-      signers: $signers,
-      webhookURL: $webhookURL,
-      replyToName: $replyToName,
-      replyToEmail: $replyToEmail,
-      data: $data,
-      enableEmails: $enableEmails,
-      createCastTemplatesFromUploads: $createCastTemplatesFromUploads,
-      duplicateCasts: $duplicateCasts
-    )
-        {query}
-  }}
-"""
+# The mutation, under the name it had before 6.0.0
+CREATE_ETCH_PACKET = generate_mutation()
 
 
 class CreateEtchPacket(BaseQuery):
-    mutation = CREATE_ETCH_PACKET
-    mutation_res_query = DEFAULT_RESPONSE_QUERY
+    """Builds a `createEtchPacket` mutation, adding signers and files one at a time.
 
-    def __init__(  # pylint: disable=too-many-locals
+    Or pass the whole thing as `payload`.
+    """
+
+    default_response_query = DEFAULT_RESPONSE_QUERY
+
+    def __init__(
         self,
-        name: Optional[str] = None,
-        signature_email_subject: Optional[str] = None,
-        signature_email_body: Optional[str] = None,
-        signers: Optional[List[EtchSigner]] = None,
-        files: Optional[List[AttachableEtchFile]] = None,
-        file_payloads: Optional[dict] = None,
-        signature_page_options: Optional[Dict[Any, Any]] = None,
+        name: str | None = None,
+        signature_email_subject: str | None = None,
+        signature_email_body: str | None = None,
+        signers: list[EtchSigner] | None = None,
+        files: list[AttachableEtchFile] | None = None,
+        file_payloads: dict | None = None,
+        signature_page_options: dict[Any, Any] | None = None,
         is_draft: bool = False,
         is_test: bool = True,
-        payload: Optional[CreateEtchPacketPayload] = None,
-        webhook_url: Optional[str] = None,
-        reply_to_name: Optional[str] = None,
-        reply_to_email: Optional[str] = None,
-        merge_pdfs: Optional[bool] = None,
-        enable_emails: Optional[Union[bool, List[str]]] = None,
-        create_cast_templates_from_uploads: Optional[bool] = None,
-        duplicate_casts: Optional[bool] = None,
+        payload: CreateEtchPacketPayload | None = None,
+        webhook_url: str | None = None,
+        reply_to_name: str | None = None,
+        reply_to_email: str | None = None,
+        merge_pdfs: bool | None = None,
+        enable_emails: bool | list[str] | None = None,
+        create_cast_templates_from_uploads: bool | None = None,
+        duplicate_casts: bool | None = None,
+        organization_eid: str | None = None,
+        allow_updates: bool | None = None,
     ):
         # `name` is required when `payload` is not present.
         if not payload and not name:
-            raise TypeError(
-                "Missing 2 required positional arguments: 'name' and "
-                "'signature_email_subject'"
-            )
+            raise TypeError("`name` is required")
 
         self.name = name
         self.signature_email_subject = signature_email_subject
@@ -133,10 +80,19 @@ class CreateEtchPacket(BaseQuery):
         self.enable_emails = enable_emails
         self.create_cast_templates_from_uploads = create_cast_templates_from_uploads
         self.duplicate_casts = duplicate_casts
+        self.organization_eid = organization_eid
+        self.allow_updates = allow_updates
+
+    def get_mutation(self, response_query: str | None = None) -> str:
+        return generate_mutation(self.response_fields(response_query))
 
     @classmethod
-    def create_from_dict(cls, payload: Dict) -> 'CreateEtchPacket':
-        """Create a new instance of `CreateEtchPacket` from a dict payload."""
+    def create_from_dict(cls, payload: dict) -> "CreateEtchPacket":
+        """Create a new instance of `CreateEtchPacket` from a dict payload.
+
+        Keys may be snake_case or camelCase, like the mutation's variables.
+        """
+        payload = {camel_to_snake(k): v for k, v in payload.items()}
         try:
             mutation = cls(
                 **{k: v for k, v in payload.items() if k not in ["signers", "files"]}
@@ -145,17 +101,15 @@ class CreateEtchPacket(BaseQuery):
             raise ValueError(
                 f"`payload` must be a valid CreateEtchPacket instance or dict. {e}"
             ) from e
-        if "signers" in payload:
-            for signer in payload["signers"]:
-                mutation.add_signer(EtchSigner(**signer))
+        for signer in payload.get("signers") or []:
+            mutation.add_signer(signer)
 
-        if "files" in payload:
-            for file in payload["files"]:
-                mutation.add_file(DocumentUpload(**file))
+        for file in payload.get("files") or []:
+            mutation.add_file(file)
 
         return mutation
 
-    def add_signer(self, signer: Union[dict, EtchSigner]):
+    def add_signer(self, signer: dict | EtchSigner):
         """Add a signer to the mutation payload.
 
         :param signer: Signer object to add to the payload
@@ -167,11 +121,6 @@ class CreateEtchPacket(BaseQuery):
             data = signer
         else:
             raise ValueError("Signer must be either a dict or EtchSigner type")
-
-        if data.signer_type not in ["embedded", "email"]:
-            raise ValueError(
-                "Etch signer `signer_type` must be only 'embedded' or 'email"
-            )
 
         if not data.id:
             data.id = create_unique_id("signer")
@@ -188,12 +137,16 @@ class CreateEtchPacket(BaseQuery):
 
         self.signers.append(data)
 
-    def add_file(self, file: AttachableEtchFile):
-        """Add file to a pending list of Upload objects.
+    def add_file(self, file: AttachableEtchFile | dict):
+        """Add a file to a pending list of files.
 
-        Files will not be uploaded when running this method. They will be
-        uploaded when the mutation actually runs.
+        A `DocumentUpload`, `EtchCastRef`, `DocumentMarkdown` or `DocumentMarkup`,
+        or a dict of one of those, with snake_case or camelCase keys. Files
+        will not be uploaded when running this method. They will be uploaded
+        when the mutation actually runs.
         """
+        if isinstance(file, dict):
+            file = _ATTACHABLE_FILE.validate_python(file)
         if (
             isinstance(file, DocumentUpload)
             and isinstance(file.file, BufferedIOBase)
@@ -240,7 +193,7 @@ class CreateEtchPacket(BaseQuery):
             return self.payload
 
         if not self.name:
-            raise TypeError("`name` and `signature_email_subject` cannot be None")
+            raise TypeError("`name` is required")
 
         payload = CreateEtchPacketPayload(
             is_test=self.is_test,
@@ -259,6 +212,8 @@ class CreateEtchPacket(BaseQuery):
             enable_emails=self.enable_emails,
             create_cast_templates_from_uploads=self.create_cast_templates_from_uploads,
             duplicate_casts=self.duplicate_casts,
+            organization_eid=self.organization_eid,
+            allow_updates=self.allow_updates,
         )
 
         return payload

@@ -49,6 +49,7 @@ SignalName: TypeAlias = Literal[
     "single_key_required_open",
     "single_value_enums",
     "single_value_enum_union_branches",
+    "enums_beside_const",
     "dotted_keys",
     "dotted_key_namespaces",
     "dotted_namespace_reference_cycles",
@@ -58,6 +59,8 @@ SignalName: TypeAlias = Literal[
     "unique_items",
     "pattern_properties",
     "unmodeled_pattern_properties",
+    "inline_object_bodies",
+    "redundant_constraints",
     "multiple_of",
     "nullable_keywords",
     "boolean_exclusive_bounds",
@@ -81,6 +84,8 @@ SIGNAL_NAMES: frozenset[str] = frozenset(get_args(SignalName))
 
 _HTTP_METHODS = frozenset({"get", "put", "post", "delete", "patch", "head", "options", "trace"})
 _SCHEMA_MAP_KEYWORDS = ("properties", "patternProperties", "dependentSchemas")
+_ZERO_BOUND_KEYWORDS = ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum")
+_LITERAL_CHECKED_KEYWORDS = frozenset({*_ZERO_BOUND_KEYWORDS, "multipleOf", "minLength", "maxLength"})
 _SUBSCHEMA_KEYWORDS = (
     "allOf",
     "anyOf",
@@ -135,6 +140,22 @@ def _is_enum(node: Mapping[str, Any]) -> bool:
 
 def _is_null(node: Mapping[str, Any]) -> bool:
     return node.get("type") in ("null", ["null"]) or node.get("enum") == [None]
+
+
+def _redundant_constraint(node: Mapping[str, Any], *, at_property: bool) -> bool:
+    """Return whether ``--omit-redundant-constraints`` leaves a constraint of a schema out of its field.
+
+    A const or an enum beside a length or number keyword its literal check decides, or exactly one number bound equal
+    to 0, which the zero-bound class enforces, outside an object property of no null type (written once there).
+    """
+    if ("const" in node or _is_enum(node)) and not _LITERAL_CHECKED_KEYWORDS.isdisjoint(node):
+        return True
+    zero_bounds = [
+        key
+        for key in _ZERO_BOUND_KEYWORDS
+        if isinstance(value := node.get(key), int | float) and not isinstance(value, bool) and value == 0
+    ]
+    return len(zero_bounds) == 1 and (not at_property or "null" in _types(node) or node.get("nullable") is True)
 
 
 def _single_literal(node: object) -> tuple[str, object] | None:
@@ -208,6 +229,11 @@ def _resolve_local(document: Mapping[str, Any], ref: object) -> object:
     return node
 
 
+def _dereferenced(document: Mapping[str, Any], node: object) -> object:
+    """Return the local object a ``$ref`` node points at, or the node itself when it has no ``$ref``."""
+    return _resolve_local(document, node["$ref"]) if isinstance(node, dict) and "$ref" in node else node
+
+
 def _items(value: object) -> Iterable[tuple[str, Any]]:
     return value.items() if isinstance(value, dict) else ()
 
@@ -271,6 +297,49 @@ def _operation_schemas(
     )
     for name, body in _items(bodies):
         yield from _media_schemas(name, body)
+
+
+def _legacy_body_operations(
+    document: Mapping[str, Any], scopes: AbstractSet[str], include_paths: Sequence[str]
+) -> Iterator[Mapping[str, Any]]:
+    """Yield the operations whose bodies the paths and webhooks scopes parse; api reads them as definitions.
+
+    Local path item references resolve as generation resolves them; remote ones are not read.
+    """
+    for section in () if "api" in scopes else ("paths", "webhooks"):
+        for path, item in _items(document.get(section) if section in scopes else None):
+            if section == "webhooks" or _path_selected(path, include_paths):
+                yield from (
+                    operation
+                    for method, operation in _items(_dereferenced(document, item))
+                    if method in _HTTP_METHODS and isinstance(operation, dict)
+                )
+
+
+def _is_inline_object_body(schema: object) -> bool:
+    """Return whether ``--openapi-as-definitions paths-bodies`` changes the model of a paths or webhooks body."""
+    from pydantic import ValidationError  # noqa: PLC0415
+
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaObject  # noqa: PLC0415
+    from datamodel_code_generator.parser.openapi import is_inline_object_body, is_object_map_body  # noqa: PLC0415
+
+    if not isinstance(schema, dict):
+        return False
+    try:
+        obj = JsonSchemaObject.model_validate(schema)
+        return is_inline_object_body(obj) or is_object_map_body(obj)
+    except ValidationError:
+        return False
+
+
+def _inline_object_bodies(document: Mapping[str, Any], scopes: AbstractSet[str], include_paths: Sequence[str]) -> int:
+    """Count the request and response bodies whose model ``--openapi-as-definitions paths-bodies`` changes."""
+    return sum(
+        _is_inline_object_body(schema)
+        for operation in _legacy_body_operations(document, scopes, include_paths)
+        for holder in (operation.get("requestBody"), *dict(_items(operation.get("responses"))).values())
+        for _, schema in _media_schemas("", _dereferenced(document, holder))
+    )
 
 
 def _operation_parts(key: str, operation: object) -> Iterator[tuple[str, object]]:
@@ -416,13 +485,14 @@ class _Walker:
         counts["multiple_of"] += isinstance(divisor, int | float) and not isinstance(divisor, bool)
 
     def count_keywords(self, node: Mapping[str, Any]) -> None:
-        """Count a one-value enum without const, the validation keywords of a schema, and a format generation maps.
+        """Count a one-value enum, an enum beside a const, the validation keywords and a format generation maps.
 
         A format counts when generation maps it to a type for one of the types the schema declares.
         """
         counts = self.counts
         values = node.get("enum")
         counts["single_value_enums"] += isinstance(values, list) and len(values) == 1 and "const" not in node
+        counts["enums_beside_const"] += isinstance(values, list) and "const" in node
         self.count_validation_keywords(node)
         counts["nullable_keywords"] += self.dialect.nullable_keyword and node.get("nullable") is True
         counts["boolean_exclusive_bounds"] += (
@@ -459,6 +529,7 @@ class _Walker:
         """
         if isinstance(node, dict) and not self.count_reference(node, key):
             self.count_keywords(node)
+            self.counts["redundant_constraints"] += _redundant_constraint(node, at_property=False)
             self.walk_children(node, parent=key, name="", depth=0, component=key)
 
     def record_name(self, name: str, parent: str, parents: defaultdict[str, set[str]]) -> None:
@@ -467,11 +538,14 @@ class _Walker:
             self.name_parents[name].add(parent)
             parents[name].add(parent)
 
-    def walk(self, node: object, *, parent: str, name: str, depth: int, component: str) -> None:
-        """Walk one inline schema reached under a parent model through a property or keyword."""
+    def walk(  # noqa: PLR0913
+        self, node: object, *, parent: str, name: str, depth: int, component: str, at_property: bool = False
+    ) -> None:
+        """Walk one inline schema reached under a parent model through a property (``at_property``) or keyword."""
         if not isinstance(node, dict) or _is_null(node) or self.count_reference(node, component):
             return
         self.count_keywords(node)
+        self.counts["redundant_constraints"] += _redundant_constraint(node, at_property=at_property)
         if _is_enum(node):
             self.counts["inline_enums"] += 1
             self.record_name(name, parent, self.enum_name_parents)
@@ -494,7 +568,12 @@ class _Walker:
             members = node.get(keyword)
             for member_name, member in members.items() if isinstance(members, dict) else ():
                 self.walk(
-                    member, parent=parent, name=normalize_name(str(member_name)), depth=depth, component=component
+                    member,
+                    parent=parent,
+                    name=normalize_name(str(member_name)),
+                    depth=depth,
+                    component=component,
+                    at_property=keyword == "properties",
                 )
         for keyword in ("oneOf", "anyOf"):
             if isinstance(branches := node.get(keyword), list):
@@ -681,6 +760,7 @@ def measure_signals(
     extra: list[tuple[str, object]] = []
     if kind == "openapi":
         extra = list(_operation_schemas(document, openapi_scopes, include_paths))
+        counts["inline_object_bodies"] = _inline_object_bodies(document, openapi_scopes, include_paths)
     elif kind == "asyncapi":
         extra = list(_message_schemas(document))
     for key, node in extra:

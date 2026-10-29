@@ -105,6 +105,18 @@ db_io:
     # INTERNAL_TABLES_PHYSICALLY_IN_PUBLIC_UNTIL_OMN15359 and no
     # _LEGACY_DEFAULT_SCHEMA_SQL_EXACT_PATHS exemption, now or at the governed
     # OMN-15359 cutover.
+    - name: compaction_receipts
+      database_ref: application
+      schema: omninode_internal
+      migration: src/omnimarket/nodes/node_projection_compaction_receipts/migrations/0000_create_compaction_receipts.sql
+      access: read_write
+      role: compaction_receipts
+    - name: compaction_current_context
+      database_ref: application
+      schema: omninode_internal
+      migration: src/omnimarket/nodes/node_projection_compaction_current_context/migrations/0000_create_compaction_current_context.sql
+      access: read_write
+      role: compaction_current_context
     - name: automation_liveness_state
       database_ref: application
       schema: omninode_internal
@@ -199,6 +211,13 @@ db_io:
       migration: src/omnimarket/nodes/node_projection_ci_attempt_outcome/migrations/0000_create_ci_attempt_outcome.sql
       access: read_write
       role: ci_attempts
+    # OMN-20169: tenant-scoped capability cells per map run.
+    - name: delegation_capability_cells
+      database_ref: application
+      schema: public
+      migration: src/omnimarket/nodes/node_projection_delegation_capability_map/migrations/0000_create_delegation_capability_cells.sql
+      access: read_write
+      role: delegation_capability_cells
     # OMN-20242: tenant-scoped current dispositions.
     - name: delegation_dispositions
       database_ref: application
@@ -282,6 +301,22 @@ db_io:
       migration: src/omnimarket/nodes/node_projection_lab_job/migrations/0000_create_lab_job.sql
       access: read_write
       role: lab_job_transitions
+    # OMN-17427: durable execution claims and the ordered transition outbox of
+    # node_llm_delegation_call_effect's lab-job handler. Declared here for the
+    # same OMN-15361 SQL gate reason as the lab job read models above. Created
+    # directly in omninode_internal.
+    - name: delegation_lab_jobs
+      database_ref: application
+      schema: omninode_internal
+      migration: src/omnimarket/nodes/node_llm_delegation_call_effect/migrations/0000_delegation_lab_job_execution.sql
+      access: read_write
+      role: delegation_lab_jobs
+    - name: delegation_lab_job_outbox
+      database_ref: application
+      schema: omninode_internal
+      migration: src/omnimarket/nodes/node_llm_delegation_call_effect/migrations/0000_delegation_lab_job_execution.sql
+      access: read_write
+      role: delegation_lab_job_outbox
     # OMN-19513: the append-only ledger rows and materialized entity state
     # owned by node_projection_work_ledger. The OMN-15361 SQL gate resolves
     # ownership from this manifest separately from the node contract db_io.
@@ -1168,6 +1203,22 @@ database_objects:
     writers: []
   # OMN-19937: the BIGSERIAL paging cursor owned by board_probe_results.
   - name: board_probe_results_projection_cursor_seq
+    kind: sequence
+    database_ref: application
+    schema: omninode_internal
+    domain: OMNINODE_INTERNAL
+    owner_declaration: service:omnimarket_projection_migration_runner
+    writers: []
+  # OMN-21336: the BIGSERIAL paging cursor owned by compaction_receipts.
+  - name: compaction_receipts_projection_cursor_seq
+    kind: sequence
+    database_ref: application
+    schema: omninode_internal
+    domain: OMNINODE_INTERNAL
+    owner_declaration: service:omnimarket_projection_migration_runner
+    writers: []
+  # OMN-21090: the BIGSERIAL paging cursor owned by compaction_current_context.
+  - name: compaction_current_context_projection_cursor_seq
     kind: sequence
     database_ref: application
     schema: omninode_internal

@@ -1,3 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
+from typing import TYPE_CHECKING
+
 from django.template.loader import render_to_string
 
 from allianceauth import hooks
@@ -5,9 +9,12 @@ from allianceauth.services.hooks import ServicesHook
 
 from .urls import urlpatterns
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest
+
 
 class ExampleService(ServicesHook):
-    def __init__(self):
+    def __init__(self) -> None:
         ServicesHook.__init__(self)
         self.urlpatterns = urlpatterns
         self.service_url = 'http://exampleservice.example.com'
@@ -17,7 +24,7 @@ class ExampleService(ServicesHook):
     Overload base methods here to implement functionality
     """
 
-    def render_services_ctrl(self, request):
+    def render_services_ctrl(self, request: "HttpRequest") -> str:
         """
         Example for rendering the service control panel row
         You can override the default template and create a
@@ -39,5 +46,5 @@ class ExampleService(ServicesHook):
 
 
 @hooks.register('services_hook')
-def register_service():
+def register_service() -> ExampleService:
     return ExampleService()

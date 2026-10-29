@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: kernels
-Version: 0.17.2
-Requires-Dist: huggingface-hub>=1.10.0
+Version: 0.18.0
+Requires-Dist: huggingface-hub>=1.32.0
 Requires-Dist: packaging>=20.0
 Requires-Dist: pyyaml>=6
 Requires-Dist: sigstore>=4,<5

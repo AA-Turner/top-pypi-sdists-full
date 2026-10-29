@@ -6,7 +6,8 @@ Two runs at once would interleave their writes to all of them, and most of
 those files have no lock of their own. So every wizard action that changes the
 device holds this lock for the whole run, and a second one leaves with
 `BUSY_EXIT_CODE` after `CONTENTION_GRACE_S` instead of waiting for it (a
-terminal menu can stay open for hours).
+terminal menu can stay open for hours). A desktop workspace save opts into
+a longer, bounded wait so a post-install update can finish first.
 
 An OS advisory lock (`flock`) on a file that is never deleted: the kernel
 releases it the moment its holder exits, however it exits, so a run killed with
@@ -66,10 +67,10 @@ def lock_path() -> Path:
 
 
 @contextmanager
-def held() -> Iterator[None]:
+def held(*, wait_s: float | None = None) -> Iterator[None]:
     """Hold the lock for the block, or raise `Busy` once another holder has
-    kept it for `CONTENTION_GRACE_S` (a `running()` probe holds it for an
-    instant; a real run, for the whole run).
+    kept it for `CONTENTION_GRACE_S`, or the caller's explicit `wait_s`
+    (a `running()` probe holds it for an instant; a real run, for the whole run).
 
     Fail-open on anything but contention: a state folder that cannot be
     written, or a filesystem without locks, runs unlocked as every run did
@@ -88,7 +89,7 @@ def held() -> Iterator[None]:
         path = lock_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         handle = open(path, "a+")  # noqa: SIM115 - held for the block, closed below
-        deadline = time.monotonic() + CONTENTION_GRACE_S
+        deadline = time.monotonic() + (CONTENTION_GRACE_S if wait_s is None else wait_s)
         while True:
             try:
                 oscompat.flock(handle.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 11.45.0
+Version: 11.47.0
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -41,13 +41,12 @@ Requires-Dist: uvicorn>=0.15.0
 Requires-Dist: wsproto
 Requires-Dist: Pillow
 Requires-Dist: questionary>=2.0.0
-Requires-Dist: ipsw_parser>=1.8.4
+Requires-Dist: ipsw_parser>=1.9.0
 Requires-Dist: ifaddr
 Requires-Dist: hyperframe
-Requires-Dist: srptools
 Requires-Dist: qh3<2,>=1.0.0
 Requires-Dist: developer_disk_image>=0.3.0
-Requires-Dist: opack2>=0.1.0
+Requires-Dist: opack2>=0.2.0
 Requires-Dist: psutil
 Requires-Dist: pytun-pmd3>=3.0.3
 Requires-Dist: prompt_toolkit

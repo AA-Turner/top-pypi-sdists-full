@@ -70,6 +70,29 @@ def stopping_children_on_signals() -> Generator[Event, None, None]:
             signal.signal(number, signal.SIG_IGN if signalled.is_set() else handler)
 
 
+@contextmanager
+def uninterrupted() -> Generator[None]:
+    if current_thread() is not main_thread():
+        yield
+        return
+    received: Final[list[int]] = []
+
+    def record(number: int, _frame: FrameType | None) -> None:
+        received.append(number)
+
+    previous: Final = {
+        number: signal.signal(number, record)
+        for number in {signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGHUP", signal.SIGTERM)}
+    }
+    try:
+        yield
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+        if received:
+            signal.raise_signal(received[0])
+
+
 def fan_out(
     tasks: Sequence[Callable[[], _ResultT]],
     *,
@@ -89,7 +112,7 @@ def fan_out(
         return [task() for task in tasks]
     # capped like the outdated check, so a large pipx home does not start dozens of pip or uv runs against the index
     workers: Final[int] = min(len(tasks), os.cpu_count() or 1, 8)
-    turn: Final[Condition] = Condition()
+    turn: Final[Condition] = _Turn()
     # the turn's lock also guards the children, which no task holds while waiting for a child to exit
     children: Final[_Children] = _Children(turn, Event(), finishes=interrupted is not None)
     slots: Final[list[_Slot]] = []
@@ -280,6 +303,14 @@ def stop_process_group(process: _Child) -> None:
         os.killpg(process.pid, signal.SIGTERM)
 
 
+class _Turn(Condition):
+    # Condition.__enter__ and __exit__ are Python frames around the lock's own methods: a signal handled right after the
+    # lock was taken, or right before it is released, raises KeyboardInterrupt from that frame, so the main thread keeps
+    # the lock and every task waiting for its turn waits forever. The lock's C methods leave no point to raise between.
+    __enter__ = property(lambda self: self._lock.__enter__)
+    __exit__ = property(lambda self: self._lock.__exit__)
+
+
 @dataclass
 class _Children:
     lock: Condition
@@ -339,9 +370,12 @@ class _Slot:
 
     def go_live(self) -> None:
         with self.turn:
-            for stream, text in self.chunks:
-                self.children.write(stream, text, self)
-                stream.flush()
+            # a reader that went away must keep neither the task from its turn nor the fan-out from waiting for its
+            # tasks; what the task writes next fails in the task, which rolls back as it does running alone
+            with suppress(OSError, ValueError):
+                for stream, text in self.chunks:
+                    self.children.write(stream, text, self)
+                    stream.flush()
             self.chunks.clear()
             self.live = True
             self.turn.notify_all()
@@ -376,7 +410,8 @@ def _routed_output(children: _Children) -> Generator[None, None, None]:
         for handler in logging.getLogger("pipx").handlers
         if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler)
     ]
-    sys.stdout, sys.stderr = _routed(stdout, children), _routed(stderr, children)
+    # Python sets a stream closed at startup to None, which print skips, so a held task must not buffer output for it
+    sys.stdout, sys.stderr = (None if stream is None else _routed(stream, children) for stream in (stdout, stderr))
     for handler, stream in handlers:
         handler.setStream(_routed(stream, children))
     try:
@@ -422,4 +457,5 @@ __all__ = [
     "stop_process_group",
     "stopped_on_interrupt",
     "stopping_children_on_signals",
+    "uninterrupted",
 ]

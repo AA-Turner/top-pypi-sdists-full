@@ -1,11 +1,11 @@
+__lazy_modules__ = ["esi.stubs"]
+
 from typing import TYPE_CHECKING
 
 from esi.openapi_clients import ESIClientProvider
 
 if TYPE_CHECKING:
-    from esi.stubs import (
-        KillmailsKillmailIdKillmailHashGet, UniverseTypesTypeIdGet,
-    )
+    from esi.stubs import KillmailsKillmailIdKillmailHashGet, UniverseTypesTypeIdGet
 
 from allianceauth import __title__, __url__, __version__
 

@@ -8,6 +8,7 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .types import (
         CreateMethodsRequestRecipient,
+        CreateMethodsRequestRecipientAddress,
         CreateMethodsResponse,
         CreateMethodsResponseBankVerificationState,
         CreateMethodsResponseObject,
@@ -40,6 +41,7 @@ if typing.TYPE_CHECKING:
         ListMethodsResponseLimitsStandard,
         ListMethodsResponseLimitsStandardErrorCode,
         ListMethodsResponsePageInfo,
+        UpdateMethodsRequestAddress,
         UpdateMethodsResponse,
         UpdateMethodsResponseBankVerificationState,
         UpdateMethodsResponseObject,
@@ -51,6 +53,7 @@ if typing.TYPE_CHECKING:
     )
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateMethodsRequestRecipient": ".types",
+    "CreateMethodsRequestRecipientAddress": ".types",
     "CreateMethodsResponse": ".types",
     "CreateMethodsResponseBankVerificationState": ".types",
     "CreateMethodsResponseObject": ".types",
@@ -83,6 +86,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListMethodsResponseLimitsStandard": ".types",
     "ListMethodsResponseLimitsStandardErrorCode": ".types",
     "ListMethodsResponsePageInfo": ".types",
+    "UpdateMethodsRequestAddress": ".types",
     "UpdateMethodsResponse": ".types",
     "UpdateMethodsResponseBankVerificationState": ".types",
     "UpdateMethodsResponseObject": ".types",
@@ -117,6 +121,7 @@ def __dir__():
 
 __all__ = [
     "CreateMethodsRequestRecipient",
+    "CreateMethodsRequestRecipientAddress",
     "CreateMethodsResponse",
     "CreateMethodsResponseBankVerificationState",
     "CreateMethodsResponseObject",
@@ -149,6 +154,7 @@ __all__ = [
     "ListMethodsResponseLimitsStandard",
     "ListMethodsResponseLimitsStandardErrorCode",
     "ListMethodsResponsePageInfo",
+    "UpdateMethodsRequestAddress",
     "UpdateMethodsResponse",
     "UpdateMethodsResponseBankVerificationState",
     "UpdateMethodsResponseObject",

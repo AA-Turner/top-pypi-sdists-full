@@ -32,7 +32,9 @@ class DiscordUser(models.Model):
         related_name="discord",
         help_text="Auth user owning this Discord account",
     )
-    uid = models.BigIntegerField(db_index=True, help_text="user's ID on Discord")
+    uid = models.BigIntegerField(
+        unique=True, help_text="user's ID on Discord"
+    )
     username = models.CharField(
         max_length=32, default="", blank=True, db_index=True, help_text="user's username on Discord"
     )

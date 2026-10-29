@@ -169,3 +169,12 @@ def test_bool_status_and_empty_or_non_str_host_are_not_written():
     assert _safe_failure_summary(BoolStatus("x")) == "BoolStatus"
     assert _safe_failure_summary(EmptyHost("x")) == "EmptyHost"
     assert _safe_failure_summary(BytesHost("x")) == "BytesHost"
+
+
+def test_only_sdk_shaped_error_codes_are_written():
+    """3.2.1: 要約は終了時の報告にも載る。SDK の例外クラスを Agent が自分の値で作った error_code（秘密が入りうる）は、
+    SDK の語の形（大文字の snake_case、64 字まで）でなければ出さない。"""
+    for code in ("sk_live_secret123", "request_error", "Bearer abc", "A" * 65, "1ABC", ""):
+        assert _safe_failure_summary(SecurityAPIError("x", error_code=code)) == "SecurityAPIError", code
+    for code in ("REQUEST_ERROR", "RATE_LIMITED", "A" * 64):
+        assert _safe_failure_summary(SecurityAPIError("x", error_code=code)) == f"SecurityAPIError(error_code={code})"

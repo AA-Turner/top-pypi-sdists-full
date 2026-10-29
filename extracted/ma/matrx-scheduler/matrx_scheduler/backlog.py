@@ -8,6 +8,8 @@ successor, and task completion stamp; the host reports only refused outcomes.
 
 from __future__ import annotations
 
+from matrx_orm import db_sqlstate
+
 import hashlib
 import inspect
 import uuid
@@ -399,8 +401,7 @@ async def finalize_and_rearm_backlog(request: BacklogRearmRequest) -> BacklogRea
                             metadata=successor_metadata,
                         )
                 except Exception as exc:
-                    message = str(exc).lower()
-                    if "23505" not in message and "duplicate key" not in message:
+                    if db_sqlstate(exc) != "23505":
                         raise
                     successor_id, foreign_collision = await _locked_active_successor(
                         task, predecessor, request

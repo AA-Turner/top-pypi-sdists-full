@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.contrib import messages
@@ -12,6 +15,9 @@ from .manager import Teamspeak3Manager
 from .models import Teamspeak3User
 from .tasks import Teamspeak3Tasks
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 ACCESS_PERM = 'teamspeak3.access_teamspeak3'
@@ -19,7 +25,7 @@ ACCESS_PERM = 'teamspeak3.access_teamspeak3'
 
 @login_required
 @permission_required(ACCESS_PERM)
-def activate_teamspeak3(request):
+def activate_teamspeak3(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"activate_teamspeak3 called by user {request.user}")
 
     character = request.user.profile.main_character
@@ -41,7 +47,7 @@ def activate_teamspeak3(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def verify_teamspeak3(request):
+def verify_teamspeak3(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"verify_teamspeak3 called by user {request.user}")
     if not Teamspeak3Tasks.has_account(request.user):
         logger.warning(f"Unable to validate user {request.user} teamspeak: no teamspeak data")
@@ -64,7 +70,7 @@ def verify_teamspeak3(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def deactivate_teamspeak3(request):
+def deactivate_teamspeak3(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"deactivate_teamspeak3 called by user {request.user}")
     if Teamspeak3Tasks.has_account(request.user) and Teamspeak3Tasks.delete_user(request.user):
         logger.info(f"Successfully deactivated TeamSpeak3 for user {request.user}")
@@ -77,7 +83,7 @@ def deactivate_teamspeak3(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def reset_teamspeak3_perm(request):
+def reset_teamspeak3_perm(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"reset_teamspeak3_perm called by user {request.user}")
     if not Teamspeak3Tasks.has_account(request.user):
         return redirect("services:services")
@@ -103,7 +109,7 @@ def reset_teamspeak3_perm(request):
 
 @login_required
 @staff_member_required
-def admin_update_ts3_groups(request):
+def admin_update_ts3_groups(request: "HttpRequest") -> "HttpResponse":
     Teamspeak3Tasks.run_ts3_group_update.delay()
     messages.info(request, "Started updating TeamSpeak3 server groups...")
     return redirect("admin:teamspeak3_authts_changelist")

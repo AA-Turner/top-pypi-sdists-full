@@ -2148,3 +2148,317 @@ def test_a_semantic_cursor_cannot_continue_a_keyword_search(client, app):
     assert cursor
     with pytest.raises(errors.ValidationError, match="semantic=true"):
         service.search("pca", semantic=False, collapse=None, cursor=cursor)
+
+
+# -- search_in=["docs"]: Probe's own docs, not the team's record ----------------
+_DOCS_TEXT = "Run `probe setup codex`, then restart Codex."
+
+
+def _docs_section(i: int, text: str = _DOCS_TEXT) -> dict:
+    return {
+        "page": "Install",
+        "heading": f"Step {i}",
+        "path": f"install#step-{i}",
+        "url": f"https://docs.prbe.ai/install#step-{i}",
+        "text": text,
+        "rank": i,
+    }
+
+
+def _docs_hit(i: int, text: str = _DOCS_TEXT) -> dict:
+    return {
+        "entity_type": "document",
+        "card": {
+            "title": f"Install — Step {i}",
+            "snippet": text,
+            "source_url": f"https://docs.prbe.ai/install#step-{i}",
+        },
+        "why_matched": {"score": round(1.0 - 0.01 * i, 2)},
+        "truncated": False,
+    }
+
+
+def _docs(*sections: dict, state: str = "ok") -> dict:
+    return {"state": state, "sections": list(sections)}
+
+
+def _paragraphs(n: int) -> list[str]:
+    """`n` paragraphs of ~125 o200k tokens each."""
+    return [f"Paragraph {i}: " + "word " * 120 for i in range(n)]
+
+
+def test_search_docs_only_reads_the_docs_and_never_the_team_search(client, app):
+    """`["docs"]` must not reach `_map_search_in`: alone there it is an unknown
+    value (the experiments-only floor), stripped it is `[]` (EVERY corpus), and
+    either answers a docs question with team hits wearing a success envelope.
+    The team-search arguments have nothing to apply to."""
+    from probe.mcp.contract import ToolCorpus
+
+    app.search_response = _search_response(exact=[_experiment_row("e-1")])
+    app.docs_response = _docs(_docs_section(0), _docs_section(1))
+    out = ResearchReadService(ResearchOSSource(client)).search(
+        "codex mcp install",
+        search_in=[ToolCorpus.DOCS],
+        project_id="p-1",
+        workspace_id="ws-1",
+        collapse=None,
+        semantic=False,
+        exclude_session="s-1",
+    )
+    assert app.search_requests == []
+    # Public: no credential rides it.
+    assert app.docs_requests == [{"query": "codex mcp install", "limit": "8", "authorized": False}]
+    assert out == {"data": {"query": "codex mcp install", "results": [_docs_hit(0), _docs_hit(1)]}}
+
+
+def test_search_without_docs_never_reads_them(client, app):
+    """Omitted (or empty) `search_in` means every TEAM corpus: the docs are read
+    only when named, and the team path answers exactly as before."""
+    app.search_response = _search_response(exact=[_experiment_row("e-1")])
+    service = ResearchReadService(ResearchOSSource(client))
+    for search_in in (None, [], ["notes", "transcripts"]):
+        out = service.search("q", search_in=search_in)
+        assert "docs" not in out["data"] and "docs_note" not in out["data"]
+    assert app.docs_requests == []
+    assert len(app.search_requests) == 3
+
+
+def test_search_mixed_keeps_the_team_search_and_adds_a_docs_list(client, app):
+    app.search_response = _search_response(exact=[_experiment_row("e-1")], semantic=[_FILE_HIT])
+    app.docs_response = _docs(_docs_section(0))
+    out = ResearchReadService(ResearchOSSource(client)).search(
+        "adam sweep", search_in=["docs", "notes"], collapse=None
+    )
+    # The remainder is searched as `["notes"]` alone would be: docs is not a
+    # backend corpus, and not an "unsupported" one either.
+    assert app.search_requests[-1]["corpus"] == ["experiments", "notes"]
+    assert out["data"]["unsupported_values"] == []
+    assert [r["id"] for r in out["data"]["results"]] == ["e-1", "f-1"]
+    assert out["data"]["docs"] == [_docs_hit(0)]
+    assert "completeness" not in out
+
+
+def test_search_mixed_docs_ride_the_first_page_only(client, app):
+    """A cursor page continues the TEAM's channels; repeating the docs on it
+    would hand the caller the same sections as if they were new."""
+    app.search_responses = [
+        _search_response(
+            exact=[_experiment_row("e-1"), _experiment_row("e-2")], exact_cursor="ex-2"
+        ),
+        _search_response(exact=[_experiment_row("e-3")]),
+    ]
+    app.docs_response = _docs(_docs_section(0))
+    service = ResearchReadService(ResearchOSSource(client))
+    first = service.search("q", search_in=["docs", "experiments"], top_k=2, collapse=None)
+    assert first["data"]["docs"] == [_docs_hit(0)]
+    assert first["next_cursor"]
+    second = service.search(
+        "q", search_in=["docs", "experiments"], top_k=2, collapse=None, cursor=first["next_cursor"]
+    )
+    assert app.search_requests[-1]["exact_cursor"] == "ex-2"
+    assert [r["id"] for r in second["data"]["results"]] == ["e-3"]
+    assert "docs" not in second["data"] and "docs_note" not in second["data"]
+    assert len(app.docs_requests) == 1
+
+
+def test_search_mixed_docs_take_at_most_half_the_budget(client, app):
+    from probe.mcp.budget import Budget, count_tokens, serialize
+
+    text = "\n\n".join(_paragraphs(30))  # ~3,700 tokens: over half of any budget below 7,400
+    app.search_response = _search_response(semantic=_semantic_rows(4))
+    app.docs_response = _docs(_docs_section(0, text))
+    service = ResearchReadService(ResearchOSSource(client))
+    out = service.search("q", search_in=["docs", "notes"], token_budget=2000, collapse=None)
+    [hit] = out["data"]["docs"]
+    assert count_tokens(serialize({"docs": out["data"]["docs"]})) <= 1000
+    assert hit["truncated"] is True
+    assert out["data"]["results"], "the team's results keep the other half"
+    assert Budget(2000).fits(out)
+    # The retry budget is the one whose HALF carries the section whole.
+    retry = hit["retry_with"]["token_budget"]
+    again = service.search("q", search_in=["docs", "notes"], token_budget=retry, collapse=None)
+    assert again["data"]["docs"] == [_docs_hit(0, text)]
+
+
+def test_a_docs_section_that_does_not_fit_is_cut_at_a_paragraph_and_names_its_budget(client, app):
+    from probe.mcp.budget import Budget
+
+    paragraphs = _paragraphs(20)  # ~2,500 tokens
+    text = "\n\n".join(paragraphs)
+    app.docs_response = _docs(_docs_section(0, text), _docs_section(1))
+    service = ResearchReadService(ResearchOSSource(client))
+    out = service.search("q", search_in=["docs"])
+    [hit] = out["data"]["results"]
+    assert hit["truncated"] is True
+    assert hit["card"]["snippet"] in {"\n\n".join(paragraphs[:n]) for n in range(1, 20)}
+    assert Budget(2000).fits(out)
+    # Said, not left to be inferred from a short list.
+    assert out["completeness"] == {"state": "partial", "missing": ["results_beyond_budget"]}
+    assert out["data"]["budget"]["results_available"] == 2
+    retry = hit["retry_with"]["token_budget"]
+    assert 2000 < retry <= 8000 and retry % 100 == 0
+    assert retry <= out["data"]["budget"]["fits_all_at_token_budget"] <= 8000
+    # The docs rank deterministically, so the re-run returns that section whole, first.
+    again = service.search("q", search_in=["docs"], token_budget=retry)
+    assert again["data"]["results"][0] == _docs_hit(0, text)
+
+
+def test_the_best_docs_section_is_never_dropped(client, app):
+    """Not even its first paragraph fits: it is cut mid-paragraph, never left
+    out -- an empty answer would cost a second call to learn why."""
+    from probe.mcp.budget import Budget, count_tokens, serialize
+
+    text = "word " * 3000  # one paragraph, ~3,000 tokens
+    app.search_response = _search_response()
+    app.docs_response = _docs(_docs_section(0, text))
+    service = ResearchReadService(ResearchOSSource(client))
+    out = service.search("q", search_in=["docs"], token_budget=512)
+    [hit] = out["data"]["results"]
+    assert hit["truncated"] is True and hit["card"]["snippet"]
+    assert text.startswith(hit["card"]["snippet"])
+    assert hit["retry_with"]["token_budget"] > 512
+    assert Budget(512).fits(out)
+    mixed = service.search("q", search_in=["docs", "notes"], token_budget=512)
+    [hit] = mixed["data"]["docs"]
+    assert hit["truncated"] is True and text.startswith(hit["card"]["snippet"])
+    assert count_tokens(serialize({"docs": mixed["data"]["docs"]})) <= 256
+
+
+def test_a_docs_section_after_the_first_that_cannot_be_cut_is_left_out_and_counted(client, app):
+    """One paragraph has no boundary to cut at, and only the BEST section is
+    ever cut mid-paragraph: a later one is left out whole, never shown as a
+    stub, and the budget note names the budget that carries every section."""
+    from probe.mcp.budget import Budget
+
+    text = "word " * 3000  # one paragraph, ~3,000 tokens
+    app.docs_response = _docs(_docs_section(0), _docs_section(1, text))
+    service = ResearchReadService(ResearchOSSource(client))
+    out = service.search("q", search_in=["docs"], token_budget=512)
+    assert out["data"]["results"] == [_docs_hit(0)]
+    assert out["completeness"] == {"state": "partial", "missing": ["results_beyond_budget"]}
+    budget = out["data"]["budget"]
+    assert budget["results_available"] == 2
+    assert Budget(512).fits(out)
+    fits_all = budget["fits_all_at_token_budget"]
+    assert 512 < fits_all <= 8000 and fits_all % 100 == 0
+    again = service.search("q", search_in=["docs"], token_budget=fits_all)
+    assert again["data"]["results"] == [_docs_hit(0), _docs_hit(1, text)]
+    assert "completeness" not in again
+
+
+def test_mixed_docs_left_out_are_counted_and_sent_to_a_docs_only_search(client, app):
+    """The reviewer's repro: half of 2,000 tokens holds the small first section,
+    not the ~25 KB paragraph after it, so two of three sections are left out.
+    Said in `docs_note` and as a partial result, never a silent short list."""
+    app.search_response = _search_response(exact=[_experiment_row("e-1")])
+    app.docs_response = _docs(_docs_section(0), _docs_section(1, "word " * 5000), _docs_section(2))
+    out = ResearchReadService(ResearchOSSource(client)).search(
+        "q", search_in=["docs", "experiments"], token_budget=2000, collapse=None
+    )
+    assert out["data"]["docs"] == [_docs_hit(0)]
+    assert out["data"]["docs_note"] == (
+        '2 more Probe docs sections matched; search with search_in=["docs"] alone to read them.'
+    )
+    assert out["completeness"] == {"state": "partial", "missing": ["results_beyond_budget"]}
+    assert [r["id"] for r in out["data"]["results"]] == ["e-1"]
+
+
+def test_a_stale_mixed_docs_note_keeps_both_lines(client, app):
+    app.search_response = _search_response(exact=[_experiment_row("e-1")])
+    app.docs_response = _docs(
+        _docs_section(0), _docs_section(1, "word " * 5000), state="stale"
+    )
+    out = ResearchReadService(ResearchOSSource(client)).search(
+        "q", search_in=["docs", "experiments"], token_budget=2000, collapse=None
+    )
+    note = out["data"]["docs_note"]
+    assert "last good copy" in note and note.endswith(
+        '1 more Probe docs section matched; search with search_in=["docs"] alone to read them.'
+    )
+
+
+def test_a_mixed_docs_section_past_the_mixed_ceiling_is_retried_docs_only(client, app):
+    """A section whose whole needs more than half of 8,000 tokens arrives whole
+    at NO mixed budget, so its `retry_with` names a docs-only search, at the
+    budget that carries it there."""
+    from probe.mcp.budget import Budget
+
+    text = "word " * 5000  # one ~25 KB paragraph: ~5,000 tokens, 10,000 as a mixed budget
+    app.search_response = _search_response(exact=[_experiment_row("e-1")])
+    app.docs_response = _docs(_docs_section(0, text))
+    service = ResearchReadService(ResearchOSSource(client))
+    out = service.search("q", search_in=["docs", "notes"], token_budget=2000, collapse=None)
+    [hit] = out["data"]["docs"]
+    assert hit["truncated"] is True and text.startswith(hit["card"]["snippet"])
+    retry = hit["retry_with"]
+    assert retry["search_in"] == ["docs"]
+    assert 2000 < retry["token_budget"] <= 8000 and retry["token_budget"] % 100 == 0
+    assert Budget(2000).fits(out)
+    again = service.search("q", **retry)
+    assert again["data"]["results"] == [_docs_hit(0, text)]
+
+
+def test_top_k_caps_the_docs_sections(client, app):
+    app.docs_response = _docs(*(_docs_section(i) for i in range(5)))
+    out = ResearchReadService(ResearchOSSource(client)).search(
+        "q", search_in=["docs"], top_k=2
+    )
+    assert out["data"]["results"] == [_docs_hit(0), _docs_hit(1)]
+    assert app.docs_requests[-1]["limit"] == "2"
+
+
+def test_stale_docs_keep_their_hits_and_say_so(client, app):
+    app.docs_response = _docs(_docs_section(0), state="stale")
+    out = ResearchReadService(ResearchOSSource(client)).search("q", search_in=["docs"])
+    assert out["data"]["results"] == [_docs_hit(0)]
+    assert "last good copy" in out["data"]["note"]
+    assert "completeness" not in out
+
+
+@pytest.mark.parametrize("fault", ["unavailable", "server_error", "no_state"])
+def test_unreadable_docs_return_no_hits_and_a_clear_note(client, app, fault):
+    if fault == "unavailable":
+        app.docs_response = _docs(state="unavailable")
+    elif fault == "server_error":
+        app.docs_status = 500
+    else:
+        app.docs_response = {"sections": [_docs_section(0)]}
+    out = ResearchReadService(ResearchOSSource(client)).search("q", search_in=["docs"])
+    assert out["data"]["results"] == []
+    assert out["data"]["note"] == "Probe's docs could not be read right now."
+    assert out["completeness"] == {"state": "partial", "missing": ["docs"]}
+    assert app.search_requests == []
+
+
+def test_docs_down_in_a_mixed_search_keeps_the_team_results(client, app):
+    app.search_response = _search_response(exact=[_experiment_row("e-1")])
+    app.docs_status = 500
+    out = ResearchReadService(ResearchOSSource(client)).search(
+        "q", search_in=["docs", "experiments"], collapse=None
+    )
+    assert [r["id"] for r in out["data"]["results"]] == ["e-1"]
+    assert out["data"]["docs"] == []
+    assert out["data"]["docs_note"] == "Probe's docs could not be read right now."
+    assert out["completeness"] == {"state": "partial", "missing": ["docs"]}
+
+
+def test_a_docs_query_the_route_would_refuse_says_what_to_fix(client, app):
+    """Said as a 422 the caller can act on, never as "the docs could not be
+    read", which reads as try-again-later. Mixed, the team search still runs."""
+    app.search_response = _search_response(exact=[_experiment_row("e-1")])
+    service = ResearchReadService(ResearchOSSource(client))
+    for query in ("", "x" * 513):
+        with pytest.raises(errors.ValidationError, match="docs"):
+            service.search(query, search_in=["docs"])
+    out = service.search("x" * 513, search_in=["docs", "experiments"], collapse=None)
+    assert [r["id"] for r in out["data"]["results"]] == ["e-1"]
+    assert out["data"]["docs"] == [] and "512" in out["data"]["docs_note"]
+    assert app.docs_requests == []
+
+
+def test_a_docs_only_search_has_no_page_two(client, app):
+    with pytest.raises(errors.ValidationError, match="token_budget"):
+        ResearchReadService(ResearchOSSource(client)).search(
+            "q", search_in=["docs"], cursor="anything"
+        )
+    assert app.docs_requests == [] and app.search_requests == []

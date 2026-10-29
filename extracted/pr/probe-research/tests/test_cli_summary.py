@@ -31,6 +31,8 @@ class SummaryServer:
     def __init__(self, app) -> None:
         self.pages: dict[str, dict] = {}
         self.mode = "recorder"
+        #: What `.../visuals/options` says about the entity carrying tables and charts.
+        self.eligible = True
         self.calls: list[tuple[str, str, dict]] = []
         inner = app.handler
 
@@ -113,7 +115,7 @@ class SummaryServer:
                 200,
                 json={
                     "scope": "experiment" if "/experiments/" in anchor else "project",
-                    "eligible": True,
+                    "eligible": self.eligible,
                     "reason": None,
                     "runs": [],
                     "runs_truncated": False,

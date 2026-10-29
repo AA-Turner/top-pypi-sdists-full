@@ -49,8 +49,8 @@ F32ToI16Obj_init (F32ToI16Object *self, PyObject *args, PyObject *kwds)
   self->handle = dp_f32_to_i16_create (scale);
   if (!self->handle)
     {
-      PyErr_SetString (PyExc_MemoryError,
-                       "dp_f32_to_i16_create returned NULL");
+      PyErr_SetString (PyExc_ValueError,
+                       "F32ToI16: scale must be positive and finite");
       return -1;
     }
   return 0;
@@ -263,9 +263,8 @@ static PyMethodDef F32ToI16Obj_methods[] = {
     "Clear the sticky clip flag, starting a fresh saturation history.\n"
     "\n"
     "Zeroes clipped so a subsequent clipped query reflects only samples seen\n"
-    "after this call; the immutable scale is preserved. Call it at a buffer\n"
-    "or segment boundary so a saturation on one block does not leak into the\n"
-    "next.\n"
+    "after this call; scale is preserved. Call it at a buffer or segment\n"
+    "boundary so a saturation on one block does not leak into the next.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -285,6 +284,9 @@ static PyMethodDef F32ToI16Obj_methods[] = {
     "and latches the sticky clipped flag if the scaled value fell outside\n"
     "that range before clamping. At the default scale of 32768 a normalised\n"
     "`[-1, +1]` input maps to the full Q15 code range.\n"
+    "\n"
+    "A NaN input counts as clipped: it latches clipped and returns the\n"
+    "negative full-scale code, -32768.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -314,8 +316,9 @@ static PyMethodDef F32ToI16Obj_methods[] = {
     "\n"
     "Applies step() to every element. The clipped flag is updated\n"
     "cumulatively across the block — a single saturating sample raises it\n"
-    "for the entire call. Accepts an optional pre-allocated output array;\n"
-    "allocates a fresh one when output is NULL.\n"
+    "for the entire call. The C function writes into the caller's output and\n"
+    "never allocates; the Python binding allocates a fresh array when no\n"
+    "`out=` buffer is passed.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -440,6 +443,13 @@ static PyTypeObject F32ToI16ObjType = {
     "    Multiply factor applied before rounding and saturation (default:\n"
     "    32768.0f). Use 32768.0 to convert a normalised `[-1, +1]` signal to\n"
     "    full Q15 range.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If construction fails. The exception message is ``F32ToI16: scale "
+    "must\n"
+    "    be positive and finite``.\n"
     "\n"
     "Examples\n"
     "--------\n"

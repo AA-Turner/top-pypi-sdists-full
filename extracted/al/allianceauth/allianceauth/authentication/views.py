@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http", "django_registration.forms", "requests"]
+
 import logging
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import requests
@@ -30,11 +33,18 @@ from allianceauth.admin_status.templatetags.admin_status import _celery_stats
 from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.hooks import get_hooks
+from allianceauth.impersonate.decorators import not_while_impersonating
 
 from .constants import ESI_ERROR_MESSAGE_OVERRIDES
 from .core.celery_workers import active_tasks_count, queued_tasks_count
 from .forms import RegistrationActivationForm, RegistrationForm
 from .models import CharacterOwnership
+
+if TYPE_CHECKING:
+    from requests import Response
+
+    from django.http import HttpRequest, HttpResponse
+    from django_registration.forms import RegistrationForm as BaseRegistrationForm
 
 if 'allianceauth.eveonline.autogroups' in settings.INSTALLED_APPS:
     _has_auto_groups = True
@@ -47,11 +57,11 @@ logger = logging.getLogger(__name__)
 
 
 @login_required
-def index(request):
+def index(request: "HttpRequest") -> "HttpResponse":
     return redirect('authentication:dashboard')
 
 
-def dashboard_groups(request):
+def dashboard_groups(request: "HttpRequest") -> str:
     groups = request.user.groups.all()
     if _has_auto_groups:
         groups = groups\
@@ -65,7 +75,7 @@ def dashboard_groups(request):
     return render_to_string('authentication/dashboard_groups.html', context=context, request=request)
 
 
-def dashboard_characters(request):
+def dashboard_characters(request: "HttpRequest") -> str:
     characters = EveCharacter.objects\
         .filter(character_ownership__user=request.user)\
         .select_related()\
@@ -77,14 +87,14 @@ def dashboard_characters(request):
     return render_to_string('authentication/dashboard_characters.html', context=context, request=request)
 
 
-def dashboard_admin(request):
+def dashboard_admin(request: "HttpRequest") -> str:
     if request.user.is_superuser:
         return render_to_string('admin_status/include.html', request=request)
     else:
         return ""
 
 
-def dashboard_esi_check(request):
+def dashboard_esi_check(request: "HttpRequest") -> str:
     if request.user.is_superuser:
         return render_to_string('admin_status/esi_check.html', request=request)
     else:
@@ -92,7 +102,7 @@ def dashboard_esi_check(request):
 
 
 @login_required
-def dashboard(request):
+def dashboard(request: "HttpRequest") -> "HttpResponse":
     _dash_items = []
     hooks = get_hooks('dashboard_hook')
     items = [fn() for fn in hooks]
@@ -107,7 +117,7 @@ def dashboard(request):
 
 
 @login_required
-def token_management(request):
+def token_management(request: "HttpRequest") -> "HttpResponse":
     tokens = request.user.token_set.all()
 
     context = {
@@ -117,7 +127,7 @@ def token_management(request):
 
 
 @login_required
-def token_delete(request, token_id=None):
+def token_delete(request: "HttpRequest", token_id: int | None = None) -> "HttpResponse":
     try:
         token = Token.objects.get(id=token_id)
         if request.user == token.user:
@@ -131,7 +141,7 @@ def token_delete(request, token_id=None):
 
 
 @login_required
-def token_refresh(request, token_id=None):
+def token_refresh(request: "HttpRequest", token_id: int | None = None) -> "HttpResponse":
     try:
         token = Token.objects.get(id=token_id)
         if request.user == token.user:
@@ -148,8 +158,9 @@ def token_refresh(request, token_id=None):
 
 
 @login_required
+@not_while_impersonating
 @token_required(scopes=settings.LOGIN_TOKEN_SCOPES)
-def main_character_change(request, token):
+def main_character_change(request: "HttpRequest", token: Token) -> "HttpResponse":
     logger.debug(
         f"main_character_change called by user {request.user} for character {token.character_name}")
     try:
@@ -175,8 +186,9 @@ def main_character_change(request, token):
     return redirect("authentication:dashboard")
 
 
+@not_while_impersonating
 @token_required(new=True, scopes=settings.LOGIN_TOKEN_SCOPES)
-def add_character(request, token):
+def add_character(request: "HttpRequest", token: Token) -> "HttpResponse":
     if CharacterOwnership.objects.filter(character__character_id=token.character_id).filter(
             owner_hash=token.character_owner_hash).filter(user=request.user).exists():
         messages.success(request, _(
@@ -205,7 +217,7 @@ have the email address embedded much like the username. Key creation and decodin
 
 # Step 1
 @token_required(new=True, scopes=settings.LOGIN_TOKEN_SCOPES)
-def sso_login(request, token):
+def sso_login(request: "HttpRequest", token: Token) -> "HttpResponse":
     user = authenticate(token=token)
     if user:
         token.user = user
@@ -246,7 +258,7 @@ class RegistrationView(BaseRegistrationView):
     email_subject_template = "registration/activation_email_subject.txt"
     success_url = reverse_lazy('registration_complete')
 
-    def send_activation_email(self, user):
+    def send_activation_email(self, user: User) -> None:
         """
         Implement our own way to send a mail to make sure we
         send a RFC conform multipart email
@@ -288,12 +300,12 @@ class RegistrationView(BaseRegistrationView):
             **{'html_message': message_html},
         )
 
-    def get_success_url(self, user):
+    def get_success_url(self, user: User):
         if not getattr(settings, 'REGISTRATION_VERIFY_EMAIL', True):
             return reverse_lazy('authentication:dashboard')
         return super().get_success_url(user)
 
-    def dispatch(self, request, *args, **kwargs):
+    def dispatch(self, request: "HttpRequest", *args, **kwargs) -> "HttpResponse":
         # We're storing a key in the session to pass user information from OAuth response. Make sure it's there.
         if not self.request.session.get('registration_uid', None) or not User.objects.filter(
                 pk=self.request.session.get('registration_uid')).exists():
@@ -304,7 +316,7 @@ class RegistrationView(BaseRegistrationView):
             self.request = request
         return super().dispatch(request, *args, **kwargs)
 
-    def register(self, form):
+    def register(self, form: "BaseRegistrationForm") -> User:
         user = User.objects.get(
             pk=self.request.session.get('registration_uid'))
         user.email = form.cleaned_data['email']
@@ -318,10 +330,10 @@ class RegistrationView(BaseRegistrationView):
             login(self.request, user, 'allianceauth.authentication.backends.StateBackend')
         return user
 
-    def get_activation_key(self, user):
+    def get_activation_key(self, user: User) -> str:
         return signing.dumps(obj=[getattr(user, User.USERNAME_FIELD), user.email], salt=REGISTRATION_SALT)
 
-    def get_email_context(self, activation_key):
+    def get_email_context(self, activation_key: str) -> dict[str, Any]:
         context = super().get_email_context(activation_key)
         context['url'] = context['site'].domain + \
             reverse('registration_activate') + '?' + urlencode({'activation_key': activation_key})
@@ -334,7 +346,7 @@ class ActivationView(BaseActivationView):
     template_name = "registration/activate.html"
     success_url = reverse_lazy('registration_activation_complete')
 
-    def activate(self, form):
+    def activate(self, form) -> User:
         username, email = form.cleaned_data["activation_key"]
         user = self.get_user(username)
         user.email = email
@@ -343,26 +355,26 @@ class ActivationView(BaseActivationView):
         return user
 
 
-def registration_complete(request):
+def registration_complete(request: "HttpRequest") -> "HttpResponse":
     messages.success(request, _(
         'Sent confirmation email. Please follow the link to confirm your email address.'))
     return redirect('authentication:login')
 
 
-def activation_complete(request):
+def activation_complete(request: "HttpRequest") -> "HttpResponse":
     messages.success(request, _(
         'Confirmed your email address. Please login to continue.'))
     return redirect('authentication:dashboard')
 
 
-def registration_closed(request):
+def registration_closed(request: "HttpRequest") -> "HttpResponse":
     messages.error(request, _(
         'Registration of new accounts is not allowed at this time.'))
     return redirect('authentication:login')
 
 
 @user_passes_test(lambda u: u.is_superuser)
-def task_counts(request) -> JsonResponse:
+def task_counts(request: "HttpRequest") -> JsonResponse:
     """Return task counts as JSON for an AJAX call."""
     data = _celery_stats()
     data.update(
@@ -371,7 +383,7 @@ def task_counts(request) -> JsonResponse:
     return JsonResponse(data)
 
 
-def check_for_override_esi_error_message(response):
+def check_for_override_esi_error_message(response: "Response"):
     if response.status_code in ESI_ERROR_MESSAGE_OVERRIDES:
         return {"error": ESI_ERROR_MESSAGE_OVERRIDES.get(response.status_code)}
     else:
@@ -379,7 +391,7 @@ def check_for_override_esi_error_message(response):
 
 
 @user_passes_test(lambda u: u.is_superuser)
-def esi_check(request) -> JsonResponse:
+def esi_check(request: "HttpRequest") -> JsonResponse:
     """Return if ESI ok With error messages and codes as JSON"""
     _r = requests.get(
         url="https://esi.evetech.net/status",

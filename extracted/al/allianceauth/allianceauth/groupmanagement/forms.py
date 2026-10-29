@@ -1,4 +1,7 @@
+__lazy_modules__ = ["collections.abc", "datetime"]
+
 import functools
+from typing import TYPE_CHECKING
 
 from django import forms
 from django.contrib.admin.widgets import FilteredSelectMultiple
@@ -11,6 +14,10 @@ from allianceauth.authentication.models import User
 
 from .models import Group, ReservedGroupName
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from datetime import datetime
+
 
 class GroupAdminForm(forms.ModelForm):
     users = forms.ModelMultipleChoiceField(
@@ -19,13 +26,13 @@ class GroupAdminForm(forms.ModelForm):
         widget=FilteredSelectMultiple(verbose_name=_("Users"), is_stacked=False),
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         if self.instance and self.instance.pk:
             self.fields["users"].initial = self.instance.user_set.all()
 
-    def save(self, commit=True):
+    def save(self, commit: bool = True) -> Group:
         group: Group = super().save(commit=False)
 
         if commit:
@@ -41,12 +48,12 @@ class GroupAdminForm(forms.ModelForm):
 
         return group
 
-    def _save_m2m_and_users(self, group, users):
+    def _save_m2m_and_users(self, group: Group, users: "Iterable[User]") -> None:
         """Save m2m relations incl. users."""
         group.user_set.set(users)
         self._save_m2m()
 
-    def clean_name(self):
+    def clean_name(self) -> str:
         my_name = self.cleaned_data['name']
         if ReservedGroupName.objects.filter(name__iexact=my_name).exists():
             raise ValidationError(
@@ -57,7 +64,7 @@ class GroupAdminForm(forms.ModelForm):
 
 
 class ReservedGroupNameAdminForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.fields['created_by'].initial = self.current_user.username
         self.fields['created_at'].initial = _("(auto)")
@@ -65,7 +72,7 @@ class ReservedGroupNameAdminForm(forms.ModelForm):
     created_by = forms.CharField(disabled=True)
     created_at = forms.CharField(disabled=True)
 
-    def clean_name(self):
+    def clean_name(self) -> str:
         my_name = self.cleaned_data['name'].lower()
         if Group.objects.filter(name__iexact=my_name).exists():
             raise ValidationError(
@@ -73,5 +80,5 @@ class ReservedGroupNameAdminForm(forms.ModelForm):
             )
         return my_name
 
-    def clean_created_at(self):
+    def clean_created_at(self) -> "datetime":
         return now()

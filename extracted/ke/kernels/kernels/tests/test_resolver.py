@@ -2,9 +2,11 @@ import json
 import re
 from dataclasses import FrozenInstanceError, dataclass
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
-from huggingface_hub.hf_api import GitRefInfo
+from huggingface_hub.errors import IncompleteSnapshotError
+from huggingface_hub.hf_api import GitRefInfo, HfApi
 
 import kernels.resolver as resolver_module
 from kernels._rust import (
@@ -15,6 +17,7 @@ from kernels._rust import (
     KernelPaths,
     KernelVersion,
     Metadata,
+    Oid,
 )
 from kernels._versions import resolve_version_spec_as_ref
 from kernels.hf_hub import _get_hf_api
@@ -32,6 +35,7 @@ from kernels.resolver import (
     Resolver,
     SequentialResolver,
     _locked_revision,
+    resolve_hub_cache_kernel,
     resolve_hub_kernel,
 )
 from kernels.variants import parse_variant
@@ -151,6 +155,45 @@ def test_remote_kernel_is_immutable():
         kernel.variant = parse_variant("torch-cuda")
 
 
+def test_local_kernel_get_file(tmp_path):
+    api = Mock(spec=HfApi)
+    variant_path = _write_variant(tmp_path)
+    kernel = LocalKernel(variant_path=variant_path, metadata=_metadata())
+
+    assert kernel.get_file("metadata.json", api=api) == variant_path / "metadata.json"
+    assert api.mock_calls == []
+
+
+@pytest.mark.parametrize("custom_cache", [False, True])
+def test_remote_kernel_get_file(monkeypatch, tmp_path, custom_cache):
+    cache_dir = str(tmp_path / "cache") if custom_cache else None
+    if custom_cache:
+        monkeypatch.setenv("KERNELS_CACHE", cache_dir)
+    else:
+        monkeypatch.delenv("KERNELS_CACHE", raising=False)
+
+    downloaded_path = tmp_path / "symbols.json"
+    api = Mock(spec=HfApi)
+    api.hf_hub_download.return_value = str(downloaded_path)
+    kernel = RemoteKernel(
+        repo_id="test/kernel",
+        revision=Oid.from_str("a" * 40),
+        variant=_variant(),
+        metadata=_metadata(),
+    )
+
+    assert kernel.get_file("symbols.json", api=api) == downloaded_path
+    api.hf_hub_download.assert_called_once_with(
+        "test/kernel",
+        repo_type="kernel",
+        filename="build/torch-cpu/symbols.json",
+        cache_dir=cache_dir,
+        revision="a" * 40,
+        local_files_only=False,
+    )
+    api.snapshot_download.assert_not_called()
+
+
 def test_noop_resolver_never_resolves(api):
     assert NoopResolver().resolve(api=api, backend=None, kernel=_dep()) is None
 
@@ -241,18 +284,18 @@ def test_hub_resolver_resolves_remote_kernel(api):
 
     assert isinstance(location, RemoteKernel)
     assert location.repo_id == "kernels-community/relu"
-    assert re.fullmatch(r"[0-9a-f]{40}", location.revision)
+    assert re.fullmatch(r"[0-9a-f]{40}", str(location.revision))
     assert location.metadata.name == KernelName("relu")
 
 
-def test_hub_resolver_revision_passthrough(api):
+def test_hub_resolver_resolves_revision_to_commit(api):
     location = HubResolver(trust_remote_code=False).resolve(
         api=api,
         backend="cpu",
         kernel=KernelDependency(repo_id="kernels-community/relu", version=KernelVersion.Revision("v1")),
     )
 
-    assert location.revision == "v1"
+    assert location.revision == Oid.from_str(str(location.revision))
 
 
 def test_hub_resolver_blocks_untrusted_org(api):
@@ -418,6 +461,33 @@ def test_hub_cache_resolver_uncached_repo(api):
         )
 
 
+class _IncompleteSnapshotApi:
+    """API stub whose offline `snapshot_download` reports an incomplete snapshot."""
+
+    def __init__(self, snapshot_path: Path):
+        self.snapshot_path = snapshot_path
+
+    def snapshot_download(self, *args, **kwargs):
+        raise IncompleteSnapshotError("incomplete snapshot", snapshot_path=str(self.snapshot_path))
+
+
+def test_resolve_hub_cache_kernel_uses_incomplete_snapshot(tmp_path):
+    # huggingface-hub now raises `IncompleteSnapshotError` when the cached
+    # snapshot was incomplete. However, this is nearly always the case for
+    # us, because we only download the variant that we need. Check that
+    # the resolver accepts the incomplete snapshot and fails on the missing
+    # variant.
+    (tmp_path / "build").mkdir()
+
+    with pytest.raises(FileNotFoundError, match="Cannot find a build variant"):
+        resolve_hub_cache_kernel(
+            _IncompleteSnapshotApi(tmp_path),  # type: ignore[arg-type]
+            "test/kernel",
+            revision=Oid.from_str("0" * 40),
+            backend="cpu",
+        )
+
+
 def test_locked_hub_resolver_resolves_locked_revision(api, relu_locks):
     dep, locks, commit = relu_locks
 
@@ -426,7 +496,7 @@ def test_locked_hub_resolver_resolves_locked_revision(api, relu_locks):
     )
 
     assert isinstance(location, RemoteKernel)
-    assert location.revision == commit
+    assert str(location.revision) == commit
 
 
 def test_locked_hub_resolver_requires_lock(api, relu_locks):
@@ -462,7 +532,7 @@ def test_locked_revision_returns_commit():
     dep = _dep("test/kernel", version=1)
     locks = KernelLocks({dep: KernelLock(commit="a" * 40)})
 
-    assert _locked_revision(locks, dep) == "a" * 40
+    assert _locked_revision(locks, dep) == Oid.from_str("a" * 40)
 
 
 def test_locked_revision_requires_lock():

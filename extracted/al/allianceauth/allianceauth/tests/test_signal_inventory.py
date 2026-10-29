@@ -254,6 +254,27 @@ SIGNAL_INVENTORY = {
             },
         ],
     },
+    "allianceauth.impersonate.signals": {
+        "file": "impersonate/signals.py",
+        "ready_file": "impersonate/apps.py",
+        "receivers": [
+            {
+                "name": "impersonation_started",
+                "signal": "hijack.signals.hijack_started",
+                "sender": None,
+            },
+            {
+                "name": "impersonation_ended",
+                "signal": "hijack.signals.hijack_ended",
+                "sender": None,
+            },
+            {
+                "name": "impersonation_logged_out",
+                "signal": "django.contrib.auth.signals.user_logged_out",
+                "sender": None,
+            },
+        ],
+    },
 }
 
 # Signal modules that intentionally do not participate in the AppConfig.ready()

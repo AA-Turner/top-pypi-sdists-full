@@ -12,6 +12,9 @@ import yaml
 from omnimarket.nodes.node_context_pack_orchestrator.handlers.handler_context_pack_orchestrator import (
     HandlerContextPackOrchestrator,
 )
+from omnimarket.nodes.node_context_pack_orchestrator.handlers.handler_context_pack_orchestrator_runtime import (
+    HandlerContextPackOrchestratorRuntime,
+)
 
 from .conftest import SENTINEL, command, orchestrator
 
@@ -36,7 +39,15 @@ def test_contract_topics_are_the_restricted_request_and_result_pair() -> None:
     assert bus["subscribe_topics"] == [
         "onex.cmd.omniintelligence.context-pack-requested.v1"
     ]
-    assert bus["publish_topics"] == ["onex.cmd.omniintelligence.context-pack-built.v1"]
+    assert bus["publish_topics"] == [
+        "onex.cmd.omniintelligence.context-pack-built.v1",
+        "onex.cmd.omniintelligence.context-pack-failed.v1",
+    ]
+    assert (
+        _CONTRACT["runtime_dispatch"]["terminal_events"]["failure"]
+        == bus["publish_topics"][1]
+    )
+    assert _CONTRACT["externally_consumed_topics"] == bus["publish_topics"]
     assert _CONTRACT["terminal_event"] == bus["publish_topics"][0]
 
 
@@ -52,5 +63,8 @@ def test_no_evt_topic_carries_package_text() -> None:
 
 def test_contract_names_the_handler_class() -> None:
     handler = _CONTRACT["handler"]
-    assert handler["class"] == HandlerContextPackOrchestrator.__name__
-    assert handler["module"] == HandlerContextPackOrchestrator.__module__
+    assert handler["class"] == HandlerContextPackOrchestratorRuntime.__name__
+    assert handler["module"] == HandlerContextPackOrchestratorRuntime.__module__
+    assert issubclass(
+        HandlerContextPackOrchestratorRuntime, HandlerContextPackOrchestrator
+    )

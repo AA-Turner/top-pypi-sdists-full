@@ -1,6 +1,5 @@
-import html
+import json
 import pathlib
-from typing import Any
 
 from saq.job import Job
 
@@ -24,14 +23,11 @@ BODY = """
 """.strip()
 
 
-def render(**kwargs: Any) -> str:
-    return BODY.format(**{k: html.escape(v) for k, v in kwargs.items()})
+def render(root_path: str) -> str:
+    root_path = root_path.rstrip("/")
+    root_path = json.dumps(root_path)[1:-1]
+    return BODY.format(root_path=root_path)
 
 
 def job_dict(job: Job) -> dict:
-    data = job.to_dict()
-    if "kwargs" in data:
-        data["kwargs"] = repr(data["kwargs"])
-    if "result" in data:
-        data["result"] = repr(data["result"])
-    return data
+    return job.to_dict(safe=True)

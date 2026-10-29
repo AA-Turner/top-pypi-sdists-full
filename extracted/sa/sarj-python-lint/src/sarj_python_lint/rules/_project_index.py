@@ -13,7 +13,10 @@ import re
 from types import MappingProxyType
 from typing import TYPE_CHECKING, final
 
-from sarj_python_lint._source import read_python_source, symbol_prefilter_source
+from sarj_rule_contracts import SourceSnapshot
+
+from sarj_python_lint._prepared_sources import CapturedSource, NeedsSerialSourceError
+from sarj_python_lint._source import decode_python_source, read_python_source, symbol_prefilter_source
 from sarj_python_lint.rules._ast_index import NodeIndex, children, nodes, walk as walk_ast
 from sarj_python_lint.rules._first_party import FirstPartyFacts, project_root
 from sarj_python_lint.rules._imports import ImportIndex
@@ -24,6 +27,8 @@ from sarj_python_lint.rules._paths import is_generated
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence, Set as AbstractSet
     from typing import Self
+
+    from sarj_python_lint._prepared_sources import PreparedSourceInputs
 
 
 _SKIP_DIRS = frozenset(
@@ -141,17 +146,20 @@ class ClassSummary:
 
 @dataclass(frozen=True, slots=True)
 class SourceUnit:
+    # Indexes borrow tree and imports; callers must keep them unchanged for each index's lifetime.
     path: Path
     module: str | None
     source: str
     tree: ast.Module | None
     imports: Mapping[str, SymbolRef]
+    captured: CapturedSource | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class LoadedSource:
     path: Path
     source: str
+    captured: CapturedSource | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,13 +167,15 @@ class _IndexedSource:
     key: Path
     path: Path
     module: str | None
-    source: str
+    source: str | None
+    captured: CapturedSource | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class ProjectSourceSnapshot:
     roots: tuple[Path, ...]
     units: tuple[_IndexedSource, ...]
+    aliases: tuple[tuple[Path, Path], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,9 +204,22 @@ def imports_outside(tree: ast.Module | None, modules: frozenset[str]) -> bool:
 
 @final
 class ProjectIndexSet:
-    def __init__(self, units: Mapping[Path, SourceUnit], roots: Sequence[Path] = ()) -> None:
+    # Borrowed ASTs and import mappings must stay unchanged for this index's lifetime.
+    # They remain mutable Python objects; in-place mutation can leave cached facts stale.
+    # Use with_unit() with a fresh unit, or rebuild from an updated source snapshot.
+    # Snapshots capture source strings, not later AST or import mutations.
+    def __init__(
+        self,
+        units: Mapping[Path, SourceUnit],
+        roots: Sequence[Path] = (),
+        *,
+        aliases: Mapping[Path, Path] | None = None,
+        sealed: bool = False,
+    ) -> None:
         self._units = MappingProxyType(dict(units))
         self._roots = tuple(roots)
+        self._aliases = MappingProxyType({} if aliases is None else dict(aliases))
+        self._sealed = sealed
         self._namespace_mutation: dict[str, bool] = {}
         self._canonical_values: dict[SymbolRef, tuple[SymbolRef, ...]] = {}
         self._type_providers: dict[ast.Module, _TypeProviderFacts] = {}
@@ -215,24 +238,43 @@ class ProjectIndexSet:
         # module identities/order of the complete prepared source graph.
         return ProjectSourceSnapshot(
             self._roots,
-            tuple(_IndexedSource(key, unit.path, unit.module, unit.source) for key, unit in self._units.items()),
+            tuple(
+                _IndexedSource(
+                    key,
+                    unit.path,
+                    unit.module,
+                    None if unit.captured is not None and unit.captured.snapshot is not None else unit.source,
+                    unit.captured,
+                )
+                for key, unit in self._units.items()
+            ),
+            tuple(self._aliases.items()),
         )
 
     @classmethod
-    def from_source_snapshot(cls, snapshot: ProjectSourceSnapshot) -> Self:
+    def from_source_snapshot(cls, snapshot: ProjectSourceSnapshot, *, sealed: bool = False) -> Self:
         units: dict[Path, SourceUnit] = {}
         for source in snapshot.units:
+            text = source.source
+            if text is None:
+                if source.captured is None or source.captured.snapshot is None:
+                    raise NeedsSerialSourceError
+                try:
+                    text = decode_python_source(source.captured.snapshot)
+                except UnicodeError, SyntaxError:
+                    raise NeedsSerialSourceError from None
             tree: ast.Module | None = None
             with suppress(SyntaxError):
-                tree = ast.parse(source.source, filename=str(source.path))
+                tree = ast.parse(text, filename=str(source.path))
             units[source.key] = SourceUnit(
                 path=source.path,
                 module=source.module,
-                source=source.source,
+                source=text,
                 tree=tree,
                 imports=MappingProxyType(_imports(source.module, tree, is_package=source.path.name == "__init__.py")),
+                captured=source.captured,
             )
-        return cls(units, snapshot.roots)
+        return cls(units, snapshot.roots, aliases=dict(snapshot.aliases), sealed=sealed)
 
     @classmethod
     def build(
@@ -241,29 +283,50 @@ class ProjectIndexSet:
         loaded: Mapping[Path, str],
         *,
         facts: FirstPartyFacts | None = None,
+        source_inputs: PreparedSourceInputs | None = None,
     ) -> Self:
         roots = _project_roots(paths, facts=facts)
         sources: dict[Path, str] = {}
+        captures: dict[Path, CapturedSource] = {}
+        aliases: dict[Path, Path] = {}
         for path, source in loaded.items():
             try:
-                sources[path.resolve()] = source
+                resolved = path.resolve()
             except OSError:
                 continue
+            sources[resolved] = source
+            if source_inputs is not None:
+                aliases[path] = resolved
+                captured = source_inputs.associate_selected(path, resolved)
+                if captured is not None:
+                    captures[resolved] = captured
         for root in roots:
-            _load_root_sources(root, sources)
-        return cls(_units(sources, roots), roots)
+            if source_inputs is None:
+                _load_root_sources(root, sources)
+            else:
+                _load_root_sources(root, sources, captures=captures, source_inputs=source_inputs)
+        units = _units(sources, roots) if source_inputs is None else _units(sources, roots, captures=captures)
+        if source_inputs is not None:
+            for key, unit in units.items():
+                if unit.captured is not None:
+                    source_inputs.remember(key, unit.captured)
+        return cls(units, roots) if source_inputs is None else cls(units, roots, aliases=aliases)
 
     @classmethod
     def single(cls, path: Path, source: str) -> Self:
         return cls(_units({path: source}))
 
     def with_unit(self, unit: SourceUnit) -> Self:
-        return type(self)({**self._units, unit.path: unit}, self._roots)
+        return type(self)({**self._units, unit.path: unit}, self._roots, aliases=self._aliases, sealed=self._sealed)
 
     def unit(self, path: Path) -> SourceUnit | None:
         direct = self._units.get(path)
         if direct is not None:
             return direct
+        if path in self._aliases:
+            return self._units.get(self._aliases[path])
+        if self._sealed:
+            raise NeedsSerialSourceError
         try:
             return self._units.get(path.resolve())
         except OSError:
@@ -550,13 +613,17 @@ class ProjectIndexSet:
     def constructor_consumers(self, unit: SourceUnit, name: str) -> frozenset[tuple[Path, str]]:
         if unit.module is None:
             return frozenset()
-        target = SymbolRef(unit.module, name)
-        consumers: set[tuple[Path, str]] = set()
+        return self._constructor_consumers.get(SymbolRef(unit.module, name), frozenset())
+
+    @cached_property
+    def _constructor_consumers(self) -> Mapping[SymbolRef, frozenset[tuple[Path, str]]]:
+        consumers: dict[SymbolRef, set[tuple[Path, str]]] = {}
         for candidate in self._units.values():
             if candidate.tree is None:
                 continue
-            consumers.update(_unit_constructor_consumers(candidate, candidate.tree, target))
-        return frozenset(consumers)
+            for symbol, owner in _unit_constructor_consumers(candidate, candidate.tree):
+                consumers.setdefault(symbol, set()).add((candidate.path, owner))
+        return MappingProxyType({symbol: frozenset(owners) for symbol, owners in consumers.items()})
 
     def constructor_operations(self, unit: SourceUnit, name: str) -> frozenset[tuple[Path, str]]:
         if unit.module is None:
@@ -582,27 +649,38 @@ class ProjectIndexSet:
     def direct_subclasses(self, unit: SourceUnit, name: str) -> frozenset[tuple[Path, str]]:
         if unit.module is None:
             return frozenset()
-        target = SymbolRef(unit.module, name)
-        return frozenset(
-            (candidate.path, node.name)
-            for candidate in self._units.values()
-            if candidate.tree is not None
-            for node in candidate.tree.body
-            if isinstance(node, ast.ClassDef)
-            and any(_direct_base_symbol(candidate, base) == target for base in node.bases)
-        )
+        return self._direct_subclasses.get(SymbolRef(unit.module, name), frozenset())
+
+    @cached_property
+    def _direct_subclasses(self) -> Mapping[SymbolRef, frozenset[tuple[Path, str]]]:
+        subclasses: dict[SymbolRef, set[tuple[Path, str]]] = {}
+        for candidate in self._units.values():
+            if candidate.tree is None:
+                continue
+            for node in candidate.tree.body:
+                if not isinstance(node, ast.ClassDef):
+                    continue
+                for base in node.bases:
+                    if (symbol := _direct_base_symbol(candidate, base)) is not None:
+                        subclasses.setdefault(symbol, set()).add((candidate.path, node.name))
+        return MappingProxyType({symbol: frozenset(owners) for symbol, owners in subclasses.items()})
 
     def typed_class_consumers(self, unit: SourceUnit, name: str) -> frozenset[tuple[Path, str]]:
         if unit.module is None:
             return frozenset()
-        target = SymbolRef(unit.module, name)
-        return frozenset(
-            (candidate.path, owner.name)
-            for candidate in self._units.values()
-            if candidate.tree is not None
-            for owner in candidate.tree.body
-            if isinstance(owner, ast.ClassDef) and _class_has_typed_dependency(candidate, owner, target)
-        )
+        return self._typed_class_consumers.get(SymbolRef(unit.module, name), frozenset())
+
+    @cached_property
+    def _typed_class_consumers(self) -> Mapping[SymbolRef, frozenset[tuple[Path, str]]]:
+        consumers: dict[SymbolRef, set[tuple[Path, str]]] = {}
+        for candidate in self._units.values():
+            if candidate.tree is None:
+                continue
+            for owner in candidate.tree.body:
+                if isinstance(owner, ast.ClassDef):
+                    for symbol in _class_typed_dependencies(candidate, owner):
+                        consumers.setdefault(symbol, set()).add((candidate.path, owner.name))
+        return MappingProxyType({symbol: frozenset(owners) for symbol, owners in consumers.items()})
 
     @cached_property
     def _mock_specs(self) -> Mapping[SymbolRef, frozenset[Path]]:
@@ -915,7 +993,12 @@ def _child_type_context(*, parent: ast.AST, child: ast.AST, inherited: bool) -> 
             return inherited
 
 
-def _units(sources: Mapping[Path, str], roots: Sequence[Path] = ()) -> dict[Path, SourceUnit]:
+def _units(
+    sources: Mapping[Path, str],
+    roots: Sequence[Path] = (),
+    *,
+    captures: Mapping[Path, CapturedSource] | None = None,
+) -> dict[Path, SourceUnit]:
     parsed: dict[Path, tuple[str | None, str, ast.Module | None]] = {}
     for path, source in sources.items():
         if not _is_index_candidate(symbol_prefilter_source(source)):
@@ -931,6 +1014,7 @@ def _units(sources: Mapping[Path, str], roots: Sequence[Path] = ()) -> dict[Path
             source=source,
             tree=tree,
             imports=MappingProxyType(_imports(module, tree, is_package=path.name == "__init__.py")),
+            captured=None if captures is None else captures.get(path),
         )
         for path, (module, source, tree) in parsed.items()
     }
@@ -1147,7 +1231,13 @@ def _class_summary(unit: SourceUnit, statement: ast.ClassDef, symbol: SymbolRef)
     )
 
 
-def _load_root_sources(root: Path, sources: dict[Path, str]) -> None:
+def _load_root_sources(
+    root: Path,
+    sources: dict[Path, str],
+    *,
+    captures: dict[Path, CapturedSource] | None = None,
+    source_inputs: PreparedSourceInputs | None = None,
+) -> None:
     count = 0
     source_chars = 0
     for path in _python_files(root):
@@ -1159,25 +1249,53 @@ def _load_root_sources(root: Path, sources: dict[Path, str]) -> None:
                 continue
         except OSError:
             continue
-        loaded_source = _read_bounded_source(root, path)
+        loaded_source = (
+            _read_bounded_source(root, path)
+            if source_inputs is None
+            else _read_bounded_source(root, path, source_inputs=source_inputs)
+        )
         if loaded_source is None:
             continue
         if source_chars + len(loaded_source.source) > _MAX_SOURCE_CHARS_PER_ROOT:
             break
         sources.setdefault(loaded_source.path, loaded_source.source)
+        if (
+            captures is not None
+            and loaded_source.captured is not None
+            and _is_index_candidate(symbol_prefilter_source(loaded_source.source))
+        ):
+            captures.setdefault(loaded_source.path, loaded_source.captured)
         source_chars += len(loaded_source.source)
         count += 1
 
 
-def _read_bounded_source(root: Path, path: Path) -> LoadedSource | None:
+def _read_bounded_source(
+    root: Path,
+    path: Path,
+    *,
+    source_inputs: PreparedSourceInputs | None = None,
+) -> LoadedSource | None:
     try:
         if path.is_symlink() or not path.is_file() or path.stat().st_size > _MAX_FILE_BYTES:
             return None
         resolved = path.resolve()
         resolved.relative_to(root.resolve())
-        return LoadedSource(resolved, read_python_source(resolved))
+        return _load_project_source(resolved, source_inputs=source_inputs)
     except OSError, ValueError, SyntaxError:
         return None
+
+
+def _load_project_source(path: Path, *, source_inputs: PreparedSourceInputs | None) -> LoadedSource | None:
+    if source_inputs is None:
+        return LoadedSource(path, read_python_source(path))
+    snapshot = source_inputs.project_snapshot(path)
+    if snapshot is None:
+        with path.open("rb") as stream:
+            raw = stream.read(_MAX_FILE_BYTES + 1)
+        if len(raw) > _MAX_FILE_BYTES:
+            return None
+        snapshot = SourceSnapshot(path, raw)
+    return LoadedSource(path, decode_python_source(snapshot), CapturedSource.from_snapshot(snapshot))
 
 
 def _python_files(root: Path) -> Iterator[Path]:
@@ -1195,29 +1313,23 @@ def _python_files(root: Path) -> Iterator[Path]:
                 yield parent / name
 
 
-def _unit_constructor_consumers(
-    candidate: SourceUnit, tree: ast.Module, target: SymbolRef
-) -> Iterator[tuple[Path, str]]:
+def _unit_constructor_consumers(candidate: SourceUnit, tree: ast.Module) -> Iterator[tuple[SymbolRef, str]]:
     for owner in tree.body:
         if not isinstance(owner, ast.ClassDef):
             continue
-        initializer = next(
-            (
-                statement
-                for statement in owner.body
-                if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)) and statement.name == "__init__"
-            ),
-            None,
-        )
-        if initializer is None:
+        for symbol in _constructor_annotation_symbols(candidate, owner):
+            yield symbol, owner.name
+
+
+def _constructor_annotation_symbols(candidate: SourceUnit, owner: ast.ClassDef) -> Iterator[SymbolRef]:
+    for initializer in _direct_functions(owner):
+        if initializer.name != "__init__":
             continue
         parameters = (*initializer.args.posonlyargs, *initializer.args.args, *initializer.args.kwonlyargs)
-        if any(
-            _annotation_contains_symbol(candidate, parameter.annotation, target)
-            for parameter in parameters
-            if parameter.arg != "self"
-        ):
-            yield (candidate.path, owner.name)
+        for parameter in parameters:
+            if parameter.arg != "self":
+                yield from _annotation_symbols(candidate, parameter.annotation)
+        return
 
 
 def _unit_constructor_operations(
@@ -1257,10 +1369,13 @@ def _module_constructor_declarations(statement: ast.stmt) -> frozenset[str]:
 
 
 def _direct_functions(owner: ast.stmt) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef, ...]:
-    if isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef):
-        return (owner,)
-    if isinstance(owner, ast.ClassDef):
-        return tuple(item for item in owner.body if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef))
+    match owner:
+        case ast.FunctionDef() | ast.AsyncFunctionDef():
+            return (owner,)
+        case ast.ClassDef():
+            return tuple(item for item in owner.body if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef))
+        case _:
+            pass
     return ()
 
 
@@ -1374,19 +1489,16 @@ def _bound_constructor_names(node: ast.AST) -> frozenset[str]:
     return frozenset(names)
 
 
-def _class_has_typed_dependency(unit: SourceUnit, owner: ast.ClassDef, target: SymbolRef) -> bool:
+def _class_typed_dependencies(unit: SourceUnit, owner: ast.ClassDef) -> Iterator[SymbolRef]:
     for statement in owner.body:
-        if isinstance(statement, ast.AnnAssign) and _annotation_contains_symbol(unit, statement.annotation, target):
-            return True
+        if isinstance(statement, ast.AnnAssign):
+            yield from _annotation_symbols(unit, statement.annotation)
         if not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         parameters = (*statement.args.posonlyargs, *statement.args.args, *statement.args.kwonlyargs)
-        if any(
-            parameter.arg not in {"self", "cls"} and _annotation_contains_symbol(unit, parameter.annotation, target)
-            for parameter in parameters
-        ):
-            return True
-    return False
+        for parameter in parameters:
+            if parameter.arg not in {"self", "cls"}:
+                yield from _annotation_symbols(unit, parameter.annotation)
 
 
 def _mock_spec_targets(unit: SourceUnit, call: ast.Call) -> Iterator[SymbolRef]:
@@ -1444,17 +1556,15 @@ def _absolute_import_symbol(statement: ast.stmt, name: str) -> SymbolRef | None:
     return None
 
 
-def _annotation_contains_symbol(unit: SourceUnit, annotation: ast.expr | None, target: SymbolRef) -> bool:
+def _annotation_symbols(unit: SourceUnit, annotation: ast.expr | None) -> Iterator[SymbolRef]:
     if annotation is None:
-        return False
+        return
     if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
-        with suppress(SyntaxError):
+        with suppress(SyntaxError, UnicodeError, RecursionError):
             annotation = ast.parse(annotation.value, mode="eval").body
-    return any(
-        _resolve(unit, candidate) == target
-        for candidate in walk_ast(annotation)
-        if isinstance(candidate, (ast.Name, ast.Attribute))
-    )
+    for candidate in walk_ast(annotation):
+        if isinstance(candidate, (ast.Name, ast.Attribute)) and (symbol := _resolve(unit, candidate)) is not None:
+            yield symbol
 
 
 def _record_import(node: ast.stmt, package: str, result: dict[str, SymbolRef]) -> None:

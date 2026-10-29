@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -11,6 +14,9 @@ from .manager import SmfManager
 from .models import SmfUser
 from .tasks import SmfTasks
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 ACCESS_PERM = 'smf.access_smf'
@@ -18,7 +24,7 @@ ACCESS_PERM = 'smf.access_smf'
 
 @login_required
 @permission_required(ACCESS_PERM)
-def activate_smf(request):
+def activate_smf(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"activate_smf called by user {request.user}")
     # Valid now we get the main characters
     main_character = request.user.profile.main_character
@@ -69,7 +75,7 @@ def activate_smf(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def deactivate_smf(request):
+def deactivate_smf(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"deactivate_smf called by user {request.user}")
     result = SmfTasks.delete_user(request.user)
     # false we failed
@@ -84,7 +90,7 @@ def deactivate_smf(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def reset_smf_password(request):
+def reset_smf_password(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"reset_smf_password called by user {request.user}")
     character = request.user.profile.main_character
     if SmfTasks.has_account(request.user) and character is not None:
@@ -105,7 +111,7 @@ def reset_smf_password(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def set_smf_password(request):
+def set_smf_password(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"set_smf_password called by user {request.user}")
     if request.method == 'POST':
         logger.debug("Received POST request with form.")

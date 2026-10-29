@@ -7,13 +7,18 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
+from typing_extensions import override
+
 from datamodel_code_generator import Error
 from datamodel_code_generator.imports import IMPORT_ANY, Import
+from datamodel_code_generator.model._render_plan import RENDER_READY
+from datamodel_code_generator.model.base import TEMPLATE_DIR
 from datamodel_code_generator.model.pydantic_v2.base_model import (
     _CONFIG_ITEMS_TEMPLATE_DATA_KEY,
     _NEUTRALIZE_ROOT_MODEL_EXTRA_CONFIG_TEMPLATE_DATA_KEY,
     BaseModel,
     _config_dict_items,
+    _has_frozen_hash_config,
     _safe_config_dict_items,
 )
 from datamodel_code_generator.model.pydantic_v2.imports import IMPORT_CONFIG_DICT
@@ -28,6 +33,7 @@ _SEQUENCE_ITEM_TYPE_TEMPLATE_DATA_KEY = "sequence_item_type"
 _SEQUENCE_SLICE_TYPE_TEMPLATE_DATA_KEY = "sequence_slice_type"
 _STRING_PATTERN_ALIAS_REACHED_TEMPLATE_DATA_KEY = "string_pattern_alias_reached"
 _ROOT_MODEL_CONFIG_KEYS: frozenset[str] = frozenset({"regex_engine", "frozen"})
+_CONFIG_TEMPLATE_DATA_KEY = "config"
 
 
 def _root_model_config_items(config: Any) -> list[tuple[str, Any]]:
@@ -49,9 +55,33 @@ class RootModel(BaseModel):
     SUPPORTS_ARBITRARY_TYPES_ALLOWED: ClassVar[bool] = False
 
     @classmethod
+    @override
     def _uses_builtin_hash_implementation(cls) -> bool:
         """Recognize the builtin root without a reverse import from BaseModel."""
         return cls is RootModel
+
+    @property
+    @override
+    def _keys_take_root_type(self) -> bool:
+        """Whether the instances cannot be dict keys while the model checks nothing beyond its root type.
+
+        A RootModel's instances are unhashable unless its config freezes it. Decorators, methods, validators, class
+        body lines, object rules and a custom root template can check what its root type does not.
+        """
+        return not (
+            _has_frozen_hash_config(self, {})
+            or self.decorators
+            or self.methods
+            or self.extra_template_data.get("validators")
+            or self.extra_template_data.get("class_body_lines")
+            or self._internal_template_data.get("class_body_lines")
+            or self.has_runtime_object_validation
+            or (
+                (directory := self._custom_template_dir) is not None
+                and directory.resolve() != TEMPLATE_DIR.resolve()
+                and self._uses_custom_root_template
+            )
+        )
 
     def add_literal_validation(self, values: list[object]) -> None:
         """Keep finite JSON literal membership beside the root's existing value constraints."""
@@ -207,31 +237,53 @@ class RootModel(BaseModel):
                 has_config = bool(_root_model_config_items(config))
         return has_config
 
-    def _sync_config_items(self) -> None:
-        config = self.extra_template_data.get("config")
-        config_items = _root_model_config_items(config)
+    @override
+    def _rendered_config_items(self) -> list[tuple[str, str]]:
+        """Return the root model's config items: its engine and freezing, literal values and a neutral ``extra``."""
+        config_items = _root_model_config_items(self.extra_template_data.get("config"))
         if literal_values := getattr(self, "_literal_values", None):
             config_items.append(("json_schema_extra", {"enum": literal_values}))
-            if not config:
-                self.extra_template_data["config"] = {"json_schema_extra": {"enum": literal_values}}
         if self._internal_template_data.get(_NEUTRALIZE_ROOT_MODEL_EXTRA_CONFIG_TEMPLATE_DATA_KEY):
             config_items.append(("extra", None))
-            if not config:
-                self.extra_template_data["config"] = {"extra": None}
-        if config_items:
-            self._set_internal_template_data(
-                _CONFIG_ITEMS_TEMPLATE_DATA_KEY,
-                _safe_config_dict_items(dict(config_items)),
-            )
+        return _safe_config_dict_items(dict(config_items)) if config_items else []
+
+    @override
+    def _decide_config_items(self) -> None:
+        """Decide the config items the template writes from the config, the literal values and the neutral ``extra``.
+
+        A parse asks once the validator helpers set the neutral ``extra``. Without a configured ``ConfigDict``, the
+        template reads the literal values and the neutral ``extra`` as its ``config``. The ``ConfigDict`` import is
+        already among the model's imports: each writer of an item's source in the parse adds it, and ``__init__``
+        drops it when no item remains.
+        """
+        self._pop_internal_template_data(_CONFIG_TEMPLATE_DATA_KEY)
+        if not (config_items := self._rendered_config_items()):
+            self._pop_internal_template_data(_CONFIG_ITEMS_TEMPLATE_DATA_KEY)
+            return
+        self._set_internal_template_data(_CONFIG_ITEMS_TEMPLATE_DATA_KEY, config_items)
+        if self.extra_template_data.get("config"):
+            return
+        config: dict[str, Any] = {}
+        if literal_values := getattr(self, "_literal_values", None):
+            config["json_schema_extra"] = {"enum": literal_values}
+        if self._internal_template_data.get(_NEUTRALIZE_ROOT_MODEL_EXTRA_CONFIG_TEMPLATE_DATA_KEY):
+            config["extra"] = None
+        self._set_internal_template_data(_CONFIG_TEMPLATE_DATA_KEY, config)
+
+    def _decide_config_items_outside_a_parse(self) -> None:
+        """Decide the config items when the model renders outside a parse, with the ``ConfigDict`` import they need.
+
+        No pass decides them there, and the config may have changed after ``__init__``: without items it is dropped.
+        """
+        self._decide_config_items()
+        if _CONFIG_ITEMS_TEMPLATE_DATA_KEY in self._internal_template_data:
             if IMPORT_CONFIG_DICT not in self._additional_imports:
                 self._additional_imports.append(IMPORT_CONFIG_DICT)
-            self.clear_imports_cache()
-            return
-        self.extra_template_data.pop("config", None)
-        self._pop_internal_template_data(_CONFIG_ITEMS_TEMPLATE_DATA_KEY)
-        self._additional_imports = [imp for imp in self._additional_imports if imp != IMPORT_CONFIG_DICT]
-        self.clear_imports_cache()
+        else:
+            self.extra_template_data.pop("config", None)
+            self._additional_imports = [imp for imp in self._additional_imports if imp != IMPORT_CONFIG_DICT]
 
+    @override
     def _keep_string_pattern_aliases_out_of_bases(self) -> None:
         """Write ``Any`` in the generic: Pydantic builds it without this model's config, and aliases stay named."""
         self._set_internal_template_data(key=_STRING_PATTERN_ALIAS_REACHED_TEMPLATE_DATA_KEY, value=True)
@@ -253,8 +305,8 @@ class RootModel(BaseModel):
         }
         for key, value in sequence_template_data.items():
             self._set_internal_template_data(key, value)
-        self.clear_imports_cache()
 
+    @override
     def finalize_sequence_interface(self) -> None:
         """Refresh helpers once final root types and reference aliases are available."""
         if _SEQUENCE_BASE_CLASS_TEMPLATE_DATA_KEY not in self._internal_template_data:
@@ -286,13 +338,15 @@ class RootModel(BaseModel):
         self._set_internal_template_data(_SEQUENCE_ITEM_TYPE_TEMPLATE_DATA_KEY, item_type)
         self._set_internal_template_data(_SEQUENCE_SLICE_TYPE_TEMPLATE_DATA_KEY, slice_type)
 
+    @override
     def render(self, *, class_name: str | None = None) -> str:
         """Render the RootModel and validate custom sequence templates when needed."""
         use_custom_template = self._uses_custom_root_template
         fields = self._template_fields(use_custom_template=use_custom_template)
         if fields:
             _ = fields[0].type_hint
-        self._sync_config_items()
+        if RENDER_READY.get() is None:
+            self._decide_config_items_outside_a_parse()
         extra_template_data = self._custom_template_data() if use_custom_template else self._builtin_template_data()
         rendered = self._render(
             class_name=class_name or self.class_name,

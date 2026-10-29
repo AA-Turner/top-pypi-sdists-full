@@ -1,7 +1,9 @@
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use rstest::{fixture, rstest};
 use serde_json::{Value, json};
+use tempfile::TempDir;
 
 use super::common::{PackageSite, execute, execute_in, execute_with_python, stdout, with_python};
 
@@ -73,6 +75,147 @@ fn renders_selected_metadata_and_size() {
 }
 
 #[rstest]
+#[case::site_file(
+    "lib/python3.14/site-packages",
+    "demo.py",
+    "lib/python3.14/site-packages/demo.py",
+    4
+)]
+#[case::posix_script("lib/python3.14/site-packages", "../../../bin/demo", "bin/demo", 4)]
+#[case::dist_packages_data(
+    "lib/python3/dist-packages",
+    "../../../share/demo/data",
+    "share/demo/data",
+    4
+)]
+#[case::pypy_script("lib/pypy3.11/site-packages", "../../../bin/demo", "bin/demo", 4)]
+#[case::windows_script("Lib/site-packages", "../../Scripts/demo.exe", "Scripts/demo.exe", 4)]
+#[case::windows_user_script(
+    "Python314/site-packages",
+    "../Scripts/demo.exe",
+    "Python314/Scripts/demo.exe",
+    4
+)]
+#[case::above_prefix("lib/python3.14/site-packages", "../../../../outside", "../outside", 0)]
+#[case::above_target_directory("target", "../outside", "outside", 0)]
+#[case::beside_a_bare_site_packages("home/site-packages", "../private", "home/private", 0)]
+fn counts_record_rows_inside_the_installation_prefix(
+    #[case] site: &str,
+    #[case] row: &str,
+    #[case] file: &str,
+    #[case] size: u64,
+) {
+    let root = tempfile::tempdir().unwrap();
+    let prefix = root.path().join("env");
+    let site = prefix.join(site);
+    let file = prefix.join(file);
+    fs::create_dir_all(file.parent().unwrap()).unwrap();
+    fs::write(&file, "data").unwrap();
+
+    assert_eq!(
+        sized_distribution(&site, &format!("{row},,\n")),
+        json!(size)
+    );
+}
+
+fn sized_distribution(site: &Path, record: &str) -> Value {
+    let metadata = site.join("demo-1.dist-info");
+    fs::create_dir_all(&metadata).unwrap();
+    fs::write(metadata.join("METADATA"), "Name: demo\nVersion: 1\n").unwrap();
+    fs::write(metadata.join("RECORD"), record).unwrap();
+    size_raw(site)
+}
+
+fn size_raw(site: &Path) -> Value {
+    let output = execute(&[
+        "--path",
+        site.to_str().unwrap(),
+        "--computed",
+        "size-raw",
+        "--json",
+    ]);
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    value[0]["package"]["computed"]["size_raw"].clone()
+}
+
+#[rstest]
+fn ignores_absolute_record_rows_outside_the_site(outside_file: (TempDir, PathBuf)) {
+    let (_outside, file) = outside_file;
+    let site = PackageSite::new();
+    site.write_file("demo.py", "data");
+
+    assert_eq!(
+        sized_distribution(site.path(), &format!("demo.py,,\n{},,\n", file.display())),
+        json!(4)
+    );
+}
+
+#[fixture]
+fn outside_file() -> (TempDir, PathBuf) {
+    let directory = tempfile::tempdir().unwrap();
+    let file = directory.path().join("secret");
+    fs::write(&file, "x".repeat(100)).unwrap();
+    (directory, file)
+}
+
+#[test]
+fn ignores_record_rows_that_are_not_regular_files() {
+    let site = PackageSite::new();
+    fs::create_dir(site.path().join("demo")).unwrap();
+    site.write_file("demo/__init__.py", "data");
+
+    assert_eq!(
+        sized_distribution(site.path(), "demo,,\ndemo/__init__.py,,\n"),
+        json!(4)
+    );
+}
+
+#[cfg(unix)]
+#[rstest]
+fn ignores_record_rows_linked_outside_the_site(outside_file: (TempDir, PathBuf)) {
+    let (_outside, file) = outside_file;
+    let site = PackageSite::new();
+    site.write_file("demo.py", "data");
+    std::os::unix::fs::symlink(&file, site.path().join("link.py")).unwrap();
+
+    assert_eq!(
+        sized_distribution(site.path(), "demo.py,,\nlink.py,,\n"),
+        json!(4)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn counts_files_of_a_distribution_linked_into_the_site() {
+    let profile = tempfile::tempdir().unwrap();
+    let store = tempfile::tempdir().unwrap();
+    let real_site = store.path().join("lib/python3.14/site-packages");
+    let real_metadata = real_site.join("demo-1.dist-info");
+    fs::create_dir_all(&real_metadata).unwrap();
+    fs::write(real_metadata.join("METADATA"), "Name: demo\nVersion: 1\n").unwrap();
+    fs::write(
+        real_metadata.join("RECORD"),
+        "demo.py,,\n../../../bin/demo,,\n",
+    )
+    .unwrap();
+    fs::write(real_site.join("demo.py"), "data").unwrap();
+    fs::create_dir(store.path().join("bin")).unwrap();
+    fs::write(store.path().join("bin/demo"), "data").unwrap();
+    let site = profile.path().join("lib/python3.14/site-packages");
+    fs::create_dir_all(&site).unwrap();
+    std::os::unix::fs::symlink(&real_metadata, site.join("demo-1.dist-info")).unwrap();
+    std::os::unix::fs::symlink(real_site.join("demo.py"), site.join("demo.py")).unwrap();
+    fs::create_dir(profile.path().join("bin")).unwrap();
+    std::os::unix::fs::symlink(
+        store.path().join("bin/demo"),
+        profile.path().join("bin/demo"),
+    )
+    .unwrap();
+
+    assert_eq!(size_raw(&site), json!(8));
+}
+
+#[rstest]
 #[case::archive("bundle.zip", 1, true)]
 #[case::uppercase_archive("bundle.ZIP", 1, true)]
 #[case::console_script_launcher("pipdeptree.exe", 0, false)]
@@ -136,6 +279,34 @@ fn discovers_metadata_forms(metadata_sites: (PackageSite, PackageSite)) {
             false,
             false,
         )
+    );
+}
+
+#[rstest]
+#[case::name_at_limit(255, 255, true)]
+#[case::name_over_limit(256, 1, false)]
+#[case::version_over_limit(1, 256, false)]
+fn limits_metadata_name_and_version_length(
+    #[case] name: usize,
+    #[case] version: usize,
+    #[case] listed: bool,
+) {
+    let name = "p".repeat(name);
+    let site = PackageSite::new();
+    site.write(
+        "demo-1.dist-info",
+        &format!("Name: {name}\nVersion: {}\n", "1".repeat(version)),
+    );
+
+    let output = execute(&["--path", site.path().to_str().unwrap()]);
+
+    assert_eq!(
+        (
+            output.code,
+            stdout(&output).contains(&name),
+            output.stderr.contains("missing or invalid metadata"),
+        ),
+        (0, listed, !listed)
     );
 }
 
@@ -371,7 +542,27 @@ fn freezes_arbitrary_versions() {
 
     assert_eq!(
         (output.code, stdout(&output), output.stderr.as_str()),
-        (0, "demo===invalid version!\n", "")
+        (0, "demo===invalid?version!\n", "")
+    );
+}
+
+#[test]
+fn replaces_control_characters_in_header_values() {
+    let site = PackageSite::new();
+    site.write(
+        "hostile-1.dist-info",
+        "Name: hostile\x1b[2K\nVersion: 1.0\x1b]52;c;QUJD\x07\nLicense-Expression: MIT\r\x00\n \u{9b}\n",
+    );
+
+    let output = execute_in(&site, &["--license"]);
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (
+            0,
+            "hostile\u{fffd}[2K==1.0\u{fffd}]52;c;QUJD\u{fffd} (MIT\u{fffd}\u{fffd} \u{fffd} License)\n",
+            ""
+        )
     );
 }
 
@@ -506,6 +697,10 @@ fn discovers_empty_runtime_path_from_current_directory() {
     r#"{"url":"local-demo.whl","archive_info":{}}"#,
     "demo @ local-demo.whl\n"
 )]
+#[case::control_characters(
+    r#"{"url":"https://example.com/demo\u001b[A.whl","subdirectory":"s\u0007","archive_info":{"hashes":{"sha256":"ab\u009bcd"}}}"#,
+    "demo @ https://example.com/demo\u{fffd}[A.whl#sha256=ab\u{fffd}cd&subdirectory=s\u{fffd}\n"
+)]
 fn freezes_direct_urls(#[case] direct_url: &str, #[case] expected: &str) {
     let site = PackageSite::new();
     let metadata = site.write("demo-1.dist-info", "Name: demo\nVersion: 1\n");
@@ -607,6 +802,34 @@ fn freezes_editable_directories(#[case] file_url: bool) {
 }
 
 #[test]
+fn freezes_editable_comment_without_coding_declaration() {
+    let site = PackageSite::new();
+    let metadata = site.write(
+        "demo-0.dist-info",
+        "Name: demo\nVersion: 0 coding:utf-7 +AAo---index-url=http://127.0.0.1:9/x+AAo-#\n",
+    );
+    fs::write(
+        metadata.join("direct_url.json"),
+        format!(
+            r#"{{"url":"{}","dir_info":{{"editable":true}}}}"#,
+            url::Url::from_file_path(site.path()).unwrap()
+        ),
+    )
+    .unwrap();
+
+    let output = execute_in(&site, &["--freeze"]);
+    let expected = format!(
+        "# Editable install with no version control (demo==0?coding?utf-7?+AAo---index-url?http???127.0.0.1?9?x+AAo-?)\n-e {}\n",
+        site.path().display()
+    );
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (0, expected.as_str(), "")
+    );
+}
+
+#[test]
 fn freezes_legacy_editable() {
     let site = PackageSite::new();
     let metadata = site.path().join("demo_name-1.egg-info");
@@ -636,6 +859,27 @@ fn ignores_empty_legacy_editable_links() {
     fs::create_dir(&metadata).unwrap();
     fs::write(metadata.join("PKG-INFO"), "Name: demo\nVersion: 1\n").unwrap();
     site.write_file("demo.egg-link", "");
+
+    let output = execute_in(&site, &["--freeze"]);
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (0, "demo==1\n", "")
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn ignores_symlinked_legacy_editable_links() {
+    let site = PackageSite::new();
+    site.write("demo-1.dist-info", "Name: demo\nVersion: 1\n");
+    let outside = tempfile::tempdir().unwrap();
+    fs::write(outside.path().join("file"), "first line\n").unwrap();
+    std::os::unix::fs::symlink(
+        outside.path().join("file"),
+        site.path().join("demo.egg-link"),
+    )
+    .unwrap();
 
     let output = execute_in(&site, &["--freeze"]);
 

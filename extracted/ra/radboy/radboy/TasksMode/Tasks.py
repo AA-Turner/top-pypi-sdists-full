@@ -1408,7 +1408,7 @@ rmc.quikRn(rootdir=ROOTDIR)'''
             return
         operator=operations[operator]
 
-        quantity=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Amount to modify with? ",helpText="a float/integer",data="integer")
+        quantity=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Amount to modify with? ",helpText="a float/integer",data="float")
         if quantity in [None,'d']:
             return
 

@@ -43,7 +43,9 @@ name = "Trenton H"
 email = "rda0128ou@mozmail.com"
 [project.optional-dependencies]
 httpx = [ "httpx[http2]>=0.27" ]
+httpx2 = [ "httpx2[http2]>=2" ]
 magic = [ "python-magic" ]
+magika = [ "magika>=1" ]
 niquests = [ "niquests>=3" ]
 requests = [ "requests>=2" ]
 [project.urls]
@@ -99,9 +101,11 @@ dependencies = [
 extra-dependencies = [
   "pytest-sugar",
   "httpx[http2]>=0.27",
+  "httpx2[http2]>=2",
   "pytest-httpx ~= 0.36",
   "pikepdf",
   "python-magic",
+  "magika>=1",
   "pytest-docker ~= 3.2",
   "pytest-asyncio",
   "pypdf",
@@ -147,6 +151,8 @@ detached = true
 dependencies = [
   "mypy ~= 2.1",
   "httpx",
+  "httpx2",
+  "magika>=1",
   "niquests>=3",
   "requests>=2",
   "pytest",
@@ -259,6 +265,7 @@ markers = [
   "libreoffice: marks tests using the LibreOffice engine",
   "screenshot: marks screenshot output tests (subset of chromium)",
   "httpx: marks tests specific to the httpx HTTP backend",
+  "httpx2: marks tests specific to the httpx2 HTTP backend",
   "niquests: marks tests specific to the niquests HTTP backend",
   "requests: marks tests specific to the requests HTTP backend",
   "async_route: marks tests that exercise async code paths exclusively",

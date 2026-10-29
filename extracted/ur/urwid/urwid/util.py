@@ -22,20 +22,23 @@
 
 from __future__ import annotations
 
+import codecs
 import contextlib
+import functools
 import itertools
 import sys
 import typing
-import warnings
 from contextlib import suppress
+from types import MappingProxyType
 
-from urwid import str_util
+import wcwidth
+
+from urwid import _deprecation, str_util
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Generator, Hashable, Iterable, Iterator, MutableSequence
+    from collections.abc import Generator, Hashable, Iterable, Iterator, Mapping, MutableSequence, Sequence
     from types import TracebackType
-
-    from typing_extensions import Literal, Protocol, Self
+    from typing import Literal, Protocol, Self
 
     class CanBeStopped(Protocol):
         """Protocol for an object providing a no-argument ``stop()`` method."""
@@ -61,7 +64,10 @@ if typing.TYPE_CHECKING:
         def reverse(self) -> None:
             """Reverse the list of tag markup elements in place."""
 
-    _TagMarkup = typing.Union[str, bytes, tuple[Hashable, "_TagMarkup"], "_TagMarkupList"]
+    _TagMarkup = str | bytes | tuple[Hashable, "_TagMarkup"] | _TagMarkupList
+
+    _HashableT = typing.TypeVar("_HashableT", bound=Hashable)
+    _HashableS = typing.TypeVar("_HashableS", bound=Hashable)
 
 
 def __getattr__(name: str) -> typing.Any:
@@ -69,15 +75,18 @@ def __getattr__(name: str) -> typing.Any:
     Resolve module attributes that moved to another module, warning about the move.
 
     :raises AttributeError: *name* is not defined in this module.
+
+    .. deprecated:: 2.6.0
+        Import the name from ``urwid`` instead of ``urwid.util``. This API will be removed in version 6.0.
     """
     if hasattr(str_util, name):
-        warnings.warn(
-            f"Do not import {name!r} from {__package__}.{__name__}, import it from 'urwid'.",
-            DeprecationWarning,
-            stacklevel=3,
+        _deprecation.warn(
+            f"Do not import {name!r} from {__name__}, import it from 'urwid'.",
+            since="2.6.0",
+            removed_in="6.0",
         )
         return getattr(str_util, name)
-    raise AttributeError(f"{name} is not defined in {__package__}.{__name__}")
+    raise AttributeError(f"{name} is not defined in {__name__}")
 
 
 def detect_encoding() -> str:
@@ -121,6 +130,10 @@ else:
 
 _target_encoding = "ascii"
 _use_dec_special = True
+# Fallbacks as passed to `set_ascii_fallbacks`, returned by `get_ascii_fallbacks`; replaced, never mutated.
+_ascii_fallbacks: Mapping[str, str] = MappingProxyType({})
+# The same fallbacks in the form the encoder outputs: a DEC drawing character value is already its SO/SI sequence.
+_ascii_fallback_table: dict[str, str] = {}
 
 
 def set_encoding(encoding: str) -> None:
@@ -187,10 +200,109 @@ def set_temporary_encoding(encoding_name: str) -> Generator[None]:
 def get_encoding_mode() -> Literal["wide", "narrow", "utf8"]:
     """Get the mode Urwid is using when processing text strings.
 
-    Returns 'narrow' for 8-bit encodings, 'wide' for CJK encodings
-    or 'utf8' for UTF-8 encodings.
+    :returns: 'narrow' for 8-bit encodings, 'wide' for CJK encodings or 'utf8' for UTF-8 encodings.
     """
     return str_util.get_byte_encoding()
+
+
+def set_ascii_fallbacks(fallbacks: Mapping[str, str]) -> None:
+    """Replace the table of replacements for characters the target encoding cannot encode.
+
+    When the target encoding is not UTF-8, a character it cannot encode is output as its fallback from this table,
+    or as ``?`` when the table has none. The table is consulted only for such characters: a character the
+    encoding can encode (``é`` in ISO-8859-1) is output as it is, and the table is not used at all with a UTF-8
+    target encoding.
+
+    The DEC drawing characters listed in :ref:`the manual <unicode-support>` are translated to the terminal's
+    alternate character set before the table is consulted, so a fallback for one of them is never used.
+
+    Text layout measures the original text, so a fallback has to occupy the same single column as the character
+    it replaces:
+
+    * a key is one character, one column wide, and not printable ASCII;
+    * a value is one printable ASCII character or one of the DEC drawing characters, which is output through the
+      alternate character set.
+
+    A ``str`` element of byte text markup uses only the printable ASCII fallbacks, since byte text cannot carry
+    the DEC drawing characters.
+
+    Every call replaces the whole table, and ``{}`` clears it. The mapping is copied, so changing it afterwards
+    has no effect. The table is validated as a whole: when an entry is rejected, the previous table stays in use.
+
+    Canvases rendered before the call keep their old output; call :meth:`urwid.CanvasCache.clear` to redraw them.
+    :mod:`urwid.font` still reports a font that uses a non-DEC character as needing UTF-8, fallback or not.
+
+    >>> import urwid
+    >>> urwid.set_ascii_fallbacks({"\N{BULLET}": "*", "\N{FULL BLOCK}": "\N{BOX DRAWINGS LIGHT VERTICAL}"})
+    >>> urwid.set_ascii_fallbacks({})
+
+    :param fallbacks: replacement character for each character, keyed by the character it replaces.
+    :raises TypeError: a key or a value is not a ``str``.
+    :raises ValueError: a key or a value breaks one of the rules above; the message names it.
+    """
+    # Import locally to warranty no circular imports
+    from urwid.display import escape
+
+    global _ascii_fallbacks, _ascii_fallback_table  # noqa: PLW0603  # pylint: disable=global-statement
+
+    new_fallbacks: dict[str, str] = {}
+    new_table: dict[str, str] = {}
+    for key, value in fallbacks.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise TypeError(f"Fallback {key!r}: {value!r} is not a str to str entry")
+        if len(key) != 1 or " " <= key <= "~" or "\ud800" <= key <= "\udfff" or wcwidth.wcwidth(key) != 1:
+            raise ValueError(f"Fallback key {key!r} is not a single one-column non-ASCII character")
+        if len(value) != 1:
+            raise ValueError(f"Fallback value {value!r} for {key!r} is not a single character")
+        if " " <= value <= "~":
+            new_table[key] = value
+        elif value in escape.DEC_SPECIAL_CHARS:
+            alt = escape.ALT_DEC_SPECIAL_CHARS[escape.DEC_SPECIAL_CHARS.index(value)]
+            new_table[key] = escape.SO + alt + escape.SI
+        else:
+            raise ValueError(f"Fallback value {value!r} for {key!r} is neither printable ASCII nor a DEC character")
+        new_fallbacks[key] = value
+
+    _ascii_fallbacks = MappingProxyType(new_fallbacks)
+    _ascii_fallback_table = new_table
+
+
+def get_ascii_fallbacks() -> Mapping[str, str]:
+    """Return the table set by :func:`set_ascii_fallbacks`, read-only and as it was passed.
+
+    A later :func:`set_ascii_fallbacks` call does not change the returned mapping.
+
+    >>> import urwid
+    >>> urwid.set_ascii_fallbacks({"\N{BULLET}": "*"})
+    >>> dict(urwid.get_ascii_fallbacks())
+    {'\N{BULLET}': '*'}
+    >>> urwid.set_ascii_fallbacks({})
+    """
+    return _ascii_fallbacks
+
+
+def _fallback_errors(exc: UnicodeError, *, ascii_only: bool) -> tuple[str, int]:
+    """Replace the characters the target encoding rejected by their fallbacks, or by ``?``.
+
+    Registered as the ``urwid_fallback`` codec error handler, and with *ascii_only* as ``urwid_fallback_ascii``
+    for output that cannot carry the DEC shift sequences: a DEC drawing character fallback is then ``?`` as well.
+
+    :raises UnicodeError: *exc* is not raised by encoding, re-raised as it is.
+    """
+    if not isinstance(exc, UnicodeEncodeError):
+        raise exc
+    rejected = exc.object[exc.start : exc.end]
+    if not _use_dec_special:
+        return "?" * len(rejected), exc.end
+    parts = (_ascii_fallback_table.get(char, "?") for char in rejected)
+    if ascii_only:
+        # a DEC drawing character value is stored as its three-character SO/SI sequence
+        parts = (part if len(part) == 1 else "?" for part in parts)
+    return "".join(parts), exc.end
+
+
+codecs.register_error("urwid_fallback", functools.partial(_fallback_errors, ascii_only=False))
+codecs.register_error("urwid_fallback_ascii", functools.partial(_fallback_errors, ascii_only=True))
 
 
 def apply_target_encoding(s: str | bytes) -> tuple[bytes, list[tuple[Literal["U", "0"] | None, int]]]:
@@ -210,7 +322,7 @@ def apply_target_encoding(s: str | bytes) -> tuple[bytes, list[tuple[Literal["U"
         # remove redundant shifts
         s = s.replace(escape._SI_SO, "")  # pylint: disable=protected-access
         # `str.encode` over `codecs.encode`: the latter re-looks-up the codec on every call.
-        s = s.encode(_target_encoding, "replace")
+        s = s.encode(_target_encoding, "urwid_fallback")
 
     if not isinstance(s, bytes):
         raise TypeError(s)
@@ -238,18 +350,18 @@ def apply_target_encoding(s: str | bytes) -> tuple[bytes, list[tuple[Literal["U"
         if len(sl) == 1:
             sin = sl[0]
             sout.append(sin)
-            rle_append_modify(cout, (escape.DEC_TAG, len(sin)))  # type: ignore[arg-type]
+            rle_append_modify(cout, (escape.DEC_TAG, len(sin)))
             continue
 
         sin, son = sl
         son = son.replace(SI, b"")
         if sin:
             sout.append(sin)
-            rle_append_modify(cout, (escape.DEC_TAG, len(sin)))  # type: ignore[arg-type]
+            rle_append_modify(cout, (escape.DEC_TAG, len(sin)))
 
         if son:
             sout.append(son)
-            rle_append_modify(cout, (None, len(son)))  # type: ignore[arg-type]
+            rle_append_modify(cout, (None, len(son)))
 
     outstr = b"".join(sout)
     return outstr, cout
@@ -276,6 +388,7 @@ def calc_trim_text(
     """
     Calculate the result of trimming text.
 
+    :param text: text to trim
     :param start_offs: offset into text to treat as screen column 0
     :param end_offs: offset into text to treat as the end of the line
     :param start_col: screen column to trim at the left
@@ -301,15 +414,15 @@ def calc_trim_text(
 
 def trim_text_attr_cs(
     text: bytes,
-    attr: MutableSequence[tuple[Hashable, int]],
-    cs: MutableSequence[tuple[Hashable, int]],
+    attr: Sequence[tuple[_HashableT, int]],
+    cs: Sequence[tuple[_HashableS, int]],
     start_col: int,
     end_col: int,
-) -> tuple[bytes, list[tuple[Hashable, int]], list[tuple[Hashable, int]]]:
+) -> tuple[bytes, list[tuple[_HashableT | None, int]], list[tuple[_HashableS | None, int]]]:
     """Return ( trimmed text, trimmed attr, trimmed cs )."""
     spos, epos, pad_left, pad_right = calc_trim_text(text, 0, len(text), start_col, end_col)
-    attrtr = rle_subseg(attr, spos, epos)
-    cstr = rle_subseg(cs, spos, epos)
+    attrtr: list[tuple[_HashableT | None, int]] = rle_subseg(attr, spos, epos)
+    cstr: list[tuple[_HashableS | None, int]] = rle_subseg(cs, spos, epos)
     if pad_left:
         al = rle_get_at(attr, spos - 1)
         rle_prepend_modify(attrtr, (al, 1))
@@ -323,9 +436,9 @@ def trim_text_attr_cs(
 
 
 def rle_get_at(
-    rle: Iterable[tuple[Hashable, int]],
+    rle: Iterable[tuple[_HashableT, int]],
     pos: int,
-) -> Hashable | None:
+) -> _HashableT | None:
     """Return the attribute at offset pos."""
     x = 0
     if pos < 0:
@@ -338,10 +451,10 @@ def rle_get_at(
 
 
 def rle_subseg(
-    rle: Iterable[tuple[Hashable, int]],
+    rle: Iterable[tuple[_HashableT, int]],
     start: int,
     end: int,
-) -> list[tuple[Hashable, int]]:
+) -> list[tuple[_HashableT, int]]:
     """Return a sub segment of a rle list."""
     sub_segment = []
     x = 0
@@ -380,8 +493,8 @@ def rle_len(
 
 
 def rle_prepend_modify(
-    rle: MutableSequence[tuple[Hashable, int]],
-    a_r: tuple[Hashable, int],
+    rle: MutableSequence[tuple[_HashableT, int]],
+    a_r: tuple[_HashableT, int],
 ) -> None:
     """Append (a, r) (unpacked from *a_r*) to BEGINNING of rle.
 
@@ -401,8 +514,8 @@ def rle_prepend_modify(
 
 
 def rle_append_modify(
-    rle: MutableSequence[tuple[Hashable, int]],
-    a_r: tuple[Hashable, int],
+    rle: MutableSequence[tuple[_HashableT, int]],
+    a_r: tuple[_HashableT, int],
 ) -> None:
     """Append (a, r) (unpacked from *a_r*) to the rle list rle.
 
@@ -419,8 +532,8 @@ def rle_append_modify(
 
 
 def rle_join_modify(
-    rle: MutableSequence[tuple[Hashable, int]],
-    rle2: MutableSequence[tuple[Hashable, int]],
+    rle: MutableSequence[tuple[_HashableT, int]],
+    rle2: Sequence[tuple[_HashableT, int]],
 ) -> None:
     """Append attribute list rle2 to rle.
 
@@ -436,9 +549,9 @@ def rle_join_modify(
 
 
 def rle_product(
-    rle1: MutableSequence[tuple[Hashable, int]],
-    rle2: MutableSequence[tuple[Hashable, int]],
-) -> list[tuple[tuple[Hashable, Hashable], int]]:
+    rle1: Sequence[tuple[_HashableT, int]],
+    rle2: Sequence[tuple[_HashableS, int]],
+) -> list[tuple[tuple[_HashableT, _HashableS], int]]:
     """Merge the runs of rle1 and rle2.
 
     eg.
@@ -454,7 +567,7 @@ def rle_product(
     a1, r1 = rle1[0]
     a2, r2 = rle2[0]
 
-    result: list[tuple[tuple[Hashable, Hashable], int]] = []
+    result: list[tuple[tuple[_HashableT, _HashableS], int]] = []
     while True:
         # Skip zero-length runs (e.g. produced by empty markup segments): they carry no
         # columns but must not stop the merge early, otherwise following runs are dropped.
@@ -464,14 +577,76 @@ def rle_product(
         while r2 == 0 and i2 < len(rle2):
             a2, r2 = rle2[i2]
             i2 += 1
-        if r1 == 0 or r2 == 0:
+        if 0 in (r1, r2):
             break
 
         r = min(r1, r2)
-        rle_append_modify(result, ((a1, a2), r))  # type: ignore[arg-type]
+        rle_append_modify(result, ((a1, a2), r))
         r1 -= r
         r2 -= r
     return result
+
+
+class LayeredAttr:
+    """Display attribute made of other display attributes stacked innermost first.
+
+    A screen resolves it by placing each layer over the next one with :meth:`AttrSpec.layered_over`,
+    so a layer whose foreground or background is 'inherit' shows the color of the layer under it.
+    Layers are palette names or :class:`AttrSpec` instances.
+    """
+
+    __slots__ = ("_hash", "_layers")
+
+    def __init__(self, *layers: Hashable) -> None:
+        """Stack *layers*, innermost first.
+
+        A layer that is itself a :class:`LayeredAttr` is replaced by its layers, ``None`` (no attribute) is left out,
+        and a layer repeated next to itself is kept once.
+        """
+        flat: list[Hashable] = []
+        for attr in layers:
+            for layer in attr.layers if isinstance(attr, LayeredAttr) else (attr,):
+                if layer is not None and (not flat or flat[-1] != layer):
+                    flat.append(layer)
+        self._layers = tuple(flat)
+        self._hash = hash((LayeredAttr, self._layers))
+
+    @property
+    def layers(self) -> tuple[Hashable, ...]:
+        """Return the layers, innermost first."""
+        return self._layers
+
+    @classmethod
+    def layer(cls, inner: Hashable, outer: Hashable) -> Hashable:
+        """Return *inner* placed over *outer*.
+
+        ``None`` (no attribute) takes part in no stack: when either is ``None``, *inner* is returned.
+        The stack is built as the constructor builds it, and a single remaining layer is returned as it is
+        rather than wrapped.
+
+        >>> LayeredAttr.layer("red", None)
+        'red'
+        >>> LayeredAttr.layer("red", LayeredAttr.layer("bold", "blue_bg"))
+        LayeredAttr('red', 'bold', 'blue_bg')
+        >>> LayeredAttr.layer("red", "red")
+        'red'
+        """
+        if inner is None or outer is None:
+            return inner
+        stack = cls(inner, outer)
+        return stack.layers[0] if len(stack.layers) == 1 else stack
+
+    def __hash__(self) -> int:
+        """Return the hash of the layers."""
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        """Return whether *other* is a :class:`LayeredAttr` with the same layers."""
+        return isinstance(other, LayeredAttr) and self._layers == other.layers
+
+    def __repr__(self) -> str:
+        """Return an executable python representation."""
+        return f"{self.__class__.__name__}({', '.join(repr(layer) for layer in self._layers)})"
 
 
 class TagMarkupException(Exception):
@@ -481,8 +656,9 @@ class TagMarkupException(Exception):
 def decompose_tagmarkup(tm: _TagMarkup) -> tuple[str | bytes, list[tuple[Hashable, int]]]:
     """Return (text string, attribute list) for tagmarkup passed.
 
-    Elements that are not of the type of the first one are converted with the target encoding,
-    replacing what cannot be converted, as :func:`apply_target_encoding` does.
+    Elements that are not of the type of the first one are converted with the target encoding.
+    A character it cannot encode is replaced by its :func:`set_ascii_fallbacks` entry when that is ASCII,
+    and by ``?`` otherwise: byte text cannot carry the DEC drawing characters.
     """
     tl, al = _tagmarkup_recurse(tm, None)
     # join as str or bytes based on type of first element
@@ -494,11 +670,13 @@ def decompose_tagmarkup(tm: _TagMarkup) -> tuple[str | bytes, list[tuple[Hashabl
             converted = [item if isinstance(item, str) else item.decode(encoding, "replace") for item in tl]
             text = "".join(converted)
         else:
-            converted = [item if isinstance(item, bytes) else item.encode(encoding, "replace") for item in tl]
+            converted = [
+                item if isinstance(item, bytes) else item.encode(encoding, "urwid_fallback_ascii") for item in tl
+            ]
             text = b"".join(converted)
         if len(text) != sum(len(item) for item in tl):
             # the attribute runs count the elements before conversion: recount them after it
-            items = zip(tl, converted)
+            items = zip(tl, converted, strict=True)
             for i, (attr, run) in enumerate(al):
                 remaining, new_run = run, 0
                 while remaining > 0:
@@ -507,7 +685,7 @@ def decompose_tagmarkup(tm: _TagMarkup) -> tuple[str | bytes, list[tuple[Hashabl
                     new_run += len(converted_item)
                 al[i] = (attr, new_run)
     else:
-        text = ""
+        text = ""  # pylint: disable=redefined-variable-type  # declared union type
 
     if al and al[-1][0] is None:
         del al[-1]
@@ -547,8 +725,8 @@ def _tagmarkup_recurse(
         if len(tm) != 2:
             raise TagMarkupException(f"Tuples must be in the form (attribute, tagmarkup): {tm!r}")
 
-        attr, element = tm
-        return _tagmarkup_recurse(element, attr)
+        inner_attr, element = tm
+        return _tagmarkup_recurse(element, LayeredAttr.layer(inner_attr, attr))
 
     if not isinstance(tm, (str, bytes)):
         raise TagMarkupException(f"Invalid markup element: {tm!r}")
@@ -567,17 +745,9 @@ def is_mouse_press(ev: str) -> bool:
     return "press" in ev
 
 
-class MetaSuper(type):
-    """Metaclass kept only so that existing class definitions keep importing.
-
-    All logic has been removed; it is a plain :class:`type` subclass.
-
-    .. deprecated:: 3.0.0
-        Drop it from the class bases. While it is still listed, move it to the last position,
-        so that future changes to the other bases are not blocked by it.
-    """
-
-    __slots__ = ()
+# Former metaclass, now an alias of `type`: `metaclass=MetaSuper` keeps working, and so does a base list naming it last.
+# The name will be removed in version 7.0.
+MetaSuper = type
 
 
 def int_scale(val: int, val_range: int, out_range: int) -> int:
@@ -594,7 +764,7 @@ def int_scale(val: int, val_range: int, out_range: int) -> int:
     >>> int_scale(1, 3, 4)
     2
     """
-    num = int(val * (out_range - 1) * 2 + (val_range - 1))
+    num = val * (out_range - 1) * 2 + (val_range - 1)
     dem = (val_range - 1) * 2
     # if num % dem == 0 then we are exactly half-way and have rounded up.
     return num // dem

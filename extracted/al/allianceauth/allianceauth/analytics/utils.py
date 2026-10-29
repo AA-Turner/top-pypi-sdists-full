@@ -1,4 +1,5 @@
 import os
+import sys
 
 from django.apps import apps
 
@@ -51,3 +52,13 @@ def existence_baremetal_or_docker() -> str:
     if docker_tag:
         return "existence_docker"
     return "existence_baremetal"
+
+
+def install_stat_python_minor() -> int:
+    """Returns the Python Version of the current install
+
+    Returns
+    -------
+    int
+        The Python Version"""
+    return sys.version_info.minor

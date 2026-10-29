@@ -145,6 +145,7 @@ _PERSON_ACTION = {
     "const": "translate",
     "to_default": "translate",
     "overridden": "override",
+    "raised": "raise",
 }
 
 _LAST_PUBLISHED: ContextVar[tuple[Any, ...] | None] = ContextVar(

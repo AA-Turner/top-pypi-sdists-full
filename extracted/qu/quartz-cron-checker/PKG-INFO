@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quartz-cron-checker
-Version: 0.2.1
+Version: 0.2.2
 Summary: Simple Python library to check if a Quartz cron expression is valid.
 Author-email: Jessica Smith <j.smith.git1@gmail.com>
 Requires-Python: >=3.10
@@ -10,7 +10,7 @@ Dynamic: license-file
 
 # quartz-cron-checker
 
-**quartz-cron-checker** is a lightweight, strict validator for [Quartz-style cron expressions](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html) in Python.
+**quartz-cron-checker** is a lightweight (zero dependencies!), strict validator for [Quartz-style cron expressions](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html) in Python.
 
 It ensures all parts of the cron string conform to the Quartz cron spec—including support for special characters, named values, and mutual exclusivity of day-of-month and day-of-week.
 

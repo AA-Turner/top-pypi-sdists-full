@@ -170,6 +170,25 @@ def test_off_refuses_the_paper_search_too(tmp_path):
     assert refusal is not None and refusal.startswith("Probe is OFF for this conversation")
 
 
+@pytest.mark.parametrize("state", ["daemon", "read-only"])
+def test_the_agent_reads_probes_docs_itself(tmp_path, state):
+    """`probe docs` reads Probe's own docs, not the team's record, and this
+    profile has no MCP to reach them through: the agent runs it, as it runs
+    `probe paper find`."""
+    assert _guard(tmp_path, 'probe docs "how do I set up Codex"', state=state) is None
+    assert _guard(tmp_path, "probe docs runs not showing in the dashboard", state=state) is None
+
+
+@pytest.mark.parametrize("profile", ["daemon", "agent"])
+def test_off_refuses_probes_docs_as_it_refuses_the_paper_search(tmp_path, profile):
+    """`off` means no Probe call at all: `probe docs` gets the paper search's refusal,
+    word for word but the command, in either profile."""
+    docs = _guard(tmp_path, 'probe docs "how do I install"', state="off", profile=profile)
+    papers = _guard(tmp_path, 'probe paper find "how do I install"', state="off", profile=profile)
+    assert docs is not None and docs.startswith("Probe is OFF for this conversation")
+    assert docs == papers.replace("`probe paper find`", "`probe docs`")
+
+
 def test_the_paper_search_opens_no_other_read(tmp_path):
     assert _guard(tmp_path, "probe paper list --project p1") == session_marker.DAEMON_PROFILE_DENY.format(
         matched="probe paper list")

@@ -58,8 +58,8 @@ class SkipRule(StrEnum):
     folders and nested worktree copies are now counted and skipped
     (`backfill.RESEARCH_DOT_DIRS`, `backfill_evidence.worktree_copy`). A file an
     older CLI imported from one of them is still on disk, so calling it
-    `vanished` was false -- and `vanished` holds its project's reconstruction
-    until the file comes back, which a skipped file never does. 65,491 such
+    `vanished` was false -- and `vanished` held its project's draft
+    until the file came back, which a skipped file never does. 65,491 such
     files for one customer.
 
     The rule stays on the row while the file is unseen, including after the
@@ -478,7 +478,7 @@ class Coverage:
         file seen before and not now that a rule leaves out is recorded with
         that rule (`SkipRule`): `report()` calls it `skipped` while it is on
         disk, and `vanished` once it is deleted, and either way it is out of
-        the import and holds nothing (`complete_reconstruction`). Without
+        the import and holds nothing (`complete_record`). Without
         `skipped`, rules already recorded are kept; none is added.
 
         THREE CHANGES FROM THE ONE-BIG-TRANSACTION VERSION, all about a census
@@ -934,7 +934,10 @@ class Coverage:
 
         A path whose folder changed loses its resolved target until `build`
         resolves the new one; where it was last filed is kept, so a move is
-        only sent when the target really differs.
+        only sent when the target really differs. A cleared path that was
+        FILED in a run or an experiment goes back to its project (a placement
+        at level `project`, its target the file's project), or the server
+        would keep it where the old plan put it.
         """
         with self.conn:
             self.conn.executemany("""
@@ -945,8 +948,16 @@ class Coverage:
                                  THEN placements.target_id END,
                   refused_artifact=NULL, error=NULL""",
                 [(path, level, folder) for path, (level, folder) in intents.items()])
-            self.conn.executemany("DELETE FROM placements WHERE path=?",
-                                  [(path,) for path in cleared])
+            self.conn.executemany("""
+                UPDATE placements SET level='project', folder='',
+                  target_id=(SELECT f.project_id FROM files f WHERE f.path = placements.path),
+                  refused_artifact=NULL, error=NULL
+                WHERE path=? AND filed_target IS NOT NULL AND level <> 'project'
+                  AND (SELECT f.project_id FROM files f WHERE f.path = placements.path) IS NOT NULL""",
+                [(path,) for path in cleared])
+            self.conn.executemany(
+                "DELETE FROM placements WHERE path=? AND (filed_target IS NULL OR level <> 'project')",
+                [(path,) for path in cleared])
 
     def planned_placements(self) -> list[dict]:
         """Every planned placement with its file's current state."""
@@ -989,6 +1000,14 @@ class Coverage:
         with self.conn:
             self.conn.execute("""UPDATE placements SET filed_target=?, filed_artifact=?,
                 refused_artifact=NULL, error=NULL WHERE path=?""", (target_id, artifact_id, path))
+
+    def filing_unknown(self, path: str) -> None:
+        """A move failed and may have gone part of the way: where the file sits
+        is unknown. Still marked as filed somewhere (a re-plan that places it
+        nowhere sends it back to its project), never equal to a target, so the
+        next pass sends its move again."""
+        with self.conn:
+            self.conn.execute("UPDATE placements SET filed_target='' WHERE path=?", (path,))
 
     def filing_refused(self, path: str, artifact_id: str, error: str) -> None:
         """The server refused this artifact's move for good; never offer it again."""

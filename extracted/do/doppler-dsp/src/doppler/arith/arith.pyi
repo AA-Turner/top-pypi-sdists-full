@@ -134,7 +134,8 @@ class AccQ15:
         a : npt.NDArray[np.int16]
             First input array (int16_t).
         b : npt.NDArray[np.int16]
-            Second input array (int16_t), same length as a.
+            Second input array (int16_t); only the first min(a_len, b_len)
+            elements of either array are used.
 
         Examples
         --------
@@ -213,7 +214,7 @@ class AccQ15:
         Returns
         -------
         int
-            Output.
+            Current accumulator value (int64_t).
 
         Examples
         --------
@@ -299,9 +300,9 @@ class AccQ15:
 class AccQ8:
     """Allocate and initialise an AccQ8 accumulator. The accumulator starts at
     the supplied initial value and accepts Q8 (int8_t) samples via step(),
-    steps(), or madd(). The 32-bit internal register handles up to roughly 16
-    million max-magnitude samples before wrap — sufficient for all standard DSP
-    block sizes.
+    steps(), or madd(). The 32-bit internal register holds roughly 16 million
+    max-magnitude samples; past int32 the signed overflow is undefined, so the
+    caller must keep the sum in range.
 
     Parameters
     ----------
@@ -509,7 +510,7 @@ class AccQ8:
         Returns
         -------
         int
-            Output.
+            Current accumulator value; the create() value before any step.
 
         Examples
         --------

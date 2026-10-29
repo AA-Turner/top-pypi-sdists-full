@@ -18,6 +18,7 @@ from matrx_orm import IntegrityError
 from matrx_scraper._ext import get_ext, has_ext
 from matrx_scraper.cpu_lane import LANE_BULK, LANE_INTERACTIVE
 from matrx_scraper.parser.knobs import KnobScope
+from matrx_scraper.test_stamp import declared_test_run, scope_test_run_id, stamp_scope
 from matrx_scraper.crawler import (
     RENDER_BROWSER_ALWAYS,
     RENDER_HTTP_FIRST,
@@ -388,6 +389,10 @@ class PreparedCrawl:
     # The session's scope mode (full/list/homepage/initialization/page_fetch).
     # Site-wide post-crawl analysis runs only for full/list crawls.
     mode: str = "full"
+    # The test run this crawl was started under (persisted at scope["test_run_id"]);
+    # `run_prepared` re-declares it so every row the run writes is stamped, on
+    # whichever task or process continues it. None for a person's own crawl.
+    test_run_id: str | None = None
 
 
 @dataclass
@@ -634,7 +639,10 @@ class WebCrawlService:
             # first so a dead run never blocks a legitimate start; the
             # friendly pre-check names the live holder. The ARBITER is the
             # start-claim unique index at insert time below.
-            await WebCrawlRepository.fail_stale_sessions()
+            # Other people's sessions: never under this request's test stamp (a baseline
+            # session would CLAIM them, and the archive would take them).
+            with declared_test_run(None):
+                await WebCrawlRepository.fail_stale_sessions()
             holder = await _live_lane_holder(site_id, lane)
             if holder is not None:
                 raise _lane_conflict(holder, lane)
@@ -644,6 +652,7 @@ class WebCrawlService:
             "requested_by": ctx.user_id,
             "request": request.model_dump(mode="json"),
         }
+        stamp_scope(scope)
         (
             verified_root_url,
             session_id,
@@ -678,6 +687,7 @@ class WebCrawlService:
             state=state,
             broker=broker,
             mode=mode,
+            test_run_id=scope_test_run_id(scope),
         )
 
     @staticmethod
@@ -838,6 +848,7 @@ class WebCrawlService:
             state=state,
             broker=broker,
             mode=str((session.scope or {}).get("mode") or "full"),
+            test_run_id=scope_test_run_id(dict(session.scope or {})),
         )
 
     async def resume_crashed_sessions(
@@ -2138,6 +2149,16 @@ class WebCrawlService:
         return crawler, body_persister
 
     async def run_prepared(self, emitter: Emitter, prepared: PreparedCrawl) -> None:
+        # THE TEST STAMP rides the session, not the request: a resume or the
+        # crash-resume sweep has no X-Matrx-Test-Run header, yet every row this
+        # run writes (crawl_url, snapshot, page, events, post-crawl analysis)
+        # must carry the stamp its start declared. A session that stored NO stamp
+        # (a person's crawl) runs with the stamp CLEARED, never an ambient one
+        # inherited from whichever test request or task resumed it.
+        with declared_test_run(prepared.test_run_id):
+            await self._run_prepared(emitter, prepared)
+
+    async def _run_prepared(self, emitter: Emitter, prepared: PreparedCrawl) -> None:
         async def before_completed() -> None:
             await self._populate_link_status_before_completion(prepared)
 

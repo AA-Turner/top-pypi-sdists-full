@@ -221,6 +221,7 @@ ignore = [
     "PLR2004", # 'magic numbers'
     "PLW2901", # Loop variable overridden
     "PLC0415", # import not at top of file
+    "ICN001", # import conventions, e.g. datetime as dt
 ]
 select = ["E", "F", "B", "W", "I", "S", "C4", "ICN", "T20", "PLE", "RUF", "SIM105", "PL", "U"]
 
@@ -238,7 +239,7 @@ exclude = ["*_pb2.py", "*_pb2_grpc.py", "*_pb2.pyi"]
 docstring-code-format = true
 
 [tool.tbump.version]
-current = "3.7.1"
+current = "3.7.2"
 
 regex = '''
   (?P<major>\d+)

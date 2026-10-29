@@ -32,7 +32,6 @@ from .literals import (
     InputSourceType,
     InquiryStatusMessageType,
     InquiryStatusType,
-    InquirySupportModeType,
     NotificationSubscriptionStatusType,
     PublishedStateType,
     QueryStatusMessageType,
@@ -42,9 +41,9 @@ from .literals import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 
 __all__ = (
@@ -177,7 +176,7 @@ InquiryDetailTypeDef = TypedDict(
         "inputSource": InputSourceType,
         "createdAt": datetime,
         "updatedAt": NotRequired[datetime],
-        "supportMode": NotRequired[InquirySupportModeType],
+        "supportMode": NotRequired[Literal["AI_ONLY"]],
     },
 )
 
@@ -445,5 +444,5 @@ class CreateComplianceInquiryRequestTypeDef(TypedDict):
     name: str
     inquiryContent: InquiryContentTypeDef
     clientToken: NotRequired[str]
-    supportMode: NotRequired[InquirySupportModeType]
+    supportMode: NotRequired[Literal["AI_ONLY"]]
     tags: NotRequired[Mapping[str, str]]

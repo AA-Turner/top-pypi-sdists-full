@@ -5,6 +5,7 @@ import typing
 
 import typing_extensions
 from ..types.document_translation_job_state import DocumentTranslationJobState
+from .chunk_metrics import ChunkMetricsParams
 from .page_metrics import PageMetricsParams
 from .translation_language_metrics import TranslationLanguageMetricsParams
 from .translation_status_item import TranslationStatusItemParams
@@ -28,6 +29,11 @@ class JobLiveStatusResponseParams(typing_extensions.TypedDict):
     translation_metrics: typing_extensions.NotRequired[TranslationLanguageMetricsParams]
     """
     Present for Office format (document-granular) jobs.
+    """
+
+    chunk_metrics: typing_extensions.NotRequired[ChunkMetricsParams]
+    """
+    Present for Markdown / plain-text (chunk-granular) jobs.
     """
 
     translations: typing_extensions.NotRequired[typing.Sequence[TranslationStatusItemParams]]

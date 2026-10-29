@@ -1745,7 +1745,7 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
     @abc.abstractmethod
     def subscription_manager(self) -> QuantConnect.Data.SubscriptionManager:
         """
-        Data subscription manager controls the information and subscriptions the algorithms recieves.
+        Data subscription manager controls the information and subscriptions the algorithms receives.
         Subscription configurations can be added through the Subscription Manager.
         """
         ...

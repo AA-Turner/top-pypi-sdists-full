@@ -11,7 +11,7 @@ from .widget import WidgetError, delegate_to_widget_mixin
 from .widget_decoration import WidgetDecoration
 
 if typing.TYPE_CHECKING:
-    from .widget import AbstractWidget
+    from .widget import AbstractWidget, _DelegateToWidgetMixin
 
 
 WrappedWidget = typing.TypeVar("WrappedWidget", bound="AbstractWidget")
@@ -21,8 +21,14 @@ class AttrMapError(WidgetError):
     """AttrMap related errors."""
 
 
+if typing.TYPE_CHECKING:
+    _AttrMapDelegate = _DelegateToWidgetMixin
+else:
+    _AttrMapDelegate = delegate_to_widget_mixin("_original_widget")
+
+
 class AttrMap(
-    delegate_to_widget_mixin("_original_widget"),  # type: ignore[misc]
+    _AttrMapDelegate,
     WidgetDecoration[WrappedWidget],
 ):
     """A decoration that maps one set of display attributes to another.
@@ -41,7 +47,10 @@ class AttrMap(
         :param w: widget to wrap (stored as self.original_widget)
 
         :param attr_map: attribute to apply to *w*, or dict of old display
-            attribute: new display attribute mappings
+            attribute: new display attribute mappings;
+            the other attributes of *w* are placed over the attribute of ``None``,
+            so their 'inherit' colors are taken from it (see :class:`LayeredAttr`),
+            and an attribute mapped to ``None`` shows the attribute of ``None``
 
         :param focus_map: attribute to apply when in focus or dict of
             old display attribute: new display attribute mappings;
@@ -64,7 +73,7 @@ class AttrMap(
         >>> am2
         <AttrMap fixed/flow widget <Text fixed/flow widget 'hi'> attr_map={'word': 'greeting', None: 'bg'}>
         >>> next(am2.render(size).content())
-        [('greeting', None, ...'hi'), ('bg', None, ...'   ')]
+        [(LayeredAttr('greeting', 'bg'), None, ...'hi'), ('bg', None, ...'   ')]
         """
         super().__init__(w)
         self._attr_map: dict[Hashable, Hashable] = {}
@@ -83,7 +92,7 @@ class AttrMap(
         """Return a copy of the attribute mapping dictionary."""
         # make a copy so ours is not accidentally modified
         # FIXME: a dictionary that detects modifications would be better
-        return dict(self._attr_map)
+        return self._attr_map.copy()
 
     def set_attr_map(self, attr_map: Hashable | Mapping[Hashable, Hashable]) -> None:
         """

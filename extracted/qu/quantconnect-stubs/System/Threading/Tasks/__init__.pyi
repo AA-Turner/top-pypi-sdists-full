@@ -11,21 +11,15 @@ import System.Threading
 import System.Threading.Tasks
 import System.Threading.Tasks.Sources
 
-System_Threading_Tasks_ValueTask = typing.Any
 System_Threading_Tasks_Task = typing.Any
+System_Threading_Tasks_ValueTask = typing.Any
 
 System_Threading_Tasks_TaskCompletionSource_TResult = typing.TypeVar("System_Threading_Tasks_TaskCompletionSource_TResult")
-System_Threading_Tasks_ValueTask_TResult = typing.TypeVar("System_Threading_Tasks_ValueTask_TResult")
 System_Threading_Tasks_Task_TResult = typing.TypeVar("System_Threading_Tasks_Task_TResult")
+System_Threading_Tasks_ValueTask_TResult = typing.TypeVar("System_Threading_Tasks_ValueTask_TResult")
 System_Threading_Tasks_TaskFactory_TResult = typing.TypeVar("System_Threading_Tasks_TaskFactory_TResult")
 System_Threading_Tasks__EventContainer_Callable = typing.TypeVar("System_Threading_Tasks__EventContainer_Callable")
 System_Threading_Tasks__EventContainer_ReturnType = typing.TypeVar("System_Threading_Tasks__EventContainer_ReturnType")
-System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T = typing.TypeVar("System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T")
-System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T = typing.TypeVar("System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T")
-System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T = typing.TypeVar("System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T")
-System_Threading_Tasks_ValueTask_FromResult_TResult = typing.TypeVar("System_Threading_Tasks_ValueTask_FromResult_TResult")
-System_Threading_Tasks_ValueTask_FromCanceled_TResult = typing.TypeVar("System_Threading_Tasks_ValueTask_FromCanceled_TResult")
-System_Threading_Tasks_ValueTask_FromException_TResult = typing.TypeVar("System_Threading_Tasks_ValueTask_FromException_TResult")
 System_Threading_Tasks_Task_ContinueWith_TResult = typing.TypeVar("System_Threading_Tasks_Task_ContinueWith_TResult")
 System_Threading_Tasks_Task_ContinueWith_TNewResult = typing.TypeVar("System_Threading_Tasks_Task_ContinueWith_TNewResult")
 System_Threading_Tasks_Task_FromResult_TResult = typing.TypeVar("System_Threading_Tasks_Task_FromResult_TResult")
@@ -35,6 +29,12 @@ System_Threading_Tasks_Task_Run_TResult = typing.TypeVar("System_Threading_Tasks
 System_Threading_Tasks_Task_WhenAll_TResult = typing.TypeVar("System_Threading_Tasks_Task_WhenAll_TResult")
 System_Threading_Tasks_Task_WhenAny_TResult = typing.TypeVar("System_Threading_Tasks_Task_WhenAny_TResult")
 System_Threading_Tasks_Task_WhenEach_TResult = typing.TypeVar("System_Threading_Tasks_Task_WhenEach_TResult")
+System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T = typing.TypeVar("System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T")
+System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T = typing.TypeVar("System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T")
+System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T = typing.TypeVar("System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T")
+System_Threading_Tasks_ValueTask_FromResult_TResult = typing.TypeVar("System_Threading_Tasks_ValueTask_FromResult_TResult")
+System_Threading_Tasks_ValueTask_FromCanceled_TResult = typing.TypeVar("System_Threading_Tasks_ValueTask_FromCanceled_TResult")
+System_Threading_Tasks_ValueTask_FromException_TResult = typing.TypeVar("System_Threading_Tasks_ValueTask_FromException_TResult")
 System_Threading_Tasks_TaskFactory_StartNew_TResult = typing.TypeVar("System_Threading_Tasks_TaskFactory_StartNew_TResult")
 System_Threading_Tasks_TaskFactory_FromAsync_TArg1 = typing.TypeVar("System_Threading_Tasks_TaskFactory_FromAsync_TArg1")
 System_Threading_Tasks_TaskFactory_FromAsync_TArg2 = typing.TypeVar("System_Threading_Tasks_TaskFactory_FromAsync_TArg2")
@@ -269,216 +269,6 @@ class ConcurrentExclusiveSchedulerPair(System.Object):
         ...
 
     def complete(self) -> None:
-        ...
-
-
-class _Typed_TaskAsyncEnumerableExtensions_ConfigureAwait(typing.Generic[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IAsyncEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T], continue_on_captured_context: bool) -> System.Runtime.CompilerServices.ConfiguredCancelableAsyncEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T]:
-        ...
-
-
-class _TaskAsyncEnumerableExtensions_ConfigureAwait:
-    """"""
-
-    @overload
-    def __call__(self, source: System.IAsyncDisposable, continue_on_captured_context: bool) -> System.Runtime.CompilerServices.ConfiguredAsyncDisposable:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T]) -> System.Threading.Tasks._Typed_TaskAsyncEnumerableExtensions_ConfigureAwait[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T]:
-        ...
-
-
-class _Typed_TaskAsyncEnumerableExtensions_WithCancellation(typing.Generic[System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IAsyncEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T], cancellation_token: System.Threading.CancellationToken) -> System.Runtime.CompilerServices.ConfiguredCancelableAsyncEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T]:
-        ...
-
-
-class _TaskAsyncEnumerableExtensions_WithCancellation:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T]) -> System.Threading.Tasks._Typed_TaskAsyncEnumerableExtensions_WithCancellation[System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T]:
-        ...
-
-
-class _Typed_TaskAsyncEnumerableExtensions_ToBlockingEnumerable(typing.Generic[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IAsyncEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T], cancellation_token: System.Threading.CancellationToken = ...) -> System.Collections.Generic.IEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T]:
-        ...
-
-
-class _TaskAsyncEnumerableExtensions_ToBlockingEnumerable:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T]) -> System.Threading.Tasks._Typed_TaskAsyncEnumerableExtensions_ToBlockingEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T]:
-        ...
-
-
-class TaskAsyncEnumerableExtensions(System.Object):
-    """This class has no documentation."""
-
-    configure_await: System.Threading.Tasks._TaskAsyncEnumerableExtensions_ConfigureAwait
-
-    with_cancellation: System.Threading.Tasks._TaskAsyncEnumerableExtensions_WithCancellation
-
-    to_blocking_enumerable: System.Threading.Tasks._TaskAsyncEnumerableExtensions_ToBlockingEnumerable
-
-
-class _Typed_ValueTask_FromResult(typing.Generic[System_Threading_Tasks_ValueTask_FromResult_TResult]):
-    """"""
-
-    @overload
-    def __call__(self, result: System_Threading_Tasks_ValueTask_FromResult_TResult) -> System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_FromResult_TResult]:
-        ...
-
-
-class _ValueTask_FromResult:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Threading_Tasks_ValueTask_FromResult_TResult]) -> System.Threading.Tasks._Typed_ValueTask_FromResult[System_Threading_Tasks_ValueTask_FromResult_TResult]:
-        ...
-
-
-class _Typed_ValueTask_FromCanceled(typing.Generic[System_Threading_Tasks_ValueTask_FromCanceled_TResult]):
-    """"""
-
-    @overload
-    def __call__(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_FromCanceled_TResult]:
-        ...
-
-
-class _ValueTask_FromCanceled:
-    """"""
-
-    @overload
-    def __call__(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.ValueTask:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Threading_Tasks_ValueTask_FromCanceled_TResult]) -> System.Threading.Tasks._Typed_ValueTask_FromCanceled[System_Threading_Tasks_ValueTask_FromCanceled_TResult]:
-        ...
-
-
-class _Typed_ValueTask_FromException(typing.Generic[System_Threading_Tasks_ValueTask_FromException_TResult]):
-    """"""
-
-    @overload
-    def __call__(self, exception: System.Exception) -> System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_FromException_TResult]:
-        ...
-
-
-class _ValueTask_FromException:
-    """"""
-
-    @overload
-    def __call__(self, exception: System.Exception) -> System.Threading.Tasks.ValueTask:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Threading_Tasks_ValueTask_FromException_TResult]) -> System.Threading.Tasks._Typed_ValueTask_FromException[System_Threading_Tasks_ValueTask_FromException_TResult]:
-        ...
-
-
-class ValueTask(typing.Generic[System_Threading_Tasks_ValueTask_TResult], System.IEquatable[System_Threading_Tasks_ValueTask]):
-    """This class has no documentation."""
-
-    COMPLETED_TASK: System.Threading.Tasks.ValueTask
-
-    @property
-    def is_completed(self) -> bool:
-        ...
-
-    @property
-    def is_completed_successfully(self) -> bool:
-        ...
-
-    @property
-    def is_faulted(self) -> bool:
-        ...
-
-    @property
-    def is_canceled(self) -> bool:
-        ...
-
-    @property
-    def result(self) -> System_Threading_Tasks_ValueTask_TResult:
-        ...
-
-    from_result: System.Threading.Tasks._ValueTask_FromResult
-
-    from_canceled: System.Threading.Tasks._ValueTask_FromCanceled
-
-    from_exception: System.Threading.Tasks._ValueTask_FromException
-
-    @overload
-    def __eq__(self, right: System.Threading.Tasks.ValueTask) -> bool:
-        ...
-
-    @overload
-    def __eq__(self, right: System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_TResult]) -> bool:
-        ...
-
-    @overload
-    def __init__(self, task: System.Threading.Tasks.Task) -> None:
-        ...
-
-    @overload
-    def __init__(self, source: System.Threading.Tasks.Sources.IValueTaskSource, token: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, result: System_Threading_Tasks_ValueTask_TResult) -> None:
-        ...
-
-    @overload
-    def __init__(self, task: System.Threading.Tasks.Task[System_Threading_Tasks_ValueTask_TResult]) -> None:
-        ...
-
-    @overload
-    def __init__(self, source: System.Threading.Tasks.Sources.IValueTaskSource[System_Threading_Tasks_ValueTask_TResult], token: int) -> None:
-        ...
-
-    @overload
-    def __ne__(self, right: System.Threading.Tasks.ValueTask) -> bool:
-        ...
-
-    @overload
-    def __ne__(self, right: System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_TResult]) -> bool:
-        ...
-
-    def as_task(self) -> System.Threading.Tasks.Task:
-        ...
-
-    def configure_await(self, continue_on_captured_context: bool) -> System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Threading.Tasks.ValueTask) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_TResult]) -> bool:
-        ...
-
-    def get_awaiter(self) -> System.Runtime.CompilerServices.ValueTaskAwaiter:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def preserve(self) -> System.Threading.Tasks.ValueTask:
-        ...
-
-    def to_string(self) -> str:
         ...
 
 
@@ -1201,6 +991,216 @@ class Task(typing.Generic[System_Threading_Tasks_Task_TResult], System_Threading
 
     @staticmethod
     def Yield() -> System.Runtime.CompilerServices.YieldAwaitable:
+        ...
+
+
+class _Typed_TaskAsyncEnumerableExtensions_ConfigureAwait(typing.Generic[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IAsyncEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T], continue_on_captured_context: bool) -> System.Runtime.CompilerServices.ConfiguredCancelableAsyncEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T]:
+        ...
+
+
+class _TaskAsyncEnumerableExtensions_ConfigureAwait:
+    """"""
+
+    @overload
+    def __call__(self, source: System.IAsyncDisposable, continue_on_captured_context: bool) -> System.Runtime.CompilerServices.ConfiguredAsyncDisposable:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T]) -> System.Threading.Tasks._Typed_TaskAsyncEnumerableExtensions_ConfigureAwait[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ConfigureAwait_T]:
+        ...
+
+
+class _Typed_TaskAsyncEnumerableExtensions_WithCancellation(typing.Generic[System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IAsyncEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T], cancellation_token: System.Threading.CancellationToken) -> System.Runtime.CompilerServices.ConfiguredCancelableAsyncEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T]:
+        ...
+
+
+class _TaskAsyncEnumerableExtensions_WithCancellation:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T]) -> System.Threading.Tasks._Typed_TaskAsyncEnumerableExtensions_WithCancellation[System_Threading_Tasks_TaskAsyncEnumerableExtensions_WithCancellation_T]:
+        ...
+
+
+class _Typed_TaskAsyncEnumerableExtensions_ToBlockingEnumerable(typing.Generic[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IAsyncEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T], cancellation_token: System.Threading.CancellationToken = ...) -> System.Collections.Generic.IEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T]:
+        ...
+
+
+class _TaskAsyncEnumerableExtensions_ToBlockingEnumerable:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T]) -> System.Threading.Tasks._Typed_TaskAsyncEnumerableExtensions_ToBlockingEnumerable[System_Threading_Tasks_TaskAsyncEnumerableExtensions_ToBlockingEnumerable_T]:
+        ...
+
+
+class TaskAsyncEnumerableExtensions(System.Object):
+    """This class has no documentation."""
+
+    configure_await: System.Threading.Tasks._TaskAsyncEnumerableExtensions_ConfigureAwait
+
+    with_cancellation: System.Threading.Tasks._TaskAsyncEnumerableExtensions_WithCancellation
+
+    to_blocking_enumerable: System.Threading.Tasks._TaskAsyncEnumerableExtensions_ToBlockingEnumerable
+
+
+class _Typed_ValueTask_FromResult(typing.Generic[System_Threading_Tasks_ValueTask_FromResult_TResult]):
+    """"""
+
+    @overload
+    def __call__(self, result: System_Threading_Tasks_ValueTask_FromResult_TResult) -> System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_FromResult_TResult]:
+        ...
+
+
+class _ValueTask_FromResult:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Threading_Tasks_ValueTask_FromResult_TResult]) -> System.Threading.Tasks._Typed_ValueTask_FromResult[System_Threading_Tasks_ValueTask_FromResult_TResult]:
+        ...
+
+
+class _Typed_ValueTask_FromCanceled(typing.Generic[System_Threading_Tasks_ValueTask_FromCanceled_TResult]):
+    """"""
+
+    @overload
+    def __call__(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_FromCanceled_TResult]:
+        ...
+
+
+class _ValueTask_FromCanceled:
+    """"""
+
+    @overload
+    def __call__(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.ValueTask:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Tasks_ValueTask_FromCanceled_TResult]) -> System.Threading.Tasks._Typed_ValueTask_FromCanceled[System_Threading_Tasks_ValueTask_FromCanceled_TResult]:
+        ...
+
+
+class _Typed_ValueTask_FromException(typing.Generic[System_Threading_Tasks_ValueTask_FromException_TResult]):
+    """"""
+
+    @overload
+    def __call__(self, exception: System.Exception) -> System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_FromException_TResult]:
+        ...
+
+
+class _ValueTask_FromException:
+    """"""
+
+    @overload
+    def __call__(self, exception: System.Exception) -> System.Threading.Tasks.ValueTask:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Threading_Tasks_ValueTask_FromException_TResult]) -> System.Threading.Tasks._Typed_ValueTask_FromException[System_Threading_Tasks_ValueTask_FromException_TResult]:
+        ...
+
+
+class ValueTask(typing.Generic[System_Threading_Tasks_ValueTask_TResult], System.IEquatable[System_Threading_Tasks_ValueTask]):
+    """This class has no documentation."""
+
+    COMPLETED_TASK: System.Threading.Tasks.ValueTask
+
+    @property
+    def is_completed(self) -> bool:
+        ...
+
+    @property
+    def is_completed_successfully(self) -> bool:
+        ...
+
+    @property
+    def is_faulted(self) -> bool:
+        ...
+
+    @property
+    def is_canceled(self) -> bool:
+        ...
+
+    @property
+    def result(self) -> System_Threading_Tasks_ValueTask_TResult:
+        ...
+
+    from_result: System.Threading.Tasks._ValueTask_FromResult
+
+    from_canceled: System.Threading.Tasks._ValueTask_FromCanceled
+
+    from_exception: System.Threading.Tasks._ValueTask_FromException
+
+    @overload
+    def __eq__(self, right: System.Threading.Tasks.ValueTask) -> bool:
+        ...
+
+    @overload
+    def __eq__(self, right: System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_TResult]) -> bool:
+        ...
+
+    @overload
+    def __init__(self, task: System.Threading.Tasks.Task) -> None:
+        ...
+
+    @overload
+    def __init__(self, source: System.Threading.Tasks.Sources.IValueTaskSource, token: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, result: System_Threading_Tasks_ValueTask_TResult) -> None:
+        ...
+
+    @overload
+    def __init__(self, task: System.Threading.Tasks.Task[System_Threading_Tasks_ValueTask_TResult]) -> None:
+        ...
+
+    @overload
+    def __init__(self, source: System.Threading.Tasks.Sources.IValueTaskSource[System_Threading_Tasks_ValueTask_TResult], token: int) -> None:
+        ...
+
+    @overload
+    def __ne__(self, right: System.Threading.Tasks.ValueTask) -> bool:
+        ...
+
+    @overload
+    def __ne__(self, right: System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_TResult]) -> bool:
+        ...
+
+    def as_task(self) -> System.Threading.Tasks.Task:
+        ...
+
+    def configure_await(self, continue_on_captured_context: bool) -> System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Threading.Tasks.ValueTask) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_TResult]) -> bool:
+        ...
+
+    def get_awaiter(self) -> System.Runtime.CompilerServices.ValueTaskAwaiter:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def preserve(self) -> System.Threading.Tasks.ValueTask:
+        ...
+
+    def to_string(self) -> str:
         ...
 
 

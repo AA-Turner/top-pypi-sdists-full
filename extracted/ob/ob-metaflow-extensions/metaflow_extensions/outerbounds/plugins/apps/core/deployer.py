@@ -633,6 +633,9 @@ class AppDeployer(TypedCoreConfig):
         (`suspend=True`). Suspended deployments return after API acceptance,
         before traffic readiness.
 
+        URL slug prefixes and suffixes are CLI/config-file conveniences and are not
+        supported here. Construct the complete `url_slug` when creating AppDeployer.
+
         Parameters
         ----------
         readiness_condition : str, optional
@@ -791,6 +794,17 @@ class AppDeployer(TypedCoreConfig):
             # use DeployedApp to do what ever you need
         ```
         """
+        for field_name in ("url_slug_prefix", "url_slug_suffix"):
+            if (
+                getattr(self._deploy_config._core_config, field_name) is not None
+                or kwargs.get(field_name) is not None
+            ):
+                raise AppConfigError(
+                    f"{field_name} is only supported by the CLI, not AppDeployer. "
+                    "Construct the complete URL slug programmatically and pass it "
+                    "as url_slug when creating AppDeployer."
+                )
+
         if len(self._state.get("default_tags", [])) > 0:
             self._deploy_config._core_config.tags = (
                 self._deploy_config._core_config.tags or []

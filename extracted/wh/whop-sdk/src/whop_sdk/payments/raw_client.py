@@ -20,19 +20,34 @@ from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.payment import Payment
-from ..types.payment_input_plan import PaymentInputPlan
+from ..types.payment_input_variant import PaymentInputVariant
 from ..types.payment_pdf import PaymentPdf
 from ..types.payment_status import PaymentStatus
+from .types.create_payments_request_billing_address import CreatePaymentsRequestBillingAddress
 from .types.create_payments_request_line_items_item import CreatePaymentsRequestLineItemsItem
 from .types.create_payments_request_payment_method import CreatePaymentsRequestPaymentMethod
+from .types.create_payments_request_setup_future_usage import CreatePaymentsRequestSetupFutureUsage
 from .types.create_payments_request_shipping_address import CreatePaymentsRequestShippingAddress
 from .types.list_fees_payments_response import ListFeesPaymentsResponse
 from .types.list_payments_request_billing_reason import ListPaymentsRequestBillingReason
+from .types.list_payments_request_billing_reasons_item import ListPaymentsRequestBillingReasonsItem
 from .types.list_payments_request_direction import ListPaymentsRequestDirection
 from .types.list_payments_request_mode import ListPaymentsRequestMode
 from .types.list_payments_request_order import ListPaymentsRequestOrder
+from .types.list_payments_request_payment_methods_item import ListPaymentsRequestPaymentMethodsItem
 from .types.list_payments_request_status import ListPaymentsRequestStatus
+from .types.list_payments_request_statuses_item import ListPaymentsRequestStatusesItem
+from .types.list_payments_request_substatuses_item import ListPaymentsRequestSubstatusesItem
+from .types.list_payments_request_tracking_states_item import ListPaymentsRequestTrackingStatesItem
+from .types.list_payments_request_tracking_status import ListPaymentsRequestTrackingStatus
 from .types.list_payments_response import ListPaymentsResponse
+from .types.summary_payments_request_billing_reasons_item import SummaryPaymentsRequestBillingReasonsItem
+from .types.summary_payments_request_groups_item import SummaryPaymentsRequestGroupsItem
+from .types.summary_payments_request_payment_methods_item import SummaryPaymentsRequestPaymentMethodsItem
+from .types.summary_payments_request_statuses_item import SummaryPaymentsRequestStatusesItem
+from .types.summary_payments_request_substatuses_item import SummaryPaymentsRequestSubstatusesItem
+from .types.summary_payments_request_tracking_states_item import SummaryPaymentsRequestTrackingStatesItem
+from .types.summary_payments_response import SummaryPaymentsResponse
 from .types.update_payments_request_shipping_address import UpdatePaymentsRequestShippingAddress
 from pydantic import ValidationError
 
@@ -50,16 +65,42 @@ class RawPaymentsClient:
         mode: typing.Optional[ListPaymentsRequestMode] = None,
         account_id: typing.Optional[str] = None,
         status: typing.Optional[ListPaymentsRequestStatus] = None,
+        tracking_status: typing.Optional[ListPaymentsRequestTrackingStatus] = None,
         billing_reason: typing.Optional[ListPaymentsRequestBillingReason] = None,
         currency: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
         member_id: typing.Optional[str] = None,
         membership_id: typing.Optional[str] = None,
         product_id: typing.Optional[str] = None,
-        plan_id: typing.Optional[str] = None,
+        variant_id: typing.Optional[str] = None,
         created_before: typing.Optional[dt.datetime] = None,
         created_after: typing.Optional[dt.datetime] = None,
+        statuses: typing.Optional[
+            typing.Union[ListPaymentsRequestStatusesItem, typing.Sequence[ListPaymentsRequestStatusesItem]]
+        ] = None,
+        substatuses: typing.Optional[
+            typing.Union[ListPaymentsRequestSubstatusesItem, typing.Sequence[ListPaymentsRequestSubstatusesItem]]
+        ] = None,
+        billing_reasons: typing.Optional[
+            typing.Union[ListPaymentsRequestBillingReasonsItem, typing.Sequence[ListPaymentsRequestBillingReasonsItem]]
+        ] = None,
+        currencies: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        variant_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        product_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        payment_methods: typing.Optional[
+            typing.Union[ListPaymentsRequestPaymentMethodsItem, typing.Sequence[ListPaymentsRequestPaymentMethodsItem]]
+        ] = None,
+        tracking_states: typing.Optional[
+            typing.Union[ListPaymentsRequestTrackingStatesItem, typing.Sequence[ListPaymentsRequestTrackingStatesItem]]
+        ] = None,
+        refunded_after: typing.Optional[dt.datetime] = None,
+        refunded_before: typing.Optional[dt.datetime] = None,
+        dispute_alerted_after: typing.Optional[dt.datetime] = None,
+        dispute_alerted_before: typing.Optional[dt.datetime] = None,
+        dispute_created_after: typing.Optional[dt.datetime] = None,
+        dispute_created_before: typing.Optional[dt.datetime] = None,
         order: typing.Optional[ListPaymentsRequestOrder] = None,
         direction: typing.Optional[ListPaymentsRequestDirection] = None,
         first: typing.Optional[int] = None,
@@ -82,6 +123,9 @@ class RawPaymentsClient:
         status : typing.Optional[ListPaymentsRequestStatus]
             Only payments in this lifecycle state.
 
+        tracking_status : typing.Optional[ListPaymentsRequestTrackingStatus]
+            Only payments whose most recently attached kept shipment is in this tracking state. `missing_tracking` selects paid payments with a captured shipping address and no kept shipment, excluding fully refunded payments. `needs_tracking` selects payments with an open pre-shipment funds hold and no kept shipment. Shipment states do not imply a payment or refund state. Requires `shipment:basic:read` as well as `payment:basic:read`; user-wide lists include only accounts readable under both scopes. Only supported with `mode=account_sales`.
+
         billing_reason : typing.Optional[ListPaymentsRequestBillingReason]
             Only payments charged for this reason. `subscription_cycle` also matches renewals recorded as `subscription_update`.
 
@@ -92,7 +136,10 @@ class RawPaymentsClient:
             Only payments made by this buyer, prefixed `user_`. This filters sales the caller can read, so `me` is not accepted; list the caller's own purchases with `GET /memberships?user_id=me`.
 
         query : typing.Optional[str]
-            Search payments by user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+            Search payments by payment ID, dispute ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+
+        include_connected_accounts : typing.Optional[bool]
+            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, lists the payments of the account and every connected account, newest first by `created_at` only; another `order` is a 400. The listing is cut off after 10 seconds, which a rare filter on an account with little recent activity can reach; add a `query` to narrow it. With `query`, matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' payments are returned only for connected accounts you can read payments on.
 
         member_id : typing.Optional[str]
             Only payments made by this member, prefixed `mber_`.
@@ -103,7 +150,7 @@ class RawPaymentsClient:
         product_id : typing.Optional[str]
             Only payments for this product, prefixed `prod_`.
 
-        plan_id : typing.Optional[str]
+        variant_id : typing.Optional[str]
             Only payments priced by this variant, prefixed `plan_`.
 
         created_before : typing.Optional[dt.datetime]
@@ -112,8 +159,50 @@ class RawPaymentsClient:
         created_after : typing.Optional[dt.datetime]
             Only payments created after this ISO 8601 timestamp.
 
+        statuses : typing.Optional[typing.Union[ListPaymentsRequestStatusesItem, typing.Sequence[ListPaymentsRequestStatusesItem]]]
+            Only payments in any of these lifecycle states, with the same meanings as `status`. Repeat the parameter to pass several. Combined with `status` when both are sent.
+
+        substatuses : typing.Optional[typing.Union[ListPaymentsRequestSubstatusesItem, typing.Sequence[ListPaymentsRequestSubstatusesItem]]]
+            Only payments whose `substatus` is any of these. Repeat the parameter to pass several. `incomplete` also matches payments that report `incomplete` because no finer status was recorded.
+
+        billing_reasons : typing.Optional[typing.Union[ListPaymentsRequestBillingReasonsItem, typing.Sequence[ListPaymentsRequestBillingReasonsItem]]]
+            Only payments charged for any of these reasons, with the same meanings as `billing_reason`. Repeat the parameter to pass several. Combined with `billing_reason` when both are sent.
+
+        currencies : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments presented in any of these three-letter currencies. Repeat the parameter to pass several. Combined with `currency` when both are sent.
+
+        variant_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments priced by any of these variants, each prefixed `plan_`. Repeat the parameter to pass several. Combined with `variant_id` when both are sent.
+
+        product_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments for any of these products, each prefixed `prod_`. Repeat the parameter to pass several. Combined with `product_id` when both are sent.
+
+        payment_methods : typing.Optional[typing.Union[ListPaymentsRequestPaymentMethodsItem, typing.Sequence[ListPaymentsRequestPaymentMethodsItem]]]
+            Only payments paid with any of these methods: a card brand such as `amex`, a wallet such as `apple_pay`, or a payment method type such as `paypal`. Repeat the parameter to pass several.
+
+        tracking_states : typing.Optional[typing.Union[ListPaymentsRequestTrackingStatesItem, typing.Sequence[ListPaymentsRequestTrackingStatesItem]]]
+            Only payments whose shipment is in any of these tracking states, or that still need a tracking number (`needs_tracking`). Repeat the parameter to pass several. Requires `account_id` and the shipment:basic:read permission.
+
+        refunded_after : typing.Optional[dt.datetime]
+            Only payments refunded after this ISO 8601 timestamp.
+
+        refunded_before : typing.Optional[dt.datetime]
+            Only payments refunded before this ISO 8601 timestamp.
+
+        dispute_alerted_after : typing.Optional[dt.datetime]
+            Only payments with a dispute alert after this ISO 8601 timestamp.
+
+        dispute_alerted_before : typing.Optional[dt.datetime]
+            Only payments with a dispute alert before this ISO 8601 timestamp.
+
+        dispute_created_after : typing.Optional[dt.datetime]
+            Only payments with a dispute opened after this ISO 8601 timestamp.
+
+        dispute_created_before : typing.Optional[dt.datetime]
+            Only payments with a dispute opened before this ISO 8601 timestamp.
+
         order : typing.Optional[ListPaymentsRequestOrder]
-            The field to sort by.
+            The field to sort by. `amount` sorts by the amount charged, in the currency it was charged in.
 
         direction : typing.Optional[ListPaymentsRequestDirection]
             The sort direction.
@@ -146,16 +235,40 @@ class RawPaymentsClient:
                 "mode": mode,
                 "account_id": account_id,
                 "status": status,
+                "tracking_status": tracking_status,
                 "billing_reason": billing_reason,
                 "currency": currency,
                 "user_id": user_id,
                 "query": query,
+                "include_connected_accounts": include_connected_accounts,
                 "member_id": member_id,
                 "membership_id": membership_id,
                 "product_id": product_id,
-                "plan_id": plan_id,
+                "variant_id": variant_id,
                 "created_before": serialize_datetime(created_before) if created_before is not None else None,
                 "created_after": serialize_datetime(created_after) if created_after is not None else None,
+                "statuses": statuses,
+                "substatuses": substatuses,
+                "billing_reasons": billing_reasons,
+                "currencies": currencies,
+                "variant_ids": variant_ids,
+                "product_ids": product_ids,
+                "payment_methods": payment_methods,
+                "tracking_states": tracking_states,
+                "refunded_after": serialize_datetime(refunded_after) if refunded_after is not None else None,
+                "refunded_before": serialize_datetime(refunded_before) if refunded_before is not None else None,
+                "dispute_alerted_after": serialize_datetime(dispute_alerted_after)
+                if dispute_alerted_after is not None
+                else None,
+                "dispute_alerted_before": serialize_datetime(dispute_alerted_before)
+                if dispute_alerted_before is not None
+                else None,
+                "dispute_created_after": serialize_datetime(dispute_created_after)
+                if dispute_created_after is not None
+                else None,
+                "dispute_created_before": serialize_datetime(dispute_created_before)
+                if dispute_created_before is not None
+                else None,
                 "order": order,
                 "direction": direction,
                 "first": first,
@@ -184,16 +297,32 @@ class RawPaymentsClient:
                         mode=mode,
                         account_id=account_id,
                         status=status,
+                        tracking_status=tracking_status,
                         billing_reason=billing_reason,
                         currency=currency,
                         user_id=user_id,
                         query=query,
+                        include_connected_accounts=include_connected_accounts,
                         member_id=member_id,
                         membership_id=membership_id,
                         product_id=product_id,
-                        plan_id=plan_id,
+                        variant_id=variant_id,
                         created_before=created_before,
                         created_after=created_after,
+                        statuses=statuses,
+                        substatuses=substatuses,
+                        billing_reasons=billing_reasons,
+                        currencies=currencies,
+                        variant_ids=variant_ids,
+                        product_ids=product_ids,
+                        payment_methods=payment_methods,
+                        tracking_states=tracking_states,
+                        refunded_after=refunded_after,
+                        refunded_before=refunded_before,
+                        dispute_alerted_after=dispute_alerted_after,
+                        dispute_alerted_before=dispute_alerted_before,
+                        dispute_created_after=dispute_created_after,
+                        dispute_created_before=dispute_created_before,
                         order=order,
                         direction=direction,
                         first=first,
@@ -225,6 +354,17 @@ class RawPaymentsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -240,6 +380,7 @@ class RawPaymentsClient:
         account_id: str,
         affiliate_code: typing.Optional[str] = OMIT,
         auto_capture_after_minutes: typing.Optional[int] = OMIT,
+        billing_address: typing.Optional[CreatePaymentsRequestBillingAddress] = OMIT,
         capture: typing.Optional[bool] = OMIT,
         confirmation_token: typing.Optional[str] = OMIT,
         email: typing.Optional[str] = OMIT,
@@ -252,12 +393,13 @@ class RawPaymentsClient:
         payment_method_id: typing.Optional[str] = OMIT,
         quote_id: typing.Optional[str] = OMIT,
         return_url: typing.Optional[str] = OMIT,
+        setup_future_usage: typing.Optional[CreatePaymentsRequestSetupFutureUsage] = OMIT,
         shipping_address: typing.Optional[CreatePaymentsRequestShippingAddress] = OMIT,
         statement_descriptor: typing.Optional[str] = OMIT,
-        plan: typing.Optional[PaymentInputPlan] = OMIT,
-        plan_id: typing.Optional[str] = OMIT,
         promo_code: typing.Optional[str] = OMIT,
         promo_code_id: typing.Optional[str] = OMIT,
+        variant: typing.Optional[PaymentInputVariant] = OMIT,
+        variant_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Payment]:
         """
@@ -269,10 +411,13 @@ class RawPaymentsClient:
             The account the purchase belongs to, prefixed `biz_`.
 
         affiliate_code : typing.Optional[str]
-            The code an affiliate link carries, which is the affiliate's username. The affiliate is credited for this payment as on a checkout session. A code naming no one eligible to earn on the product is ignored, and the payment goes ahead. A promo code with its own affiliate takes precedence. No affiliate is credited on a variant without a product or on a purchase of several variants. At most 255 characters. Not supported with `payment_method`.
+            The code an affiliate link carries, which is the affiliate's username. The affiliate is credited for this payment as on a checkout session. A code naming no one eligible to earn on the product is ignored, and the payment goes ahead. A promo code with its own affiliate takes precedence. No affiliate is credited on a variant without a product or on a purchase of several variants. At most 255 characters. Not supported with a `card_present` `payment_method`.
 
         auto_capture_after_minutes : typing.Optional[int]
             Minutes after authorization at which Whop captures the hold automatically unless it has been voided. Requires `capture: false`. Between 5 and 5760 (4 days).
+
+        billing_address : typing.Optional[CreatePaymentsRequestBillingAddress]
+            The buyer's billing address, returned on the payment as `billing_address` and used to calculate tax when Whop calculates it for the account. Only with a `paypal` `payment_method`. Only the keys you supply are kept.
 
         capture : typing.Optional[bool]
             Whether to capture a card payment immediately. Defaults to true. Pass false to place an authorization hold that must be captured in full within five days via the capture endpoint, or automatically after `auto_capture_after_minutes`.
@@ -281,16 +426,16 @@ class RawPaymentsClient:
             A confirmation token describing a payment method the buyer just supplied. Provide this instead of `member_id` and `payment_method_id`; the buyer is resolved from the token's billing email, or from `email`. The buyer may still have a step to complete — poll the payment's status for what to do next.
 
         email : typing.Optional[str]
-            The buyer's email, resolving or creating the user the payment belongs to. With `confirmation_token` it overrides the email the token carries, and is ignored when the token was created by a signed-in buyer; with `payment_method` it names a buyer the point of sale already knows, otherwise the sale belongs to a guest until a buyer is attached. Ignored with `member_id`.
+            The buyer's email, resolving or creating the user the payment belongs to. With `confirmation_token` it overrides the email the token carries, and is ignored when the token was created by a signed-in buyer; with a `card_present` `payment_method` it names a buyer the point of sale already knows, otherwise the sale belongs to a guest until a buyer is attached; with a `paypal` `payment_method` it names the buyer and is required unless `member_id` is provided. Ignored with `member_id`.
 
         ip_address : typing.Optional[str]
             The buyer's IPv4 or IPv6 address, used to assess the charge's risk and passed to the processor. Ignored unless a saved payment method is charged with `off_session` set to false.
 
         line_items : typing.Optional[typing.Sequence[CreatePaymentsRequestLineItemsItem]]
-            What the buyer is purchasing. Each entry takes exactly one of `plan_id` or an inline `plan`. One entry charges that variant; several entries form a cart, which requires every variant to be compatible, belong to this account, and use the same currency. Mutually exclusive with `plan_id` and `plan`.
+            What the buyer is purchasing. Each entry takes exactly one of `variant_id` or an inline `variant`. One entry charges that variant; several entries form a cart, which requires every variant to be compatible, belong to this account, and use the same currency. Mutually exclusive with `variant_id` and `variant`.
 
         member_id : typing.Optional[str]
-            The member to charge, prefixed `mber_`. Required with `payment_method_id` unless `confirmation_token` is provided.
+            The member to charge, prefixed `mber_`. Required with `payment_method_id` unless `confirmation_token` is provided. With a `paypal` `payment_method` it names the buyer instead of `email`, and must belong to a user.
 
         metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Custom metadata to attach to the payment.
@@ -299,16 +444,19 @@ class RawPaymentsClient:
             Whether the buyer is absent from your checkout and can't authenticate. Pass true when you charge the card without the buyer, such as a renewal on your own schedule. Pass false when the buyer is present, such as a one-click upsell right after checkout: the charge is processed as a customer-initiated card-on-file payment, and if the issuer asks the buyer to authenticate, the payment's status is `requires_action` with a `next_action` to send them to, after which they return to `return_url`. From API version 2026-10-07-1 it defaults to false when `return_url` is provided and to true otherwise; before that version it defaults to true. A saved Apple Pay, Google Pay or PayPal payment method is always charged with `off_session` true. Ignored unless `member_id` and `payment_method_id` are provided.
 
         payment_method : typing.Optional[CreatePaymentsRequestPaymentMethod]
-            A payment method collected on the seller's device rather than described by a confirmation token. `type` names it and the member named after it carries what the device needs. Today only `card_present` (Tap to Pay): nothing is collected on this call, the payment is created first and the reader then collects against it with the client secret the status endpoint serves in `next_action`. Mutually exclusive with `confirmation_token`, `member_id` and `payment_method_id`.
+            A payment method named on this call rather than described by a confirmation token. `type` names it and the member named after it carries its details. Nothing is collected on this call: the payment is created first and the buyer or device then acts on the `next_action` the status endpoint serves. `card_present` (Tap to Pay): the reader collects against the payment with the client secret in `next_action`. `paypal`: the buyer approves on PayPal's page, reached through a `redirect` `next_action`, then returns to `return_url`; `member_id` or `email` names the buyer. Mutually exclusive with `confirmation_token` and `payment_method_id`, and with `member_id` except for `paypal`.
 
         payment_method_id : typing.Optional[str]
             The stored payment method to charge, prefixed `payt_`. It must belong to the member. Required unless `confirmation_token` is provided.
 
         quote_id : typing.Optional[str]
-            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `plan` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `plan` takes only the same `plan` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `plan_id` or `line_items`, and a quote that priced variants by id never takes `plan`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address or by the country the buyer chose (`located_by` is `ip_address` or `presentment_country`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged by a processor that doesn't take quotes, such as a seller's own connected PayPal account; such a payment is refused before the payment method is used. A quote priced in a `presentment_currency` is charged in that currency at the quote's `exchange_rate`. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address or by the country the buyer chose; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted. `quote_rate_expired`: the exchange rate the quote was priced at has moved too far to charge; quote again. `payment_method_currency_unsupported`: the payment method cannot pay in the quote's currency; use another method, or quote again in another currency. `quote_processor_unsupported`: the payment would be processed by a processor that doesn't take quotes, such as a seller's own connected PayPal account; use another method, or omit `quote_id` to have tax calculated when the payment is charged.
+            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `variant` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `variant` takes only the same `variant` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `variant_id` or `line_items`, and a quote that priced variants by id never takes `variant`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address or by the country the buyer chose (`located_by` is `ip_address` or `presentment_country`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged by a processor that doesn't take quotes, such as a seller's own connected PayPal account; such a payment is refused before the payment method is used. A quote priced in a `presentment_currency` is charged in that currency at the quote's `exchange_rate`. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address or by the country the buyer chose; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted. `quote_rate_expired`: the exchange rate the quote was priced at has moved too far to charge; quote again. `payment_method_currency_unsupported`: the payment method cannot pay in the quote's currency; use another method, or quote again in another currency. `quote_processor_unsupported`: the payment would be processed by a processor that doesn't take quotes, such as a seller's own connected PayPal account; use another method, or omit `quote_id` to have tax calculated when the payment is charged.
 
         return_url : typing.Optional[str]
-            Where the buyer continues after completing an off-site step such as 3D Secure. An absolute https URL without credentials, at most 2,048 characters. Required when a saved payment method is charged with `off_session` false; otherwise ignored unless `confirmation_token` is provided.
+            Where the buyer continues after completing an off-site step such as 3D Secure. An absolute https URL without credentials, at most 2,048 characters. Required when a saved payment method is charged with `off_session` false; otherwise ignored unless `confirmation_token` or a `paypal` `payment_method` is provided.
+
+        setup_future_usage : typing.Optional[CreatePaymentsRequestSetupFutureUsage]
+            Attests that the buyer was told the payment method will be saved for later charges, and saves it once they approve, so it can be charged with `member_id` and `payment_method_id`. PayPal shows the buyer the agreement to future charges on its approval page. Omit it for a one-time payment that saves nothing. Ignored unless a `paypal` `payment_method` is provided.
 
         shipping_address : typing.Optional[CreatePaymentsRequestShippingAddress]
             Where physical goods ship, returned on the payment as `shipping_address`. Only the keys you supply are kept; omit it for digital goods.
@@ -316,17 +464,17 @@ class RawPaymentsClient:
         statement_descriptor : typing.Optional[str]
             Overrides the text on the buyer's card statement for this payment only. Takes precedence over the product's and account's custom descriptors, and changes neither. Must start with `WHOP*` unless the business processes as the merchant of record. For businesses processing as the merchant of record, omit the `WHOP*` prefix; the descriptor appears as provided. Must be 5-22 characters, contain at least one letter, and use only Latin letters, numbers, spaces, underscores, hyphens, or asterisks.
 
-        plan : typing.Optional[PaymentInputPlan]
-            The variant purchased, described by its attributes instead of an id: the variant with exactly these attributes is used, and one is created when none exists. Mutually exclusive with `plan_id` and `line_items`. Creating a variant requires `plan:create`; creating or updating a product requires the corresponding product permission.
-
-        plan_id : typing.Optional[str]
-            The variant purchased, prefixed `plan_`. It must belong to the account. Mutually exclusive with `plan` and `line_items`.
-
         promo_code : typing.Optional[str]
             The promo code as the buyer typed it, matched within the account regardless of case and surrounding spaces, as checkout matches it. It must be valid for the variant. Send it or `promo_code_id`, not both; an empty or whitespace-only string counts as not sent. A code the account does not have, or one that is no longer active, is refused before anything is written, with the error code `promo_invalid`. A code this purchase cannot use, such as one with no uses left or one restricted to other variants, products or buyers, is refused with `promo_invalid` too, and the error's message says why.
 
         promo_code_id : typing.Optional[str]
             An active promo code to apply, prefixed `promo_`. It must belong to the account and be valid for the variant. Send it or `promo_code`, not both. A code this purchase cannot use is refused with the error code `promo_invalid`, and the error's message says why.
+
+        variant : typing.Optional[PaymentInputVariant]
+            The variant purchased, described by its attributes instead of an id: the variant with exactly these attributes is used, and one is created when none exists. Mutually exclusive with `variant_id` and `line_items`. Creating a variant requires `plan:create`; creating or updating a product requires the corresponding product permission.
+
+        variant_id : typing.Optional[str]
+            The variant purchased, prefixed `plan_`. It must belong to the account. Mutually exclusive with `variant` and `line_items`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -343,6 +491,11 @@ class RawPaymentsClient:
             json={
                 "affiliate_code": affiliate_code,
                 "auto_capture_after_minutes": auto_capture_after_minutes,
+                "billing_address": convert_and_respect_annotation_metadata(
+                    object_=billing_address,
+                    annotation=typing.Optional[CreatePaymentsRequestBillingAddress],
+                    direction="write",
+                ),
                 "capture": capture,
                 "confirmation_token": confirmation_token,
                 "email": email,
@@ -363,6 +516,7 @@ class RawPaymentsClient:
                 "payment_method_id": payment_method_id,
                 "quote_id": quote_id,
                 "return_url": return_url,
+                "setup_future_usage": setup_future_usage,
                 "shipping_address": convert_and_respect_annotation_metadata(
                     object_=shipping_address,
                     annotation=typing.Optional[CreatePaymentsRequestShippingAddress],
@@ -370,12 +524,12 @@ class RawPaymentsClient:
                 ),
                 "statement_descriptor": statement_descriptor,
                 "account_id": account_id,
-                "plan": convert_and_respect_annotation_metadata(
-                    object_=plan, annotation=PaymentInputPlan, direction="write"
-                ),
-                "plan_id": plan_id,
                 "promo_code": promo_code,
                 "promo_code_id": promo_code_id,
+                "variant": convert_and_respect_annotation_metadata(
+                    object_=variant, annotation=PaymentInputVariant, direction="write"
+                ),
+                "variant_id": variant_id,
             },
             headers={
                 "content-type": "application/json",
@@ -448,6 +602,177 @@ class RawPaymentsClient:
                         ),
                     ),
                 )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def summary(
+        self,
+        *,
+        groups: typing.Optional[
+            typing.Union[SummaryPaymentsRequestGroupsItem, typing.Sequence[SummaryPaymentsRequestGroupsItem]]
+        ] = None,
+        account_id: typing.Optional[str] = None,
+        statuses: typing.Optional[
+            typing.Union[SummaryPaymentsRequestStatusesItem, typing.Sequence[SummaryPaymentsRequestStatusesItem]]
+        ] = None,
+        substatuses: typing.Optional[
+            typing.Union[SummaryPaymentsRequestSubstatusesItem, typing.Sequence[SummaryPaymentsRequestSubstatusesItem]]
+        ] = None,
+        billing_reasons: typing.Optional[
+            typing.Union[
+                SummaryPaymentsRequestBillingReasonsItem, typing.Sequence[SummaryPaymentsRequestBillingReasonsItem]
+            ]
+        ] = None,
+        currencies: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        variant_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        product_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        payment_methods: typing.Optional[
+            typing.Union[
+                SummaryPaymentsRequestPaymentMethodsItem, typing.Sequence[SummaryPaymentsRequestPaymentMethodsItem]
+            ]
+        ] = None,
+        tracking_states: typing.Optional[
+            typing.Union[
+                SummaryPaymentsRequestTrackingStatesItem, typing.Sequence[SummaryPaymentsRequestTrackingStatesItem]
+            ]
+        ] = None,
+        created_after: typing.Optional[dt.datetime] = None,
+        created_before: typing.Optional[dt.datetime] = None,
+        refunded_after: typing.Optional[dt.datetime] = None,
+        refunded_before: typing.Optional[dt.datetime] = None,
+        dispute_alerted_after: typing.Optional[dt.datetime] = None,
+        dispute_alerted_before: typing.Optional[dt.datetime] = None,
+        dispute_created_after: typing.Optional[dt.datetime] = None,
+        dispute_created_before: typing.Optional[dt.datetime] = None,
+        query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[SummaryPaymentsResponse]:
+        """
+        Totals up the same payments the list returns, so you can build status tabs and filter options without paging through them. Takes the same filters as List Payments.
+
+        Parameters
+        ----------
+        groups : typing.Optional[typing.Union[SummaryPaymentsRequestGroupsItem, typing.Sequence[SummaryPaymentsRequestGroupsItem]]]
+            Which breakdowns to return, keyed by these names under `groups`. Repeat the parameter to ask for several; omit it for all of them.
+
+        account_id : typing.Optional[str]
+            Only payments charged by this account, prefixed `biz_`.
+
+        statuses : typing.Optional[typing.Union[SummaryPaymentsRequestStatusesItem, typing.Sequence[SummaryPaymentsRequestStatusesItem]]]
+            Only payments in any of these lifecycle states. Repeat the parameter to pass several.
+
+        substatuses : typing.Optional[typing.Union[SummaryPaymentsRequestSubstatusesItem, typing.Sequence[SummaryPaymentsRequestSubstatusesItem]]]
+            Only payments whose `substatus` is any of these. Repeat the parameter to pass several.
+
+        billing_reasons : typing.Optional[typing.Union[SummaryPaymentsRequestBillingReasonsItem, typing.Sequence[SummaryPaymentsRequestBillingReasonsItem]]]
+            Only payments charged for any of these reasons. Repeat the parameter to pass several.
+
+        currencies : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments presented in any of these three-letter currencies. Repeat the parameter to pass several.
+
+        variant_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments priced by any of these variants, each prefixed `plan_`. Repeat the parameter to pass several.
+
+        product_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments for any of these products, each prefixed `prod_`. Repeat the parameter to pass several.
+
+        payment_methods : typing.Optional[typing.Union[SummaryPaymentsRequestPaymentMethodsItem, typing.Sequence[SummaryPaymentsRequestPaymentMethodsItem]]]
+            Only payments paid with any of these methods. Repeat the parameter to pass several.
+
+        tracking_states : typing.Optional[typing.Union[SummaryPaymentsRequestTrackingStatesItem, typing.Sequence[SummaryPaymentsRequestTrackingStatesItem]]]
+            Only payments in any of these tracking states. Requires `account_id` and the shipment:basic:read permission.
+
+        created_after : typing.Optional[dt.datetime]
+            Only payments created after this ISO 8601 timestamp.
+
+        created_before : typing.Optional[dt.datetime]
+            Only payments created before this ISO 8601 timestamp.
+
+        refunded_after : typing.Optional[dt.datetime]
+            Only payments refunded after this ISO 8601 timestamp.
+
+        refunded_before : typing.Optional[dt.datetime]
+            Only payments refunded before this ISO 8601 timestamp.
+
+        dispute_alerted_after : typing.Optional[dt.datetime]
+            Only payments with a dispute alert after this ISO 8601 timestamp.
+
+        dispute_alerted_before : typing.Optional[dt.datetime]
+            Only payments with a dispute alert before this ISO 8601 timestamp.
+
+        dispute_created_after : typing.Optional[dt.datetime]
+            Only payments with a dispute opened after this ISO 8601 timestamp.
+
+        dispute_created_before : typing.Optional[dt.datetime]
+            Only payments with a dispute opened before this ISO 8601 timestamp.
+
+        query : typing.Optional[str]
+            Search payments by payment ID, dispute ID, user ID, membership ID, user email, name, or username.
+
+        include_connected_accounts : typing.Optional[bool]
+            Only for searches: with `query`, also search the account's connected accounts. Requires `account_id` and `query`, and is a 400 without either; it never lists connected accounts' payments on its own. Matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`). Free-text queries such as a name search only the named account. Connected accounts' payments are returned only for connected accounts you can read payments on.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[SummaryPaymentsResponse]
+            summary returned
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "payments/summary",
+            base_url=self._client_wrapper.get_environment().api,
+            method="GET",
+            params={
+                "groups": groups,
+                "account_id": account_id,
+                "statuses": statuses,
+                "substatuses": substatuses,
+                "billing_reasons": billing_reasons,
+                "currencies": currencies,
+                "variant_ids": variant_ids,
+                "product_ids": product_ids,
+                "payment_methods": payment_methods,
+                "tracking_states": tracking_states,
+                "created_after": serialize_datetime(created_after) if created_after is not None else None,
+                "created_before": serialize_datetime(created_before) if created_before is not None else None,
+                "refunded_after": serialize_datetime(refunded_after) if refunded_after is not None else None,
+                "refunded_before": serialize_datetime(refunded_before) if refunded_before is not None else None,
+                "dispute_alerted_after": serialize_datetime(dispute_alerted_after)
+                if dispute_alerted_after is not None
+                else None,
+                "dispute_alerted_before": serialize_datetime(dispute_alerted_before)
+                if dispute_alerted_before is not None
+                else None,
+                "dispute_created_after": serialize_datetime(dispute_created_after)
+                if dispute_created_after is not None
+                else None,
+                "dispute_created_before": serialize_datetime(dispute_created_before)
+                if dispute_created_before is not None
+                else None,
+                "query": query,
+                "include_connected_accounts": include_connected_accounts,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    SummaryPaymentsResponse,
+                    parse_obj_as(
+                        type_=SummaryPaymentsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1157,16 +1482,20 @@ class RawPaymentsClient:
         self,
         payment_id: str,
         *,
+        client_secret: typing.Optional[str] = OMIT,
         return_url: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PaymentStatus]:
         """
-        Charges the saved card again, with the buyer present, for a payment their bank declined until they authenticate (such as with 3DS). Retrieve the payment afterward to get the bank's challenge from `next_action`; once the buyer completes it, they land on `return_url`, or on Whop's hosted verification page if none was given. Only the buyer can call this, with the payment's `client_secret`, an OAuth token for their own account with the `member:payment_methods:use` scope, or the token from a verified `payment` session intent. An API key gets a `403`. Has no effect on a payment that is not waiting on authentication.
+        Charges the saved card again, with the buyer present, for a payment their bank declined until they authenticate (such as with 3DS). Retrieve the payment afterward to get the bank's challenge from `next_action`; once the buyer completes it, they land on `return_url`, or on Whop's hosted verification page if none was given. Only the buyer can call this, with the payment's `client_secret` in the body, an OAuth token for their own account with the `member:payment_methods:use` scope, or the token from a verified `payment` session intent. An API key gets a `403`. Has no effect on a payment that is not waiting on authentication.
 
         Parameters
         ----------
         payment_id : str
             The unique identifier of the payment.
+
+        client_secret : typing.Optional[str]
+            The payment's own `client_secret`, for a buyer without a token.
 
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step. Must be an absolute https URL without credentials (http is allowed for localhost), at most 2,048 characters. Defaults to Whop's hosted verification page. Ignored when the payment is not waiting on authentication.
@@ -1184,6 +1513,7 @@ class RawPaymentsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
+                "client_secret": client_secret,
                 "return_url": return_url,
             },
             headers={
@@ -1267,10 +1597,15 @@ class RawPaymentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def update_return_url(
-        self, payment_id: str, *, return_url: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        payment_id: str,
+        *,
+        return_url: str,
+        client_secret: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PaymentStatus]:
         """
-        Changes where the buyer lands after completing an off-site step, up until they return. Accepts either a secret key or the payment's own `client_secret`, so the surface that knows the final destination can set it.
+        Changes where the buyer lands after completing an off-site step, up until they return. Accepts either a secret key or the payment's own `client_secret` in the body, so the surface that knows the final destination can set it.
 
         Parameters
         ----------
@@ -1279,6 +1614,9 @@ class RawPaymentsClient:
 
         return_url : str
             Where the buyer continues after completing an off-site step. Must be an absolute https URL without credentials (http is allowed for localhost), at most 2,048 characters.
+
+        client_secret : typing.Optional[str]
+            The payment's own `client_secret`, for a caller without a secret key.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1293,6 +1631,7 @@ class RawPaymentsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
+                "client_secret": client_secret,
                 "return_url": return_url,
             },
             headers={
@@ -1343,15 +1682,22 @@ class RawPaymentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def retrieve_status(
-        self, payment_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        payment_id: str,
+        *,
+        client_secret: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PaymentStatus]:
         """
-        Retrieves how far a payment has got and what the buyer must do next, if anything. A payment is collected in the background, so poll this rather than reading the create response. Accepts either a secret key or the payment's own `client_secret`, so the surface collecting the payment can poll it directly.
+        Retrieves how far a payment has got and what the buyer must do next, if anything. A payment is collected in the background, so poll this rather than reading the create response. Accepts either a secret key or the payment's own `client_secret` as a query parameter, so the surface collecting the payment can poll it directly.
 
         Parameters
         ----------
         payment_id : str
             The unique identifier of the payment.
+
+        client_secret : typing.Optional[str]
+            The payment's own `client_secret`, for a caller without a secret key.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1365,6 +1711,9 @@ class RawPaymentsClient:
             f"payments/{encode_path_param(payment_id)}/status",
             base_url=self._client_wrapper.get_environment().api,
             method="GET",
+            params={
+                "client_secret": client_secret,
+            },
             request_options=request_options,
         )
         try:
@@ -1430,16 +1779,42 @@ class AsyncRawPaymentsClient:
         mode: typing.Optional[ListPaymentsRequestMode] = None,
         account_id: typing.Optional[str] = None,
         status: typing.Optional[ListPaymentsRequestStatus] = None,
+        tracking_status: typing.Optional[ListPaymentsRequestTrackingStatus] = None,
         billing_reason: typing.Optional[ListPaymentsRequestBillingReason] = None,
         currency: typing.Optional[str] = None,
         user_id: typing.Optional[str] = None,
         query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
         member_id: typing.Optional[str] = None,
         membership_id: typing.Optional[str] = None,
         product_id: typing.Optional[str] = None,
-        plan_id: typing.Optional[str] = None,
+        variant_id: typing.Optional[str] = None,
         created_before: typing.Optional[dt.datetime] = None,
         created_after: typing.Optional[dt.datetime] = None,
+        statuses: typing.Optional[
+            typing.Union[ListPaymentsRequestStatusesItem, typing.Sequence[ListPaymentsRequestStatusesItem]]
+        ] = None,
+        substatuses: typing.Optional[
+            typing.Union[ListPaymentsRequestSubstatusesItem, typing.Sequence[ListPaymentsRequestSubstatusesItem]]
+        ] = None,
+        billing_reasons: typing.Optional[
+            typing.Union[ListPaymentsRequestBillingReasonsItem, typing.Sequence[ListPaymentsRequestBillingReasonsItem]]
+        ] = None,
+        currencies: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        variant_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        product_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        payment_methods: typing.Optional[
+            typing.Union[ListPaymentsRequestPaymentMethodsItem, typing.Sequence[ListPaymentsRequestPaymentMethodsItem]]
+        ] = None,
+        tracking_states: typing.Optional[
+            typing.Union[ListPaymentsRequestTrackingStatesItem, typing.Sequence[ListPaymentsRequestTrackingStatesItem]]
+        ] = None,
+        refunded_after: typing.Optional[dt.datetime] = None,
+        refunded_before: typing.Optional[dt.datetime] = None,
+        dispute_alerted_after: typing.Optional[dt.datetime] = None,
+        dispute_alerted_before: typing.Optional[dt.datetime] = None,
+        dispute_created_after: typing.Optional[dt.datetime] = None,
+        dispute_created_before: typing.Optional[dt.datetime] = None,
         order: typing.Optional[ListPaymentsRequestOrder] = None,
         direction: typing.Optional[ListPaymentsRequestDirection] = None,
         first: typing.Optional[int] = None,
@@ -1462,6 +1837,9 @@ class AsyncRawPaymentsClient:
         status : typing.Optional[ListPaymentsRequestStatus]
             Only payments in this lifecycle state.
 
+        tracking_status : typing.Optional[ListPaymentsRequestTrackingStatus]
+            Only payments whose most recently attached kept shipment is in this tracking state. `missing_tracking` selects paid payments with a captured shipping address and no kept shipment, excluding fully refunded payments. `needs_tracking` selects payments with an open pre-shipment funds hold and no kept shipment. Shipment states do not imply a payment or refund state. Requires `shipment:basic:read` as well as `payment:basic:read`; user-wide lists include only accounts readable under both scopes. Only supported with `mode=account_sales`.
+
         billing_reason : typing.Optional[ListPaymentsRequestBillingReason]
             Only payments charged for this reason. `subscription_cycle` also matches renewals recorded as `subscription_update`.
 
@@ -1472,7 +1850,10 @@ class AsyncRawPaymentsClient:
             Only payments made by this buyer, prefixed `user_`. This filters sales the caller can read, so `me` is not accepted; list the caller's own purchases with `GET /memberships?user_id=me`.
 
         query : typing.Optional[str]
-            Search payments by user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+            Search payments by payment ID, dispute ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+
+        include_connected_accounts : typing.Optional[bool]
+            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, lists the payments of the account and every connected account, newest first by `created_at` only; another `order` is a 400. The listing is cut off after 10 seconds, which a rare filter on an account with little recent activity can reach; add a `query` to narrow it. With `query`, matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' payments are returned only for connected accounts you can read payments on.
 
         member_id : typing.Optional[str]
             Only payments made by this member, prefixed `mber_`.
@@ -1483,7 +1864,7 @@ class AsyncRawPaymentsClient:
         product_id : typing.Optional[str]
             Only payments for this product, prefixed `prod_`.
 
-        plan_id : typing.Optional[str]
+        variant_id : typing.Optional[str]
             Only payments priced by this variant, prefixed `plan_`.
 
         created_before : typing.Optional[dt.datetime]
@@ -1492,8 +1873,50 @@ class AsyncRawPaymentsClient:
         created_after : typing.Optional[dt.datetime]
             Only payments created after this ISO 8601 timestamp.
 
+        statuses : typing.Optional[typing.Union[ListPaymentsRequestStatusesItem, typing.Sequence[ListPaymentsRequestStatusesItem]]]
+            Only payments in any of these lifecycle states, with the same meanings as `status`. Repeat the parameter to pass several. Combined with `status` when both are sent.
+
+        substatuses : typing.Optional[typing.Union[ListPaymentsRequestSubstatusesItem, typing.Sequence[ListPaymentsRequestSubstatusesItem]]]
+            Only payments whose `substatus` is any of these. Repeat the parameter to pass several. `incomplete` also matches payments that report `incomplete` because no finer status was recorded.
+
+        billing_reasons : typing.Optional[typing.Union[ListPaymentsRequestBillingReasonsItem, typing.Sequence[ListPaymentsRequestBillingReasonsItem]]]
+            Only payments charged for any of these reasons, with the same meanings as `billing_reason`. Repeat the parameter to pass several. Combined with `billing_reason` when both are sent.
+
+        currencies : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments presented in any of these three-letter currencies. Repeat the parameter to pass several. Combined with `currency` when both are sent.
+
+        variant_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments priced by any of these variants, each prefixed `plan_`. Repeat the parameter to pass several. Combined with `variant_id` when both are sent.
+
+        product_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments for any of these products, each prefixed `prod_`. Repeat the parameter to pass several. Combined with `product_id` when both are sent.
+
+        payment_methods : typing.Optional[typing.Union[ListPaymentsRequestPaymentMethodsItem, typing.Sequence[ListPaymentsRequestPaymentMethodsItem]]]
+            Only payments paid with any of these methods: a card brand such as `amex`, a wallet such as `apple_pay`, or a payment method type such as `paypal`. Repeat the parameter to pass several.
+
+        tracking_states : typing.Optional[typing.Union[ListPaymentsRequestTrackingStatesItem, typing.Sequence[ListPaymentsRequestTrackingStatesItem]]]
+            Only payments whose shipment is in any of these tracking states, or that still need a tracking number (`needs_tracking`). Repeat the parameter to pass several. Requires `account_id` and the shipment:basic:read permission.
+
+        refunded_after : typing.Optional[dt.datetime]
+            Only payments refunded after this ISO 8601 timestamp.
+
+        refunded_before : typing.Optional[dt.datetime]
+            Only payments refunded before this ISO 8601 timestamp.
+
+        dispute_alerted_after : typing.Optional[dt.datetime]
+            Only payments with a dispute alert after this ISO 8601 timestamp.
+
+        dispute_alerted_before : typing.Optional[dt.datetime]
+            Only payments with a dispute alert before this ISO 8601 timestamp.
+
+        dispute_created_after : typing.Optional[dt.datetime]
+            Only payments with a dispute opened after this ISO 8601 timestamp.
+
+        dispute_created_before : typing.Optional[dt.datetime]
+            Only payments with a dispute opened before this ISO 8601 timestamp.
+
         order : typing.Optional[ListPaymentsRequestOrder]
-            The field to sort by.
+            The field to sort by. `amount` sorts by the amount charged, in the currency it was charged in.
 
         direction : typing.Optional[ListPaymentsRequestDirection]
             The sort direction.
@@ -1526,16 +1949,40 @@ class AsyncRawPaymentsClient:
                 "mode": mode,
                 "account_id": account_id,
                 "status": status,
+                "tracking_status": tracking_status,
                 "billing_reason": billing_reason,
                 "currency": currency,
                 "user_id": user_id,
                 "query": query,
+                "include_connected_accounts": include_connected_accounts,
                 "member_id": member_id,
                 "membership_id": membership_id,
                 "product_id": product_id,
-                "plan_id": plan_id,
+                "variant_id": variant_id,
                 "created_before": serialize_datetime(created_before) if created_before is not None else None,
                 "created_after": serialize_datetime(created_after) if created_after is not None else None,
+                "statuses": statuses,
+                "substatuses": substatuses,
+                "billing_reasons": billing_reasons,
+                "currencies": currencies,
+                "variant_ids": variant_ids,
+                "product_ids": product_ids,
+                "payment_methods": payment_methods,
+                "tracking_states": tracking_states,
+                "refunded_after": serialize_datetime(refunded_after) if refunded_after is not None else None,
+                "refunded_before": serialize_datetime(refunded_before) if refunded_before is not None else None,
+                "dispute_alerted_after": serialize_datetime(dispute_alerted_after)
+                if dispute_alerted_after is not None
+                else None,
+                "dispute_alerted_before": serialize_datetime(dispute_alerted_before)
+                if dispute_alerted_before is not None
+                else None,
+                "dispute_created_after": serialize_datetime(dispute_created_after)
+                if dispute_created_after is not None
+                else None,
+                "dispute_created_before": serialize_datetime(dispute_created_before)
+                if dispute_created_before is not None
+                else None,
                 "order": order,
                 "direction": direction,
                 "first": first,
@@ -1566,16 +2013,32 @@ class AsyncRawPaymentsClient:
                             mode=mode,
                             account_id=account_id,
                             status=status,
+                            tracking_status=tracking_status,
                             billing_reason=billing_reason,
                             currency=currency,
                             user_id=user_id,
                             query=query,
+                            include_connected_accounts=include_connected_accounts,
                             member_id=member_id,
                             membership_id=membership_id,
                             product_id=product_id,
-                            plan_id=plan_id,
+                            variant_id=variant_id,
                             created_before=created_before,
                             created_after=created_after,
+                            statuses=statuses,
+                            substatuses=substatuses,
+                            billing_reasons=billing_reasons,
+                            currencies=currencies,
+                            variant_ids=variant_ids,
+                            product_ids=product_ids,
+                            payment_methods=payment_methods,
+                            tracking_states=tracking_states,
+                            refunded_after=refunded_after,
+                            refunded_before=refunded_before,
+                            dispute_alerted_after=dispute_alerted_after,
+                            dispute_alerted_before=dispute_alerted_before,
+                            dispute_created_after=dispute_created_after,
+                            dispute_created_before=dispute_created_before,
                             order=order,
                             direction=direction,
                             first=first,
@@ -1608,6 +2071,17 @@ class AsyncRawPaymentsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1623,6 +2097,7 @@ class AsyncRawPaymentsClient:
         account_id: str,
         affiliate_code: typing.Optional[str] = OMIT,
         auto_capture_after_minutes: typing.Optional[int] = OMIT,
+        billing_address: typing.Optional[CreatePaymentsRequestBillingAddress] = OMIT,
         capture: typing.Optional[bool] = OMIT,
         confirmation_token: typing.Optional[str] = OMIT,
         email: typing.Optional[str] = OMIT,
@@ -1635,12 +2110,13 @@ class AsyncRawPaymentsClient:
         payment_method_id: typing.Optional[str] = OMIT,
         quote_id: typing.Optional[str] = OMIT,
         return_url: typing.Optional[str] = OMIT,
+        setup_future_usage: typing.Optional[CreatePaymentsRequestSetupFutureUsage] = OMIT,
         shipping_address: typing.Optional[CreatePaymentsRequestShippingAddress] = OMIT,
         statement_descriptor: typing.Optional[str] = OMIT,
-        plan: typing.Optional[PaymentInputPlan] = OMIT,
-        plan_id: typing.Optional[str] = OMIT,
         promo_code: typing.Optional[str] = OMIT,
         promo_code_id: typing.Optional[str] = OMIT,
+        variant: typing.Optional[PaymentInputVariant] = OMIT,
+        variant_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Payment]:
         """
@@ -1652,10 +2128,13 @@ class AsyncRawPaymentsClient:
             The account the purchase belongs to, prefixed `biz_`.
 
         affiliate_code : typing.Optional[str]
-            The code an affiliate link carries, which is the affiliate's username. The affiliate is credited for this payment as on a checkout session. A code naming no one eligible to earn on the product is ignored, and the payment goes ahead. A promo code with its own affiliate takes precedence. No affiliate is credited on a variant without a product or on a purchase of several variants. At most 255 characters. Not supported with `payment_method`.
+            The code an affiliate link carries, which is the affiliate's username. The affiliate is credited for this payment as on a checkout session. A code naming no one eligible to earn on the product is ignored, and the payment goes ahead. A promo code with its own affiliate takes precedence. No affiliate is credited on a variant without a product or on a purchase of several variants. At most 255 characters. Not supported with a `card_present` `payment_method`.
 
         auto_capture_after_minutes : typing.Optional[int]
             Minutes after authorization at which Whop captures the hold automatically unless it has been voided. Requires `capture: false`. Between 5 and 5760 (4 days).
+
+        billing_address : typing.Optional[CreatePaymentsRequestBillingAddress]
+            The buyer's billing address, returned on the payment as `billing_address` and used to calculate tax when Whop calculates it for the account. Only with a `paypal` `payment_method`. Only the keys you supply are kept.
 
         capture : typing.Optional[bool]
             Whether to capture a card payment immediately. Defaults to true. Pass false to place an authorization hold that must be captured in full within five days via the capture endpoint, or automatically after `auto_capture_after_minutes`.
@@ -1664,16 +2143,16 @@ class AsyncRawPaymentsClient:
             A confirmation token describing a payment method the buyer just supplied. Provide this instead of `member_id` and `payment_method_id`; the buyer is resolved from the token's billing email, or from `email`. The buyer may still have a step to complete — poll the payment's status for what to do next.
 
         email : typing.Optional[str]
-            The buyer's email, resolving or creating the user the payment belongs to. With `confirmation_token` it overrides the email the token carries, and is ignored when the token was created by a signed-in buyer; with `payment_method` it names a buyer the point of sale already knows, otherwise the sale belongs to a guest until a buyer is attached. Ignored with `member_id`.
+            The buyer's email, resolving or creating the user the payment belongs to. With `confirmation_token` it overrides the email the token carries, and is ignored when the token was created by a signed-in buyer; with a `card_present` `payment_method` it names a buyer the point of sale already knows, otherwise the sale belongs to a guest until a buyer is attached; with a `paypal` `payment_method` it names the buyer and is required unless `member_id` is provided. Ignored with `member_id`.
 
         ip_address : typing.Optional[str]
             The buyer's IPv4 or IPv6 address, used to assess the charge's risk and passed to the processor. Ignored unless a saved payment method is charged with `off_session` set to false.
 
         line_items : typing.Optional[typing.Sequence[CreatePaymentsRequestLineItemsItem]]
-            What the buyer is purchasing. Each entry takes exactly one of `plan_id` or an inline `plan`. One entry charges that variant; several entries form a cart, which requires every variant to be compatible, belong to this account, and use the same currency. Mutually exclusive with `plan_id` and `plan`.
+            What the buyer is purchasing. Each entry takes exactly one of `variant_id` or an inline `variant`. One entry charges that variant; several entries form a cart, which requires every variant to be compatible, belong to this account, and use the same currency. Mutually exclusive with `variant_id` and `variant`.
 
         member_id : typing.Optional[str]
-            The member to charge, prefixed `mber_`. Required with `payment_method_id` unless `confirmation_token` is provided.
+            The member to charge, prefixed `mber_`. Required with `payment_method_id` unless `confirmation_token` is provided. With a `paypal` `payment_method` it names the buyer instead of `email`, and must belong to a user.
 
         metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Custom metadata to attach to the payment.
@@ -1682,16 +2161,19 @@ class AsyncRawPaymentsClient:
             Whether the buyer is absent from your checkout and can't authenticate. Pass true when you charge the card without the buyer, such as a renewal on your own schedule. Pass false when the buyer is present, such as a one-click upsell right after checkout: the charge is processed as a customer-initiated card-on-file payment, and if the issuer asks the buyer to authenticate, the payment's status is `requires_action` with a `next_action` to send them to, after which they return to `return_url`. From API version 2026-10-07-1 it defaults to false when `return_url` is provided and to true otherwise; before that version it defaults to true. A saved Apple Pay, Google Pay or PayPal payment method is always charged with `off_session` true. Ignored unless `member_id` and `payment_method_id` are provided.
 
         payment_method : typing.Optional[CreatePaymentsRequestPaymentMethod]
-            A payment method collected on the seller's device rather than described by a confirmation token. `type` names it and the member named after it carries what the device needs. Today only `card_present` (Tap to Pay): nothing is collected on this call, the payment is created first and the reader then collects against it with the client secret the status endpoint serves in `next_action`. Mutually exclusive with `confirmation_token`, `member_id` and `payment_method_id`.
+            A payment method named on this call rather than described by a confirmation token. `type` names it and the member named after it carries its details. Nothing is collected on this call: the payment is created first and the buyer or device then acts on the `next_action` the status endpoint serves. `card_present` (Tap to Pay): the reader collects against the payment with the client secret in `next_action`. `paypal`: the buyer approves on PayPal's page, reached through a `redirect` `next_action`, then returns to `return_url`; `member_id` or `email` names the buyer. Mutually exclusive with `confirmation_token` and `payment_method_id`, and with `member_id` except for `paypal`.
 
         payment_method_id : typing.Optional[str]
             The stored payment method to charge, prefixed `payt_`. It must belong to the member. Required unless `confirmation_token` is provided.
 
         quote_id : typing.Optional[str]
-            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `plan` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `plan` takes only the same `plan` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `plan_id` or `line_items`, and a quote that priced variants by id never takes `plan`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address or by the country the buyer chose (`located_by` is `ip_address` or `presentment_country`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged by a processor that doesn't take quotes, such as a seller's own connected PayPal account; such a payment is refused before the payment method is used. A quote priced in a `presentment_currency` is charged in that currency at the quote's `exchange_rate`. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address or by the country the buyer chose; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted. `quote_rate_expired`: the exchange rate the quote was priced at has moved too far to charge; quote again. `payment_method_currency_unsupported`: the payment method cannot pay in the quote's currency; use another method, or quote again in another currency. `quote_processor_unsupported`: the payment would be processed by a processor that doesn't take quotes, such as a seller's own connected PayPal account; use another method, or omit `quote_id` to have tax calculated when the payment is charged.
+            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `variant` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `variant` takes only the same `variant` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `variant_id` or `line_items`, and a quote that priced variants by id never takes `variant`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address or by the country the buyer chose (`located_by` is `ip_address` or `presentment_country`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged by a processor that doesn't take quotes, such as a seller's own connected PayPal account; such a payment is refused before the payment method is used. A quote priced in a `presentment_currency` is charged in that currency at the quote's `exchange_rate`. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address or by the country the buyer chose; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted. `quote_rate_expired`: the exchange rate the quote was priced at has moved too far to charge; quote again. `payment_method_currency_unsupported`: the payment method cannot pay in the quote's currency; use another method, or quote again in another currency. `quote_processor_unsupported`: the payment would be processed by a processor that doesn't take quotes, such as a seller's own connected PayPal account; use another method, or omit `quote_id` to have tax calculated when the payment is charged.
 
         return_url : typing.Optional[str]
-            Where the buyer continues after completing an off-site step such as 3D Secure. An absolute https URL without credentials, at most 2,048 characters. Required when a saved payment method is charged with `off_session` false; otherwise ignored unless `confirmation_token` is provided.
+            Where the buyer continues after completing an off-site step such as 3D Secure. An absolute https URL without credentials, at most 2,048 characters. Required when a saved payment method is charged with `off_session` false; otherwise ignored unless `confirmation_token` or a `paypal` `payment_method` is provided.
+
+        setup_future_usage : typing.Optional[CreatePaymentsRequestSetupFutureUsage]
+            Attests that the buyer was told the payment method will be saved for later charges, and saves it once they approve, so it can be charged with `member_id` and `payment_method_id`. PayPal shows the buyer the agreement to future charges on its approval page. Omit it for a one-time payment that saves nothing. Ignored unless a `paypal` `payment_method` is provided.
 
         shipping_address : typing.Optional[CreatePaymentsRequestShippingAddress]
             Where physical goods ship, returned on the payment as `shipping_address`. Only the keys you supply are kept; omit it for digital goods.
@@ -1699,17 +2181,17 @@ class AsyncRawPaymentsClient:
         statement_descriptor : typing.Optional[str]
             Overrides the text on the buyer's card statement for this payment only. Takes precedence over the product's and account's custom descriptors, and changes neither. Must start with `WHOP*` unless the business processes as the merchant of record. For businesses processing as the merchant of record, omit the `WHOP*` prefix; the descriptor appears as provided. Must be 5-22 characters, contain at least one letter, and use only Latin letters, numbers, spaces, underscores, hyphens, or asterisks.
 
-        plan : typing.Optional[PaymentInputPlan]
-            The variant purchased, described by its attributes instead of an id: the variant with exactly these attributes is used, and one is created when none exists. Mutually exclusive with `plan_id` and `line_items`. Creating a variant requires `plan:create`; creating or updating a product requires the corresponding product permission.
-
-        plan_id : typing.Optional[str]
-            The variant purchased, prefixed `plan_`. It must belong to the account. Mutually exclusive with `plan` and `line_items`.
-
         promo_code : typing.Optional[str]
             The promo code as the buyer typed it, matched within the account regardless of case and surrounding spaces, as checkout matches it. It must be valid for the variant. Send it or `promo_code_id`, not both; an empty or whitespace-only string counts as not sent. A code the account does not have, or one that is no longer active, is refused before anything is written, with the error code `promo_invalid`. A code this purchase cannot use, such as one with no uses left or one restricted to other variants, products or buyers, is refused with `promo_invalid` too, and the error's message says why.
 
         promo_code_id : typing.Optional[str]
             An active promo code to apply, prefixed `promo_`. It must belong to the account and be valid for the variant. Send it or `promo_code`, not both. A code this purchase cannot use is refused with the error code `promo_invalid`, and the error's message says why.
+
+        variant : typing.Optional[PaymentInputVariant]
+            The variant purchased, described by its attributes instead of an id: the variant with exactly these attributes is used, and one is created when none exists. Mutually exclusive with `variant_id` and `line_items`. Creating a variant requires `plan:create`; creating or updating a product requires the corresponding product permission.
+
+        variant_id : typing.Optional[str]
+            The variant purchased, prefixed `plan_`. It must belong to the account. Mutually exclusive with `variant` and `line_items`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1726,6 +2208,11 @@ class AsyncRawPaymentsClient:
             json={
                 "affiliate_code": affiliate_code,
                 "auto_capture_after_minutes": auto_capture_after_minutes,
+                "billing_address": convert_and_respect_annotation_metadata(
+                    object_=billing_address,
+                    annotation=typing.Optional[CreatePaymentsRequestBillingAddress],
+                    direction="write",
+                ),
                 "capture": capture,
                 "confirmation_token": confirmation_token,
                 "email": email,
@@ -1746,6 +2233,7 @@ class AsyncRawPaymentsClient:
                 "payment_method_id": payment_method_id,
                 "quote_id": quote_id,
                 "return_url": return_url,
+                "setup_future_usage": setup_future_usage,
                 "shipping_address": convert_and_respect_annotation_metadata(
                     object_=shipping_address,
                     annotation=typing.Optional[CreatePaymentsRequestShippingAddress],
@@ -1753,12 +2241,12 @@ class AsyncRawPaymentsClient:
                 ),
                 "statement_descriptor": statement_descriptor,
                 "account_id": account_id,
-                "plan": convert_and_respect_annotation_metadata(
-                    object_=plan, annotation=PaymentInputPlan, direction="write"
-                ),
-                "plan_id": plan_id,
                 "promo_code": promo_code,
                 "promo_code_id": promo_code_id,
+                "variant": convert_and_respect_annotation_metadata(
+                    object_=variant, annotation=PaymentInputVariant, direction="write"
+                ),
+                "variant_id": variant_id,
             },
             headers={
                 "content-type": "application/json",
@@ -1831,6 +2319,177 @@ class AsyncRawPaymentsClient:
                         ),
                     ),
                 )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def summary(
+        self,
+        *,
+        groups: typing.Optional[
+            typing.Union[SummaryPaymentsRequestGroupsItem, typing.Sequence[SummaryPaymentsRequestGroupsItem]]
+        ] = None,
+        account_id: typing.Optional[str] = None,
+        statuses: typing.Optional[
+            typing.Union[SummaryPaymentsRequestStatusesItem, typing.Sequence[SummaryPaymentsRequestStatusesItem]]
+        ] = None,
+        substatuses: typing.Optional[
+            typing.Union[SummaryPaymentsRequestSubstatusesItem, typing.Sequence[SummaryPaymentsRequestSubstatusesItem]]
+        ] = None,
+        billing_reasons: typing.Optional[
+            typing.Union[
+                SummaryPaymentsRequestBillingReasonsItem, typing.Sequence[SummaryPaymentsRequestBillingReasonsItem]
+            ]
+        ] = None,
+        currencies: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        variant_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        product_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        payment_methods: typing.Optional[
+            typing.Union[
+                SummaryPaymentsRequestPaymentMethodsItem, typing.Sequence[SummaryPaymentsRequestPaymentMethodsItem]
+            ]
+        ] = None,
+        tracking_states: typing.Optional[
+            typing.Union[
+                SummaryPaymentsRequestTrackingStatesItem, typing.Sequence[SummaryPaymentsRequestTrackingStatesItem]
+            ]
+        ] = None,
+        created_after: typing.Optional[dt.datetime] = None,
+        created_before: typing.Optional[dt.datetime] = None,
+        refunded_after: typing.Optional[dt.datetime] = None,
+        refunded_before: typing.Optional[dt.datetime] = None,
+        dispute_alerted_after: typing.Optional[dt.datetime] = None,
+        dispute_alerted_before: typing.Optional[dt.datetime] = None,
+        dispute_created_after: typing.Optional[dt.datetime] = None,
+        dispute_created_before: typing.Optional[dt.datetime] = None,
+        query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[SummaryPaymentsResponse]:
+        """
+        Totals up the same payments the list returns, so you can build status tabs and filter options without paging through them. Takes the same filters as List Payments.
+
+        Parameters
+        ----------
+        groups : typing.Optional[typing.Union[SummaryPaymentsRequestGroupsItem, typing.Sequence[SummaryPaymentsRequestGroupsItem]]]
+            Which breakdowns to return, keyed by these names under `groups`. Repeat the parameter to ask for several; omit it for all of them.
+
+        account_id : typing.Optional[str]
+            Only payments charged by this account, prefixed `biz_`.
+
+        statuses : typing.Optional[typing.Union[SummaryPaymentsRequestStatusesItem, typing.Sequence[SummaryPaymentsRequestStatusesItem]]]
+            Only payments in any of these lifecycle states. Repeat the parameter to pass several.
+
+        substatuses : typing.Optional[typing.Union[SummaryPaymentsRequestSubstatusesItem, typing.Sequence[SummaryPaymentsRequestSubstatusesItem]]]
+            Only payments whose `substatus` is any of these. Repeat the parameter to pass several.
+
+        billing_reasons : typing.Optional[typing.Union[SummaryPaymentsRequestBillingReasonsItem, typing.Sequence[SummaryPaymentsRequestBillingReasonsItem]]]
+            Only payments charged for any of these reasons. Repeat the parameter to pass several.
+
+        currencies : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments presented in any of these three-letter currencies. Repeat the parameter to pass several.
+
+        variant_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments priced by any of these variants, each prefixed `plan_`. Repeat the parameter to pass several.
+
+        product_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Only payments for any of these products, each prefixed `prod_`. Repeat the parameter to pass several.
+
+        payment_methods : typing.Optional[typing.Union[SummaryPaymentsRequestPaymentMethodsItem, typing.Sequence[SummaryPaymentsRequestPaymentMethodsItem]]]
+            Only payments paid with any of these methods. Repeat the parameter to pass several.
+
+        tracking_states : typing.Optional[typing.Union[SummaryPaymentsRequestTrackingStatesItem, typing.Sequence[SummaryPaymentsRequestTrackingStatesItem]]]
+            Only payments in any of these tracking states. Requires `account_id` and the shipment:basic:read permission.
+
+        created_after : typing.Optional[dt.datetime]
+            Only payments created after this ISO 8601 timestamp.
+
+        created_before : typing.Optional[dt.datetime]
+            Only payments created before this ISO 8601 timestamp.
+
+        refunded_after : typing.Optional[dt.datetime]
+            Only payments refunded after this ISO 8601 timestamp.
+
+        refunded_before : typing.Optional[dt.datetime]
+            Only payments refunded before this ISO 8601 timestamp.
+
+        dispute_alerted_after : typing.Optional[dt.datetime]
+            Only payments with a dispute alert after this ISO 8601 timestamp.
+
+        dispute_alerted_before : typing.Optional[dt.datetime]
+            Only payments with a dispute alert before this ISO 8601 timestamp.
+
+        dispute_created_after : typing.Optional[dt.datetime]
+            Only payments with a dispute opened after this ISO 8601 timestamp.
+
+        dispute_created_before : typing.Optional[dt.datetime]
+            Only payments with a dispute opened before this ISO 8601 timestamp.
+
+        query : typing.Optional[str]
+            Search payments by payment ID, dispute ID, user ID, membership ID, user email, name, or username.
+
+        include_connected_accounts : typing.Optional[bool]
+            Only for searches: with `query`, also search the account's connected accounts. Requires `account_id` and `query`, and is a 400 without either; it never lists connected accounts' payments on its own. Matches on payment, dispute, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`). Free-text queries such as a name search only the named account. Connected accounts' payments are returned only for connected accounts you can read payments on.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[SummaryPaymentsResponse]
+            summary returned
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "payments/summary",
+            base_url=self._client_wrapper.get_environment().api,
+            method="GET",
+            params={
+                "groups": groups,
+                "account_id": account_id,
+                "statuses": statuses,
+                "substatuses": substatuses,
+                "billing_reasons": billing_reasons,
+                "currencies": currencies,
+                "variant_ids": variant_ids,
+                "product_ids": product_ids,
+                "payment_methods": payment_methods,
+                "tracking_states": tracking_states,
+                "created_after": serialize_datetime(created_after) if created_after is not None else None,
+                "created_before": serialize_datetime(created_before) if created_before is not None else None,
+                "refunded_after": serialize_datetime(refunded_after) if refunded_after is not None else None,
+                "refunded_before": serialize_datetime(refunded_before) if refunded_before is not None else None,
+                "dispute_alerted_after": serialize_datetime(dispute_alerted_after)
+                if dispute_alerted_after is not None
+                else None,
+                "dispute_alerted_before": serialize_datetime(dispute_alerted_before)
+                if dispute_alerted_before is not None
+                else None,
+                "dispute_created_after": serialize_datetime(dispute_created_after)
+                if dispute_created_after is not None
+                else None,
+                "dispute_created_before": serialize_datetime(dispute_created_before)
+                if dispute_created_before is not None
+                else None,
+                "query": query,
+                "include_connected_accounts": include_connected_accounts,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    SummaryPaymentsResponse,
+                    parse_obj_as(
+                        type_=SummaryPaymentsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -2546,16 +3205,20 @@ class AsyncRawPaymentsClient:
         self,
         payment_id: str,
         *,
+        client_secret: typing.Optional[str] = OMIT,
         return_url: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PaymentStatus]:
         """
-        Charges the saved card again, with the buyer present, for a payment their bank declined until they authenticate (such as with 3DS). Retrieve the payment afterward to get the bank's challenge from `next_action`; once the buyer completes it, they land on `return_url`, or on Whop's hosted verification page if none was given. Only the buyer can call this, with the payment's `client_secret`, an OAuth token for their own account with the `member:payment_methods:use` scope, or the token from a verified `payment` session intent. An API key gets a `403`. Has no effect on a payment that is not waiting on authentication.
+        Charges the saved card again, with the buyer present, for a payment their bank declined until they authenticate (such as with 3DS). Retrieve the payment afterward to get the bank's challenge from `next_action`; once the buyer completes it, they land on `return_url`, or on Whop's hosted verification page if none was given. Only the buyer can call this, with the payment's `client_secret` in the body, an OAuth token for their own account with the `member:payment_methods:use` scope, or the token from a verified `payment` session intent. An API key gets a `403`. Has no effect on a payment that is not waiting on authentication.
 
         Parameters
         ----------
         payment_id : str
             The unique identifier of the payment.
+
+        client_secret : typing.Optional[str]
+            The payment's own `client_secret`, for a buyer without a token.
 
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step. Must be an absolute https URL without credentials (http is allowed for localhost), at most 2,048 characters. Defaults to Whop's hosted verification page. Ignored when the payment is not waiting on authentication.
@@ -2573,6 +3236,7 @@ class AsyncRawPaymentsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
+                "client_secret": client_secret,
                 "return_url": return_url,
             },
             headers={
@@ -2656,10 +3320,15 @@ class AsyncRawPaymentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def update_return_url(
-        self, payment_id: str, *, return_url: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        payment_id: str,
+        *,
+        return_url: str,
+        client_secret: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PaymentStatus]:
         """
-        Changes where the buyer lands after completing an off-site step, up until they return. Accepts either a secret key or the payment's own `client_secret`, so the surface that knows the final destination can set it.
+        Changes where the buyer lands after completing an off-site step, up until they return. Accepts either a secret key or the payment's own `client_secret` in the body, so the surface that knows the final destination can set it.
 
         Parameters
         ----------
@@ -2668,6 +3337,9 @@ class AsyncRawPaymentsClient:
 
         return_url : str
             Where the buyer continues after completing an off-site step. Must be an absolute https URL without credentials (http is allowed for localhost), at most 2,048 characters.
+
+        client_secret : typing.Optional[str]
+            The payment's own `client_secret`, for a caller without a secret key.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2682,6 +3354,7 @@ class AsyncRawPaymentsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
+                "client_secret": client_secret,
                 "return_url": return_url,
             },
             headers={
@@ -2732,15 +3405,22 @@ class AsyncRawPaymentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def retrieve_status(
-        self, payment_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        payment_id: str,
+        *,
+        client_secret: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PaymentStatus]:
         """
-        Retrieves how far a payment has got and what the buyer must do next, if anything. A payment is collected in the background, so poll this rather than reading the create response. Accepts either a secret key or the payment's own `client_secret`, so the surface collecting the payment can poll it directly.
+        Retrieves how far a payment has got and what the buyer must do next, if anything. A payment is collected in the background, so poll this rather than reading the create response. Accepts either a secret key or the payment's own `client_secret` as a query parameter, so the surface collecting the payment can poll it directly.
 
         Parameters
         ----------
         payment_id : str
             The unique identifier of the payment.
+
+        client_secret : typing.Optional[str]
+            The payment's own `client_secret`, for a caller without a secret key.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2754,6 +3434,9 @@ class AsyncRawPaymentsClient:
             f"payments/{encode_path_param(payment_id)}/status",
             base_url=self._client_wrapper.get_environment().api,
             method="GET",
+            params={
+                "client_secret": client_secret,
+            },
             request_options=request_options,
         )
         try:

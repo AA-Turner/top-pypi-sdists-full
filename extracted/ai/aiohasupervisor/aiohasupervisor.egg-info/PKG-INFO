@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohasupervisor
-Version: 0.8.1
+Version: 0.9.0
 Summary: Asynchronous python client for Home Assistant Supervisor.
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License: Apache-2.0
@@ -24,14 +24,14 @@ Requires-Dist: mashumaro==3.23; extra == "dev"
 Requires-Dist: orjson==3.13.0; extra == "dev"
 Requires-Dist: aiointercept==1.0.0; extra == "dev"
 Requires-Dist: codespell==2.4.3; extra == "dev"
-Requires-Dist: coverage==7.16.2; extra == "dev"
+Requires-Dist: coverage==7.17.0; extra == "dev"
 Requires-Dist: mypy==2.4.0; extra == "dev"
 Requires-Dist: pre-commit==4.7.0; extra == "dev"
 Requires-Dist: pytest-asyncio==1.4.0; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
 Requires-Dist: pytest-timeout==2.4.0; extra == "dev"
 Requires-Dist: pytest==9.1.1; extra == "dev"
-Requires-Dist: ruff==0.17.1; extra == "dev"
+Requires-Dist: ruff==0.17.2; extra == "dev"
 Requires-Dist: yamllint==1.38.0; extra == "dev"
 Dynamic: license-file
 
@@ -49,6 +49,13 @@ to find the access token in the `SUPERVISOR_TOKEN` env which is set automaticall
 by Supervisor for add-ons. Currently there is no way to get a long-lived access
 token for Supervisor outside these use cases so the library's usage is limited
 to these.
+
+Where Supervisor provides a Unix socket, pass its path as `unix_socket` instead.
+Supervisor identifies the caller by the socket, so no token is needed or sent:
+
+```py
+client = SupervisorClient(unix_socket=Path(os.environ["SUPERVISOR_SOCKET"]))
+```
 
 ## Installation
 

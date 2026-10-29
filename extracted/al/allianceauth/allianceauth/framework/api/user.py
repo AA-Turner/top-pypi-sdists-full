@@ -2,9 +2,14 @@
 Alliance Auth User API
 """
 
+__lazy_modules__ = ["allianceauth.eveonline.models"]
+
+from typing import TYPE_CHECKING
 
 from allianceauth.authentication.models import CharacterOwnership, User
-from allianceauth.eveonline.models import EveCharacter
+
+if TYPE_CHECKING:
+    from allianceauth.eveonline.models import EveCharacter
 
 
 def get_all_characters_from_user(user: User, main_first: bool = False) -> list:
@@ -46,7 +51,7 @@ def get_all_characters_from_user(user: User, main_first: bool = False) -> list:
     return characters
 
 
-def get_main_character_from_user(user: User) -> EveCharacter | None:
+def get_main_character_from_user(user: User) -> "EveCharacter | None":
     """
     Get the main character from a user
 

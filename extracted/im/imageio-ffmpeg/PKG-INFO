@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: imageio-ffmpeg
-Version: 0.6.0
+Version: 0.7.0
 Summary: FFMPEG wrapper for Python
 Home-page: https://github.com/imageio/imageio-ffmpeg
 Download-URL: http://pypi.python.org/pypi/imageio-ffmpeg
@@ -19,14 +19,22 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Provides: imageio_ffmpeg
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides
+Dynamic: requires-python
+Dynamic: summary
 
 FFMPEG wrapper for Python.
 

@@ -112,6 +112,47 @@ class Disk(HealthCheck):
             raise ServiceReturnedUnexpectedResult("ValueError") from e
 
 
+class _CGroup:
+    """Memory usage of a cgroup v2 control group."""
+
+    total: int
+    available: int
+
+    def __init__(
+        self,
+        root: pathlib.Path = pathlib.Path("/sys/fs/cgroup"),
+        proc_self_cgroup: pathlib.Path = pathlib.Path("/proc/self/cgroup"),
+    ):
+        lines = proc_self_cgroup.read_text().splitlines()
+        path = root / next(
+            (line.removeprefix("0::/") for line in lines if line.startswith("0::/")),
+            "",
+        )
+        if not (total := self._field(path, "memory.max")):
+            raise ValueError("Unlimited")
+        current = self._field(path, "memory.current")
+        inactive_file = self._stat(path, "memory.stat", "inactive_file")
+        self.total = total
+        self.available = total - max(current - inactive_file, 0)
+
+    @property
+    def percent(self) -> float:
+        """Return the memory usage in percent."""
+        return 100 * (self.total - self.available) / self.total
+
+    @staticmethod
+    def _field(path: pathlib.Path, name: str) -> int:
+        return int(path.joinpath(name).read_text())
+
+    @staticmethod
+    def _stat(path: pathlib.Path, name: str, key: str) -> int:
+        lines = path.joinpath(name).read_text().splitlines()
+        return next(
+            (int(value) for field, value in map(str.split, lines) if field == key),
+            0,
+        )
+
+
 @dataclasses.dataclass()
 class Memory(HealthCheck):
     """
@@ -129,10 +170,13 @@ class Memory(HealthCheck):
 
     def run(self):
         try:
-            memory = psutil.virtual_memory()
+            try:
+                memory = _CGroup()
+            except OSError, ValueError:
+                memory = psutil.virtual_memory()
             available_gibi = memory.available / (1024**3)
             total_gibi = memory.total / (1024**3)
-            msg = f"RAM {available_gibi:.1f}/{total_gibi:.1f}GiB ({memory.percent}\u202f%)"
+            msg = f"RAM {available_gibi:.1f}/{total_gibi:.1f}GiB ({memory.percent:.1f}\u202f%)"
             if (
                 self.min_gibibytes_available
                 and available_gibi < self.min_gibibytes_available
@@ -147,21 +191,29 @@ class Memory(HealthCheck):
             raise ServiceReturnedUnexpectedResult("ValueError") from e
 
 
+SENSOR_HIGH_THRESHOLD = object()
+
+
 @dataclasses.dataclass
 class Temperature(HealthCheck):
     """
     Warn about system temperature.
 
-    If no maximum temperature is specified, the sensor's high threshold will be used.
+    Each sensor's current temperature is compared to a maximum.
+    Without a configured maximum, each sensor's high threshold applies.
+    A sensor without a high threshold is skipped unless a maximum is configured.
+    A configured maximum above a sensor's critical threshold is reported as a warning.
 
     Args:
         device: The device to check temperature for, e.g. 'coretemp' for CPU temperature on many systems. If None, check all available sensors.
-        max_temperature_celsius: Maximum temperature in degree Celsius or None to disable the check.
+        max_temperature_celsius: Maximum temperature in degree Celsius. If omitted, use each sensor's high threshold. Set to None to disable the check.
 
     """
 
     device: str | None = dataclasses.field(default="coretemp")
-    max_temperature_celsius: float | None = dataclasses.field(default=None, repr=False)
+    max_temperature_celsius: float | None | object = dataclasses.field(
+        default=SENSOR_HIGH_THRESHOLD, repr=False
+    )
     hostname: str = dataclasses.field(default_factory=socket.gethostname, init=False)
 
     def run(self):
@@ -188,9 +240,19 @@ class Temperature(HealthCheck):
             self._check_temperature(sensor)
 
     def _check_temperature(self, sensor, device=None):
-        """Warn when a sensor reaches the configured or built-in high threshold."""
-        if sensor.current < (self.max_temperature_celsius or sensor.high):
-            return
-        location = f"{device} " if device else ""
-        msg = f"{location}{sensor.label} {sensor.current:.1f}\u202f°C"
-        raise ServiceWarning(msg)
+        """Warn about a sensor exceeding its threshold or a misconfigured maximum."""
+        if self.max_temperature_celsius is not None:
+            location = f"{device} " if device else ""
+            if self.max_temperature_celsius is SENSOR_HIGH_THRESHOLD:
+                threshold = sensor.high
+            else:
+                threshold = self.max_temperature_celsius
+                if sensor.critical is not None and threshold > sensor.critical:
+                    msg = (
+                        f"{location}Configured maximum {threshold:.1f}\u202f°C exceeds "
+                        f"critical threshold {sensor.critical:.1f}\u202f°C of sensor {sensor.label!r}"
+                    )
+                    raise ServiceWarning(msg)
+            if threshold is not None and sensor.current >= threshold:
+                msg = f"{location}{sensor.label} {sensor.current:.1f}\u202f°C"
+                raise ServiceWarning(msg)

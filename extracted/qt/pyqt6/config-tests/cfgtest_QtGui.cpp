@@ -33,6 +33,10 @@ int main(int argc, char **argv)
 #endif
 #endif
 
+#if !QT_CONFIG(metal)
+    out << "PyQt_Metal\n";
+#endif
+
 #if defined(QT_NO_RAWFONT)
     out << "PyQt_RawFont\n";
 #endif

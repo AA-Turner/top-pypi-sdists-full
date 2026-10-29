@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -475,7 +476,10 @@ class PythonInfo:  # ruff:ignore[too-many-public-methods]
             resolved = cls.from_exe(target.system_executable, cache)
             if resolved is not None:
                 target = resolved
-        target.executable = start_executable
+        if target.executable != start_executable:
+            # the cache hands every lookup of this base the same object, so point a copy at the start executable
+            target = copy.copy(target)
+            target.executable = start_executable
         return target
 
     _cache_exe_discovery: ClassVar[dict[tuple[str, bool], PythonInfo]] = {}

@@ -16,8 +16,15 @@ With debug mode enabled, it will print a message for each missing file when runn
 which can help identify issues with static file references during development.
 """
 
+__lazy_modules__ = ["collections.abc"]
+
+from typing import TYPE_CHECKING, Any
+
 from django.conf import settings
 from django.contrib.staticfiles.storage import ManifestStaticFilesStorage
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class AaManifestStaticFilesStorage(ManifestStaticFilesStorage):
@@ -41,7 +48,7 @@ class AaManifestStaticFilesStorage(ManifestStaticFilesStorage):
         # Remove quotes from the name
         return name.replace('"', "").replace("'", "")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         """
         Initialize the static files storage, ignoring missing files.
 
@@ -55,7 +62,7 @@ class AaManifestStaticFilesStorage(ManifestStaticFilesStorage):
 
         super().__init__(*args, **kwargs)
 
-    def hashed_name(self, name, content=None, filename=None):
+    def hashed_name(self, name: str, content=None, filename: str | None = None) -> str:
         """
         Generate a hashed name for the given static file, ignoring missing files.
 
@@ -85,7 +92,7 @@ class AaManifestStaticFilesStorage(ManifestStaticFilesStorage):
 
             return name
 
-    def post_process(self, *args, **kwargs):
+    def post_process(self, *args, **kwargs) -> "Iterator[Any]":
         """
         Post-process the static files, printing any missing files in debug mode.
 

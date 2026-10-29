@@ -104,13 +104,11 @@ def settings_path(source: str) -> Path:
 
 def _read_claude(path: Path) -> tuple[State, object, dict | None]:
     """State, raw value and the parsed settings (parsed ONCE; the write reuses them)."""
-    if not path.is_file():
-        return State.UNSET, None, {}
     try:
-        parsed = json.loads(path.read_text(encoding="utf-8"))
+        # Use the same reader as the other Claude settings writers: Claude treats
+        # an empty settings.json as defaults, and so must this preference.
+        parsed = statusline._load_for_edit(path)
     except (OSError, ValueError):
-        return State.UNREADABLE, None, None
-    if not isinstance(parsed, dict):
         return State.UNREADABLE, None, None
     if CLAUDE_KEY not in parsed:
         return State.UNSET, None, parsed

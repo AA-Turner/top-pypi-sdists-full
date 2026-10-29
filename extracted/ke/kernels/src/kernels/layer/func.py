@@ -1,4 +1,3 @@
-import functools
 import logging
 from pathlib import Path
 from types import ModuleType
@@ -9,7 +8,6 @@ from huggingface_hub import constants
 from kernels._rust import KernelDependency, KernelLocks
 from kernels.resolver import LockedHubCacheResolver, LockedHubResolver
 
-from .._versions import select_revision_or_version
 from ..hf_hub import _get_hf_api
 from ..load import (
     get_kernel,
@@ -17,11 +15,15 @@ from ..load import (
     get_local_kernel,
 )
 from ..locking import (
+    _get_locked_kernel_revision,
     get_caller_locked_kernel_revision,
     get_locked_kernel_revision,
 )
-from ..validate import AllValidator, default_metadata_validators
-from .layer import _create_func_module, use_kernel_forward_from_hub
+from ..validate import AllKernelValidator, AllMetadataValidator, default_kernel_validators, default_metadata_validators
+from .layer import (
+    _create_func_module,
+    use_kernel_forward_from_hub,
+)
 from .repos import RepositoryProtocol
 
 if TYPE_CHECKING:
@@ -104,19 +106,11 @@ class FuncRepository:
         self._revision = revision
         self._version = version
 
-    @functools.lru_cache()
-    def _resolve_revision(self) -> str:
-        return select_revision_or_version(
-            repo_id=self._repo_id,
-            revision=self._revision,
-            version=self._version,
-            local_files_only=constants.HF_HUB_OFFLINE,
-        )
-
     def load(self) -> Type["nn.Module"]:
         kernel = get_kernel(
             self._repo_id,
-            revision=self._resolve_revision(),
+            revision=self._revision,
+            version=self._version,
             trust_remote_code=self._trust_remote_code,
         )
         return _get_kernel_func(self, kernel)
@@ -144,8 +138,11 @@ class FuncRepository:
             )
         )
 
+    def _revision_str(self) -> str:
+        return self._revision if self._revision is not None else f"version {self._version}"
+
     def __str__(self) -> str:
-        return f"`{self._repo_id}` (revision: {self._resolve_revision()}), function `{self.func_name}`"
+        return f"`{self._repo_id}` (revision: {self._revision_str()}), function `{self.func_name}`"
 
 
 class LocalFuncRepository:
@@ -336,7 +333,8 @@ class LockedFuncRepository:
             backend=None,
             kernel=self.kernel_dep,
             resolver=resolver,
-            metadata_validator=AllValidator(validators=default_metadata_validators()),
+            kernel_validator=AllKernelValidator(validators=default_kernel_validators()),
+            metadata_validator=AllMetadataValidator(validators=default_metadata_validators()),
         )
         return _get_kernel_func(self, kernel)
 
@@ -366,6 +364,24 @@ class LockedFuncRepository:
     def __str__(self) -> str:
         commit = self.kernel_locks[self.kernel_dep].commit
         return f"`{self._repo_id}` (revision: {commit}), function `{self.func_name}`"
+
+    def __getstate__(self):
+        # `kernel_locks` is a Rust object that does not support pickling. So,
+        # serialize it through JSON. `kernel_dep` is derived from it.
+        return {
+            "repo_id": self._repo_id,
+            "lockfile": self._lockfile,
+            "func_name": self.func_name,
+            "trust_remote_code": self._trust_remote_code,
+            "kernel_locks": self.kernel_locks.to_json(),
+        }
+
+    def __setstate__(self, state: dict):
+        self._repo_id = state["repo_id"]
+        self._lockfile = state["lockfile"]
+        self.func_name = state["func_name"]
+        self._trust_remote_code = state["trust_remote_code"]
+        self.kernel_locks, self.kernel_dep = _get_locked_kernel_revision(state["repo_id"], state["kernel_locks"])
 
 
 def _get_kernel_func(repo: FuncRepositoryProtocol, kernel: ModuleType) -> Type["nn.Module"]:

@@ -6,22 +6,29 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .create_payments_request_billing_address import CreatePaymentsRequestBillingAddress
     from .create_payments_request_line_items_item import CreatePaymentsRequestLineItemsItem
-    from .create_payments_request_line_items_item_plan import CreatePaymentsRequestLineItemsItemPlan
-    from .create_payments_request_line_items_item_plan_currency import CreatePaymentsRequestLineItemsItemPlanCurrency
-    from .create_payments_request_line_items_item_plan_override_tax_type import (
-        CreatePaymentsRequestLineItemsItemPlanOverrideTaxType,
+    from .create_payments_request_line_items_item_variant import CreatePaymentsRequestLineItemsItemVariant
+    from .create_payments_request_line_items_item_variant_billing_type import (
+        CreatePaymentsRequestLineItemsItemVariantBillingType,
     )
-    from .create_payments_request_line_items_item_plan_plan_type import CreatePaymentsRequestLineItemsItemPlanPlanType
-    from .create_payments_request_line_items_item_plan_product import CreatePaymentsRequestLineItemsItemPlanProduct
-    from .create_payments_request_line_items_item_plan_product_global_affiliate_status import (
-        CreatePaymentsRequestLineItemsItemPlanProductGlobalAffiliateStatus,
+    from .create_payments_request_line_items_item_variant_currency import (
+        CreatePaymentsRequestLineItemsItemVariantCurrency,
     )
-    from .create_payments_request_line_items_item_plan_product_visibility import (
-        CreatePaymentsRequestLineItemsItemPlanProductVisibility,
+    from .create_payments_request_line_items_item_variant_override_tax_type import (
+        CreatePaymentsRequestLineItemsItemVariantOverrideTaxType,
     )
-    from .create_payments_request_line_items_item_plan_visibility import (
-        CreatePaymentsRequestLineItemsItemPlanVisibility,
+    from .create_payments_request_line_items_item_variant_product import (
+        CreatePaymentsRequestLineItemsItemVariantProduct,
+    )
+    from .create_payments_request_line_items_item_variant_product_global_affiliate_status import (
+        CreatePaymentsRequestLineItemsItemVariantProductGlobalAffiliateStatus,
+    )
+    from .create_payments_request_line_items_item_variant_product_visibility import (
+        CreatePaymentsRequestLineItemsItemVariantProductVisibility,
+    )
+    from .create_payments_request_line_items_item_variant_visibility import (
+        CreatePaymentsRequestLineItemsItemVariantVisibility,
     )
     from .create_payments_request_payment_method import CreatePaymentsRequestPaymentMethod
     from .create_payments_request_payment_method_card_present import CreatePaymentsRequestPaymentMethodCardPresent
@@ -29,14 +36,21 @@ if typing.TYPE_CHECKING:
         CreatePaymentsRequestPaymentMethodCardPresentPlatform,
     )
     from .create_payments_request_payment_method_type import CreatePaymentsRequestPaymentMethodType
+    from .create_payments_request_setup_future_usage import CreatePaymentsRequestSetupFutureUsage
     from .create_payments_request_shipping_address import CreatePaymentsRequestShippingAddress
     from .list_fees_payments_response import ListFeesPaymentsResponse
     from .list_fees_payments_response_page_info import ListFeesPaymentsResponsePageInfo
     from .list_payments_request_billing_reason import ListPaymentsRequestBillingReason
+    from .list_payments_request_billing_reasons_item import ListPaymentsRequestBillingReasonsItem
     from .list_payments_request_direction import ListPaymentsRequestDirection
     from .list_payments_request_mode import ListPaymentsRequestMode
     from .list_payments_request_order import ListPaymentsRequestOrder
+    from .list_payments_request_payment_methods_item import ListPaymentsRequestPaymentMethodsItem
     from .list_payments_request_status import ListPaymentsRequestStatus
+    from .list_payments_request_statuses_item import ListPaymentsRequestStatusesItem
+    from .list_payments_request_substatuses_item import ListPaymentsRequestSubstatusesItem
+    from .list_payments_request_tracking_states_item import ListPaymentsRequestTrackingStatesItem
+    from .list_payments_request_tracking_status import ListPaymentsRequestTrackingStatus
     from .list_payments_response import ListPaymentsResponse
     from .list_payments_response_page_info import ListPaymentsResponsePageInfo
     from .post_payment_authorized_payload import PostPaymentAuthorizedPayload
@@ -60,29 +74,46 @@ if typing.TYPE_CHECKING:
     from .post_payment_succeeded_payload import PostPaymentSucceededPayload
     from .post_payment_succeeded_payload_api_version import PostPaymentSucceededPayloadApiVersion
     from .post_payment_succeeded_payload_type import PostPaymentSucceededPayloadType
+    from .summary_payments_request_billing_reasons_item import SummaryPaymentsRequestBillingReasonsItem
+    from .summary_payments_request_groups_item import SummaryPaymentsRequestGroupsItem
+    from .summary_payments_request_payment_methods_item import SummaryPaymentsRequestPaymentMethodsItem
+    from .summary_payments_request_statuses_item import SummaryPaymentsRequestStatusesItem
+    from .summary_payments_request_substatuses_item import SummaryPaymentsRequestSubstatusesItem
+    from .summary_payments_request_tracking_states_item import SummaryPaymentsRequestTrackingStatesItem
+    from .summary_payments_response import SummaryPaymentsResponse
+    from .summary_payments_response_groups import SummaryPaymentsResponseGroups
+    from .summary_payments_response_groups_substatus import SummaryPaymentsResponseGroupsSubstatus
     from .update_payments_request_shipping_address import UpdatePaymentsRequestShippingAddress
 _dynamic_imports: typing.Dict[str, str] = {
+    "CreatePaymentsRequestBillingAddress": ".create_payments_request_billing_address",
     "CreatePaymentsRequestLineItemsItem": ".create_payments_request_line_items_item",
-    "CreatePaymentsRequestLineItemsItemPlan": ".create_payments_request_line_items_item_plan",
-    "CreatePaymentsRequestLineItemsItemPlanCurrency": ".create_payments_request_line_items_item_plan_currency",
-    "CreatePaymentsRequestLineItemsItemPlanOverrideTaxType": ".create_payments_request_line_items_item_plan_override_tax_type",
-    "CreatePaymentsRequestLineItemsItemPlanPlanType": ".create_payments_request_line_items_item_plan_plan_type",
-    "CreatePaymentsRequestLineItemsItemPlanProduct": ".create_payments_request_line_items_item_plan_product",
-    "CreatePaymentsRequestLineItemsItemPlanProductGlobalAffiliateStatus": ".create_payments_request_line_items_item_plan_product_global_affiliate_status",
-    "CreatePaymentsRequestLineItemsItemPlanProductVisibility": ".create_payments_request_line_items_item_plan_product_visibility",
-    "CreatePaymentsRequestLineItemsItemPlanVisibility": ".create_payments_request_line_items_item_plan_visibility",
+    "CreatePaymentsRequestLineItemsItemVariant": ".create_payments_request_line_items_item_variant",
+    "CreatePaymentsRequestLineItemsItemVariantBillingType": ".create_payments_request_line_items_item_variant_billing_type",
+    "CreatePaymentsRequestLineItemsItemVariantCurrency": ".create_payments_request_line_items_item_variant_currency",
+    "CreatePaymentsRequestLineItemsItemVariantOverrideTaxType": ".create_payments_request_line_items_item_variant_override_tax_type",
+    "CreatePaymentsRequestLineItemsItemVariantProduct": ".create_payments_request_line_items_item_variant_product",
+    "CreatePaymentsRequestLineItemsItemVariantProductGlobalAffiliateStatus": ".create_payments_request_line_items_item_variant_product_global_affiliate_status",
+    "CreatePaymentsRequestLineItemsItemVariantProductVisibility": ".create_payments_request_line_items_item_variant_product_visibility",
+    "CreatePaymentsRequestLineItemsItemVariantVisibility": ".create_payments_request_line_items_item_variant_visibility",
     "CreatePaymentsRequestPaymentMethod": ".create_payments_request_payment_method",
     "CreatePaymentsRequestPaymentMethodCardPresent": ".create_payments_request_payment_method_card_present",
     "CreatePaymentsRequestPaymentMethodCardPresentPlatform": ".create_payments_request_payment_method_card_present_platform",
     "CreatePaymentsRequestPaymentMethodType": ".create_payments_request_payment_method_type",
+    "CreatePaymentsRequestSetupFutureUsage": ".create_payments_request_setup_future_usage",
     "CreatePaymentsRequestShippingAddress": ".create_payments_request_shipping_address",
     "ListFeesPaymentsResponse": ".list_fees_payments_response",
     "ListFeesPaymentsResponsePageInfo": ".list_fees_payments_response_page_info",
     "ListPaymentsRequestBillingReason": ".list_payments_request_billing_reason",
+    "ListPaymentsRequestBillingReasonsItem": ".list_payments_request_billing_reasons_item",
     "ListPaymentsRequestDirection": ".list_payments_request_direction",
     "ListPaymentsRequestMode": ".list_payments_request_mode",
     "ListPaymentsRequestOrder": ".list_payments_request_order",
+    "ListPaymentsRequestPaymentMethodsItem": ".list_payments_request_payment_methods_item",
     "ListPaymentsRequestStatus": ".list_payments_request_status",
+    "ListPaymentsRequestStatusesItem": ".list_payments_request_statuses_item",
+    "ListPaymentsRequestSubstatusesItem": ".list_payments_request_substatuses_item",
+    "ListPaymentsRequestTrackingStatesItem": ".list_payments_request_tracking_states_item",
+    "ListPaymentsRequestTrackingStatus": ".list_payments_request_tracking_status",
     "ListPaymentsResponse": ".list_payments_response",
     "ListPaymentsResponsePageInfo": ".list_payments_response_page_info",
     "PostPaymentAuthorizedPayload": ".post_payment_authorized_payload",
@@ -106,6 +137,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PostPaymentSucceededPayload": ".post_payment_succeeded_payload",
     "PostPaymentSucceededPayloadApiVersion": ".post_payment_succeeded_payload_api_version",
     "PostPaymentSucceededPayloadType": ".post_payment_succeeded_payload_type",
+    "SummaryPaymentsRequestBillingReasonsItem": ".summary_payments_request_billing_reasons_item",
+    "SummaryPaymentsRequestGroupsItem": ".summary_payments_request_groups_item",
+    "SummaryPaymentsRequestPaymentMethodsItem": ".summary_payments_request_payment_methods_item",
+    "SummaryPaymentsRequestStatusesItem": ".summary_payments_request_statuses_item",
+    "SummaryPaymentsRequestSubstatusesItem": ".summary_payments_request_substatuses_item",
+    "SummaryPaymentsRequestTrackingStatesItem": ".summary_payments_request_tracking_states_item",
+    "SummaryPaymentsResponse": ".summary_payments_response",
+    "SummaryPaymentsResponseGroups": ".summary_payments_response_groups",
+    "SummaryPaymentsResponseGroupsSubstatus": ".summary_payments_response_groups_substatus",
     "UpdatePaymentsRequestShippingAddress": ".update_payments_request_shipping_address",
 }
 
@@ -132,27 +172,35 @@ def __dir__():
 
 
 __all__ = [
+    "CreatePaymentsRequestBillingAddress",
     "CreatePaymentsRequestLineItemsItem",
-    "CreatePaymentsRequestLineItemsItemPlan",
-    "CreatePaymentsRequestLineItemsItemPlanCurrency",
-    "CreatePaymentsRequestLineItemsItemPlanOverrideTaxType",
-    "CreatePaymentsRequestLineItemsItemPlanPlanType",
-    "CreatePaymentsRequestLineItemsItemPlanProduct",
-    "CreatePaymentsRequestLineItemsItemPlanProductGlobalAffiliateStatus",
-    "CreatePaymentsRequestLineItemsItemPlanProductVisibility",
-    "CreatePaymentsRequestLineItemsItemPlanVisibility",
+    "CreatePaymentsRequestLineItemsItemVariant",
+    "CreatePaymentsRequestLineItemsItemVariantBillingType",
+    "CreatePaymentsRequestLineItemsItemVariantCurrency",
+    "CreatePaymentsRequestLineItemsItemVariantOverrideTaxType",
+    "CreatePaymentsRequestLineItemsItemVariantProduct",
+    "CreatePaymentsRequestLineItemsItemVariantProductGlobalAffiliateStatus",
+    "CreatePaymentsRequestLineItemsItemVariantProductVisibility",
+    "CreatePaymentsRequestLineItemsItemVariantVisibility",
     "CreatePaymentsRequestPaymentMethod",
     "CreatePaymentsRequestPaymentMethodCardPresent",
     "CreatePaymentsRequestPaymentMethodCardPresentPlatform",
     "CreatePaymentsRequestPaymentMethodType",
+    "CreatePaymentsRequestSetupFutureUsage",
     "CreatePaymentsRequestShippingAddress",
     "ListFeesPaymentsResponse",
     "ListFeesPaymentsResponsePageInfo",
     "ListPaymentsRequestBillingReason",
+    "ListPaymentsRequestBillingReasonsItem",
     "ListPaymentsRequestDirection",
     "ListPaymentsRequestMode",
     "ListPaymentsRequestOrder",
+    "ListPaymentsRequestPaymentMethodsItem",
     "ListPaymentsRequestStatus",
+    "ListPaymentsRequestStatusesItem",
+    "ListPaymentsRequestSubstatusesItem",
+    "ListPaymentsRequestTrackingStatesItem",
+    "ListPaymentsRequestTrackingStatus",
     "ListPaymentsResponse",
     "ListPaymentsResponsePageInfo",
     "PostPaymentAuthorizedPayload",
@@ -176,5 +224,14 @@ __all__ = [
     "PostPaymentSucceededPayload",
     "PostPaymentSucceededPayloadApiVersion",
     "PostPaymentSucceededPayloadType",
+    "SummaryPaymentsRequestBillingReasonsItem",
+    "SummaryPaymentsRequestGroupsItem",
+    "SummaryPaymentsRequestPaymentMethodsItem",
+    "SummaryPaymentsRequestStatusesItem",
+    "SummaryPaymentsRequestSubstatusesItem",
+    "SummaryPaymentsRequestTrackingStatesItem",
+    "SummaryPaymentsResponse",
+    "SummaryPaymentsResponseGroups",
+    "SummaryPaymentsResponseGroupsSubstatus",
     "UpdatePaymentsRequestShippingAddress",
 ]

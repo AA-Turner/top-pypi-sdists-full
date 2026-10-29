@@ -76,18 +76,24 @@ class ConstanceAdmin(admin.ModelAdmin):
             "is_date": isinstance(default, date),
             "is_datetime": isinstance(default, datetime),
             "is_checkbox": isinstance(form_field.field.widget, forms.CheckboxInput),
-            "is_multi_select": isinstance(
-                form_field.field.widget, (forms.SelectMultiple, forms.CheckboxSelectMultiple)
-            ),
+            "is_multi_select": isinstance(form_field.field.widget, forms.SelectMultiple | forms.CheckboxSelectMultiple),
             "is_file": isinstance(form_field.field.widget, forms.FileInput),
         }
-        if config_value["is_multi_select"]:
-            config_value["json_default"] = json.dumps(default if isinstance(default, list) else [default])
         if field_type and field_type in settings.ADDITIONAL_FIELDS:
             serialized_default = form[name].field.prepare_value(default)
             config_value["default"] = serialized_default
             config_value["raw_default"] = serialized_default
             config_value["value"] = form[name].field.prepare_value(value)
+
+        if config_value["is_multi_select"]:
+            raw_def = config_value["raw_default"]
+            if isinstance(raw_def, list | tuple | set):
+                default_list = list(raw_def)
+            elif raw_def is None:
+                default_list = []
+            else:
+                default_list = [raw_def]
+            config_value["json_default"] = json.dumps(default_list)
 
         return config_value
 
@@ -162,7 +168,7 @@ class ConstanceAdmin(admin.ModelAdmin):
                 if collapse:
                     fieldset_context["collapse"] = True
                 context["fieldsets"].append(fieldset_context)
-            if not isinstance(settings.CONFIG_FIELDSETS, (OrderedDict, tuple)):
+            if not isinstance(settings.CONFIG_FIELDSETS, OrderedDict | tuple):
                 context["fieldsets"].sort(key=itemgetter("title"))
 
         if not isinstance(settings.CONFIG, OrderedDict):
@@ -181,7 +187,7 @@ class ConstanceAdmin(admin.ModelAdmin):
                 content_type=ct,
                 object_id="Config",
             )
-            .select_related()
+            .select_related("user", "content_type")
             .order_by("-action_time")
         )
 

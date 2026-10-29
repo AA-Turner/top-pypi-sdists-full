@@ -47,6 +47,7 @@ from .libs.diagnostics import (
     ToolReport as ToolReport,
     TrustMode as TrustMode,
     baseline as diagnostic_baseline,
+    initial_import,
     to_github as to_github,
     to_json as to_json,
     to_sarif as to_sarif,
@@ -55,6 +56,7 @@ from .libs.diagnostics import (
 from .libs.filesystem import is_link_like
 from .libs.linting.analysis import analyze as analyze_paths, report_from_tools
 from .libs.linting.complexity_baseline import ComplexityBaselineResolver
+from .libs.linting.execution_plan import analysis_jobs
 from .libs.linting.external import UpstreamESLintRules, analyze_external
 from .libs.linting.library_policy import (
     ManifestPolicyError,
@@ -135,6 +137,17 @@ class Result:
     findings: tuple[Finding, ...] = ()
     changes: tuple[Change, ...] = ()
     exit_code: int = 0
+
+    def __post_init__(self) -> None:
+        if type(self.status) is not Status:
+            msg = "result status must be a Status"
+            raise TypeError(msg)
+        if isinstance(self.exit_code, bool) or not isinstance(self.exit_code, int):  # pyright: ignore[reportUnnecessaryIsInstance] -- validate untyped public constructor and dataclass replacement calls as well as typed callers.
+            msg = "result exit code must be an integer"
+            raise TypeError(msg)
+        if (self.status in {Status.OK, Status.CHANGED}) != (self.exit_code == 0):
+            msg = "result status and exit code must agree on success"
+            raise ValueError(msg)
 
     @property
     def ok(self) -> bool:
@@ -266,8 +279,11 @@ class Standards:
         python_type_check: bool = True,
         eslint: bool = True,
     ) -> AnalysisReport:
-        if jobs not in {1, 2}:
-            return _failed_analysis(self.root, "invalid-input", "analysis jobs must be 1 or 2")
+        try:
+            import_context = initial_import.load(self.root, staged=staged)
+            analysis_jobs(jobs)
+        except ValueError as exc:
+            return _failed_analysis(self.root, "invalid-input", str(exc))
         external = external or bool(upstream_rules.ids)
         try:
             normalized_trust = TrustMode(trust)
@@ -279,13 +295,23 @@ class Standards:
         except (OSError, TypeError, ValueError) as exc:
             return _failed_analysis(self.root, "invalid-input", str(exc))
         if prepared_only:
-            return _prepared_only_analysis(
-                self.root, adopted, prepared_devops, prepared_targets, paths=paths, rules=rules, trust=normalized_trust
+            return _validated_initial_import(
+                _prepared_only_analysis(
+                    self.root,
+                    adopted,
+                    prepared_devops,
+                    prepared_targets,
+                    paths=paths,
+                    rules=rules,
+                    trust=normalized_trust,
+                ),
+                import_context,
+                staged=staged,
             )
         try:
             selection_policy = _selection_policy(self.root, adopted, normalized_mode)
             rule_selection = _rule_selection(rules)
-            selected = _analysis_inputs(self.root, paths, mode=normalized_mode)
+            selected = _analysis_inputs(self.root, paths, adopted=adopted, mode=normalized_mode)
         except (OSError, TypeError, ValueError) as exc:
             return _failed_analysis(self.root, "invalid-input", str(exc))
         try:
@@ -321,16 +347,24 @@ class Standards:
         )
         coverage.extend(_prepared_coverage(adopted, prepared_devops))
         if not external:
-            native = report_from_tools(self.root, native_analysis())
-            changed_scope = _analysis_changed_scope(self.root, native, baseline_budget, staged=staged)
+            combined = report_from_tools(self.root, native_analysis())
+            changed_scope = _analysis_changed_scope(self.root, combined, baseline_budget, staged=staged)
             _native_typescript_coverage(selected_groups, adopted, rule_selection, coverage)
             if normalized_mode in {AnalysisMode.POLICY, AnalysisMode.OBSERVE}:
-                native = _with_warning_severity(native, _warning_rule_keys(normalized_mode, rule_selection))
-            return _with_coverage(
-                _without_baselined_diagnostics(
-                    native, baseline_budget.counts, changed_scope=changed_scope, provenance=baseline_budget.provenance
+                combined = _with_warning_severity(combined, _warning_rule_keys(normalized_mode, rule_selection))
+            return _validated_initial_import(
+                _with_coverage(
+                    _without_baselined_diagnostics(
+                        combined,
+                        baseline_budget.counts,
+                        changed_scope=changed_scope,
+                        provenance=baseline_budget.provenance,
+                    ),
+                    coverage,
                 ),
-                coverage,
+                import_context,
+                staged=staged,
+                changed_scope=changed_scope,
             )
         coverage.extend(
             _source_analyzer_coverage(
@@ -375,11 +409,16 @@ class Standards:
             else frozenset(),
             upstream_rules=upstream_rules,
         )
-        return _with_coverage(
-            _without_baselined_diagnostics(
-                combined, baseline_budget.counts, changed_scope=changed_scope, provenance=baseline_budget.provenance
+        return _validated_initial_import(
+            _with_coverage(
+                _without_baselined_diagnostics(
+                    combined, baseline_budget.counts, changed_scope=changed_scope, provenance=baseline_budget.provenance
+                ),
+                coverage,
             ),
-            coverage,
+            import_context,
+            staged=staged,
+            changed_scope=changed_scope,
         )
 
     def run(
@@ -484,7 +523,8 @@ class Standards:
             )
             return Result(Status.FAILED, findings=(finding,), exit_code=1)
         finding = Finding("update.latest.failed", "error", output or "latest standards update failed")
-        return Result(Status.FAILED, findings=(finding,), exit_code=completed.returncode)
+        status = Status.INTERRUPTED if completed.returncode == _INTERRUPTED_EXIT else Status.FAILED
+        return Result(status, findings=(finding,), exit_code=completed.returncode)
 
     def inspect(self) -> Inspection:
         return inspect(self.root)
@@ -670,6 +710,28 @@ def _failed_analysis(root: Path, kind: str, message: str) -> AnalysisReport:
     return AnalysisReport(root, Completion.FAILED, Conclusion.INCONCLUSIVE, (tool,))
 
 
+def _validated_initial_import(
+    report: AnalysisReport,
+    context: initial_import.InitialImport | None,
+    *,
+    staged: bool,
+    changed_scope: diagnostic_baseline.ChangedLineScope | None = None,
+) -> AnalysisReport:
+    failure: str | None = None
+    try:
+        initial_import.validate(report.root, context, staged=staged)
+    except ValueError as exc:
+        failure = str(exc)
+    if failure is None and context is not None and changed_scope is not None and changed_scope.failed:
+        failure = "initial-import changed-line comparison failed"
+    if failure is None:
+        return report
+    return _with_coverage(
+        report_from_tools(report.root, (*report.tools, *_failed_analysis(report.root, "invalid-input", failure).tools)),
+        report.coverage,
+    )
+
+
 def _analysis_changed_scope(
     root: Path,
     report: AnalysisReport,
@@ -773,13 +835,14 @@ def _with_coverage(report: AnalysisReport, coverage: Sequence[CoverageNotice]) -
     return AnalysisReport(report.root, completion, conclusion, report.tools, notices)
 
 
-def _analysis_inputs(root: Path, paths: Sequence[str] | None, *, mode: AnalysisMode = AnalysisMode.POLICY) -> list[str]:
+def _analysis_inputs(
+    root: Path, paths: Sequence[str] | None, *, adopted: Manifest | None, mode: AnalysisMode
+) -> list[str]:
     if paths is not None:
         selected = _contained_paths(root, paths)
         return selected if mode is AnalysisMode.RAW else _with_tracked_terraform_tests(root, selected)
     if mode is AnalysisMode.RAW:
         return [str(root)]
-    adopted = load_manifest(root)
     verify_paths = adopted.verify_paths if adopted is not None else (".",)
     return _with_tracked_terraform_tests(root, [str(root / path) for path in verify_paths])
 

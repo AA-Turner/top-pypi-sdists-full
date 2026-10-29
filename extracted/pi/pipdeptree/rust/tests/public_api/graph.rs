@@ -115,6 +115,35 @@ fn keeps_duplicate_requirement_edges() {
 }
 
 #[test]
+fn keeps_environment_variable_references_in_direct_urls_literal() {
+    let site = PackageSite::new();
+    site.write(
+        "root-1.dist-info",
+        &format!(
+            concat!(
+                "Name: root\n",
+                "Version: 1\n",
+                // Cargo sets CARGO_PKG_NAME, so expanding it would merge this edge with the next one.
+                "Requires-Dist: child @ https://example.invalid/${{CARGO_PKG_NAME}}\n",
+                "Requires-Dist: child @ https://example.invalid/{}\n",
+            ),
+            env!("CARGO_PKG_NAME")
+        ),
+    );
+
+    let output = execute_in(&site, &["--packages", "root"]);
+
+    assert_eq!(
+        stdout(&output),
+        concat!(
+            "root==1\n",
+            "├── child [required: Any, installed: ?]\n",
+            "└── child [required: Any, installed: ?]\n",
+        )
+    );
+}
+
+#[test]
 fn keeps_requirement_edges_activated_by_distinct_extras() {
     let site = PackageSite::new();
     site.write(

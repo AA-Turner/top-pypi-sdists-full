@@ -21,7 +21,7 @@ from probe.cli import backfill as bf
 from probe.cli import backfill_github as gh
 from probe.cli import backfill_import as imp
 from probe.cli import backfill_plan as plans
-from probe.cli import backfill_reconstruction as reconstruction
+from probe.cli import backfill_record as record
 from probe.cli import backfill_run as runner
 from probe.cli import telemetry, tui
 from probe.cli.backfill_coverage import Coverage, Scope
@@ -88,9 +88,7 @@ class Harness:
         monkeypatch.setattr(runner, "run_units", units)
         monkeypatch.setattr(gh, "collect_evidence", self.collect)
         monkeypatch.setattr(gh, "attach_reviewed_sources", self.attach)
-        monkeypatch.setattr(
-            reconstruction, "complete_reconstruction", lambda *a, **kw: ["Draft retained locally."]
-        )
+        monkeypatch.setattr(record, "complete_record", lambda *a, **kw: ["Recorded."])
         monkeypatch.setattr(tui, "page", lambda *a, **kw: "")
         monkeypatch.setattr(tui, "review", lambda title, lines, choices: choices[0][1])
         monkeypatch.setattr(tui, "interactive", lambda: False)

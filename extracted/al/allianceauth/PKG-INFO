@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth
-Version: 5.5.0
+Version: 5.6.0
 Summary: An auth system for EVE Online to help in-game organizations
 Keywords: allianceauth,eveonline
 Author-email: Alliance Auth <adarnof@gmail.com>
@@ -31,6 +31,7 @@ Requires-Dist: django>=5.2,<6
 Requires-Dist: django-bootstrap5>=23.3
 Requires-Dist: django-celery-beat>=2.8
 Requires-Dist: django-esi>=10
+Requires-Dist: django-hijack>=3.7,<4
 Requires-Dist: django-redis>=5.4
 Requires-Dist: django-registration>=5.2,<6
 Requires-Dist: django-solo
@@ -39,9 +40,10 @@ Requires-Dist: django-sri<1
 Requires-Dist: dnspython
 Requires-Dist: httpx2
 Requires-Dist: mysqlclient>=2.1
-Requires-Dist: openfire-restapi
+Requires-Dist: openfire-restapi==0.2
 Requires-Dist: packaging>=21
 Requires-Dist: passlib
+Requires-Dist: pycares<=5.1; python_version<='3.10'
 Requires-Dist: pydiscourse
 Requires-Dist: python-slugify>=1.2
 Requires-Dist: pyyaml
@@ -50,14 +52,13 @@ Requires-Dist: requests>=2.9.1
 Requires-Dist: requests-oauthlib
 Requires-Dist: semantic-version
 Requires-Dist: slixmpp<1.9
-Requires-Dist: telnetlib3
+Requires-Dist: soupsieve<3; python_version=='3.10'
 Requires-Dist: ua-parser
 Requires-Dist: user-agents
 Requires-Dist: celery-types ; extra == "dev"
 Requires-Dist: djlint ; extra == "dev"
 Requires-Dist: flake8 ; extra == "dev"
 Requires-Dist: isort ; extra == "dev"
-Requires-Dist: docutils==0.21.2 ; extra == "docs"
 Requires-Dist: myst-parser>=4 ; extra == "docs"
 Requires-Dist: sphinx>=8 ; extra == "docs"
 Requires-Dist: sphinx-copybutton ; extra == "docs"

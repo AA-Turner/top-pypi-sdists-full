@@ -244,17 +244,6 @@ class Settings(BaseSettings):
         ),
     ] = Field(0, alias="HA_TOOL_CONCURRENCY")
 
-    # Backup tool configuration. The app requires this option.
-    backup_hint: Annotated[
-        str,
-        Setting(
-            surface="advanced",
-            section="operations",
-            app=AppOption(required=True),
-            choices=("strong", "normal", "weak", "auto"),
-        ),
-    ] = Field("normal", alias="BACKUP_HINT")
-
     # WebSocket configuration (essential for async operations)
     enable_websocket: Annotated[
         bool,
@@ -279,6 +268,20 @@ class Settings(BaseSettings):
         str,
         Setting(surface="advanced", section="tools_surface", restart_required=True),
     ] = Field("all", alias="ENABLED_TOOL_MODULES")
+
+    # Free text appended to the MCP server instructions, so every client
+    # connecting to this installation gets the same user-defined guidance
+    # (e.g. where household notes live). Empty adds nothing.
+    custom_instructions: Annotated[
+        str,
+        Setting(
+            surface="advanced",
+            section="tools_surface",
+            app=_ALL_FLAVORS,
+            restart_required=True,
+            multiline=True,
+        ),
+    ] = Field("", alias="HAMCP_CUSTOM_INSTRUCTIONS")
 
     # Dashboard partial update tools (python_transform, find_card)
     # These are token-efficient alternatives to full config replacement.
@@ -516,7 +519,7 @@ class Settings(BaseSettings):
     # generic Server Settings feature list, while /api/settings/features
     # still serves and persists it for the Policies-tab toggle. It is an app
     # option because that toggle routes its save through Supervisor in
-    # add-on mode, which rejects any option the schema does not declare.
+    # add-on mode, which drops any option the schema does not declare.
     enable_security_policy_tool: Annotated[
         bool, Setting(surface="feature", app=_ALL_FLAVORS)
     ] = Field(False, alias="ENABLE_SECURITY_POLICY_TOOL")
@@ -544,6 +547,21 @@ class Settings(BaseSettings):
     redact_secrets: Annotated[bool, Setting(surface="feature", app=_ALL_FLAVORS)] = (
         Field(False, alias="REDACT_SECRETS")
     )
+
+    # App option names to redact like ``format: password`` fields, for apps
+    # whose schema ships a secret as a plain string (#2843). Format: see
+    # ``redaction._listed_entries``. Consulted only while ``redact_secrets``
+    # is on; the UI nests it under that toggle. Restart-required because the
+    # app reads its options only at start, though other installs apply it live.
+    redact_app_option_keys: Annotated[
+        str,
+        Setting(
+            surface="advanced",
+            section="redact_keys",
+            app=_ALL_FLAVORS,
+            restart_required=True,
+        ),
+    ] = Field("", alias="REDACT_APP_OPTION_KEYS")
 
     # Mandatory best-practice skills — server-side master switch for the
     # write-tool skill_content delivery feature (issue #1182). When True
@@ -725,7 +743,7 @@ class Settings(BaseSettings):
     # snapshots before deleting old ones, but it cannot forge a backup's
     # HA-stamped creation date. 0 disables the age floor (still gated by
     # enable_snapshot_delete + the newest-snapshot / automatic-backup
-    # guards enforced in tools/backup.py).
+    # guards enforced in tools/backup_snapshot.py).
     snapshot_delete_min_age_days: Annotated[
         int, Setting(surface="backup", app=_ALL_FLAVORS, range=(0, 365))
     ] = Field(7, alias="SNAPSHOT_DELETE_MIN_AGE_DAYS")
@@ -856,12 +874,6 @@ class Settings(BaseSettings):
     def validate_log_level(cls, v: str) -> str:
         """Accept a log level in any case."""
         return _one_of(cls, "log_level", v.upper())
-
-    @field_validator("backup_hint")
-    @classmethod
-    def validate_backup_hint(cls, v: str) -> str:
-        """Accept a backup hint in any case."""
-        return _one_of(cls, "backup_hint", v.lower())
 
     model_config = SettingsConfigDict(
         # Absolute, and the same file load_dotenv already resolved above. A

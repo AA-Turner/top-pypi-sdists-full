@@ -5,19 +5,20 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING
 
-from datamodel_code_generator._target_unicode import host_identifiers
-from datamodel_code_generator.model.base import ALL_MODEL
+from datamodel_code_generator._target_unicode import host_parsable
+from datamodel_code_generator.model.base import _ADDITIONAL_PROPERTIES_TYPE_TEMPLATE_DATA_KEY, ALL_MODEL
 from datamodel_code_generator.reference import ModelType
 
 if TYPE_CHECKING:
     from collections import defaultdict
-    from collections.abc import Callable, Collection, Mapping
+    from collections.abc import Callable, Collection, Iterable, Mapping
     from typing import Any
 
     from datamodel_code_generator._format_types import PythonVersion
     from datamodel_code_generator.enums import AliasGenerator, TargetPydanticVersion
     from datamodel_code_generator.imports import Import
     from datamodel_code_generator.model.base import DataModel, DataModelFieldBase
+    from datamodel_code_generator.python_literal import _TypeHintSource
     from datamodel_code_generator.types import DataTypeManager
     from datamodel_code_generator.validators import ModelValidators
 
@@ -38,6 +39,7 @@ def prepare_output_model_config(  # noqa: PLR0913, PLR0912
     target_pydantic_version: TargetPydanticVersion | None,
     schema_validator_base_class_name: str | None,
     generate_schema_validators: bool,
+    pin_aliases_with_alias_generator: bool,
 ) -> dict[str, Any]:
     """Prepare output configuration while retaining template keys and insertion order."""
     if validators:
@@ -59,6 +61,8 @@ def prepare_output_model_config(  # noqa: PLR0913, PLR0912
             extra_template_data[ALL_MODEL]["_alias_generator"] = alias_generator
     if no_alias:
         extra_template_data[ALL_MODEL]["_no_alias"] = True
+    if pin_aliases_with_alias_generator:
+        extra_template_data[ALL_MODEL]["_pin_aliases_with_alias_generator"] = True
     if allow_extra_fields:
         (base_config if use_generic_base_class else extra_template_data[ALL_MODEL])["allow_extra_fields"] = True
     if extra_fields:
@@ -91,13 +95,11 @@ def _model_field_name_collisions(model: DataModel, import_names: Collection[str]
     candidates = field_names.intersection(import_names)
     if not candidates:
         return set()
-    rendered = model.render()
-    lent = host_identifiers(rendered)
-    restore_name = lent.restore_name if lent else str
+    source, restore_name = host_parsable(model.render())
     class_body = next(
         (
             node.body
-            for node in ast.parse(lent.source if lent else rendered).body
+            for node in ast.parse(source).body
             if isinstance(node, ast.ClassDef) and restore_name(node.name) == model.class_name
         ),
         None,
@@ -125,17 +127,40 @@ def _model_field_name_collisions(model: DataModel, import_names: Collection[str]
     return collisions
 
 
+def _bare_name_loads(models: Iterable[DataModel], names: Collection[str]) -> set[str]:
+    """Find the names of ``names`` that the emitted models load bare, not as the module of an attribute (``name.X``)."""
+    found: set[str] = set()
+    for model in models:
+        source, restore_name = host_parsable(model.render())
+        tree = ast.parse(source)
+        attribute_values = {id(node.value) for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
+        found.update(
+            name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Name)
+            and id(node) not in attribute_values
+            and (name := restore_name(node.id)) in names
+        )
+    return found
+
+
 class OutputModelContext:
     """Capabilities for a configured set of output model types."""
 
     __slots__ = (
         "_data_model_root_type",
         "_data_model_type",
+        "checks_constraints",
+        "decodes_mixed_enum_values",
+        "decodes_value_unions",
+        "layers_repeated_constraints",
+        "literal_holds_enum_members",
         "requires_additional_properties_reference_classes",
         "requires_tagged_union_discriminator",
         "supports_annotated_constraints",
         "supports_boolean_literals",
         "supports_internal_annotated_constraints",
+        "writes_constrained_types",
     )
 
     def __init__(  # noqa: PLR0913
@@ -148,6 +173,12 @@ class OutputModelContext:
         supports_boolean_literals: bool,
         requires_tagged_union_discriminator: bool,
         requires_additional_properties_reference_classes: bool,
+        decodes_mixed_enum_values: bool = True,
+        writes_constrained_types: bool = False,
+        decodes_value_unions: bool = True,
+        literal_holds_enum_members: bool = True,
+        layers_repeated_constraints: bool = True,
+        checks_constraints: bool = False,
     ) -> None:
         """Initialize capabilities with the established keyword signature."""
         self._data_model_type = data_model_type
@@ -157,6 +188,12 @@ class OutputModelContext:
         self.supports_boolean_literals = supports_boolean_literals
         self.requires_tagged_union_discriminator = requires_tagged_union_discriminator
         self.requires_additional_properties_reference_classes = requires_additional_properties_reference_classes
+        self.decodes_mixed_enum_values = decodes_mixed_enum_values
+        self.writes_constrained_types = writes_constrained_types
+        self.decodes_value_unions = decodes_value_unions
+        self.literal_holds_enum_members = literal_holds_enum_members
+        self.layers_repeated_constraints = layers_repeated_constraints
+        self.checks_constraints = checks_constraints
 
     @classmethod
     def from_generation_types(  # noqa: PLR0913
@@ -193,6 +230,12 @@ class OutputModelContext:
             requires_additional_properties_reference_classes=(
                 data_model_type.REQUIRES_ADDITIONAL_PROPERTIES_REFERENCE_CLASSES
             ),
+            decodes_mixed_enum_values=data_model_type._DECODES_MIXED_ENUM_VALUES,  # noqa: SLF001
+            writes_constrained_types=data_type_manager_type._WRITES_CONSTRAINED_TYPES,  # noqa: SLF001
+            decodes_value_unions=data_model_type._DECODES_VALUE_UNIONS,  # ruff: ignore[private-member-access]
+            literal_holds_enum_members=data_model_type._LITERAL_HOLDS_ENUM_MEMBERS,  # noqa: SLF001
+            layers_repeated_constraints=data_model_type._LAYERS_REPEATED_CONSTRAINTS,  # ruff: ignore[private-member-access]
+            checks_constraints=data_model_type._CHECKS_CONSTRAINTS,  # ruff: ignore[private-member-access]
         )
 
     def resolve_nested_constrained_model_type(self) -> type[DataModel]:
@@ -219,6 +262,11 @@ class OutputModelContext:
     def has_additional_properties_type(self, extra_template_data: dict[str, Any]) -> bool:
         """Return whether output metadata contains a typed additional-properties entry."""
         return self._data_model_type.has_additional_properties_type(extra_template_data)
+
+    @staticmethod
+    def additional_properties_type_source(extra_template_data: dict[str, Any]) -> _TypeHintSource | None:
+        """Return the data type a typed additional-properties entry was rendered from, while it names classes."""
+        return getattr(extra_template_data.get(_ADDITIONAL_PROPERTIES_TYPE_TEMPLATE_DATA_KEY), "source", None)
 
     def store_additional_properties_type(  # noqa: PLR0913
         self,

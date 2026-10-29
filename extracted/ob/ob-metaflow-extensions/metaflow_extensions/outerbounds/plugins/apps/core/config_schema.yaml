@@ -296,17 +296,17 @@ properties:
     default: false
     mutation_behavior: union
     cli_option: --no-deps
+  suspend:
+    description: Suspend the app when true; resume it when false. Defaults to false.
+    type: boolean
+    default: false
+    mutation_behavior: union
   force_upgrade:
     description: Force upgrade the app even if it is currently being upgraded.
     type: boolean
     default: false
     mutation_behavior: union
     cli_option: --force-upgrade
-  suspend:
-    description: Suspend the app when true; resume it when false. Defaults to false.
-    type: boolean
-    default: false
-    mutation_behavior: union
   skip_code_package:
     description: |-
       When True, skip code packaging and rely on the container's embedded source code. When running the deployer programmatically, If this field is set, then the user cannot pass `code_package` parameter to the AppDeployer
@@ -368,6 +368,34 @@ properties:
     example: my-app
     mutation_behavior: union
     cli_option: --url-slug
+  url_slug_prefix:
+    description: |-
+      Prepend resolved perimeter, project, or branch values to `url_slug`. CLI/config-file only; requires `url_slug` and configured values for the selected fields. Repeat --url-slug-prefix to add components in order (or use an ordered list in the config file). Each selector may appear only once across prefix and suffix. Components are lowercased, runs of non-alphanumeric characters become hyphens, and edge hyphens are removed. Components and slug are joined with hyphens; the final slug must be at most 59 characters. AppDeployer callers must construct `url_slug` themselves. (validation applied)
+    type: array
+    items:
+      type: string
+      enum:
+      - perimeter
+      - project
+      - branch
+    example:
+    - perimeter
+    mutation_behavior: union
+    cli_option: --url-slug-prefix
+  url_slug_suffix:
+    description: |-
+      Append resolved perimeter, project, or branch values to `url_slug`. CLI/config-file only; requires `url_slug` and configured values for the selected fields. Repeat --url-slug-suffix to add components in order (or use an ordered list in the config file). Each selector may appear only once across prefix and suffix. Components are lowercased, runs of non-alphanumeric characters become hyphens, and edge hyphens are removed. Components and slug are joined with hyphens; the final slug must be at most 59 characters. AppDeployer callers must construct `url_slug` themselves. (validation applied)
+    type: array
+    items:
+      type: string
+      enum:
+      - perimeter
+      - project
+      - branch
+    example:
+    - perimeter
+    mutation_behavior: union
+    cli_option: --url-slug-suffix
   persistence:
     description: The persistence mode to deploy the app with. (validation applied)
     type: string

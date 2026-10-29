@@ -564,8 +564,17 @@ BurstDespreaderObj_set_acq (BurstDespreaderObject *self, PyObject *args,
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  dp_burst_despreader_set_acq (self->handle, acq_code, acq_code_len, acq_reps);
+  int _rc = dp_burst_despreader_set_acq (self->handle, acq_code, acq_code_len,
+                                         acq_reps);
   Py_DECREF (acq_code_arr);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_MemoryError, "%s (rc=%lld)",
+                    "set_acq: the acquisition code could not be allocated; "
+                    "the previous preamble stands",
+                    (long long)_rc);
+      return NULL;
+    }
   Py_RETURN_NONE;
 }
 
@@ -961,15 +970,31 @@ static PyMethodDef BurstDespreaderObj_methods[] = {
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    Always 0, meaning \"size the output from the input length\" (one\n"
+    "    symbol per sf*sps >= 2 input samples, so x_len is ample).\n" },
   { "bits", (PyCFunction)(void *)BurstDespreaderObj_bits,
     METH_VARARGS | METH_KEYWORDS,
     "bits(x, out) -> ndarray\n"
     "\n"
-    "Despread a cf32 block; emit one hard BPSK bit per code period.\n"
+    "Despread a cf32 block; emit one hard BPSK bit per code period, by the "
+    "library's one polarity: bit b is sent as 1 - 2b (mpsk_core.h), so a "
+    "negative prompt is a 1. With a set_acq preamble the decisions are "
+    "absolute (the preamble sets the phase); without one they are relative to "
+    "the carrier phase handed in.\n"
     "\n"
     "Same streaming kernel as dp_burst_despreader_steps(), but emits the\n"
-    "hard decision `crealf(prompt) >= 0` instead of the complex symbol.\n"
+    "hard decision instead of the complex symbol.\n"
+    "\n"
+    "**Polarity is the library's one rule** (mpsk_core.h, mpsk_bpsk_bit()):\n"
+    "bit b is sent as `1 - 2b`, so a bit is 1 when Re(prompt) is NEGATIVE\n"
+    "and 0 when it is zero or positive -- the inverse of dp_bin_to_nrz(),\n"
+    "and the same decision dp_nrz_to_bin() makes. The decisions are absolute\n"
+    "relative to the carrier phase the loop locks at. With a\n"
+    "dp_burst_despreader_set_acq() preamble -- a known +1 -- that phase is\n"
+    "the preamble's, so the payload decodes as sent from any starting phase,\n"
+    "seeded or not (#2664). With no preamble the caller's phase is the\n"
+    "reference: a burst at phase 0 decodes as sent and one at pi decodes\n"
+    "complemented.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -998,8 +1023,7 @@ static PyMethodDef BurstDespreaderObj_methods[] = {
     ">>> rec = d.bits(tx)                             # hard 0/1 per symbol\n"
     ">>> rec.shape\n"
     "(30,)\n"
-    ">>> e = np.mean(rec != bits)             # up to a BPSK sign flip\n"
-    ">>> round(float(min(e, 1.0 - e)), 4)\n"
+    ">>> float(np.mean(rec != bits))          # raw: 1 - 2b at phase 0\n"
     "0.0\n"
     ">>> round(d.lock_metric, 3)\n"
     "1.0\n" },
@@ -1012,31 +1036,59 @@ static PyMethodDef BurstDespreaderObj_methods[] = {
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    Always 0, meaning \"size the output from the input length\".\n" },
   { "set_acq", (PyCFunction)(void *)BurstDespreaderObj_set_acq,
     METH_VARARGS | METH_KEYWORDS,
     "set_acq(acq_code, acq_reps) -> None\n"
     "\n"
     "Enable preamble-aided pull-in: track acq_reps periods of the (distinct) "
     "acq_code coherently before despreading the payload with the data code. "
-    "Call before feeding the burst; clears when the preamble is consumed.\n"
+    "The preamble is a known +1, so it also sets the payload's absolute "
+    "phase: the payload is handed over at the preamble's phase from any "
+    "starting phase, carrier seeded or not. Call before feeding the burst; "
+    "clears when the preamble is consumed.\n"
     "\n"
     "Track acq_reps periods of acq_code coherently (the unmodulated,\n"
     "repeated acquisition preamble — a full ±pi phase discriminator, so the\n"
     "loops pull in even a wide residual) before switching to the data code\n"
     "for the payload. Call before feeding the burst; the acq mode clears\n"
     "automatically once the preamble is consumed, and re-arms on\n"
-    "dp_burst_despreader_reset(). NB: set_acq re-arms the PREAMBLE only —\n"
-    "the cumulative burst statistics (lock_metric / snr_est / lock_stat /\n"
-    "stat_n) are re-armed by dp_burst_despreader_reset(); call it between\n"
-    "bursts.\n"
+    "dp_burst_despreader_reset(). The tracked carrier frequency carries\n"
+    "over: the carrier loop's integrator is rescaled to the symbol period\n"
+    "now in force (the acq code's, or the data code's when this disables the\n"
+    "preamble). NB: set_acq re-arms the PREAMBLE only — the cumulative burst\n"
+    "statistics (lock_metric / snr_est / lock_stat / stat_n) are re-armed by\n"
+    "dp_burst_despreader_reset(); call it between bursts.\n"
+    "\n"
+    "**The preamble sets the payload's absolute phase.** Every preamble\n"
+    "symbol is the known +1 (bit 0 under `1 - 2b`), so at the handover the\n"
+    "NCO is turned to the last preamble prompt's phase, and the payload\n"
+    "starts there -- from any starting phase and with no carrier seed\n"
+    "(#2664). Without it, a preamble too short to pull an offset in left the\n"
+    "payload's Costas detector, which cannot tell 0 from pi, to lock at pi\n"
+    "and complement every bit. Turning the NCO, not flipping bits, corrects\n"
+    "the soft symbols and statistics too. The alternative, differential\n"
+    "encoding, needs no reference but is not free: about twice the bit error\n"
+    "rate, decoded coherently (docs/design/mpsk.md, \"A known reference\n"
+    "resolves the ambiguity\"). A link with no preamble or sync word gets it\n"
+    "from dp_mpsk_diff_map() / dp_mpsk_diff_demap() (Python: mpsk_diff_map /\n"
+    "mpsk_diff_demap).\n"
     "\n"
     "Parameters\n"
     "----------\n"
     "acq_code : npt.NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    Acquisition code (0/1), length acq_code_len; copied.\n"
     "acq_reps : int\n"
-    "    Number of acq-code periods in the preamble.\n"
+    "    Number of acq-code periods in the preamble. A NULL/empty acq_code\n"
+    "    or `acq_reps == 0` disables the preamble (payload-only) and frees\n"
+    "    any previous acq code.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "MemoryError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``set_acq: the acquisition code could not be allocated; the\n"
+    "    previous preamble stands``, with the return code appended (gh-869).\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -1052,13 +1104,15 @@ static PyMethodDef BurstDespreaderObj_methods[] = {
     ">>> pre = np.concatenate([np.repeat(asig, 4) for _ in range(4)])\n"
     ">>> pay = np.concatenate([np.repeat(s * dch, 4) for s in psyms])\n"
     ">>> burst = np.concatenate([pre, pay]).astype(np.complex64)\n"
+    ">>> t = np.arange(burst.size)\n"
+    ">>> rx = (burst * np.exp(1j * (np.pi + 2 * np.pi * 4e-5 * t))\n"
+    "...       ).astype(np.complex64)  # phase pi, offset NOT seeded\n"
     ">>> d = BurstDespreader(data_code, sf=32, sps=4)\n"
     ">>> d.set_acq(acq, 4)            # 4 preamble reps, pulls loops in\n"
-    ">>> out = d.bits(burst)          # preamble emits nothing\n"
+    ">>> out = d.bits(rx)             # preamble emits nothing\n"
     ">>> out.shape                    # only the payload symbols come out\n"
     "(40,)\n"
-    ">>> e = np.mean(out != pbits)\n"
-    ">>> round(float(min(e, 1.0 - e)), 4)\n"
+    ">>> float(np.mean(out != pbits))  # raw: the preamble sets the phase\n"
     "0.0\n" },
   { "reset", (PyCFunction)BurstDespreaderObj_reset, METH_NOARGS,
     "reset() -> None\n"
@@ -1190,7 +1244,9 @@ static PyTypeObject BurstDespreaderObjType = {
     "Parameters\n"
     "----------\n"
     "code : NDArray[np.uint8]\n"
-    "    Data spreading code (0/1 chips), length code_len; copied.\n"
+    "    Data spreading code (0/1 chips), length code_len; the first sf "
+    "chips\n"
+    "    are copied (only bit 0 of each byte is read: 0 -> +1, 1 -> -1).\n"
     "sf : int, default 1\n"
     "    Spreading factor: chips integrated per prompt symbol (default: 1).\n"
     "sps : int, default 2\n"

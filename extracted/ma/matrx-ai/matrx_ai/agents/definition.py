@@ -110,6 +110,7 @@ class Agent:
         auto_context_disabled: bool = False,
         matrx_actions: dict[str, Any] | None = None,
         excluded_tools: list[str] | None = None,
+        skill_config: Any = None,
     ):
         """
         Initialize agent with core components.
@@ -134,6 +135,11 @@ class Agent:
         # The agent's forbidden-tool list, carried beside the switch so a programmatic
         # run hands the host funnel BOTH (TOOL-SOURCES.md rule R).
         self.excluded_tools: list[str] = list(excluded_tools or [])
+        # The agent's attached skills (``AgentConfig.skill_config``), carried so the host's
+        # programmatic prepare hook assembles them exactly as the HTTP agent door does —
+        # a mandate, agent_call or named-agent run used to drop them (2026-10-27).
+        # ``None`` = the definition declared none.
+        self.skill_config: Any = skill_config
         # Mirror of auto_tools_disabled for the context channel. Carried from the
         # DB record so every consumer (routers, sub-agents, the programmatic
         # runner) can honor it without a second lookup.
@@ -237,6 +243,7 @@ class Agent:
             auto_context_disabled=self.auto_context_disabled,
             matrx_actions=self.matrx_actions,
             excluded_tools=list(self.excluded_tools),
+            skill_config=self.skill_config,
         )
         cloned.declares_variables = self.declares_variables
         # Copy variable_values but not the applied flag
@@ -573,6 +580,7 @@ class Agent:
             auto_context_disabled=agent_config.auto_context_disabled,
             matrx_actions=agent_config.matrx_actions,
             excluded_tools=list(agent_config.excluded_tools or []),
+            skill_config=agent_config.skill_config,
         )
         agent.declares_variables = True
         # The agent's own settings layer, before any run/person override applies.

@@ -27,6 +27,7 @@ if typing.TYPE_CHECKING:
     from .chat_completion_tool import ChatCompletionToolParams
     from .chat_stream_options import ChatStreamOptionsParams
     from .choice import ChoiceParams
+    from .chunk_metrics import ChunkMetricsParams
     from .completion_tokens_details import CompletionTokensDetailsParams
     from .completion_usage import CompletionUsageParams
     from .completion_usage_prompt_tokens_details import CompletionUsagePromptTokensDetailsParams
@@ -46,16 +47,41 @@ if typing.TYPE_CHECKING:
     from .create_response_v2response_tool_choice import CreateResponseV2ResponseToolChoiceParams
     from .diarized_entry import DiarizedEntryParams
     from .diarized_transcript import DiarizedTranscriptParams
-    from .doc_ai_digitise_results import DocAiDigitiseResultsParams
-    from .doc_ai_digitise_results_documents_item import DocAiDigitiseResultsDocumentsItemParams
-    from .doc_ai_digitise_results_documents_item_pages_item import DocAiDigitiseResultsDocumentsItemPagesItemParams
+    from .doc_ai_batch_document import DocAiBatchDocumentParams
+    from .doc_ai_capabilities_response import DocAiCapabilitiesResponseParams
+    from .doc_ai_capability_limits import DocAiCapabilityLimitsParams
+    from .doc_ai_classify_category import DocAiClassifyCategoryParams
+    from .doc_ai_classify_config import DocAiClassifyConfigParams
+    from .doc_ai_classify_decision import DocAiClassifyDecisionParams
+    from .doc_ai_classify_inspection import DocAiClassifyInspectionParams
+    from .doc_ai_classify_job_request import DocAiClassifyJobRequestParams
+    from .doc_ai_classify_output import DocAiClassifyOutputParams
+    from .doc_ai_classify_result import DocAiClassifyResultParams
+    from .doc_ai_classify_results import DocAiClassifyResultsParams
     from .doc_ai_download_url_response import DocAiDownloadUrlResponseParams
     from .doc_ai_error_detail import DocAiErrorDetailParams
     from .doc_ai_error_model import DocAiErrorModelParams
+    from .doc_ai_evidence import DocAiEvidenceParams
     from .doc_ai_extract_results import DocAiExtractResultsParams
+    from .doc_ai_job_accepted_response import DocAiJobAcceptedResponseParams
+    from .doc_ai_job_error import DocAiJobErrorParams
     from .doc_ai_job_status_response import DocAiJobStatusResponseParams
+    from .doc_ai_job_usage import DocAiJobUsageParams
+    from .doc_ai_page_range import DocAiPageRangeParams
+    from .doc_ai_parse_results import DocAiParseResultsParams
+    from .doc_ai_parse_results_documents_item import DocAiParseResultsDocumentsItemParams
+    from .doc_ai_parse_results_documents_item_pages_item import DocAiParseResultsDocumentsItemPagesItemParams
     from .doc_ai_presign_upload_response import DocAiPresignUploadResponseParams
+    from .doc_ai_split_config import DocAiSplitConfigParams
+    from .doc_ai_split_job_request import DocAiSplitJobRequestParams
+    from .doc_ai_split_result import DocAiSplitResultParams
+    from .doc_ai_split_result_summary import DocAiSplitResultSummaryParams
+    from .doc_ai_split_results import DocAiSplitResultsParams
+    from .doc_ai_split_segment import DocAiSplitSegmentParams
+    from .doc_ai_split_trigger import DocAiSplitTriggerParams
+    from .doc_ai_split_trigger_match import DocAiSplitTriggerMatchParams
     from .doc_ai_start_job_response import DocAiStartJobResponseParams
+    from .doc_ai_suggested_type import DocAiSuggestedTypeParams
     from .doc_ai_usage import DocAiUsageParams
     from .doc_digitization_create_job_response import DocDigitizationCreateJobResponseParams
     from .doc_digitization_download_files_response import DocDigitizationDownloadFilesResponseParams
@@ -216,6 +242,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionToolParams": ".chat_completion_tool",
     "ChatStreamOptionsParams": ".chat_stream_options",
     "ChoiceParams": ".choice",
+    "ChunkMetricsParams": ".chunk_metrics",
     "CompletionTokensDetailsParams": ".completion_tokens_details",
     "CompletionUsageParams": ".completion_usage",
     "CompletionUsagePromptTokensDetailsParams": ".completion_usage_prompt_tokens_details",
@@ -237,16 +264,41 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateResponseV2ResponseToolChoiceParams": ".create_response_v2response_tool_choice",
     "DiarizedEntryParams": ".diarized_entry",
     "DiarizedTranscriptParams": ".diarized_transcript",
-    "DocAiDigitiseResultsDocumentsItemPagesItemParams": ".doc_ai_digitise_results_documents_item_pages_item",
-    "DocAiDigitiseResultsDocumentsItemParams": ".doc_ai_digitise_results_documents_item",
-    "DocAiDigitiseResultsParams": ".doc_ai_digitise_results",
+    "DocAiBatchDocumentParams": ".doc_ai_batch_document",
+    "DocAiCapabilitiesResponseParams": ".doc_ai_capabilities_response",
+    "DocAiCapabilityLimitsParams": ".doc_ai_capability_limits",
+    "DocAiClassifyCategoryParams": ".doc_ai_classify_category",
+    "DocAiClassifyConfigParams": ".doc_ai_classify_config",
+    "DocAiClassifyDecisionParams": ".doc_ai_classify_decision",
+    "DocAiClassifyInspectionParams": ".doc_ai_classify_inspection",
+    "DocAiClassifyJobRequestParams": ".doc_ai_classify_job_request",
+    "DocAiClassifyOutputParams": ".doc_ai_classify_output",
+    "DocAiClassifyResultParams": ".doc_ai_classify_result",
+    "DocAiClassifyResultsParams": ".doc_ai_classify_results",
     "DocAiDownloadUrlResponseParams": ".doc_ai_download_url_response",
     "DocAiErrorDetailParams": ".doc_ai_error_detail",
     "DocAiErrorModelParams": ".doc_ai_error_model",
+    "DocAiEvidenceParams": ".doc_ai_evidence",
     "DocAiExtractResultsParams": ".doc_ai_extract_results",
+    "DocAiJobAcceptedResponseParams": ".doc_ai_job_accepted_response",
+    "DocAiJobErrorParams": ".doc_ai_job_error",
     "DocAiJobStatusResponseParams": ".doc_ai_job_status_response",
+    "DocAiJobUsageParams": ".doc_ai_job_usage",
+    "DocAiPageRangeParams": ".doc_ai_page_range",
+    "DocAiParseResultsDocumentsItemPagesItemParams": ".doc_ai_parse_results_documents_item_pages_item",
+    "DocAiParseResultsDocumentsItemParams": ".doc_ai_parse_results_documents_item",
+    "DocAiParseResultsParams": ".doc_ai_parse_results",
     "DocAiPresignUploadResponseParams": ".doc_ai_presign_upload_response",
+    "DocAiSplitConfigParams": ".doc_ai_split_config",
+    "DocAiSplitJobRequestParams": ".doc_ai_split_job_request",
+    "DocAiSplitResultParams": ".doc_ai_split_result",
+    "DocAiSplitResultSummaryParams": ".doc_ai_split_result_summary",
+    "DocAiSplitResultsParams": ".doc_ai_split_results",
+    "DocAiSplitSegmentParams": ".doc_ai_split_segment",
+    "DocAiSplitTriggerMatchParams": ".doc_ai_split_trigger_match",
+    "DocAiSplitTriggerParams": ".doc_ai_split_trigger",
     "DocAiStartJobResponseParams": ".doc_ai_start_job_response",
+    "DocAiSuggestedTypeParams": ".doc_ai_suggested_type",
     "DocAiUsageParams": ".doc_ai_usage",
     "DocDigitizationCreateJobResponseParams": ".doc_digitization_create_job_response",
     "DocDigitizationDownloadFilesResponseParams": ".doc_digitization_download_files_response",
@@ -429,6 +481,7 @@ __all__ = [
     "ChatCompletionToolParams",
     "ChatStreamOptionsParams",
     "ChoiceParams",
+    "ChunkMetricsParams",
     "CompletionTokensDetailsParams",
     "CompletionUsageParams",
     "CompletionUsagePromptTokensDetailsParams",
@@ -450,16 +503,41 @@ __all__ = [
     "CreateResponseV2ResponseToolChoiceParams",
     "DiarizedEntryParams",
     "DiarizedTranscriptParams",
-    "DocAiDigitiseResultsDocumentsItemPagesItemParams",
-    "DocAiDigitiseResultsDocumentsItemParams",
-    "DocAiDigitiseResultsParams",
+    "DocAiBatchDocumentParams",
+    "DocAiCapabilitiesResponseParams",
+    "DocAiCapabilityLimitsParams",
+    "DocAiClassifyCategoryParams",
+    "DocAiClassifyConfigParams",
+    "DocAiClassifyDecisionParams",
+    "DocAiClassifyInspectionParams",
+    "DocAiClassifyJobRequestParams",
+    "DocAiClassifyOutputParams",
+    "DocAiClassifyResultParams",
+    "DocAiClassifyResultsParams",
     "DocAiDownloadUrlResponseParams",
     "DocAiErrorDetailParams",
     "DocAiErrorModelParams",
+    "DocAiEvidenceParams",
     "DocAiExtractResultsParams",
+    "DocAiJobAcceptedResponseParams",
+    "DocAiJobErrorParams",
     "DocAiJobStatusResponseParams",
+    "DocAiJobUsageParams",
+    "DocAiPageRangeParams",
+    "DocAiParseResultsDocumentsItemPagesItemParams",
+    "DocAiParseResultsDocumentsItemParams",
+    "DocAiParseResultsParams",
     "DocAiPresignUploadResponseParams",
+    "DocAiSplitConfigParams",
+    "DocAiSplitJobRequestParams",
+    "DocAiSplitResultParams",
+    "DocAiSplitResultSummaryParams",
+    "DocAiSplitResultsParams",
+    "DocAiSplitSegmentParams",
+    "DocAiSplitTriggerMatchParams",
+    "DocAiSplitTriggerParams",
     "DocAiStartJobResponseParams",
+    "DocAiSuggestedTypeParams",
     "DocAiUsageParams",
     "DocDigitizationCreateJobResponseParams",
     "DocDigitizationDownloadFilesResponseParams",

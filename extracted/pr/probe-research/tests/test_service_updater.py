@@ -2623,3 +2623,112 @@ def test_the_rerun_execs_a_fresh_interpreter_with_the_same_command_and_stops_aft
 
     threading.Timer(0.3, barrier.lower, args=(token,)).start()
     assert _entry._update_barrier(["status"]) is None
+
+
+def _version_env(home: Path, version: str) -> Path:
+    env = home / ".local" / "share" / "uv" / "probe-versions" / version / "probe-research"
+    python = installs_mod.env_python(env)
+    python.parent.mkdir(parents=True)
+    python.write_text("#!/bin/sh\n")
+    python.chmod(0o755)
+    return env.resolve()
+
+
+def test_a_stale_runtime_json_follows_the_switch_before_the_restart(service_home, monkeypatch):
+    """10-28, probe demo: the update switched the tool path to 0.342.0 but
+    runtime.json still named 0.339.0's interpreter, so the version read said
+    0.339.0, the restart started 0.339.0 and its guard, watching for 0.339.0
+    from 0.342.0's env, switched a good update back. runtime.json now follows
+    the tool path, and the version the restart and guard expect is that env's."""
+    old, new = _version_env(service_home.home, "0.1.0"), _version_env(service_home.home, "0.2.0")
+    client.write_runtime(str(installs_mod.env_python(old)), "0.1.0")
+    monkeypatch.setattr(installs_mod, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod, "env_version", lambda env, **kw: {new: "0.2.0", old: "0.1.0"}.get(env))
+
+    assert updater.runtime_follows_switch("0.1.0") == "0.2.0"
+    assert json.loads(paths.runtime_path().read_text()) == {
+        "python": str(installs_mod.env_python(new)), "cli_version": "0.2.0"}
+    assert client.runtime_python() == str(installs_mod.env_python(new))
+
+
+def test_runtime_json_naming_the_switched_env_is_left_alone(service_home, monkeypatch):
+    new = _version_env(service_home.home, "0.2.0")
+    client.write_runtime(str(installs_mod.env_python(new)), "0.2.0")
+    before = paths.runtime_path().read_text()
+    monkeypatch.setattr(installs_mod, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod, "env_version", lambda env, **kw: pytest.fail("no version read needed"))
+    assert updater.runtime_follows_switch("0.2.0") == "0.2.0"
+    assert paths.runtime_path().read_text() == before
+
+
+@pytest.mark.parametrize("layout", ["none", "unreadable"])
+def test_no_switch_layout_leaves_runtime_json_and_the_version_alone(service_home, monkeypatch, layout):
+    """A machine without side-by-side installs (pipx, in place), or whose
+    layout cannot be read, restarts on what it read, as before: never held."""
+    old = _version_env(service_home.home, "0.1.0")
+    client.write_runtime(str(installs_mod.env_python(old)), "0.1.0")
+
+    def active(tools=None):
+        if layout == "unreadable":
+            raise RuntimeError("no uv")
+        return None
+
+    monkeypatch.setattr(installs_mod, "active", active)
+    assert updater.runtime_follows_switch("0.1.0") == "0.1.0"
+
+
+@pytest.mark.parametrize("case", ["version unreadable", "raises", "uninstalling"])
+def test_a_disagreement_that_cannot_be_put_right_restarts_nothing(service_home, monkeypatch, case):
+    """Reviewer: returning the stale version still restarted (the env moved)
+    with a guard watching for it from the new env, the 10-28 failure again.
+    None: no restart this time."""
+    old, new = _version_env(service_home.home, "0.1.0"), _version_env(service_home.home, "0.2.0")
+    client.write_runtime(str(installs_mod.env_python(old)), "0.1.0")
+    before = paths.runtime_path().read_text()
+    monkeypatch.setattr(installs_mod, "active", lambda tools=None: new)
+
+    def version(env, **kw):
+        if case == "raises":
+            raise OSError("no uv")
+        return "0.2.0" if case == "uninstalling" else None
+
+    monkeypatch.setattr(installs_mod, "env_version", version)
+    if case == "uninstalling":
+        monkeypatch.setattr(client, "uninstall_barrier", lambda: {"at": 1.0})
+    assert updater.runtime_follows_switch("0.1.0") is None
+    assert paths.runtime_path().read_text() == before
+
+
+def test_the_self_step_and_the_update_action_expect_the_switched_version(service_home, monkeypatch):
+    """Both places that decide a restart (and its guard's version) ask
+    `runtime_follows_switch`, not runtime.json's interpreter alone.
+    MUTATION: drop either call."""
+    import asyncio
+
+    from probe.service import children
+
+    async def read(action, params, timeout):
+        return 0, {"cli_version": "0.1.0"}
+
+    monkeypatch.setattr(children, "run_read", read)
+    monkeypatch.setattr(updater, "runtime_follows_switch", lambda installed: "0.2.0")
+    monkeypatch.setattr(updater, "_env_moved", lambda started=None: False)
+    monkeypatch.setattr(installs_mod, "active", lambda tools=None: Path("/v/0.2.0"))
+    stops = []
+    u = updater.Updater(version="0.1.0", emit=lambda *a: None, changed=lambda: None, stop=stops.append,
+                        action_running=lambda: False, discovering=lambda: False)
+    monkeypatch.setattr(u, "followup", lambda moved: None)
+    monkeypatch.setattr(u, "mark_followup", lambda cycle: None)
+
+    done, restart = asyncio.run(u._self("c1"))
+    assert restart is True and done["to_version"] == "0.2.0"
+    asyncio.run(u._after_update_action())
+    assert u.guard_pending == "0.2.0" and stops == [StopReason.UPDATE]
+
+    monkeypatch.setattr(updater, "runtime_follows_switch", lambda installed: None)
+    monkeypatch.setattr(updater, "_env_moved", lambda started=None: True)  # the env did move
+    u.guard_pending, stops[:] = None, []
+    done, restart = asyncio.run(u._self("c3"))
+    assert restart is False, "a disagreement it cannot put right restarts nothing"
+    asyncio.run(u._after_update_action())
+    assert u.guard_pending is None and stops == []

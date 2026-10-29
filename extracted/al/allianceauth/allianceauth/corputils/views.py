@@ -1,10 +1,13 @@
+__lazy_modules__ = ["django.contrib.auth.models", "django.http", "esi.models"]
+
+from typing import TYPE_CHECKING
+
 from django.contrib import messages
 from django.contrib.auth.decorators import (
     login_required, permission_required, user_passes_test,
 )
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db import IntegrityError
-from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext_lazy as _
 
@@ -16,8 +19,14 @@ from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 from .models import CorpMember, CorpStats
 from .providers import get_characters_character_id
 
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User
+    from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 
-def access_corpstats_test(user):
+    from esi.models import Token
+
+
+def access_corpstats_test(user: "User") -> bool:
     return user.has_perm('corputils.view_corp_corpstats') or user.has_perm(
         'corputils.view_alliance_corpstats') or user.has_perm('corputils.view_state_corpstats') or user.has_perm(
         'corputils.add_corpstats')
@@ -27,7 +36,7 @@ def access_corpstats_test(user):
 @user_passes_test(access_corpstats_test)
 @permission_required('corputils.add_corpstats')
 @token_required(scopes='esi-corporations.read_corporation_membership.v1')
-def corpstats_add(request, token) -> HttpResponseRedirect:
+def corpstats_add(request: "HttpRequest", token: "Token") -> "HttpResponseRedirect":
     try:
         if EveCharacter.objects.filter(character_id=token.character_id).exists():
             corp_id = EveCharacter.objects.get(character_id=token.character_id).corporation_id
@@ -51,7 +60,7 @@ def corpstats_add(request, token) -> HttpResponseRedirect:
 
 @login_required
 @user_passes_test(access_corpstats_test)
-def corpstats_view(request, corp_id=None):
+def corpstats_view(request: "HttpRequest", corp_id: int | None = None) -> "HttpResponse":
     corpstats = None
 
     # get requested model
@@ -133,7 +142,7 @@ def corpstats_view(request, corp_id=None):
 
 @login_required
 @user_passes_test(access_corpstats_test)
-def corpstats_update(request, corp_id):
+def corpstats_update(request: "HttpRequest", corp_id: int) -> "HttpResponse":
     corp = get_object_or_404(EveCorporationInfo, corporation_id=corp_id)
     corpstats = get_object_or_404(CorpStats, corp=corp)
     try:
@@ -148,7 +157,7 @@ def corpstats_update(request, corp_id):
 
 @login_required
 @user_passes_test(access_corpstats_test)
-def corpstats_search(request):
+def corpstats_search(request: "HttpRequest") -> "HttpResponse":
     results = []
     search_string = request.GET.get('search_string', None)
     if search_string:

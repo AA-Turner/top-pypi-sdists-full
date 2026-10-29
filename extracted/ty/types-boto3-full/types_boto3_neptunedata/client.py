@@ -29,6 +29,8 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .type_defs import (
     CancelGremlinQueryInputTypeDef,
     CancelGremlinQueryOutputTypeDef,
+    CancelIndexRebuildInputTypeDef,
+    CancelIndexRebuildOutputTypeDef,
     CancelLoaderJobInputTypeDef,
     CancelLoaderJobOutputTypeDef,
     CancelMLDataProcessingJobInputTypeDef,
@@ -60,6 +62,8 @@ from .type_defs import (
     GetEngineStatusOutputTypeDef,
     GetGremlinQueryStatusInputTypeDef,
     GetGremlinQueryStatusOutputTypeDef,
+    GetIndexRebuildStatusInputTypeDef,
+    GetIndexRebuildStatusOutputTypeDef,
     GetLoaderJobStatusInputTypeDef,
     GetLoaderJobStatusOutputTypeDef,
     GetMLDataProcessingJobInputTypeDef,
@@ -82,8 +86,10 @@ from .type_defs import (
     GetSparqlStatisticsOutputTypeDef,
     GetSparqlStreamInputTypeDef,
     GetSparqlStreamOutputTypeDef,
+    GetStorageOutputTypeDef,
     ListGremlinQueriesInputTypeDef,
     ListGremlinQueriesOutputTypeDef,
+    ListIndexRebuildsOutputTypeDef,
     ListLoaderJobsInputTypeDef,
     ListLoaderJobsOutputTypeDef,
     ListMLDataProcessingJobsInputTypeDef,
@@ -100,6 +106,8 @@ from .type_defs import (
     ManagePropertygraphStatisticsOutputTypeDef,
     ManageSparqlStatisticsInputTypeDef,
     ManageSparqlStatisticsOutputTypeDef,
+    StartIndexRebuildInputTypeDef,
+    StartIndexRebuildOutputTypeDef,
     StartLoaderJobInputTypeDef,
     StartLoaderJobOutputTypeDef,
     StartMLDataProcessingJobInputTypeDef,
@@ -123,6 +131,7 @@ class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     BadRequestException: type[BotocoreClientError]
     BulkLoadIdNotFoundException: type[BotocoreClientError]
+    CancelledByMaintenanceException: type[BotocoreClientError]
     CancelledByUserException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ClientTimeoutException: type[BotocoreClientError]
@@ -147,6 +156,7 @@ class Exceptions(BaseClientExceptions):
     QueryLimitException: type[BotocoreClientError]
     QueryTooLargeException: type[BotocoreClientError]
     ReadOnlyViolationException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
     S3Exception: type[BotocoreClientError]
     ServerShutdownException: type[BotocoreClientError]
     StatisticsNotAvailableException: type[BotocoreClientError]
@@ -155,6 +165,7 @@ class Exceptions(BaseClientExceptions):
     TimeLimitExceededException: type[BotocoreClientError]
     TooManyRequestsException: type[BotocoreClientError]
     UnsupportedOperationException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class NeptuneDataClient(BaseClient):
@@ -200,6 +211,16 @@ class NeptuneDataClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptunedata/client/cancel_gremlin_query.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/client/#cancel_gremlin_query)
+        """
+
+    def cancel_index_rebuild(
+        self, **kwargs: Unpack[CancelIndexRebuildInputTypeDef]
+    ) -> CancelIndexRebuildOutputTypeDef:
+        """
+        Cancels an in-progress index rebuild operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptunedata/client/cancel_index_rebuild.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/client/#cancel_index_rebuild)
         """
 
     def cancel_loader_job(
@@ -369,6 +390,16 @@ class NeptuneDataClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/client/#get_gremlin_query_status)
         """
 
+    def get_index_rebuild_status(
+        self, **kwargs: Unpack[GetIndexRebuildStatusInputTypeDef]
+    ) -> GetIndexRebuildStatusOutputTypeDef:
+        """
+        Retrieves the status of an index rebuild operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptunedata/client/get_index_rebuild_status.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/client/#get_index_rebuild_status)
+        """
+
     def get_loader_job_status(
         self, **kwargs: Unpack[GetLoaderJobStatusInputTypeDef]
     ) -> GetLoaderJobStatusOutputTypeDef:
@@ -485,6 +516,15 @@ class NeptuneDataClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/client/#get_sparql_stream)
         """
 
+    def get_storage_info(self) -> GetStorageOutputTypeDef:
+        """
+        Retrieves storage information for the Neptune database instance, including
+        approximate total storage used and per-category size and entry counts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptunedata/client/get_storage_info.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/client/#get_storage_info)
+        """
+
     def list_gremlin_queries(
         self, **kwargs: Unpack[ListGremlinQueriesInputTypeDef]
     ) -> ListGremlinQueriesOutputTypeDef:
@@ -493,6 +533,14 @@ class NeptuneDataClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptunedata/client/list_gremlin_queries.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/client/#list_gremlin_queries)
+        """
+
+    def list_index_rebuilds(self) -> ListIndexRebuildsOutputTypeDef:
+        """
+        Retrieves a list of all index rebuild operation identifiers.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptunedata/client/list_index_rebuilds.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/client/#list_index_rebuilds)
         """
 
     def list_loader_jobs(
@@ -573,6 +621,17 @@ class NeptuneDataClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptunedata/client/manage_sparql_statistics.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/client/#manage_sparql_statistics)
+        """
+
+    def start_index_rebuild(
+        self, **kwargs: Unpack[StartIndexRebuildInputTypeDef]
+    ) -> StartIndexRebuildOutputTypeDef:
+        """
+        Initiates an index rebuild operation to optimize storage and improve query
+        performance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptunedata/client/start_index_rebuild.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_neptunedata/client/#start_index_rebuild)
         """
 
     def start_loader_job(

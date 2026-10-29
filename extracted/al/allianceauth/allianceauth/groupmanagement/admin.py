@@ -1,20 +1,27 @@
+__lazy_modules__ = ["django.db.models", "django.db.models.query", "django.http"]
+
+from typing import TYPE_CHECKING
+
 from django.apps import apps
 from django.contrib import admin
 from django.contrib.auth.models import Group as BaseGroup
 from django.db.models import Count, Exists, OuterRef
 from django.db.models.functions import Lower
-from django.db.models.query import QuerySet
 from django.db.models.signals import (
     m2m_changed, post_delete, post_save, pre_delete, pre_save,
 )
 from django.dispatch import receiver
-from django.http import HttpRequest
 
 from allianceauth.authentication.models import Permission, User
 
 from .forms import GroupAdminForm, ReservedGroupNameAdminForm
 from .models import AuthGroup, Group, GroupRequest, ReservedGroupName
 from .tasks import remove_users_not_matching_states_from_group
+
+if TYPE_CHECKING:
+    from django.db.models import Field
+    from django.db.models.query import QuerySet
+    from django.http import HttpRequest
 
 if 'eve_autogroups' in apps.app_configs:
     _has_auto_groups = True
@@ -39,7 +46,7 @@ class AuthGroupInlineAdmin(admin.StackedInline):
     verbose_name_plural = 'Auth Settings'
     verbose_name = ''
 
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
+    def formfield_for_manytomany(self, db_field: "Field", request: "HttpRequest", **kwargs):
         """overriding this formfield to have sorted lists in the form"""
         if db_field.name == "group_leaders":
             kwargs["queryset"] = User.objects.order_by(Lower('username'))
@@ -47,13 +54,13 @@ class AuthGroupInlineAdmin(admin.StackedInline):
             kwargs["queryset"] = Group.objects.order_by(Lower('name'))
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, request: "HttpRequest", obj: Group | None = None) -> bool:
         return False
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request: "HttpRequest", obj: Group | None = None) -> bool:
         return request.user.has_perm('auth.change_group')
 
-    def get_readonly_fields(self, request, obj=None):
+    def get_readonly_fields(self, request: "HttpRequest", obj: Group | None = None):
         if not request.user.is_superuser:
             return self.readonly_fields + ("restricted",)
         return self.readonly_fields
@@ -64,13 +71,13 @@ if _has_auto_groups:
         title = 'auto group'
         parameter_name = 'is_auto_group__exact'
 
-        def lookups(self, request, model_admin):
+        def lookups(self, request: "HttpRequest", model_admin: admin.ModelAdmin):
             return (
                 ('yes', 'Yes'),
                 ('no', 'No'),
             )
 
-        def queryset(self, request, queryset):
+        def queryset(self, request: "HttpRequest", queryset: "QuerySet[Group]") -> "QuerySet[Group]":
             value = self.value()
             if value == 'yes':
                 return queryset.exclude(
@@ -89,13 +96,13 @@ class HasLeaderFilter(admin.SimpleListFilter):
     title = 'has leader'
     parameter_name = 'has_leader__exact'
 
-    def lookups(self, request, model_admin):
+    def lookups(self, request: "HttpRequest", model_admin: admin.ModelAdmin):
         return (
             ('yes', 'Yes'),
             ('no', 'No'),
         )
 
-    def queryset(self, request, queryset):
+    def queryset(self, request: "HttpRequest", queryset: "QuerySet[Group]") -> "QuerySet[Group]":
         value = self.value()
         if value == 'yes':
             return queryset.filter(authgroup__group_leaders__isnull=False)
@@ -105,7 +112,7 @@ class HasLeaderFilter(admin.SimpleListFilter):
 
 
 @admin.action(description="remove_users_not_matching_states")
-def remove_users_not_matching_states(modeladmin: "GroupAdmin", request: HttpRequest, queryset: QuerySet["Group"]) -> None:
+def remove_users_not_matching_states(modeladmin: "GroupAdmin", request: "HttpRequest", queryset: "QuerySet[Group]") -> None:
     tasks_count = 0
     for obj in queryset:
         obj.authgroup.remove_users_not_matching_states()
@@ -139,7 +146,7 @@ class GroupAdmin(admin.ModelAdmin):
 
     actions = [remove_users_not_matching_states]
 
-    def get_queryset(self, request):
+    def get_queryset(self, request: "HttpRequest") -> "QuerySet[Group]":
         qs = super().get_queryset(request)
         has_leader_qs = (
             AuthGroup.objects.filter(group=OuterRef('pk'), group_leaders__isnull=False)
@@ -172,18 +179,18 @@ class GroupAdmin(admin.ModelAdmin):
             )
         return qs
 
-    def _description(self, obj):
+    def _description(self, obj: Group) -> str:
         return obj.authgroup.description
 
     @admin.display(description='Members', ordering='member_count')
-    def _member_count(self, obj):
+    def _member_count(self, obj: Group) -> int:
         return obj.member_count
 
     @admin.display(boolean=True)
-    def has_leader(self, obj):
+    def has_leader(self, obj: Group) -> bool:
         return obj.has_leader or obj.has_leader_groups
 
-    def _properties(self, obj):
+    def _properties(self, obj: Group) -> list[str]:
         properties = []
         if _has_auto_groups and (obj.is_autogroup_corp or obj.is_autogroup_alliance):
             properties.append('Auto Group')
@@ -205,12 +212,12 @@ class GroupAdmin(admin.ModelAdmin):
     filter_horizontal = ('permissions',)
     inlines = (AuthGroupInlineAdmin,)
 
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
+    def formfield_for_manytomany(self, db_field: "Field", request: "HttpRequest", **kwargs):
         if db_field.name == "permissions":
             kwargs["queryset"] = Permission.objects.select_related("content_type").all()
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
-    def save_formset(self, request, form, formset, change):
+    def save_formset(self, request: "HttpRequest", form, formset, change: bool) -> None:
         for inline_form in formset:
             ag_instance = inline_form.save(commit=False)
             ag_instance.group = form.instance
@@ -219,7 +226,7 @@ class GroupAdmin(admin.ModelAdmin):
                 remove_users_not_matching_states_from_group.delay(ag_instance.group.pk)
         formset.save()
 
-    def get_readonly_fields(self, request, obj=None):
+    def get_readonly_fields(self, request: "HttpRequest", obj: Group | None = None):
         if not request.user.is_superuser:
             return self.readonly_fields + ("permissions",)
         return self.readonly_fields
@@ -242,7 +249,7 @@ class GroupRequestAdmin(admin.ModelAdmin):
     )
 
     @admin.display(boolean=True, description="is leave request")
-    def _leave_request(self, obj) -> True:
+    def _leave_request(self, obj: GroupRequest) -> bool:
         return obj.leave_request
 
 
@@ -251,7 +258,7 @@ class ReservedGroupNameAdmin(admin.ModelAdmin):
     form = ReservedGroupNameAdminForm
     list_display = ("name", "created_by", "created_at")
 
-    def get_form(self, request, *args, **kwargs):
+    def get_form(self, request: "HttpRequest", *args, **kwargs):
         form = super().get_form(request, *args, **kwargs)
         form.current_user = request.user
         return form
@@ -261,25 +268,25 @@ class ReservedGroupNameAdmin(admin.ModelAdmin):
 
 
 @receiver(pre_save, sender=Group)
-def redirect_pre_save(sender, signal=None, *args, **kwargs):
+def redirect_pre_save(sender: type, signal=None, *args, **kwargs) -> None:
     pre_save.send(BaseGroup, *args, **kwargs)
 
 
 @receiver(post_save, sender=Group)
-def redirect_post_save(sender, signal=None, *args, **kwargs):
+def redirect_post_save(sender: type, signal=None, *args, **kwargs) -> None:
     post_save.send(BaseGroup, *args, **kwargs)
 
 
 @receiver(pre_delete, sender=Group)
-def redirect_pre_delete(sender, signal=None, *args, **kwargs):
+def redirect_pre_delete(sender: type, signal=None, *args, **kwargs) -> None:
     pre_delete.send(BaseGroup, *args, **kwargs)
 
 
 @receiver(post_delete, sender=Group)
-def redirect_post_delete(sender, signal=None, *args, **kwargs):
+def redirect_post_delete(sender: type, signal=None, *args, **kwargs) -> None:
     post_delete.send(BaseGroup, *args, **kwargs)
 
 
 @receiver(m2m_changed, sender=Group.permissions.through)
-def redirect_m2m_changed_permissions(sender, signal=None, *args, **kwargs):
+def redirect_m2m_changed_permissions(sender: type, signal=None, *args, **kwargs) -> None:
     m2m_changed.send(BaseGroup, *args, **kwargs)

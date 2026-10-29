@@ -44,6 +44,45 @@ from omnimarket.handlers.handler_projection_derived_write import (
 
 logger = logging.getLogger(__name__)
 
+SQLITE_STORE_NOT_A_DATABASE_LOG_TOKEN = "SQLITE_STORE_NOT_A_DATABASE"
+
+
+class SqliteStoreNotADatabaseError(sqlite3.DatabaseError):
+    """A nonempty store lacks the SQLite file header (OMN-19174)."""
+
+    def __init__(self, path: Path, header_hex: str) -> None:
+        self.path = path
+        self.header_hex = header_hex
+        super().__init__(
+            f"Store at {path} is not a SQLite database. Move the file aside "
+            "(never delete it), then restore its header on a copy or let the "
+            "runtime create a fresh store, and restart the container."
+        )
+
+
+def verify_sqlite_store_header(path: Path) -> None:
+    """Refuse an existing non-SQLite store before opening it (OMN-19174)."""
+    try:
+        size = path.stat().st_size
+    except FileNotFoundError:
+        return
+    if size == 0:
+        return
+    with path.open("rb") as store:
+        header = store.read(16)
+        if header == b"SQLite format 3\x00":
+            return
+        header_hex = (header + store.read(16)).hex()
+    logger.critical(
+        "%s path=%s size=%d header_hex=%s",
+        SQLITE_STORE_NOT_A_DATABASE_LOG_TOKEN,
+        path,
+        size,
+        header_hex,
+    )
+    raise SqliteStoreNotADatabaseError(path, header_hex)
+
+
 _DEFAULT_EVIDENCE_DB_PATH = (
     Path.home() / ".omninode" / "delegation" / "delegation.sqlite"
 )
@@ -513,7 +552,8 @@ CREATE TABLE IF NOT EXISTS tenant_inference_credentials (
     fingerprint TEXT,
     set_at      TEXT,
     expires_at  TEXT,
-    bound_host  TEXT
+    bound_host  TEXT,
+    workspace_id TEXT
 )
 """
 
@@ -526,6 +566,8 @@ _TENANT_INFERENCE_CREDENTIALS_ADDED_COLUMNS: dict[str, object] = {
     "expires_at": None,
     # 0007 (OMN-21012): the lab host the key is bound to.
     "bound_host": None,
+    # 0008 (OMN-20967): the Anthropic workspace the key belongs to.
+    "workspace_id": None,
 }
 
 _DELEGATION_ROUTING_TENANT_OVERLAY_DDL = """
@@ -658,10 +700,21 @@ _DELEGATION_SAVINGS_UNPRICED_VIEW_SQL = (
     "omnimarket.nodes.node_projection_savings",
     "sqlite/delegation_savings_view_unpriced.sql",
 )
+_DELEGATION_SAVINGS_MEASURED_VIEW_STEP = "omn21206_delegation_savings_measured_view"
+_DELEGATION_SAVINGS_MEASURED_VIEW_SQL = (
+    "omnimarket.nodes.node_projection_savings",
+    "sqlite/delegation_savings_view_measured.sql",
+)
 # OMN-19988: the local environment table, its cursor sequence and triggers. A
 # store step, not a statement on every connect: the sequence seed is a write, so
 # a read-only store, or a reader on a busy one, must not run it.
 _LOCAL_ENVIRONMENT_STEP = "omn19988_local_environment"
+# OMN-21349: correlation-keyed claims have no delivery_id mapping. Preserve
+# them in a legacy table and create the current shape before its indexes.
+_CLAIMS_DELIVERY_ID_SHAPE_STEP = "omn21349_claims_delivery_id_shape"
+_LEGACY_DELEGATE_SKILL_CLAIMS_TABLE = (
+    "delegate_skill_command_claims_legacy_no_delivery_id"
+)
 # OMN-17427: the delegation reaper scans every 15 s for pending claims
 # (terminal_json = ''), on the runtime's event loop, and the claims table had
 # only its primary-key index, so each scan read the whole file. On a 105,322-row
@@ -748,32 +801,41 @@ class SqliteDatabaseAdapter:
         # freestanding call (OMN-13160). The no-contract-check tag below is the scanner's
         # sanctioned per-line boundary annotation, NOT a path-allowlist broadening.
         db_path = str(self._db_path)
+        if db_path != ":memory:" and not db_path.startswith("file:"):
+            verify_sqlite_store_header(Path(db_path))
         conn = sqlite3.connect(db_path)  # no-contract-check: projection boundary
-        conn.row_factory = sqlite3.Row
-        conn.execute(_DELEGATION_EVENTS_DDL)
-        self._reconcile_delegation_events(conn)
-        self._reconcile_legacy_llm_call_metrics(conn)
-        conn.execute(_LLM_CALL_METRICS_DDL)
-        conn.execute(_DELEGATE_SKILL_CLAIMS_DDL)
-        conn.execute(_USAGE_BY_MODEL_DAY_CALLS_DDL)
-        conn.execute(_USAGE_BY_MODEL_DAY_DDL)
-        conn.execute(_RUN_TRACE_DDL)
-        conn.execute(_METERING_SUMMARY_DDL)
-        conn.execute(_METERING_SUMMARY_INDEX_DDL)
-        conn.execute(_LLM_CALL_METRICS_DDL)
-        conn.execute(_LLM_CALL_METRICS_INPUT_HASH_INDEX)
-        conn.execute(_TENANT_INFERENCE_CREDENTIALS_DDL)
-        conn.execute(_DELEGATION_ROUTING_TENANT_OVERLAY_DDL)
-        conn.execute(_AUTOMATION_LIVENESS_STATE_DDL)
-        conn.execute(_AUTOMATION_RUN_HISTORY_DDL)
-        conn.execute(_AUTOMATION_ALARM_EPISODES_DDL)
-        conn.commit()
-        self._ensure_columns(
-            conn,
-            "tenant_inference_credentials",
-            _TENANT_INFERENCE_CREDENTIALS_ADDED_COLUMNS,
-        )
-        self._apply_store_steps(conn, self._db_path)
+        # A step raising after its write began would leave the connection and
+        # its lock alive in the exception's traceback; on 2026-10-22 this
+        # wedged a long-lived review gateway (OMN-17427).
+        try:
+            conn.row_factory = sqlite3.Row
+            conn.execute(_DELEGATION_EVENTS_DDL)
+            self._reconcile_delegation_events(conn)
+            self._reconcile_legacy_llm_call_metrics(conn)
+            conn.execute(_LLM_CALL_METRICS_DDL)
+            conn.execute(_DELEGATE_SKILL_CLAIMS_DDL)
+            conn.execute(_USAGE_BY_MODEL_DAY_CALLS_DDL)
+            conn.execute(_USAGE_BY_MODEL_DAY_DDL)
+            conn.execute(_RUN_TRACE_DDL)
+            conn.execute(_METERING_SUMMARY_DDL)
+            conn.execute(_METERING_SUMMARY_INDEX_DDL)
+            conn.execute(_LLM_CALL_METRICS_DDL)
+            conn.execute(_LLM_CALL_METRICS_INPUT_HASH_INDEX)
+            conn.execute(_TENANT_INFERENCE_CREDENTIALS_DDL)
+            conn.execute(_DELEGATION_ROUTING_TENANT_OVERLAY_DDL)
+            conn.execute(_AUTOMATION_LIVENESS_STATE_DDL)
+            conn.execute(_AUTOMATION_RUN_HISTORY_DDL)
+            conn.execute(_AUTOMATION_ALARM_EPISODES_DDL)
+            conn.commit()
+            self._ensure_columns(
+                conn,
+                "tenant_inference_credentials",
+                _TENANT_INFERENCE_CREDENTIALS_ADDED_COLUMNS,
+            )
+            self._apply_store_steps(conn, self._db_path)
+        except BaseException:
+            conn.close()
+            raise
         return conn
 
     @staticmethod
@@ -932,6 +994,14 @@ class SqliteDatabaseAdapter:
                     "re-created the delegation savings view with its unpriced-call count",
                 )
             )
+        if not cls._store_step_recorded(conn, _DELEGATION_SAVINGS_MEASURED_VIEW_STEP):
+            pending.append(
+                (
+                    _DELEGATION_SAVINGS_MEASURED_VIEW_STEP,
+                    cls._create_delegation_savings_measured_view,
+                    "restricted savings money to measured runs and counted each basis",
+                )
+            )
         if not cls._store_step_recorded(
             conn, _DELEGATION_MODEL_ROUTING_TIER_MODELS_STEP
         ):
@@ -948,6 +1018,14 @@ class SqliteDatabaseAdapter:
                     _LOCAL_ENVIRONMENT_STEP,
                     cls._create_local_environment,
                     "created the local environment table and its cursor",
+                )
+            )
+        if not cls._store_step_recorded(conn, _CLAIMS_DELIVERY_ID_SHAPE_STEP):
+            pending.append(
+                (
+                    _CLAIMS_DELIVERY_ID_SHAPE_STEP,
+                    cls._migrate_claims_table_to_delivery_id,
+                    "moved legacy delegate-skill command claims aside for delivery ids",
                 )
             )
         if not cls._store_step_recorded(conn, _CLAIMS_PENDING_INDEX_STEP):
@@ -1129,6 +1207,37 @@ class SqliteDatabaseAdapter:
         for trigger in _LOCAL_ENVIRONMENT_CURSOR_TRIGGERS:
             conn.execute(trigger)
 
+    @classmethod
+    def _migrate_claims_table_to_delivery_id(cls, conn: sqlite3.Connection) -> None:
+        """OMN-21349: preserve old claims without inventing delivery ids."""
+        if "delivery_id" in cls._existing_columns(
+            conn, "delegate_skill_command_claims"
+        ):
+            return
+        # Index names are global and survive a rename; free the explicit names
+        # so the current table can gain its own indexes. Keep autoindexes.
+        indexes = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index' "
+            "AND tbl_name = 'delegate_skill_command_claims' AND sql IS NOT NULL"
+        ).fetchall()
+        for row in indexes:
+            name = str(row["name"]).replace('"', '""')
+            conn.execute(f'DROP INDEX "{name}"')
+        legacy_table = _LEGACY_DELEGATE_SKILL_CLAIMS_TABLE
+        suffix = 2
+        while (
+            conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE name = ?", (legacy_table,)
+            ).fetchone()
+            is not None
+        ):
+            legacy_table = f"{_LEGACY_DELEGATE_SKILL_CLAIMS_TABLE}_{suffix}"
+            suffix += 1
+        conn.execute(
+            f"ALTER TABLE delegate_skill_command_claims RENAME TO {legacy_table}"
+        )
+        conn.execute(_DELEGATE_SKILL_CLAIMS_DDL)
+
     @staticmethod
     def _create_claims_pending_index(conn: sqlite3.Connection) -> None:
         """OMN-17427: the partial index the reaper's pending-claims query reads."""
@@ -1172,6 +1281,14 @@ class SqliteDatabaseAdapter:
         revision is a new step, never an edit to this one.
         """
         package, resource = _DELEGATION_SAVINGS_UNPRICED_VIEW_SQL
+        ddl = files(package).joinpath(resource).read_text(encoding="utf-8")
+        conn.execute("DROP VIEW IF EXISTS projection_delegation_savings")
+        conn.execute(ddl)
+
+    @staticmethod
+    def _create_delegation_savings_measured_view(conn: sqlite3.Connection) -> None:
+        """Replace the view once on both new and previously upgraded stores."""
+        package, resource = _DELEGATION_SAVINGS_MEASURED_VIEW_SQL
         ddl = files(package).joinpath(resource).read_text(encoding="utf-8")
         conn.execute("DROP VIEW IF EXISTS projection_delegation_savings")
         conn.execute(ddl)
@@ -1502,9 +1619,12 @@ def reconcile_existing_store(db_path: Path) -> None:
 
 __all__ = [
     "SQLITE_SCHEMES",
+    "SQLITE_STORE_NOT_A_DATABASE_LOG_TOKEN",
     "SqliteDatabaseAdapter",
+    "SqliteStoreNotADatabaseError",
     "SqliteWriteTransaction",
     "default_evidence_db_path",
     "reconcile_existing_store",
     "sqlite_path_from_dsn",
+    "verify_sqlite_store_header",
 ]

@@ -289,7 +289,8 @@ class Despreader:
         parameter (need a non-empty code; for the code loop a finite init_chip,
         bn_code >= 0 and zeta > 0 both finite, whose loop gains come out
         finite, and 0 < spacing < len(code)/2; for the carrier loop bn_carrier
-        >= 0, finite, whose loop gains come out finite)``.
+        >= 0, finite, whose loop gains come out finite, and bn_fll >= 0 and
+        finite)``.
 
     Examples
     --------
@@ -304,8 +305,7 @@ class Despreader:
     ...     [s * np.repeat(chips, 4) for s in syms]).astype(np.complex64)
     >>> d = Despreader(code, sps=4)          # seed a fresh tracking loop
     >>> data = d.bits(rx)                        # hard data bits, 1/period
-    >>> e = np.mean(data != bits[:data.size])    # up to a global BPSK flip
-    >>> round(float(min(e, 1.0 - e)), 4)
+    >>> float(np.mean(data != bits[:data.size]))  # raw: phase 0 is known
     0.0
 
     """
@@ -357,7 +357,7 @@ class Despreader:
     def bits(
         self, x: NDArray[np.complex64], out: NDArray[np.uint8] | None = ...
     ) -> NDArray[np.uint8]:
-        """Same tracking kernel as steps(), but bit-sync the per-period prompts into hard data bits: periods_per_bit prompts are coherently summed across each detected bit boundary and one 0/1 bit is emitted per data bit.
+        """Same tracking kernel as steps(), but bit-sync the per-period prompts into hard data bits: periods_per_bit prompts are coherently summed across each detected bit boundary and one 0/1 bit is emitted per data bit, by the library's one polarity: bit b is sent as 1 - 2b (mpsk_core.h), so a negative summed prompt is a 1.
 
         Without out=, the returned array is a view into a buffer reused on the
         next call (see bits_max_out() to size an out= buffer for an
@@ -621,12 +621,12 @@ class Despreader:
 
     @property
     def norm_freq(self) -> float:
-        """Norm freq."""
+        """The carrier loop's tracked frequency, cycles/sample."""
     @norm_freq.setter
     def norm_freq(self, value: float) -> None: ...
     @property
     def code_phase(self) -> float:
-        """Code phase."""
+        """The code loop's current prompt code phase, chips."""
 
     @property
     def code_rate(self) -> float:
@@ -657,11 +657,12 @@ class Despreader:
 
     @property
     def bit_phase(self) -> int:
-        """detected bit boundary (argmax flip_hist)."""
+        """The detected data-bit boundary, in code periods."""
 
     @property
     def bn_carrier(self) -> float:
-        """Bn carrier.
+        """Carrier loop noise bandwidth, normalized to the code-period (symbol)
+        rate.
 
         Raises
         ------
@@ -676,7 +677,7 @@ class Despreader:
     def bn_carrier(self, value: float) -> None: ...
     @property
     def bn_code(self) -> float:
-        """Bn code.
+        """Code loop noise bandwidth, normalized to the code-period rate.
 
         Raises
         ------
@@ -743,7 +744,8 @@ class BurstDespreader:
     Parameters
     ----------
     code : NDArray[np.uint8]
-        Data spreading code (0/1 chips), length code_len; copied.
+        Data spreading code (0/1 chips), length code_len; the first sf chips
+        are copied (only bit 0 of each byte is read: 0 -> +1, 1 -> -1).
     sf : int, default 1
         Spreading factor: chips integrated per prompt symbol (default: 1).
     sps : int, default 2
@@ -860,10 +862,12 @@ class BurstDespreader:
     def bits(
         self, x: NDArray[np.complex64], out: NDArray[np.uint8] | None = ...
     ) -> NDArray[np.uint8]:
-        """Despread a cf32 block; emit one hard BPSK bit per code period.
+        """Despread a cf32 block; emit one hard BPSK bit per code period, by the library's one polarity: bit b is sent as 1 - 2b (mpsk_core.h), so a negative prompt is a 1.
 
-        Same streaming kernel as burst_despreader_steps(), but emits the hard decision
-        `crealf(prompt) >= 0` instead of the complex symbol.
+        Same streaming kernel as burst_despreader_steps(), but emits the hard
+        decision instead of the complex symbol: 1 when Re(prompt) is
+        negative, 0 when it is zero or positive -- the decision nrz_to_bin()
+        makes.
 
         Without out=, the returned array is a view into a buffer reused on the
         next call (see bits_max_out() to size an out= buffer for an
@@ -894,25 +898,52 @@ class BurstDespreader:
     ) -> None:
         """Enable preamble-aided pull-in: track acq_reps periods of the
         (distinct) acq_code coherently before despreading the payload with the
-        data code. Call before feeding the burst; clears when the preamble is
-        consumed.
+        data code. The preamble is a known +1, so it also sets the payload's
+        absolute phase: the payload is handed over at the preamble's phase from
+        any starting phase, carrier seeded or not. Call before feeding the
+        burst; clears when the preamble is consumed.
 
         Track acq_reps periods of acq_code coherently (the unmodulated,
         repeated acquisition preamble — a full ±pi phase discriminator, so the
         loops pull in even a wide residual) before switching to the data code
         for the payload. Call before feeding the burst; the acq mode clears
         automatically once the preamble is consumed, and re-arms on
-        dp_burst_despreader_reset(). NB: set_acq re-arms the PREAMBLE only —
-        the cumulative burst statistics (lock_metric / snr_est / lock_stat /
-        stat_n) are re-armed by dp_burst_despreader_reset(); call it between
-        bursts.
+        dp_burst_despreader_reset(). The tracked carrier frequency carries
+        over: the carrier loop's integrator is rescaled to the symbol period
+        now in force (the acq code's, or the data code's when this disables the
+        preamble). NB: set_acq re-arms the PREAMBLE only — the cumulative burst
+        statistics (lock_metric / snr_est / lock_stat / stat_n) are re-armed by
+        dp_burst_despreader_reset(); call it between bursts.
+
+        **The preamble sets the payload's absolute phase.** Every preamble
+        symbol is the known +1 (bit 0 under `1 - 2b`), so at the handover the
+        NCO is turned to the last preamble prompt's phase, and the payload
+        starts there -- from any starting phase and with no carrier seed
+        (#2664). Without it, a preamble too short to pull an offset in left the
+        payload's Costas detector, which cannot tell 0 from pi, to lock at pi
+        and complement every bit. Turning the NCO, not flipping bits, corrects
+        the soft symbols and statistics too. The alternative, differential
+        encoding, needs no reference but is not free: about twice the bit error
+        rate, decoded coherently (docs/design/mpsk.md, "A known reference
+        resolves the ambiguity"). A link with no preamble or sync word gets it
+        from dp_mpsk_diff_map() / dp_mpsk_diff_demap() (Python: mpsk_diff_map /
+        mpsk_diff_demap).
 
         Parameters
         ----------
         acq_code : npt.NDArray[np.uint8] | bytes | bytearray | memoryview
             Acquisition code (0/1), length acq_code_len; copied.
         acq_reps : int
-            Number of acq-code periods in the preamble.
+            Number of acq-code periods in the preamble. A NULL/empty acq_code
+            or `acq_reps == 0` disables the preamble (payload-only) and frees
+            any previous acq code.
+
+        Raises
+        ------
+        MemoryError
+            If the C call returns a non-zero status. The exception message is
+            ``set_acq: the acquisition code could not be allocated; the
+            previous preamble stands``, with the return code appended (gh-869).
 
         Examples
         --------
@@ -928,13 +959,15 @@ class BurstDespreader:
         >>> pre = np.concatenate([np.repeat(asig, 4) for _ in range(4)])
         >>> pay = np.concatenate([np.repeat(s * dch, 4) for s in psyms])
         >>> burst = np.concatenate([pre, pay]).astype(np.complex64)
+        >>> t = np.arange(burst.size)
+        >>> rx = (burst * np.exp(1j * (np.pi + 2 * np.pi * 4e-5 * t))
+        ...       ).astype(np.complex64)  # phase pi, offset NOT seeded
         >>> d = BurstDespreader(data_code, sf=32, sps=4)
         >>> d.set_acq(acq, 4)            # 4 preamble reps, pulls loops in
-        >>> out = d.bits(burst)          # preamble emits nothing
+        >>> out = d.bits(rx)             # preamble emits nothing
         >>> out.shape                    # only the payload symbols come out
         (40,)
-        >>> e = np.mean(out != pbits)
-        >>> round(float(min(e, 1.0 - e)), 4)
+        >>> float(np.mean(out != pbits))  # raw: the preamble sets the phase
         0.0
 
         """
@@ -1185,7 +1218,8 @@ class PolynomialPhaseEstimator:
         """
 
     def estimate(self, x: complex, /) -> PolynomialPhaseEstimate:
-        """Estimate (freq, chirp-rate) of a complex sequence via the 2-lag HAF.
+        """Estimate (freq, chirp-rate) of a complex sequence by dechirp and FFT
+        peak search over the chirp-rate hypotheses.
 
         Runs the full 2-D matched-filter search in one shot: for each
         chirp-rate hypothesis the segment is dechirped and FFT-ed, and the peak
@@ -1503,7 +1537,7 @@ class BurstDemod:
         Returns
         -------
         int
-            Output.
+            frame_syms (fixed at create), or 0 if state is NULL.
         """
 
     def symbols(
@@ -1581,7 +1615,7 @@ class BurstDemod:
         Returns
         -------
         int
-            Output.
+            frame_syms (fixed at create), or 0 if state is NULL.
         """
 
     def set_prior(self, f0_coarse: float, start: int) -> None:
@@ -1878,8 +1912,10 @@ class DsssReceiver:
         straight to them in the same call. While tracking, samples feed `Dll ->
         RateConverter -> MpskReceiver` in sequence. Accepts any block size;
         state carries across calls (`Acquisition`/`Dll`/
-        `RateConverter`/`MpskReceiver` are all already block-size invariant, so
-        this object needs no ring-buffering of its own).
+        `RateConverter`/`MpskReceiver` are all already block-size invariant;
+        the only buffering this object adds is the carrier loop's
+        partial-code-period carry). While tracking, each call allocates two
+        scratch buffers (abort on OOM).
 
         Parameters
         ----------
@@ -1933,17 +1969,13 @@ class DsssReceiver:
         """
 
     def steps_max_out(self) -> int:
-        """Largest number of samples steps() can return in the current state.
-
-        Size an `out=` buffer with this before calling steps(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on steps_max_out()
-        replaces this text.
+        """Output capacity hint for dp_dsss_receiver_steps().
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            Always 0: size out from the input length x_len, which is always
+            enough (at most one symbol per input sample).
         """
 
     def configure_search_raw(self, doppler_bins: int, n_noncoh: int) -> None:
@@ -1955,9 +1987,8 @@ class DsssReceiver:
         Parameters
         ----------
         doppler_bins : int
-            Number of Doppler window tiles to search (>= 1); capped by the
-            create-time `doppler_uncertainty` span (one tile per code-epoch
-            Doppler bin width).
+            Coherent depth to pin, in `[1, reps]` as
+            dp_acq_configure_search_raw() defines it.
         n_noncoh : int
             Non-coherent looks accumulated per grid cell (1..256); more looks
             buys sensitivity at the cost of dwell, replacing the auto-sized
@@ -2064,7 +2095,10 @@ class DsssReceiver:
             MpskReceiver samples per symbol (the resample target), >= 2.
         n : int
             MpskReceiver's terminal outputs per symbol (`m_out`): inside
-            dp_ratesync_m_ok() (even, 2..8), and dividing sps.
+            dp_ratesync_m_ok() (even, 2..8) and at most sps --
+            mpsk_rx_m_out_ok(), the rule create()'s own derived `n` satisfies,
+            so get_n() always re-applies (doppler#2650). It need not divide
+            sps.
 
         Raises
         ------
@@ -2163,27 +2197,27 @@ class DsssReceiver:
 
     @property
     def tracking(self) -> int:
-        """0 = searching, 1 = locked and demodulating."""
+        """Routing state: searching or tracking."""
 
     @property
     def doppler_hz(self) -> float:
-        """Doppler hz."""
+        """Doppler estimate from the winning acquisition hit."""
 
     @property
     def cn0_dbhz_est(self) -> float:
-        """Cached from the winning acquisition hit."""
+        """C/N0 estimate from the winning acquisition hit."""
 
     @property
     def segments(self) -> int:
-        """Dll's own tracking parameter."""
+        """Dll partial correlations per code period currently in use."""
 
     @property
     def sps(self) -> int:
-        """MpskReceiver's own samples/symbol."""
+        """MpskReceiver samples per symbol currently in use."""
 
     @property
     def n(self) -> int:
-        """MpskReceiver's own carrier-arm count."""
+        """MpskReceiver terminal outputs per symbol (`m_out`) in use."""
 
     @property
     def chip_phase(self) -> float:
@@ -2191,7 +2225,7 @@ class DsssReceiver:
 
     @property
     def code_rate(self) -> float:
-        """Dll's own tracking-quality indicator; 1.0 while searching."""
+        """Dll's tracked code rate; 1.0 while searching."""
 
     @property
     def lock(self) -> float:
@@ -2785,7 +2819,10 @@ class AsyncDsssReceiver:
             MpskReceiver samples per symbol (the resample target), >= 2.
         n : int
             MpskReceiver's terminal outputs per symbol (`m_out`): inside
-            dp_ratesync_m_ok() (even, 2..8), and dividing sps.
+            dp_ratesync_m_ok() (even, 2..8) and at most sps --
+            mpsk_rx_m_out_ok(), the rule create()'s own derived `n` satisfies,
+            so get_n() always re-applies (doppler#2650). It need not divide
+            sps.
 
         Raises
         ------
@@ -3194,9 +3231,7 @@ class AsyncDsssReceiver:
 
     @property
     def segments(self) -> int:
-        """The live-tracking Dll's partial correlations per code period
-        (refine_segments is the refine collector's).
-        """
+        """The live-tracking Dll's partial correlations per code period."""
 
     @property
     def sps(self) -> int:
@@ -3204,7 +3239,7 @@ class AsyncDsssReceiver:
 
     @property
     def n(self) -> int:
-        """MpskReceiver's terminal outputs per symbol (`m_out`: even, 2..8)."""
+        """MpskReceiver's terminal outputs per symbol (even, 2..8)."""
 
     @property
     def chip_phase(self) -> float:
@@ -3579,7 +3614,8 @@ class AsyncDsssPool:
         Returns
         -------
         int
-            Output.
+            The largest per-receiver symbol count from the last push(); 0
+            before the first push and after reset() or set_state().
         """
 
     def reset(self) -> None:
@@ -4084,7 +4120,8 @@ class DsssBurstReceiver:
         Returns
         -------
         int
-            Output.
+            LLRs the last push() produced (`bursts * frame_syms`); 0 after
+            create, reset() or set_state().
         """
 
     def events(
@@ -4274,27 +4311,27 @@ class DsssBurstReceiver:
 
     @property
     def preamble_start(self) -> int:
-        """Stream-absolute preamble start. Never late."""
+        """Stream-absolute preamble start of the most recent burst, samples."""
 
     @property
     def doppler_hz_est(self) -> float:
-        """Signed coarse Doppler, Hz."""
+        """Signed coarse Doppler of the most recent burst, from acquisition."""
 
     @property
     def doppler_res_hz(self) -> float:
-        """Width of that estimate."""
+        """Width of the coarse Doppler estimate (acquisition's bin), Hz."""
 
     @property
     def cn0_dbhz_est(self) -> float:
-        """C/N0 lower bound, dB-Hz (saturating)."""
+        """Acquisition's C/N0 estimate for the most recent burst."""
 
     @property
     def est_freq_hz(self) -> float:
-        """Demod's own residual estimate, Hz."""
+        """The demodulator's residual-frequency estimate, most recent burst."""
 
     @property
     def est_rate_hz(self) -> float:
-        """Demod's own chirp-rate estimate."""
+        """The demodulator's Doppler-rate estimate, most recent burst."""
 
     @property
     def demod_cn0_dbhz(self) -> float:
@@ -4392,10 +4429,7 @@ class DsssBurstReceiver:
 
     @property
     def n_bursts(self) -> int:
-        """Bursts DEMODULATED, lifetime. Distinct from the capture's own count,
-        which is windows EMITTED: they differ by any window the demodulator
-        refused, and that difference is the thing worth seeing.
-        """
+        """Bursts demodulated over this receiver's lifetime."""
 
     def destroy(self) -> None:
         """Release the underlying C resources immediately.

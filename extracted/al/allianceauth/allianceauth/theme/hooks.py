@@ -14,7 +14,7 @@ class ThemeHook:
         js_type: str | None = None,
         html_tags: dict | str | None = None,
         header_padding: str | None = "4em"
-    ):
+    ) -> None:
         """
         :param name: Theme python name
         :type name: str
@@ -57,5 +57,5 @@ class ThemeHook:
         )
         self.header_padding = header_padding
 
-    def get_name(self):
+    def get_name(self) -> str:
         return f"{self.__class__.__module__}.{self.__class__.__name__}"

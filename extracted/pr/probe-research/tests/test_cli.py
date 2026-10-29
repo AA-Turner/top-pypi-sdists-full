@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import uuid
 from importlib import metadata
 from pathlib import Path
@@ -1593,9 +1594,10 @@ def test_project_move_requires_exactly_one_destination(wired, capsys):
     )
 
 
-def test_project_create_sends_an_explicit_workspace_beside_parent(wired, capsys):
-    """The docstring promises the SERVER arbitrates a --parent/--workspace
-    pair; dropping the flag silently made that refusal unreachable once."""
+def test_project_create_sends_an_explicit_workspace_beside_part_of(wired, capsys):
+    """A link crosses workspaces, so an explicit --workspace beside --part-of is
+    SENT, not dropped: dropping it silently once filed the project somewhere
+    the caller never asked for."""
     ws = next(iter(wired.workspaces))
     cli.main(
         [
@@ -1604,15 +1606,118 @@ def test_project_create_sends_an_explicit_workspace_beside_parent(wired, capsys)
             "--kind",
             "general",
             "combo",
-            "--parent",
+            "--part-of",
             "p",
             "--workspace",
             f"id:{ws}",
         ]
     )
-    sent = json.loads(wired.requests[-1].content)
+    sent = _sent(wired, "POST", "/v1/projects")
     assert sent.get("workspace_id") == ws
-    assert sent.get("parent_project_id") is not None
+    assert sent.get("part_of") == [_pid(wired, "p")]
+
+
+# --- 0401: projects are flat; a phase is its own project linked --part-of ---
+def _sent(app, method: str, path: str) -> dict:
+    """The body of the LAST `method path` request the CLI made."""
+    request = [r for r in app.requests if r.method == method and r.url.path == path][-1]
+    return json.loads(request.content) if request.content else {}
+
+
+def _pid(app, slug: str) -> str:
+    return next(pid for pid, row in app.projects.items() if row["slug"] == slug)
+
+
+def test_project_create_part_of_links_it_beside_its_target(wired, capsys):
+    """No tree, no `parent_project_id`: the link, and no workspace, so the
+    server files the new project in its first target's workspace."""
+    cli.main(["project", "create", "--kind", "research", "review"])
+    capsys.readouterr()
+    assert (
+        cli.main(
+            ["project", "create", "--kind", "training", "phase-2", "--part-of", "p", "--part-of", "review"]
+        )
+        == 0
+    )
+    sent = _sent(wired, "POST", "/v1/projects")
+    assert sent["part_of"] == [_pid(wired, "p"), _pid(wired, "review")]
+    assert "parent_project_id" not in sent and "workspace_id" not in sent
+    phase = wired.projects[_pid(wired, "phase-2")]
+    assert phase["workspace_id"] == wired.projects[_pid(wired, "p")]["workspace_id"]
+
+
+def test_the_old_parent_flag_is_a_hidden_spelling_of_part_of(wired, capsys):
+    """Installed skills and scripts still type `--parent`: it keeps working and
+    sends the link, never the retired tree field -- and help no longer offers it."""
+    assert cli.main(["project", "create", "--kind", "general", "old-habit", "--parent", "p"]) == 0
+    sent = _sent(wired, "POST", "/v1/projects")
+    assert sent["part_of"] == [_pid(wired, "p")] and "parent_project_id" not in sent
+    capsys.readouterr()
+    assert cli.main(["project", "list", "--parent", "p"]) == 0
+    listed = [r for r in wired.requests if r.method == "GET" and r.url.path == "/v1/projects"][-1]
+    assert listed.url.params.get("part_of") == _pid(wired, "p")
+    for command in (["project", "create", "--help"], ["project", "list", "--help"]):
+        capsys.readouterr()
+        assert cli.main(command) == 0
+        out = _plain(capsys.readouterr().out)
+        assert "--part-of" in out and "--parent" not in out and "subproject" not in out.lower()
+
+
+def test_project_list_part_of_lists_the_parts_in_every_workspace(wired, capsys):
+    cli.main(["project", "create", "--kind", "training", "phase-1", "--part-of", "p"])
+    cli.main(["project", "create", "--kind", "general", "unrelated"])
+    capsys.readouterr()
+    assert cli.main(["project", "list", "--part-of", "p"]) == 0
+    listed = [r for r in wired.requests if r.method == "GET" and r.url.path == "/v1/projects"][-1]
+    assert listed.url.params.get("part_of") == _pid(wired, "p")
+    assert "workspace_id" not in listed.url.params  # a link crosses workspaces
+    assert [row["slug"] for row in json.loads(capsys.readouterr().out)["items"]] == ["phase-1"]
+
+
+def test_reference_add_part_of_sends_the_relation(wired, capsys):
+    cli.main(["project", "create", "--kind", "training", "phase-3"])
+    cli.main(["project", "create", "--kind", "research", "notes-review"])
+    capsys.readouterr()
+    assert cli.main(["project", "reference", "add", "phase-3", "--to", "p", "--part-of"]) == 0
+    assert cli.main(["project", "reference", "add", "notes-review", "--to", "p"]) == 0
+    assert wired.reference_writes == [
+        {"from": _pid(wired, "phase-3"), "to_project_id": _pid(wired, "p"), "relation": "part_of"},
+        # A plain add sends what every older client sent: the server's default.
+        {"from": _pid(wired, "notes-review"), "to_project_id": _pid(wired, "p")},
+    ]
+
+
+@pytest.mark.parametrize("recursive", [False, True])
+def test_a_recursive_delete_says_it_changes_nothing(wired, capsys, monkeypatch, recursive):
+    """Projects are flat: `--recursive` is accepted and changes nothing, and
+    its prompt says the linked projects stay rather than warning that they
+    go; a plain delete names no such thing."""
+    asked: list[str] = []
+    monkeypatch.setattr("typer.confirm", lambda question, **_kw: asked.append(question) or True)
+    cli.main(["project", "create", "--kind", "general", "umbrella"])
+    capsys.readouterr()
+    assert cli.main(["project", "delete", "umbrella", *(["--recursive"] if recursive else [])]) == 0
+    said = "--recursive is accepted and changes nothing" in asked[-1]
+    assert said is recursive
+    assert ("stay where they are" in asked[-1]) is recursive
+    assert "filed under it" not in asked[-1] and "subproject" not in asked[-1]
+
+
+def _plain(text: str) -> str:
+    """Help text without the colour CI forces on (rich splits `--part-of`)."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
+def test_move_and_delete_no_longer_offer_the_tree(capsys):
+    """`project move` keeps --workspace; --parent/--top-level stay as hidden
+    spellings with their old request (the tests above). `delete --recursive`
+    is hidden: deleting a project never deletes the projects linked to it."""
+    assert cli.main(["project", "move", "--help"]) == 0
+    out = _plain(capsys.readouterr().out)
+    assert "--workspace" in out and "--parent" not in out and "--top-level" not in out
+    assert cli.main(["project", "delete", "--help"]) == 0
+    out = _plain(capsys.readouterr().out)
+    assert "--recursive" not in out and "subproject" not in out.lower()
 
 
 def test_project_delete_recursive_rides_the_query(wired, capsys):

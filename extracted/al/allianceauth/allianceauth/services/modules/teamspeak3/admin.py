@@ -1,9 +1,17 @@
+__lazy_modules__ = ["django.db.models", "django.http"]
+
+from typing import TYPE_CHECKING
+
 from django.contrib import admin
 
 from allianceauth.groupmanagement.models import Group, ReservedGroupName
 
 from ...admin import ServicesUserAdmin
 from .models import AuthTS, StateGroup, Teamspeak3User, TSgroup
+
+if TYPE_CHECKING:
+    from django.db.models import Field
+    from django.http import HttpRequest
 
 
 @admin.register(Teamspeak3User)
@@ -27,12 +35,12 @@ class AuthTSgroupAdmin(admin.ModelAdmin):
     fields = ('auth_group', 'ts_group')
     filter_horizontal = ('ts_group',)
 
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+    def formfield_for_foreignkey(self, db_field: "Field", request: "HttpRequest", **kwargs):
         if db_field.name == 'auth_group':
             kwargs['queryset'] = Group.objects.exclude(name__in=ReservedGroupName.objects.values_list('name', flat=True))
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
+    def formfield_for_manytomany(self, db_field: "Field", request: "HttpRequest", **kwargs):
         if db_field.name == 'ts_group':
             kwargs['queryset'] = TSgroup.objects.exclude(ts_group_name__in=ReservedGroupName.objects.values_list('name', flat=True))
         return super().formfield_for_manytomany(db_field, request, **kwargs)
@@ -40,7 +48,7 @@ class AuthTSgroupAdmin(admin.ModelAdmin):
     @admin.display(
         description='ts groups'
     )
-    def _ts_group(self, obj):
+    def _ts_group(self, obj: AuthTS) -> list[TSgroup]:
         return list(obj.ts_group.all().order_by('ts_group_id'))
 
     # _ts_group.admin_order_field = 'profile__state'

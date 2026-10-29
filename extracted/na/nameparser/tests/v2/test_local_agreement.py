@@ -65,6 +65,19 @@ def test_a_box_agrees_whatever_its_case_periods_and_spacing(
     assert _read(upper)[0] == {"given": "ANN"}
 
 
+@pytest.mark.parametrize("surname", ["Roe, Jr.", "Roe,Jr.", "Roe, III", "Roe, Jr., PhD"])
+def test_a_suffix_after_a_comma_in_the_surname_box_agrees(
+        monkeypatch: pytest.MonkeyPatch, surname: str) -> None:
+    # The parser reads "Bob Roe, Jr." as family Roe and suffix Jr., and
+    # the surname box holds the two with the filer's comma between them.
+    filed = _filed("", "Bob", surname=surname)
+    assert _read(filed)[0] == {}
+    # The control: the fold before commas were read as spaces misses it.
+    monkeypatch.setattr(agreement, "fold",
+                        lambda text: " ".join(text.replace(".", "").casefold().split()))
+    assert list(_read(filed)[0]) == ["family"]
+
+
 def test_a_two_word_surname_read_with_a_middle_name_is_two_misses() -> None:
     got = _read(_DOUBLE_SURNAME)[0]
     assert got == {"middle": "García", "family": "López"}
@@ -253,26 +266,35 @@ def test_a_record_written_by_another_scorer_is_refused(
         monkeypatch: pytest.MonkeyPatch) -> None:
     _corpus(monkeypatch, *_ALL)
     assert agreement.main([_PSC, "--record"]) == 0
-    before = agreement.scorer_fingerprint()
+    before = agreement.scorer_fingerprint(_PSC)
     # Each part of the code that decides a record's entry moves the
     # fingerprint: how a field is compared, which records get an entry,
-    # and how an entry is keyed.
+    # how an entry is keyed, and the source's own boxes; another source's
+    # boxes do not, so adding a source leaves this one's record standing.
+    other = next(s for s in agreement.FIELDED if s != _PSC)
+    with monkeypatch.context() as patch:
+        patch.setitem(agreement.FIELDED, other,
+                      agreement.Fielded({"forename": "given", "surname": "family"}, group="x"))
+        assert agreement.scorer_fingerprint(_PSC) == before, other
+        patch.setitem(agreement.FIELDED, _PSC,
+                      agreement.Fielded({"forename": "given", "surname": "family"}, group="x"))
+        assert agreement.scorer_fingerprint(_PSC) != before, "its own boxes"
     for name, changed in (("fold", lambda text: text.casefold()),
                           ("score", lambda rows, fielded, parser: None),
                           ("key", lambda record: str(record))):
         with monkeypatch.context() as patch:
             patch.setattr(agreement, name, changed)
-            assert agreement.scorer_fingerprint() != before, name
+            assert agreement.scorer_fingerprint(_PSC) != before, name
     with monkeypatch.context() as patch:
         patch.setattr(agreement.corpus_build, "jsonl_line",
                       lambda obj, sort_keys=False: str(obj))
-        assert agreement.scorer_fingerprint() != before, "jsonl_line"
+        assert agreement.scorer_fingerprint(_PSC) != before, "jsonl_line"
     # fold() casefolds, so a Python whose Unicode database moves it reads
     # names differently; its moves would be the database's, not the parser's.
     with monkeypatch.context() as patch:
         patch.setattr(unicodedata, "unidata_version", "0.0.0")
-        assert agreement.scorer_fingerprint() != before, "unidata_version"
-    assert agreement.scorer_fingerprint() == before
+        assert agreement.scorer_fingerprint(_PSC) != before, "unidata_version"
+    assert agreement.scorer_fingerprint(_PSC) == before
     monkeypatch.setattr(agreement, "fold", lambda text: text.casefold())
     with pytest.raises(SystemExit, match="another version of this scorer"):
         agreement.main([_PSC])
@@ -468,3 +490,57 @@ def test_a_score_whose_worker_read_another_nameparser_aborts(
     monkeypatch.setattr(nameparser, "__file__", "/elsewhere/nameparser/__init__.py")
     with pytest.raises(SystemExit, match="a worker imported nameparser from"):
         agreement.score(list(_ALL), _PSC_FIELDS, Parser(), jobs=2)
+
+
+# -- a source whose given box holds the middle names (orcid-researchers) -----
+
+_ORCID_FIELDS = agreement.FIELDED[corpora.ORCID]
+
+
+def _held(given: str, family: str, country: str = "NZ") -> dict[str, str]:
+    return {"name": f"{given} {family}".strip(), "given": given, "family": family,
+            "country": country}
+
+
+def test_a_given_box_holding_the_middle_names_is_compared_with_both() -> None:
+    # The parser reads Marie as a middle name; the box holds both words.
+    agrees = agreement.read(_held("Ann Marie", "Lee"), _ORCID_FIELDS, Parser(), _LISTED)
+    assert (agrees.got, agrees.set_aside) == ({}, False)
+    # Off: the box compared with the given name alone misses.
+    alone = agreement.Fielded({"given": "given", "family": "family"}, group="country")
+    assert agreement.read(_held("Ann Marie", "Lee"), alone, Parser(), _LISTED).got == {
+        "given": "Ann"}
+
+
+def test_a_source_with_no_title_box_scores_a_read_title_as_a_miss_not_filer_error() -> None:
+    reading = agreement.read(_held("Dr Ann", "Lee"), _ORCID_FIELDS, Parser(), _LISTED)
+    assert (reading.got, reading.set_aside) == ({"given+middle": "Ann"}, False)
+
+
+def test_a_peeled_suffix_is_compared_inside_the_family_box_of_a_joined_source() -> None:
+    reading = agreement.read(_held("Bob", "Roe Jr"), _ORCID_FIELDS, Parser(), _LISTED)
+    assert (reading.got, reading.by_suffix) == ({}, True)
+
+
+def test_a_country_code_group_prints_as_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(agreement, "GROUP_FLOOR", 1)
+    result = agreement.score([_held("Ann", "Lee"), _held("Bo Yu", "Wu Li", "CN")],
+                             _ORCID_FIELDS, Parser())
+    assert result.scored == {"NZ": 1, "CN": 1}
+    assert result.misses == {"CN": {"given+middle": 1, "family": 1}}
+    assert result.shapes == {"given+middle 2->3, family 2->1": 1}
+
+
+def test_the_roles_a_box_may_name_are_the_parsers() -> None:
+    from nameparser import Role
+    assert agreement.ROLES == {role.value for role in Role}
+
+
+@pytest.mark.parametrize("fields", [
+    {"forename": "given", "surname": "famly"},
+    {"forename": "given+midle", "surname": "family"},
+    {"forename": "given"}])
+def test_a_fielded_source_naming_an_unknown_role_or_no_family_is_refused(
+        fields: dict[str, str]) -> None:
+    with pytest.raises(ValueError, match="each box names roles of"):
+        agreement.Fielded(fields, group="nationality")

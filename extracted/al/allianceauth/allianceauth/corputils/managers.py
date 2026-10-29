@@ -1,12 +1,20 @@
+__lazy_modules__ = ["allianceauth.corputils.models", "django.contrib.auth.models"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.db import models
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User
+
+    from allianceauth.corputils.models import CorpStats  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 
-class CorpStatsQuerySet(models.QuerySet):
-    def visible_to(self, user):
+class CorpStatsQuerySet(models.QuerySet["CorpStats"]):
+    def visible_to(self, user: "User") -> "CorpStatsQuerySet":
         # superusers get all visible
         if user.is_superuser:
             logger.debug(f'Returning all corpstats for superuser {user}.')
@@ -41,9 +49,9 @@ class CorpStatsQuerySet(models.QuerySet):
             return self.none()
 
 
-class CorpStatsManager(models.Manager):
-    def get_queryset(self):
+class CorpStatsManager(models.Manager["CorpStats"]):
+    def get_queryset(self) -> CorpStatsQuerySet:
         return CorpStatsQuerySet(self.model, using=self._db)
 
-    def visible_to(self, user):
+    def visible_to(self, user: "User") -> CorpStatsQuerySet:
         return self.get_queryset().visible_to(user)

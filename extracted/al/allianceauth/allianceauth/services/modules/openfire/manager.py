@@ -1,10 +1,9 @@
 import logging
-import random
 import re
-import string
 from urllib.parse import urlparse
 
 import slixmpp
+from django.utils.crypto import get_random_string
 from ofrestapi import exception
 from ofrestapi.users import Users as ofUsers
 
@@ -14,17 +13,17 @@ logger = logging.getLogger(__name__)
 
 
 class OpenfireManager:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @staticmethod
-    def __add_address_to_username(username):
+    def __add_address_to_username(username: str) -> str:
         address = urlparse(settings.OPENFIRE_ADDRESS).netloc.split(":")[0]
         completed_username = username + "@" + address
         return completed_username
 
     @staticmethod
-    def __sanitize_username(username):
+    def __sanitize_username(username: str) -> str:
         # https://xmpp.org/extensions/xep-0106.html#escaping
         replace = [
             ("\\", "\\5c"),  # Escape backslashes first to double escape existing escape sequences
@@ -50,20 +49,16 @@ class OpenfireManager:
         return sanitized
 
     @staticmethod
-    def __generate_random_pass():
-        return ''.join([random.choice(string.ascii_letters + string.digits) for n in range(16)])
-
-    @staticmethod
-    def _sanitize_groupname(name):
+    def _sanitize_groupname(name: str) -> str:
         name = name.strip(' _').lower()
         return re.sub(r'[^\w.-]', '', name)
 
     @staticmethod
-    def add_user(username):
+    def add_user(username: str) -> tuple[str, str]:
         logger.debug(f"Adding username {username} to openfire.")
         try:
             sanitized_username = OpenfireManager.__sanitize_username(username)
-            password = OpenfireManager.__generate_random_pass()
+            password = get_random_string(length=20)
             api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
             api.add_user(sanitized_username, password)
             logger.info(f"Added openfire user {username}")
@@ -75,7 +70,7 @@ class OpenfireManager:
         return sanitized_username, password
 
     @staticmethod
-    def delete_user(username):
+    def delete_user(username: str) -> bool:
         logger.debug(f"Deleting user {username} from openfire.")
         try:
             api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
@@ -87,25 +82,25 @@ class OpenfireManager:
             return False
 
     @staticmethod
-    def lock_user(username):
+    def lock_user(username: str) -> None:
         logger.debug(f"Locking openfire user {username}")
         api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
         api.lock_user(username)
         logger.info(f"Locked openfire user {username}")
 
     @staticmethod
-    def unlock_user(username):
+    def unlock_user(username: str) -> None:
         logger.debug(f"Unlocking openfire user {username}")
         api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
         api.unlock_user(username)
         logger.info(f"Unlocked openfire user {username}")
 
     @staticmethod
-    def update_user_pass(username, password=None):
+    def update_user_pass(username: str, password: str | None = None) -> str:
         logger.debug(f"Updating openfire user {username} password.")
         try:
             if not password:
-                password = OpenfireManager.__generate_random_pass()
+                password = get_random_string(length=20)
             api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
             api.update_user(username, password=password)
             logger.info(f"Updated openfire user {username} password.")
@@ -115,7 +110,7 @@ class OpenfireManager:
             return ""
 
     @classmethod
-    def update_user_groups(cls, username, groups):
+    def update_user_groups(cls, username: str, groups: list[str]) -> None:
         logger.debug(f"Updating openfire user {username} groups {groups}")
         s_groups = list(map(cls._sanitize_groupname, groups))  # Sanitized group names
         api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
@@ -143,14 +138,14 @@ class OpenfireManager:
             api.delete_user_groups(username, del_groups)
 
     @staticmethod
-    def delete_user_groups(username, groups):
+    def delete_user_groups(username: str, groups: list[str]) -> None:
         logger.debug(f"Deleting openfire groups {groups} from user {username}")
         api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
         api.delete_user_groups(username, groups)
         logger.info(f"Deleted groups {groups} from openfire user {username}")
 
     @classmethod
-    def send_broadcast_message(cls, group_name, broadcast_message):
+    def send_broadcast_message(cls, group_name: str, broadcast_message: str) -> None:
         s_group_name = cls._sanitize_groupname(group_name)
         logger.debug(f"Sending jabber ping to group {s_group_name} with message {broadcast_message}")
         to_address = s_group_name + '@' + settings.BROADCAST_SERVICE_NAME + '.' + settings.JABBER_URL
@@ -177,7 +172,7 @@ class PingBot(slixmpp.ClientXMPP):
     A copy-paste of the example client bot from
     http://sleekxmpp.com/getting_started/sendlogout.html
     """
-    def __init__(self, jid, password, recipient, message):
+    def __init__(self, jid: str, password: str, recipient: str, message: str) -> None:
         slixmpp.ClientXMPP.__init__(self, jid, password)
 
         self.reconnect_max_attempts = 5
@@ -199,17 +194,15 @@ class PingBot(slixmpp.ClientXMPP):
         if getattr(settings, 'BROADCAST_IGNORE_INVALID_CERT', False):
             self.add_event_handler("ssl_invalid_cert", self.discard)
 
-    def discard(self, *args, **kwargs):
+    def discard(self, *args, **kwargs) -> None:
         # Discard the event
         return
 
-    def start(self, event):
+    def start(self, event) -> None:
         self.send_presence()
         self.get_roster()
 
-        self.send_message(mto=self.recipient,
-                            mbody=self.msg,
-                            mtype='chat')
+        self.send_message(mto=self.recipient, mbody=self.msg, mtype='chat')
         self.message_sent = True
         # Using wait=True ensures that the send queue will be
         # emptied before ending the session.

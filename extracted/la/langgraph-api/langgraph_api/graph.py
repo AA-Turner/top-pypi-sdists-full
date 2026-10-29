@@ -679,6 +679,9 @@ async def collect_graphs_from_env(
 
 
 def _handle_exception(task: asyncio.Task) -> None:
+    if task.cancelled():
+        # Intentional stop (stop_remote_graphs); let lifespan teardown finish.
+        return
     try:
         task.result()
     except (asyncio.CancelledError, SystemExit):

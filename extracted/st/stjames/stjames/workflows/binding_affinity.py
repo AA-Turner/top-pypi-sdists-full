@@ -25,6 +25,7 @@ class SinglePointEnergySettings(BaseModel):
     Exactly one selection must be provided.
 
     Attributes:
+        settings_type: binding-affinity settings discriminator, fixed to `single_point_energy`
         multistage_opt_settings: how to compute energies
         truncation_radius: distance-based pocket radius, in Å
         truncation_residues: polymer residue references, e.g. ResidueRef("polymer", "H", "H.221A")
@@ -65,19 +66,31 @@ class SinglePointEnergySettings(BaseModel):
 
 
 class GninaAffinitySettings(BaseModel):
-    """Settings for GNINA affinity scoring."""
+    """Settings for GNINA affinity scoring.
+
+    Attributes:
+        settings_type: binding-affinity settings discriminator, fixed to `gnina`
+    """
 
     settings_type: Literal["gnina"] = "gnina"
 
 
 class AEVPLIGAffinitySettings(BaseModel):
-    """Settings for AEV-PLIG affinity scoring."""
+    """Settings for AEV-PLIG affinity scoring.
+
+    Attributes:
+        settings_type: binding-affinity settings discriminator, fixed to `aev_plig`
+    """
 
     settings_type: Literal["aev_plig"] = "aev_plig"
 
 
 class NessoAffinitySettings(BaseModel):
-    """Settings for Nesso-1 affinity prediction."""
+    """Settings for Nesso-1 affinity prediction.
+
+    Attributes:
+        settings_type: binding-affinity settings discriminator, fixed to `nesso`
+    """
 
     settings_type: Literal["nesso"] = "nesso"
 

@@ -5,6 +5,7 @@ from .unified_config import (
     AuthType,
     CapsuleType,
     ProxyConfig,
+    URLSlugValidations,
     UNASSIGNED_PROJECT_BRANCH,
 )
 from .cli_generator import auto_cli_options

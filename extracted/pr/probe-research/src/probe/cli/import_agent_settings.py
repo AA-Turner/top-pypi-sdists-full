@@ -13,11 +13,11 @@ import process, field by field, first hit wins:
 
 The shape is `{agent: {lane: {"model": ..., "effort": ...}}}`: an agent is a
 `backfill.Agent` value with an `EFFORTS` list, a lane is `classify`, `import`,
-`draft`, or `*` for every lane of that agent (a named lane wins over it, field
+`record`, or `*` for every lane of that agent (a named lane wins over it, field
 by field, within one source).
 
 NO ANSWER IS TODAY'S ARGV, byte for byte. BUILTIN holds only what the lanes
-already sent before this module existed (Claude drafts on sonnet), so a server
+already sent before this module existed (Claude records on sonnet), so a server
 that times out, answers 404 (a self-hosted API without the route) or sends
 nothing leaves every launch exactly as it was. The server is never required: a
 failed read is the builtin answer, never a failed import.
@@ -54,8 +54,11 @@ class Lane(StrEnum):
     CLASSIFY = "classify"
     #: One unit's notes over its files.
     IMPORT = "import"
-    #: One project's reconstruction draft.
-    DRAFT = "draft"
+    #: One project's record pass (`backfill_record`): its names, descriptions,
+    #: notes, conclusions and pages, by the researcher's skills. It replaced the
+    #: `draft` lane (the claims draft); a server map still naming `draft` is
+    #: read as an unknown lane and dropped, field by field.
+    RECORD = "record"
 
 
 class Source(StrEnum):
@@ -75,13 +78,14 @@ READ_TIMEOUT_S = 5.0
 EVERY_LANE = "*"
 _FIELDS = ("model", "effort")
 
-#: Today's values and nothing else -- see the module docstring. Cross-document
-#: reconstruction needs more reasoning than the agent's default for a Claude
-#: user on a small model (the acceptance fixture exposed reversed ordering and
-#: lost qualifiers), so Claude drafts on sonnet. Classification and units send
-#: no model: they run as the researcher configured their agent.
+#: Today's values and nothing else -- see the module docstring. Writing a
+#: project's record from many files needs more reasoning than the agent's
+#: default for a Claude user on a small model (the claims draft's acceptance
+#: fixture exposed reversed ordering and lost qualifiers on one), so Claude
+#: records on sonnet, as it drafted before. Classification and units send no
+#: model: they run as the researcher configured their agent.
 BUILTIN: dict[Agent, dict[Lane, dict[str, str]]] = {
-    Agent.CLAUDE: {Lane.DRAFT: {"model": "sonnet"}},
+    Agent.CLAUDE: {Lane.RECORD: {"model": "sonnet"}},
 }
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: delta-sharing
-Version: 1.4.2
+Version: 1.4.3
 Summary: Python Connector for Delta Sharing
 Author-email: The Delta Lake Project Authors <delta-users@googlegroups.com>
 License: Apache-2.0
@@ -17,11 +17,12 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: NOTICE.txt
-Requires-Dist: delta-kernel-rust-sharing-wrapper<1.0,>=0.3.2
+Requires-Dist: delta-kernel-rust-sharing-wrapper<1.0,>=0.3.4
 Requires-Dist: pandas<3.0.0,>=2.0.3
 Requires-Dist: pyarrow<=23.0.1,>=16.1.0
 Requires-Dist: fsspec<=2026.2.0,>=0.7.4
 Requires-Dist: requests<=2.33.0,>=2.20.0
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: aiohttp<=3.13.4,>=3.0.0
 Requires-Dist: yarl<=1.23.0,>=1.6.0
 Requires-Dist: jwcrypto<2.0,>=1.5.6

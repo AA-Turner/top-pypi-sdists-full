@@ -1,7 +1,10 @@
+__lazy_modules__ = ["django.http"]
+
 import base64
 import hashlib
 import hmac
 import logging
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, unquote, urlencode
 
 from django.conf import settings
@@ -14,13 +17,16 @@ from .manager import DiscourseManager
 from .models import DiscourseUser
 from .tasks import DiscourseTasks
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 ACCESS_PERM = 'discourse.access_discourse'
 
 
 @login_required
-def discourse_sso(request):
+def discourse_sso(request: "HttpRequest") -> "HttpResponse":
 
     # Check if user has access
     if not request.user.has_perm(ACCESS_PERM):
@@ -43,12 +49,9 @@ def discourse_sso(request):
         return redirect('authentication:dashboard')
 
     # Validate the payload
-    try:
-        payload = unquote(payload).encode('utf-8')
-        decoded = base64.decodebytes(payload).decode('utf-8')
-        assert 'nonce' in decoded
-        assert len(payload) > 0
-    except AssertionError:
+    payload = unquote(payload).encode('utf-8')
+    decoded = base64.decodebytes(payload).decode('utf-8')
+    if len(payload) == 0 or 'nonce' not in decoded:
         messages.error(request, _('Invalid payload. Please contact support if this problem persists.'))
         return redirect('authentication:dashboard')
 
@@ -56,7 +59,7 @@ def discourse_sso(request):
     h = hmac.new(key, payload, digestmod=hashlib.sha256)
     this_signature = h.hexdigest()
 
-    if this_signature != signature:
+    if not hmac.compare_digest(this_signature, signature):
         messages.error(request, _('Invalid payload. Please contact support if this problem persists.'))
         return redirect('authentication:dashboard')
 

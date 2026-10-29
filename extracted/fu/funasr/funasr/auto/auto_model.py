@@ -53,6 +53,110 @@ def _resolve_ncpu(config, fallback=4):
     return max(value, 1)
 
 
+# The active BLAS limit, if any. Held for the life of the process rather than
+# scoped to a call -- see `_limit_blas_threads` for why.
+_blas_thread_limiter = None
+_blas_thread_limit = None
+
+
+def _current_blas_threads():
+    """Thread count currently configured for BLAS, or None if unreadable."""
+    try:
+        import threadpoolctl
+    except ImportError:
+        return None
+    counts = {
+        pool["num_threads"]
+        for pool in threadpoolctl.threadpool_info()
+        if pool["user_api"] == "blas"
+    }
+    return counts.pop() if len(counts) == 1 else None
+
+
+def _limit_blas_threads(ncpu):
+    """Apply `ncpu` to BLAS as well as to torch.
+
+    `ncpu` documents itself as the thread count for "CPU 内部操作并行性", but
+    it only ever reached `torch.set_num_threads`. The speaker-clustering path
+    does not run on torch at all: `scipy.linalg.eigh` on the affinity
+    Laplacian goes to BLAS, whose own default is one thread per core. So on a
+    many-core host the CPU is saturated by a library `ncpu` never touched.
+    Measured on a 64-core host with a 357-row Laplacian:
+
+        BLAS threads    wall      CPU
+        64              1.20s     68.9 core-seconds
+         4              0.05s      2.8 core-seconds
+         1              0.03s      1.8 core-seconds
+
+    At a few hundred rows the parallel driver spends its time synchronising
+    rather than computing, so bounding it is a latency win as well as a CPU
+    one.
+
+    The update follows `torch.set_num_threads`: the newest `ncpu` wins, and no
+    set is issued when BLAS already sits at that value. Both settings are
+    process-wide, so constructing a second `AutoModel` applies its `ncpu` to
+    any model already built in this process -- including ones without speaker
+    clustering. That is the same contract `torch.set_num_threads` already
+    has; the difference is only that `ncpu` used to leave BLAS untouched.
+
+    The limit is not released once applied. It is process-global, so a scoped
+    enter/exit pair per request could be interleaved by overlapping requests
+    and leave the setting unbalanced, and FunASR reaches BLAS only through
+    small one-shot operations. Doing nothing when threadpoolctl is missing
+    leaves BLAS at its own default rather than failing model construction.
+    """
+    global _blas_thread_limiter, _blas_thread_limit
+
+    current = _current_blas_threads()
+    if current is not None and current == ncpu:
+        return
+
+    # `threadpool_limits` records the OpenMP pools as well as the BLAS ones
+    # even when entered with `user_api="blas"`, and its `__exit__` restores
+    # every pool it captured. Dropping the previous limiter would therefore
+    # roll torch's thread count back to whatever it was when that limiter was
+    # created -- undoing the `torch.set_num_threads(ncpu)` that `build_model`
+    # has already performed. Save and restore it across the swap so replacing
+    # the BLAS limit cannot touch an OpenMP setting it does not own.
+    torch_threads = torch.get_num_threads()
+
+    if _blas_thread_limiter is not None:
+        _blas_thread_limiter.__exit__(None, None, None)
+        _blas_thread_limiter = None
+
+    try:
+        import threadpoolctl
+    except ImportError:
+        logging.info(
+            "threadpoolctl is not installed, so `ncpu` cannot be applied to "
+            "BLAS; speaker clustering may use one thread per core."
+        )
+        return
+
+    _blas_thread_limiter = threadpoolctl.threadpool_limits(
+        limits=ncpu, user_api="blas"
+    )
+    _blas_thread_limiter.__enter__()
+    _blas_thread_limit = ncpu
+
+    if torch.get_num_threads() != torch_threads:
+        torch.set_num_threads(torch_threads)
+
+    # BLAS pools are only visible to threadpoolctl once a library backed by
+    # them has been loaded. funasr imports such a library at package import,
+    # so they are present by the time a model is built -- but confirm rather
+    # than assume, because a dropped limit here would silently restore the
+    # CPU saturation this is meant to prevent.
+    applied = _current_blas_threads()
+    if applied is not None and applied != ncpu:
+        logging.warning(
+            "ncpu=%s could not be applied to BLAS (it reports %s); "
+            "speaker clustering may use more threads than requested.",
+            ncpu,
+            applied,
+        )
+
+
 def _join_vad_texts(texts):
     """Remove rich tags and join VAD text without adding spaces between Chinese chunks."""
     cleaned = [re.sub(r"<\|[^|]*\|>", "", text).strip() for text in texts]
@@ -344,8 +448,10 @@ except:
     pass
 
 
-def prepare_data_iterator(data_in, input_len=None, data_type=None, key=None):
-    """ """
+def prepare_data_iterator(
+    data_in, input_len=None, data_type=None, key=None, input_format="auto"
+):
+    """Prepare inputs, optionally interpreting audio bytes as explicit PCM16."""
     data_list = []
     key_list = []
     filelist = [".scp", ".txt", ".json", ".jsonl", ".text"]
@@ -363,6 +469,8 @@ def prepare_data_iterator(data_in, input_len=None, data_type=None, key=None):
         if file_extension in filelist:  # filelist: wav.scp, file.jsonl;text.txt;
             with open(data_in, encoding="utf-8") as fin:
                 for line in fin:
+                    if not line.strip():
+                        continue
                     key = "rand_key_" + "".join(random.choice(chars) for _ in range(13))
                     if data_in.endswith(".jsonl"):  # file.jsonl: json.dumps({"source": data})
                         lines = json.loads(line.strip())
@@ -386,7 +494,7 @@ def prepare_data_iterator(data_in, input_len=None, data_type=None, key=None):
             data_list_tmp = []
             for data_in_i, data_type_i in zip(data_in, data_type):
                 key_list, data_list_i = prepare_data_iterator(
-                    data_in=data_in_i, data_type=data_type_i
+                    data_in=data_in_i, data_type=data_type_i, input_format=input_format
                 )
                 data_list_tmp.append(data_list_i)
             data_list = []
@@ -395,18 +503,25 @@ def prepare_data_iterator(data_in, input_len=None, data_type=None, key=None):
         else:
             # [audio sample point, fbank, text]
             data_list = data_in
+            if input_format != "auto":
+                data_list = [
+                    load_bytes(item, input_format=input_format)
+                    if isinstance(item, bytes) else item
+                    for item in data_in
+                ]
             key_list = []
+            has_explicit_key = key is not None
             for data_i in data_in:
                 if isinstance(data_i, str) and os.path.exists(data_i):
                     key = misc.extract_filename_without_extension(data_i)
                 else:
-                    if key is None:
+                    if not has_explicit_key:
                         key = "rand_key_" + "".join(random.choice(chars) for _ in range(13))
                 key_list.append(key)
 
     else:  # raw text; audio sample point, fbank; bytes
         if isinstance(data_in, bytes):  # audio bytes
-            data_in = load_bytes(data_in)
+            data_in = load_bytes(data_in, input_format=input_format)
         if key is None:
             key = "rand_key_" + "".join(random.choice(chars) for _ in range(13))
         data_list = [data_in]
@@ -423,7 +538,8 @@ class AutoModel:
         Args:
             model (str): Model name (hub alias or full ID) or local path.
             device (str): Device for inference. "cuda:0", "cpu", "mps", "npu:0".
-                Falls back to CPU if specified device is unavailable.
+                Logs a warning and falls back to CPU if unavailable (default: "cuda").
+                Explicit CPU use or ngpu=0 does not emit a fallback warning.
             vad_model (str, optional): VAD model for long audio segmentation.
                 Enables processing of any-length audio.
             vad_kwargs (dict, optional): VAD config, e.g. {"device": "cpu"}.
@@ -569,6 +685,14 @@ class AutoModel:
             or (device.startswith("npu") and not is_npu_available())
             or kwargs.get("ngpu", 1) == 0
         ):
+            if kwargs.get("ngpu", 1) != 0:
+                logging.warning(
+                    "AutoModel: requested device '%s' is unavailable for model '%s'; "
+                    "falling back to CPU. Check your PyTorch build and accelerator "
+                    "availability, or set device='cpu' to use CPU explicitly.",
+                    device,
+                    kwargs["model"],
+                )
             device = "cpu"
             kwargs["batch_size"] = 1
         kwargs["device"] = device
@@ -577,6 +701,7 @@ class AutoModel:
         kwargs["ncpu"] = ncpu
         if torch.get_num_threads() != ncpu:
             torch.set_num_threads(ncpu)
+        _limit_blas_threads(ncpu)
 
         # build tokenizer
         tokenizer = kwargs.get("tokenizer", None)
@@ -719,6 +844,9 @@ class AutoModel:
                 - device: Placement is selected at construction. Runtime device overrides
                   are ignored; create another AutoModel to use a different device.
                 - cache (dict): State cache for streaming mode. Pass {} for first call.
+                - input_format (str): "auto" (default) or "pcm_s16le" to bypass
+                  container detection for mono little-endian PCM16 byte inputs.
+                  Use fs for the source sample rate.
                 - hotword (str/list): Keywords to boost recognition accuracy.
                 - postprocess_hotwords (str/list/dict): Text-level hotword correction after
                   decoding. Unlike model-level ``hotword``, this runs on the final text.
@@ -801,7 +929,8 @@ class AutoModel:
         #     batch_size = 1
 
         key_list, data_list = prepare_data_iterator(
-            input, input_len=input_len, data_type=kwargs.get("data_type", None), key=key
+            input, input_len=input_len, data_type=kwargs.get("data_type", None), key=key,
+            input_format=kwargs.get("input_format", "auto"),
         )
 
         speed_stats = {}
@@ -888,8 +1017,13 @@ class AutoModel:
         kwargs = self.kwargs
         # step.1: compute the vad model
         beg_vad = time.time()
+        vad_cfg = {
+            "input_format": kwargs.get("input_format", "auto"),
+            "fs": kwargs.get("fs", 16000),
+            **cfg,
+        }
         res = self.inference(
-            input, input_len=input_len, model=self.vad_model, kwargs=self.vad_kwargs, **cfg
+            input, input_len=input_len, model=self.vad_model, kwargs=self.vad_kwargs, **vad_cfg
         )
         end_vad = time.time()
 
@@ -908,9 +1042,12 @@ class AutoModel:
         kwargs["batch_size"] = batch_size
 
         key_list, data_list = prepare_data_iterator(
-            input, input_len=input_len, data_type=kwargs.get("data_type", None)
+            input, input_len=input_len, data_type=kwargs.get("data_type", None),
+            input_format=kwargs.get("input_format", "auto"),
         )
         results_ret_list = []
+        # ASR updates kwargs with the resampled rate; retain the original for each input.
+        input_fs = kwargs.get("fs", 16000)
         time_speech_total_all_samples = 1e-6
 
         beg_total = time.time()
@@ -924,7 +1061,7 @@ class AutoModel:
             vadsegments = res[i]["value"]
             input_i = data_list[i]
             fs = kwargs["frontend"].fs if hasattr(kwargs["frontend"], "fs") else 16000
-            speech = load_audio_text_image_video(input_i, fs=fs, audio_fs=kwargs.get("fs", 16000))
+            speech = load_audio_text_image_video(input_i, fs=fs, audio_fs=input_fs)
             speech_lengths = len(speech)
             n = len(vadsegments)
             data_with_index = [(vadsegments[i], i) for i in range(n)]
@@ -970,7 +1107,7 @@ class AutoModel:
                     speech, speech_lengths, sorted_data[beg_idx:end_idx]
                 )
                 results = self.inference(
-                    speech_j, input_len=None, model=model, kwargs=kwargs, **cfg
+                    speech_j, input_len=None, model=model, kwargs=kwargs, **{**cfg, "fs": fs}
                 )
                 if self.spk_model is not None:
                     # compose vad segments: [[start_time_sec, end_time_sec, speech], [...]]
@@ -990,7 +1127,7 @@ class AutoModel:
                             input_len=None,
                             model=self.spk_model,
                             kwargs=self.spk_kwargs,
-                            **cfg,
+                            **{**cfg, "fs": fs},
                         )
                         spk_embs = torch.cat([r["spk_embedding"] for r in spk_res], dim=0)
                         results[_b]["spk_embedding"] = spk_embs
@@ -1321,7 +1458,8 @@ class AutoModel:
         type = kwargs.get("type", "onnx")
 
         key_list, data_list = prepare_data_iterator(
-            input, input_len=None, data_type=kwargs.get("data_type", None), key=None
+            input, input_len=None, data_type=kwargs.get("data_type", None), key=None,
+            input_format=kwargs.get("input_format", "auto"),
         )
 
         with torch.no_grad():

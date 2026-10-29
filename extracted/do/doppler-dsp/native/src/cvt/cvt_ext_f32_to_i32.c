@@ -49,8 +49,8 @@ F32ToI32Obj_init (F32ToI32Object *self, PyObject *args, PyObject *kwds)
   self->handle = dp_f32_to_i32_create (scale);
   if (!self->handle)
     {
-      PyErr_SetString (PyExc_MemoryError,
-                       "dp_f32_to_i32_create returned NULL");
+      PyErr_SetString (PyExc_ValueError,
+                       "F32ToI32: scale must be positive and finite");
       return -1;
     }
   return 0;
@@ -263,9 +263,8 @@ static PyMethodDef F32ToI32Obj_methods[] = {
     "Clear the sticky clip flag, starting a fresh saturation history.\n"
     "\n"
     "Zeroes clipped so a subsequent clipped query reflects only samples seen\n"
-    "after this call; the immutable scale is preserved. Call it at a buffer\n"
-    "or segment boundary so a saturation on one block does not leak into the\n"
-    "next.\n"
+    "after this call; scale is preserved. Call it at a buffer or segment\n"
+    "boundary so a saturation on one block does not leak into the next.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -293,6 +292,9 @@ static PyMethodDef F32ToI32Obj_methods[] = {
     "overflows. The float32 input still bounds the useful precision at 24\n"
     "bits; the double is there to make the CLAMP exact, not to invent\n"
     "significance.\n"
+    "\n"
+    "A NaN input counts as clipped: it latches clipped and returns the\n"
+    "negative full-scale code, -2147483648.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -322,8 +324,9 @@ static PyMethodDef F32ToI32Obj_methods[] = {
     "\n"
     "Applies step() to every element. The clipped flag is updated\n"
     "cumulatively across the block — a single saturating sample raises it\n"
-    "for the entire call. Accepts an optional pre-allocated output array;\n"
-    "allocates a fresh one when output is NULL.\n"
+    "for the entire call. In C, output must be a caller-owned array of at\n"
+    "least n elements (NULL is not accepted). From Python it is the optional\n"
+    "`out=` array; the binding allocates a fresh one when omitted.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -449,6 +452,13 @@ static PyTypeObject F32ToI32ObjType = {
     "    2147483648.0f). Use 2^31 to convert a normalised `[-1, +1]` signal "
     "to\n"
     "    the full 32-bit range.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If construction fails. The exception message is ``F32ToI32: scale "
+    "must\n"
+    "    be positive and finite``.\n"
     "\n"
     "Examples\n"
     "--------\n"

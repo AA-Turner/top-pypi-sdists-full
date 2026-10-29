@@ -18,6 +18,10 @@ session started or ended:
                                note sync (`notesync.py`) for each context
     the recorders' tap         `recorders.RecorderHost.follow_installed`
 
+and one the status line itself reads from Claude Code's settings: an install
+made before `refreshInterval` (`ensure_refresh_interval`) is given it, so
+Claude Code redraws an idle session's line when its marker changes.
+
 The service runs these at the end of an update cycle that installed something
 (the CLI unchanged: this service is current), else the next service, the new
 code, runs them once it has resumed its recorders (`Updater.take_followup`).
@@ -27,9 +31,12 @@ Stdlib only (the start path; plan S1).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
+import stat
+import threading
 from pathlib import Path
 
 from .protocol import CONTEXT_ENV
@@ -169,6 +176,101 @@ def sync_renderer(env: dict) -> list[str]:
                 pass
             continue
     return changed
+
+
+#: `probe.cli.statusline.REFRESH_INTERVAL_S`, `.MARKER` and the line its chain
+#: opens a predecessor's block with (`_OPEN`): that module explains them;
+#: tests/test_service_followup.py holds them equal.
+REFRESH_INTERVAL_S = 10
+STATUSLINE_MARKER = "# probe-research statusline"
+CHAIN_OPEN = 'printf \'%s\' "$_probe_sl_input" | {'
+SETTINGS_MAX_BYTES = 1 << 22
+#: Under the service's folder: one empty file per settings file decided on
+#: (`ensure_refresh_interval`), so an interval a person removed stays removed.
+REFRESH_INTERVAL_DIRNAME = "refresh-interval"
+
+
+def settings_path(env: dict) -> Path:
+    """Claude Code's user settings for a context, a symlink followed to its
+    target (as `probe.cli.statusline.settings_path`: a dotfiles link stays one)."""
+    path = claude_dir(env) / "settings.json"
+    try:
+        return path.resolve() if path.is_symlink() else path
+    except (OSError, RuntimeError):
+        return path
+
+
+def _read_settings(path: Path) -> str:
+    """The settings file's text: a regular file, read without blocking and at
+    most SETTINGS_MAX_BYTES (a link to a FIFO or a device never holds the
+    service). Raises OSError or ValueError."""
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > SETTINGS_MAX_BYTES:
+            raise ValueError("not a settings file")
+        data = os.read(fd, SETTINGS_MAX_BYTES + 1)
+    finally:
+        os.close(fd)
+    if len(data) > SETTINGS_MAX_BYTES:
+        raise ValueError("not a settings file")
+    return data.decode("utf-8")
+
+
+def ensure_refresh_interval(env: dict, *, seen_dir: Path) -> bool:
+    """Give the Probe status line of this context's Claude Code its
+    `refreshInterval` when its install predates it, ONCE per settings file
+    (`seen_dir` remembers it: an interval a person removed is not put back).
+    Only a `statusLine` slot carrying Probe's segment alone (over another
+    status line the interval would re-run that one unasked) and no interval
+    of its own; never a file that is not a JSON object. The pre-edit file is
+    copied once (`.probe-backup`, as the installer's); written in one rename,
+    flushed to disk with its folder, with the file's mode, and only when the
+    file is still what was read. True when it wrote; never raises."""
+    path = settings_path(env)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.probe-tmp")
+    try:
+        decided = seen_dir / hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:32]
+        if decided.exists():
+            return False
+        text = _read_settings(path)
+        data = json.loads(text)
+        slot = data.get("statusLine") if isinstance(data, dict) else None
+        command = slot.get("command") if isinstance(slot, dict) else None
+        if not isinstance(command, str) or STATUSLINE_MARKER not in command:
+            return False  # no Probe status line here (yet): `install` writes it
+        seen_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if "refreshInterval" in slot or CHAIN_OPEN in command.splitlines():
+            decided.touch()
+            return False
+        slot["refreshInterval"] = REFRESH_INTERVAL_S
+        backup = path.with_name(path.name + ".probe-backup")
+        if not backup.exists():
+            shutil.copy2(path, backup)
+        mode = stat.S_IMODE(os.stat(path).st_mode)
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(tmp, mode)
+        if _read_settings(path) != text:
+            os.unlink(tmp)
+            return False
+        os.replace(tmp, path)
+        folder = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(folder)
+        finally:
+            os.close(folder)
+        decided.touch()
+        return True
+    except Exception:  # noqa: BLE001 -- never raises (a deeply nested file: RecursionError)
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        return False
 
 
 #: Contexts one follow-up syncs the note in (`notesync.MAX_JOBS` is 8: the

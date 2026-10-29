@@ -6,8 +6,8 @@ from cognite_toolkit._cdf_tk.client.identifiers import SignalSinkId
 from cognite_toolkit._cdf_tk.client.resource_classes.group import (
     AclType,
     AllScope,
-    CurrentUserScope,
     ScopeDefinition,
+    SignalsCurrentUserScope,
     SubscribeSignalsAcl,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.signal_sink import SignalSinkRequest, SignalSinkResponse
@@ -25,7 +25,7 @@ class SignalSinkIO(ResourceIO[SignalSinkId, SignalSinkRequest, SignalSinkRespons
     dependencies = frozenset()
     support_update = True
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "Signals#operation/createSignalSinks"
+    _doc_url = "Signals/operation/createSignalSinks"
 
     @property
     def display_name(self) -> str:
@@ -49,7 +49,7 @@ class SignalSinkIO(ResourceIO[SignalSinkId, SignalSinkRequest, SignalSinkRespons
 
     @classmethod
     def create_acl(cls, actions: set[Literal["READ", "WRITE"]], scope: ScopeDefinition) -> Iterable[AclType]:
-        if isinstance(scope, AllScope | CurrentUserScope):
+        if isinstance(scope, AllScope | SignalsCurrentUserScope):
             yield SubscribeSignalsAcl(actions=sorted(actions), scope=scope)
 
     @classmethod

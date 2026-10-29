@@ -1,15 +1,15 @@
-use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::str::FromStr;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use rayon::prelude::*;
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 use pep508_rs::marker::{MarkerExpression, MarkerValueExtra};
 use pep508_rs::pep440_rs::Version;
-use pep508_rs::{ExtraName, MarkerEnvironment, MarkerTree, Requirement, VerbatimUrl, VersionOrUrl};
+use pep508_rs::{ExtraName, MarkerEnvironment, MarkerTree, Requirement, VersionOrUrl};
+use url::Url;
 
 use crate::metadata::{Package, ResolvedDeclaration, ResolvedEdge, canonicalize_name};
 use crate::options::ExtrasMode;
@@ -21,11 +21,16 @@ pub use filter::FilterSpec;
 
 #[derive(Debug)]
 pub struct Dependency {
-    pub requirement: Requirement<VerbatimUrl>,
+    // Requires-Dist values and lock dependency names come from package authors. VerbatimUrl would
+    // substitute ${NAME} with this process's environment, so plain Url keeps direct references as
+    // written. A requirement fills one slot per extra that activates it, and those slots share it.
+    pub requirement: Arc<Requirement<Url>>,
     pub target: Option<usize>,
     pub activated_by: Option<String>,
     pub declaration: Option<ResolvedDeclaration>,
     version_spec: OnceLock<Option<String>>,
+    children: OnceLock<Arc<[usize]>>,
+    conflicting: OnceLock<bool>,
 }
 
 impl Clone for Dependency {
@@ -36,6 +41,8 @@ impl Clone for Dependency {
             activated_by: self.activated_by.clone(),
             declaration: self.declaration.clone(),
             version_spec: OnceLock::new(),
+            children: OnceLock::new(),
+            conflicting: OnceLock::new(),
         }
     }
 }
@@ -56,6 +63,7 @@ pub struct Graph {
     pub global_extras: HashMap<usize, BTreeSet<String>>,
     requested_extras: HashMap<usize, BTreeSet<String>>,
     expanded: OnceLock<Vec<Vec<usize>>>,
+    selected: Mutex<SelectedChildren>,
     reverse_edges: OnceLock<Vec<Vec<(usize, usize)>>>,
     cycles: OnceLock<Vec<Vec<usize>>>,
     unique_dependencies: OnceLock<UniqueDependencyCache>,
@@ -65,7 +73,7 @@ pub struct Graph {
 pub struct Children<'a> {
     graph: &'a Graph,
     node: usize,
-    indices: Cow<'a, [usize]>,
+    indices: &'a [usize],
     position: usize,
 }
 
@@ -78,6 +86,7 @@ pub enum ReverseRoot<'a> {
 }
 
 type UniqueDependencyCache = (Vec<usize>, Vec<OnceLock<BTreeSet<usize>>>);
+type SelectedChildren = HashMap<(usize, BTreeSet<String>), Arc<[usize]>>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FilterError {
@@ -131,16 +140,18 @@ impl Dependency {
     }
 
     pub fn is_conflicting(&self, graph: &Graph) -> bool {
-        let Some(target) = self.target else {
-            return true;
-        };
-        let Some(VersionOrUrl::VersionSpecifier(specifiers)) = &self.requirement.version_or_url
-        else {
-            return false;
-        };
-        graph
-            .parsed_version(target)
-            .is_none_or(|version| !specifiers.contains(version))
+        *self.conflicting.get_or_init(|| {
+            let Some(target) = self.target else {
+                return true;
+            };
+            let Some(VersionOrUrl::VersionSpecifier(specifiers)) = &self.requirement.version_or_url
+            else {
+                return false;
+            };
+            graph
+                .parsed_version(target)
+                .is_none_or(|version| !specifiers.contains(version))
+        })
     }
 
     pub fn installed_version<'a>(&self, graph: &'a Graph) -> Option<&'a str> {
@@ -178,6 +189,7 @@ impl Graph {
             global_extras: HashMap::default(),
             requested_extras: HashMap::default(),
             expanded: OnceLock::new(),
+            selected: Mutex::default(),
             reverse_edges: OnceLock::new(),
             cycles: OnceLock::new(),
             unique_dependencies: OnceLock::new(),
@@ -205,12 +217,16 @@ impl Graph {
         if let Some(edges) = resolved_edges {
             mandatory.extend(edges.into_iter().map(|edge| {
                 Dependency {
-                    requirement: Requirement::<VerbatimUrl>::from_str(&edge.child)
-                        .expect("nab dependency names are valid PEP 508 names"),
+                    requirement: Arc::new(
+                        Requirement::<Url>::from_str(&edge.child)
+                            .expect("nab dependency names are valid PEP 508 names"),
+                    ),
                     target: index.get(&edge.child).copied(),
                     activated_by: None,
                     declaration: edge.declaration,
                     version_spec: OnceLock::new(),
+                    children: OnceLock::new(),
+                    conflicting: OnceLock::new(),
                 }
             }));
         }
@@ -220,7 +236,7 @@ impl Graph {
             std::mem::take(&mut package.requires)
         };
         for raw in requires {
-            let Ok(requirement) = Requirement::<VerbatimUrl>::from_str(&raw) else {
+            let Ok(requirement) = Requirement::<Url>::from_str(&raw) else {
                 warnings.push(format!(
                     "Invalid requirement found in {}: {raw}",
                     package.name
@@ -229,10 +245,12 @@ impl Graph {
             };
             let dependency = Dependency {
                 target: index.get(requirement.name.as_ref()).copied(),
-                requirement,
+                requirement: Arc::new(requirement),
                 activated_by: None,
                 declaration: None,
                 version_spec: OnceLock::new(),
+                children: OnceLock::new(),
+                conflicting: OnceLock::new(),
             };
             if dependency.requirement.evaluate_markers(marker, &[]) {
                 mandatory.push(dependency);
@@ -283,15 +301,26 @@ impl Graph {
         self.collect_validation_warnings();
     }
 
-    pub(super) fn children<'a>(
-        &'a self,
-        index: usize,
-        incoming_extras: &BTreeSet<String>,
-    ) -> Children<'a> {
+    // The tree walks ask for an edge's children on every line that prints the edge, so each edge
+    // selects the target's requirements for the extras it requests once, and edges that request
+    // the same extras share that list.
+    pub(super) fn children<'a>(&'a self, incoming: &'a Dependency) -> Children<'a> {
+        let node = incoming
+            .target
+            .expect("tree walks only descend into installed packages");
+        let indices = incoming.children.get_or_init(|| {
+            Arc::clone(
+                self.selected
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .entry((node, incoming.requested_extras()))
+                    .or_insert_with_key(|(_, extras)| self.selected_children(node, extras).into()),
+            )
+        });
         Children {
             graph: self,
-            node: index,
-            indices: Cow::Owned(self.selected_children(index, incoming_extras)),
+            node,
+            indices,
             position: 0,
         }
     }
@@ -300,7 +329,7 @@ impl Graph {
         Children {
             graph: self,
             node: index,
-            indices: Cow::Borrowed(&self.expanded_children_cache()[index]),
+            indices: &self.expanded_children_cache()[index],
             position: 0,
         }
     }
@@ -531,10 +560,21 @@ impl Graph {
     }
 
     fn cycles(&self) -> &[Vec<usize>] {
-        self.cycles.get_or_init(|| self.compute_cycles())
+        self.cycles.get_or_init(|| {
+            self.components()
+                .into_iter()
+                .filter(|component| {
+                    component.len() > 1
+                        || self
+                            .active_targets(component[0])
+                            .any(|child| child == component[0])
+                })
+                .collect()
+        })
     }
 
-    fn compute_cycles(&self) -> Vec<Vec<usize>> {
+    // Groups of packages that all reach one another (SCCs), each ahead of the groups it depends on.
+    pub(crate) fn components(&self) -> Vec<Vec<usize>> {
         let mut outgoing = vec![Vec::new(); self.nodes.len()];
         let mut incoming = vec![Vec::new(); self.nodes.len()];
         for parent in self.visible_indices() {
@@ -589,9 +629,7 @@ impl Graph {
                     }
                 }
             }
-            if component.len() > 1 || outgoing[start].contains(&start) {
-                result.push(component);
-            }
+            result.push(component);
         }
         result
     }
@@ -606,7 +644,7 @@ impl Graph {
         let mut path = vec![start];
         let mut visited = HashSet::default();
         visited.insert(start);
-        self.extend_cycle(start, start, &members, &mut visited, &mut path);
+        self.extend_cycle(start, &members, &mut visited, &mut path);
         path.push(start);
         path.iter()
             .map(|index| self.nodes[*index].package.key.as_str())
@@ -614,33 +652,35 @@ impl Graph {
             .join(" => ")
     }
 
-    // Recursion depth is a dependency cycle's length, which is tiny in practice; the backtracking
-    // return keeps the walk cheap when a branch dead-ends before reaching start.
+    // An explicit stack instead of recursion: a cycle can span every package in the input.
     fn extend_cycle(
         &self,
-        current: usize,
         start: usize,
         members: &HashSet<usize>,
         visited: &mut HashSet<usize>,
         path: &mut Vec<usize>,
-    ) -> bool {
-        for child in self
-            .expanded_children(current)
-            .filter_map(|dependency| dependency.target)
-            .filter(|child| members.contains(child))
-        {
-            if child == start {
-                return true;
-            }
-            if visited.insert(child) {
-                path.push(child);
-                if self.extend_cycle(child, start, members, visited, path) {
-                    return true;
+    ) {
+        let mut stack = vec![self.expanded_children(start)];
+        while let Some(children) = stack.last_mut() {
+            match children
+                .filter_map(|dependency| dependency.target)
+                .find(|child| members.contains(child))
+            {
+                Some(child) if child == start => return,
+                Some(child) => {
+                    if visited.insert(child) {
+                        path.push(child);
+                        stack.push(self.expanded_children(child));
+                    }
                 }
-                path.pop();
+                None => {
+                    stack.pop();
+                    if !stack.is_empty() {
+                        path.pop();
+                    }
+                }
             }
         }
-        false
     }
 
     fn selected_children(&self, index: usize, incoming_extras: &BTreeSet<String>) -> Vec<usize> {

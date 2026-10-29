@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import typing
 
 from urwid import text_layout
@@ -15,8 +16,7 @@ from .widget import Widget, WidgetError
 
 if typing.TYPE_CHECKING:
     from collections.abc import Hashable
-
-    from typing_extensions import Literal
+    from typing import Literal
 
     from urwid.canvas import TextCanvas
     from urwid.util import _TagMarkup
@@ -40,6 +40,8 @@ class Text(Widget):
         align: Literal["left", "center", "right"] | Align = Align.LEFT,
         wrap: Literal["space", "any", "clip", "ellipsis"] | WrapMode = WrapMode.SPACE,
         layout: text_layout.TextLayout | None = None,
+        *,
+        selectable: bool = False,
     ) -> None:
         """
         :param markup: content of text widget, one of:
@@ -57,6 +59,8 @@ class Text(Widget):
         :param align: typically ``'left'``, ``'center'`` or ``'right'``
         :param wrap: typically ``'space'``, ``'any'``, ``'clip'`` or ``'ellipsis'``
         :param layout: defaults to a shared :class:`StandardTextLayout` instance
+        :param selectable: ``True`` makes the widget take the focus, for example as a row of a list
+            that is chosen by moving the focus to it; it shows no cursor and returns every key
 
         >>> Text("Hello")
         <Text fixed/flow widget 'Hello'>
@@ -67,6 +71,8 @@ class Text(Widget):
         stuff
         >>> t.attrib
         [('bold', 5)]
+        >>> Text("Row", selectable=True)
+        <Text selectable fixed/flow widget 'Row'>
         """
         super().__init__()
         # (maxcol, translation) as one value: a reader either sees a width together with the translation
@@ -79,6 +85,9 @@ class Text(Widget):
         self._wrap_mode: Literal["space", "any", "clip", "ellipsis"] | WrapMode = WrapMode.SPACE
         self.set_text(markup)
         self.set_layout(align, wrap, layout)
+        if selectable:
+            # Only set when True, so a subclass's class-level ``_selectable = True`` is not shadowed.
+            self._selectable = True
 
     def _repr_words(self) -> list[str]:
         """Show the text in the repr and truncate if it's too long."""
@@ -130,7 +139,8 @@ class Text(Widget):
 
             *display attributes*
               run length encoded display attributes for *text*, eg.
-              ``[('attr1', 10), ('attr2', 5)]``
+              ``[('attr1', 10), ('attr2', 5)]``; nested markup gives a
+              :class:`~urwid.LayeredAttr` of the inner and the enclosing attributes
 
         >>> Text("Hello").get_text()
         ('Hello', [])
@@ -138,6 +148,8 @@ class Text(Widget):
         ('Headline', [('bright', 8)])
         >>> Text([("a", "one"), "two", ("b", "three")]).get_text()
         ('onetwothree', [('a', 3), (None, 3), ('b', 5)])
+        >>> Text(("a", ["one", ("b", "two")])).get_text()
+        ('onetwo', [('a', 3), (LayeredAttr('b', 'a'), 3)])
         """
         return self._text, self._attrib
 
@@ -215,6 +227,7 @@ class Text(Widget):
     ) -> None:
         """Set the text layout object, alignment and wrapping modes at the same time.
 
+        :param align: typically 'left', 'center' or 'right'
         :param wrap: typically 'space', 'any', 'clip' or 'ellipsis'
         :param layout: defaults to a shared :class:`StandardTextLayout` instance
 
@@ -372,7 +385,7 @@ class Text(Widget):
         tabs = text.count("\t") if isinstance(text, str) else text.count(b"\t")
         if tabs and isinstance(layout, text_layout.StandardTextLayout):
             stops = (0, *layout.tab_stops)
-            widest_tab = max((layout.tab_stop_every, *(end - start for start, end in zip(stops, stops[1:]))))
+            widest_tab = max((layout.tab_stop_every, *(end - start for start, end in itertools.pairwise(stops))))
             maxcol += widest_tab * tabs
         while True:
             trans = layout.layout(text, maxcol, self._align_mode, self._wrap_mode)

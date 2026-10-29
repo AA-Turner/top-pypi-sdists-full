@@ -9,23 +9,29 @@ from ..types.domain import Domain
 from ..types.domain_list_item import DomainListItem
 from .raw_client import AsyncRawDomainsClient, RawDomainsClient
 from .types.create_domains_request_apple_pay import CreateDomainsRequestApplePay
+from .types.create_domains_request_email import CreateDomainsRequestEmail
 from .types.create_domains_request_pixel import CreateDomainsRequestPixel
 from .types.create_domains_request_registration import CreateDomainsRequestRegistration
+from .types.create_domains_request_transfer import CreateDomainsRequestTransfer
 from .types.create_domains_request_verification import CreateDomainsRequestVerification
 from .types.create_domains_request_website import CreateDomainsRequestWebsite
 from .types.list_domains_request_apple_pay import ListDomainsRequestApplePay
 from .types.list_domains_request_direction import ListDomainsRequestDirection
+from .types.list_domains_request_email import ListDomainsRequestEmail
 from .types.list_domains_request_order import ListDomainsRequestOrder
 from .types.list_domains_request_pixel import ListDomainsRequestPixel
 from .types.list_domains_request_platform import ListDomainsRequestPlatform
 from .types.list_domains_request_registration import ListDomainsRequestRegistration
 from .types.list_domains_request_status import ListDomainsRequestStatus
+from .types.list_domains_request_transfer import ListDomainsRequestTransfer
 from .types.list_domains_request_verification import ListDomainsRequestVerification
 from .types.list_domains_request_website import ListDomainsRequestWebsite
 from .types.list_domains_response import ListDomainsResponse
 from .types.update_domains_request_apple_pay import UpdateDomainsRequestApplePay
+from .types.update_domains_request_email import UpdateDomainsRequestEmail
 from .types.update_domains_request_pixel import UpdateDomainsRequestPixel
 from .types.update_domains_request_registration import UpdateDomainsRequestRegistration
+from .types.update_domains_request_transfer import UpdateDomainsRequestTransfer
 from .types.update_domains_request_verification import UpdateDomainsRequestVerification
 from .types.update_domains_request_website import UpdateDomainsRequestWebsite
 
@@ -69,6 +75,8 @@ class DomainsClient:
         website: typing.Optional[ListDomainsRequestWebsite] = None,
         apple_pay: typing.Optional[ListDomainsRequestApplePay] = None,
         pixel: typing.Optional[ListDomainsRequestPixel] = None,
+        email: typing.Optional[ListDomainsRequestEmail] = None,
+        transfer: typing.Optional[ListDomainsRequestTransfer] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[DomainListItem, ListDomainsResponse]:
         """
@@ -132,6 +140,12 @@ class DomainsClient:
         pixel : typing.Optional[ListDomainsRequestPixel]
             Only domains with pixel in this state, such as `ready`, or `any` for every domain that has pixel.
 
+        email : typing.Optional[ListDomainsRequestEmail]
+            Only domains with email in this state, such as `ready`, or `any` for every domain that has email.
+
+        transfer : typing.Optional[ListDomainsRequestTransfer]
+            Only domains with transfer in this state, such as `ready`, or `any` for every domain that has transfer.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -145,7 +159,7 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -177,6 +191,8 @@ class DomainsClient:
             website=website,
             apple_pay=apple_pay,
             pixel=pixel,
+            email=email,
+            transfer=transfer,
             request_options=request_options,
         )
 
@@ -186,9 +202,11 @@ class DomainsClient:
         domain: str,
         account_id: typing.Optional[str] = OMIT,
         apple_pay: typing.Optional[CreateDomainsRequestApplePay] = OMIT,
+        email: typing.Optional[CreateDomainsRequestEmail] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
         pixel: typing.Optional[CreateDomainsRequestPixel] = OMIT,
         registration: typing.Optional[CreateDomainsRequestRegistration] = OMIT,
+        transfer: typing.Optional[CreateDomainsRequestTransfer] = OMIT,
         verification: typing.Optional[CreateDomainsRequestVerification] = OMIT,
         website: typing.Optional[CreateDomainsRequestWebsite] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -197,6 +215,8 @@ class DomainsClient:
         Adds a domain to your account with the capabilities you want.
 
         Pass `registration` to buy the domain through Whop; it's the default when you pass no capability. Pay its `amount_due` at `purchase_url`, or pass `registration.payment_method_id` to charge a saved card. Whop then registers it, runs its DNS, and renews it every year while `auto_renew` is on.
+
+        Pass `registration.auth_code` to transfer in a domain you own at another registrar. The transfer starts once its `amount_due` is paid, or at once when `amount_due` is `null`. While `registration.phase` is `transferring`, its `issues` say what the transfer needs from you.
 
         Pass `verification` to connect a domain you registered elsewhere: its `issues` list the TXT and routing records to publish. Pass `website` with an `app_id` to serve that app on the domain.
 
@@ -213,6 +233,9 @@ class DomainsClient:
         apple_pay : typing.Optional[CreateDomainsRequestApplePay]
             Accept Apple Pay at checkout on the domain. It needs no other capability. Whop registers the domain with Apple: it stays `pending` until Apple answers, then turns `ready`, or `action_required` when Apple couldn't fetch the domain association file. Serve the file, then check the domain to register it again. Pass `null` to turn Apple Pay off: Whop removes the domain from Apple, and the domain stays, like releasing any other capability.
 
+        email : typing.Optional[CreateDomainsRequestEmail]
+            Send and receive email on the domain. Only a domain bought through Whop, or a subdomain of one in the same account, can have it. Whop publishes the DNS records and stays `pending` until its email provider verifies them, then turns `ready`. Pass `null` to remove email.
+
         metadata : typing.Optional[typing.Dict[str, str]]
             Custom string keys and values.
 
@@ -220,7 +243,10 @@ class DomainsClient:
             Track page views on the domain with the Whop pixel. It needs no other capability: it stays `pending` until the pixel records a page view, and turns `action_required` if it goes 7 days without one. Pass `null` to stop tracking.
 
         registration : typing.Optional[CreateDomainsRequestRegistration]
-            Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
+            Buy the domain through Whop, or transfer in a domain you own elsewhere with `auth_code`, then renew it every year and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase, or to cancel a transfer while its current registrar can still stop it.
+
+        transfer : typing.Optional[CreateDomainsRequestTransfer]
+            Move a domain registered through Whop to another Whop account. Turning it on returns a code in `transfer.code`; the receiving account enters it as `registration.auth_code` on its own copy of the domain. Whop then removes the domain's email, email addresses and Apple Pay from this account, moves the registration with its expiry, stops charging this account to renew it, and removes the domain from this account. Pass `null` to turn it off and invalidate the code, until another account has entered it.
 
         verification : typing.Optional[CreateDomainsRequestVerification]
             Prove you control the domain's DNS: Whop returns a TXT record to publish in `issues`, and whoever publishes it owns the domain on Whop. Pass `null` to release it. Can't be combined with `registration`.
@@ -241,7 +267,7 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -253,9 +279,11 @@ class DomainsClient:
             domain=domain,
             account_id=account_id,
             apple_pay=apple_pay,
+            email=email,
             metadata=metadata,
             pixel=pixel,
             registration=registration,
+            transfer=transfer,
             verification=verification,
             website=website,
             request_options=request_options,
@@ -286,7 +314,7 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -299,7 +327,7 @@ class DomainsClient:
 
     def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Domain:
         """
-        Removes the domain from your account and releases its capabilities in the background. Deleting an unpaid purchase cancels it. A registered domain can't be deleted; turn off `auto_renew` and it's released after it expires. Adding the domain to this account again revives it under the same ID.
+        Removes the domain from your account and releases its capabilities in the background. Deleting an unpaid purchase cancels it, and deleting a transfer cancels it and refunds it while the current registrar can still stop it. A registered domain can't be deleted; turn off `auto_renew` and it's released after it expires. Adding the domain to this account again revives it under the same ID.
 
         Parameters
         ----------
@@ -319,7 +347,7 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -335,9 +363,11 @@ class DomainsClient:
         id: str,
         *,
         apple_pay: typing.Optional[UpdateDomainsRequestApplePay] = OMIT,
+        email: typing.Optional[UpdateDomainsRequestEmail] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
         pixel: typing.Optional[UpdateDomainsRequestPixel] = OMIT,
         registration: typing.Optional[UpdateDomainsRequestRegistration] = OMIT,
+        transfer: typing.Optional[UpdateDomainsRequestTransfer] = OMIT,
         verification: typing.Optional[UpdateDomainsRequestVerification] = OMIT,
         website: typing.Optional[UpdateDomainsRequestWebsite] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -353,6 +383,9 @@ class DomainsClient:
         apple_pay : typing.Optional[UpdateDomainsRequestApplePay]
             Accept Apple Pay at checkout on the domain. It needs no other capability. Whop registers the domain with Apple: it stays `pending` until Apple answers, then turns `ready`, or `action_required` when Apple couldn't fetch the domain association file. Serve the file, then check the domain to register it again. Pass `null` to turn Apple Pay off: Whop removes the domain from Apple, and the domain stays, like releasing any other capability.
 
+        email : typing.Optional[UpdateDomainsRequestEmail]
+            Send and receive email on the domain. Only a domain bought through Whop, or a subdomain of one in the same account, can have it. Whop publishes the DNS records and stays `pending` until its email provider verifies them, then turns `ready`. Pass `null` to remove email.
+
         metadata : typing.Optional[typing.Dict[str, str]]
             Replacement custom string keys and values.
 
@@ -360,7 +393,10 @@ class DomainsClient:
             Track page views on the domain with the Whop pixel. It needs no other capability: it stays `pending` until the pixel records a page view, and turns `action_required` if it goes 7 days without one. Pass `null` to stop tracking.
 
         registration : typing.Optional[UpdateDomainsRequestRegistration]
-            Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
+            Buy the domain through Whop, or transfer in a domain you own elsewhere with `auth_code`, then renew it every year and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase, or to cancel a transfer while its current registrar can still stop it.
+
+        transfer : typing.Optional[UpdateDomainsRequestTransfer]
+            Move a domain registered through Whop to another Whop account. Turning it on returns a code in `transfer.code`; the receiving account enters it as `registration.auth_code` on its own copy of the domain. Whop then removes the domain's email, email addresses and Apple Pay from this account, moves the registration with its expiry, stops charging this account to renew it, and removes the domain from this account. Pass `null` to turn it off and invalidate the code, until another account has entered it.
 
         verification : typing.Optional[UpdateDomainsRequestVerification]
             Prove you control the domain's DNS: Whop returns a TXT record to publish in `issues`, and whoever publishes it owns the domain on Whop. Pass `null` to release it. Can't be combined with `registration`.
@@ -381,7 +417,7 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -392,9 +428,11 @@ class DomainsClient:
         _response = self._raw_client.update(
             id,
             apple_pay=apple_pay,
+            email=email,
             metadata=metadata,
             pixel=pixel,
             registration=registration,
+            transfer=transfer,
             verification=verification,
             website=website,
             request_options=request_options,
@@ -423,7 +461,7 @@ class DomainsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -471,6 +509,8 @@ class AsyncDomainsClient:
         website: typing.Optional[ListDomainsRequestWebsite] = None,
         apple_pay: typing.Optional[ListDomainsRequestApplePay] = None,
         pixel: typing.Optional[ListDomainsRequestPixel] = None,
+        email: typing.Optional[ListDomainsRequestEmail] = None,
+        transfer: typing.Optional[ListDomainsRequestTransfer] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[DomainListItem, ListDomainsResponse]:
         """
@@ -534,6 +574,12 @@ class AsyncDomainsClient:
         pixel : typing.Optional[ListDomainsRequestPixel]
             Only domains with pixel in this state, such as `ready`, or `any` for every domain that has pixel.
 
+        email : typing.Optional[ListDomainsRequestEmail]
+            Only domains with email in this state, such as `ready`, or `any` for every domain that has email.
+
+        transfer : typing.Optional[ListDomainsRequestTransfer]
+            Only domains with transfer in this state, such as `ready`, or `any` for every domain that has transfer.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -549,7 +595,7 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -588,6 +634,8 @@ class AsyncDomainsClient:
             website=website,
             apple_pay=apple_pay,
             pixel=pixel,
+            email=email,
+            transfer=transfer,
             request_options=request_options,
         )
 
@@ -597,9 +645,11 @@ class AsyncDomainsClient:
         domain: str,
         account_id: typing.Optional[str] = OMIT,
         apple_pay: typing.Optional[CreateDomainsRequestApplePay] = OMIT,
+        email: typing.Optional[CreateDomainsRequestEmail] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
         pixel: typing.Optional[CreateDomainsRequestPixel] = OMIT,
         registration: typing.Optional[CreateDomainsRequestRegistration] = OMIT,
+        transfer: typing.Optional[CreateDomainsRequestTransfer] = OMIT,
         verification: typing.Optional[CreateDomainsRequestVerification] = OMIT,
         website: typing.Optional[CreateDomainsRequestWebsite] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -608,6 +658,8 @@ class AsyncDomainsClient:
         Adds a domain to your account with the capabilities you want.
 
         Pass `registration` to buy the domain through Whop; it's the default when you pass no capability. Pay its `amount_due` at `purchase_url`, or pass `registration.payment_method_id` to charge a saved card. Whop then registers it, runs its DNS, and renews it every year while `auto_renew` is on.
+
+        Pass `registration.auth_code` to transfer in a domain you own at another registrar. The transfer starts once its `amount_due` is paid, or at once when `amount_due` is `null`. While `registration.phase` is `transferring`, its `issues` say what the transfer needs from you.
 
         Pass `verification` to connect a domain you registered elsewhere: its `issues` list the TXT and routing records to publish. Pass `website` with an `app_id` to serve that app on the domain.
 
@@ -624,6 +676,9 @@ class AsyncDomainsClient:
         apple_pay : typing.Optional[CreateDomainsRequestApplePay]
             Accept Apple Pay at checkout on the domain. It needs no other capability. Whop registers the domain with Apple: it stays `pending` until Apple answers, then turns `ready`, or `action_required` when Apple couldn't fetch the domain association file. Serve the file, then check the domain to register it again. Pass `null` to turn Apple Pay off: Whop removes the domain from Apple, and the domain stays, like releasing any other capability.
 
+        email : typing.Optional[CreateDomainsRequestEmail]
+            Send and receive email on the domain. Only a domain bought through Whop, or a subdomain of one in the same account, can have it. Whop publishes the DNS records and stays `pending` until its email provider verifies them, then turns `ready`. Pass `null` to remove email.
+
         metadata : typing.Optional[typing.Dict[str, str]]
             Custom string keys and values.
 
@@ -631,7 +686,10 @@ class AsyncDomainsClient:
             Track page views on the domain with the Whop pixel. It needs no other capability: it stays `pending` until the pixel records a page view, and turns `action_required` if it goes 7 days without one. Pass `null` to stop tracking.
 
         registration : typing.Optional[CreateDomainsRequestRegistration]
-            Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
+            Buy the domain through Whop, or transfer in a domain you own elsewhere with `auth_code`, then renew it every year and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase, or to cancel a transfer while its current registrar can still stop it.
+
+        transfer : typing.Optional[CreateDomainsRequestTransfer]
+            Move a domain registered through Whop to another Whop account. Turning it on returns a code in `transfer.code`; the receiving account enters it as `registration.auth_code` on its own copy of the domain. Whop then removes the domain's email, email addresses and Apple Pay from this account, moves the registration with its expiry, stops charging this account to renew it, and removes the domain from this account. Pass `null` to turn it off and invalidate the code, until another account has entered it.
 
         verification : typing.Optional[CreateDomainsRequestVerification]
             Prove you control the domain's DNS: Whop returns a TXT record to publish in `issues`, and whoever publishes it owns the domain on Whop. Pass `null` to release it. Can't be combined with `registration`.
@@ -654,7 +712,7 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -672,9 +730,11 @@ class AsyncDomainsClient:
             domain=domain,
             account_id=account_id,
             apple_pay=apple_pay,
+            email=email,
             metadata=metadata,
             pixel=pixel,
             registration=registration,
+            transfer=transfer,
             verification=verification,
             website=website,
             request_options=request_options,
@@ -707,7 +767,7 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -726,7 +786,7 @@ class AsyncDomainsClient:
 
     async def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Domain:
         """
-        Removes the domain from your account and releases its capabilities in the background. Deleting an unpaid purchase cancels it. A registered domain can't be deleted; turn off `auto_renew` and it's released after it expires. Adding the domain to this account again revives it under the same ID.
+        Removes the domain from your account and releases its capabilities in the background. Deleting an unpaid purchase cancels it, and deleting a transfer cancels it and refunds it while the current registrar can still stop it. A registered domain can't be deleted; turn off `auto_renew` and it's released after it expires. Adding the domain to this account again revives it under the same ID.
 
         Parameters
         ----------
@@ -748,7 +808,7 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -770,9 +830,11 @@ class AsyncDomainsClient:
         id: str,
         *,
         apple_pay: typing.Optional[UpdateDomainsRequestApplePay] = OMIT,
+        email: typing.Optional[UpdateDomainsRequestEmail] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
         pixel: typing.Optional[UpdateDomainsRequestPixel] = OMIT,
         registration: typing.Optional[UpdateDomainsRequestRegistration] = OMIT,
+        transfer: typing.Optional[UpdateDomainsRequestTransfer] = OMIT,
         verification: typing.Optional[UpdateDomainsRequestVerification] = OMIT,
         website: typing.Optional[UpdateDomainsRequestWebsite] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -788,6 +850,9 @@ class AsyncDomainsClient:
         apple_pay : typing.Optional[UpdateDomainsRequestApplePay]
             Accept Apple Pay at checkout on the domain. It needs no other capability. Whop registers the domain with Apple: it stays `pending` until Apple answers, then turns `ready`, or `action_required` when Apple couldn't fetch the domain association file. Serve the file, then check the domain to register it again. Pass `null` to turn Apple Pay off: Whop removes the domain from Apple, and the domain stays, like releasing any other capability.
 
+        email : typing.Optional[UpdateDomainsRequestEmail]
+            Send and receive email on the domain. Only a domain bought through Whop, or a subdomain of one in the same account, can have it. Whop publishes the DNS records and stays `pending` until its email provider verifies them, then turns `ready`. Pass `null` to remove email.
+
         metadata : typing.Optional[typing.Dict[str, str]]
             Replacement custom string keys and values.
 
@@ -795,7 +860,10 @@ class AsyncDomainsClient:
             Track page views on the domain with the Whop pixel. It needs no other capability: it stays `pending` until the pixel records a page view, and turns `action_required` if it goes 7 days without one. Pass `null` to stop tracking.
 
         registration : typing.Optional[UpdateDomainsRequestRegistration]
-            Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
+            Buy the domain through Whop, or transfer in a domain you own elsewhere with `auth_code`, then renew it every year and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase, or to cancel a transfer while its current registrar can still stop it.
+
+        transfer : typing.Optional[UpdateDomainsRequestTransfer]
+            Move a domain registered through Whop to another Whop account. Turning it on returns a code in `transfer.code`; the receiving account enters it as `registration.auth_code` on its own copy of the domain. Whop then removes the domain's email, email addresses and Apple Pay from this account, moves the registration with its expiry, stops charging this account to renew it, and removes the domain from this account. Pass `null` to turn it off and invalidate the code, until another account has entered it.
 
         verification : typing.Optional[UpdateDomainsRequestVerification]
             Prove you control the domain's DNS: Whop returns a TXT record to publish in `issues`, and whoever publishes it owns the domain on Whop. Pass `null` to release it. Can't be combined with `registration`.
@@ -818,7 +886,7 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -835,9 +903,11 @@ class AsyncDomainsClient:
         _response = await self._raw_client.update(
             id,
             apple_pay=apple_pay,
+            email=email,
             metadata=metadata,
             pixel=pixel,
             registration=registration,
+            transfer=transfer,
             verification=verification,
             website=website,
             request_options=request_options,
@@ -868,7 +938,7 @@ class AsyncDomainsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

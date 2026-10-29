@@ -7,6 +7,6 @@ class Teamspeak3ServiceConfig(AppConfig):
     label = 'teamspeak3'
     verbose_name = _('TeamSpeak 3 Service')
 
-    def ready(self):
+    def ready(self) -> None:
         from allianceauth.services.modules.teamspeak3 import \
             signals  # noqa: F401

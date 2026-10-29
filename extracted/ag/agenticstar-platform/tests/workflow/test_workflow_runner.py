@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime as _dt
 import json
 import os
 import signal
@@ -47,9 +48,11 @@ from agenticstar_platform.workflow.files import (
 )
 from agenticstar_platform.workflow.schema import SchemaError, parse_yaml_strict, validate_value
 
-from .fake_runtime import EXECUTION_ID, TOKEN, FakeRuntime
+from agenticstar_platform.workflow.testing import EXECUTION_ID, TOKEN, FakeRuntime
 
 FIX = "tests.workflow.agent_fixtures"
+# 接続 slot gitlab を束ねた run（期限は 1 時間後）
+GITLAB = {"gitlab": ("tok-1", _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=1))}
 EDIT_OUTPUT = {"name": "instructions_edit", "path": "instructions.md", "source": "work", "format": "markdown", "required": False}
 
 
@@ -1223,7 +1226,7 @@ async def test_sigterm_while_the_agent_runs_completes_failed_runner_stopped(tmp_
 
 async def test_connection_token_refresh_through_runner(tmp_path: Path):
     """executer-marketplace #55: Agent は context.connection_token で接続 token を取り直せる (期限まで余裕があれば再利用)。"""
-    fake = FakeRuntime()
+    fake = FakeRuntime(connections=GITLAB)
     res = await run_with(fake, "run_connection_token", tmp_path)
     assert res.exit_code == 0 and res.completion_saved
     out = (tmp_path / "output" / "reply.md").read_text()
@@ -1232,7 +1235,7 @@ async def test_connection_token_refresh_through_runner(tmp_path: Path):
 
 
 async def test_connection_token_is_refetched_when_expiring(tmp_path: Path):
-    fake = FakeRuntime()
+    fake = FakeRuntime(connections=GITLAB)
     res = await run_with(fake, "run_connection_token_expiring", tmp_path)
     assert res.exit_code == 0
     assert fake.connection_token_calls == ["gitlab", "gitlab"], "期限まで min_ttl を切っていれば毎回取り直す"
@@ -1431,10 +1434,11 @@ async def test_live_reject_while_staging_inputs_ends_through_the_normal_stop_pat
 
 
 @pytest.mark.parametrize("code,exit_code", [("cancelled", 0), ("run_closed", 2)])
-async def test_cancel_between_invoked_and_effect_is_a_stop_not_an_audit_failure(tmp_path: Path, code, exit_code):
-    """承認の後・効果の監査の前に取消 / run の終端が入ると、front は効果の監査を 409 で拒む。保存の失敗
-    （failed/audit_persist_failed）ではなく停止として終わる（指示書 35 の 3）。run の取消は /context に出ないので、
-    runner が最初に知るのは書き込みの 409 になる。"""
+async def test_cancel_between_invoked_and_effect_records_the_effect_and_stops(tmp_path: Path, code, exit_code):
+    """承認の後・効果の監査の前に取消 / run の終端が入っても、front は terminal になるまで既に行った操作の記録
+    （tool.effect / tool.denied だけの監査）を受ける（chatboardfront #2625 の lateRecords）。効果は記録され、実行は
+    成果物の保存の 409 で停止として終わる（保存の失敗 failed/audit_persist_failed にしない。指示書 35 の 3）。
+    /context は 30 秒ごとにしか見ないので、runner が最初に知るのは書き込みの 409 になる。"""
     fake = FakeRuntime()
 
     async def close_soon():
@@ -1448,7 +1452,9 @@ async def test_cancel_between_invoked_and_effect_is_a_stop_not_an_audit_failure(
     await task
     assert (res.outcome, res.outcome_reason_code) == ("stopped", "cancelled")
     assert not res.completion_saved and res.exit_code == exit_code
-    assert [e["event_type"] for e in fake.audit_events] == ["context.manifest", "context.manifest", "tool.invoked"]
+    assert [e["event_type"] for e in fake.audit_events] == ["context.manifest", "context.manifest", "tool.invoked",
+                                                            "tool.effect"]
+    assert not fake.artifacts, "成果物の保存は断られる"
 
 
 @pytest.mark.parametrize("code,exit_code", [("cancelled", 0), ("run_closed", 2)])

@@ -1096,14 +1096,20 @@ def _apply_overrides_to_latest_entry(
 # ---------------------------------------------------------------------------
 
 
-# Legacy strict-encrypt (and -secure) connectors that share a definition ID
-# with their base connector.  No new variants are being created, so this is a
-# closed set.  The *value* is the docker image name that should be **dropped**
-# when the collision is encountered; the base connector always wins.
+# Docker images that share a definition ID with another connector.  The *value*
+# is the docker image name that should be **dropped** when the collision is
+# encountered; the other connector always wins.
 #
-# This deduplication logic can be removed once strict-encrypt connectors are
-# fully sunsetted.
-_KNOWN_STRICT_ENCRYPT_COLLISIONS: dict[str, str] = {
+# Two kinds of entry exist:
+#
+# - Legacy strict-encrypt (and -secure) variants of a base connector.  No new
+#   variants are being created, so this is a closed set that can be removed
+#   once strict-encrypt connectors are fully sunsetted.
+# - Connectors whose docker image was renamed while keeping their definition
+#   ID.  The old image keeps its versioned directories (pinned connections still
+#   resolve them), but its `latest/` entry must not shadow the new image in the
+#   global registry indexes.
+_KNOWN_DEFINITION_ID_COLLISIONS: dict[str, str] = {
     # destination-elasticsearch / destination-elasticsearch-strict-encrypt
     "68f351a7-2745-4bef-ad7f-996b8e51bb8c": "airbyte/destination-elasticsearch-strict-encrypt",
     # destination-mongodb / destination-mongodb-strict-encrypt
@@ -1118,6 +1124,9 @@ _KNOWN_STRICT_ENCRYPT_COLLISIONS: dict[str, str] = {
     "778daa7c-feaf-4db6-96f3-70fd645acc77": "airbyte/source-file-secure",
     # source-oracle / source-oracle-strict-encrypt
     "b39a7370-74c3-45a6-ac3a-380d48520a83": "airbyte/source-oracle-strict-encrypt",
+    # source-mongodb-v2 renamed to source-mongodb in 3.0.0
+    # (https://github.com/airbytehq/airbyte/pull/89773)
+    "b2e713cd-cc36-4c0a-b5bd-b47cb8a0561e": "airbyte/source-mongodb-v2",
 }
 
 
@@ -1128,14 +1137,11 @@ def _resolve_definition_id_collision(
 ) -> str:
     """Decide which docker image name wins when two share a definition ID.
 
-    Only the hard-coded set of legacy strict-encrypt collisions in
-    `_KNOWN_STRICT_ENCRYPT_COLLISIONS` is handled.  The base connector
-    always wins (the strict-encrypt variant is dropped).  Any other
-    collision is unrecognised and raises `ValueError` so the compile step
-    fails loudly rather than silently picking the wrong entry.
-
-    Note: This deduplication logic can be removed once strict-encrypt
-    connectors are fully sunsetted.
+    Only the hard-coded collisions in `_KNOWN_DEFINITION_ID_COLLISIONS`
+    (legacy strict-encrypt variants and renamed docker images) are handled;
+    the listed image is dropped and the other one wins.  Any other collision
+    is unrecognised and raises `ValueError` so the compile step fails loudly
+    rather than silently picking the wrong entry.
 
     Args:
         image_name_a: Docker image name of the first entry.
@@ -1148,12 +1154,13 @@ def _resolve_definition_id_collision(
     Raises:
         ValueError: If the collision is not in the known allowlist.
     """
-    drop_repo = _KNOWN_STRICT_ENCRYPT_COLLISIONS.get(definition_id)
+    drop_repo = _KNOWN_DEFINITION_ID_COLLISIONS.get(definition_id)
     if drop_repo is None:
         raise ValueError(
             f"Unhandled definition-ID collision for {definition_id}: "
             f"{image_name_a} vs {image_name_b}. "
-            f"This collision is not in the known strict-encrypt allowlist."
+            f"This collision is not in the known collision allowlist "
+            f"(`_KNOWN_DEFINITION_ID_COLLISIONS`)."
         )
 
     if image_name_a == drop_repo:
@@ -1186,9 +1193,9 @@ def _compile_global_registry(
 
     When multiple connectors share the same `definitionId`, the collision
     is resolved by `_resolve_definition_id_collision()`.  Only the
-    hard-coded set of legacy strict-encrypt collisions is handled (the
-    base connector wins); any other collision raises `ValueError` so
-    the compile step fails loudly.
+    hard-coded collisions in `_KNOWN_DEFINITION_ID_COLLISIONS` are
+    handled; any other collision raises `ValueError` so the compile step
+    fails loudly.
 
     Args:
         registry_type: "cloud" or "oss".
@@ -1243,8 +1250,7 @@ def _compile_global_registry(
         if winner == docker_repo:
             # New entry wins — replace the previously kept entry.
             logger.warning(
-                "Duplicate definitionId %s: replacing %s with %s "
-                "(strict-encrypt variant dropped)",
+                "Duplicate definitionId %s: replacing %s with %s",
                 def_id,
                 existing_image,
                 docker_repo,
@@ -1253,8 +1259,7 @@ def _compile_global_registry(
             seen[def_id] = (docker_repo, existing_idx)
         else:
             logger.warning(
-                "Duplicate definitionId %s: keeping %s, dropping %s "
-                "(strict-encrypt variant dropped)",
+                "Duplicate definitionId %s: keeping %s, dropping %s",
                 def_id,
                 existing_image,
                 docker_repo,

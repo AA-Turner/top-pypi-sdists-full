@@ -555,30 +555,33 @@ async def test_endpoint_completion_storage(monitor):
 
 
 @pytest.mark.asyncio
-async def test_endpoint_provision_logs(monitor):
+async def test_endpoint_provision_logs(monitor, mock_request):
     """Test /provision_logs endpoint for blocking operations."""
     print("\n🔍 Testing: /provision_logs")
 
-    async def test_func():
-        # Mock the actual blocking DB calls
-        with mock.patch.object(global_user_state,
-                               'get_cluster_provision_log_path',
-                               side_effect=create_blocking_mock(None,
-                                                                delay=0.02)):
-            with mock.patch.object(global_user_state,
-                                   'get_cluster_history_provision_log_path',
-                                   side_effect=create_blocking_mock(
-                                       None, delay=0.02)):
-                try:
-                    body = payloads.ProvisionLogsBody(cluster_name='test')
-                    await _run_endpoint_func(server.provision_logs,
-                                             body,
-                                             follow=False)
-                except fastapi.HTTPException:
-                    # The cluster provision log will not be actually found
-                    pass
+    # Mock the actual blocking DB calls
+    with mock.patch.object(global_user_state,
+                           'get_cluster_provision_log_info',
+                           side_effect=create_blocking_mock(
+                               (None, None), delay=0.02)) as log_info, \
+            mock.patch.object(global_user_state,
+                              'get_cluster_history_provision_log_info',
+                              side_effect=create_blocking_mock(
+                                  (None, None), delay=0.02)) as history_info:
 
-    result = await run_endpoint_test(test_func, monitor, num_concurrent=30)
+        async def test_func():
+            try:
+                body = payloads.ProvisionLogsBody(cluster_name='test')
+                await _run_endpoint_func(server.provision_logs,
+                                         mock_request,
+                                         body,
+                                         follow=False)
+            except fastapi.HTTPException:
+                # The cluster provision log will not be actually found
+                pass
+
+        result = await run_endpoint_test(test_func, monitor, num_concurrent=30)
+    assert log_info.called and history_info.called
     assert not result[
         'blocking'], "/provision_logs should not block the event loop"
 
@@ -702,7 +705,7 @@ async def test_endpoint_workspaces_config(monitor, mock_request,
 
 
 @pytest.mark.asyncio
-async def test_endpoint_ssh_node_pools_list(monitor):
+async def test_endpoint_ssh_node_pools_list(monitor, mock_request):
     """Test /ssh_node_pools endpoint for blocking operations."""
     print("\n🔍 Testing: /ssh_node_pools")
 
@@ -712,7 +715,8 @@ async def test_endpoint_ssh_node_pools_list(monitor):
         # Whatever, we think get_all_pools might be blocking.
         with mock.patch('sky.ssh_node_pools.core.get_all_pools',
                         side_effect=create_blocking_mock({}, delay=0.01)):
-            await _run_endpoint_func(ssh_pools_server.get_ssh_node_pools)
+            await _run_endpoint_func(ssh_pools_server.get_ssh_node_pools,
+                                     mock_request)
 
     result = await run_endpoint_test(test_func, monitor, num_concurrent=20)
     assert not result[

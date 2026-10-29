@@ -32,6 +32,7 @@ from matrx_ai.graph_nodes.iteration_limit import (
 )
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+    assemble_held_step_skills,
     hold_step,
 )
 from matrx_ai.graph_nodes.shared import (
@@ -155,6 +156,7 @@ async def chat_manual(
         metadata=inputs.metadata,
     )
     config = UnifiedConfig.from_dict(held.config)
+    await assemble_held_step_skills(held, config)
     limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
     inputs.max_iterations = limit.value
 

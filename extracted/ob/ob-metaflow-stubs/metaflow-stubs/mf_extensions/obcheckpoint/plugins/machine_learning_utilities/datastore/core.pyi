@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-16T15:14:49.286829                                                            #
+# Generated on 2026-10-28T20:25:47.951033                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.datastore.datastore_storage
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastore.core
+    import metaflow.datastore.datastore_storage
 
 from ......exception import MetaflowException as MetaflowException
 from ..utils.tar_utils import create_tarball_on_disk as create_tarball_on_disk

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: archspec
-Version: 0.2.6
+Version: 0.2.7
 Summary: A library to query system architecture
 Home-page: https://github.com/archspec/archspec
 License: Apache-2.0 OR MIT

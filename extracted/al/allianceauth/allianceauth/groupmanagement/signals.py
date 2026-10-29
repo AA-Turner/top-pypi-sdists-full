@@ -1,8 +1,9 @@
-import logging
+__lazy_modules__ = ["allianceauth.authentication.models", "django.contrib.auth.models"]
 
-from django.contrib.auth.models import (  # Signals must fire on Base Models, not proxies
-    Group,
-)
+import logging
+from typing import TYPE_CHECKING
+
+from django.contrib.auth.models import Group  # Signals must fire on Base Models, not proxies
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
@@ -10,11 +11,16 @@ from allianceauth.authentication.signals import state_changed
 
 from .models import AuthGroup, ReservedGroupName
 
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User
+
+    from allianceauth.authentication.models import State
+
 logger = logging.getLogger(__name__)
 
 
 @receiver(pre_save, sender=Group)
-def find_new_name_for_conflicting_groups(sender, instance, **kwargs):
+def find_new_name_for_conflicting_groups(sender: type[Group], instance: Group, **kwargs) -> None:
     """Find new name for a group which name is already reserved."""
     new_name = instance.name
     num = 0
@@ -25,14 +31,14 @@ def find_new_name_for_conflicting_groups(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=Group)
-def create_auth_group(sender, instance, created, **kwargs):
+def create_auth_group(sender: type[Group], instance: Group, created: bool, **kwargs) -> None:
     """Create the AuthGroup model when a group is created."""
     if created:
         AuthGroup.objects.create(group=instance)
 
 
 @receiver(state_changed)
-def check_groups_on_state_change(sender, user, state, **kwargs):
+def check_groups_on_state_change(sender, user: "User", state: "State", **kwargs) -> None:
     logger.debug(
         f"Checking group memberships for {user} based on new state {state}"
     )

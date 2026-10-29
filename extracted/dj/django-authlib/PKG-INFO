@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-authlib
-Version: 0.21.0
+Version: 0.22.0
 Summary: Authentication utils for Django
 Project-URL: Homepage, http://github.com/feincms/django-authlib/
 Author-email: Matthias Kestenholz <mk@feinheit.ch>
@@ -125,7 +125,7 @@ writing ``django-authlib``'s Python code is less than 500 lines):
 
 .. code-block:: python
 
-    from django.conf.urls import url
+    from django.urls import path
     from authlib import views
     from authlib.facebook import FacebookOAuth2Client
     from authlib.google import GoogleOAuth2Client
@@ -133,59 +133,79 @@ writing ``django-authlib``'s Python code is less than 500 lines):
     from authlib.twitter import TwitterOAuthClient
 
     urlpatterns = [
-        url(
-            r"^login/$",
-            views.login,
-            name="login",
-        ),
-        url(
-            r"^oauth/facebook/$",
+        path("login/", views.login, name="login"),
+        path(
+            "oauth/facebook/",
             views.oauth2,
-            {
-                "client_class": FacebookOAuth2Client,
-            },
+            {"client_class": FacebookOAuth2Client},
             name="accounts_oauth_facebook",
         ),
-        url(
-            r"^oauth/google/$",
+        path(
+            "oauth/google/",
             views.oauth2,
-            {
-                "client_class": GoogleOAuth2Client,
-            },
+            {"client_class": GoogleOAuth2Client},
             name="accounts_oauth_google",
         ),
-        url(
-            r"^oauth/microsoft/$",
+        path(
+            "oauth/microsoft/",
             views.oauth2,
-            {
-                "client_class": MicrosoftOAuth2Client,
-            },
+            {"client_class": MicrosoftOAuth2Client},
             name="accounts_oauth_microsoft",
         ),
-        url(
-            r"^oauth/twitter/$",
+        path(
+            "oauth/twitter/",
             views.oauth2,
-            {
-                "client_class": TwitterOAuthClient,
-            },
+            {"client_class": TwitterOAuthClient},
             name="accounts_oauth_twitter",
         ),
-        url(
-            r"^email/$",
-            views.email_registration,
-            name="email_registration",
-        ),
-        url(
-            r"^email/(?P<code>[^/]+)/$",
+        path("email/", views.email_registration, name="email_registration"),
+        path(
+            "email/<str:code>/",
             views.email_registration,
             name="email_registration_confirm",
         ),
-        url(
-            r"^logout/$",
-            views.logout,
-            name="logout",
-        ),
+        path("logout/", views.logout, name="logout"),
     ]
+
+``views.oauth2`` also accepts ``email_login`` and ``post_login_response``
+arguments which replace the functions of the same name in ``authlib.views``,
+e.g. to remember in the session that a user logged in through an OAuth
+provider:
+
+.. code-block:: python
+
+    def sso_email_login(request, **kwargs):
+        user, created = views.email_login(request, **kwargs)
+        if user:
+            request.session["is_sso"] = True
+        return user, created
+
+    path(
+        "oauth/google/",
+        views.oauth2,
+        {"client_class": GoogleOAuth2Client, "email_login": sso_email_login},
+        name="accounts_oauth_google",
+    )
+
+``views.login`` accepts ``post_login_response`` too, and
+``views.email_registration`` accepts both.
+
+``views.oauth2`` passes the rest of the data it got from the provider to
+``email_login`` as ``user_data``. All bundled clients provide a ``full_name``
+there (when the provider has one), which allows persisting the name on a user
+model which has a field for it (``authlib.little_auth.User`` hasn't):
+
+.. code-block:: python
+
+    def email_login_with_name(request, *, email, user_data=None):
+        user, created = views.email_login(request, email=email)
+        if user and not user.full_name and user_data and user_data.get("full_name"):
+            user.full_name = user_data["full_name"]
+            user.save(update_fields=["full_name"])
+        return user, created
+
+``views.email_registration`` calls ``email_login`` without ``user_data``, since
+a magic link only carries the email address.
 
 
 Admin OAuth2
@@ -218,7 +238,7 @@ Installation is as follows:
 .. code-block:: python
 
     urlpatterns = [
-        url(r"", include("authlib.admin_oauth.urls")),
+        path("", include("authlib.admin_oauth.urls")),
         # ...
     ]
 
@@ -270,6 +290,29 @@ your domain:
 
 You could also remove the fallback line; in this case users can only
 authenticate if they have a personal staff account.
+
+Staff accounts can also be created on the fly. Set
+``ADMIN_OAUTH_CREATE_USER_CALLBACK`` to the dotted path of a callable; it is
+called with the request and an address produced by ``ADMIN_OAUTH_PATTERNS``
+when no user with that address exists, and may (but doesn't have to) create
+one. ``"authlib.admin_oauth.views.create_superuser"`` creates superusers. The
+callable also receives the data the OAuth provider returned as a ``user_data``
+keyword argument, e.g. to persist the name. Callables which don't accept
+``user_data`` are still called without it, but that's deprecated: the system
+check ``authlib.W004`` and a ``DeprecationWarning`` at call time point them
+out.
+
+.. code-block:: python
+
+    def create_staff_user(request, email, *, user_data):
+        User.objects.create(
+            email=email,
+            full_name=user_data.get("full_name") or "",
+            is_staff=True,
+        )
+
+``user_data`` describes the visitor, whose address (``user_data["email"]``)
+isn't necessarily the address the callable is asked to create an account for.
 
 Disabling passwords in the admin
 ================================
@@ -412,6 +455,42 @@ The above template is inspired from:
 * `Django login template <https://github.com/django/django/blob/67d0c4644acfd7707be4a31e8976f865509b09ac/django/contrib/admin/templates/admin/login.html#L21-L44>`_
 
 More details are documented in `the relevant module <https://github.com/feincms/django-authlib/blob/main/authlib/email.py>`_.
+
+Magic links are signed, not stored: they work any number of times, from any
+device and browser, until they expire. Anyone who gets hold of a link before
+then -- because it was forwarded, or ended up in a log -- can log in with it
+too. The links expire after three hours by default; pass a lower ``max_age``
+(in seconds) to the confirmation URL's ``views.email_registration`` to shorten
+that window:
+
+.. code-block:: python
+
+    path(
+        "email/<str:code>/",
+        views.email_registration,
+        {"max_age": 15 * 60},
+        name="email_registration_confirm",
+    ),
+
+Making links single-use or binding them to the browser which requested them
+would close that window, but both have costs which made us leave them out:
+
+- Corporate mail gateways and virus scanners routinely open every link in an
+  email before the recipient does. A link which is consumed on first use is
+  gone before the user ever clicks it.
+- Requesting a link on one device and opening the email on another is common,
+  and many mobile mail apps open links in their own browser with a separate
+  cookie jar. A link bound to the requesting browser with a cookie fails in
+  all those cases, with an error users can't make sense of. It doesn't help
+  against a compromised mailbox either, since whoever reads the mail can
+  request a link themselves.
+
+If browser binding is worth that to you, the building blocks exist: generate a
+random value, pass it to ``form.send_mail(payload=...)`` so that it's signed
+into the link, and set it as a cookie on the response. In your own
+confirmation view, ``authlib.email.decode()`` returns the payload alongside the
+email address; refuse the login unless it matches the cookie
+(``secrets.compare_digest``).
 
 
 Roles

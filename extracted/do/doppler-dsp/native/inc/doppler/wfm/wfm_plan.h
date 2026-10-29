@@ -1,5 +1,6 @@
-/*
- * wfm_plan.h — "prepare once, materialize many" stimulus engine.
+/**
+ * @file wfm_plan.h
+ * @brief "Prepare once, materialize many" stimulus engine.
  *
  * A composed scene is a sequence of segments, each a linear form
  *
@@ -124,11 +125,18 @@ extern "C"
   wfm_plan_t *dp_wfm_plan_prepare (const char *spec_json);
 
   /** @brief Worst-case materialized length in samples (every ranged gap at
-   * its `hi` bound) — the jm binding's out_len_fn / allocation capacity. */
+   * its `hi` bound) — the jm binding's out_len_fn / allocation capacity.
+   *
+   * @param p  The Plan, or NULL.
+   * @return Capacity in samples that `out` must hold for render()/at();
+   *         0 for a NULL Plan. */
   size_t dp_wfm_plan_len (const wfm_plan_t *p);
 
   /** @brief Number of cached signal sources across every segment (excludes
-   * noise floors); the length of the `gains`/`phases`/`enable` arrays. */
+   * noise floors); the length of the `gains`/`phases`/`enable` arrays.
+   *
+   * @param p  The Plan, or NULL.
+   * @return Source count; 0 for a NULL Plan. */
   size_t dp_wfm_plan_n_sources (const wfm_plan_t *p);
 
   /**
@@ -140,6 +148,10 @@ extern "C"
    * scene; for a multi-segment scene each segment still draws from its own
    * default seed unless overridden. Varying the seed draws independent
    * Monte-Carlo noise (and, for a ranged-gap scene, timing) realizations.
+   *
+   * @param p  The Plan, or NULL.
+   * @return The first noisy segment's noise seed; 0 for a NULL Plan or a
+   *         scene with no noisy segment.
    */
   uint64_t dp_wfm_plan_anchor_seed (const wfm_plan_t *p);
 
@@ -176,10 +188,67 @@ extern "C"
    * 64
    * @endcode
    *
+   * @param p  The Plan; NULL is refused like a noiseless scene.
    * @return 0 (DP_OK) when some segment carries noise; DP_ERR_INVALID (-4)
    *         when none does, for the reason DP_WFM_PLAN_WHY_NO_NOISE.
    */
   int dp_wfm_plan_check_snr (const wfm_plan_t *p);
+
+  /** @brief Why an override is refused: the text is not a JSON object. */
+#define DP_WFM_PLAN_WHY_NOT_OBJECT "overrides must be a JSON object"
+  /** @brief Why an override is refused: it names a key the Plan does not
+   * know (a typo would otherwise render the baseline). */
+#define DP_WFM_PLAN_WHY_UNKNOWN_KEY                                           \
+  "overrides take only the keys gains, phases, enable, snr and seed"
+  /** @brief Why an override is refused: a per-source array has the wrong
+   * length (or is not an array). */
+#define DP_WFM_PLAN_WHY_ARRAY_LEN                                             \
+  "gains, phases and enable must each be an array of n_sources entries"
+  /** @brief Why an override is refused: a gains/phases entry is not a
+   * number. */
+#define DP_WFM_PLAN_WHY_NUMBER "every gains and phases entry must be a number"
+  /** @brief Why an override is refused: an enable entry is neither a bool
+   * nor a number. */
+#define DP_WFM_PLAN_WHY_ENABLE "every enable entry must be a bool or a number"
+  /** @brief Why an override is refused: `snr` is not a number. */
+#define DP_WFM_PLAN_WHY_SNR "snr must be a number (dB)"
+  /** @brief Why an override is refused: `seed` is not an integer in
+   * `0..2^32-1` (every seed a Plan feeds is 32-bit). */
+#define DP_WFM_PLAN_WHY_SEED "seed must be an integer in 0..4294967295"
+  /** @brief Why an override is refused: there is no Plan. */
+#define DP_WFM_PLAN_WHY_NULL "no Plan"
+
+  /**
+   * @brief Whether dp_wfm_plan_render() can honour @p overrides_json, and if
+   *        not, why.
+   *
+   * The one rule render() applies before it draws anything (see its doc for
+   * the keys). NULL or "" is the baseline and is accepted. An `snr` on a
+   * Plan whose scene carries no noise is refused for the reason
+   * DP_WFM_PLAN_WHY_NO_NOISE.
+   *
+   * @param p               The Plan; NULL is refused (DP_WFM_PLAN_WHY_NULL).
+   * @param overrides_json  NUL-terminated override object, or NULL / "".
+   * @param[out] why        When non-NULL, receives NULL on success or one of
+   *                        the static DP_WFM_PLAN_WHY_* strings.
+   * @return 0 (DP_OK) when render() would honour every key; DP_ERR_INVALID
+   *         (-4) when it would refuse.
+   */
+  int dp_wfm_plan_check_overrides_why (const wfm_plan_t *p,
+                                       const char *overrides_json,
+                                       const char **why);
+
+  /**
+   * @brief dp_wfm_plan_check_overrides_why() without the reason.
+   *
+   * The status-only face, for a binding that raises a fixed message.
+   *
+   * @param p               The Plan.
+   * @param overrides_json  NUL-terminated override object, or NULL / "".
+   * @return 0 (DP_OK), or DP_ERR_INVALID (-4) when render() would refuse.
+   */
+  int dp_wfm_plan_check_overrides (const wfm_plan_t *p,
+                                   const char *overrides_json);
 
   /**
    * @brief General render: apply a JSON override spec, return a cf32 array.
@@ -192,8 +261,23 @@ extern "C"
    * `dp_wfm_plan_len(p)` samples to `out`. An `"snr"` key on a Plan whose
    * scene carries no noise is refused (see dp_wfm_plan_check_snr()).
    *
+   * Overrides the Plan cannot honour are refused, never read as the
+   * baseline: text that is not a JSON object, a key other than the five
+   * above, a `gains`/`phases`/`enable` array whose length is not
+   * dp_wfm_plan_n_sources(), a `gains`/`phases` entry that is not a number,
+   * an `enable` entry that is neither a bool nor a number, a non-numeric
+   * `snr`, and a `seed` that is not an integer in `0..2^32-1`. The rule is
+   * dp_wfm_plan_check_overrides_why(), which names the reason. An `enable`
+   * entry is on when it is `true` or a non-zero number.
+   *
+   * @param p               The Plan; NULL renders nothing and returns 0.
+   * @param overrides_json  NUL-terminated override object, or NULL / ""
+   *                        for the baseline.
+   * @param[out] out        Receives the samples; must hold
+   *                        dp_wfm_plan_len(p) of them.
    * @return Samples actually written for this draw (<= dp_wfm_plan_len(p)),
-   *         or 0 when refused, with `out` untouched.
+   *         or 0 when refused (a NULL Plan, an override
+   *         dp_wfm_plan_check_overrides() refuses), with `out` untouched.
    */
   size_t dp_wfm_plan_render (const wfm_plan_t *p, const char *overrides_json,
                           float _Complex *out);
@@ -207,8 +291,22 @@ extern "C"
    * and so is `snr`: on a Plan whose scene carries no noise it is refused
    * (see dp_wfm_plan_check_snr()).
    *
+   * @param p         The Plan.
+   * @param snr       SNR override, dB, read per segment in the snr_mode
+   *                  of the source that sets its SNR: a bundled segment's
+   *                  lone source, else the source sharing the noise
+   *                  source's seed. A segment whose noise floor was set
+   *                  explicitly keeps that floor.
+   * @param seed      Noise (and ranged-gap) seed override, `0..2^32-1`:
+   *                  the seeds it replaces are 32-bit, so a larger one is
+   *                  refused rather than cut to its low 32 bits (which
+   *                  would make seeds differing only above bit 31 draw the
+   *                  same realization).
+   * @param[out] out  Receives the samples; must hold dp_wfm_plan_len(p)
+   *                  of them.
    * @return Samples actually written for this draw (<= dp_wfm_plan_len(p)),
-   *         or 0 when refused, with `out` untouched.
+   *         or 0 when refused (no noise floor, or @p seed above 2^32-1),
+   *         with `out` untouched.
    */
   size_t dp_wfm_plan_at (const wfm_plan_t *p, double snr, uint64_t seed,
                       float _Complex *out);
@@ -221,6 +319,9 @@ extern "C"
    * Dominated by the buffers (Σ per-source num_samples · 8 bytes) — multi-MB
    * for a large scene, which is exactly why the spec-rebuild path is the
    * default.
+   *
+   * @param p  The Plan, or NULL.
+   * @return Blob size in bytes; 0 for a NULL Plan.
    */
   size_t dp_wfm_plan_save_bytes (const wfm_plan_t *p);
 
@@ -231,6 +332,11 @@ extern "C"
    * self-contained. Returns the number of bytes written (==
    * dp_wfm_plan_save_bytes(p)) — the actual-length contract a variable-output
    * binding needs, so `save() -> bytes` generates with no hand-written glue.
+   *
+   * @param p          The Plan.
+   * @param[out] blob  Receives the blob; must hold
+   *                   dp_wfm_plan_save_bytes(p) bytes.
+   * @return Bytes written; 0 (nothing written) if @p p or @p blob is NULL.
    */
   size_t dp_wfm_plan_save (const wfm_plan_t *p, void *blob);
 
@@ -254,7 +360,10 @@ extern "C"
   /**
    * @brief Save a Plan to a file (dp_wfm_plan_save() bytes at @p path).
    *
-   * @return 0 on success, non-zero on an open/write error.
+   * @param p     The Plan.
+   * @param path  File to create or truncate.
+   * @return 0 on success; -1 on a NULL argument, an allocation failure, or
+   *         an open/write/close error.
    */
   int dp_wfm_plan_dump (const wfm_plan_t *p, const char *path);
 
@@ -264,12 +373,15 @@ extern "C"
    * Same fingerprint semantics as dp_wfm_plan_restore(): a matching build loads the
    * cached buffers, a mismatch rebuilds from the embedded spec.
    *
+   * @param path  File written by dp_wfm_plan_dump().
    * @return Heap Plan (caller dp_wfm_plan_destroy()s it), or NULL on an open/read
    *         error or a malformed/foreign-endian file.
    */
   wfm_plan_t *dp_wfm_plan_load (const char *path);
 
-  /** @brief Destroy a Plan and free its caches. NULL is a no-op. */
+  /** @brief Destroy a Plan and free its caches. NULL is a no-op.
+   *
+   * @param p  The Plan, or NULL. */
   void dp_wfm_plan_destroy (wfm_plan_t *p);
 
 #ifdef __cplusplus

@@ -29,7 +29,12 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker as SyncSessionmaker
 
-from dbos._context import DBOSContextEnsure, current_owner_xid, get_local_dbos_context
+from dbos._context import (
+    DBOSContextEnsure,
+    current_owner_xid,
+    get_local_dbos_context,
+    snapshot_step_context,
+)
 from dbos._datasource_migration import migrate_datasource_database
 from dbos._error import DBOSException, DBOSWorkflowConflictIDError
 from dbos._schemas.datasource_database import datasource_outputs_table
@@ -105,6 +110,14 @@ def _still_owns(workflow_id: str, owner_xid: Optional[str] = None) -> bool:
     return _get_dbos_instance()._sys_db.get_workflow_owner(workflow_id) == owner_xid
 
 
+def _checkpoint_id(workflow_id: str) -> str:
+    """The checkpoint row's ID: the workflow ID, prefixed by its shard key on a sharded system database."""
+    from dbos._dbos import _get_dbos_instance
+
+    key = _get_dbos_instance()._sys_db._key_hint(workflow_id)
+    return workflow_id if key is None else f"{len(key)}:{key}:{workflow_id}"
+
+
 def _reject_session_binds(session_kw: Dict[str, Any]) -> None:
     # Per-mapper binds outrank bind=self.engine, which would split user writes from the checkpoint.
     if session_kw.get("binds"):
@@ -165,7 +178,7 @@ def _register_datasource(
 
 def _delete_checkpoints_sql(t: sa.Table, workflow_id: str, start_step: int) -> Any:
     return sa.delete(t).where(
-        (t.c.workflow_id == workflow_id) & (t.c.step_id >= start_step)
+        (t.c.workflow_id == _checkpoint_id(workflow_id)) & (t.c.step_id >= start_step)
     )
 
 
@@ -337,7 +350,7 @@ class AsyncSQLAlchemyDatasource(ABC):
                     self._outputs_table.c.error,
                     self._outputs_table.c.serialization,
                 ).where(
-                    self._outputs_table.c.workflow_id == workflow_id,
+                    self._outputs_table.c.workflow_id == _checkpoint_id(workflow_id),
                     self._outputs_table.c.step_id == step_id,
                 ),
                 execution_options=self._pin,
@@ -391,7 +404,7 @@ class AsyncSQLAlchemyDatasource(ABC):
         result = await conn.execute(
             self.dialect.insert(self._outputs_table)
             .values(
-                workflow_id=workflow_id,
+                workflow_id=_checkpoint_id(workflow_id),
                 step_id=step_id,
                 output=output,
                 error=error,
@@ -763,7 +776,7 @@ class SQLAlchemyDatasource(ABC):
                     self._outputs_table.c.error,
                     self._outputs_table.c.serialization,
                 ).where(
-                    self._outputs_table.c.workflow_id == workflow_id,
+                    self._outputs_table.c.workflow_id == _checkpoint_id(workflow_id),
                     self._outputs_table.c.step_id == step_id,
                 ),
                 execution_options=self._pin,
@@ -815,7 +828,7 @@ class SQLAlchemyDatasource(ABC):
         result = conn.execute(
             self.dialect.insert(self._outputs_table)
             .values(
-                workflow_id=workflow_id,
+                workflow_id=_checkpoint_id(workflow_id),
                 step_id=step_id,
                 output=output,
                 error=error,
@@ -969,7 +982,14 @@ class SQLAlchemyDatasource(ABC):
             from dbos._dbos import _get_dbos_instance
 
             step_options: StepOptions = {"name": name}
-            return run_step(_get_dbos_instance(), _body, step_options, (), {})
+            return run_step(
+                _get_dbos_instance(),
+                snapshot_step_context(),
+                _body,
+                step_options,
+                (),
+                {},
+            )
         return _body()
 
     @overload

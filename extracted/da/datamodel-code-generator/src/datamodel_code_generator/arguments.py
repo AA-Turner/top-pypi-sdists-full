@@ -35,6 +35,7 @@ from datamodel_code_generator.enums import (
     ClientSignatureStyle,
     ClientType,
     CollapseRootModelsNameStrategy,
+    ConstructorFieldOrder,
     CustomFileHeaderMode,
     DataclassArguments,
     DataModelType,
@@ -45,6 +46,7 @@ from datamodel_code_generator.enums import (
     InputModelRefStrategy,
     ModuleSplitMode,
     NamingStrategy,
+    OpenAPIAsDefinitions,
     OpenAPIScope,
     ReadOnlyWriteOnlyModelType,
     ReuseScope,
@@ -331,7 +333,10 @@ base_options.add_argument(
 base_options.add_argument(
     "--emit-model-metadata",
     type=Path,
-    help="Write a separate JSON map from source schema references to generated models and fields.",
+    help=(
+        "Write a separate JSON map from generated models and fields to the JSON Pointer locations of their source "
+        "schemas; module and class name identify a model."
+    ),
 )
 base_options.add_argument(
     "--output-model-type",
@@ -449,6 +454,14 @@ model_options.add_argument(
     default=None,
 )
 model_options.add_argument(
+    "--collapse-shared-parent-wrappers",
+    action="store_true",
+    default=None,
+    help="Under --collapse-root-models-name-strategy parent, make every model that references a wrapper reference "
+    "the inner model that takes its name, as its first model does; without it, where --field-type-collision-strategy "
+    "rename-type can rename the wrapper apart from the inner model in their module, the later models keep the wrapper",
+)
+model_options.add_argument(
     "--collapse-reuse-models",
     action="store_true",
     default=None,
@@ -517,6 +530,24 @@ model_options.add_argument(
     default=None,
 )
 model_options.add_argument(
+    "--order-constructor-fields-by",
+    help="Decide the order of constructor fields by each given value. final-names: order the constructor fields of "
+    "dataclass and msgspec.Struct models after every field has its final name, so a field that overrides an inherited "
+    "field renamed in another module is matched to it and keeps its place; without it the override reads as a new "
+    "field after the inherited default and is written keyword-only (kw_only=True). written-defaults: order the fields "
+    "of msgspec.Struct and Pydantic dataclass models by the defaults they write, so under --strip-default-none an "
+    "optional field whose None default is stripped but still written (UNSET, or None for a type that admits None) "
+    "goes after the required fields of a Struct with the other optional fields and stays positional after an "
+    "inherited default, and a required pydantic.dataclass field redeclaring it is written Field(...) (a msgspec.Struct "
+    "writes a bare annotation); without it the "
+    "field keeps its place among the fields without a default, as before: it is keyword-only after an inherited "
+    "default, a redeclaring field inherits its None default, and the fields are reordered only where a required "
+    "field would then follow a default.",
+    choices=[constructor_field_order.value for constructor_field_order in ConstructorFieldOrder],
+    nargs="+",
+    default=None,
+)
+model_options.add_argument(
     "--keyword-only",
     help="Defined models as keyword only (for example dataclass(kw_only=True)).",
     action="store_true",
@@ -544,6 +575,15 @@ model_options.add_argument(
     "variant is tagged with the document's property name and its value, or none is and a warning says why. Without "
     "it the 0.83.0 form is kept, which tags only a variant whose discriminator is a single literal and keeps the "
     "other discriminators as Literal fields.",
+    action="store_true",
+    default=None,
+)
+model_options.add_argument(
+    "--tag-msgspec-by-payload-name",
+    help="msgspec.Struct output only: tag the structs of a discriminated union with the property name the document "
+    "carries (for example 'pet-kind') instead of the Python name that property resolves to (pet_kind), which msgspec "
+    "looks for in the payload. --use-msgspec-tagged-unions already tags by the document's property name. Without "
+    "either option the Python name is kept.",
     action="store_true",
     default=None,
 )
@@ -585,12 +625,13 @@ model_options.add_argument(
     help="Oldest Pydantic version the generated code must support. "
     "Unset: the newest supported feature forms, with populate_by_name config like '2' "
     "and the experimental MISSING import like '2.12'. "
-    "'2': Pydantic 2.0+ compatible (uses populate_by_name; patterns that need Python's regex engine need 2.5+). "
+    "'2': Pydantic 2.0.3+ compatible (uses populate_by_name; patterns that need Python's regex engine need 2.5+). "
     "'2.11': Pydantic 2.11+ (uses validate_by_name). "
     "'2.12': Pydantic 2.12+ (supports MISSING sentinel). "
     "'2.14': Pydantic 2.14+ (imports MISSING from pydantic; bytes patterns can select Python's regex engine; "
     "pydantic_v2.dataclass writes required Field(...) fields before the fields with defaults of the same class; "
-    "a number schema keeps multipleOf on a timedelta).",
+    "a number schema keeps multipleOf on a timedelta). "
+    "Constructs without an older form are written for every target, with a warning naming the Pydantic they need.",
     choices=[v.value for v in TargetPydanticVersion],
     default=None,
 )
@@ -600,6 +641,16 @@ model_options.add_argument(
     "Matching generated aliases are omitted from individual Field() calls, "
     "except with --target-pydantic-version 2, which writes every alias.",
     choices=[a.value for a in AliasGenerator],
+    default=None,
+)
+model_options.add_argument(
+    "--pin-aliases-with-alias-generator",
+    help="pydantic_v2.BaseModel and pydantic_v2.dataclass output: decide a field's alias by the alias generator its "
+    "model applies, the one in its config or in the config it inherits. For a dataclass and a "
+    "--target-pydantic-version older than 2.8, whose alias generators can differ from the generated aliases, write "
+    "the generated alias on every field of a dataclass whose config names an alias generator. Without it a field keeps "
+    "the alias it has without the generator, which the config then replaces.",
+    action="store_true",
     default=None,
 )
 model_options.add_argument(
@@ -790,8 +841,49 @@ typing_options.add_argument(
     default=None,
 )
 typing_options.add_argument(
+    "--read-const-beside-enum",
+    help="Read a `const` beside an `enum` as JSON Schema does: a value whose schema names the enum is typed by the "
+    "const that narrows it (`Literal[Enum.member]`, a Literal or None) instead of the enum class that lists the "
+    "values the const excludes, and under --use-single-value-enum-as-const an `enum` that admits its `const` is read "
+    "as that `const` instead of an Enum, except one with `nullable: true` and a value other than null",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
+    "--filter-literal-values",
+    help="Keep only the values of a `const` or an `enum` that meet the `minLength`, `maxLength`, `pattern`, bound and "
+    "`multipleOf` constraints beside them in its `Literal` or Enum, as JSON Schema validates them; a schema none of "
+    "whose values meets them stays as written with a warning",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
+    "--intersect-allof-keywords",
+    help="Combine the keywords of every part of an `allOf`, of a `$ref` with sibling keywords and of an inherited "
+    "property override, as JSON Schema validates them: the tightest bounds, the `enum` values every part admits, "
+    "the `type` every part admits, the conjunction of the `pattern`s, no null beside a `type` that excludes it, and "
+    "the constraints of the root, item and map value positions of an `allOf`. "
+    "Without it, the keyword of the last part wins where the parts disagree",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
     "--field-constraints",
     help="Use field constraints and not con* annotations",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
+    "--omit-redundant-constraints",
+    help="Do not write a constraint again beside a type that already enforces it: the bound of a zero-bound class "
+    "such as NonNegativeInt, and the length and number constraints a const or enum Literal meets by its values",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
+    "--use-site-models-for-constrained-refs",
+    help="Give an allOf of $ref members whose other parts add constraints, an enum or a type its own model of the "
+    "values all parts admit, instead of the referenced type, which leaves the added assertions out",
     action="store_true",
     default=None,
 )
@@ -841,6 +933,14 @@ typing_options.add_argument(
     default=None,
 )
 typing_options.add_argument(
+    "--use-decimal-in-field-forms",
+    help="Under --use-decimal-for-multiple-of, also write Decimal for a number with multipleOf in the field forms "
+    "(--field-constraints, --use-annotated), with the constraints in Field(), and make the Decimal strict under "
+    "--strict-types float (Pydantic only)",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
     "--use-one-literal-as-default",
     help="Use one literal as default value for one literal field",
     action="store_true",
@@ -873,6 +973,28 @@ typing_options.add_argument(
     default=None,
 )
 typing_options.add_argument(
+    "--use-typed-map-values-beside-other-types",
+    help="With --use-typed-nullable-map-values, also type the map values of type arrays that list object beside "
+    "other types, such as [object, string], as dict[str, int] | str instead of dict[str, Any] | str",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
+    "--read-unevaluated-properties",
+    help="Read a schema-valued unevaluatedProperties as additionalProperties where no applicator evaluates the "
+    "object in place, so it types the extra keys of a model and makes an object without properties a map",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
+    "--use-single-dict-for-object-maps",
+    help="Type an object map, an object without properties whose keys patternProperties or propertyNames constrain, "
+    "as one dict whose keys are those of every key class and whose value is the union of their values, beside the "
+    "null and the other types of its type array",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
     "--use-subclass-enum",
     help="Define generic Enum class as subclass with field type when enum has type (int, float, bytes, str)",
     action="store_true",
@@ -882,6 +1004,14 @@ typing_options.add_argument(
     "--use-specialized-enum",
     help="Use specialized Enum class (StrEnum, IntEnum). Requires --target-python-version 3.11+",
     action=BooleanOptionalAction,
+    default=None,
+)
+typing_options.add_argument(
+    "--keep-enum-member-values",
+    help="Write an enum as a plain Enum where the value base of --use-specialized-enum or --use-subclass-enum "
+    "would change a member value, such as 2.5 in an IntEnum; without it the base follows the schema type, as in "
+    "0.86.0",
+    action="store_true",
     default=None,
 )
 typing_options.add_argument(
@@ -899,6 +1029,14 @@ typing_options.add_argument(
 typing_options.add_argument(
     "--use-tuple-for-fixed-items",
     help="Generate tuple types for arrays with items array syntax when minItems equals maxItems equals items length",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
+    "--use-tuple-for-closed-arrays",
+    help="Generate tuple types for positional arrays that no other item can follow: a closed prefixItems tail "
+    "(items, unevaluatedItems or additionalItems false) whose length the length keywords fix, so that each position "
+    "keeps its own type",
     action="store_true",
     default=None,
 )
@@ -1072,8 +1210,16 @@ field_options.add_argument(
     default=None,
 )
 field_options.add_argument(
+    "--omit-redundant-reference-null",
+    help="Do not write None again where a field, item or member references a model that holds null itself (a root "
+    "model or type alias whose type admits None, or an enum with a None member), so that a null parses to that model",
+    action="store_true",
+    default=None,
+)
+field_options.add_argument(
     "--strip-default-none",
-    help="Strip default None on fields",
+    help="Strip default None on fields (no effect on msgspec.Struct: it defaults an omitted field to UNSET, and to "
+    "None only when the type admits None)",
     action="store_true",
     default=None,
 )
@@ -1095,6 +1241,21 @@ field_options.add_argument(
     "or pydantic.MISSING with --target-pydantic-version 2.14 or later, which --generate-server and --generate-client "
     "require with this option. Supports pydantic_v2.BaseModel and pydantic_v2.dataclass, whose server and client "
     "generation requires it.",
+    action="store_true",
+    default=None,
+)
+field_options.add_argument(
+    "--read-nullable-beside-type-list",
+    help="Write the null that `nullable: true` declares beside a `type` list with an object into the root model of "
+    "that schema under --strict-nullable or --use-missing-sentinel, as a declared field does; without it only a "
+    "`type` list holding null makes that root admit None",
+    action="store_true",
+    default=None,
+)
+field_options.add_argument(
+    "--keep-field-defaults-off-branch-roots",
+    help="Leave the default of a property off the root models extracted from the branches of its `anyOf` or `oneOf`, "
+    "which then require their value; without it each such root takes the property's default",
     action="store_true",
     default=None,
 )
@@ -1273,6 +1434,14 @@ template_options.add_argument(
     default=None,
 )
 template_options.add_argument(
+    "--check-pattern-maps-strictly",
+    help="Under --generate-schema-validators, count every key that a pattern of patternProperties admits, check "
+    "declared keys against the patterns that match them, and keep the propertyNames keys and the other types of a "
+    "type array of an object without properties",
+    action="store_true",
+    default=None,
+)
+template_options.add_argument(
     "--schema-validator-type",
     help="Select the schema-derived runtime validator backend. "
     "'pydantic-v2' generates Pydantic v2 model validators (experimental).",
@@ -1390,6 +1559,18 @@ openapi_options.add_argument(
     default=None,
 )
 openapi_options.add_argument(
+    "--openapi-as-definitions",
+    help="Give each given kind of OpenAPI schema the model a definitions entry of the same schema gets. paths-bodies: "
+    "the request and response bodies of the paths and webhooks scopes, so an object body with a type array such as "
+    "[object, null], or with map keywords and no type, becomes a model instead of an inline type, and an object body "
+    "with patternProperties or propertyNames becomes the root model of a map. ref-components: a "
+    "component written as a $ref to a recursive schema with sibling keywords, which gets the root model; without it "
+    "such a component gets no model, and a reference to it is typed by the schema its $ref names",
+    choices=[as_definitions.value for as_definitions in OpenAPIAsDefinitions],
+    nargs="+",
+    default=None,
+)
+openapi_options.add_argument(
     "--validation",
     help=f"Deprecated: {deprecation_message('cli.validation')}",
     action="store_true",
@@ -1401,6 +1582,13 @@ openapi_options.add_argument(
     "'request-response' = Request/Response models only (no base model), "
     "'all' = Base + Request + Response models.",
     choices=[e.value for e in ReadOnlyWriteOnlyModelType],
+    default=None,
+)
+openapi_options.add_argument(
+    "--dedupe-request-response-variants",
+    help="Decide Request/Response variants from the schema graph and build each inline model once, without the "
+    "unreferenced duplicate classes and shifted class numbers of 0.86.0",
+    action="store_true",
     default=None,
 )
 openapi_options.add_argument(

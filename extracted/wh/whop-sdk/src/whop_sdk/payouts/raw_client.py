@@ -218,6 +218,7 @@ class RawPayoutsClient:
         currency: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
         notes: typing.Optional[str] = OMIT,
+        payment_method_id: typing.Optional[str] = OMIT,
         platform_covers_fees: typing.Optional[bool] = OMIT,
         quote_token: typing.Optional[str] = OMIT,
         speed: typing.Optional[CreatePayoutsRequestSpeed] = OMIT,
@@ -251,6 +252,9 @@ class RawPayoutsClient:
         notes : typing.Optional[str]
             Free-form notes to attach to the payout, with a maximum of 255 characters. Omit or pass `null` for no notes.
 
+        payment_method_id : typing.Optional[str]
+            A saved card of the account, prefixed `payt_`, to charge for this payout instead of paying from the balance. Requires a `quote_token` from `POST /payouts/quotes` made with the same card and `amount`. Only for business accounts paying a saved recipient in `usd` at `standard` speed. The payout is returned under the card payment's `pay_` id until it is submitted, then `GET /payouts/{id}` returns the submitted payout.
+
         platform_covers_fees : typing.Optional[bool]
             Whether the parent platform covers the payout fee instead of the account being paid out. Omit to use the platform's configured fee coverage policy; pass `false` to opt out of it. `true` is only accepted for accounts that belong to a platform, and requires the platform's policy to cover this payout method's category or a caller authorized to manage the platform's child account fees.
 
@@ -261,7 +265,7 @@ class RawPayoutsClient:
             How fast the funds should arrive. `instant` is only accepted when the account and payout method are eligible; otherwise the payout is rejected.
 
         statement_descriptor : typing.Optional[str]
-            Text that appears on the recipient's bank statement. Must be 5-22 alphanumeric characters (A-Z, a-z, 0-9). Without a `quote_token`, omit or pass `null` to use the default descriptor. With a `quote_token`, set this value when creating the quote; the payout request may omit it but cannot add or change it.
+            Payment description sent with the payout, such as an invoice number or what it pays for. Must be 5-80 printable ASCII characters (letters, digits, spaces and punctuation); Whop sends it in upper case. Not all countries and banks show it on the recipient's statement, and it is not the sender name. Without a `quote_token`, omit or pass `null` to use the default descriptor. With a `quote_token`, set this value when creating the quote; the payout request may omit it but cannot add or change it.
 
         user_id : typing.Optional[str]
             User to pay out from, prefixed `user_`. Provide exactly one of `account_id` or `user_id`.
@@ -285,6 +289,7 @@ class RawPayoutsClient:
                 "currency": currency,
                 "metadata": metadata,
                 "notes": notes,
+                "payment_method_id": payment_method_id,
                 "payout_method_id": payout_method_id,
                 "platform_covers_fees": platform_covers_fees,
                 "quote_token": quote_token,
@@ -375,11 +380,13 @@ class RawPayoutsClient:
     def create_quote(
         self,
         *,
-        amount: float,
         payout_method_id: str,
         account_id: typing.Optional[str] = OMIT,
+        amount: typing.Optional[float] = OMIT,
         currency: typing.Optional[str] = OMIT,
+        payment_method_id: typing.Optional[str] = OMIT,
         platform_covers_fees: typing.Optional[bool] = OMIT,
+        recipient_amount: typing.Optional[float] = OMIT,
         speed: typing.Optional[CreateQuotePayoutsRequestSpeed] = OMIT,
         statement_descriptor: typing.Optional[str] = OMIT,
         user_id: typing.Optional[str] = OMIT,
@@ -390,26 +397,32 @@ class RawPayoutsClient:
 
         Parameters
         ----------
-        amount : float
-            The amount to pay out in the specified currency.
-
         payout_method_id : str
             The saved payout method to quote (a potk_ identifier).
 
         account_id : typing.Optional[str]
             Account to pay out from, prefixed `biz_`. Provide exactly one of `account_id` or `user_id`.
 
+        amount : typing.Optional[float]
+            The amount to pay out in the specified currency, fees included. Provide exactly one of `amount` or `recipient_amount`.
+
         currency : typing.Optional[str]
             The currency to pay out. When omitted, uses `usd` if that balance can cover a withdrawal, otherwise the account's only other funded currency.
 
+        payment_method_id : typing.Optional[str]
+            A saved card of the account, prefixed `payt_`, to quote paying this payout from. The quote's `amount` is the card charge, `fee` adds the estimated card fees to the payout fee, and `net_amount` is what the recipient receives.
+
         platform_covers_fees : typing.Optional[bool]
             Whether the parent platform covers the payout fee instead of the account being paid out.
+
+        recipient_amount : typing.Optional[float]
+            The amount the recipient should receive, with fees added on top. When the payout method pays out in `currency`, the quote's `destination_amount` covers it; otherwise its `net_amount` does. Provide exactly one of `amount` or `recipient_amount`.
 
         speed : typing.Optional[CreateQuotePayoutsRequestSpeed]
             How fast the funds should arrive.
 
         statement_descriptor : typing.Optional[str]
-            Text that appears on the recipient's bank statement. Must be 5-22 alphanumeric characters (A-Z, a-z, 0-9). Omit or pass `null` to use the default descriptor.
+            Payment description sent with the payout, such as an invoice number or what it pays for. Must be 5-80 printable ASCII characters (letters, digits, spaces and punctuation); Whop sends it in upper case. Not all countries and banks show it on the recipient's statement, and it is not the sender name. Omit or pass `null` to use the default descriptor.
 
         user_id : typing.Optional[str]
             User to pay out from, prefixed `user_`. Provide exactly one of `account_id` or `user_id`.
@@ -430,8 +443,10 @@ class RawPayoutsClient:
                 "account_id": account_id,
                 "amount": amount,
                 "currency": currency,
+                "payment_method_id": payment_method_id,
                 "payout_method_id": payout_method_id,
                 "platform_covers_fees": platform_covers_fees,
+                "recipient_amount": recipient_amount,
                 "speed": speed,
                 "statement_descriptor": statement_descriptor,
                 "user_id": user_id,
@@ -877,6 +892,7 @@ class AsyncRawPayoutsClient:
         currency: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
         notes: typing.Optional[str] = OMIT,
+        payment_method_id: typing.Optional[str] = OMIT,
         platform_covers_fees: typing.Optional[bool] = OMIT,
         quote_token: typing.Optional[str] = OMIT,
         speed: typing.Optional[CreatePayoutsRequestSpeed] = OMIT,
@@ -910,6 +926,9 @@ class AsyncRawPayoutsClient:
         notes : typing.Optional[str]
             Free-form notes to attach to the payout, with a maximum of 255 characters. Omit or pass `null` for no notes.
 
+        payment_method_id : typing.Optional[str]
+            A saved card of the account, prefixed `payt_`, to charge for this payout instead of paying from the balance. Requires a `quote_token` from `POST /payouts/quotes` made with the same card and `amount`. Only for business accounts paying a saved recipient in `usd` at `standard` speed. The payout is returned under the card payment's `pay_` id until it is submitted, then `GET /payouts/{id}` returns the submitted payout.
+
         platform_covers_fees : typing.Optional[bool]
             Whether the parent platform covers the payout fee instead of the account being paid out. Omit to use the platform's configured fee coverage policy; pass `false` to opt out of it. `true` is only accepted for accounts that belong to a platform, and requires the platform's policy to cover this payout method's category or a caller authorized to manage the platform's child account fees.
 
@@ -920,7 +939,7 @@ class AsyncRawPayoutsClient:
             How fast the funds should arrive. `instant` is only accepted when the account and payout method are eligible; otherwise the payout is rejected.
 
         statement_descriptor : typing.Optional[str]
-            Text that appears on the recipient's bank statement. Must be 5-22 alphanumeric characters (A-Z, a-z, 0-9). Without a `quote_token`, omit or pass `null` to use the default descriptor. With a `quote_token`, set this value when creating the quote; the payout request may omit it but cannot add or change it.
+            Payment description sent with the payout, such as an invoice number or what it pays for. Must be 5-80 printable ASCII characters (letters, digits, spaces and punctuation); Whop sends it in upper case. Not all countries and banks show it on the recipient's statement, and it is not the sender name. Without a `quote_token`, omit or pass `null` to use the default descriptor. With a `quote_token`, set this value when creating the quote; the payout request may omit it but cannot add or change it.
 
         user_id : typing.Optional[str]
             User to pay out from, prefixed `user_`. Provide exactly one of `account_id` or `user_id`.
@@ -944,6 +963,7 @@ class AsyncRawPayoutsClient:
                 "currency": currency,
                 "metadata": metadata,
                 "notes": notes,
+                "payment_method_id": payment_method_id,
                 "payout_method_id": payout_method_id,
                 "platform_covers_fees": platform_covers_fees,
                 "quote_token": quote_token,
@@ -1034,11 +1054,13 @@ class AsyncRawPayoutsClient:
     async def create_quote(
         self,
         *,
-        amount: float,
         payout_method_id: str,
         account_id: typing.Optional[str] = OMIT,
+        amount: typing.Optional[float] = OMIT,
         currency: typing.Optional[str] = OMIT,
+        payment_method_id: typing.Optional[str] = OMIT,
         platform_covers_fees: typing.Optional[bool] = OMIT,
+        recipient_amount: typing.Optional[float] = OMIT,
         speed: typing.Optional[CreateQuotePayoutsRequestSpeed] = OMIT,
         statement_descriptor: typing.Optional[str] = OMIT,
         user_id: typing.Optional[str] = OMIT,
@@ -1049,26 +1071,32 @@ class AsyncRawPayoutsClient:
 
         Parameters
         ----------
-        amount : float
-            The amount to pay out in the specified currency.
-
         payout_method_id : str
             The saved payout method to quote (a potk_ identifier).
 
         account_id : typing.Optional[str]
             Account to pay out from, prefixed `biz_`. Provide exactly one of `account_id` or `user_id`.
 
+        amount : typing.Optional[float]
+            The amount to pay out in the specified currency, fees included. Provide exactly one of `amount` or `recipient_amount`.
+
         currency : typing.Optional[str]
             The currency to pay out. When omitted, uses `usd` if that balance can cover a withdrawal, otherwise the account's only other funded currency.
 
+        payment_method_id : typing.Optional[str]
+            A saved card of the account, prefixed `payt_`, to quote paying this payout from. The quote's `amount` is the card charge, `fee` adds the estimated card fees to the payout fee, and `net_amount` is what the recipient receives.
+
         platform_covers_fees : typing.Optional[bool]
             Whether the parent platform covers the payout fee instead of the account being paid out.
+
+        recipient_amount : typing.Optional[float]
+            The amount the recipient should receive, with fees added on top. When the payout method pays out in `currency`, the quote's `destination_amount` covers it; otherwise its `net_amount` does. Provide exactly one of `amount` or `recipient_amount`.
 
         speed : typing.Optional[CreateQuotePayoutsRequestSpeed]
             How fast the funds should arrive.
 
         statement_descriptor : typing.Optional[str]
-            Text that appears on the recipient's bank statement. Must be 5-22 alphanumeric characters (A-Z, a-z, 0-9). Omit or pass `null` to use the default descriptor.
+            Payment description sent with the payout, such as an invoice number or what it pays for. Must be 5-80 printable ASCII characters (letters, digits, spaces and punctuation); Whop sends it in upper case. Not all countries and banks show it on the recipient's statement, and it is not the sender name. Omit or pass `null` to use the default descriptor.
 
         user_id : typing.Optional[str]
             User to pay out from, prefixed `user_`. Provide exactly one of `account_id` or `user_id`.
@@ -1089,8 +1117,10 @@ class AsyncRawPayoutsClient:
                 "account_id": account_id,
                 "amount": amount,
                 "currency": currency,
+                "payment_method_id": payment_method_id,
                 "payout_method_id": payout_method_id,
                 "platform_covers_fees": platform_covers_fees,
+                "recipient_amount": recipient_amount,
                 "speed": speed,
                 "statement_descriptor": statement_descriptor,
                 "user_id": user_id,

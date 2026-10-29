@@ -39,20 +39,26 @@ match schema_output_name:
 
         sys.stdout.write(f"{json_config_json_schema()}\n")
         sys.exit(0)
-    case "generation":  # pragma: no cover
-        from datamodel_code_generator._structured_output import generation_output_json_schema
+    case "generation" | "structured-output":  # pragma: no cover
+        from datamodel_code_generator import _StructuredOutputUnavailableError
 
-        sys.stdout.write(f"{generation_output_json_schema()}\n")
+        try:
+            from datamodel_code_generator._structured_output import (
+                generation_output_json_schema,
+                structured_output_json_schema,
+            )
+        except _StructuredOutputUnavailableError as error:
+            sys.stderr.write(f"{error}\n")
+            sys.exit(2)
+        json_schema = (
+            generation_output_json_schema if schema_output_name == "generation" else structured_output_json_schema
+        )
+        sys.stdout.write(f"{json_schema()}\n")
         sys.exit(0)
     case "model-metadata":
         from datamodel_code_generator.model_metadata import model_metadata_json_schema
 
         sys.stdout.write(f"{model_metadata_json_schema()}\n")
-        sys.exit(0)
-    case "structured-output":  # pragma: no cover
-        from datamodel_code_generator._structured_output import structured_output_json_schema
-
-        sys.stdout.write(f"{structured_output_json_schema()}\n")
         sys.exit(0)
 
 # Fast path for Agent Skill installation (avoid importing generation dependencies); --recommend-options (any
@@ -85,20 +91,28 @@ if not any(arg.startswith("--rec") for arg in sys.argv[1:]) and any(
 
         sys.stdout.write(f"{json_config_json_schema()}\n")
         sys.exit(0)
-    if namespace.output_format_json_schema == "generation":
-        from datamodel_code_generator._structured_output import generation_output_json_schema
+    if namespace.output_format_json_schema in {"generation", "structured-output"}:
+        from datamodel_code_generator import _StructuredOutputUnavailableError
 
-        sys.stdout.write(f"{generation_output_json_schema()}\n")
+        try:
+            from datamodel_code_generator._structured_output import (
+                generation_output_json_schema,
+                structured_output_json_schema,
+            )
+        except _StructuredOutputUnavailableError as error:
+            sys.stderr.write(f"{error}\n")
+            sys.exit(2)
+        json_schema = (
+            generation_output_json_schema
+            if namespace.output_format_json_schema == "generation"
+            else structured_output_json_schema
+        )
+        sys.stdout.write(f"{json_schema()}\n")
         sys.exit(0)
     if namespace.output_format_json_schema == "model-metadata":
         from datamodel_code_generator.model_metadata import model_metadata_json_schema
 
         sys.stdout.write(f"{model_metadata_json_schema()}\n")
-        sys.exit(0)
-    if namespace.output_format_json_schema == "structured-output":
-        from datamodel_code_generator._structured_output import structured_output_json_schema
-
-        sys.stdout.write(f"{structured_output_json_schema()}\n")
         sys.exit(0)
     if namespace.output_format_json_schema is None and namespace.generate_prompt is not None:
         from datamodel_code_generator.prompt import generate_prompt
@@ -186,7 +200,6 @@ if TYPE_CHECKING:
         StagingDirectory as _StagingDirectory,
     )
     from datamodel_code_generator._structured_output import (
-        CheckDifferencePayload,
         CommandOutputKind,
         GeneratedFilePayload,
         TargetPayload,
@@ -1308,10 +1321,19 @@ def _compare_directories(
     return changed_files, missing_files, extra_files
 
 
+class ComparisonDifference(NamedTuple):
+    """One generated-output difference, which becomes a payload model only when JSON is printed."""
+
+    kind: Literal["changed", "missing", "extra", "added", "removed"]
+    path: str
+    message: str | None = None
+    diff: str | None = None
+
+
 class OutputComparison(NamedTuple):
     """Generated-file differences shared by --check and --diff-against."""
 
-    differences: list[CheckDifferencePayload]
+    differences: list[ComparisonDifference]
     content: str
 
 
@@ -1322,8 +1344,6 @@ def _compare_generated_single_file(
     comparison: OutputComparisonOptions,
 ) -> OutputComparison:
     """Build one single-file comparison report."""
-    from datamodel_code_generator._structured_output import CheckDifferencePayload  # noqa: PLC0415
-
     path = comparison.single_file_display_path or actual_output.as_posix()
     if (actual_exists := actual_output.exists()) != generated_output.exists():
         missing_kind, _, single_file_missing_message_suffix, extra_kind, extra_message_suffix = (
@@ -1334,7 +1354,7 @@ def _compare_generated_single_file(
         )
         message = f"{kind.upper()}: {path} ({message_suffix})"
         return OutputComparison(
-            differences=[CheckDifferencePayload(kind=kind, path=path, message=message)],
+            differences=[ComparisonDifference(kind=kind, path=path, message=message)],
             content=f"{message}\n" if comparison.input_diff else message,
         )
 
@@ -1346,7 +1366,7 @@ def _compare_generated_single_file(
 
     diff_text = "".join(diff_lines)
     return OutputComparison(
-        differences=[CheckDifferencePayload(kind="changed", path=path, diff=diff_text)], content=diff_text
+        differences=[ComparisonDifference(kind="changed", path=path, diff=diff_text)], content=diff_text
     )
 
 
@@ -1357,9 +1377,7 @@ def _compare_generated_directories(
     comparison: OutputComparisonOptions,
 ) -> OutputComparison:
     """Build one directory manifest comparison report."""
-    from datamodel_code_generator._structured_output import CheckDifferencePayload  # noqa: PLC0415
-
-    differences: list[CheckDifferencePayload] = []
+    differences: list[ComparisonDifference] = []
     content_parts: list[str] = []
     changed_files, missing_files, extra_files = _compare_directories(
         generated_output,
@@ -1372,15 +1390,15 @@ def _compare_generated_directories(
     )
     for changed_file in changed_files:
         diff_text = "".join(changed_file.diff_lines)
-        differences.append(CheckDifferencePayload(kind="changed", path=changed_file.path, diff=diff_text))
+        differences.append(ComparisonDifference(kind="changed", path=changed_file.path, diff=diff_text))
         content_parts.append(diff_text)
     for missing in missing_files:
         message = f"{missing_kind.upper()}: {missing} ({missing_message_suffix})"
-        differences.append(CheckDifferencePayload(kind=missing_kind, path=missing, message=message))
+        differences.append(ComparisonDifference(kind=missing_kind, path=missing, message=message))
         content_parts.append(f"{message}\n")
     for extra in extra_files:
         message = f"{extra_kind.upper()}: {extra} ({extra_message_suffix})"
-        differences.append(CheckDifferencePayload(kind=extra_kind, path=extra, message=message))
+        differences.append(ComparisonDifference(kind=extra_kind, path=extra, message=message))
         content_parts.append(f"{message}\n")
     return OutputComparison(differences=differences, content="".join(content_parts))
 
@@ -1519,13 +1537,22 @@ def _check_output_json(
     *,
     success: bool,
     content: str,
-    differences: list[CheckDifferencePayload],
+    differences: list[ComparisonDifference],
     kind: Literal["check", "input-diff"] = "check",
     target: TargetPayload | None = None,
 ) -> str:
-    from datamodel_code_generator._structured_output import check_output_json  # noqa: PLC0415
+    from datamodel_code_generator._structured_output import (  # ruff: ignore[import-outside-top-level]
+        CheckDifferencePayload,
+        check_output_json,
+    )
 
-    return check_output_json(success=success, content=content, differences=differences, kind=kind, target=target)
+    return check_output_json(
+        success=success,
+        content=content,
+        differences=[CheckDifferencePayload(**difference._asdict()) for difference in differences],
+        kind=kind,
+        target=target,
+    )
 
 
 def _write_comparison_output(
@@ -2002,11 +2029,13 @@ def _apply_model_run_options(config: Config, namespace: Namespace, pyproject_con
         )
         return Exit.ERROR
 
+    from datamodel_code_generator._requirements import python_target_meets  # noqa: PLC0415
+
     if (
         config.use_specialized_enum
         and namespace.use_specialized_enum is not False  # CLI didn't disable it
         and (namespace.use_specialized_enum is True or pyproject_config.get("use_specialized_enum") is True)
-        and not config.target_python_version.has_strenum
+        and not python_target_meets("python.strenum", config.target_python_version.version_key)
     ):
         print(  # noqa: T201
             f"Error: --use-specialized-enum requires --target-python-version 3.11 or later.\n"
@@ -2387,11 +2416,22 @@ def _run_watched_jobs(
     return result
 
 
+def _error_with_traceback() -> Exit:
+    """Print the traceback of the exception being handled, which ends a run with the error exit."""
+    import traceback  # noqa: PLC0415
+
+    print(traceback.format_exc(), file=sys.stderr)  # noqa: T201
+    return Exit.ERROR
+
+
 def _publish_or_error(
     staged_plans: Sequence[_StagedJobPlan],
     remote_locks: _RemoteLockTransaction | None = None,
 ) -> Exit | None:
-    """Publish staged batch output, reporting an unrecoverable filesystem failure."""
+    """Publish staged batch output, reporting an unrecoverable filesystem failure.
+
+    A warning turned into an error ends the run with its traceback, as in a generation.
+    """
     try:
         _validate_staged_job_plans(staged_plans)
         if remote_locks is None:
@@ -2407,6 +2447,8 @@ def _publish_or_error(
     except (Error, OSError) as exc:
         print(f"Error: could not publish batch output: {exc}", file=sys.stderr)  # noqa: T201
         return Exit.ERROR
+    except Warning:
+        return _error_with_traceback()
     return None
 
 
@@ -2780,6 +2822,11 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
     if namespace.recommend_options is not None and (conflict := _recommend_options_conflict(namespace)):
         print(f"Error: --recommend-options cannot be used with {conflict}", file=sys.stderr)  # noqa: T201
         return Exit.ERROR
+
+    if namespace.output_format == "json":
+        from importlib import import_module  # ruff: ignore[import-outside-top-level]
+
+        import_module("datamodel_code_generator._structured_output")
 
     if (agent := namespace.install_skill) is not None:
         from datamodel_code_generator._agent_skill_cli import install_agent_skill_command  # noqa: PLC0415
@@ -3322,10 +3369,7 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
         if isinstance(e, RemoteLockError):
             print(str(e), file=sys.stderr)  # noqa: T201
             return cleanup_and_return(Exit.ERROR)
-        import traceback  # noqa: PLC0415
-
-        print(traceback.format_exc(), file=sys.stderr)  # noqa: T201
-        return cleanup_and_return(Exit.ERROR)
+        return cleanup_and_return(_error_with_traceback())
 
     if config.output is not None and generate_output is not None:
         if config.output.is_dir():
@@ -3340,7 +3384,10 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
             is_directory_output = False
 
     if writes_json_output_file and generate_output is not None and config.output is not None:
-        _copy_generated_output(generate_output, config.output, is_directory_output=is_directory_output)
+        try:
+            _copy_generated_output(generate_output, config.output, is_directory_output=is_directory_output)
+        except Warning:
+            return cleanup_and_return(_error_with_traceback())
 
     if generate_output is None and (result is not None or namespace.output_format == "json"):
         if (
@@ -3405,14 +3452,25 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
 
 
 def main(args: Sequence[str] | None = None) -> Exit:
-    """Execute datamodel code generation from command-line arguments."""
+    """Execute datamodel code generation from command-line arguments.
+
+    A warning turned into an error that no step reports, such as one raised while the options are processed, ends
+    the run with its traceback, as in a generation.
+    """
+    from datamodel_code_generator import _StructuredOutputUnavailableError  # ruff: ignore[import-outside-top-level]
     from datamodel_code_generator._naming_hint import naming_hint_scope  # ruff: ignore[import-outside-top-level]
     from datamodel_code_generator.deprecations import (  # ruff: ignore[import-outside-top-level]
         cli_migration_warning_scope,
     )
 
-    with cli_migration_warning_scope(), naming_hint_scope():
-        return _main(args, start_watch=True)
+    try:
+        with cli_migration_warning_scope(), naming_hint_scope():
+            return _main(args, start_watch=True)
+    except _StructuredOutputUnavailableError as e:
+        print(str(e), file=sys.stderr)  # noqa: T201
+        return Exit.ERROR
+    except Warning:
+        return _error_with_traceback()
 
 
 if __name__ == "__main__":

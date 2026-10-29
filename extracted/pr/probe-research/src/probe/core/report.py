@@ -354,7 +354,7 @@ ARG = "<arg>"
 PROBE_SUBCOMMANDS = frozenset({
     "access-group", "agent-rules", "approvals", "artifact", "ask", "backfill", "bundle", "capy", "checkpoint",
     "commits", "companion", "configure", "context", "coordinates", "daemon", "dataset", "deny", "desktop",
-    "doctor", "draft", "edge", "events", "exec", "experiment", "feedback", "file", "flush", "get", "group",
+    "docs", "doctor", "draft", "edge", "events", "exec", "experiment", "feedback", "file", "flush", "get", "group",
     "ignore", "import", "install", "link", "log", "login", "logout", "mcp", "metrics", "notes", "outbox", "paper",
     "project", "provenance", "recorder", "repair", "report", "run", "series", "service", "session", "session_default",
     "setup", "shared", "snapshot", "snapshot-prune-refs", "snapshot-restore", "snapshot-show", "source", "span",

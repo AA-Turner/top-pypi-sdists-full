@@ -65,7 +65,7 @@ InquiryStatusMessageType = Literal[
     "Malware was detected on the file. Provide a new file and try again.",
 ]
 InquiryStatusType = Literal["COMPLETED", "FAILED", "HUMAN_REVIEW", "PROCESSING"]
-InquirySupportModeType = Literal["AI_ONLY", "FULL_SUPPORT"]
+InquirySupportModeType = Literal["AI_ONLY"]
 ListComplianceInquiriesPaginatorName = Literal["list_compliance_inquiries"]
 ListComplianceInquiryQueriesPaginatorName = Literal["list_compliance_inquiry_queries"]
 ListCustomerAgreementsPaginatorName = Literal["list_customer_agreements"]

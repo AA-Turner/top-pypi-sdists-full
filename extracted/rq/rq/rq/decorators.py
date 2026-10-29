@@ -9,8 +9,7 @@ if TYPE_CHECKING:
 
     from .job import Retry
 
-from .defaults import DEFAULT_RESULT_TTL
-from .job import Callback
+from .callbacks import Callback
 from .queue import Queue
 from .webhook import Webhook
 
@@ -23,7 +22,7 @@ class job:  # noqa
         queue: Queue | str,
         connection: Redis,
         timeout: int | None = None,
-        result_ttl: int = DEFAULT_RESULT_TTL,
+        result_ttl: int | None = None,
         ttl: int | None = None,
         queue_class: type[Queue] | None = None,
         depends_on: list[Any] | None = None,
@@ -55,7 +54,7 @@ class job:  # noqa
             queue (Union['Queue', str]): The queue to use, can be the Queue class itself, or the queue name (str)
             connection (Optional[Redis], optional): Redis Connection. Defaults to None.
             timeout (Optional[int], optional): Job timeout. Defaults to None.
-            result_ttl (int, optional): Result time to live. Defaults to DEFAULT_RESULT_TTL.
+            result_ttl (int, optional): Result time to live. Defaults to the worker's default_result_ttl.
             ttl (Optional[int], optional): Time to live. Defaults to None.
             queue_class (Optional[Queue], optional): A custom class that inherits from `Queue`. Defaults to None.
             depends_on (Optional[List[Any]], optional): A list of dependents jobs. Defaults to None.
@@ -100,12 +99,12 @@ class job:  # noqa
 
             depends_on = kwargs.pop('depends_on', None)
             job_id = kwargs.pop('job_id', None)
-            at_front = kwargs.pop('at_front', False)
+            at_front = kwargs.pop('at_front', None)
 
             if not depends_on:
                 depends_on = self.depends_on
 
-            if not at_front:
+            if at_front is None:
                 at_front = self.at_front
 
             return queue.enqueue_call(

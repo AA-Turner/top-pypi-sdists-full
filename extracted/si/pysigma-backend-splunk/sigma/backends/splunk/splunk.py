@@ -2,7 +2,11 @@ import hashlib
 import re
 from sigma.conversion.state import ConversionState
 from sigma.modifiers import SigmaRegularExpression
-from sigma.correlations import SigmaCorrelationRule
+from sigma.correlations import (
+    SigmaCorrelationRule,
+    CorrelationConditionAND,
+    CorrelationConditionOR,
+)
 from sigma.rule import SigmaRule, SigmaDetection
 from sigma.conversion.base import TextQueryBackend, DeferredQueryExpression
 from sigma.conversion.deferred import DeferredTextQueryExpression
@@ -23,7 +27,7 @@ from sigma.pipelines.splunk.splunk import (
     splunk_dns_cim_mapping,
 )
 import sigma
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Pattern, Tuple, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Pattern, Set, Tuple, Union
 
 
 class SplunkDeferredRegularExpression(DeferredTextQueryExpression):
@@ -145,8 +149,8 @@ class SplunkBackend(TextQueryBackend):
 
     precedence: ClassVar[Tuple[ConditionItem, ConditionItem, ConditionItem]] = (
         ConditionNOT,
-        ConditionOR,
         ConditionAND,
+        ConditionOR,
     )
     group_expression: ClassVar[str] = "({expr})"
 
@@ -227,16 +231,24 @@ class SplunkBackend(TextQueryBackend):
     correlation_search_field_normalization_expression_joiner: ClassVar[str] = ""
 
     event_count_aggregation_expression: ClassVar[Dict[str, str]] = {
-        "stats": "| bin _time span={timespan}\n| stats count as event_count by _time{groupby}",
+        "stats": "| bin _time span={timespan}\n| stats count as event_count{fields} by _time{groupby}",
     }
     value_count_aggregation_expression: ClassVar[Dict[str, str]] = {
-        "stats": "| bin _time span={timespan}\n| stats dc({field}) as value_count by _time{groupby}",
+        "stats": "| bin _time span={timespan}\n| stats dc({field}) as value_count{fields} by _time{groupby}",
     }
     temporal_aggregation_expression: ClassVar[Dict[str, str]] = {
-        "stats": "| bin _time span={timespan}\n| stats dc(event_type) as event_type_count by _time{groupby}",
+        "stats": "| bin _time span={timespan}\n| stats dc(event_type) as event_type_count{fields} by _time{groupby}",
     }
     temporal_extended_aggregation_expression: ClassVar[Dict[str, str]] = {
-        "stats": "| bin _time span={timespan}\n| stats values(event_type) as event_types by _time{groupby}",
+        "stats": "| bin _time span={timespan}\n| stats values(event_type) as event_types{fields} by _time{groupby}",
+    }
+
+    correlation_fields_expression: ClassVar[Dict[str, str]] = {"stats": "{fields}"}
+    correlation_fields_field_expression: ClassVar[Dict[str, str]] = {
+        "stats": " values({field}) as {field}"
+    }
+    correlation_fields_field_expression_joiner: ClassVar[Dict[str, str]] = {
+        "stats": ""
     }
 
     timespan_mapping: ClassVar[Dict[str, str]] = {
@@ -259,10 +271,21 @@ class SplunkBackend(TextQueryBackend):
     temporal_extended_condition_expression: ClassVar[dict[str, str]] = {
         "stats": "| search {extended_condition}"
     }
-    
+
     extended_correlation_condition_rule_reference_expression: ClassVar[dict[str, str]] = {
         "stats": 'event_types="{ruleid}"'
     }
+
+    # Splunk stats/tstats functions allowed in the `tstats_aggregations` data model setting.
+    data_model_aggregation_functions: ClassVar[Set[str]] = {
+        "avg", "dc", "distinct_count", "earliest", "estdc", "first", "last",
+        "latest", "list", "max", "mean", "median", "min", "mode", "range",
+        "stdev", "stdevp", "sum", "sumsq", "values", "var", "varp",
+    }
+    _data_model_identifier_re: ClassVar[Pattern] = re.compile(r"^[\w.]+$")
+    _data_model_span_re: ClassVar[Pattern] = re.compile(
+        r"^\d+(?:s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|mon|mont|months)?$"
+    )
 
     def __init__(
         self,
@@ -272,11 +295,13 @@ class SplunkBackend(TextQueryBackend):
         collect_errors: bool = False,
         min_time: str = "-30d",
         max_time: str = "now",
+        summariesonly: bool = False,
         query_settings: Callable[[SigmaRule], Dict[str, str]] = lambda x: {},
         output_settings: Dict = {},
         **kwargs,
     ):
         super().__init__(processing_pipeline, collect_errors, **kwargs)
+        self.summariesonly = summariesonly
         self.query_settings = query_settings
         self.output_settings = {
             "dispatch.earliest_time": min_time,
@@ -294,14 +319,67 @@ class SplunkBackend(TextQueryBackend):
             )  # cannot use \ in f-strings
         return output
 
+    def compare_precedence(self, outer, inner) -> bool:
+        """
+        Always group an AND nested inside an OR (and, via the precedence tuple, an OR nested
+        inside an AND).
+
+        The Splunk `search` command documents its Boolean evaluation order as parentheses,
+        NOT, OR, AND, i.e. OR binds tighter than the implicit AND, which is the opposite of
+        the order used by `eval`/`where`. Grouping every mixed AND/OR nesting makes the
+        emitted query independent of which of the two orders applies.
+        """
+        if isinstance(outer, (ConditionOR, CorrelationConditionOR)) and isinstance(
+            inner, (ConditionAND, CorrelationConditionAND)
+        ):
+            return False
+        return super().compare_precedence(outer, inner)
+
+    @staticmethod
+    def _is_pipeline_filter(cond: ConditionFieldEqualsValueExpression) -> bool:
+        """
+        Return True if cond can be applied as its own pipeline command after the main search.
+
+        Consecutive pipeline commands are ANDed, and only a deferred expression that is the
+        direct operand of a NOT is negated. The condition qualifies only if it is negated
+        directly at most and every other enclosing operator is an AND.
+        """
+        chain = cond.parent_chain_condition_classes()
+        if chain and chain[0] is ConditionNOT:
+            chain = chain[1:]
+        return all(c is ConditionAND for c in chain)
+
+    def convert_condition_and(
+        self,
+        cond: ConditionAND,
+        state: "sigma.conversion.state.ConversionState",
+    ) -> Union[str, DeferredQueryExpression, None]:
+        deferred_count = len(state.deferred)
+        result = super().convert_condition_and(cond, state)
+        if (
+            result is None
+            and len(state.deferred) > deferred_count
+            and not cond.parent_chain_condition_classes()
+        ):
+            # Every operand of the top-level AND was moved to a pipeline command, so the
+            # main search has to match everything.
+            return self.deferred_only_query
+        return result
+
     def convert_condition_field_eq_val_re(
         self,
         cond: ConditionFieldEqualsValueExpression,
         state: "sigma.conversion.state.ConversionState",
     ) -> SplunkDeferredRegularExpression:
-        """Defer regular expression matching to pipelined regex command after main search expression."""
+        """
+        Defer regular expression matching to pipelined regex command after main search expression.
 
-        if cond.parent_condition_chain_contains(ConditionOR):
+        If the regular expression is part of an OR or of a negated group, a pipelined regex
+        command cannot express it. It is evaluated by rex and eval commands instead, and the
+        main search expression is applied afterwards with a search command.
+        """
+
+        if not self._is_pipeline_filter(cond):
             # adding the deferred to the state
             SplunkDeferredORRegularExpression(
                 state,
@@ -328,6 +406,11 @@ class SplunkBackend(TextQueryBackend):
         if cond.parent_condition_chain_contains(ConditionOR):
             raise SigmaFeatureNotSupportedByBackendError(
                 "ORing FieldRef matching is not yet supported by Splunk backend",
+                source=cond.source,
+            )
+        if not self._is_pipeline_filter(cond):
+            raise SigmaFeatureNotSupportedByBackendError(
+                "Negating a group with FieldRef matching is not yet supported by Splunk backend",
                 source=cond.source,
             )
         return SplunkDeferredFieldRefExpression(
@@ -373,6 +456,39 @@ class SplunkBackend(TextQueryBackend):
 
         return super().finish_query(rule, query, state)
 
+    @staticmethod
+    def _has_top_level_or(query: str) -> bool:
+        """Return True if query contains an OR token outside of quotes and parentheses."""
+        depth = 0
+        in_quote = False
+        escaped = False
+        token = ""
+        for c in query + " ":
+            if in_quote:
+                if escaped:
+                    escaped = False
+                elif c == "\\":
+                    escaped = True
+                elif c == '"':
+                    in_quote = False
+                continue
+            if c == '"':
+                in_quote = True
+                token = ""
+            elif c == "(":
+                depth += 1
+                token = ""
+            elif c == ")":
+                depth -= 1
+                token = ""
+            elif c.isspace():
+                if token == "OR" and depth == 0:
+                    return True
+                token = ""
+            else:
+                token += c
+        return False
+
     def finalize_query_default(
         self,
         rule: Union[SigmaRule, SigmaCorrelationRule],
@@ -404,9 +520,14 @@ class SplunkBackend(TextQueryBackend):
                 else:
                     break
 
-            if prefix_parts:
+            remaining_query = search_query[pos:]
+            # Hoisting a term in front of the pipeline makes it a conjunct of the
+            # whole search. That is only equivalent if the search expression is a
+            # top-level conjunction; if it contains an OR outside of parentheses,
+            # hoisting would move a term out of a disjunction branch, so the full
+            # expression stays intact in the trailing | search stage.
+            if prefix_parts and not self._has_top_level_or(search_query):
                 prefix = " ".join(prefix_parts)
-                remaining_query = search_query[pos:]
                 query = (
                     prefix
                     + deferred_part
@@ -549,13 +670,87 @@ class SplunkBackend(TextQueryBackend):
         if has_or_regex_deferred:
             deferred_part += search_marker + where_query
 
-        return f"""| tstats summariesonly=false allow_old_summaries=true fillnull_value="null" count min(_time) as firstTime max(_time) as lastTime from datamodel={data_model_set} where {where_query} by {fields}{deferred_part}
+        summariesonly = self._data_model_summariesonly(state)
+        aggregation = self._data_model_aggregation(state)
+        time_prefix, span_suffix = self._data_model_span(state)
+
+        return f"""| tstats summariesonly={summariesonly} allow_old_summaries=true fillnull_value="null" count min(_time) as firstTime max(_time) as lastTime{aggregation} from datamodel={data_model_set} where {where_query} by {time_prefix}{fields}{span_suffix}{deferred_part}
 | `drop_dm_object_name({data_set})`
 | convert timeformat="%Y-%m-%dT%H:%M:%S" ctime(firstTime)
 | convert timeformat="%Y-%m-%dT%H:%M:%S" ctime(lastTime)
 """.replace(
             "\n", " "
         )
+
+    def _data_model_summariesonly(self, state: ConversionState) -> str:
+        """Resolve tstats `summariesonly` from pipeline state, falling back to the backend option."""
+        value = state.processing_state.get("summariesonly", self.summariesonly)
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in ("true", "t", "yes", "1"):
+                return "true"
+            if normalized in ("false", "f", "no", "0"):
+                return "false"
+            raise SigmaFeatureNotSupportedByBackendError(
+                f"Invalid 'summariesonly' value for tstats data model query: {value!r}"
+            )
+        return self.bool_values[bool(value)]
+
+    def _data_model_aggregation(self, state: ConversionState) -> str:
+        """Render extra tstats aggregation functions from pipeline state, appended to the default count."""
+        raw = state.processing_state.get("tstats_aggregation")
+        if raw is not None:
+            raw = str(raw).strip()
+            return f" {raw}" if raw else ""
+        specs = state.processing_state.get("tstats_aggregations")
+        if not specs:
+            return ""
+        return "".join(
+            f" {self._render_data_model_aggregation(spec)}" for spec in specs
+        )
+
+    def _render_data_model_aggregation(self, spec: Dict[str, str]) -> str:
+        if not isinstance(spec, dict):
+            raise SigmaFeatureNotSupportedByBackendError(
+                f"Each 'tstats_aggregations' entry must be a mapping, got: {spec!r}"
+            )
+        func = str(spec.get("func", "")).strip().lower()
+        if func not in self.data_model_aggregation_functions:
+            raise SigmaFeatureNotSupportedByBackendError(
+                f"Unsupported tstats aggregation function: {spec.get('func')!r}"
+            )
+        field = spec.get("field")
+        if not field:
+            raise SigmaFeatureNotSupportedByBackendError(
+                f"tstats aggregation function '{func}' requires a 'field'"
+            )
+        field = str(field).strip()
+        if not self._data_model_identifier_re.match(field):
+            raise SigmaFeatureNotSupportedByBackendError(
+                f"Invalid field name in 'tstats_aggregations': {field!r}"
+            )
+        token = f"{func}({field})"
+        alias = spec.get("as") or spec.get("alias")
+        if alias:
+            alias = str(alias).strip()
+            if not self._data_model_identifier_re.match(alias):
+                raise SigmaFeatureNotSupportedByBackendError(
+                    f"Invalid alias in 'tstats_aggregations': {alias!r}"
+                )
+            token += f" as {alias}"
+        return token
+
+    def _data_model_span(self, state: ConversionState) -> Tuple[str, str]:
+        """Return the `_time`/`span=` fragments for tstats time bucketing from pipeline state."""
+        span = state.processing_state.get("tstats_span")
+        if span is None:
+            return "", ""
+        span = str(span).strip()
+        if not self._data_model_span_re.match(span):
+            raise SigmaFeatureNotSupportedByBackendError(
+                f"Invalid 'tstats_span' value for tstats data model query: {span!r}"
+            )
+        return "_time ", f" span={span}"
 
     def finalize_output_data_model(self, queries: List[str]) -> List[str]:
         return queries

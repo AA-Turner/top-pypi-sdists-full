@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: plato-sdk-v2
-Version: 2.192.0
+Version: 2.195.2
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -53,6 +53,7 @@ Requires-Dist: pytest-asyncio>=0.21; extra == 'dev'
 Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: ruff>=0.1; extra == 'dev'
 Provides-Extra: pi
+Requires-Dist: onepassword-sdk==0.4.1; extra == 'pi'
 Requires-Dist: playwright==1.58.0; extra == 'pi'
 Requires-Dist: vncdotool==1.4.2; extra == 'pi'
 Provides-Extra: segmentation
@@ -264,5 +265,6 @@ plato.close()
 
 - [Generating Simulator SDKs](docs/GENERATING_SIM_SDKS.md) - How to create API clients for simulators
 - [Building Simulators](BUILDING_SIMS.md) - Internal docs for snapshotting simulators
+- [Vault CLI](../docs/exploration/vault-cli.md) - `plato vault`: accounts, logins, personas and sign-ups (`plato vault signup`)
 
 Part of the [useplato/plato-client](https://github.com/useplato/plato-client) monorepo.

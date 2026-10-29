@@ -2,13 +2,10 @@
 Custom template tags for custom_css app
 """
 
-# Alliance Auth Custom CSS
-from pathlib import Path
-
 # Django
 from django.template.defaulttags import register
-from django.utils.safestring import mark_safe
 
+# Alliance Auth Custom CSS
 from allianceauth.custom_css.models import CustomCSS
 
 
@@ -23,6 +20,4 @@ def return_custom_css() -> str:
 
     css = CustomCSS.get_solo()
 
-    return (
-        mark_safe(f"<style>{css.css_compressed}</style>") if css.css_compressed else ""
-    )
+    return css.css_compressed if css.css_compressed else ""

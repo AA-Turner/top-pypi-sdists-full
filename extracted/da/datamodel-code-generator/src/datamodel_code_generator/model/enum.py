@@ -5,14 +5,18 @@ Provides Enum, StrEnum, and specialized enum classes for code generation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from functools import cached_property, lru_cache
+from functools import lru_cache
 from math import isnan
 from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
+from typing_extensions import Sentinel, assert_never, override
+
+from datamodel_code_generator._model_keys import model_key_of
+from datamodel_code_generator._parse_memo import MemoTable, memoized
+from datamodel_code_generator._records import record
 from datamodel_code_generator.imports import IMPORT_ANY, IMPORT_ENUM, IMPORT_INT_ENUM, IMPORT_STR_ENUM, Import
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
-from datamodel_code_generator.model.base import UNDEFINED, BaseClassDataType
+from datamodel_code_generator.model.base import UNDEFINED, BaseClassDataType, field_imports, forget_model_memos
 from datamodel_code_generator.python_literal import _semantic_value_text
 from datamodel_code_generator.types import DataType, Types
 
@@ -20,6 +24,7 @@ if TYPE_CHECKING:
     from collections import defaultdict
     from pathlib import Path
 
+    from datamodel_code_generator.model._decisions.enum_kind import EnumKind
     from datamodel_code_generator.reference import Reference
 
 
@@ -27,8 +32,8 @@ _INT: str = "int"
 _FLOAT: str = "float"
 _BYTES: str = "bytes"
 _STR: str = "str"
-_JSON_NUMBER_KEY = object()
-_JSON_NAN_KEY = object()
+_JSON_NUMBER_KEY = Sentinel("_JSON_NUMBER_KEY")
+_JSON_NAN_KEY = Sentinel("_JSON_NAN_KEY")
 
 escape_characters = str.maketrans({
     "\u0000": r"\x00",  # Null byte
@@ -48,16 +53,18 @@ class _StructuredEnumMemberValue:
     __slots__ = ()
 
 
-@dataclass(frozen=True, slots=True)
+@record
 class EnumMemberValue(_StructuredEnumMemberValue):
     """A raw string enum value that renders as its Python source literal."""
 
     value: str
 
+    @override
     def __str__(self) -> str:
         """Render the value using the historical single-quoted source form."""
         return f"'{self.value.translate(escape_characters)}'"
 
+    @override
     def __repr__(self) -> str:
         """Render the value as Python source when used by generic literal renderers."""
         return str(self)
@@ -69,10 +76,12 @@ class _NullEnumMemberValue(_StructuredEnumMemberValue):
     __slots__ = ()
     value: None = None
 
+    @override
     def __str__(self) -> str:
         """Render JSON null as its Python source equivalent."""
         return "None"
 
+    @override
     def __repr__(self) -> str:
         """Render the marker as Python source in generic literal renderers."""
         return "None"
@@ -134,6 +143,9 @@ class Enum(DataModel):
     BASE_CLASS: ClassVar[str] = "enum.Enum"
     DEFAULT_IMPORTS: ClassVar[tuple[Import, ...]] = (IMPORT_ENUM,)
     SUPPORTS_GENERIC_BASE_CLASS: ClassVar[bool] = False
+    _FREEZES_FIELD_RENDER_PLANS: ClassVar[bool] = True
+    """A member is a field of the output's backend: the template writes ``name = value``, and the member's imports
+    (row ``legacy.enum-member-import-bindings``) come from the plan its backend froze for it."""
 
     def __init__(  # noqa: PLR0913
         self,
@@ -182,13 +194,22 @@ class Enum(DataModel):
         """Get data type for enum (not implemented)."""
         raise NotImplementedError
 
+    @property
+    @override
+    def holds_null(self) -> bool:
+        """Whether a member of the enum is None."""
+        return any(get_raw_enum_member_value(field.default) is None for field in self.fields)
+
     def get_member(self, field: DataModelFieldBase) -> Member:
         """Create a Member instance for the given field."""
         return Member(self, field)
 
-    @cached_property
+    @property
     def _member_index(self) -> dict[tuple[object, Any], DataModelFieldBase]:
-        """Build the exact-value index only when member lookup is used."""
+        """Build the exact-value index only when member lookup is used; the parse's memo keeps it."""
+        return memoized(MemoTable.ENUM_MEMBER_INDEX, model_key_of(self.reference), self, None, self._index_members)
+
+    def _index_members(self) -> dict[tuple[object, Any], DataModelFieldBase]:
         exact: dict[tuple[object, Any], DataModelFieldBase] = {}
         for field in self.fields:
             if field.default is None:
@@ -198,9 +219,14 @@ class Enum(DataModel):
                 exact.setdefault(key, field)
         return exact
 
-    @cached_property
+    @property
     def _coerced_member_index(self) -> dict[str, DataModelFieldBase]:
-        """Build the string-coercing index only for discriminator-style lookup."""
+        """Build the string-coercing index only for discriminator-style lookup; the parse's memo keeps it."""
+        return memoized(
+            MemoTable.COERCED_ENUM_MEMBER_INDEX, model_key_of(self.reference), self, None, self._index_coerced_members
+        )
+
+    def _index_coerced_members(self) -> dict[str, DataModelFieldBase]:
         coerced: dict[str, DataModelFieldBase] = {}
         for field in self.fields:
             if field.default is None:
@@ -230,16 +256,28 @@ class Enum(DataModel):
                 return self.get_member(field)
         return None
 
+    @override
     def invalidate_render_caches(self) -> None:
         """Clear rendering state and the member index after field mutations."""
         super().invalidate_render_caches()
-        self.__dict__.pop("_member_index", None)
-        self.__dict__.pop("_coerced_member_index", None)
+        forget_model_memos(self, MemoTable.ENUM_MEMBER_INDEX, MemoTable.COERCED_ENUM_MEMBER_INDEX)
 
     @property
+    @override
     def imports(self) -> tuple[Import, ...]:
         """Get imports excluding Any."""
         return tuple(i for i in super().imports if i != IMPORT_ANY)
+
+    @override
+    def _unrendered_imports(self) -> tuple[Import, ...]:
+        """Return the imports of the member declarations, which the built-in template renders as ``name = value``.
+
+        ``imports`` keeps them, so the module binds their names (``legacy.enum-member-import-bindings`` in
+        ``parser/_imports_plan.py``). A custom ``Enum.jinja2`` may render what needs them, so it renders them all.
+        """
+        if self._uses_custom_root_template:
+            return ()
+        return tuple(i for f in self.fields for i in field_imports(f) if i != IMPORT_ANY)
 
 
 class StrEnum(Enum):
@@ -264,7 +302,24 @@ SPECIALIZED_ENUM_TYPE_MATCH: dict[Types, type[Enum]] = {
 }
 """
 Map specialized enum types to their corresponding Enum subclasses.
+
+Kept for import compatibility; nothing reads it; ``model/_decisions/enum_kind.py:decide_enum_kind`` decides the class.
 """
+
+
+def _enum_class(kind: EnumKind, first_merged: type[Enum] = Enum) -> type[Enum]:
+    """Return the class an enum of the kind is written as; the merged rows keep the class of the first merged enum."""
+    match kind.base:
+        case "Enum":
+            return Enum
+        case "IntEnum":
+            return IntEnum
+        case "StrEnum":
+            return StrEnum
+        case None:
+            return first_merged
+        case _:  # pragma: no cover
+            assert_never(kind.base)
 
 
 class Member:
@@ -276,6 +331,7 @@ class Member:
         self.field: DataModelFieldBase = field
         self.alias: Optional[str] = None  # noqa: UP045
 
+    @override
     def __repr__(self) -> str:
         """Return string representation of enum member."""
         return f"{self.alias or self.enum.class_name}.{self.field.name}"

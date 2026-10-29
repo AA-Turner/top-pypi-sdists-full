@@ -1,18 +1,24 @@
+__lazy_modules__ = ["collections.abc"]
+
 import logging
 import os
+from typing import TYPE_CHECKING, Any
 
 from django.conf import settings
+
+if TYPE_CHECKING:
+    from collections.abc import MutableMapping
 
 logger = logging.getLogger(__name__)
 
 
 class LoggerAddTag(logging.LoggerAdapter):
     """add custom tag to a logger"""
-    def __init__(self, logger, prefix):
+    def __init__(self, logger: logging.Logger, prefix: str) -> None:
         super().__init__(logger, {})
         self.prefix = prefix
 
-    def process(self, msg, kwargs):
+    def process(self, msg, kwargs: "MutableMapping[str, Any]") -> "tuple[str, MutableMapping[str, Any]]":
         return f'[{self.prefix}] {msg}', kwargs
 
 

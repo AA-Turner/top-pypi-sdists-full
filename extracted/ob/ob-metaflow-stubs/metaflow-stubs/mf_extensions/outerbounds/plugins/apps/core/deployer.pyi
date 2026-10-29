@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-16T15:14:49.197862                                                            #
+# Generated on 2026-10-28T20:25:47.857545                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
-    import typing
     import datetime
+    import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
 
 from .config.typed_configs import TypedCoreConfig as TypedCoreConfig
 from .perimeters import PerimeterExtractor as PerimeterExtractor
@@ -486,6 +486,9 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
         the specified readiness condition before returning unless it is suspended
         (`suspend=True`). Suspended deployments return after API acceptance,
         before traffic readiness.
+        
+        URL slug prefixes and suffixes are CLI/config-file conveniences and are not
+        supported here. Construct the complete `url_slug` when creating AppDeployer.
         
         Parameters
         ----------

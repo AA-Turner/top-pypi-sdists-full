@@ -4,9 +4,13 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .storefront_account import StorefrontAccount
+from .user_summary import UserSummary
 from .waitlist_entry_approval_failure_reason import WaitlistEntryApprovalFailureReason
 from .waitlist_entry_custom_field_response import WaitlistEntryCustomFieldResponse
+from .waitlist_entry_product import WaitlistEntryProduct
 from .waitlist_entry_status import WaitlistEntryStatus
+from .waitlist_entry_variant import WaitlistEntryVariant
 
 
 class WaitlistEntry(UniversalBaseModel):
@@ -18,6 +22,11 @@ class WaitlistEntry(UniversalBaseModel):
     approval_failure_reason: typing.Optional[WaitlistEntryApprovalFailureReason] = pydantic.Field(default=None)
     """
     Why the last approval attempt failed, or `null` when none has. `plan_unavailable` — the variant, product, or seller account was deleted. `already_member` — the user already has a membership on a one-per-user product. `checkout_failed` — checkout failed, usually a declined payment, and the signup was denied. `unknown` — another failure; retry. Cleared when approval is requeued.
+    """
+
+    buyer_account: typing.Optional[StorefrontAccount] = pydantic.Field(default=None)
+    """
+    The account the signup was submitted on behalf of, or `null` when the user signed up for themselves.
     """
 
     buyer_account_id: typing.Optional[str] = pydantic.Field(default=None)
@@ -46,9 +55,9 @@ class WaitlistEntry(UniversalBaseModel):
     Custom key-value metadata associated with this signup.
     """
 
-    plan_id: str = pydantic.Field()
+    product: typing.Optional[WaitlistEntryProduct] = pydantic.Field(default=None)
     """
-    The variant this signup belongs to, prefixed `plan_`.
+    The product this signup belongs to, or `null` when the variant has no product.
     """
 
     product_id: typing.Optional[str] = pydantic.Field(default=None)
@@ -66,9 +75,24 @@ class WaitlistEntry(UniversalBaseModel):
     When this signup last changed, as an ISO 8601 timestamp.
     """
 
+    user: UserSummary = pydantic.Field()
+    """
+    The user who submitted this signup. For a signup an account's own credential submitted, the account's owner.
+    """
+
     user_id: str = pydantic.Field()
     """
-    The user who submitted this signup, prefixed `user_`.
+    The user who submitted this signup, prefixed `user_`. For a signup an account's own credential submitted, the account's owner.
+    """
+
+    variant: WaitlistEntryVariant = pydantic.Field()
+    """
+    The variant this signup belongs to.
+    """
+
+    variant_id: str = pydantic.Field()
+    """
+    The variant this signup belongs to, prefixed `plan_`.
     """
 
     if IS_PYDANTIC_V2:

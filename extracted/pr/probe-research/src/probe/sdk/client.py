@@ -32,6 +32,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .._compat import StrEnum
+
 #: Re-exported through `probe.sdk` so a caller can write `probe.Authorship.human`
 #: without reaching into `probe._generated`. The enum is generated from the
 #: OpenAPI schema, which is the only place the vocabulary is defined.
@@ -368,6 +370,17 @@ class _UNSET:  # noqa: N801 — a sentinel type, used as the value itself
     differ on the wire: an explicit null DETACHES, an omitted key leaves the
     parent untouched. A default of ``None`` could not express that.
     """
+
+
+class ProjectRelation(StrEnum):
+    """What a project -> project link says (0401; research-os
+    `ReferenceRelation`). Written out rather than generated: the SDK models
+    are not regenerated for one enum."""
+
+    #: "this drew on that" (0153's lateral reference).
+    REFERENCES = "references"
+    #: "this is a part of that": a phase of a bigger effort.
+    PART_OF = "part_of"
 
 
 #: AN EXPERIMENT'S ADDRESS ON THE WIRE.
@@ -3391,6 +3404,7 @@ class Client:
         name: str | None = None,
         *,
         kind: str,
+        part_of: list[str] | None = None,
         parent_project_id: str | None = None,
         workspace_id: str | None = None,
         description: str | None = None,
@@ -3407,14 +3421,18 @@ class Client:
         structures the dashboard page; it never gates data. Machine paths with
         no intent-holder pass ``"general"``.
 
-        ``parent_project_id`` files the new project under an existing one
-        (0148): it inherits the parent's workspace (tree = one workspace,
-        owned by the root), the depth cap applies, and passing a
-        ``workspace_id`` that is not the parent's is a 422.
+        Projects are flat. ``part_of`` (project ids) links the new project as a
+        PART of each of them (0401): a phase of a bigger effort is its own
+        project, linked to it, never filed under it. Nothing moves and nothing
+        is inherited; with no ``workspace_id`` the server files it in the
+        first target's workspace. ``parent_project_id`` is the older spelling,
+        kept for existing callers: the server records it as a ``part_of`` link
+        too.
 
-        ``workspace_id`` (an id, or a workspace slug) files a top-level project;
-        omitted, this computer's workspace (:meth:`computer_workspace_id`). With
-        neither, a team with several workspaces refuses (``WorkspaceRequired``).
+        ``workspace_id`` (an id, or a workspace slug) names the workspace;
+        omitted (and no ``part_of``/``parent_project_id``), this computer's
+        workspace (:meth:`computer_workspace_id`). With neither, a team with
+        several workspaces refuses (``WorkspaceRequired``).
 
         Creation is always explicit: there is no get-or-create. A caller that
         does not know whether the project exists asks :meth:`resolve_project`
@@ -3437,17 +3455,21 @@ class Client:
         if name:
             body["name"] = name
         _put_authorship(body, authored_by)
+        if part_of:
+            body["part_of"] = list(part_of)
         if parent_project_id is not None:
             body["parent_project_id"] = parent_project_id
         if workspace_id is not None:
             # A slug is looked up only here, on the create itself: a caller
             # whose project already exists never pays for (or trips on) it.
             workspace_id = self.workspace_id_for(workspace_id)
-        elif parent_project_id is None:
+        elif parent_project_id is None and not part_of:
             # This computer's workspace: what its setup picked (`probe workspace
             # use`), or PROBE_WORKSPACE. None leaves it to the server, which
             # files into a team's only workspace and refuses (422
-            # `workspace_required`) when there are several.
+            # `workspace_required`) when there are several. Not for a linked
+            # create: the server files that beside its first target, and
+            # sending this computer's workspace would override it.
             workspace_id = self.computer_workspace_id()
         if workspace_id is not None:
             body["workspace_id"] = workspace_id
@@ -3633,8 +3655,9 @@ class Client:
         return self.transport.get(f"/v1/projects/{p}/experiments/{e}/summary/versions/{v}")
 
     def list_project_contributors(self, project_id: str) -> list[dict]:
-        """Who worked on this project. `direct` false = their work is in a
-        subproject, named by `via_project_id`."""
+        """Who worked on this project. Projects are flat, so every credit is
+        the project's own: `direct` is always true and `via_project_id` null
+        (kept for older readers)."""
         return self.transport.get(f"/v1/projects/{project_id}/contributors")
 
     def add_project_contributor(self, project_id: str, user_id: str) -> dict:
@@ -3643,9 +3666,8 @@ class Client:
         return self.transport.post(f"/v1/projects/{project_id}/contributors", {"user_id": user_id})
 
     def remove_project_contributor(self, project_id: str, user_id: str) -> None:
-        """Drop a DIRECT credit. 409 if they contribute through a subproject --
-        removing them here cannot undo that. Not a ban: contributing again
-        re-adds them."""
+        """Drop someone's credit on this project; 404 if they have none here.
+        Not a ban: contributing again re-adds them."""
         self.transport.delete(f"/v1/projects/{project_id}/contributors/{user_id}")
 
     @staticmethod
@@ -3698,7 +3720,21 @@ class Client:
                 raise errors.NotFoundError(
                     f"this research-os backend predates {route}?parent_id= (0148): "
                     "it ignored the filter and returned unfiltered rows. Upgrade "
-                    "the backend to list subprojects."
+                    "the backend."
+                )
+
+    @staticmethod
+    def _verify_part_of_filter(requested: str, items: list, route: str) -> None:
+        """The same trap for ``part_of=`` (0401): an older backend ignores it and
+        returns every project, which would read as the parts of ``requested``.
+        Every row a 0401 backend returns carries ``part_of``, naming
+        ``requested``. (An empty page proves nothing and passes.)"""
+        for item in items:
+            if str(requested) not in {str(target) for target in item.get("part_of") or ()}:
+                raise errors.NotFoundError(
+                    f"this research-os backend predates {route}?part_of= (0401): "
+                    "it ignored the filter and returned unfiltered rows. Upgrade "
+                    "the backend."
                 )
 
     def list_projects(
@@ -3706,17 +3742,21 @@ class Client:
         *,
         workspace_id: str | None = None,
         tags: list[str] | None = None,
+        part_of: str | None = None,
         parent_id: str | None = None,
         **params,
     ) -> Page:
         """``tags`` filters to projects carrying ALL of them (AND, 0066).
 
-        ``parent_id`` lists one project's DIRECT children (0148) -- one level,
-        not the whole subtree, matching the dashboard's Subprojects tab.
+        ``part_of`` lists the projects linked as a part of that one (0401), in
+        any workspace. ``parent_id`` is the older filter, kept for existing
+        callers.
         """
         query = dict(params)
         if workspace_id is not None:
             query["workspace_id"] = workspace_id
+        if part_of is not None:
+            query["part_of"] = part_of
         if parent_id is not None:
             query["parent_id"] = parent_id
         # Send the canonical form (the server normalizes anyway): the guard
@@ -3727,6 +3767,8 @@ class Client:
         page = self.transport.get_page("/v1/projects", params=query or None)
         if tags and page.items:
             self._verify_tags_filter(tags, page.items, "GET /v1/projects")
+        if part_of is not None and page.items:
+            self._verify_part_of_filter(part_of, page.items, "GET /v1/projects")
         if parent_id is not None and page.items:
             self._verify_parent_filter(parent_id, page.items, "GET /v1/projects")
         return page
@@ -3765,12 +3807,12 @@ class Client:
         ``kind`` re-declares what the project is for (0149); ``None`` leaves it
         untouched (kind cannot be cleared).
 
-        ``parent_project_id`` is the ONE explicit-null field (0148): pass a
-        project id to attach/move (the whole subtree re-files into the
-        parent's workspace), pass ``None`` to DETACH to top level, and omit
-        the argument to leave the parent untouched. Cycles, depth and size are
-        refused by the server; a request carrying both this and
-        ``workspace_id`` is refused too (the workspace follows the parent).
+        ``parent_project_id`` is kept for existing callers and is the ONE
+        explicit-null field: a project id moves the one ``part_of`` link that
+        stands for this project's old filing to that project, ``None`` drops
+        it, and omitting the argument leaves it untouched; the project's other
+        ``part_of`` links stay. New code links projects with
+        :meth:`add_project_reference` (``relation="part_of"``).
 
         A project's README embed is part of ``document``, not a separate
         field: write ``[README](https://github.com/owner/repo)`` on its own line
@@ -3880,10 +3922,7 @@ class Client:
         skips the fan-out entirely.
 
         An unknown workspace is a 422, not a 404 — it is a rejected *value*, not a
-        missing resource. Since 0148 two more refusals exist: a SUBPROJECT's
-        workspace follows its tree's root (409 — detach first, or move the
-        root), and moving a root drags its whole subtree, refused (422) past
-        MAX_TREE_MUTATION_PROJECTS affected projects.
+        missing resource. Projects linked to this one stay where they are.
         """
         return self.transport.patch(f"/v1/projects/{project_id}", {"workspace_id": workspace_id})
 
@@ -3896,12 +3935,11 @@ class Client:
         Probe support can restore it for 21 days (the returned receipt says
         until when); after that it is deleted for good. A server without the
         `trash` feature (:meth:`supports_feature`) deletes PERMANENTLY and
-        returns None. 409 if a published experiment
-        version pins something in the tree — and 409, carrying the TOTAL
-        descendant blast radius, when the project has live subprojects (0148):
-        pass ``recursive=True`` to explicitly take the whole subtree with it,
-        in one transaction. ``dry_run=True`` changes nothing and answers what
-        would go, whose it is and when it last changed."""
+        returns None. 409 if a published experiment version pins something in
+        it. Deleting a project never deletes the projects linked to it
+        (``part_of`` or ``references``); ``recursive`` is kept for existing
+        callers. ``dry_run=True`` changes nothing and answers what would go,
+        whose it is and when it last changed."""
         # transport.request, not .delete: the parity guard resolves paths from
         # the AST, and a path mutated by += would read as unreachable. The
         # query rides `params`, keeping the literal template intact.
@@ -3924,9 +3962,17 @@ class Client:
     # AST, and a path built by `.format()` or a dict lookup is invisible to it — the
     # routes would read as unreachable and the guard would stop guarding them.
 
-    def _presign_anchored(self, anchor: Anchor, anchor_id: str | None, body: dict) -> dict:
+    def _presign_anchored(
+        self, anchor: Anchor, anchor_id: str | None, body: dict, *, direct: bool = False
+    ) -> dict:
         if anchor is Anchor.RUN:
-            return self.transport.post(f"/v1/runs/{anchor_id}/artifacts/uploads", body)
+            # `direct`: ask for a link straight to object storage where the
+            # server grants one (`X-Probe-Direct-Upload`); a run upload only.
+            return self.transport.post(
+                f"/v1/runs/{anchor_id}/artifacts/uploads",
+                body,
+                extra_headers={"X-Probe-Direct-Upload": "1"} if direct else None,
+            )
         if anchor is Anchor.EXPERIMENT:
             return self._on_experiment(
                 lambda p, e: self.transport.post(
@@ -4095,6 +4141,7 @@ class Client:
         notes: str | None = None,
         span_id: str | None = None,
         step_index: int | None = None,
+        direct: bool = False,
     ) -> dict:
         """Register upload intent: the server creates (or revives) the
         ``pending`` artifact row and returns a presigned PUT. Called by
@@ -4125,7 +4172,7 @@ class Client:
                 meta=meta or None,
             )
         return self._presign_anchored(
-            anchor, anchor_id, req.model_dump(mode="json", exclude_none=True)
+            anchor, anchor_id, req.model_dump(mode="json", exclude_none=True), direct=direct
         )
 
     @freeze_upload
@@ -4144,6 +4191,7 @@ class Client:
         notes: str | None = None,
         span_id: str | None = None,
         step_index: int | None = None,
+        direct: bool = False,
     ) -> dict:
         """The presign -> PUT -> confirm core, for callers that already hold the
         fingerprint -- :meth:`upload_file` after hashing, and the outbox journal
@@ -4168,6 +4216,7 @@ class Client:
             meta=meta,
             span_id=span_id,
             step_index=step_index,
+            direct=direct,
         )
         # `have` means the server already holds these bytes (content-addressed dedup),
         # so there is nothing to PUT. For a file anchor the swap to live also already
@@ -4175,12 +4224,49 @@ class Client:
         if not presign.get("have"):
             # Stream the file (an anchored artifact can be model weights); never read
             # it whole into memory. size is the fingerprinted length the presign signed.
-            self.transport.put_file(
-                presign["upload_url"],
-                path,
-                content_type=content_type or "application/octet-stream",
-                headers=presign.get("upload_headers") or presign.get("headers"),
-            )
+            try:
+                self.transport.put_file(
+                    presign["upload_url"],
+                    path,
+                    content_type=content_type or "application/octet-stream",
+                    headers=presign.get("upload_headers") or presign.get("headers"),
+                )
+            except (errors.UploadRefused, errors.TransportError) as exc:
+                from . import upload_many
+
+                unreachable = direct and upload_many._direct_unreachable(
+                    self, presign["upload_url"], exc
+                )
+                if unreachable:
+                    # A direct link this machine cannot use (an egress allowlist,
+                    # DNS, TLS): this file goes again through the API's relay, and
+                    # the process stops asking this server for direct links.
+                    upload_many.forget_direct(self)
+                elif not isinstance(exc, errors.UploadRefused):
+                    raise
+                # A presigned link lives minutes: one that expired before its PUT,
+                # or that the store no longer takes as signed, gets ONE fresh
+                # presign. A second refusal stands.
+                presign = self.presign_upload(
+                    anchor,
+                    anchor_id,
+                    name,
+                    digest=digest,
+                    size=size,
+                    content_type=content_type,
+                    kind=kind,
+                    meta=meta,
+                    span_id=span_id,
+                    step_index=step_index,
+                    direct=direct and not unreachable,
+                )
+                if not presign.get("have"):
+                    self.transport.put_file(
+                        presign["upload_url"],
+                        path,
+                        content_type=content_type or "application/octet-stream",
+                        headers=presign.get("upload_headers") or presign.get("headers"),
+                    )
         # Confirmed unconditionally, including on the `have` path: the server's confirm
         # returns an already-complete row unchanged (uploads_router.py `_confirm_pending_row`
         # is explicitly idempotent), so this costs one call and buys a single uniform
@@ -5121,7 +5207,7 @@ class Client:
         """Declare the metric that ranks a project's work: ``key`` as runs log it
         (``test/acc``), ``goal`` ``max`` or ``min`` (never inferred), ``reduce``
         ``final`` (the server's default: a run's final value) or ``best`` (its
-        series' extreme along ``goal``). Its experiments and subprojects inherit
+        series' extreme along ``goal``). Its experiments inherit
         it. ``project_id`` is the project's uuid (writes take uuids)."""
         body: dict[str, Any] = {"key": key, "goal": goal}
         if reduce is not None:
@@ -8475,6 +8561,38 @@ class Client:
             "/v1/artifacts/confirm/batch", {"artifact_ids": list(artifact_ids)}, idempotent=True
         )
 
+    # -- ordinary run uploads, many per request ------------------------------
+    def presign_run_uploads(
+        self, run_id: str, items: list[dict], *, direct: bool = False
+    ) -> list[dict]:
+        """:meth:`presign_upload` for up to 100 files of one run
+        (``POST /v1/runs/{id}/artifacts/uploads/many``). Each item is an
+        ``UploadRequest`` body; the answer is one per item, in order: ``status``
+        201 with ``have``/``upload_url``/``upload_headers``/``artifact_id``, or
+        the status and ``detail`` the per-row door refuses that file with. The
+        run itself (404, a write refusal) answers for the whole request. An older
+        server has no such route: a route-miss 404 or a 405 (`upload_many`).
+        ``direct`` asks for links straight to object storage
+        (`X-Probe-Direct-Upload: 1`) where the server grants them; without it,
+        or where it does not, the links go to the API's own upload relay."""
+        # Idempotent by the server's contract: a re-sent request re-presigns the
+        # same rows, exactly as a re-sent per-row presign does.
+        return self.transport.post(
+            f"/v1/runs/{run_id}/artifacts/uploads/many",
+            {"items": items},
+            idempotent=True,
+            extra_headers={"X-Probe-Direct-Upload": "1"} if direct else None,
+        )["items"]
+
+    def confirm_uploads(self, artifact_ids: list[str]) -> list[dict]:
+        """The per-row confirm for up to 100 uploads, any anchor
+        (``POST /v1/artifacts/confirm/many``): one answer per distinct id, in
+        order -- ``status`` 200 with the stored ``artifact``, or the status and
+        ``detail`` ``POST /v1/artifacts/{id}/confirm`` answers. Idempotent."""
+        return self.transport.post(
+            "/v1/artifacts/confirm/many", {"artifact_ids": list(artifact_ids)}, idempotent=True
+        )["items"]
+
     def presign_download_batch(self, artifact_ids: list[str]) -> dict:
         """Presigned GETs for up to 1,000 artifacts at once
         (``POST /v1/artifacts/download/batch``): ``{items: {id: {download_url}},
@@ -9057,7 +9175,7 @@ class Client:
         )
 
     def project_branches(self, project_id: str) -> dict:
-        """The lines of work under a project and its subprojects: each one's
+        """The lines of work under a project: each one's
         best value on the declared metric, rank, effort, state, sessions and
         links (``GET /v1/projects/{P}/branches``)."""
         return self.transport.get(f"/v1/projects/{project_id}/branches")
@@ -9371,26 +9489,36 @@ class Client:
     # honest ok/stale/unavailable states) — these methods proxy the read; no
     # history is mirrored anywhere.
 
-    # -- project references (0153) -------------------------------------------
+    # -- project links (0153, 0401) ------------------------------------------
     #
-    # LATERAL edges, not containment. `parent_project_id` says "this is part
-    # of that"; a reference says "this drew on that" — the relation a review
-    # feeding a training run actually has. Cycles are legal, depth is
-    # unbounded, and none of the subtree machinery applies.
+    # Projects are flat; these edges are how they relate. Two relations:
+    # `references` says "this drew on that" (a review feeding a training run),
+    # `part_of` says "this is a part of that" (a phase of a bigger effort).
+    # One edge per ordered pair. Cycles are legal, depth is unbounded, and
+    # neither moves a project, shares access or deletes anything with it. A
+    # project's detail read serves them apart: `references` and
+    # `part_of_links` (outgoing = this is part of the other).
 
-    def add_project_reference(self, project_id: str, to_project_id: str) -> None:
-        """Record that ``project_id`` REFERENCES ``to_project_id``.
+    def add_project_reference(
+        self, project_id: str, to_project_id: str, *, relation: str | None = None
+    ) -> None:
+        """Record that ``project_id`` references ``to_project_id``, or, with
+        ``relation="part_of"``, that it is a part of it.
 
         Idempotent, and DIRECTED: A->B and B->A are different statements, and
-        adding one does not add the other.
+        adding one does not add the other. A ``part_of`` add upgrades a
+        reference on the same pair; a plain add never downgrades a
+        ``part_of`` link. ``relation`` omitted sends what every older client
+        sent (the server's default, ``references``).
         """
-        self.transport.post(
-            f"/v1/projects/{project_id}/references",
-            {"to_project_id": to_project_id},
-        )
+        body = {"to_project_id": to_project_id}
+        if relation is not None:
+            body["relation"] = relation
+        self.transport.post(f"/v1/projects/{project_id}/references", body)
 
     def remove_project_reference(self, project_id: str, to_project_id: str) -> None:
-        """Drop one directed edge; the opposite direction is untouched."""
+        """Drop one directed edge, of either relation; the opposite direction
+        is untouched."""
         self.transport.delete(f"/v1/projects/{project_id}/references/{to_project_id}")
 
     # -- papers (0152) -------------------------------------------------------
@@ -10930,6 +11058,23 @@ class Client:
         }
         body.update({k: v for k, v in optional.items() if v is not None})
         return self.transport.post("/v1/web/papers", body)
+
+    def docs(self, query: str, *, limit: int | None = None) -> dict:
+        """``GET /public/v1/docs`` — Probe's own documentation (docs.prbe.ai).
+
+        Returns ``{state, sections: [{page, heading, path, url, text, rank}]}``,
+        best section first, each section whole. ``state`` is ``ok``, ``stale``
+        (the last good copy, served while docs.prbe.ai cannot be read) or
+        ``unavailable`` (no copy yet: ``sections`` is empty). Sent without a
+        credential, so it answers signed out. The query rides the URL, which
+        access logs keep as sent, so a credential in it is scrubbed first.
+        """
+        from .redaction import scrub_string
+
+        params: dict[str, Any] = {"query": scrub_string(query)}
+        if limit is not None:
+            params["limit"] = limit
+        return self.transport.get("/public/v1/docs", params=params)
 
     def read_page(self, url: str) -> dict:
         """``POST /v1/web/read`` — one page as text.

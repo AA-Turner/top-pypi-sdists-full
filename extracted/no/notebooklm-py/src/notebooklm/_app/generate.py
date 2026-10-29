@@ -161,6 +161,22 @@ def _build_call_kwargs(request: GenerationRequest, *, sources: list[str] | None)
         base["report_format"] = request.report_format
     else:  # pragma: no cover - closed union exhaustiveness
         raise AssertionError(f"unhandled generation request: {request!r}")
+    if (
+        isinstance(
+            request,
+            (
+                AudioGenerationRequest,
+                VideoGenerationRequest,
+                SlideDeckGenerationRequest,
+                QuizGenerationRequest,
+                FlashcardsGenerationRequest,
+                InfographicGenerationRequest,
+                ReportGenerationRequest,
+            ),
+        )
+        and request.later
+    ):
+        base["later"] = True
     return base
 
 

@@ -29,7 +29,12 @@ import os
 import pickle
 import string
 import sys
-from typing import IO, Any, Protocol, TypedDict, cast
+from typing import IO, Any, Generic, Protocol, TypeAlias, TypedDict, cast
+
+if sys.version_info >= (3, 13):
+    from typing import TypeVar
+else:
+    from typing_extensions import TypeVar
 
 # NOTE(bnemec): oslo.log depends on oslo.config, so we can't
 # have a hard dependency on oslo.log.  However, in most cases
@@ -51,6 +56,12 @@ import stevedore
 LOG = logging.getLogger(__name__)
 
 _CONFIG_OPTS_STATE_VERSION = 1
+
+T_co = TypeVar('T_co', default=Any, covariant=True)
+T_item = TypeVar('T_item', default=str)
+_T = TypeVar('_T')
+
+_Choices: TypeAlias = Iterable[_T | None] | Iterable[tuple[_T | None, str]]
 
 
 def _identity(value: Any) -> Any:
@@ -479,7 +490,7 @@ def _report_deprecation(
 
 
 @functools.total_ordering
-class Opt:
+class Opt(Generic[T_co]):
     """Base class for all configuration options.
 
     The only required parameter is the option's name. However, it is
@@ -512,50 +523,7 @@ class Opt:
     :param advanced: indicates whether this option has advanced usage and is
         not normally used by the majority of users
 
-    An Opt object has no public methods, but has a number of public properties:
-
-    .. py:attribute:: name
-
-        the name of the option, which may include hyphens
-
-    .. py:attribute:: type
-
-        a callable object that takes string and returns converted and
-        validated value.  Default types are available from
-        :class:`oslo_config.types`
-
-    .. py:attribute:: dest
-
-        the (hyphen-less) :class:`.ConfigOpts` property which contains the
-        option value
-
-    .. py:attribute:: short
-
-        a single character CLI option name
-
-    .. py:attribute:: default
-
-        the default value of the option
-
-    .. py:attribute:: sample_default
-
-        a sample default value string to include in sample config files
-
-    .. py:attribute:: positional
-
-        True if the option is a positional CLI argument
-
-    .. py:attribute:: metavar
-
-        the name shown as the argument to a CLI option in --help output
-
-    .. py:attribute:: help
-
-        a string explaining how the option's value is used
-
-    .. py:attribute:: advanced
-
-        in sample files, a bool value indicating the option is advanced
+    An Opt object has no public methods, but has a number of public properties.
 
     .. versionchanged:: 1.2
        Added *deprecated_opts* parameter.
@@ -582,15 +550,38 @@ class Opt:
        Added *advanced* parameter and attribute.
     """
 
+    #: The name of the option, which may include hyphens
+    name: str
+    #: A callable object that takes string and returns converted and validated
+    #: value.  Default types are available from :class:`oslo_config.types`
+    type: Callable[..., T_co | None]
+    #: The (hyphen-less) :class:`.ConfigOpts` property which contains the
+    #: option value
+    dest: str
+    #: A single character CLI option name
+    short: str | None
+    #: The default value of the option
+    default: T_co | None
+    #: A sample default value string to include in sample config files
+    sample_default: str | None
+    #: True if the option is a positional CLI argument
+    positional: bool
+    #: the name shown as the argument to a CLI option in --help output
+    metavar: str | None
+    #: A string explaining how the option's value is used
+    help: str | None
+    #: In sample files, a bool value indicating the option is advanced
+    advanced: bool
+    #: Whether this accepts multiple options or not.
     multi: bool = False
 
     def __init__(
         self,
         name: str,
-        type: types.ConfigType | None = None,
+        type: Callable[..., T_co | None] | None = None,
         dest: str | None = None,
         short: str | None = None,
-        default: Any = None,
+        default: T_co | None = None,
         positional: bool = False,
         metavar: str | None = None,
         help: str | None = None,
@@ -611,7 +602,7 @@ class Opt:
         self.name = name
 
         if type is None:
-            type = types.String()
+            type = cast(types.ConfigType[T_co], types.String())
 
         if not callable(type):
             raise TypeError('type must be callable')
@@ -700,8 +691,7 @@ class Opt:
         # defined when comparing them. Ideally we could use this to
         # detect duplicate settings in code bases, but as long as the
         # options match otherwise they should be safe.
-        if '_set_location' in v:
-            del v['_set_location']
+        v.pop('_set_location', None)
 
         return v
 
@@ -1009,7 +999,7 @@ class DeprecatedOpt:
         return hash(self.__key())
 
 
-class StrOpt(Opt):
+class StrOpt(Opt[str]):
     r"""Option with String type
 
     Option with ``type`` :class:`oslo_config.types.String`
@@ -1047,7 +1037,7 @@ class StrOpt(Opt):
     def __init__(
         self,
         name: str,
-        choices: Any = None,
+        choices: _Choices[str] | None = None,
         quotes: bool | None = None,
         regex: str | None = None,
         ignore_case: bool = False,
@@ -1093,7 +1083,7 @@ class StrOpt(Opt):
         return kwargs
 
 
-class BoolOpt(Opt):
+class BoolOpt(Opt[bool]):
     r"""Boolean options.
 
     Bool opts are set to True or False on the command line using --optname or
@@ -1166,7 +1156,7 @@ class BoolOpt(Opt):
         return kwargs
 
 
-class IntOpt(Opt):
+class IntOpt(Opt[int]):
     r"""Option with Integer type
 
     Option with ``type`` :class:`oslo_config.types.Integer`
@@ -1200,7 +1190,7 @@ class IntOpt(Opt):
         name: str,
         min: int | None = None,
         max: int | None = None,
-        choices: Any = None,
+        choices: _Choices[int] | None = None,
         sample_min: str | None = None,
         sample_max: str | None = None,
         **kwargs: Any,
@@ -1218,7 +1208,7 @@ class IntOpt(Opt):
         )
 
 
-class FloatOpt(Opt):
+class FloatOpt(Opt[float]):
     r"""Option with Float type
 
     Option with ``type`` :class:`oslo_config.types.Float`
@@ -1243,7 +1233,7 @@ class FloatOpt(Opt):
         super().__init__(name, type=types.Float(min, max), **kwargs)
 
 
-class ListOpt(Opt):
+class ListOpt(Opt[list[T_item]]):
     r"""Option with List(String) type
 
     Option with ``type`` :class:`oslo_config.types.List`
@@ -1260,7 +1250,7 @@ class ListOpt(Opt):
     def __init__(
         self,
         name: str,
-        item_type: types.ConfigType | None = None,
+        item_type: types.ConfigType[T_item] | None = None,
         bounds: bool | None = None,
         **kwargs: Any,
     ) -> None:
@@ -1271,7 +1261,7 @@ class ListOpt(Opt):
         )
 
 
-class DictOpt(Opt):
+class DictOpt(Opt[dict[str, str]]):
     r"""Option with Dict(String) type
 
     Option with ``type`` :class:`oslo_config.types.Dict`
@@ -1286,14 +1276,14 @@ class DictOpt(Opt):
         super().__init__(name, type=types.Dict(), **kwargs)
 
 
-class IPOpt(Opt):
+class IPOpt(Opt[str]):
     r"""Opt with IPAddress type
 
     Option with ``type`` :class:`oslo_config.types.IPAddress`
 
     :param name: the option's name
     :param version: one of either ``4``, ``6``, or ``None`` to specify
-       either version.
+        either version.
     :param \*\*kwargs: arbitrary keyword arguments passed to :class:`Opt`
 
     .. versionadded:: 1.4
@@ -1305,7 +1295,7 @@ class IPOpt(Opt):
         super().__init__(name, type=types.IPAddress(version), **kwargs)
 
 
-class PortOpt(Opt):
+class PortOpt(Opt[int]):
     r"""Option for a TCP/IP port number.  Ports can range from 0 to 65535.
 
     Option with ``type`` :class:`oslo_config.types.Integer`
@@ -1334,7 +1324,7 @@ class PortOpt(Opt):
         name: str,
         min: int | None = None,
         max: int | None = None,
-        choices: Any = None,
+        choices: _Choices[int] | None = None,
         **kwargs: Any,
     ) -> None:
         type = types.Port(
@@ -1343,7 +1333,7 @@ class PortOpt(Opt):
         super().__init__(name, type=type, **kwargs)
 
 
-class HostnameOpt(Opt):
+class HostnameOpt(Opt[str]):
     r"""Option for a hostname.  Only accepts valid hostnames.
 
     Option with ``type`` :class:`oslo_config.types.Hostname`
@@ -1358,7 +1348,7 @@ class HostnameOpt(Opt):
         super().__init__(name, type=types.Hostname(), **kwargs)
 
 
-class HostAddressOpt(Opt):
+class HostAddressOpt(Opt[str]):
     r"""Option for either an IP or a hostname.
 
     Accepts valid hostnames and valid IP addresses.
@@ -1367,7 +1357,7 @@ class HostAddressOpt(Opt):
 
     :param name: the option's name
     :param version: one of either ``4``, ``6``, or ``None`` to specify
-       either version.
+        either version.
     :param \*\*kwargs: arbitrary keyword arguments passed to :class:`Opt`
 
     .. versionadded:: 3.22
@@ -1379,7 +1369,7 @@ class HostAddressOpt(Opt):
         super().__init__(name, type=types.HostAddress(version), **kwargs)
 
 
-class HostDomainOpt(Opt):
+class HostDomainOpt(Opt[str]):
     r"""Option for either an IP or a hostname.
 
     Like HostAddress with the support of _ character.
@@ -1388,7 +1378,7 @@ class HostDomainOpt(Opt):
 
     :param name: the option's name
     :param version: one of either ``4``, ``6``, or ``None`` to specify
-       either version.
+        either version.
     :param \*\*kwargs: arbitrary keyword arguments passed to :class:`Opt`
 
     .. versionadded:: 8.6
@@ -1400,14 +1390,14 @@ class HostDomainOpt(Opt):
         super().__init__(name, type=types.HostDomain(version), **kwargs)
 
 
-class URIOpt(Opt):
+class URIOpt(Opt[str]):
     r"""Opt with URI type
 
     Option with ``type`` :class:`oslo_config.types.URI`
 
     :param name: the option's name
     :param max_length: If positive integer, the value must be less than or
-                       equal to this parameter.
+        equal to this parameter.
     :param schemes: iterable of valid URI schemes, e.g. 'https', 'ftp', 'git'
     :param \*\*kwargs: arbitrary keyword arguments passed to :class:`Opt`
 
@@ -1430,7 +1420,7 @@ class URIOpt(Opt):
         super().__init__(name, type=type, **kwargs)
 
 
-class MultiOpt(Opt):
+class MultiOpt(Opt[T_co]):
     r"""Multi-value option.
 
     Multi opt values are typed opts which may be specified multiple times.
@@ -1458,7 +1448,10 @@ class MultiOpt(Opt):
     multi: bool = True
 
     def __init__(
-        self, name: str, item_type: types.ConfigType, **kwargs: Any
+        self,
+        name: str,
+        item_type: Callable[..., T_co | None] | None = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(name, item_type, **kwargs)
 
@@ -1474,7 +1467,7 @@ class MultiOpt(Opt):
         return kwargs
 
 
-class MultiStrOpt(MultiOpt):
+class MultiStrOpt(MultiOpt[str]):
     r"""MultiOpt with a MultiString ``item_type``.
 
     MultiOpt with a default :class:`oslo_config.types.MultiString` item
@@ -1488,7 +1481,7 @@ class MultiStrOpt(MultiOpt):
         super().__init__(name, item_type=types.MultiString(), **kwargs)
 
 
-class SubCommandOpt(Opt):
+class SubCommandOpt(Opt[Any]):
     """Sub-command options.
 
     Sub-command options allow argparse sub-parsers to be used to parse
@@ -1554,7 +1547,7 @@ class SubCommandOpt(Opt):
             self.handler(subparsers)
 
 
-class _ConfigFileOpt(Opt):
+class _ConfigFileOpt(Opt[list[str]]):
     """The --config-file option.
 
     This is an private option type which handles the special processing
@@ -1599,7 +1592,9 @@ class _ConfigFileOpt(Opt):
             ConfigParser._parse_file(values, namespace)
 
     def __init__(self, name: str, **kwargs: Any) -> None:
-        super().__init__(name, cast(types.ConfigType, _identity), **kwargs)
+        super().__init__(
+            name, cast(types.ConfigType[Any], _identity), **kwargs
+        )
 
     def _get_argparse_kwargs(
         self, group: 'OptGroup | None', **kwargs: Any
@@ -1610,7 +1605,7 @@ class _ConfigFileOpt(Opt):
         return kwargs
 
 
-class _ConfigDirOpt(Opt):
+class _ConfigDirOpt(Opt[list[str]]):
     """The --config-dir option.
 
     This is an private option type which handles the special processing
@@ -1644,7 +1639,7 @@ class _ConfigDirOpt(Opt):
             """Handle a --config-dir command line argument.
 
             :raises: ConfigFileParseError, ConfigFileValueError,
-                     ConfigDirNotFoundError
+                ConfigDirNotFoundError
             """
             assert isinstance(values, str)
             assert isinstance(namespace, _Namespace)
@@ -1705,7 +1700,7 @@ class _OptGroupGeneratorData(TypedDict):
     help: str
     dynamic_group_owner: str
     driver_option: str
-    driver_opts: dict[str, list[Opt]]
+    driver_opts: dict[str, Sequence[Opt[Any] | str]]
 
 
 class OptGroup:
@@ -1734,9 +1729,9 @@ class OptGroup:
     :param title: the group title for --help
     :param help: the group description for --help
     :param dynamic_group_owner: The name of the option that controls
-                                repeated instances of this group.
+        repeated instances of this group.
     :param driver_option: The name of the option within the group that
-                          controls which driver will register options.
+        controls which driver will register options.
     """
 
     def __init__(
@@ -1757,13 +1752,15 @@ class OptGroup:
         self._opts: dict[str, _OptInfo] = {}  # keyed by opt dest
         self._argparse_group: argparse._ArgumentGroup | None = None
         self._driver_opts: dict[
-            str, list[Opt]
+            str, Sequence[Opt[Any] | str]
         ] = {}  # populated by the config generator
 
-    def _save_driver_opts(self, opts: dict[str, list[Opt]]) -> None:
+    def _save_driver_opts(
+        self, opts: Mapping[str, Sequence[Opt[Any] | str]]
+    ) -> None:
         """Save known driver opts.
 
-        :param opts: mapping between driver name and list of opts
+        :param opts: mapping between driver name and list of opt names or opts
 
         """
         self._driver_opts.update(opts)
@@ -1922,14 +1919,18 @@ class ConfigParser(iniparser.BaseParser):
     section names.
     """
 
-    def __init__(self, filename: str, sections: dict[str, dict[str, Any]]):
+    def __init__(
+        self, filename: str, sections: dict[str, dict[str, list[str]]]
+    ):
         super().__init__()
         self.filename = filename
         self.sections = sections
-        self._normalized: dict[str, dict[str, Any]] | None = None
+        self._normalized: dict[str, dict[str, list[str]]] | None = None
         self.section: str | None = None
 
-    def _add_normalized(self, normalized: dict[str, dict[str, Any]]) -> None:
+    def _add_normalized(
+        self, normalized: dict[str, dict[str, list[str]]]
+    ) -> None:
         self._normalized = normalized
 
     def parse(self) -> None:  # type: ignore[override]
@@ -1950,7 +1951,9 @@ class ConfigParser(iniparser.BaseParser):
 
         joined = '\n'.join(value)
 
-        def append(sections: dict[str, dict[str, Any]], section: str) -> None:
+        def append(
+            sections: dict[str, dict[str, list[str]]], section: str
+        ) -> None:
             sections[section].setdefault(key, [])
             sections[section][key].append(joined)
 
@@ -1976,8 +1979,8 @@ class ConfigParser(iniparser.BaseParser):
         """
         config_file = _fixpath(config_file)
 
-        sections: dict[str, dict[str, Any]] = {}
-        normalized: dict[str, dict[str, Any]] = {}
+        sections: dict[str, dict[str, list[str]]] = {}
+        normalized: dict[str, dict[str, list[str]]] = {}
         parser = cls(config_file, sections)
         parser._add_normalized(normalized)
 
@@ -2022,8 +2025,8 @@ class _Namespace(argparse.Namespace):
 
     def __init__(self, conf: 'ConfigOpts') -> None:
         self._conf = conf
-        self._parsed: list[dict[str, dict[str, Any]]] = []
-        self._normalized: list[dict[str, dict[str, Any]]] = []
+        self._parsed: list[dict[str, dict[str, list[str]]]] = []
+        self._normalized: list[dict[str, dict[str, list[str]]]] = []
         self._emitted_deprecations: set[tuple[str | None, str]] = set()
         self._files_not_found: list[str] = []
         self._files_permission_denied: list[str] = []
@@ -2033,8 +2036,8 @@ class _Namespace(argparse.Namespace):
     def _parse_cli_opts_from_config_file(
         self,
         config_file: str,
-        sections: dict[str, dict[str, Any]],
-        normalized: dict[str, dict[str, Any]],
+        sections: dict[str, dict[str, list[str]]],
+        normalized: dict[str, dict[str, list[str]]],
     ) -> None:
         """Parse CLI options from a config file.
 
@@ -2063,12 +2066,12 @@ class _Namespace(argparse.Namespace):
         for opt, group in self._conf._all_cli_opts():
             group_name = group.name if group is not None else None
             try:
-                value, loc = opt._get_from_namespace(namespace, group_name)
+                value, _ = opt._get_from_namespace(namespace, group_name)
             except KeyError:
                 continue
             except ValueError as ve:
                 raise ConfigFileValueError(
-                    f"Value for option {opt.name} is not valid: {str(ve)}"
+                    f"Value for option {opt.name} is not valid: {ve!s}"
                 )
 
             if group_name is None:
@@ -2087,8 +2090,8 @@ class _Namespace(argparse.Namespace):
     def _add_parsed_config_file(
         self,
         filename: str,
-        sections: dict[str, dict[str, Any]],
-        normalized: dict[str, dict[str, Any]],
+        sections: dict[str, dict[str, list[str]]],
+        normalized: dict[str, dict[str, list[str]]],
     ) -> None:
         """Add a parsed config file to the list of parsed files.
 
@@ -2147,7 +2150,7 @@ class _Namespace(argparse.Namespace):
         multi: bool = False,
         normalized: bool = False,
         current_name: tuple[str | None, str] | None = None,
-    ) -> tuple[Any, 'LocationInfo | None']:
+    ) -> tuple[list[str], 'LocationInfo | None']:
         """Fetch a config file value from the parsed files.
 
         :param names: a list of (section, name) tuples
@@ -2197,13 +2200,13 @@ class _Namespace(argparse.Namespace):
         """Check for usage of deprecated names.
 
         :param name: A tuple of the form (group, name) representing the group
-                     and name where an opt value was found.
+            and name where an opt value was found.
         :param current: A tuple of the form (group, name) representing the
-                        current name for an option.
+            current name for an option.
         :param deprecated: A list of tuples with the same format as the name
-                    param which represent any deprecated names for an option.
-                    If the name param matches any entries in this list a
-                    deprecation warning will be logged.
+            param which represent any deprecated names for an option. If the
+            name param matches any entries in this list a deprecation warning
+            will be logged.
         """
         if name in deprecated and name not in self._emitted_deprecations:
             self._emitted_deprecations.add(name)
@@ -2622,7 +2625,11 @@ class ConfigOpts(Mapping[str, Any]):
         for name, value in state['setup_attrs'].items():
             setattr(self, name, value)
 
-    def __reduce__(self) -> tuple[Any, tuple[dict[str, Any]]]:
+    def __reduce__(
+        self,
+    ) -> tuple[
+        Callable[[Mapping[str, Any]], 'ConfigOpts'], tuple[dict[str, Any]]
+    ]:
         if self is CONF:
             return (_import_global_config_opts_state, (self.export_state(),))
         return (_import_config_opts_state, (self.export_state(),))
@@ -2796,10 +2803,11 @@ class ConfigOpts(Mapping[str, Any]):
         :param default_config_dirs: config dirs to use by default
         :param validate_default_values: whether to validate the default values
         :param use_env: If True (the default) look in the environment as one
-                        source of option values.
+            source of option values.
         :raises: SystemExit, ConfigFilesNotFoundError, ConfigFileParseError,
-                 ConfigFilesPermissionDeniedError,
-                 RequiredOptError, DuplicateOptError
+            ConfigFilesPermissionDeniedError, RequiredOptError,
+            DuplicateOptError
+
         .. versionchanged:: 9.5.0
         Added shell-completion option for generate a shell completion script.
         """
@@ -2949,9 +2957,9 @@ class ConfigOpts(Mapping[str, Any]):
 
         :param template: tamplate for generate script
         :param maps: a dict mapping short and long option name with destination
-                        variable
+            variable
         :param opts: a dict of option (destination is key, short and long name
-                        is in a list in value)
+            is in a list in value)
         :param descr: dict of help message for option
         :param opts_sub: dict of subcommand
         :param multi: list of MultiOPt
@@ -3009,9 +3017,9 @@ class ConfigOpts(Mapping[str, Any]):
 
         :param template: tamplate for generate script
         :param maps: a dict mapping short and long option name with destination
-                        variable
+            variable
         :param opts: a dict of option (destination is key, short and long name
-                        is in a list in value)
+            is in a list in value)
         :param descr: dict of help message for option
         :param opts_sub: dict of subcommand
         :param multi: list of MultiOPt
@@ -3528,7 +3536,7 @@ class ConfigOpts(Mapping[str, Any]):
 
         :param logger: a logging.Logger object
         :param lvl: the log level (for example logging.DEBUG) arg to
-                    logger.log()
+            logger.log()
         """
         logger.log(lvl, "*" * 80)
         logger.log(lvl, "Configuration options gathered from:")
@@ -3536,7 +3544,7 @@ class ConfigOpts(Mapping[str, Any]):
         logger.log(
             lvl,
             "config files: %s",
-            hasattr(self, 'config_file') and self.config_file or [],
+            (hasattr(self, 'config_file') and self.config_file) or [],
         )
         logger.log(lvl, "=" * 80)
 
@@ -3610,7 +3618,7 @@ class ConfigOpts(Mapping[str, Any]):
                 return self.__cache[key]
             except KeyError:  # nosec: Valid control flow instruction
                 pass
-        value, loc = self._do_get(name, group, namespace)
+        value, _ = self._do_get(name, group, namespace)
         self.__cache[key] = value
         return value
 
@@ -3625,10 +3633,10 @@ class ConfigOpts(Mapping[str, Any]):
         :param name: the opt name (or 'dest', more precisely)
         :param group: an OptGroup
         :param namespace: the namespace object to get the option value from
-        :returns: 2-tuple of the option value or a GroupAttr object
-                  and LocationInfo or None
+        :returns: 2-tuple of the option value or a GroupAttr object and
+            LocationInfo or None
         :raises: NoSuchOptError, NoSuchGroupError, ConfigFileValueError,
-                 TemplateSubstitutionError
+            TemplateSubstitutionError
         """
         if group is None and name in self._groups:
             return (self.GroupAttr(self, self._get_group(name)), None)
@@ -3702,7 +3710,7 @@ class ConfigOpts(Mapping[str, Any]):
             except ValueError as ve:
                 message = (
                     f"Value for option {opt.name} from {alt_loc} "
-                    f"is not valid: {str(ve)}"
+                    f"is not valid: {ve!s}"
                 )
                 # Preserve backwards compatibility for file-based value
                 # errors.
@@ -3732,7 +3740,7 @@ class ConfigOpts(Mapping[str, Any]):
                 except ValueError as e:
                     raise ConfigFileValueError(
                         f"Default value for option {opt.name} is not valid: "
-                        f"{str(e)}"
+                        f"{e!s}"
                     )
 
         if opt.default is not None:
@@ -3754,7 +3762,7 @@ class ConfigOpts(Mapping[str, Any]):
         :param value: the string value, or list of string values
         :param group: the group that retrieves the option value from
         :param namespace: the namespace object that retrieves the option
-                          value from
+            value from
         :returns: the substituted string(s)
         """
         if isinstance(value, list):
@@ -3885,19 +3893,14 @@ class ConfigOpts(Mapping[str, Any]):
             )
             if not real_opt_name:
                 raise NoSuchOptError(opt_name, group)
-            log_real_group_name = real_group_name or 'DEFAULT'
-            dep_message = (
-                'Config option %(dep_group)s.%(dep_option)s '
-                ' is deprecated. Use option %(group)s.'
-                '%(option)s instead.'
-            )
             LOG.warning(
-                dep_message,
+                'Config option %(dep_group)s.%(dep_option)s is deprecated. '
+                'Use option %(group)s.%(option)s instead.',
                 {
                     'dep_option': opt_name,
                     'dep_group': group,
                     'option': real_opt_name,
-                    'group': log_real_group_name,
+                    'group': real_group_name or 'DEFAULT',
                 },
             )
             opt_name = real_opt_name
@@ -3933,8 +3936,8 @@ class ConfigOpts(Mapping[str, Any]):
 
         :param args: the command line arguments
         :returns: a _Namespace object containing the parsed option values
-        :raises: SystemExit, DuplicateOptError
-                 ConfigFileParseError, ConfigFileValueError
+        :raises: SystemExit, DuplicateOptError, ConfigFileParseError,
+            ConfigFileValueError
 
         """
         self._args = list(args)
@@ -3948,8 +3951,8 @@ class ConfigOpts(Mapping[str, Any]):
         """Parse configure files options.
 
         :raises: SystemExit, ConfigFilesNotFoundError, ConfigFileParseError,
-                 ConfigFilesPermissionDeniedError,
-                 RequiredOptError, DuplicateOptError
+            ConfigFilesPermissionDeniedError, RequiredOptError,
+            DuplicateOptError
         """
         namespace = _Namespace(self)
 
@@ -3993,7 +3996,7 @@ class ConfigOpts(Mapping[str, Any]):
         ):
             group_name = group.name if group else None
             try:
-                value, loc = opt._get_from_namespace(namespace, group_name)
+                value, _ = opt._get_from_namespace(namespace, group_name)
             except KeyError:
                 continue
 
@@ -4003,7 +4006,7 @@ class ConfigOpts(Mapping[str, Any]):
                 self._convert_value(value, opt)
             except ValueError:
                 sys.stderr.write(
-                    f"argument --{opt.dest}: Invalid {repr(opt.type)} value: {value}\n"  # noqa: E501
+                    f"argument --{opt.dest}: Invalid {opt.type!r} value: {value}\n"  # noqa: E501
                 )
                 raise SystemExit(1)
 
@@ -4044,11 +4047,11 @@ class ConfigOpts(Mapping[str, Any]):
             self._namespace = namespace
             return True
 
-    def register_mutate_hook(self, hook: Callable[..., Any]) -> None:
+    def register_mutate_hook(self, hook: _MutationHook) -> None:
         """Registers a hook to be called by mutate_config_files.
 
         :param hook: a function accepting this ConfigOpts object and a dict of
-                     config mutations, as returned by mutate_config_files.
+            config mutations, as returned by mutate_config_files.
         :return: None
         """
         self._mutate_hooks.add(hook)
@@ -4178,7 +4181,7 @@ class ConfigOpts(Mapping[str, Any]):
 
         :param name: The name of the option.
         :param group: The name of the group of the option. Defaults to
-                      ``'DEFAULT'``.
+            ``'DEFAULT'``.
         :return: LocationInfo
 
         .. seealso::
@@ -4188,7 +4191,7 @@ class ConfigOpts(Mapping[str, Any]):
         .. versionadded:: 5.3.0
         """
         opt_group = OptGroup(group) if group is not None else None
-        value, loc = self._do_get(name, opt_group, None)
+        _value, loc = self._do_get(name, opt_group, None)
         return loc
 
     class GroupAttr(Mapping[str, Any]):
@@ -4281,7 +4284,7 @@ class ConfigOpts(Mapping[str, Any]):
             :param conf: a ConfigOpts object
             :param group: an OptGroup object
             :param namespace: the namespace object that retrieves the option
-                              value from
+                value from
             """
             self.conf = conf
             self.group = group

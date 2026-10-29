@@ -565,6 +565,8 @@ ImageBufImpl::ImageBufImpl(const ImageBufImpl& src)
         m_nmiplevels       = 0;
         m_spec.erase_attribute("oiio:subimages");
         m_nativespec.erase_attribute("oiio:subimages");
+        m_spec.erase_attribute("oiio:miplevels");
+        m_nativespec.erase_attribute("oiio:miplevels");
         m_pixels_read = true;
     }
     if (src.m_configspec)
@@ -625,7 +627,7 @@ ImageBuf::ImageBuf(const ImageSpec& spec, InitializePixels zero)
 {
     m_impl->alloc(spec);
     // N.B. alloc will set m_bufspan
-    if (zero == InitializePixels::Yes && !deep())
+    if (zero == InitializePixels::Yes && !deep() && localpixels())
         ImageBufAlgo::zero(*this);
 }
 
@@ -698,8 +700,7 @@ ImageBuf::ImageBuf(const ImageBuf& src)
 
 
 
-ImageBuf::ImageBuf(ImageBuf&& src)
-    : m_impl(std::move(src.m_impl))
+ImageBuf::ImageBuf(ImageBuf&& src) : m_impl(std::move(src.m_impl))
 {
 }
 
@@ -871,6 +872,7 @@ ImageBufImpl::clear()
     m_name.clear();
     m_fileformat.clear();
     m_nsubimages       = 0;
+    m_nmiplevels       = 0;
     m_current_subimage = -1;
     m_current_miplevel = -1;
     m_spec             = ImageSpec();
@@ -996,7 +998,7 @@ void
 ImageBuf::reset(const ImageSpec& spec, InitializePixels zero)
 {
     m_impl->reset("", spec);
-    if (zero == InitializePixels::Yes && !deep())
+    if (zero == InitializePixels::Yes && !deep() && localpixels())
         ImageBufAlgo::zero(*this);
 }
 
@@ -1281,6 +1283,7 @@ ImageBufImpl::init_spec(string_view filename, int subimage, int miplevel,
         }
         m_badfile    = false;
         m_fileformat = ustring(input->format_name());
+        OIIO::pvt::set_source_provenance(m_spec, m_fileformat, filename);
         m_nativespec = m_spec;
         set_bufspan(nullptr);
         m_blackpixel.resize(
@@ -2109,7 +2112,18 @@ ImageBuf::miplevel() const
 int
 ImageBuf::nmiplevels() const
 {
-    m_impl->validate_spec();
+    if (!m_impl->validate_spec()) {
+        // Spec is invalid. Unnamed means no file to refer to (for example,
+        // default-constructed), so 1 as documented. Named means the file
+        // failed, so 0.
+        m_impl->m_nmiplevels = m_impl->m_name.empty() ? 1 : 0;
+    } else if (m_impl->m_name.empty() || m_impl->m_fileformat.empty()) {
+        // No direct reference to a file, so 1 as documented.
+        m_impl->m_nmiplevels = 1;
+    } else if (m_impl->m_nmiplevels == 0) {
+        m_impl->m_nmiplevels
+            = m_impl->m_spec.get_int_attribute("oiio:miplevels", 1);
+    }
     return m_impl->m_nmiplevels;
 }
 
@@ -2389,9 +2403,11 @@ ImageBuf::copy_pixels(const ImageBuf& src)
     m_impl->m_nsubimages       = 1;
     m_impl->m_current_subimage = 0;
     m_impl->m_current_miplevel = 0;
-    m_impl->m_nmiplevels       = 0;
+    m_impl->m_nmiplevels       = 1;
     m_impl->m_spec.erase_attribute("oiio:subimages");
     m_impl->m_nativespec.erase_attribute("oiio:subimages");
+    m_impl->m_spec.erase_attribute("oiio:miplevels");
+    m_impl->m_nativespec.erase_attribute("oiio:miplevels");
 
     return ok;
 }

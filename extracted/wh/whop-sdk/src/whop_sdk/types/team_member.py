@@ -33,12 +33,12 @@ class TeamMember(UniversalBaseModel):
 
     email: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The member's email address. For accepted members, `null` unless the caller holds the `company:authorized_user:email:read` scope; for invites, the invited address.
+    The member's email address. For an invite sent to an email with no Whop account yet, the invited address; for accepted members and invites to an existing Whop account, `null` unless the caller holds the `company:authorized_user:email:read` scope.
     """
 
     id: str = pydantic.Field()
     """
-    Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
+    Team member ID — `ausr_` for accepted members, `mber_` for members whose role is held on their member record, `ausri_` for pending invites.
     """
 
     is_agent: bool = pydantic.Field()
@@ -48,7 +48,7 @@ class TeamMember(UniversalBaseModel):
 
     reports_to_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The team member this member reports to, prefixed `ausr_`. `null` when the member reports to the business directly, and for invites.
+    The team member this member reports to, prefixed `ausr_`, or `mber_` when that manager's role is held on their member record. `null` when the member reports to the business directly, and for invites.
     """
 
     role: TeamMemberRole = pydantic.Field()

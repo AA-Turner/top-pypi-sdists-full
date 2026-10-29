@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: singlestoredb
-Version: 1.18.1
+Version: 1.18.2
 Summary: Interface to the SingleStoreDB database and workspace management APIs
 Author-email: SingleStore <support@singlestore.com>
 License: Apache-2.0
@@ -47,6 +47,7 @@ Requires-Dist: docker; extra == "test"
 Requires-Dist: fastapi; extra == "test"
 Requires-Dist: ipython; extra == "test"
 Requires-Dist: jupysql; extra == "test"
+Requires-Dist: opentelemetry-api; extra == "test"
 Requires-Dist: pandas; extra == "test"
 Requires-Dist: parameterized; extra == "test"
 Requires-Dist: polars; extra == "test"
@@ -141,6 +142,10 @@ pip install 'singlestoredb[vectorstore,sqlalchemy]'
 | `ed22519` | Ed25519 key authentication |
 | `docker` | Docker SDK for automated test container management |
 | `pytest` | Pytest plugin with SingleStoreDB Docker test fixtures |
+
+### SingleStore Server Compatibility
+
+See the [driver, server, and Python version compatibility matrix](https://github.com/singlestore-labs/singlestoredb-python/blob/main/COMPATIBILITY.md).
 
 ## Documentation
 

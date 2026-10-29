@@ -2691,6 +2691,119 @@ class CostComponent(pycarlo.lib.types.Enum):
     __choices__ = ("CACHE_READ", "CACHE_WRITE", "NEW_INPUT", "OUTPUT")
 
 
+class CostFindingFigureStatus(pycarlo.lib.types.Enum):
+    """Whether a cost finding's figure is shown, or withheld with a
+    reason.
+
+    Enumeration Choices:
+
+    * `SHOWN`None
+    * `WITHHELD`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("SHOWN", "WITHHELD")
+
+
+class CostFindingFigureTier(pycarlo.lib.types.Enum):
+    """How a shown figure was produced: measured from data, computed by a
+    fixed formula, or     estimated with an assumed share.
+
+    Enumeration Choices:
+
+    * `COMPUTED`None
+    * `ESTIMATED`None
+    * `MEASURED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPUTED", "ESTIMATED", "MEASURED")
+
+
+class CostFindingFixType(pycarlo.lib.types.Enum):
+    """What a cost finding asks the customer to change.
+
+    Enumeration Choices:
+
+    * `CUT_IDLE_TIME`None
+    * `DELETE_UNUSED_TABLES`None
+    * `MAKE_WORK_CHEAPER`None
+    * `REMOVE_RUNS`None
+    * `SHRINK_WAREHOUSE`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "CUT_IDLE_TIME",
+        "DELETE_UNUSED_TABLES",
+        "MAKE_WORK_CHEAPER",
+        "REMOVE_RUNS",
+        "SHRINK_WAREHOUSE",
+    )
+
+
+class CostFindingPriceSource(pycarlo.lib.types.Enum):
+    """Where the price a figure was converted with came from: the
+    platform's list price, or     a price the customer entered.
+
+    Enumeration Choices:
+
+    * `CUSTOMER`None
+    * `STANDARD`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CUSTOMER", "STANDARD")
+
+
+class CostFindingTargetKind(pycarlo.lib.types.Enum):
+    """The kind of thing a cost finding targets.
+
+    Enumeration Choices:
+
+    * `QUERY_GROUP`None
+    * `TABLE`None
+    * `WAREHOUSE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("QUERY_GROUP", "TABLE", "WAREHOUSE")
+
+
+class CostFindingWithheldReason(pycarlo.lib.types.Enum):
+    """Why a cost finding's figure, or an analysis, is missing.
+
+    Enumeration Choices:
+
+    * `COLLECTING_DATA`None
+    * `DATA_LATE`None
+    * `DATA_UNAVAILABLE`None
+    * `NOT_ENROLLED`None
+    * `NOT_SUPPORTED`None
+    * `NOT_VERIFIABLE`None
+    * `NO_PRICE`None
+    * `OUTSIDE_TOP_WAREHOUSES`None
+    * `PER_QUERY_COST`None
+    * `SAVING_NOT_CALCULATED`None
+    * `USAGE_UNAVAILABLE`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "COLLECTING_DATA",
+        "DATA_LATE",
+        "DATA_UNAVAILABLE",
+        "NOT_ENROLLED",
+        "NOT_SUPPORTED",
+        "NOT_VERIFIABLE",
+        "NO_PRICE",
+        "OUTSIDE_TOP_WAREHOUSES",
+        "PER_QUERY_COST",
+        "SAVING_NOT_CALCULATED",
+        "USAGE_UNAVAILABLE",
+    )
+
+
 class Criticality(pycarlo.lib.types.Enum):
     """Criticality assessment.
 
@@ -3641,6 +3754,45 @@ class EtlRunTrigger(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("API", "BACKFILL", "CYCLIC", "EVENT", "MANUAL", "RETRY", "SCHEDULE", "UPSTREAM")
+
+
+class EtlTaskSourceFallbackReason(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `AS_RUN_UNSUPPORTED`None
+    * `PARSE_FAILED`None
+    * `RUN_EXPIRED`None
+    * `UNKNOWN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AS_RUN_UNSUPPORTED", "PARSE_FAILED", "RUN_EXPIRED", "UNKNOWN")
+
+
+class EtlTaskSourceKind(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `GIT`None
+    * `NOTEBOOK`None
+    * `PYTHON_FILE`None
+    * `SQL_FILE`None
+    * `SQL_QUERY`None
+    * `UNSUPPORTED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("GIT", "NOTEBOOK", "PYTHON_FILE", "SQL_FILE", "SQL_QUERY", "UNSUPPORTED")
+
+
+class EtlTaskSourceVersion(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `AS_RUN`None
+    * `CURRENT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AS_RUN", "CURRENT")
 
 
 class EtlType(pycarlo.lib.types.Enum):
@@ -4916,14 +5068,15 @@ class GenericScalar(sgqlc.types.Scalar):
 
 
 class GenieCollectorGrantKind(pycarlo.lib.types.Enum):
-    """A Databricks grant the install gate verifies before a Genie
-    registration.      The collector needs all four to install and run
-    correctly: Genie space access     (to list all users'
-    conversations), workspace import (to land the notebook),     jobs
-    create/run (to schedule it), and Unity Catalog write (to create +
-    MERGE     the trace table). The gate reports every missing grant
-    it can determine so the     customer can fix them before
-    registering.      ``GENIE_SPACE_ACCESS`` is also emitted post-
+    """A required collection grant or optional statement-timing grant.
+    The collector needs all four to install and run correctly: Genie
+    space access     (to list all users' conversations), workspace
+    import (to land the notebook),     jobs create/run (to schedule
+    it), and Unity Catalog write (to create + MERGE     the trace
+    table). The gate reports every missing grant it can determine so
+    the     customer can fix them before registering.
+    ``QUERY_HISTORY_READ`` is optional and never checked by the
+    install gate.      ``GENIE_SPACE_ACCESS`` is also emitted post-
     registration as an ongoing per-space signal     (see
     ``space_can_manage_missing_grant``) when a running collector loses
     CAN MANAGE on one     space — a distinct, run-time producer from
@@ -4933,6 +5086,7 @@ class GenieCollectorGrantKind(pycarlo.lib.types.Enum):
 
     * `GENIE_SPACE_ACCESS`None
     * `JOBS_CREATE_RUN`None
+    * `QUERY_HISTORY_READ`None
     * `UNITY_CATALOG_WRITE`None
     * `WORKSPACE_IMPORT`None
     """
@@ -4941,6 +5095,7 @@ class GenieCollectorGrantKind(pycarlo.lib.types.Enum):
     __choices__ = (
         "GENIE_SPACE_ACCESS",
         "JOBS_CREATE_RUN",
+        "QUERY_HISTORY_READ",
         "UNITY_CATALOG_WRITE",
         "WORKSPACE_IMPORT",
     )
@@ -7641,6 +7796,18 @@ class PriceRateUnit(pycarlo.lib.types.Enum):
     __choices__ = ("CREDIT", "SLOT_HOUR", "TB", "TIB")
 
 
+class PriceSource(pycarlo.lib.types.Enum):
+    """Where a price comes from.
+
+    Enumeration Choices:
+
+    * `STANDARD`: The platform's published standard price.
+    """
+
+    __schema__ = schema
+    __choices__ = ("STANDARD",)
+
+
 class Priority(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -9546,6 +9713,18 @@ class Status(pycarlo.lib.types.Enum):
     __choices__ = ("NOTIFIED", "PENDING", "RESOLVED")
 
 
+class StorageBillingModel(pycarlo.lib.types.Enum):
+    """Which bytes a storage price applies to.
+
+    Enumeration Choices:
+
+    * `LOGICAL`: Priced on logical (uncompressed) bytes.
+    """
+
+    __schema__ = schema
+    __choices__ = ("LOGICAL",)
+
+
 class StorageCandidateTicketProvider(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -9603,6 +9782,22 @@ class StorageOptimizationSortField(pycarlo.lib.types.Enum):
         "tableName",
         "totalByteCount",
     )
+
+
+class StoragePriceTier(pycarlo.lib.types.Enum):
+    """Which of a platform's storage prices applies to a table or
+    partition.
+
+    Enumeration Choices:
+
+    * `ACTIVE`: Applies to a table or partition modified within the
+      long-term price's `minDaysUnmodified` days.
+    * `LONG_TERM`: Applies to a table or partition unmodified for at
+      least `minDaysUnmodified` consecutive days.
+    """
+
+    __schema__ = schema
+    __choices__ = ("ACTIVE", "LONG_TERM")
 
 
 class StorageTypeEnum(pycarlo.lib.types.Enum):
@@ -34416,6 +34611,248 @@ class CostBucket(sgqlc.types.Type):
     """
 
 
+class CostFindingCalculationOutput(sgqlc.types.Type):
+    """How a shown figure was calculated, in enough detail to recompute
+    it.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("formula", "formula_version", "inputs", "price", "window")
+    formula = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="formula")
+    """The formula over the inputs, by name."""
+
+    formula_version = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="formulaVersion")
+    """Changes whenever the formula changes."""
+
+    inputs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("CostFindingInputOutput"))),
+        graphql_name="inputs",
+    )
+
+    price = sgqlc.types.Field(sgqlc.types.non_null("CostFindingPriceOutput"), graphql_name="price")
+    """The price the figure was converted with. A figure whose inputs are
+    already in dollars states the rate they were priced at.
+    """
+
+    window = sgqlc.types.Field(
+        sgqlc.types.non_null("CostFindingWindowOutput"), graphql_name="window"
+    )
+
+
+class CostFindingEvidenceOutput(sgqlc.types.Type):
+    """One fact, computed from the account's data, that the finding rests
+    on.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("name", "value", "unit")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(GenericScalar), graphql_name="value")
+    """A number, a string or a boolean."""
+
+    unit = sgqlc.types.Field(String, graphql_name="unit")
+    """Unit of a numeric 'value'."""
+
+
+class CostFindingInputOutput(sgqlc.types.Type):
+    """One input to a figure's formula, and the record it was read from."""
+
+    __schema__ = schema
+    __field_names__ = ("name", "value", "unit", "source", "source_id")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """The symbol the formula uses for this input."""
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="value")
+    """In 'unit'."""
+
+    unit = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="unit")
+    """Unit of 'value', e.g. 'bytes' or 'credits'."""
+
+    source = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="source")
+    """The dataset the value was read from."""
+
+    source_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sourceId")
+    """The record within 'source': a table MCON, a platform warehouse ID,
+    a query group ID, or a table entry name.
+    """
+
+
+class CostFindingLostAnalysisOutput(sgqlc.types.Type):
+    """An analysis a cost insights run could not do for a warehouse, and
+    why.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("warehouse_uuids", "fix_type", "reason_code", "reason_text")
+    warehouse_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="warehouseUuids",
+    )
+    """UUIDs of the warehouses the analysis was lost for."""
+
+    fix_type = sgqlc.types.Field(sgqlc.types.non_null(CostFindingFixType), graphql_name="fixType")
+
+    reason_code = sgqlc.types.Field(
+        sgqlc.types.non_null(CostFindingWithheldReason), graphql_name="reasonCode"
+    )
+
+    reason_text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="reasonText")
+    """The customer-facing line."""
+
+
+class CostFindingOutput(sgqlc.types.Type):
+    """A cost finding: what to change, why, and what it costs and would
+    save.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "fix_type",
+        "warehouse_uuids",
+        "targets",
+        "evidence",
+        "text",
+        "stable_key",
+        "key_version",
+        "current_spend",
+        "saving",
+    )
+    fix_type = sgqlc.types.Field(sgqlc.types.non_null(CostFindingFixType), graphql_name="fixType")
+
+    warehouse_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="warehouseUuids",
+    )
+    """UUIDs of every warehouse that reports what this finding targets.
+    When several warehouses report the same platform warehouse, the
+    finding lists all of them.
+    """
+
+    targets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("CostFindingTargetOutput"))),
+        graphql_name="targets",
+    )
+
+    evidence = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(CostFindingEvidenceOutput))),
+        graphql_name="evidence",
+    )
+
+    text = sgqlc.types.Field(sgqlc.types.non_null("CostFindingTextOutput"), graphql_name="text")
+
+    stable_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="stableKey")
+    """The same for the same finding in every run, while 'keyVersion' is
+    unchanged.
+    """
+
+    key_version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="keyVersion")
+    """Changes when the way 'stableKey' is derived changes."""
+
+    current_spend = sgqlc.types.Field(
+        sgqlc.types.non_null("CostFindingFigureOutput"), graphql_name="currentSpend"
+    )
+    """What the flagged tables, warehouse or job cost today."""
+
+    saving = sgqlc.types.Field(
+        sgqlc.types.non_null("CostFindingFigureOutput"), graphql_name="saving"
+    )
+    """What acting on the finding would save."""
+
+
+class CostFindingPriceOutput(sgqlc.types.Type):
+    """The price a figure was converted to dollars with."""
+
+    __schema__ = schema
+    __field_names__ = ("amount", "unit", "source")
+    amount = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="amount")
+    """Dollars per 'unit'."""
+
+    unit = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="unit")
+    """e.g. 'USD/credit' or 'USD/TB-month'."""
+
+    source = sgqlc.types.Field(sgqlc.types.non_null(CostFindingPriceSource), graphql_name="source")
+
+
+class CostFindingShownFigureOutput(sgqlc.types.Type):
+    """A dollar figure on a finding that is shown, with how it was
+    calculated.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("status", "usd_per_month", "credits_per_month", "tier", "calculation")
+    status = sgqlc.types.Field(sgqlc.types.non_null(CostFindingFigureStatus), graphql_name="status")
+
+    usd_per_month = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="usdPerMonth")
+    """Dollars a month."""
+
+    credits_per_month = sgqlc.types.Field(Float, graphql_name="creditsPerMonth")
+    """The same figure in credits. Set for Snowflake compute figures
+    only.
+    """
+
+    tier = sgqlc.types.Field(sgqlc.types.non_null(CostFindingFigureTier), graphql_name="tier")
+    """How the figure was produced. A current spend is always 'MEASURED'.
+    A saving is 'COMPUTED' or 'ESTIMATED'.
+    """
+
+    calculation = sgqlc.types.Field(
+        sgqlc.types.non_null(CostFindingCalculationOutput), graphql_name="calculation"
+    )
+
+
+class CostFindingTargetOutput(sgqlc.types.Type):
+    """One thing a finding asks the customer to change."""
+
+    __schema__ = schema
+    __field_names__ = ("kind", "id")
+    kind = sgqlc.types.Field(sgqlc.types.non_null(CostFindingTargetKind), graphql_name="kind")
+
+    id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
+    """A table's MCON, the platform's warehouse ID, or a query group ID,
+    by 'kind'.
+    """
+
+
+class CostFindingTextOutput(sgqlc.types.Type):
+    """The finding's words."""
+
+    __schema__ = schema
+    __field_names__ = ("title", "headline", "body")
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+
+    headline = sgqlc.types.Field(String, graphql_name="headline")
+    """A short title for a card."""
+
+    body = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="body")
+    """Markdown."""
+
+
+class CostFindingWindowOutput(sgqlc.types.Type):
+    """The dates a figure's inputs cover, both ends included."""
+
+    __schema__ = schema
+    __field_names__ = ("start", "end")
+    start = sgqlc.types.Field(sgqlc.types.non_null(Date), graphql_name="start")
+
+    end = sgqlc.types.Field(sgqlc.types.non_null(Date), graphql_name="end")
+
+
+class CostFindingWithheldFigureOutput(sgqlc.types.Type):
+    """A dollar figure on a finding that is not shown, and why."""
+
+    __schema__ = schema
+    __field_names__ = ("status", "reason_code", "reason_text")
+    status = sgqlc.types.Field(sgqlc.types.non_null(CostFindingFigureStatus), graphql_name="status")
+
+    reason_code = sgqlc.types.Field(
+        sgqlc.types.non_null(CostFindingWithheldReason), graphql_name="reasonCode"
+    )
+
+    reason_text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="reasonText")
+    """The customer-facing line for 'reasonCode'."""
+
+
 class CostTimeSeriesPointOutput(sgqlc.types.Type):
     """Storage and query cost totals for one bucket of the series."""
 
@@ -38136,7 +38573,7 @@ class DataProductAssetData(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("data_products", "mcon", "table", "pipeline_end_node", "pipelines")
+    __field_names__ = ("data_products", "mcon", "table")
     data_products = sgqlc.types.Field(
         sgqlc.types.list_of("DataProduct"), graphql_name="dataProducts"
     )
@@ -38147,14 +38584,6 @@ class DataProductAssetData(sgqlc.types.Type):
 
     table = sgqlc.types.Field("WarehouseTable", graphql_name="table")
     """Table entity for requesting"""
-
-    pipeline_end_node = sgqlc.types.Field(Boolean, graphql_name="pipelineEndNode")
-    """Whether this is an end node for an important data pipeline"""
-
-    pipelines = sgqlc.types.Field(
-        sgqlc.types.list_of("DataProductPipeline"), graphql_name="pipelines"
-    )
-    """Pipelines node is a member of"""
 
 
 class DataProductAssetEdge(sgqlc.types.Type):
@@ -38247,20 +38676,6 @@ class DataProductMetricDataPoint(sgqlc.types.Type):
 
     value = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="value")
     """Value for the data point"""
-
-
-class DataProductPipeline(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("pipe_mcon", "pipe_full_id", "pipe_display_name", "pipe_score")
-    pipe_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="pipeMcon")
-
-    pipe_full_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="pipeFullId")
-
-    pipe_display_name = sgqlc.types.Field(
-        sgqlc.types.non_null(String), graphql_name="pipeDisplayName"
-    )
-
-    pipe_score = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="pipeScore")
 
 
 class DataProductUpstreamCoverageData(sgqlc.types.Type):
@@ -41663,6 +42078,74 @@ class EtlTaskRunV3Edge(sgqlc.types.Type):
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
 
 
+class EtlTaskSourceGitV3(sgqlc.types.Type):
+    """Where a Git-sourced task's code lives. The source itself isn't
+    fetched.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("url", "provider", "branch", "commit", "path")
+    url = sgqlc.types.Field(String, graphql_name="url")
+    """Repository URL."""
+
+    provider = sgqlc.types.Field(String, graphql_name="provider")
+    """Git provider, e.g. `gitHub`."""
+
+    branch = sgqlc.types.Field(String, graphql_name="branch")
+    """Branch or tag the job is configured with."""
+
+    commit = sgqlc.types.Field(String, graphql_name="commit")
+    """Commit the run executed, or the job's pinned commit when no run is
+    given.
+    """
+
+    path = sgqlc.types.Field(String, graphql_name="path")
+    """Path of the task's file within the repository."""
+
+
+class EtlTaskSourceV3(sgqlc.types.Type):
+    """Source code an ETL task runs, fetched live from the ETL tool.
+    Never stored.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "kind",
+        "version",
+        "language",
+        "path",
+        "content",
+        "truncated",
+        "git",
+        "fallback_reason",
+    )
+    kind = sgqlc.types.Field(sgqlc.types.non_null(EtlTaskSourceKind), graphql_name="kind")
+
+    version = sgqlc.types.Field(sgqlc.types.non_null(EtlTaskSourceVersion), graphql_name="version")
+    """Version actually returned. An AS_RUN request comes back CURRENT
+    when the as-run source is unavailable; `fallbackReason` says why.
+    """
+
+    language = sgqlc.types.Field(String, graphql_name="language")
+    """Source language, e.g. `python` or `sql`."""
+
+    path = sgqlc.types.Field(String, graphql_name="path")
+    """Where the source lives: a file path, saved query id, or Git
+    repository path.
+    """
+
+    content = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="content")
+    """Source code. Empty for Git-sourced and unsupported tasks."""
+
+    truncated = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="truncated")
+    """Whether `content` was cut short to fit the size limit."""
+
+    git = sgqlc.types.Field(EtlTaskSourceGitV3, graphql_name="git")
+
+    fallback_reason = sgqlc.types.Field(EtlTaskSourceFallbackReason, graphql_name="fallbackReason")
+    """Why the returned version differs from the requested one."""
+
+
 class EtlTaskV3(sgqlc.types.Type):
     """A node in a job graph. No soft-delete on `EtlTaskModel`."""
 
@@ -44118,12 +44601,14 @@ class GenieCollectorStatus(sgqlc.types.Type):
     """Health of the most recent collector run: RUNNING, SUCCESS, FAILED,
     or CANCELLED. Reports FAILED whenever the last completed run
     failed and no run has since succeeded (a retry may be in flight).
-    Null before the first run.
+    Null before the first run. A run Databricks skipped because the
+    previous one was still going reads RUNNING while the collector is
+    enabled, scheduled, has succeeded, and is not stale.
     """
 
     last_error = sgqlc.types.Field(String, graphql_name="lastError")
     """Detail of the most recent failed collector run; null when the last
-    run succeeded.
+    run succeeded, or when runStatus reads RUNNING for a skipped run.
     """
 
     install_error = sgqlc.types.Field(String, graphql_name="installError")
@@ -44167,12 +44652,14 @@ class GenieCollectorStatus(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(GenieCollectorMissingGrant))),
         graphql_name="missingGrants",
     )
-    """Databricks grants missing for THIS space that are silently
-    degrading collection (e.g. the run-as principal lost CAN MANAGE,
-    so the space's traces stopped while sibling spaces keep
-    collecting). Empty when the space is healthy. installStatus stays
-    INSTALLED — this is a per-space data-completeness signal, not an
-    install failure. Self-heals once the grant is restored.
+    """Missing Databricks grants observed by the collector. Space access
+    applies only to this space. Query-history access applies to every
+    space sharing this collector and enables measured SQL timing.
+    Genie SQL spans show estimated timing and are left out of tool
+    latency. SQL collected after access is restored is timed. This
+    grant does not change installStatus or runStatus. These signals
+    appear while installStatus is INSTALLED and clear after a
+    successful run observes restored access.
     """
 
     degraded_spaces = sgqlc.types.Field(
@@ -71236,9 +71723,9 @@ class Mutation(sgqlc.types.Type):
     Monte Carlo's AI agents post the domain's updates to each Slack
     channel of the audience; other destinations get nothing. Creates
     the binding, moves it to another audience, or re-enables a
-    disabled one. Refuses an audience with no Slack channel the Monte
-    Carlo AI app can post to. Joins public channels the app is not in,
-    and lists the channels it cannot post to. Requires AI agent
+    disabled one. Refuses an audience with no Slack channel a Monte
+    Carlo Slack app can post to. Joins public channels the app is not
+    in, and lists the channels it cannot post to. Requires AI agent
     settings edit access to the domain.
 
     Arguments:
@@ -71333,8 +71820,7 @@ class Mutation(sgqlc.types.Type):
     pipelines are rejected — use `triageAlerts` and
     `runMonitoringForDomain` respectively. Requests matching an in-
     flight (running or queued) execution for the same user are
-    silently dropped; externally scheduled anchor pipelines (e.g.
-    agent_health) instead fail while any execution is in flight.
+    silently dropped.
 
     Arguments:
 
@@ -81700,6 +82186,7 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
         "assumed_credit_rate",
         "impact",
         "tickets",
+        "finding",
     )
     key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="key")
     """Identifies this insight within the run that produced it, so a
@@ -81788,6 +82275,14 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
     with none.
     """
 
+    finding = sgqlc.types.Field(CostFindingOutput, graphql_name="finding")
+    """The insight as a finding with its figures and how they were
+    calculated. Set when the run's 'contractVersion' is 2, and then
+    the version 1 fields are empty (blank text, empty lists and
+    nulls). 'key' and 'tickets' are still set. Null for a version 1
+    run.
+    """
+
 
 class PerformancePageInsightsOutput(sgqlc.types.Type):
     """Cost insights surfaced on the Performance Page."""
@@ -81800,6 +82295,8 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
         "insights_count",
         "thread_id",
         "created_time",
+        "contract_version",
+        "lost_analyses",
     )
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
     """Whether cost insights are fully enabled for the caller's account.
@@ -81838,6 +82335,23 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
     created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
     """When the run that produced these insights started. Null when
     insights are unavailable for the caller's account.
+    """
+
+    contract_version = sgqlc.types.Field(Int, graphql_name="contractVersion")
+    """Which shape the run's insights take. Version 1 fills the insight
+    fields; version 2 fills each insight's 'finding'. Null when
+    insights are unavailable for the caller's account, or the run's
+    shape is not one of these.
+    """
+
+    lost_analyses = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(CostFindingLostAnalysisOutput))
+        ),
+        graphql_name="lostAnalyses",
+    )
+    """Analyses the run could not do, by warehouse, limited to what the
+    account has access to. Empty for a version 1 run.
     """
 
 
@@ -82577,49 +83091,6 @@ class PineconeVectorIndexMetadata(sgqlc.types.Type):
     replicas = sgqlc.types.Field(Int, graphql_name="replicas")
 
     shards = sgqlc.types.Field(Int, graphql_name="shards")
-
-
-class PipelineData(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = (
-        "pipe_mcon",
-        "display_name",
-        "importance_score",
-        "table_count",
-        "monitored_table_count",
-        "orphaned_table_count",
-    )
-    pipe_mcon = sgqlc.types.Field(String, graphql_name="pipeMcon")
-    """Pipe unique identifier"""
-
-    display_name = sgqlc.types.Field(String, graphql_name="displayName")
-    """Name of pipeline to be displayed"""
-
-    importance_score = sgqlc.types.Field(Float, graphql_name="importanceScore")
-    """Pipeline importance score"""
-
-    table_count = sgqlc.types.Field(Int, graphql_name="tableCount")
-    """Number of tables in the pipeline"""
-
-    monitored_table_count = sgqlc.types.Field(Int, graphql_name="monitoredTableCount")
-    """Number of tables monitored in the pipeline"""
-
-    orphaned_table_count = sgqlc.types.Field(Int, graphql_name="orphanedTableCount")
-    """Number of tables left orphaned in the pipeline"""
-
-
-class PipelinesData(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("total_count", "offset", "pipeline_data")
-    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
-    """Total number of pipelines found"""
-
-    offset = sgqlc.types.Field(Int, graphql_name="offset")
-    """Paging offset"""
-
-    pipeline_data = sgqlc.types.Field(
-        sgqlc.types.list_of(PipelineData), graphql_name="pipelineData"
-    )
 
 
 class PlatformAgentConnection(sgqlc.types.relay.Connection):
@@ -83853,7 +84324,6 @@ class Query(sgqlc.types.Type):
         "get_data_explorer_dashboards",
         "get_webex_integrations",
         "test_webex_credentials",
-        "get_pipelines",
         "get_not_monitored_reason",
         "get_assets_usage",
         "get_account_usage",
@@ -83864,6 +84334,7 @@ class Query(sgqlc.types.Type):
         "get_etl_job_run_v3",
         "get_etl_job_runs_v3",
         "get_etl_task_v3",
+        "get_etl_task_source_v3",
         "get_etl_tasks_v3",
         "get_etl_task_runs_v3",
         "get_etl_group_v3",
@@ -84373,6 +84844,7 @@ class Query(sgqlc.types.Type):
         "get_alation_table_flags",
         "get_task_graph",
         "get_job_dependencies",
+        "get_teammate_audiences",
         "get_teammate_updates",
         "get_teammate_decisions",
         "get_meta_summarizer_state",
@@ -84384,6 +84856,7 @@ class Query(sgqlc.types.Type):
         "get_domain_agent_memories",
         "get_agent_context",
         "get_ai_agent_config",
+        "get_ai_agent_configs",
         "get_authorization_prompt",
         "fix_sql_query",
         "create_sql_query",
@@ -89348,34 +89821,6 @@ class Query(sgqlc.types.Type):
       authentication
     """
 
-    get_pipelines = sgqlc.types.Field(
-        PipelinesData,
-        graphql_name="getPipelines",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "resource_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="resourceUuid", default=None
-                    ),
-                ),
-                ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
-            )
-        ),
-    )
-    """Fetches the pipelines located in the warehouses
-
-    Arguments:
-
-    * `resource_uuid` (`UUID!`): warehouse unique identifier
-    * `search` (`String`): String to search for in the pipeline
-      display name
-    * `offset` (`Int`): Paging offset
-    * `limit` (`Int`): Number of results to return from offset
-    """
-
     get_not_monitored_reason = sgqlc.types.Field(
         NotMonitoredReason,
         graphql_name="getNotMonitoredReason",
@@ -89745,6 +90190,48 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `mcon` (`String!`)None
+    """
+
+    get_etl_task_source_v3 = sgqlc.types.Field(
+        EtlTaskSourceV3,
+        graphql_name="getEtlTaskSourceV3",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "task_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="taskMcon", default=None
+                    ),
+                ),
+                (
+                    "version",
+                    sgqlc.types.Arg(
+                        EtlTaskSourceVersion, graphql_name="version", default="CURRENT"
+                    ),
+                ),
+                (
+                    "task_run_global_id",
+                    sgqlc.types.Arg(String, graphql_name="taskRunGlobalId", default=None),
+                ),
+                (
+                    "task_run_started_at",
+                    sgqlc.types.Arg(DateTime, graphql_name="taskRunStartedAt", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch the source code an ETL task runs, live from
+    the ETL tool. Nothing is stored. For the as-run source, set
+    `version: AS_RUN` and pass a task run. Supports Databricks tasks.
+
+    Arguments:
+
+    * `task_mcon` (`String!`)None
+    * `version` (`EtlTaskSourceVersion`)None (default: `"CURRENT"`)
+    * `task_run_global_id` (`String`): Task run whose source to read.
+      Required for AS_RUN. Requires `taskRunStartedAt`.
+    * `task_run_started_at` (`DateTime`): Start time of the task run
+      given by `taskRunGlobalId`.
     """
 
     get_etl_tasks_v3 = sgqlc.types.Field(
@@ -92393,20 +92880,19 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Estimated price rates for the given warehouses.
-    Rates are flat estimates configured per warehouse platform, and
-    not every platform has one for every usage type, so only
-    warehouses with a priced rate are returned. A warehouse absent
-    from the result either has no known rate or sits outside the
-    account's cost agent warehouse scope.
+    """(experimental) Estimated price rates and storage prices for the
+    given warehouses. Only warehouses with a priced rate or a storage
+    price are returned. A warehouse absent from the result either has
+    no known price or sits outside the account's cost agent warehouse
+    scope.
 
     Arguments:
 
     * `warehouse_uuids` (`[UUID!]!`): UUIDs of the warehouses to look
       up rates for.
     * `rate_type` (`RateType`): Optional filter: return only this
-      usage rate. Omit to return every priced rate type for each
-      warehouse.
+      usage type. `COMPUTE` also empties `storagePrices`. Omit to
+      return every priced type.
     """
 
     get_performance_page_insights = sgqlc.types.Field(
@@ -92632,6 +93118,22 @@ class Query(sgqlc.types.Type):
                 ("category", sgqlc.types.Arg(QueryCategory, graphql_name="category", default=None)),
                 ("user", sgqlc.types.Arg(String, graphql_name="user", default=None)),
                 (
+                    "categories",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(QueryCategory)),
+                        graphql_name="categories",
+                        default=None,
+                    ),
+                ),
+                (
+                    "users",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="users",
+                        default=None,
+                    ),
+                ),
+                (
                     "query_characters",
                     sgqlc.types.Arg(Int, graphql_name="queryCharacters", default=50),
                 ),
@@ -92653,8 +93155,15 @@ class Query(sgqlc.types.Type):
       a maximum of 1000
     * `end_cursor` (`String`): Cursor used to get results from the
       next page
-    * `category` (`QueryCategory`): Filter queries by category
+    * `category` (`QueryCategory`): Filter queries by category.
+      Matches either the query's category or its sub-category.
     * `user` (`String`): Filter queries by user
+    * `categories` (`[QueryCategory!]`): Filter queries matching any
+      of these categories. Matches the query's sub-category. The
+      broader category is used only when the query has no sub-
+      category. Combined with `category` (AND) if both are provided.
+    * `users` (`[String!]`): Filter queries run by any of these users.
+      Combined with `user` (AND) if both are provided.
     * `query_characters` (`Int`): Number of characters to return for
       the sample query (default: `50`)
     """
@@ -109237,6 +109746,33 @@ class Query(sgqlc.types.Type):
       external assets this job produces).
     """
 
+    get_teammate_audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TeammateAudience"))),
+        graphql_name="getTeammateAudiences",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainUuids",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) The account's teammate audiences, whether enabled,
+    paused or disabled, ordered by domain name. Covers only the
+    domains the caller has AI agent access to; other domains are left
+    out, not refused. Requires AI agent access.
+
+    Arguments:
+
+    * `domain_uuids` (`[UUID!]`): Only these domains. Omit for every
+      domain.
+    """
+
     get_teammate_updates = sgqlc.types.Field(
         sgqlc.types.non_null("TeammateUpdates"),
         graphql_name="getTeammateUpdates",
@@ -109649,6 +110185,53 @@ class Query(sgqlc.types.Type):
       domain (exact scope — no fallback to the account default, so
       callers can distinguish a domain-configured value from an
       inherited one). Omit for the account-level configuration.
+    """
+
+    get_ai_agent_configs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AiAgent))),
+        graphql_name="getAiAgentConfigs",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AiAgentType)),
+                        graphql_name="agentTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "domain_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainUuids",
+                        default=None,
+                    ),
+                ),
+                (
+                    "include_account",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeAccount", default=True),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get saved AI agent configurations for several agent
+    types across the account and several domains in one request.
+    Returns one entry per saved (agent type, scope) pair; a pair with
+    nothing saved is omitted. Scopes are exact, as in
+    getAiAgentConfig: a domain entry never falls back to the account
+    default.
+
+    Arguments:
+
+    * `agent_types` (`[AiAgentType!]`): Agent types to read. Omit or
+      pass null for every type.
+    * `domain_uuids` (`[UUID!]`): Domains to read, at most 50. The
+      caller must have access to every one, or the whole query is
+      refused.
+    * `include_account` (`Boolean`): true (default) or null: also
+      return the account-level configurations. false: return domain
+      configurations only. (default: `true`)
     """
 
     get_authorization_prompt = sgqlc.types.Field(
@@ -110511,6 +111094,9 @@ class QueryListObject(sgqlc.types.Type):
         "sub_category",
         "query_snippet",
         "runtime",
+        "start_time",
+        "end_time",
+        "cluster_number",
         "rows_produced",
         "rows_updated",
         "rows_inserted",
@@ -110540,6 +111126,22 @@ class QueryListObject(sgqlc.types.Type):
     query_snippet = sgqlc.types.Field(String, graphql_name="querySnippet")
 
     runtime = sgqlc.types.Field(Int, graphql_name="runtime")
+
+    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
+    """When the query started running, in UTC. Falls back to `timestamp`
+    when the warehouse didn't report a separate start. For BigQuery,
+    `timestamp` is the job's creation time.
+    """
+
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+    """When the query finished, in UTC. Null when the warehouse didn't
+    report it.
+    """
+
+    cluster_number = sgqlc.types.Field(Int, graphql_name="clusterNumber")
+    """Snowflake warehouse cluster the query ran on. Null for other
+    warehouses and for queries collected before this was kept.
+    """
 
     rows_produced = sgqlc.types.Field(BigInt, graphql_name="rowsProduced")
 
@@ -112416,6 +113018,8 @@ class RemediationResult(sgqlc.types.Type):
         "confidence",
         "cause",
         "provenance",
+        "tuning_monitor_uuid",
+        "tuning_run_uuid",
     )
     status = sgqlc.types.Field(sgqlc.types.non_null(RemediationStatus), graphql_name="status")
     """Status of the remediation for this alert: NOT_FOUND when no plan
@@ -112523,6 +113127,21 @@ class RemediationResult(sgqlc.types.Type):
     provenance = sgqlc.types.Field(String, graphql_name="provenance")
     """The analysis pipeline the plan was derived from, e.g. `tsa`.
     Available when status is COMPLETED.
+    """
+
+    tuning_monitor_uuid = sgqlc.types.Field(UUID, graphql_name="tuningMonitorUuid")
+    """The monitor the plan's monitor tuning step is about. Null when the
+    plan has no monitor tuning step, or status is not COMPLETED. Use
+    it with tuningRunUuid to look up the tuning analysis in
+    getMonitorTuningRuns.
+    """
+
+    tuning_run_uuid = sgqlc.types.Field(UUID, graphql_name="tuningRunUuid")
+    """The monitor tuning analysis behind the plan's monitor tuning step,
+    whose recommendations can be reviewed and applied. Null when the
+    plan has no monitor tuning step, or status is not COMPLETED. Look
+    it up in getMonitorTuningRuns for tuningMonitorUuid, which checks
+    the caller's access to that monitor.
     """
 
 
@@ -116213,6 +116832,64 @@ class StorageOptimizationPageInfo(sgqlc.types.Type):
     """Cursor to pass as 'after' to fetch the next page"""
 
 
+class StoragePriceOutput(sgqlc.types.Type):
+    """The price of storing one unit of data for one month, in the unit
+    the platform's bill uses.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "amount",
+        "currency",
+        "bytes_per_unit",
+        "unit_label",
+        "tier",
+        "min_days_unmodified",
+        "billing_model",
+        "price_source",
+        "description",
+    )
+    amount = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="amount")
+    """Price of one unit per month, in `currency`."""
+
+    currency = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="currency")
+    """Currency code, e.g. "USD"."""
+
+    bytes_per_unit = sgqlc.types.Field(sgqlc.types.non_null(BigInt), graphql_name="bytesPerUnit")
+    """Size of one unit in bytes: 1024^4 for a Snowflake TB, 1024^3 for a
+    BigQuery GiB. Divide a byte count by this, then multiply by
+    `amount`.
+    """
+
+    unit_label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="unitLabel")
+    """The word the platform's bill uses for one unit, e.g. "TB" or
+    "GiB".
+    """
+
+    tier = sgqlc.types.Field(StoragePriceTier, graphql_name="tier")
+    """Which storage price this is, on a platform that bills storage at
+    more than one rate (BigQuery). Null on a platform with one storage
+    price.
+    """
+
+    min_days_unmodified = sgqlc.types.Field(Int, graphql_name="minDaysUnmodified")
+    """Consecutive days a table or partition must go unmodified for this
+    price to apply. Set only on BigQuery's long-term price; null
+    otherwise.
+    """
+
+    billing_model = sgqlc.types.Field(StorageBillingModel, graphql_name="billingModel")
+    """Which bytes this price applies to, on a platform with more than
+    one storage billing model (BigQuery). Null otherwise.
+    """
+
+    price_source = sgqlc.types.Field(sgqlc.types.non_null(PriceSource), graphql_name="priceSource")
+    """Where this price comes from."""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """Human/agent-friendly explanation of when this price applies."""
+
+
 class StreamingCluster(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -118232,7 +118909,7 @@ class TeammateSlackChannel(sgqlc.types.Type):
 
 
 class TeammateUnreachableSlackChannel(sgqlc.types.Type):
-    """A Slack channel of the audience that the Monte Carlo AI app cannot
+    """A Slack channel of the audience that no Monte Carlo Slack app can
     post to.
     """
 
@@ -124527,10 +125204,10 @@ class WarehousePriceRateOutput(sgqlc.types.Type):
 
 
 class WarehousePriceRatesOutput(sgqlc.types.Type):
-    """A warehouse's available price rates."""
+    """A warehouse's price rates and storage prices."""
 
     __schema__ = schema
-    __field_names__ = ("warehouse_uuid", "price_rates")
+    __field_names__ = ("warehouse_uuid", "price_rates", "storage_prices")
     warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
     """UUID of the warehouse these rates apply to."""
 
@@ -124538,8 +125215,18 @@ class WarehousePriceRatesOutput(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(WarehousePriceRateOutput))),
         graphql_name="priceRates",
     )
-    """Priced usage rates for this warehouse. Never empty — a warehouse
-    with no priced rate is omitted from the query result entirely.
+    """Priced usage rates for this warehouse. Can be empty when the
+    warehouse has only storage prices. The STORAGE rate is a flat
+    approximation: `storagePrices` has the exact storage prices.
+    """
+
+    storage_prices = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(StoragePriceOutput))),
+        graphql_name="storagePrices",
+    )
+    """Storage prices for this warehouse, in the unit the platform's bill
+    uses. BigQuery has two, active and long-term. Empty for a platform
+    with no storage price, or when `rateType` is COMPUTE.
     """
 
 
@@ -136466,6 +137153,15 @@ class WidgetOptionsText(sgqlc.types.Type, WidgetOptionsInterface):
 ########################################################################
 # Unions
 ########################################################################
+class CostFindingFigureOutput(sgqlc.types.Union):
+    """A dollar figure on a finding: shown with its calculation, or
+    withheld.
+    """
+
+    __schema__ = schema
+    __types__ = (CostFindingShownFigureOutput, CostFindingWithheldFigureOutput)
+
+
 class ETLJobUnionType(sgqlc.types.Union):
     __schema__ = schema
     __types__ = (DbtJob,)

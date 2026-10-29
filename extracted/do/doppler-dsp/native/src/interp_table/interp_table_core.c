@@ -7,7 +7,9 @@ dp_interp_table_state_t *
 dp_interp_table_create (const double _Complex *table, size_t table_len,
                         int method)
 {
-  if (table_len == 0)
+  /* 0 = floor, 1 = nearest, 2 = linear: execute() would read any other
+     value as linear, so a typo would interpolate silently. */
+  if (table_len == 0 || method < 0 || method > 2)
     return NULL;
   dp_interp_table_state_t *obj = malloc (sizeof (*obj));
   if (!obj)
@@ -80,7 +82,7 @@ dp_interp_table_execute (dp_interp_table_state_t *state, const double *in,
       size_t hi   = (lo + 1 >= n) ? 0 : lo + 1;
       double frac = point - floor_pt;
 
-      if (state->method == 1) /* nearest (ties round up) */
+      if (state->method == 1) /* nearest (a tie takes the floor) */
         {
           out[i] = (frac > 0.5) ? table[hi] : table[lo];
           continue;

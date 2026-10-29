@@ -6,6 +6,7 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .domain_apple_pay import DomainApplePay
 from .domain_availability import DomainAvailability
+from .domain_email import DomainEmail
 from .domain_issue import DomainIssue
 from .domain_list_item_status import DomainListItemStatus
 from .domain_owner import DomainOwner
@@ -13,6 +14,7 @@ from .domain_pixel import DomainPixel
 from .domain_platform import DomainPlatform
 from .domain_registration import DomainRegistration
 from .domain_stats import DomainStats
+from .domain_transfer import DomainTransfer
 from .domain_verification import DomainVerification
 from .domain_website import DomainWebsite
 
@@ -41,6 +43,11 @@ class DomainListItem(UniversalBaseModel):
     domain: str = pydantic.Field()
     """
     Normalized hostname, such as checkout.example.com.
+    """
+
+    email: typing.Optional[DomainEmail] = pydantic.Field(default=None)
+    """
+    Sending and receiving email on the domain through Whop. `null` when not wanted, or when the domain belongs to an account you can't read.
     """
 
     id: typing.Optional[str] = pydantic.Field(default=None)
@@ -82,6 +89,11 @@ class DomainListItem(UniversalBaseModel):
     status: typing.Optional[DomainListItemStatus] = pydantic.Field(default=None)
     """
     The most pressing state of the domain's capabilities: `releasing`, then `action_required`, then `pending`, then `ready`. `idle` when it wants nothing.
+    """
+
+    transfer: typing.Optional[DomainTransfer] = pydantic.Field(default=None)
+    """
+    Moving the domain to another Whop account. `null` when not turned on or not visible to you.
     """
 
     updated_at: typing.Optional[str] = pydantic.Field(default=None)

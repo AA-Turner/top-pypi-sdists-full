@@ -304,9 +304,9 @@ _bind_ber_lock_symbol (PyObject *self, PyObject *args, PyObject *kwds)
     }
   const uint8_t *flags     = (const uint8_t *)PyArray_DATA (flags_arr);
   size_t         flags_len = (size_t)PyArray_SIZE (flags_arr);
-  int            _r = dp_ber_lock_symbol (flags, flags_len, sustain, min_frac);
+  int64_t        _r = dp_ber_lock_symbol (flags, flags_len, sustain, min_frac);
   Py_DECREF (flags_arr);
-  return PyLong_FromLong ((long)_r);
+  return PyLong_FromLongLong ((long long)_r);
 }
 
 static PyObject *
@@ -382,11 +382,11 @@ _bind_ber_settle_from (PyObject *self, PyObject *args, PyObject *kwds)
   (void)self;
   static char *_kwlist[]  = { "budget", "timing_lock", "carrier_lock", NULL };
   PyObject    *budget_obj = NULL;
-  unsigned long long budget_raw   = 0ULL;
-  int                timing_lock  = -1;
-  int                carrier_lock = -1;
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|ii", _kwlist, &budget_obj,
-                                    &timing_lock, &carrier_lock))
+  unsigned long long budget_raw       = 0ULL;
+  long long          timing_lock_raw  = -1;
+  long long          carrier_lock_raw = -1;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|LL", _kwlist, &budget_obj,
+                                    &timing_lock_raw, &carrier_lock_raw))
     return NULL;
   if (budget_obj != NULL)
     {
@@ -407,7 +407,9 @@ _bind_ber_settle_from (PyObject *self, PyObject *args, PyObject *kwds)
         }
       Py_DECREF (_ix);
     }
-  size_t budget = (size_t)budget_raw;
+  size_t  budget       = (size_t)budget_raw;
+  int64_t timing_lock  = (int64_t)timing_lock_raw;
+  int64_t carrier_lock = (int64_t)carrier_lock_raw;
   return PyLong_FromUnsignedLongLong ((unsigned long long)dp_ber_settle_from (
       budget, timing_lock, carrier_lock));
 }
@@ -440,9 +442,10 @@ static PyMethodDef ber_module_methods[] = {
     "Parameters\n"
     "----------\n"
     "m : int\n"
-    "    Input.\n"
+    "    Constellation order: 2, 4 or 8.\n"
     "esn0 : float\n"
-    "    Input.\n"
+    "    Matched-filter Es/N0 as a LINEAR ratio (not dB). At or below 0 the\n"
+    "    chance rate is returned: 0.5 for BPSK, `1 - 1/M` otherwise.\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -459,14 +462,19 @@ static PyMethodDef ber_module_methods[] = {
     "Parameters\n"
     "----------\n"
     "m : int\n"
-    "    Input.\n"
+    "    Constellation order: 2, 4 or 8.\n"
     "esn0 : float\n"
-    "    Input.\n"
+    "    Es/N0 as a LINEAR ratio (not dB), >= 0. A value <= 0 (no signal)\n"
+    "    gives the chance rate 0.5, as dp_ber_theory_ser() gives its own\n"
+    "    chance rate there; a negative ratio no longer reaches `sqrt` and\n"
+    "    returns NaN. 0.5 is a chosen value, not the formulas' limit: BPSK\n"
+    "    and QPSK reach it as esn0 -> 0+, but 8PSK's `SER/log2 M` reaches\n"
+    "    1/3, so its curve steps from 0.5 to 1/3 just above 0.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "float\n"
-    "    Output.\n" },
+    "    The bit error rate, or NAN for an unsupported M.\n" },
   { "ber_esn0_db_for_ser", (PyCFunction)(void *)_bind_ber_esn0_db_for_ser,
     METH_VARARGS | METH_KEYWORDS,
     "Es/N0 (dB) at which the coherent bound equals `ser`. How an "
@@ -491,9 +499,9 @@ static PyMethodDef ber_module_methods[] = {
     "Parameters\n"
     "----------\n"
     "m : int\n"
-    "    Input.\n"
+    "    Constellation order: 2, 4 or 8.\n"
     "ser : float\n"
-    "    Input.\n"
+    "    Measured symbol error rate, in (0, 1).\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -545,7 +553,7 @@ static PyMethodDef ber_module_methods[] = {
     "Parameters\n"
     "----------\n"
     "m : int\n"
-    "    Input.\n"
+    "    Constellation order; any M >= 2.\n"
     "\n"
     "Returns\n"
     "-------\n"
@@ -608,14 +616,17 @@ static PyMethodDef ber_module_methods[] = {
     "Parameters\n"
     "----------\n"
     "bn_timing : float\n"
-    "    Input.\n"
+    "    Timing-loop noise bandwidth, normalized to the symbol rate; <= 0\n"
+    "    drops that loop's term.\n"
     "bn_carrier : float\n"
-    "    Input.\n"
+    "    Carrier-loop noise bandwidth, normalized to the symbol rate; <= 0\n"
+    "    drops that loop's term.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    The budget in symbols, truncated to an integer; 0 when neither loop\n"
+    "    runs.\n" },
   { "ber_lock_symbol", (PyCFunction)(void *)_bind_ber_lock_symbol,
     METH_VARARGS | METH_KEYWORDS,
     "First symbol from which a verify-counted lock flag is SUSTAINED, or -1 "
@@ -639,18 +650,20 @@ static PyMethodDef ber_module_methods[] = {
     "Parameters\n"
     "----------\n"
     "flags : npt.NDArray[np.uint8] | bytes | bytearray | memoryview\n"
-    "    Input.\n"
+    "    Per-symbol lock flags, nonzero = locked; NULL gives -1.\n"
     "sustain : int\n"
-    "    Input.\n"
+    "    Consecutive locked symbols required; 0 selects 200.\n"
     "min_frac : float\n"
-    "    Input.\n"
+    "    Fraction of the remaining record that must be locked, in (0, 1]; a\n"
+    "    value <= 0 (or NaN) selects 0.9.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
     "    The symbol index, or -1 for \"never locked\" — the honest answer,\n"
-    "    which forces the caller to say so rather than measure a "
-    "transient.\n" },
+    "    which forces the caller to say so rather than measure a transient.\n"
+    "    64-bit, so an index past 2^31 symbols is returned whole rather than\n"
+    "    truncated.\n" },
   { "ber_evm_db", (PyCFunction)(void *)_bind_ber_evm_db,
     METH_VARARGS | METH_KEYWORDS,
     "Self-referenced EVM (dB) over an EXPLICIT window [lo, hi): each symbol "
@@ -688,13 +701,14 @@ static PyMethodDef ber_module_methods[] = {
     "Parameters\n"
     "----------\n"
     "rx : npt.NDArray[np.complex64]\n"
-    "    Input.\n"
+    "    Symbol-rate complex samples (matched-filter output). NULL gives\n"
+    "    0.0.\n"
     "lo : int\n"
-    "    Input.\n"
+    "    First symbol of the window (inclusive).\n"
     "hi : int\n"
-    "    Input.\n"
+    "    One past the last symbol; clamped to rx_len.\n"
     "m : int\n"
-    "    Input.\n"
+    "    Constellation order the stream carries (2, 4, 8, ...).\n"
     "\n"
     "Returns\n"
     "-------\n"

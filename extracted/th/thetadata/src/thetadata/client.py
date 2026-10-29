@@ -1322,13 +1322,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Retrieve a real-time last greeks calculation for all option contracts that lie on a provided expiration.
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_snapshot_binomial_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1361,6 +1361,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["current_day_only"] = str(current_day_only)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1392,6 +1394,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.current_day_only = current_day_only
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionSnapshotBinomialGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -1399,7 +1403,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -1481,13 +1485,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Retrieve a real-time last greeks calculation for all option contracts that lie on a provided expiration.
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_snapshot_binomial_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1520,6 +1524,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["current_day_only"] = str(current_day_only)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1551,6 +1557,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.current_day_only = current_day_only
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionSnapshotBinomialGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1558,7 +1566,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -1640,13 +1648,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Retrieve a real-time last second order binomial greeks calculation for all option contracts that lie on a provided expiration.
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_snapshot_binomial_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1679,6 +1687,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["current_day_only"] = str(current_day_only)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1710,6 +1720,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.current_day_only = current_day_only
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionSnapshotBinomialGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1717,7 +1729,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -1799,13 +1811,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Retrieve a real-time last third order binomial greeks calculation for all option contracts that lie on a provided expiration.
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
 > Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_snapshot_binomial_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1838,6 +1850,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["current_day_only"] = str(current_day_only)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1869,6 +1883,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.current_day_only = current_day_only
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionSnapshotBinomialGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1876,7 +1892,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -2301,12 +2317,12 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - Uses Theta Data's EOD reports that get generated at 17:15 ET each day. By default, the greeks are calculated from the midpoint of the option's closing NBBO and the underlying's closing price. Use `option_use_nbbo` and `underlyer_use_nbbo` to switch the price source.
 - **Set `expiration` to ``*`` if you want to retrieve data for every option that shares the same ``symbol``. (note: Any ``expiration=*`` must be requested day by day)**
 
     """
-    def option_history_binomial_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None, option_use_nbbo:Optional[bool]=True, annual_dividend_amount:Optional[float]=None):
+    def option_history_binomial_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None, option_use_nbbo:Optional[bool]=True, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2337,6 +2353,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["option_use_nbbo"] = str(option_use_nbbo)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2366,6 +2384,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.option_use_nbbo = option_use_nbbo
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionHistoryBinomialGreeksEodRequest(query_info=query_info, params=query)
 
         try:
@@ -2373,7 +2393,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range },{ option_use_nbbo },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range },{ option_use_nbbo },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -2457,13 +2477,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_binomial_greeks_all(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
+    def option_history_binomial_greeks_all(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2497,6 +2517,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2529,6 +2551,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionHistoryBinomialGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -2536,7 +2560,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_all({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_all({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -2626,13 +2650,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - Calculates greeks for every trade reported by [OPRA](/Articles/Data-And-Requests/The-SIPs.html).
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_history_binomial_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2669,6 +2693,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2704,6 +2730,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.perf_boost_intraday = perf_boost_intraday
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionHistoryBinomialTradeGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -2711,7 +2739,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_all({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_all({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -2795,13 +2823,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_binomial_greeks_first_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
+    def option_history_binomial_greeks_first_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2835,6 +2863,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2867,6 +2897,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionHistoryBinomialGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -2874,7 +2906,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_first_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_first_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -2964,13 +2996,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration.
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - Calculates greeks for every trade reported by [OPRA](/Articles/Data-And-Requests/The-SIPs.html).
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_history_binomial_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3007,6 +3039,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3042,6 +3076,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.perf_boost_intraday = perf_boost_intraday
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionHistoryBinomialTradeGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3049,7 +3085,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_first_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_first_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -3133,13 +3169,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_binomial_greeks_second_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
+    def option_history_binomial_greeks_second_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3173,6 +3209,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3205,6 +3243,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionHistoryBinomialGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3212,7 +3252,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_second_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_second_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -3302,13 +3342,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration.
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - Calculates greeks for every trade reported by [OPRA](/Articles/Data-And-Requests/The-SIPs.html).
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_history_binomial_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3345,6 +3385,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3380,6 +3422,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.perf_boost_intraday = perf_boost_intraday
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionHistoryBinomialTradeGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3387,7 +3431,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_second_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_second_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -3471,13 +3515,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - Calculated using the option and underlying midpoint price. If an interval size is specified (*highly recommended*), the option quote used in the calculation follows the same rules as the [quote](/operations/option_history_quote.html) endpoint. 
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
 - Multi-day requests are limited to 1 month of data.
 
     """
-    def option_history_binomial_greeks_third_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None):
+    def option_history_binomial_greeks_third_order(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3511,6 +3555,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["end_date"] = str(end_date)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3543,6 +3589,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.end_date = end_date.strftime('%Y-%m-%d')
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionHistoryBinomialGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3550,7 +3598,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_third_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_third_order({ symbol },{ expiration },{ interval },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ strike_range },{ start_date },{ end_date },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 
@@ -3640,13 +3688,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration.
-- Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
+- Greeks are calculated with a Leisen-Reimer binomial tree. European-style index options (such as SPX, SPXW, XSP, NDX, RUT and VIX) are priced as European and every other root as American, which allows early exercise at every node; set `exercise_style` to override. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - Calculates greeks for every trade reported by [OPRA](/Articles/Data-And-Requests/The-SIPs.html).
 - The underlying price represents whatever the last underlying price was at the ``timestamp`` field. You can read more about how Theta Data calculates greeks [here](/Articles/Data-And-Requests/Option-Greeks.html).
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_history_binomial_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3683,6 +3731,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["perf_boost_intraday"] = str(perf_boost_intraday)
             if annual_dividend_amount is not None:
                 query_parameters["annual_dividend_amount"] = str(annual_dividend_amount)
+            if exercise_style is not None:
+                query_parameters["exercise_style"] = str(exercise_style)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3718,6 +3768,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.perf_boost_intraday = perf_boost_intraday
         if annual_dividend_amount:
             query.annual_dividend_amount = annual_dividend_amount
+        if exercise_style:
+            query.exercise_style = exercise_style
         request = endpoints_pb2.OptionHistoryBinomialTradeGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -3725,7 +3777,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_third_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_trade_greeks_third_order({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ start_date },{ end_date },{ perf_boost_intraday },{ annual_dividend_amount },{ exercise_style })")
             else:
                 raise e
 

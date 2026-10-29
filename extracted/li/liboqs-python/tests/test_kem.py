@@ -1,6 +1,8 @@
 import os
 import platform  # to learn the OS we're on
 import random
+from collections.abc import Callable
+from unittest import mock
 
 import oqs
 
@@ -129,6 +131,94 @@ def test_python_attributes() -> None:
             if kem.length_keypair_seed is None:
                 msg = "Undefined oqs.KeyEncapsulation.length_keypair_seed"
                 raise AssertionError(msg)
+
+
+def test_free_twice() -> None:
+    lib = oqs.native()
+    real_free = lib.OQS_KEM_free
+    freed: list[object] = []
+
+    def recording_free(ptr: object) -> None:
+        freed.append(ptr)
+        real_free(ptr)
+
+    for alg_name in oqs.get_enabled_kem_mechanisms():
+        with oqs.KeyEncapsulation(alg_name) as kem:
+            secret_key = b"\x01" * kem.length_secret_key
+        freed.clear()
+        with mock.patch.object(lib, "OQS_KEM_free", recording_free):
+            # Passing a secret key exercises the cleanse path in free().
+            with oqs.KeyEncapsulation(alg_name, secret_key=secret_key) as obj:
+                pass
+            obj.free()  # Explicit free after the context manager must be a no-op.
+        if len(freed) != 1:
+            msg = f"{alg_name}: OQS_KEM_free called {len(freed)} times"
+            raise AssertionError(msg)
+
+
+def _wrong_lengths(length: int) -> set[int]:
+    # Empty, a bare 32-byte seed (e.g. ML-KEM rho with t-hat = 0), off by one either way
+    return {0, min(32, length - 1), length - 1, length + 1}
+
+
+def _assert_raises_value_error(
+    label: str, call: Callable[..., object], *args: object, **kwargs: object
+) -> None:
+    try:
+        call(*args, **kwargs)
+    except ValueError:
+        pass
+    else:
+        msg = f"{label} did not raise ValueError"
+        raise AssertionError(msg)
+
+
+def test_wrong_length_public_key() -> tuple[None, str]:
+    for alg_name in oqs.get_enabled_kem_mechanisms():
+        if any(item in alg_name for item in disabled_KEM_patterns):
+            continue
+        yield check_wrong_length_public_key, alg_name
+
+
+def check_wrong_length_public_key(alg_name: str) -> None:
+    with oqs.KeyEncapsulation(alg_name) as kem:
+        for n in _wrong_lengths(kem.length_public_key):
+            _assert_raises_value_error(
+                f"{alg_name}: encap_secret() with a {n}-byte public key",
+                kem.encap_secret,
+                bytes(n),
+            )
+
+
+def test_wrong_length_ciphertext() -> tuple[None, str]:
+    for alg_name in oqs.get_enabled_kem_mechanisms():
+        if any(item in alg_name for item in disabled_KEM_patterns):
+            continue
+        yield check_wrong_length_ciphertext, alg_name
+
+
+def check_wrong_length_ciphertext(alg_name: str) -> None:
+    with oqs.KeyEncapsulation(alg_name) as kem:
+        kem.generate_keypair()
+        for n in _wrong_lengths(kem.length_ciphertext):
+            _assert_raises_value_error(
+                f"{alg_name}: decap_secret() with a {n}-byte ciphertext",
+                kem.decap_secret,
+                bytes(n),
+            )
+
+
+def test_wrong_length_secret_key() -> None:
+    for alg_name in oqs.get_enabled_kem_mechanisms():
+        with oqs.KeyEncapsulation(alg_name) as kem:
+            length = kem.length_secret_key
+        for n in _wrong_lengths(length):
+            _assert_raises_value_error(
+                f"{alg_name}: KeyEncapsulation() with a {n}-byte secret key",
+                oqs.KeyEncapsulation,
+                alg_name,
+                secret_key=bytes(n),
+            )
 
 
 if __name__ == "__main__":

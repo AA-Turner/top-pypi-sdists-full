@@ -37,6 +37,7 @@ from .literals import (
     DeploymentStatusType,
     DeploymentStrategyType,
     DescribePackagesFilterNameType,
+    DiffStatusType,
     DomainHealthType,
     DomainPackageStatusType,
     DomainProcessingStatusTypeType,
@@ -77,6 +78,8 @@ from .literals import (
     PauseStateType,
     PrincipalTypeType,
     PropertyValueTypeType,
+    ReplicationRoleType,
+    ReplicationStatusType,
     RequirementLevelType,
     ReservedInstancePaymentOptionType,
     RolesKeyIdCOptionType,
@@ -115,6 +118,8 @@ __all__ = (
     "AddDataSourceResponseTypeDef",
     "AddDirectQueryDataSourceRequestTypeDef",
     "AddDirectQueryDataSourceResponseTypeDef",
+    "AddReplicationPeerRequestTypeDef",
+    "AddReplicationPeerResponseTypeDef",
     "AddTagsRequestTypeDef",
     "AdditionalLimitTypeDef",
     "AdvancedOptionsStatusTypeDef",
@@ -157,6 +162,7 @@ __all__ = (
     "CapabilityBaseResponseConfigTypeDef",
     "CapabilityExtendedResponseConfigTypeDef",
     "CapabilityFailureTypeDef",
+    "CategoryDiffResultTypeDef",
     "ChangeProgressDetailsTypeDef",
     "ChangeProgressStageTypeDef",
     "ChangeProgressStatusDetailsTypeDef",
@@ -168,6 +174,8 @@ __all__ = (
     "CognitoOptionsStatusTypeDef",
     "CognitoOptionsTypeDef",
     "ColdStorageOptionsTypeDef",
+    "CompareDomainConfigurationRequestTypeDef",
+    "CompareDomainConfigurationResponseTypeDef",
     "CompatibleVersionsMapTypeDef",
     "ConnectionPropertiesTypeDef",
     "CreateApplicationRequestTypeDef",
@@ -219,6 +227,8 @@ __all__ = (
     "DescribeDomainHealthResponseTypeDef",
     "DescribeDomainNodesRequestTypeDef",
     "DescribeDomainNodesResponseTypeDef",
+    "DescribeDomainReplicationRequestTypeDef",
+    "DescribeDomainReplicationResponseTypeDef",
     "DescribeDomainRequestTypeDef",
     "DescribeDomainResponseTypeDef",
     "DescribeDomainsRequestTypeDef",
@@ -244,12 +254,15 @@ __all__ = (
     "DescribeVpcEndpointsResponseTypeDef",
     "DetachDataSourceRequestTypeDef",
     "DetachDataSourceResponseTypeDef",
+    "DiffItemsTypeDef",
     "DirectQueryDataSourceTypeDef",
     "DirectQueryDataSourceTypeTypeDef",
     "DissociatePackageRequestTypeDef",
     "DissociatePackageResponseTypeDef",
     "DissociatePackagesRequestTypeDef",
     "DissociatePackagesResponseTypeDef",
+    "DivergentFieldTypeDef",
+    "DivergentItemTypeDef",
     "DomainConfigTypeDef",
     "DomainEndpointOptionsStatusTypeDef",
     "DomainEndpointOptionsTypeDef",
@@ -271,6 +284,8 @@ __all__ = (
     "EnvironmentInfoTypeDef",
     "ErrorDetailsTypeDef",
     "ExportOptionsTypeDef",
+    "FailoverReplicationRequestTypeDef",
+    "FailoverReplicationResponseTypeDef",
     "FilterTypeDef",
     "GetApplicationRequestTypeDef",
     "GetApplicationResponseTypeDef",
@@ -395,7 +410,10 @@ __all__ = (
     "RegisterCapabilityResponseTypeDef",
     "RejectInboundConnectionRequestTypeDef",
     "RejectInboundConnectionResponseTypeDef",
+    "RemoveReplicationPeerRequestTypeDef",
+    "RemoveReplicationPeerResponseTypeDef",
     "RemoveTagsRequestTypeDef",
+    "ReplicationPeerTypeDef",
     "ReservedInstanceOfferingTypeDef",
     "ReservedInstanceTypeDef",
     "ResponseMetadataTypeDef",
@@ -429,6 +447,8 @@ __all__ = (
     "StartServiceSoftwareUpdateResponseTypeDef",
     "StorageTypeLimitTypeDef",
     "StorageTypeTypeDef",
+    "SwitchoverReplicationRequestTypeDef",
+    "SwitchoverReplicationResponseTypeDef",
     "TagTypeDef",
     "TimestampTypeDef",
     "UpdateApplicationRequestTypeDef",
@@ -514,6 +534,12 @@ class ResponseMetadataTypeDef(TypedDict):
 class TagTypeDef(TypedDict):
     Key: str
     Value: str
+
+
+class AddReplicationPeerRequestTypeDef(TypedDict):
+    DomainName: str
+    PeerDomainArn: str
+    DryRun: NotRequired[bool]
 
 
 class AdditionalLimitTypeDef(TypedDict):
@@ -711,6 +737,12 @@ class CognitoOptionsTypeDef(TypedDict):
     UserPoolId: NotRequired[str]
     IdentityPoolId: NotRequired[str]
     RoleArn: NotRequired[str]
+
+
+class CompareDomainConfigurationRequestTypeDef(TypedDict):
+    SourceDomainArn: str
+    TargetDomainArn: str
+    Categories: Sequence[str]
 
 
 class CompatibleVersionsMapTypeDef(TypedDict):
@@ -938,6 +970,17 @@ class DomainNodesStatusTypeDef(TypedDict):
     StorageSize: NotRequired[str]
 
 
+class DescribeDomainReplicationRequestTypeDef(TypedDict):
+    DomainName: str
+
+
+class ReplicationPeerTypeDef(TypedDict):
+    PeerDomainArn: NotRequired[str]
+    PeerRole: NotRequired[ReplicationRoleType]
+    Status: NotRequired[ReplicationStatusType]
+    StatusMessage: NotRequired[str]
+
+
 class DescribeDomainRequestTypeDef(TypedDict):
     DomainName: str
 
@@ -1040,6 +1083,13 @@ class DissociatePackagesRequestTypeDef(TypedDict):
     DomainName: str
 
 
+class DivergentFieldTypeDef(TypedDict):
+    Path: NotRequired[str]
+    SourceValue: NotRequired[str]
+    TargetValue: NotRequired[str]
+    Policy: NotRequired[Literal["redacted"]]
+
+
 class ModifyingPropertiesTypeDef(TypedDict):
     Name: NotRequired[str]
     ActiveValue: NotRequired[str]
@@ -1093,6 +1143,14 @@ SavedObjectIdentifierTypeDef = TypedDict(
         "id": str,
     },
 )
+
+
+class FailoverReplicationRequestTypeDef(TypedDict):
+    DomainName: str
+    PeerDomainArn: str
+    AllowDataLoss: bool
+
+
 GetApplicationRequestTypeDef = TypedDict(
     "GetApplicationRequestTypeDef",
     {
@@ -1380,6 +1438,11 @@ class RejectInboundConnectionRequestTypeDef(TypedDict):
     ConnectionId: str
 
 
+class RemoveReplicationPeerRequestTypeDef(TypedDict):
+    DomainName: str
+    PeerDomainArn: str
+
+
 class RemoveTagsRequestTypeDef(TypedDict):
     ARN: str
     TagKeys: Sequence[str]
@@ -1420,6 +1483,11 @@ class StartServiceSoftwareUpdateRequestTypeDef(TypedDict):
 class StorageTypeLimitTypeDef(TypedDict):
     LimitName: NotRequired[str]
     LimitValues: NotRequired[list[str]]
+
+
+class SwitchoverReplicationRequestTypeDef(TypedDict):
+    DomainName: str
+    PeerDomainArn: str
 
 
 class UpdateIndexRequestTypeDef(TypedDict):
@@ -1516,6 +1584,12 @@ class AddDirectQueryDataSourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class AddReplicationPeerResponseTypeDef(TypedDict):
+    DomainArn: str
+    Status: ReplicationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 AttachDataSourceResponseTypeDef = TypedDict(
     "AttachDataSourceResponseTypeDef",
     {
@@ -1575,6 +1649,12 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class FailoverReplicationResponseTypeDef(TypedDict):
+    DomainArn: str
+    Status: ReplicationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetDefaultApplicationSettingResponseTypeDef(TypedDict):
     applicationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1624,6 +1704,12 @@ class PutDefaultApplicationSettingResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class RemoveReplicationPeerResponseTypeDef(TypedDict):
+    DomainArn: str
+    Status: ReplicationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class StartDomainMaintenanceResponseTypeDef(TypedDict):
     MaintenanceId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1632,6 +1718,12 @@ class StartDomainMaintenanceResponseTypeDef(TypedDict):
 class StartMigrationResponseTypeDef(TypedDict):
     migrationId: str
     status: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SwitchoverReplicationResponseTypeDef(TypedDict):
+    DomainArn: str
+    Status: ReplicationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1981,6 +2073,13 @@ class DescribeDomainNodesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeDomainReplicationResponseTypeDef(TypedDict):
+    DomainArn: str
+    Role: ReplicationRoleType
+    Peers: list[ReplicationPeerTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeInboundConnectionsRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     MaxResults: NotRequired[int]
@@ -2014,6 +2113,11 @@ class DirectQueryDataSourceTypeTypeDef(TypedDict):
     CloudWatchLog: NotRequired[CloudWatchDirectQueryDataSourceTypeDef]
     SecurityLake: NotRequired[SecurityLakeDirectQueryDataSourceTypeDef]
     Prometheus: NotRequired[PrometheusDirectQueryDataSourceTypeDef]
+
+
+class DivergentItemTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Fields: NotRequired[list[DivergentFieldTypeDef]]
 
 
 class ListDomainNamesResponseTypeDef(TypedDict):
@@ -2400,6 +2504,12 @@ class UpdateDirectQueryDataSourceRequestTypeDef(TypedDict):
     DataSourceAccessPolicy: NotRequired[str]
 
 
+class DiffItemsTypeDef(TypedDict):
+    SourceOnly: NotRequired[list[str]]
+    TargetOnly: NotRequired[list[str]]
+    Diverged: NotRequired[list[DivergentItemTypeDef]]
+
+
 class CreateVpcEndpointResponseTypeDef(TypedDict):
     VpcEndpoint: VpcEndpointTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2642,6 +2752,16 @@ class ListDirectQueryDataSourcesResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class CategoryDiffResultTypeDef(TypedDict):
+    Status: NotRequired[DiffStatusType]
+    InSync: NotRequired[int]
+    SourceOnly: NotRequired[int]
+    TargetOnly: NotRequired[int]
+    Diverged: NotRequired[int]
+    Items: NotRequired[DiffItemsTypeDef]
+    Truncated: NotRequired[bool]
+
+
 class StartMigrationRequestTypeDef(TypedDict):
     applicationId: str
     migrationOptions: MigrationOptionsTypeDef
@@ -2746,6 +2866,13 @@ class DomainStatusTypeDef(TypedDict):
 
 class DescribeInstanceTypeLimitsResponseTypeDef(TypedDict):
     LimitsByRole: dict[str, LimitsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CompareDomainConfigurationResponseTypeDef(TypedDict):
+    SourceDomainArn: str
+    TargetDomainArn: str
+    Categories: dict[str, CategoryDiffResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

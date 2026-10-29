@@ -1,7 +1,5 @@
 from io import BytesIO
-from typing import Any, ClassVar
-
-from typing_extensions import Self
+from typing import Any, ClassVar, Self
 
 from .types import Schema
 
@@ -32,7 +30,7 @@ class Struct:
     def decode(cls, data: BytesIO | bytes) -> Self:
         if isinstance(data, bytes):
             data = BytesIO(data)
-        return cls(*[field.decode(data) for field in cls.SCHEMA.fields])
+        return cls(*cls.SCHEMA.decode(data))
 
     def get_item(self, name: str) -> Any:
         if name not in self.SCHEMA.names:
@@ -55,4 +53,5 @@ class Struct:
                 return False
         return True
 
-    __hash__ = object.__hash__  # unhashable
+    # Explicitly mark as unhashable
+    __hash__ = None  # type: ignore[assignment]

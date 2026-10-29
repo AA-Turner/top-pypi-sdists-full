@@ -18,3 +18,8 @@ class StartJobResponseParams(typing_extensions.TypedDict):
     """
     Server warnings (e.g. filename overridden from content detection). Omitted when empty.
     """
+
+    num_chunks: typing_extensions.NotRequired[int]
+    """
+    Number of translation chunks the source file was split into. Present for Markdown / plain-text jobs; omitted for other formats.
+    """

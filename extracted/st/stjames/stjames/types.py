@@ -17,22 +17,33 @@ def validate_non_polymer_residue_mapping(
     """Validate residue selectors and parameterization inputs for non-polymers.
 
     Args:
-        residues: mapping from residue name or 0-based non-polymer index to
-            SMILES, or `None` for known ions and waters
+        residues: mapping from residue name or 0-based index across all residues ordered by
+            lowest atom ID to SMILES, or `None` for known ions and waters. Decimal
+            string keys are interpreted as indices, including after JSON decoding
 
     Returns:
-        validated mapping
+        validated mapping with integer indices restored
 
     Raises:
         ValueError: if a SMILES value is empty
         ValueError: if an unknown residue maps to `None`
+        ValueError: if an index is negative or selectors normalize to the same key
     """
-    for key, smiles in residues.items():
+    normalized: dict[str | int, str | None] = {}
+    for selector, smiles in residues.items():
+        key = selector
+        if isinstance(key, str) and key.removeprefix("-").isascii() and key.removeprefix("-").isdecimal():
+            key = int(key)
+        if isinstance(key, int) and key < 0:
+            raise ValueError("residue index must be non-negative")
+        if key in normalized:
+            raise ValueError(f"duplicate non-polymer residue selector {key!r}")
         if smiles == "":
             raise ValueError(f"non-polymer residue entry {key!r} has an empty SMILES string")
         if smiles is None and not (isinstance(key, str) and key.upper() in ION_RESIDUES | WATER_RESIDUES):
             raise ValueError(f"non-polymer residue entry {key!r} is not a known ion/water residue and requires a SMILES string")
-    return residues
+        normalized[key] = smiles
+    return normalized
 
 
 NonPolymerResidueMapping: TypeAlias = Annotated[

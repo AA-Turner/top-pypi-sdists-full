@@ -990,6 +990,7 @@ class TsJestTsconfig(
         resolve_json_module: typing.Optional[builtins.bool] = None,
         resolve_package_json_exports: typing.Optional[builtins.bool] = None,
         resolve_package_json_imports: typing.Optional[builtins.bool] = None,
+        rewrite_relative_import_extensions: typing.Optional[builtins.bool] = None,
         root_dir: typing.Optional[builtins.str] = None,
         skip_lib_check: typing.Optional[builtins.bool] = None,
         source_map: typing.Optional[builtins.bool] = None,
@@ -1059,6 +1060,7 @@ class TsJestTsconfig(
         :param resolve_json_module: (experimental) Allows importing modules with a ‘.json’ extension, which is a common practice in node projects. This includes generating a type for the import based on the static JSON shape. Default: true
         :param resolve_package_json_exports: (experimental) Forces TypeScript to consult the ``exports`` field of ``package.json`` files if it ever reads from a package in ``node_modules``. Default: true
         :param resolve_package_json_imports: (experimental) Forces TypeScript to consult the ``imports`` field of ``package.json`` when performing a lookup that begins with ``#`` from a file that has a ``package.json`` as an ancestor. Default: undefined
+        :param rewrite_relative_import_extensions: (experimental) Rewrite ``.ts``, ``.tsx``, ``.mts``, and ``.cts`` extensions in relative import paths to their JavaScript equivalents in emitted files. Requires TypeScript 5.7 or later. Default: undefined
         :param root_dir: (experimental) Specifies the root directory of input files. Only use to control the output directory structure with ``outDir``.
         :param skip_lib_check: (experimental) Skip type checking of all declaration files (*.d.ts). Default: false
         :param source_map: (experimental) Enables the generation of sourcemap files. Default: undefined
@@ -1130,6 +1132,7 @@ class TsJestTsconfig(
             resolve_json_module=resolve_json_module,
             resolve_package_json_exports=resolve_package_json_exports,
             resolve_package_json_imports=resolve_package_json_imports,
+            rewrite_relative_import_extensions=rewrite_relative_import_extensions,
             root_dir=root_dir,
             skip_lib_check=skip_lib_check,
             source_map=source_map,

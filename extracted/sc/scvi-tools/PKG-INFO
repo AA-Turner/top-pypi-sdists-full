@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: scvi-tools
-Version: 1.5.1
+Version: 1.5.2
 Summary: Deep probabilistic analysis of single-cell omics data.
 Project-URL: Documentation, https://docs.scvi-tools.org/
 Project-URL: Homepage, https://scvi-tools.org
@@ -48,6 +48,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Requires-Python: >=3.12
 Requires-Dist: anndata
@@ -61,7 +62,7 @@ Requires-Dist: numpy
 Requires-Dist: pandas
 Requires-Dist: pyro-ppl
 Requires-Dist: rich
-Requires-Dist: scanpy[skmisc]>=1.10
+Requires-Dist: scanpy[skmisc]>=1.11
 Requires-Dist: scikit-learn
 Requires-Dist: scipy
 Requires-Dist: sparse>=0.14
@@ -71,7 +72,7 @@ Requires-Dist: torchmetrics
 Requires-Dist: tqdm
 Requires-Dist: xarray
 Provides-Extra: all
-Requires-Dist: annbatch[zarrs]>=0.2; extra == 'all'
+Requires-Dist: annbatch[zarrs]>=0.3; extra == 'all'
 Requires-Dist: biomart; extra == 'all'
 Requires-Dist: biopython>=1.81; extra == 'all'
 Requires-Dist: boto3; extra == 'all'
@@ -133,7 +134,7 @@ Requires-Dist: nvidia-nccl-cu13; (sys_platform == 'linux') and extra == 'cuda13'
 Requires-Dist: torchaudio; extra == 'cuda13'
 Requires-Dist: torchvision; extra == 'cuda13'
 Provides-Extra: dataloaders
-Requires-Dist: annbatch[zarrs]>=0.2; extra == 'dataloaders'
+Requires-Dist: annbatch[zarrs]>=0.3; extra == 'dataloaders'
 Requires-Dist: cellxgene-census; extra == 'dataloaders'
 Requires-Dist: lamindb>=1.12.1; extra == 'dataloaders'
 Requires-Dist: tiledbsoma; extra == 'dataloaders'
@@ -220,7 +221,7 @@ Requires-Dist: genomepy; extra == 'regseq'
 Provides-Extra: tpu
 Requires-Dist: torch-xla[tpu]; extra == 'tpu'
 Provides-Extra: tutorials
-Requires-Dist: annbatch[zarrs]>=0.2; extra == 'tutorials'
+Requires-Dist: annbatch[zarrs]>=0.3; extra == 'tutorials'
 Requires-Dist: biomart; extra == 'tutorials'
 Requires-Dist: biopython>=1.81; extra == 'tutorials'
 Requires-Dist: boto3; extra == 'tutorials'
@@ -337,7 +338,7 @@ Please be sure to install a version of [PyTorch] that is compatible with your GP
 - Please use the [issues] to submit bug reports.
 - If you'd like to contribute, check out our [contributing guide].
 - If you find a model useful for your research, please consider citing the corresponding
-    publication.
+  publication.
 
 # Reference
 

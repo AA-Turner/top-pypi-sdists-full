@@ -8,13 +8,17 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .doc_ai_get_results_response import (
         DocAiGetResultsResponseParams,
-        DocAiGetResultsResponse_DigitiseParams,
+        DocAiGetResultsResponse_ClassifyParams,
         DocAiGetResultsResponse_ExtractParams,
+        DocAiGetResultsResponse_ParseParams,
+        DocAiGetResultsResponse_SplitParams,
     )
 _dynamic_imports: typing.Dict[str, str] = {
     "DocAiGetResultsResponseParams": ".doc_ai_get_results_response",
-    "DocAiGetResultsResponse_DigitiseParams": ".doc_ai_get_results_response",
+    "DocAiGetResultsResponse_ClassifyParams": ".doc_ai_get_results_response",
     "DocAiGetResultsResponse_ExtractParams": ".doc_ai_get_results_response",
+    "DocAiGetResultsResponse_ParseParams": ".doc_ai_get_results_response",
+    "DocAiGetResultsResponse_SplitParams": ".doc_ai_get_results_response",
 }
 
 
@@ -41,6 +45,8 @@ def __dir__():
 
 __all__ = [
     "DocAiGetResultsResponseParams",
-    "DocAiGetResultsResponse_DigitiseParams",
+    "DocAiGetResultsResponse_ClassifyParams",
     "DocAiGetResultsResponse_ExtractParams",
+    "DocAiGetResultsResponse_ParseParams",
+    "DocAiGetResultsResponse_SplitParams",
 ]

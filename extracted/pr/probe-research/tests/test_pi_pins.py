@@ -15,7 +15,9 @@ import pytest
 from probe.cli import pi_config, pi_pins
 
 #: (SHIM_API, digest of the shim's files): see `test_the_frozen_shim_files_change_only_with_their_api`.
-FROZEN_SHIM = (1, "a094d27e96a07523")
+#: (1, a094d27e96a07523) until notes parity forwarded `agent_before_settle`: an open pi on the
+#: older shim just never delivers it (the send-back waits for /reload); no implementation needs it.
+FROZEN_SHIM = (1, "cc338ef5f1d5b712")
 
 
 def _clone(root: Path, version: str = "0.7.0") -> Path:

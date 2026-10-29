@@ -1,12 +1,13 @@
+__lazy_modules__ = ["allianceauth.authentication.models", "django.db.models", "django.http"]
+
+from typing import TYPE_CHECKING
+
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import QuerySet
-from django.http import HttpRequest
 
 from esi.exceptions import HTTPClientError, HTTPNotModified
 
-from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import (
     EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
 )
@@ -15,14 +16,20 @@ from allianceauth.eveonline.tasks import (
     update_all_factions, update_alliance, update_character, update_corp,
 )
 
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+    from django.http import HttpRequest
+
+    from allianceauth.authentication.models import User
+
 
 class EveEntityExistsError(forms.ValidationError):
-    def __init__(self, entity_type_name, id) -> None:
+    def __init__(self, entity_type_name: str, id: int) -> None:
         super().__init__(message=f'{entity_type_name} with ID {id} already exists.')
 
 
 class EveEntityNotFoundError(forms.ValidationError):
-    def __init__(self, entity_type_name, id) -> None:
+    def __init__(self, entity_type_name: str, id: int) -> None:
         super().__init__(message=f'{entity_type_name} with ID {id} not found.')
 
 
@@ -30,13 +37,13 @@ class EveEntityForm(forms.ModelForm):
     id = forms.IntegerField(min_value=1)
     entity_model_class = None
 
-    def clean_id(self):
+    def clean_id(self) -> int:
         raise NotImplementedError()
 
-    def save(self, commit=True):
+    def save(self, commit: bool = True):
         raise NotImplementedError()
 
-    def save_m2m(self):
+    def save_m2m(self) -> None:
         pass
 
 
@@ -67,7 +74,7 @@ class EveFactionForm(EveEntityForm):
 
         return int(self.cleaned_data['id'])
 
-    def save(self, commit=True) -> EveFactionInfo:
+    def save(self, commit: bool = True) -> EveFactionInfo:
         return self.Meta.model.objects.create_faction(faction_id=self.clean_id())
 
     class Meta:
@@ -91,7 +98,7 @@ class EveCharacterForm(EveEntityForm):
 
         return int(self.cleaned_data['id'])
 
-    def save(self, commit=True) -> EveCharacter:
+    def save(self, commit: bool = True) -> EveCharacter:
         return self.Meta.model.objects.create_character(character_id=self.clean_id())
 
     class Meta:
@@ -115,7 +122,7 @@ class EveCorporationForm(EveEntityForm):
 
         return int(self.cleaned_data['id'])
 
-    def save(self, commit=True) -> EveCorporationInfo:
+    def save(self, commit: bool = True) -> EveCorporationInfo:
         return self.Meta.model.objects.create_corporation(corporation_id=self.clean_id())
 
     class Meta:
@@ -139,7 +146,7 @@ class EveAllianceForm(EveEntityForm):
 
         return int(self.cleaned_data['id'])
 
-    def save(self, commit=True) -> EveAllianceInfo:
+    def save(self, commit: bool = True) -> EveAllianceInfo:
         return self.Meta.model.objects.create_alliance(alliance_id=self.clean_id())
 
     class Meta:
@@ -148,7 +155,7 @@ class EveAllianceForm(EveEntityForm):
 
 
 @admin.action(description="Update from ESI (Browser)")
-def update_factions_blocking(modeladmin: "EveFactionInfoAdmin", request: HttpRequest, queryset: QuerySet[EveFactionInfo]) -> None:
+def update_factions_blocking(modeladmin: "EveFactionInfoAdmin", request: "HttpRequest", queryset: "QuerySet[EveFactionInfo]") -> None:
     EveFactionInfo.objects.update_factions()
 
     modeladmin.message_user(
@@ -157,7 +164,7 @@ def update_factions_blocking(modeladmin: "EveFactionInfoAdmin", request: HttpReq
 
 
 @admin.action(description="Update from ESI (Celery)")
-def update_factions_queued(modeladmin: "EveFactionInfoAdmin", request: HttpRequest, queryset: QuerySet[EveFactionInfo]) -> None:
+def update_factions_queued(modeladmin: "EveFactionInfoAdmin", request: "HttpRequest", queryset: "QuerySet[EveFactionInfo]") -> None:
     update_all_factions.delay()
 
     modeladmin.message_user(
@@ -172,17 +179,19 @@ class EveFactionInfoAdmin(admin.ModelAdmin):
     ordering = ('faction_name',)
     actions = [update_factions_blocking, update_factions_queued]
 
-    def has_change_permission(self, request, obj=None) -> bool:
+    def has_change_permission(self, request: "HttpRequest", obj: EveFactionInfo | None = None) -> bool:
         return False
 
-    def get_form(self, request, obj=None, change=False, **kwargs) -> type[forms.ModelForm]:
+    def get_form(
+        self, request: "HttpRequest", obj: EveFactionInfo | None = None, change: bool = False, **kwargs
+    ) -> type[forms.ModelForm]:
         if not obj or not obj.pk:
             return EveFactionForm
         return super().get_form(request, obj, change, **kwargs)
 
 
 @admin.action(description="Update from ESI (Browser)")
-def update_corporations_blocking(modeladmin: "EveCorporationInfoAdmin", request: HttpRequest, queryset: QuerySet[EveCorporationInfo]) -> None:
+def update_corporations_blocking(modeladmin: "EveCorporationInfoAdmin", request: "HttpRequest", queryset: "QuerySet[EveCorporationInfo]") -> None:
     tasks_count = 0
     for obj in queryset:
         obj.update_corporation()
@@ -194,7 +203,7 @@ def update_corporations_blocking(modeladmin: "EveCorporationInfoAdmin", request:
 
 
 @admin.action(description="Update from ESI (Browser) - Clear ETag/Cache")
-def update_corporations_blocking_forcerefresh(modeladmin: "EveCorporationInfoAdmin", request: HttpRequest, queryset: QuerySet[EveCorporationInfo]) -> None:
+def update_corporations_blocking_forcerefresh(modeladmin: "EveCorporationInfoAdmin", request: "HttpRequest", queryset: "QuerySet[EveCorporationInfo]") -> None:
     # This task is provided as Synchronous only as being mid celery queue would have unexpected behaviour
     tasks_count = 0
     for obj in queryset:
@@ -207,7 +216,7 @@ def update_corporations_blocking_forcerefresh(modeladmin: "EveCorporationInfoAdm
 
 
 @admin.action(description="Update from ESI (Celery)")
-def update_corporations_queued(modeladmin: "EveCorporationInfoAdmin", request: HttpRequest, queryset: QuerySet[EveCorporationInfo]) -> None:
+def update_corporations_queued(modeladmin: "EveCorporationInfoAdmin", request: "HttpRequest", queryset: "QuerySet[EveCorporationInfo]") -> None:
     tasks_count = 0
     for obj in queryset:
         update_corp.delay(obj.corporation_id)
@@ -230,17 +239,19 @@ class EveCorporationInfoAdmin(admin.ModelAdmin):
     ordering = ('corporation_name',)
     actions = [update_corporations_blocking, update_corporations_queued, update_corporations_blocking_forcerefresh]
 
-    def has_change_permission(self, request, obj=None) -> bool:
+    def has_change_permission(self, request: "HttpRequest", obj: EveCorporationInfo | None = None) -> bool:
         return False
 
-    def get_form(self, request, obj=None, change=False, **kwargs) -> type[forms.ModelForm]:
+    def get_form(
+        self, request: "HttpRequest", obj: EveCorporationInfo | None = None, change: bool = False, **kwargs
+    ) -> type[forms.ModelForm]:
         if not obj or not obj.pk:
             return EveCorporationForm
         return super().get_form(request, obj, change, **kwargs)
 
 
 @admin.action(description="Update from ESI (Browser)")
-def update_alliances_blocking(modeladmin: "EveAllianceInfoAdmin", request: HttpRequest, queryset: QuerySet[EveAllianceInfo]) -> None:
+def update_alliances_blocking(modeladmin: "EveAllianceInfoAdmin", request: "HttpRequest", queryset: "QuerySet[EveAllianceInfo]") -> None:
     tasks_count = 0
     for obj in queryset:
         obj.update_alliance()
@@ -252,7 +263,7 @@ def update_alliances_blocking(modeladmin: "EveAllianceInfoAdmin", request: HttpR
 
 
 @admin.action(description="Update from ESI (Browser) - Clear ETag/Cache")
-def update_alliances_blocking_forcerefresh(modeladmin: "EveAllianceInfoAdmin", request: HttpRequest, queryset: QuerySet[EveAllianceInfo]) -> None:
+def update_alliances_blocking_forcerefresh(modeladmin: "EveAllianceInfoAdmin", request: "HttpRequest", queryset: "QuerySet[EveAllianceInfo]") -> None:
     # This task is provided as Synchronous only as being mid celery queue would have unexpected behaviour
     tasks_count = 0
     for obj in queryset:
@@ -266,7 +277,7 @@ def update_alliances_blocking_forcerefresh(modeladmin: "EveAllianceInfoAdmin", r
 
 
 @admin.action(description="Update Alliances from ESI (queued task)")
-def update_alliances_queued(modeladmin: "EveAllianceInfoAdmin", request: HttpRequest, queryset: QuerySet[EveAllianceInfo]) -> None:
+def update_alliances_queued(modeladmin: "EveAllianceInfoAdmin", request: "HttpRequest", queryset: "QuerySet[EveAllianceInfo]") -> None:
     tasks_count = 0
     for obj in queryset:
         update_alliance.delay(obj.alliance_id)
@@ -287,17 +298,19 @@ class EveAllianceInfoAdmin(admin.ModelAdmin):
     )
     actions = [update_alliances_blocking, update_alliances_queued, update_alliances_blocking_forcerefresh]
 
-    def has_change_permission(self, request, obj=None) -> bool:
+    def has_change_permission(self, request: "HttpRequest", obj: EveAllianceInfo | None = None) -> bool:
         return False
 
-    def get_form(self, request, obj=None, change=False, **kwargs) -> type[forms.ModelForm]:
+    def get_form(
+        self, request: "HttpRequest", obj: EveAllianceInfo | None = None, change: bool = False, **kwargs
+    ) -> type[forms.ModelForm]:
         if not obj or not obj.pk:
             return EveAllianceForm
         return super().get_form(request, obj, change, **kwargs)
 
 
 @admin.action(description="Update from ESI (Browser)")
-def update_characters_blocking(modeladmin: "EveCharacterAdmin", request: HttpRequest, queryset: QuerySet[EveCharacter]) -> None:
+def update_characters_blocking(modeladmin: "EveCharacterAdmin", request: "HttpRequest", queryset: "QuerySet[EveCharacter]") -> None:
     tasks_count = 0
     for obj in queryset:
         obj.update_character()
@@ -310,7 +323,7 @@ def update_characters_blocking(modeladmin: "EveCharacterAdmin", request: HttpReq
 
 
 @admin.action(description="Update from ESI (Browser) - Clear ETag/Cache")
-def update_characters_blocking_forcerefresh(modeladmin: "EveCharacterAdmin", request: HttpRequest, queryset: QuerySet[EveCharacter]) -> None:
+def update_characters_blocking_forcerefresh(modeladmin: "EveCharacterAdmin", request: "HttpRequest", queryset: "QuerySet[EveCharacter]") -> None:
     # This task is provided as Synchronous only as being mid celery queue would have unexpected behaviour
     tasks_count = 0
     for obj in queryset:
@@ -324,7 +337,7 @@ def update_characters_blocking_forcerefresh(modeladmin: "EveCharacterAdmin", req
 
 
 @admin.action(description="Update from ESI (Celery)")
-def update_characters_queued(modeladmin: "EveCharacterAdmin", request: HttpRequest, queryset: QuerySet[EveCharacter]) -> None:
+def update_characters_queued(modeladmin: "EveCharacterAdmin", request: "HttpRequest", queryset: "QuerySet[EveCharacter]") -> None:
     tasks_count = 0
     for obj in queryset:
         update_character.delay(obj.character_id)
@@ -370,24 +383,26 @@ class EveCharacterAdmin(admin.ModelAdmin):
     ordering = ('character_name', )
     actions = [update_characters_blocking, update_characters_queued, update_characters_blocking_forcerefresh]
 
-    def has_change_permission(self, request, obj=None) -> bool:
+    def has_change_permission(self, request: "HttpRequest", obj: EveCharacter | None = None) -> bool:
         return False
 
     @staticmethod
-    def user(obj) -> User | None:
+    def user(obj: EveCharacter) -> "User | None":
         try:
             return obj.character_ownership.user
         except (AttributeError, ObjectDoesNotExist):
             return None
 
     @staticmethod
-    def main_character(obj) -> EveCharacter | None:
+    def main_character(obj: EveCharacter) -> EveCharacter | None:
         try:
             return obj.character_ownership.user.profile.main_character
         except (AttributeError, ObjectDoesNotExist):
             return None
 
-    def get_form(self, request, obj=None, change=False, **kwargs) -> type[forms.ModelForm]:
+    def get_form(
+        self, request: "HttpRequest", obj: EveCharacter | None = None, change: bool = False, **kwargs
+    ) -> type[forms.ModelForm]:
         if not obj or not obj.pk:
             return EveCharacterForm
         return super().get_form(request, obj, change, **kwargs)

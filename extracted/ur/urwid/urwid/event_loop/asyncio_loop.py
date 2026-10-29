@@ -27,7 +27,6 @@ import asyncio
 import functools
 import inspect
 import logging
-import sys
 import typing
 
 from .abstract_loop import EventLoop, ExitMainLoop
@@ -35,8 +34,7 @@ from .abstract_loop import EventLoop, ExitMainLoop
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
     from concurrent.futures import Executor
-
-    from typing_extensions import ParamSpec
+    from typing import ParamSpec
 
     _Spec = ParamSpec("_Spec")
     _T = typing.TypeVar("_T")
@@ -48,11 +46,6 @@ class AsyncioEventLoop(EventLoop):
     """
     Event loop based on the standard library ``asyncio`` module.
 
-    .. warning::
-        Under Windows, AsyncioEventLoop globally enforces WindowsSelectorEventLoopPolicy
-        as a side-effect of creating a class instance.
-        Original event loop policy is restored in destructor method.
-
     .. note::
         If you make any changes to the urwid state outside of it
         handling input or responding to alarms (for example, from asyncio.Task
@@ -61,7 +54,7 @@ class AsyncioEventLoop(EventLoop):
         main loop manually.
 
         A good way to do this:
-            asyncio.get_event_loop().call_soon(main_loop.draw_screen)
+            asyncio.get_running_loop().call_soon(main_loop.draw_screen)
 
     .. note::
         :meth:`alarm`, :meth:`watch_file` and :meth:`enter_idle` accept an ``async def``
@@ -70,51 +63,25 @@ class AsyncioEventLoop(EventLoop):
     """
 
     def __init__(self, *, loop: asyncio.AbstractEventLoop | None = None, **kwargs: typing.Any) -> None:
-        """Wrap `loop`, or the current asyncio event loop when none is given."""
+        """Wrap `loop`, or the running asyncio event loop when none is given.
+
+        Without either, a new ``SelectorEventLoop`` is created in an ``asyncio.Runner`` owned by this instance.
+        """
         super().__init__()
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
-        if sys.version_info[:2] < (3, 11):
-            self._event_loop_policy_altered: bool = False
-            self._original_event_loop_policy: asyncio.AbstractEventLoopPolicy | None = None
+        self._runner: asyncio.Runner | None = None
 
-            if loop:
-                self._loop: asyncio.AbstractEventLoop = loop
-            else:
-                self._original_event_loop_policy = asyncio.get_event_loop_policy()
-                if sys.platform == "win32" and not isinstance(
-                    self._original_event_loop_policy, asyncio.WindowsSelectorEventLoopPolicy
-                ):
-                    self.logger.debug("Set WindowsSelectorEventLoopPolicy as asyncio event loop policy")
-                    asyncio.set_event_loop_policy(
-                        asyncio.WindowsSelectorEventLoopPolicy()  # pylint: disable=deprecated-class
-                    )
-                    self._event_loop_policy_altered = True
-                else:
-                    self._event_loop_policy_altered = False
-
-                try:
-                    self._loop = asyncio.get_event_loop()
-                except RuntimeError:
-                    # get_event_loop() only auto-creates a loop the first time it is ever called in
-                    # this thread (CPython's BaseDefaultEventLoopPolicy._set_called guard): once
-                    # something else has called set_event_loop() - e.g. a test fixture resetting it
-                    # to None during teardown - a later get_event_loop() call raises instead of
-                    # creating a replacement, even though nothing is currently running one.
-                    self._loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(self._loop)
-
+        if loop:
+            self._loop: asyncio.AbstractEventLoop = loop
         else:
-            self._runner: asyncio.Runner | None = None
-
-            if loop:
-                self._loop: asyncio.AbstractEventLoop = loop
-            else:
-                try:
-                    self._loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    self._runner = asyncio.Runner(loop_factory=asyncio.SelectorEventLoop)
-                    self._loop = self._runner.get_loop()
+            try:
+                self._loop = asyncio.get_running_loop()
+            except RuntimeError:
+                runner = asyncio.Runner(loop_factory=asyncio.SelectorEventLoop)
+                self._loop = runner.get_loop()
+                # Kept only once the loop exists: __del__ reads the loop of every runner it holds.
+                self._runner = runner
 
         self._exc: BaseException | None = None
 
@@ -122,13 +89,12 @@ class AsyncioEventLoop(EventLoop):
         self._idle_handle: int = 0
         self._idle_callbacks: dict[int, Callable[[], typing.Any]] = {}
         self._background_tasks: set[asyncio.Task[typing.Any]] = set()
+        self._pending_alarms: set[asyncio.TimerHandle] = set()
 
     def __del__(self) -> None:
-        """Restore the original event loop policy or close the runner, as appropriate for this Python version."""
-        if sys.version_info[:2] < (3, 11):
-            if self._event_loop_policy_altered:
-                asyncio.set_event_loop_policy(self._original_event_loop_policy)  # Restore default event loop policy
-        elif self._runner is not None:
+        """Close the runner created for a loop that was neither given nor running."""
+        # In a reference cycle the loop's own finalizer can run first and close the loop already.
+        if self._runner is not None and not self._loop.is_closed():
             self._runner.close()
 
     def _also_call_idle(self, callback: Callable[_Spec, _T]) -> Callable[_Spec, _T | None]:
@@ -148,7 +114,7 @@ class AsyncioEventLoop(EventLoop):
         :param callback: function or coroutine function to call
         :param args: positional arguments to pass to callback
         :param kwargs: keyword arguments to pass to callback
-        :return: callback return value, or None if it was scheduled as a background task
+        :returns: callback return value, or None if it was scheduled as a background task
         """
         if inspect.iscoroutinefunction(callback):
             task = self._loop.create_task(callback(*args, **kwargs))
@@ -176,7 +142,8 @@ class AsyncioEventLoop(EventLoop):
     def _entering_idle(self) -> None:
         """Call all the registered idle callbacks."""
         try:
-            for callback in self._idle_callbacks.values():
+            # A callback may add or remove idle callbacks.
+            for callback in list(self._idle_callbacks.values()):
                 self._run_callback(callback)
         finally:
             self._idle_asyncio_handle = None
@@ -194,7 +161,7 @@ class AsyncioEventLoop(EventLoop):
         :param func: function to call
         :param args: arguments to function (positional only)
         :param kwargs: keyword arguments to function (keyword only)
-        :return: future object for the function call outcome.
+        :returns: future object for the function call outcome.
         """
         return self._loop.run_in_executor(executor, functools.partial(func, *args, **kwargs))
 
@@ -206,17 +173,28 @@ class AsyncioEventLoop(EventLoop):
         :param seconds: time in seconds to wait before calling callback
         :param callback: function to call from event loop
         """
-        return self._loop.call_later(seconds, self._also_call_idle(callback))
+        call_idle = self._also_call_idle(callback)
+
+        def fire() -> None:
+            self._pending_alarms.discard(handle)
+            call_idle()
+
+        handle = self._loop.call_later(seconds, fire)
+        self._pending_alarms.add(handle)
+        return handle
 
     def remove_alarm(self, handle: asyncio.TimerHandle) -> bool:
         """
         Remove an alarm.
 
-        Returns True if the alarm exists, False otherwise
+        :returns: True if the alarm was still pending, False if it has fired or was removed already.
         """
-        existed = not handle.cancelled()
         handle.cancel()
-        return existed
+        try:
+            self._pending_alarms.remove(handle)
+        except KeyError:
+            return False
+        return True
 
     def watch_file(self, fd: int, callback: Callable[[], typing.Any]) -> int:
         """Call callback() when fd has some data to read.
@@ -233,7 +211,7 @@ class AsyncioEventLoop(EventLoop):
         """
         Remove an input file.
 
-        Returns True if the input file exists, False otherwise
+        :returns: True if the input file exists, False otherwise
         """
         return self._loop.remove_reader(handle)
 
@@ -241,7 +219,7 @@ class AsyncioEventLoop(EventLoop):
         """
         Add a callback for entering idle.
 
-        Returns a handle that may be passed to remove_enter_idle()
+        :returns: a handle that may be passed to remove_enter_idle()
         """
         # XXX there's no such thing as "idle" in most event loops; this fakes
         # it by adding extra callback to the timer and file watch callbacks.
@@ -253,7 +231,7 @@ class AsyncioEventLoop(EventLoop):
         """
         Remove an idle callback.
 
-        Returns True if the handle was removed.
+        :returns: True if the handle was removed.
         """
         try:
             del self._idle_callbacks[handle]

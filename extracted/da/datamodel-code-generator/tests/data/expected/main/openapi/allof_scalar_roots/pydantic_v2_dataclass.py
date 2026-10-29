@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated
+from re import compile
+from typing import Annotated, Any
 
 from pydantic import Field
 from pydantic.dataclasses import dataclass
@@ -54,9 +55,7 @@ ShortLabel = TypeAliasType(
 )
 
 
-@dataclass
-class Anything:
-    pass
+Anything = TypeAliasType("Anything", Any)
 
 
 @dataclass
@@ -88,9 +87,12 @@ class Cat(Pet):
     pass
 
 
-@dataclass
-class TwoPatterns:
-    pass
+TwoPatterns = TypeAliasType(
+    "TwoPatterns",
+    Annotated[
+        str, Field(pattern=compile('\\A(?=[\\s\\S]*?(?:^a))(?=[\\s\\S]*?(?:b$))'))
+    ],
+)
 
 
 @dataclass

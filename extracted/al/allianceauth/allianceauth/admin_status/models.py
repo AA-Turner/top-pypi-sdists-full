@@ -42,7 +42,7 @@ class ApplicationAnnouncement(models.Model):
             )
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.application_name} announcement #{self.announcement_number}"
 
     def is_hidden(self) -> bool:

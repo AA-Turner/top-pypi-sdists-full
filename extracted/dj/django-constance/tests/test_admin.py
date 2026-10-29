@@ -157,9 +157,10 @@ class TestAdmin(TestCase):
         request.user = self.superuser
         request._dont_enforce_csrf_checks = True
 
-        with mock.patch("django.contrib.messages.add_message") as mock_message, mock.patch.object(
-            ConstanceForm, "__init__", **initial_value, return_value=None
-        ) as mock_form:
+        with (
+            mock.patch("django.contrib.messages.add_message") as mock_message,
+            mock.patch.object(ConstanceForm, "__init__", **initial_value, return_value=None) as mock_form,
+        ):
             response = self.options.changelist_view(request, {})
             mock_form.assert_called_with(data=request.POST, files=request.FILES, initial=initial_value, request=request)
             mock_message.assert_called_with(request, 25, _("Live settings updated successfully."))
@@ -331,6 +332,60 @@ class TestAdmin(TestCase):
             # Clean up FIELDS to avoid leaking into other tests
             FIELDS.pop("language_select", None)
 
+    @mock.patch(
+        "constance.settings.ADDITIONAL_FIELDS",
+        {
+            "language_select": [
+                "django.forms.fields.TypedMultipleChoiceField",
+                {
+                    "widget": "django.forms.CheckboxSelectMultiple",
+                    "choices": (("en", "English"), ("de", "German"), ("fr", "French")),
+                    "coerce": str,
+                },
+            ],
+        },
+    )
+    @mock.patch(
+        "constance.settings.CONFIG",
+        {
+            "LANGUAGES": (("en", "de"), "Supported languages", "language_select"),
+        },
+    )
+    def test_reset_to_default_multi_select_tuple(self):
+        """
+        Test that multi-select config values with a tuple default serialize
+        correctly to a flat JSON list.
+        """
+        from constance.forms import FIELDS
+        from constance.forms import parse_additional_fields
+
+        FIELDS.update(
+            parse_additional_fields(
+                {
+                    "language_select": [
+                        "django.forms.fields.TypedMultipleChoiceField",
+                        {
+                            "widget": "django.forms.CheckboxSelectMultiple",
+                            "choices": (("en", "English"), ("de", "German"), ("fr", "French")),
+                            "coerce": str,
+                        },
+                    ]
+                }
+            )
+        )
+        try:
+            self.client.login(username="admin", password="nimda")
+            request = self.rf.get("/admin/constance/config/")
+            request.user = self.superuser
+            response = self.options.changelist_view(request, {})
+            response.render()
+            content = response.content.decode()
+
+            self.assertIn('data-field-type="multi-select"', content)
+            self.assertIn('data-default="[&quot;en&quot;, &quot;de&quot;]"', content)
+        finally:
+            FIELDS.pop("language_select", None)
+
     @mock.patch("constance.settings.CONFIG_FIELDSETS", {"FieldSetOne": ("INT_VALUE", "STRING_VALUE")})
     @mock.patch(
         "constance.settings.CONFIG",
@@ -419,6 +474,28 @@ class TestAdmin(TestCase):
         content = response.content.decode()
         self.assertIn("INT_VALUE", content)
         self.assertIn("History", content)
+
+    def test_history_view_fetches_users_with_entries(self):
+        """Test that the history view loads each entry's user in the same query."""
+        ct = ContentType.objects.get_for_model(self.model)
+        editor = User.objects.create_user("editor", "editor@example.com", "editor")
+        for user in (self.superuser, editor):
+            LogEntry.objects.create(
+                user_id=user.pk,
+                content_type_id=ct.pk,
+                object_id="Config",
+                object_repr="Config",
+                action_flag=CHANGE,
+                change_message=json.dumps([{"changed": {"fields": ["INT_VALUE"]}}]),
+            )
+
+        request = self.rf.get("/admin/constance/config/history/")
+        request.user = self.superuser
+        response = self.options.history_view(request)
+        entries = list(response.context_data["action_list"])
+        with self.assertNumQueries(0):
+            usernames = {entry.user.get_username() for entry in entries}
+        self.assertEqual(usernames, {self.superuser.get_username(), "editor"})
 
     def test_history_view_empty(self):
         """Test that the history view renders correctly with no entries."""

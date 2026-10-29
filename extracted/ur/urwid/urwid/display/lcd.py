@@ -30,8 +30,7 @@ from .common import BaseScreen
 
 if typing.TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Sequence
-
-    from typing_extensions import Literal, SupportsIndex
+    from typing import Literal, SupportsIndex
 
     from urwid import Canvas
 
@@ -176,10 +175,10 @@ class CFLCDScreen(LCDScreen, abc.ABC):
     def _read_packet(self) -> tuple[int, bytearray] | None:
         """Read a low-level packet.
 
-        Returns ``(command/report code, data)`` or ``None``.
-
         This method stores data read and tries to resync when bad data
         is received.
+
+        :returns: ``(command/report code, data)`` or ``None``.
         """
         # pull in any new data available
         self._unprocessed += self._device.read()
@@ -187,7 +186,7 @@ class CFLCDScreen(LCDScreen, abc.ABC):
             try:
                 command, data, unprocessed = self._parse_data(self._unprocessed)
                 self._unprocessed = unprocessed
-            except self.MoreDataRequired:  # noqa: PERF203
+            except self.MoreDataRequired:
                 return None
             except self.InvalidPacket:
                 # throw out a byte and try to parse again
@@ -205,8 +204,7 @@ class CFLCDScreen(LCDScreen, abc.ABC):
     def _parse_data(cls, data: bytearray) -> tuple[int, bytearray, bytearray]:
         """Try to read a packet from the start of *data*.
 
-        Returns ``(command/report code, packet_data, remaining_data)``.
-
+        :returns: ``(command/report code, packet_data, remaining_data)``.
         :raises MoreDataRequired: *data* does not yet hold a complete packet.
         :raises InvalidPacket: the packet is longer than the protocol allows, or its CRC does not match.
         """
@@ -335,7 +333,7 @@ class CF635Screen(CFLCDScreen):
         repeat_delay: float = 0.5,
         repeat_next: float = 0.125,
         key_map: Iterable[str] = ("up", "down", "left", "right", "enter", "esc"),
-    ):
+    ) -> None:
         """Open the serial connection and set up key repeat handling.
 
         :param device_path: serial device to talk to, e.g. :file:`/dev/ttyUSB0`
@@ -360,7 +358,7 @@ class CF635Screen(CFLCDScreen):
 
     def get_input_descriptors(self) -> list[int]:
         """Return the fd from our serial device so we get called on input and responses."""
-        return [self._device.fd]
+        return [self._device.fileno()]
 
     def get_input_nonblocking(self) -> tuple[float | None, list[str], list[int]]:
         """Return a ``(next_input_timeout, keys_pressed, raw_keycodes)`` tuple.
@@ -436,6 +434,7 @@ class CF635Screen(CFLCDScreen):
         if size != self.DISPLAY_SIZE:
             raise ValueError(size)
 
+        osb: list[list[bytes]]
         if self._screen_buf:
             osb = self._screen_buf
         else:

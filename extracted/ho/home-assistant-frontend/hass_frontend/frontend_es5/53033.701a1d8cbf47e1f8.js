@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkhome_assistant_frontend=self.rspackChunkhome_assistant_frontend||[]).push([[53033],{88176(t,s,n){n.r(s);var e=n(50026),a=n(19266),o=n(36836),r=n(26033);class L extends r.HaSvgIcon{constructor(...t){super(...t),this.path="rtl"===o.G.document.dir?"M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z":"M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z"}}(0,e.Cg)([(0,a.MZ)()],L.prototype,"path",void 0),L=(0,e.Cg)([(0,a.EM)("ha-icon-next")],L),n.d(s,{HaIconNext:()=>L})}}]);
+//# sourceMappingURL=53033.701a1d8cbf47e1f8.js.map

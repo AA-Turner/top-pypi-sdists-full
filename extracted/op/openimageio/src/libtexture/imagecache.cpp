@@ -310,10 +310,7 @@ has_one_tile(const T& s)
 
 
 LevelInfo::LevelInfo(ImageSpec* spec_, ImageDims* dims_)
-    : m_dims(dims_)
-    , nxtiles(1)
-    , nytiles(1)
-    , nztiles(1)
+    : m_dims(dims_), nxtiles(1), nytiles(1), nztiles(1)
 {
     OIIO_DASSERT(spec_);
     const ImageDims& dims = m_dims ? *m_dims : ImageDims::convert(*spec_);
@@ -858,6 +855,8 @@ ImageCacheFile::open(ImageCachePerThreadInfo* thread_info)
                     "Images with more than 65535 channels are not supported.");
             tempspec = nativespec;
             if (nmip == 0) {
+                OIIO::pvt::set_source_provenance(tempspec, inp->format_name(),
+                                                 m_filename.string());
                 sispec = find_or_create_spec(nsubimages, tempspec);
                 OIIO_DASSERT(sispec);
                 // Things to do on MIP level 0, i.e. once per subimage
@@ -1424,8 +1423,8 @@ ImageCacheFile::release()
         // pressure on the cache, it'll get freed next time around.
         return;
     }
-    if (m_used)
-        m_used = false;
+    if (m_used.load(std::memory_order_relaxed))
+        m_used.store(false, std::memory_order_relaxed);
     else if (m_allow_release)
         close();
     m_input_mutex.unlock();
@@ -1813,9 +1812,7 @@ ImageCacheImpl::set_min_cache_size(long long newsize)
 
 
 
-ImageCacheTile::ImageCacheTile(const TileID& id)
-    : m_id(id)
-    , m_valid(true)
+ImageCacheTile::ImageCacheTile(const TileID& id) : m_id(id), m_valid(true)
 {
     id.file().imagecache().incr_tiles(0);  // mem counted separately in read
 }
@@ -4525,8 +4522,7 @@ ImageCache::impl_deleter(ImageCacheImpl* todel)
 
 
 
-ImageCache::ImageCache()
-    : m_impl(new ImageCacheImpl, &impl_deleter)
+ImageCache::ImageCache() : m_impl(new ImageCacheImpl, &impl_deleter)
 {
 }
 

@@ -35,6 +35,8 @@ enabled trigger or None), only the transport differs.
 
 from __future__ import annotations
 
+from matrx_orm import db_sqlstate
+
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -338,13 +340,8 @@ async def claim_task(
     try:
         instance = await SchRunModel.create(**payload)
     except Exception as exc:
-        msg = str(exc)
-        # Unique-violation = another scanner won the race. Expected; log at debug.
-        if (
-            "23505" in msg
-            or "sch_run_unique_active_per_task" in msg
-            or "duplicate key" in msg.lower()
-        ):
+        # Unique-violation (SQLSTATE 23505) = another scanner won the race. Expected; log at debug.
+        if db_sqlstate(exc) == "23505":
             log.debug("claim race lost on task %s", task.id)
             return None
         raise

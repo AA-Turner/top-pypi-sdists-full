@@ -160,7 +160,7 @@ def test_response_shapes(service_home):
         assert status["background"] == {
             "drains": [], "box_watchers": [], "started": 0, "telemetry": {"queued": 0, "sent": 0, "dropped": 0},
         }
-        assert set(status["statusline"]) == {"folders", "waiting", "running", "children", "last"}
+        assert set(status["statusline"]) == {"folders", "waiting", "running", "children", "followed", "followups", "last"}
         assert set(status["notes"]) == {"running", "waiting", "runs", "last"}
         assert set(status["update"]) == {
             "enabled", "last_check", "last_result", "next_check", "in_progress", "cycle_id", "step", "deferred",

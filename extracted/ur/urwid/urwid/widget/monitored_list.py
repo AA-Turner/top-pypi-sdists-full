@@ -22,15 +22,18 @@
 from __future__ import annotations
 
 import functools
+import operator
 import typing
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Collection, Iterable, Iterator
+    from typing import Concatenate, ParamSpec, Self
 
-    from typing_extensions import Concatenate, ParamSpec, Self
+    from _typeshed import SupportsRichComparison, SupportsRichComparisonT
 
     ArgSpec = ParamSpec("ArgSpec")
     Ret = typing.TypeVar("Ret")
+    _ML = typing.TypeVar("_ML", bound="MonitoredList[typing.Any]")
 
 __all__ = ("MonitoredFocusList", "MonitoredList")
 
@@ -39,11 +42,11 @@ _S = typing.TypeVar("_S")
 
 
 def _call_modified(
-    fn: Callable[Concatenate[MonitoredList[typing.Any], ArgSpec], Ret],
-) -> Callable[Concatenate[MonitoredList[typing.Any], ArgSpec], Ret]:
+    fn: Callable[Concatenate[_ML, ArgSpec], Ret],
+) -> Callable[Concatenate[_ML, ArgSpec], Ret]:
     @functools.wraps(fn)
     def call_modified_wrapper(
-        self: MonitoredList[typing.Any],
+        self: _ML,
         /,
         *args: ArgSpec.args,
         **kwargs: ArgSpec.kwargs,
@@ -97,6 +100,42 @@ class MonitoredList(list[_T], typing.Generic[_T]):
         for item in self:
             yield None, item
 
+    def __reduce_ex__(self, protocol: typing.SupportsIndex, /) -> str | tuple[typing.Any, ...]:
+        """Move the items into the state, so that unpickling restores them only after the attributes.
+
+        From protocol 2 pickle restores a list subclass's items with ``extend`` before its attributes,
+        and the monitoring methods need those attributes. Protocols 0 and 1 pass the items to the constructor.
+        A subclass with its own ``__reduce__`` or ``__setstate__`` keeps the default state.
+        """
+        rv = super().__reduce_ex__(protocol)
+        cls = type(self)
+        if (
+            isinstance(rv, str)
+            or len(rv) < 4
+            or rv[3] is None
+            or cls.__reduce__ is not object.__reduce__
+            or cls.__setstate__ is not MonitoredList.__setstate__
+        ):
+            return rv
+        factory, args, state, items, *rest = rv
+        return factory, args, (state, list(items)), None, *rest
+
+    def __setstate__(self, state: typing.Any) -> None:
+        """Restore the attributes, then the items :meth:`__reduce_ex__` put into *state*, without notifying.
+
+        :param state: ``(state, items)`` from :meth:`__reduce_ex__`, or the default state pickle restores:
+            ``None``, the instance dictionary, or a tuple of it and a dictionary of slot values.
+        """
+        items: list[_T] = []
+        if isinstance(state, tuple) and isinstance(state[1], list):
+            state, items = state
+        attributes, slots = state if isinstance(state, tuple) else (state, None)
+        if attributes:
+            vars(self).update(attributes)
+        for name, value in (slots or {}).items():
+            setattr(self, name, value)
+        list.extend(self, items)
+
     # list.__add__/__rmul__ return a new list, not Self, and leave this list unchanged, so they do not notify.
     @typing.overload
     def __add__(self, __value: list[_T], /) -> list[_T]: ...
@@ -113,10 +152,10 @@ class MonitoredList(list[_T], typing.Generic[_T]):
         """Delete the item or slice at `__key`."""
         super().__delitem__(__key)
 
-    @_call_modified
-    def __iadd__(self, __value: Iterable[_T]) -> Self:  # type: ignore[override]
-        """Extend the list in place with the items from `__value`."""
-        return super().__iadd__(__value)
+    def __iadd__(self, __value: Iterable[_T]) -> Self:  # type: ignore[misc,override]  # in-place += accepts any iterable, + only a list
+        """Extend the list in place with the items from `__value`, through :meth:`extend`."""
+        self.extend(__value)
+        return self
 
     def __rmul__(self, __value: typing.SupportsIndex) -> list[_T]:
         """Return a new list with this list's items repeated `__value` times."""
@@ -148,8 +187,14 @@ class MonitoredList(list[_T], typing.Generic[_T]):
 
     @_call_modified
     def extend(self, __iterable: Iterable[_T]) -> None:
-        """Extend the list with items from ``__iterable``."""
-        super().extend(__iterable)
+        """Extend with ``__iterable``, notifying even if it raises after appending items."""
+        original_length = len(self)
+        try:
+            super().extend(__iterable)
+        except BaseException:
+            if len(self) != original_length:
+                self._modified()
+            raise
 
     @_call_modified
     def pop(self, __index: typing.SupportsIndex = -1) -> _T:
@@ -171,10 +216,17 @@ class MonitoredList(list[_T], typing.Generic[_T]):
         """Reverse the list in place."""
         super().reverse()
 
-    @_call_modified
-    def sort(self, *, key: Callable[[_T], typing.Any] | None = None, reverse: bool = False) -> None:
+    @typing.overload
+    def sort(self: MonitoredList[SupportsRichComparisonT], *, key: None = None, reverse: bool = False) -> None: ...
+
+    @typing.overload
+    def sort(self, *, key: Callable[[_T], SupportsRichComparison], reverse: bool = False) -> None: ...
+
+    def sort(self, *, key: Callable[[_T], SupportsRichComparison] | None = None, reverse: bool = False) -> None:
         """Sort the list in place."""
+        # pyrefly: ignore[no-matching-overload]  # an optional key is forwarded as is
         super().sort(key=key, reverse=reverse)
+        self._modified()
 
     @_call_modified
     def clear(self) -> None:
@@ -189,9 +241,12 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
     """
 
     _focus_changed_callback: Callable[[int], typing.Any] | None = None
+    _focus_moved_callback: Callable[[int | None, int | None], typing.Any] | None = None
     _validate_contents_modified_callback: Callable[[tuple[int, int, int], Collection[_T]], int | None] | None = None
+    follow_end: bool = False
+    """Move the focus from the last item to the new last item when items are added after it."""
 
-    def __init__(self, *args: typing.Any, focus: int = 0, **kwargs: typing.Any) -> None:
+    def __init__(self, iterable: Iterable[_T] = (), /, *, focus: int = 0, follow_end: bool = False) -> None:
         """Initialize a list that tracks one item as the focus item.
 
         If items are inserted or removed it will update the focus.
@@ -211,9 +266,33 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
         >>> ml[:] = []
         >>> ml
         MonitoredFocusList([], focus=None)
-        """
-        super().__init__(*args, **kwargs)
 
+        With *follow_end*, items added after a focused last item take the focus, as in a log view:
+
+        >>> ml = MonitoredFocusList([10, 11], focus=1, follow_end=True)
+        >>> ml.append(12)
+        >>> ml
+        MonitoredFocusList([10, 11, 12], focus=2)
+        >>> ml.focus = 0
+        >>> ml.append(13)
+        >>> ml
+        MonitoredFocusList([10, 11, 12, 13], focus=0)
+
+        :param iterable: the initial items
+        :param focus: the index of the initial focus item
+        :param follow_end: the initial value of :attr:`follow_end`
+        :raises TypeError: *focus* is not an integer.
+        :raises IndexError: *focus* is not an index of *iterable*'s items, which is ignored when there are none.
+        """
+        super().__init__(iterable)
+        self.follow_end = follow_end
+        if not self:
+            self._focus = 0
+            return
+        if not isinstance(focus, int):
+            raise TypeError("index must be an integer")
+        if focus < 0 or focus >= len(self):
+            raise IndexError(f"focus index is out of range: {focus}")
         self._focus = focus
 
     def __repr__(self) -> str:
@@ -264,6 +343,7 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
         ...
         IndexError: focus index is out of range: -2
         """
+        old_focus = self.focus
         if not self:
             self._focus = 0
             return
@@ -275,10 +355,15 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
         if index != self._focus:
             self._focus_changed(index)
         self._focus = index
+        self._focus_moved(old_focus)
 
     def _focus_changed(self, new_focus: int) -> None:
         if self._focus_changed_callback is not None:
             self._focus_changed_callback(new_focus)
+
+    def _focus_moved(self, old_focus: int | None) -> None:
+        if self._focus_moved_callback is not None and (new_focus := self.focus) != old_focus:
+            self._focus_moved_callback(old_focus, new_focus)
 
     def set_focus_changed_callback(self, callback: Callable[[int], typing.Any]) -> None:
         r"""
@@ -306,6 +391,28 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
         MonitoredFocusList([12, 13, 14, 2, 3, 10], focus=5)
         """
         self._focus_changed_callback = callback
+
+    def set_focus_moved_callback(self, callback: Callable[[int | None, int | None], typing.Any]) -> None:
+        r"""Assign a callback to be called after the focus index changed for any reason.
+
+        It is independent of :meth:`set_focus_changed_callback`, whose callback is called before the change.
+        A change of the contents is reported once, after its modified callback, also when that callback raised.
+        Only the index is compared: replacing the item in focus in place is not reported.
+
+        :param callback: a callable in the form ``callback(old_focus, new_focus)``; a focus is ``None`` when the list
+            is empty.
+
+        >>> import sys
+        >>> ml = MonitoredFocusList([1, 2, 3], focus=1)
+        >>> ml.set_focus_moved_callback(lambda old, new: sys.stdout.write(f"focus: {old} -> {new}\n"))
+        >>> ml.focus = 2
+        focus: 1 -> 2
+        >>> del ml[:]
+        focus: 2 -> None
+        >>> ml.extend([4, 5])
+        focus: None -> 1
+        """
+        self._focus_moved_callback = callback
 
     def _validate_contents_modified(
         self,
@@ -337,6 +444,9 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
         """Default behaviour is to move the focus to the item following any removed items.
 
         Unless that item was simply replaced, failing that choose the last item in the list.
+        Filling an empty list therefore focuses the last new item; applications rely on this,
+        for example to focus the last part of a container whose contents they replace.
+        With :attr:`follow_end`, items added after a focused last item move the focus to the new last item.
 
         returns focus position for after change is applied
         """
@@ -349,7 +459,10 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
             return focus
 
         focus = self._focus
-        if step == 1:
+        if self.follow_end and step == 1 and start == len(self) == focus + 1:
+            focus += num_new_items
+        elif step == 1:
+            stop = max(start, stop)
             if start + num_new_items <= focus < stop:
                 focus = stop
             # adjust for added/removed items
@@ -381,17 +494,30 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
 
         :param focus: the new focus index, or a callable returning it, called after the change
         :param change: the unmonitored operation applying the change
+        :param args: positional arguments for *change*
+        :param kwargs: keyword arguments for *change*
         :returns: what ``change`` returns
         :raises Exception: whatever ``change`` raises, leaving the focus as it was and notifying nothing;
-            or whatever the focus-changed or the modified callback raises.
+            or whatever the focus-changed or the modified callback raises, after the focus moved callback ran.
         :raises TypeError: the new focus is not an integer; the change is applied and notified.
         :raises IndexError: the new focus is out of range; the change is applied and notified.
         """
-        rval = change(*args, **kwargs)
+        old_focus = self.focus
+        # the focus moved callback is called once, below, with the focus the whole change ends with
+        focus_moved_callback = self._focus_moved_callback
+        if focus_moved_callback is not None:
+            self._focus_moved_callback = None
         try:
-            self.focus = focus() if callable(focus) else focus
+            rval = change(*args, **kwargs)
+            try:
+                self.focus = focus() if callable(focus) else focus
+            finally:
+                self._modified()
         finally:
-            self._modified()
+            # a callback set during the change is kept; the report is also made when a callback raised
+            if focus_moved_callback is not None and self._focus_moved_callback is None:
+                self._focus_moved_callback = focus_moved_callback
+            self._focus_moved(old_focus)
         return rval
 
     # override all the list methods that modify the list
@@ -436,8 +562,8 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
         if isinstance(y, slice):
             focus = self._adjust_focus_on_contents_modified(y)
         else:
-            idx = int(y)
-            focus = self._adjust_focus_on_contents_modified(slice(idx, idx + 1 or None))
+            y = operator.index(y)
+            focus = self._adjust_focus_on_contents_modified(slice(y, y + 1 or None))
         self._modify(focus, super(MonitoredList, self).__delitem__, y)
 
     @typing.overload
@@ -482,8 +608,8 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
             self._modify(focus, super(MonitoredList, self).__setitem__, i, new_items)
         else:
             item = typing.cast("_T", y)
-            idx = int(i)
-            focus = self._adjust_focus_on_contents_modified(slice(idx, idx + 1 or None), [item])
+            i = operator.index(i)
+            focus = self._adjust_focus_on_contents_modified(slice(i, i + 1 or None), [item])
             self._modify(focus, super(MonitoredList, self).__setitem__, i, item)
 
     def __imul__(self, n: typing.SupportsIndex) -> Self:
@@ -502,7 +628,7 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
         >>> print(ml.focus)
         None
         """
-        multiplier = int(n)
+        multiplier = operator.index(n)
         if multiplier > 0:
             focus = self._adjust_focus_on_contents_modified(slice(len(self), len(self)), list(self) * (multiplier - 1))
         else:  # all contents are being removed
@@ -575,7 +701,8 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
         >>> ml
         MonitoredFocusList([0, 1], focus=1)
         """
-        focus = self._adjust_focus_on_contents_modified(slice(index, int(index) + 1 or None))
+        index = operator.index(index)
+        focus = self._adjust_focus_on_contents_modified(slice(index, index + 1 or None))
         return self._modify(focus, super(MonitoredList, self).pop, index)
 
     def remove(self, value: _T) -> None:
@@ -606,13 +733,19 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
         """
         self._modify(max(0, len(self) - self._focus - 1), super(MonitoredList, self).reverse)
 
+    @typing.overload
+    def sort(self: MonitoredFocusList[SupportsRichComparisonT], *, key: None = None, reverse: bool = False) -> None: ...
+
+    @typing.overload
+    def sort(self, *, key: Callable[[_T], SupportsRichComparison], reverse: bool = False) -> None: ...
+
     def sort(
         self,
         *,
-        key: Callable[[_T], typing.Any] | None = None,
+        key: Callable[[_T], SupportsRichComparison] | None = None,
         reverse: bool = False,
     ) -> None:
-        """Sort the list in place, adjusting focus accordingly.
+        """Sort the list in place, keeping focus on the same object rather than an equal item.
 
         >>> ml = MonitoredFocusList([-2, 0, 1, -3, 2, -1, 3], focus=4)
         >>> ml.sort()
@@ -623,16 +756,15 @@ class MonitoredFocusList(MonitoredList[_T], typing.Generic[_T]):
             return None
         value = self[self._focus]
         return self._modify(
-            lambda: self.index(value),
+            lambda: next(index for index, item in enumerate(self) if item is value),
+            # pyrefly: ignore[no-matching-overload]  # an optional key is forwarded as is
             lambda: super(MonitoredList, self).sort(key=key, reverse=reverse),
         )
 
-    if hasattr(list, "clear"):
-
-        def clear(self) -> None:
-            """Remove all items and reset focus to ``None``."""
-            focus = self._adjust_focus_on_contents_modified(slice(0, 0))
-            self._modify(focus, super(MonitoredList, self).clear)
+    def clear(self) -> None:
+        """Remove all items and reset focus to ``None``."""
+        focus = self._adjust_focus_on_contents_modified(slice(0, len(self)))
+        self._modify(focus, super(MonitoredList, self).clear)
 
 
 def _test() -> None:

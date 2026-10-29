@@ -22,12 +22,12 @@ from datamodel_code_generator.reference import Reference
 if TYPE_CHECKING:
     from datamodel_code_generator.types import DataType
 
-_OUTPUT_CAPABILITIES: dict[DataModelType, tuple[bool, bool, bool, bool]] = {
-    DataModelType.PydanticV2BaseModel: (True, True, False, False),
-    DataModelType.PydanticV2Dataclass: (True, True, False, False),
-    DataModelType.DataclassesDataclass: (False, True, False, False),
-    DataModelType.TypingTypedDict: (False, True, False, True),
-    DataModelType.MsgspecStruct: (True, False, True, False),
+_OUTPUT_CAPABILITIES: dict[DataModelType, tuple[bool, bool, bool, bool, bool]] = {
+    DataModelType.PydanticV2BaseModel: (True, True, False, False, True),
+    DataModelType.PydanticV2Dataclass: (True, True, False, False, True),
+    DataModelType.DataclassesDataclass: (False, True, False, False, False),
+    DataModelType.TypingTypedDict: (False, True, False, True, False),
+    DataModelType.MsgspecStruct: (True, False, True, False, False),
 }
 
 
@@ -61,7 +61,7 @@ def test_parser_output_context_import_preserves_model_context_identity() -> None
 @pytest.mark.allow_direct_assert
 def test_output_capabilities_for_standard_generation_types(
     output_model_type: DataModelType,
-    expected_capabilities: tuple[bool, bool, bool, bool],
+    expected_capabilities: tuple[bool, bool, bool, bool, bool],
     target_python_version: PythonVersion,
 ) -> None:
     """Resolve stable capabilities for every canonical output target."""
@@ -79,6 +79,7 @@ def test_output_capabilities_for_standard_generation_types(
         supports_boolean_literals,
         requires_tagged_union_discriminator,
         requires_additional_properties_reference_classes,
+        writes_constrained_types,
     ) = expected_capabilities
 
     assert context.supports_annotated_constraints is supports_annotated_constraints
@@ -86,6 +87,7 @@ def test_output_capabilities_for_standard_generation_types(
     assert context.supports_boolean_literals is supports_boolean_literals
     assert context.requires_tagged_union_discriminator is requires_tagged_union_discriminator
     assert context.requires_additional_properties_reference_classes is requires_additional_properties_reference_classes
+    assert context.writes_constrained_types is writes_constrained_types
     if not supports_annotated_constraints:
         return
 
@@ -652,3 +654,63 @@ def test_pydantic_nested_constraint_alias_import_is_lazy() -> None:
     )
 
     assert result.stdout.splitlines() == ["False", "False", "TypeAliasTypeBackport", "True"]
+
+
+@pytest.mark.parametrize("omit_redundant_constraints", [False, True])
+@pytest.mark.allow_direct_assert("a custom type manager is reachable only through the parser configuration")
+def test_type_manager_with_the_released_constructor_keeps_working(omit_redundant_constraints: bool) -> None:
+    """Build a custom type manager whose constructor has the 0.86.0 signature and pass it the option as an attribute."""
+    model_types = get_data_model_types(
+        DataModelType.PydanticV2BaseModel,
+        target_python_version=PythonVersion.PY_311,
+    )
+    base_manager = model_types.data_type_manager
+
+    class ReleasedTypeManager(base_manager):  # ty: ignore[unsupported-base]
+        def __init__(
+            self,
+            python_version: PythonVersion = PythonVersion.PY_311,
+            use_standard_collections: bool = False,
+            use_generic_container_types: bool = False,
+            strict_types: Any = None,
+            use_non_positive_negative_number_constrained_types: bool = False,
+            use_decimal_for_multiple_of: bool = False,
+            use_union_operator: bool = False,
+            use_pendulum: bool = False,
+            use_standard_primitive_types: bool = False,
+            use_object_type: bool = False,
+            target_datetime_class: Any = None,
+            target_date_class: Any = None,
+            treat_dot_as_module: bool | None = None,
+            use_serialize_as_any: bool = False,
+        ) -> None:
+            super().__init__(
+                python_version,
+                use_standard_collections,
+                use_generic_container_types,
+                strict_types,
+                use_non_positive_negative_number_constrained_types,
+                use_decimal_for_multiple_of,
+                use_union_operator,
+                use_pendulum,
+                use_standard_primitive_types,
+                use_object_type,
+                target_datetime_class,
+                target_date_class,
+                treat_dot_as_module,
+                use_serialize_as_any,
+            )
+
+    parser = JsonSchemaParser(
+        '{"type": "object", "properties": {"a": {"type": "integer", "minimum": 0}}}',
+        config=JSONSchemaParserConfig(
+            data_model_type=model_types.data_model,
+            data_model_root_type=model_types.root_model,
+            data_model_field_type=model_types.field_model,
+            data_type_manager_type=ReleasedTypeManager,
+            omit_redundant_constraints=omit_redundant_constraints,
+        ),
+    )
+
+    assert parser.data_type_manager.omit_redundant_constraints is omit_redundant_constraints
+    assert "class Model" in str(parser.parse())

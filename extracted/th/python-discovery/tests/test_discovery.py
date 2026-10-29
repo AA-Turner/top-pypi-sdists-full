@@ -167,6 +167,18 @@ def test_discovery_absolute_path_with_try_first(
     assert Path(interpreter.executable) == good_exe
 
 
+def test_discovery_venvs_on_one_base_keep_their_executable(tmp_path: Path, session_cache: DiskCache) -> None:
+    scripts_dir = "Scripts" if IS_WIN else "bin"
+    exe_name = "python.exe" if IS_WIN else "python"
+    exes = [tmp_path / name / scripts_dir / exe_name for name in ("a", "b")]
+    for exe in exes:
+        subprocess.check_call([sys.executable, "-m", "venv", "--without-pip", str(exe.parents[1])])
+
+    found = [get_interpreter(str(exe), cache=session_cache) for exe in exes]
+
+    assert [Path(info.executable) for info in found if info is not None] == exes
+
+
 def test_discovery_via_path_with_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     a_file = tmp_path / "a_file"
     a_file.touch()

@@ -7,10 +7,17 @@
 # pylint: skip-file
 # fmt: off
 # isort: skip_file
+from ......schema_classes import EntityTypeBoostClass
+from ......schema_classes import FieldFactorClass
+from ......schema_classes import FieldFactorModifierClass
+from ......schema_classes import FieldValueScoreClass
 from ......schema_classes import HighlightFieldOverridesClass
 from ......schema_classes import SearchFieldBoostClass
 from ......schema_classes import SearchFieldOverridesClass
 from ......schema_classes import SearchTemplateBoostClass
+from ......schema_classes import SearchTemplateBoostModeClass
+from ......schema_classes import SearchTemplateComponentClass
+from ......schema_classes import SearchTemplateComponentModeClass
 from ......schema_classes import SearchTemplateDefaultRouteClass
 from ......schema_classes import SearchTemplateDialectClass
 from ......schema_classes import SearchTemplateLadderClass
@@ -21,15 +28,24 @@ from ......schema_classes import SearchTemplateRankingClass
 from ......schema_classes import SearchTemplateRetrievalClass
 from ......schema_classes import SearchTemplateRetrievalBridgeClass
 from ......schema_classes import SearchTemplateRouteClass
+from ......schema_classes import SearchTemplateScoreModeClass
 from ......schema_classes import StructuredPropertyClauseClass
 from ......schema_classes import StructuredPropertyOperatorClass
 from ......schema_classes import StructuredPropertyQueryClass
+from ......schema_classes import TermWeightClass
 
 
+EntityTypeBoost = EntityTypeBoostClass
+FieldFactor = FieldFactorClass
+FieldFactorModifier = FieldFactorModifierClass
+FieldValueScore = FieldValueScoreClass
 HighlightFieldOverrides = HighlightFieldOverridesClass
 SearchFieldBoost = SearchFieldBoostClass
 SearchFieldOverrides = SearchFieldOverridesClass
 SearchTemplateBoost = SearchTemplateBoostClass
+SearchTemplateBoostMode = SearchTemplateBoostModeClass
+SearchTemplateComponent = SearchTemplateComponentClass
+SearchTemplateComponentMode = SearchTemplateComponentModeClass
 SearchTemplateDefaultRoute = SearchTemplateDefaultRouteClass
 SearchTemplateDialect = SearchTemplateDialectClass
 SearchTemplateLadder = SearchTemplateLadderClass
@@ -40,8 +56,10 @@ SearchTemplateRanking = SearchTemplateRankingClass
 SearchTemplateRetrieval = SearchTemplateRetrievalClass
 SearchTemplateRetrievalBridge = SearchTemplateRetrievalBridgeClass
 SearchTemplateRoute = SearchTemplateRouteClass
+SearchTemplateScoreMode = SearchTemplateScoreModeClass
 StructuredPropertyClause = StructuredPropertyClauseClass
 StructuredPropertyOperator = StructuredPropertyOperatorClass
 StructuredPropertyQuery = StructuredPropertyQueryClass
+TermWeight = TermWeightClass
 
 # fmt: on

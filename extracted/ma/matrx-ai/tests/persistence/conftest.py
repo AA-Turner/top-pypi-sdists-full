@@ -23,8 +23,11 @@ def capture_sink(
 
     async def fake_record_failures(
         ops: Iterable[object], exc: BaseException, **kwargs: object
-    ) -> None:
-        failures.append({"ops": list(ops), "exc": exc, "kwargs": kwargs})
+    ) -> list[str]:
+        ops = list(ops)
+        failures.append({"ops": ops, "exc": exc, "kwargs": kwargs})
+        # The real contract: one receipt (op_id) per preserved op.
+        return [str(getattr(op, "op_id", "")) for op in ops]
 
     async def fake_record_error(exc: BaseException, **kwargs: object) -> None:
         errors.append({"exc": exc, "kwargs": kwargs})

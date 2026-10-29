@@ -1,5 +1,7 @@
-from collections.abc import Callable, Iterable
+__lazy_modules__ = ["collections.abc", "django.contrib.auth.models", "django.http"]
+
 from functools import wraps
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -8,14 +10,20 @@ from django.shortcuts import redirect
 from django.urls import include
 from django.utils.translation import gettext_lazy as _
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
 
-def user_has_main_character(user):
+    from django.contrib.auth.models import User
+    from django.http import HttpRequest, HttpResponse
+
+
+def user_has_main_character(user: "User") -> bool:
     return bool(user.profile.main_character)
 
 
 def decorate_url_patterns(
-    urls, decorator: Callable, excluded_views: Iterable | None = None
-):
+    urls, decorator: "Callable", excluded_views: "Iterable | None" = None
+) -> tuple[Any, str | None, str | None]:
     """Decorate views given in url patterns except when they are explicitly excluded.
 
     Args:
@@ -25,7 +33,7 @@ def decorate_url_patterns(
     """
     url_list, app_name, namespace = include(urls)
 
-    def process_patterns(url_patterns):
+    def process_patterns(url_patterns: "Iterable") -> None:
         for pattern in url_patterns:
             if hasattr(pattern, 'url_patterns'):
                 # this is an include - apply to all nested patterns
@@ -40,9 +48,9 @@ def decorate_url_patterns(
     return url_list, app_name, namespace
 
 
-def main_character_required(view_func):
+def main_character_required(view_func: "Callable[..., HttpResponse]") -> "Callable[..., HttpResponse]":
     @wraps(view_func)
-    def _wrapped_view(request, *args, **kwargs):
+    def _wrapped_view(request: "HttpRequest", *args, **kwargs) -> "HttpResponse":
         if user_has_main_character(request.user):
             return view_func(request, *args, **kwargs)
 
@@ -51,7 +59,9 @@ def main_character_required(view_func):
     return login_required(_wrapped_view)
 
 
-def permissions_required(perm, login_url=None, raise_exception=False):
+def permissions_required(
+    perm: "str | Iterable[str]", login_url: str | None = None, raise_exception: bool = False
+) -> "Callable[[Callable], Callable]":
     """
     Decorator for views that checks whether a user has a particular permission
     enabled, redirecting to the log-in page if necessary.
@@ -62,7 +72,7 @@ def permissions_required(perm, login_url=None, raise_exception=False):
     allows for passing a tuple/list of perms that will return true if any one
     of them is present.
     """
-    def check_perms(user):
+    def check_perms(user: "User") -> bool:
         if isinstance(perm, str):
             perms = (perm,)
         else:

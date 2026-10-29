@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import backfill_reconstruction
+from probe.cli import backfill_record
 from probe.cli.backfill_coverage import Coverage, Scope
 from probe.cli.backfill_delivery import enqueue
 from probe.sdk import errors
@@ -304,22 +304,23 @@ def test_reconcile_refuses_an_unstamped_receipt_the_journal_did_not_write(tmp_pa
         assert state.report()["unresolved"] == ["a.py"] and "does not match" in _error(state)
 
 
-def test_reconstruction_reads_a_redacted_receipt_and_samples_redacted_bytes(tmp_path):
+def test_the_record_pass_reads_a_redacted_receipt_and_samples_redacted_bytes(tmp_path):
     folder, store, client = _setup(tmp_path)
     with client, store.writer() as state:
         enqueue(state, client, folder)
         drain(client._delivery_journal(), client_factory=lambda _: Server())
         state.reconcile(client)
         row = state.rows()[0]
-        assert backfill_reconstruction._receipt(state, row)["artifact_id"]
-        sample, limitation = backfill_reconstruction._read_sample(folder, row)
+        assert backfill_record._receipt(state, row)["artifact_id"]
+        sample, limitation = backfill_record._read_sample(folder, row)
         assert limitation is None and "GITHUB_TOKEN" in sample and TOKEN not in sample
         stored = json.loads(state.conn.execute("SELECT receipt FROM versions").fetchone()[0])
         assert stored["content_hash"] != row["approved_hash"]
-        # The model sees the stored bytes' hash, never the original's beside its redaction.
-        inputs = backfill_reconstruction._inputs(Readable(), folder, state, state.rows(), None, "project")
-        assert inputs["sources"]["F001"]["sha256"] == stored["content_hash"]
-        assert row["approved_hash"] not in json.dumps(inputs)
+        # The record pass's excerpts are the redacted bytes, and carry no hash:
+        # the original's beside its redaction would let a short secret be guessed.
+        items, _gaps = backfill_record.excerpts(state, folder, row["project_id"])
+        assert [item["path"] for item in items] == ["a.py"]
+        assert TOKEN not in json.dumps(items) and row["approved_hash"] not in json.dumps(items)
 
 
 def test_a_redacted_excerpt_is_the_stored_snapshot(tmp_path):
@@ -330,13 +331,8 @@ def test_a_redacted_excerpt_is_the_stored_snapshot(tmp_path):
     (folder / "a.py").write_bytes(SECRET + b'print("hi")\n')
     snapshot = tmp_path / "snapshot"
     digest = secret_gate.safe_snapshot_file(folder / "a.py", snapshot)
-    sample, limitation = backfill_reconstruction._read_sample(folder, {"path": "a.py", "approved_hash": digest})
+    sample, limitation = backfill_record._read_sample(folder, {"path": "a.py", "approved_hash": digest})
     assert limitation is None and sample.encode() == snapshot.read_bytes() != (folder / "a.py").read_bytes()
-
-
-class Readable:
-    def presign_download_batch(self, ids):
-        return {"items": {ident: {"download_url": "https://private.invalid/x"} for ident in ids}}
 
 
 @pytest.mark.parametrize("receipt_change,intent_change", [
@@ -344,7 +340,7 @@ class Readable:
     ({"source_content_hash": None, "schema": "probe.outbox.delivery/0"}, {}),  # unstamped, not the journal's
     ({}, {"content_hash": "e" * 64}),  # the intent names another version
 ])
-def test_reconstruction_refuses_a_receipt_for_other_bytes(tmp_path, receipt_change, intent_change):
+def test_the_record_pass_refuses_a_receipt_for_other_bytes(tmp_path, receipt_change, intent_change):
     folder, store, client = _setup(tmp_path)
     with client, store.writer() as state:
         enqueue(state, client, folder)
@@ -356,4 +352,4 @@ def test_reconstruction_refuses_a_receipt_for_other_bytes(tmp_path, receipt_chan
         state.conn.execute("UPDATE versions SET receipt=?, intent=?",
                            (json.dumps(receipt), json.dumps({**intent, **intent_change})))
         with pytest.raises(ValueError, match="unverified receipt"):
-            backfill_reconstruction._receipt(state, row)
+            backfill_record._receipt(state, row)

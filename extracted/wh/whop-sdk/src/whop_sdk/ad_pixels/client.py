@@ -50,7 +50,7 @@ class AdPixelsClient:
         Parameters
         ----------
         account_id : typing.Optional[str]
-            Only return the pixel for this business, prefixed `biz_`.
+            Only return the pixels for this business, prefixed `biz_`.
 
         first : typing.Optional[int]
             Number of results to return from the start of the range.
@@ -81,7 +81,7 @@ class AdPixelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -113,18 +113,18 @@ class AdPixelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AdPixel:
         """
-        Add your pixel for a business whose campaigns you claimed. Whop checks the access token with the ad platform, then sends the pixel the conversions credited to your claimed campaigns for that business. Each business takes one pixel, and each pixel can serve one business.
+        Add your pixel for a business whose campaigns you claimed. Whop checks the access token with the ad platform, then sends the pixel the conversions credited to your claimed campaigns for that business. Each business takes one pixel per ad platform, and each pixel can serve one business. On Google, the pixel is your Google Ads account, which can serve several businesses, and Whop creates its conversion actions there with your service account key.
 
         Parameters
         ----------
         access_token : str
-            An access token that can send events to the pixel on the ad platform. Whop never returns it.
+            A credential that can send events to the pixel on the ad platform: a Meta Conversions API access token, a TikTok Events API access token, or for `google`, the JSON key of a Google Cloud service account. The service account needs Standard access to the Google Ads account, and its project needs the Google Ads API and the Data Manager API turned on and Explorer access or higher to the Google Ads API. Use a service account made only for Whop, with no roles in its project. Whop never returns it.
 
         account_id : str
             The business whose claimed campaigns send conversions to this pixel, prefixed `biz_`. You must have claimed at least one of its campaigns.
 
         external_id : str
-            The pixel's ID on the ad platform.
+            The pixel's ID on the ad platform: the Meta pixel or dataset ID, the TikTok pixel code, or the Google Ads customer ID.
 
         platform : CreateAdPixelsRequestPlatform
             The ad platform the pixel belongs to.
@@ -142,7 +142,7 @@ class AdPixelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -182,7 +182,7 @@ class AdPixelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -215,7 +215,7 @@ class AdPixelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -236,7 +236,7 @@ class AdPixelsClient:
             Ad pixel ID, prefixed `adpx_`.
 
         access_token : str
-            An access token that can send events to the pixel on the ad platform. Whop never returns it.
+            A credential that can send events to the pixel on the ad platform: a Meta Conversions API access token, a TikTok Events API access token, or for `google`, the JSON key of a Google Cloud service account. The service account needs Standard access to the Google Ads account, and its project needs the Google Ads API and the Data Manager API turned on and Explorer access or higher to the Google Ads API. Use a service account made only for Whop, with no roles in its project. Whop never returns it.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -251,7 +251,7 @@ class AdPixelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -297,7 +297,7 @@ class AsyncAdPixelsClient:
         Parameters
         ----------
         account_id : typing.Optional[str]
-            Only return the pixel for this business, prefixed `biz_`.
+            Only return the pixels for this business, prefixed `biz_`.
 
         first : typing.Optional[int]
             Number of results to return from the start of the range.
@@ -330,7 +330,7 @@ class AsyncAdPixelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -369,18 +369,18 @@ class AsyncAdPixelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AdPixel:
         """
-        Add your pixel for a business whose campaigns you claimed. Whop checks the access token with the ad platform, then sends the pixel the conversions credited to your claimed campaigns for that business. Each business takes one pixel, and each pixel can serve one business.
+        Add your pixel for a business whose campaigns you claimed. Whop checks the access token with the ad platform, then sends the pixel the conversions credited to your claimed campaigns for that business. Each business takes one pixel per ad platform, and each pixel can serve one business. On Google, the pixel is your Google Ads account, which can serve several businesses, and Whop creates its conversion actions there with your service account key.
 
         Parameters
         ----------
         access_token : str
-            An access token that can send events to the pixel on the ad platform. Whop never returns it.
+            A credential that can send events to the pixel on the ad platform: a Meta Conversions API access token, a TikTok Events API access token, or for `google`, the JSON key of a Google Cloud service account. The service account needs Standard access to the Google Ads account, and its project needs the Google Ads API and the Data Manager API turned on and Explorer access or higher to the Google Ads API. Use a service account made only for Whop, with no roles in its project. Whop never returns it.
 
         account_id : str
             The business whose claimed campaigns send conversions to this pixel, prefixed `biz_`. You must have claimed at least one of its campaigns.
 
         external_id : str
-            The pixel's ID on the ad platform.
+            The pixel's ID on the ad platform: the Meta pixel or dataset ID, the TikTok pixel code, or the Google Ads customer ID.
 
         platform : CreateAdPixelsRequestPlatform
             The ad platform the pixel belongs to.
@@ -400,7 +400,7 @@ class AsyncAdPixelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -448,7 +448,7 @@ class AsyncAdPixelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -491,7 +491,7 @@ class AsyncAdPixelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -520,7 +520,7 @@ class AsyncAdPixelsClient:
             Ad pixel ID, prefixed `adpx_`.
 
         access_token : str
-            An access token that can send events to the pixel on the ad platform. Whop never returns it.
+            A credential that can send events to the pixel on the ad platform: a Meta Conversions API access token, a TikTok Events API access token, or for `google`, the JSON key of a Google Cloud service account. The service account needs Standard access to the Google Ads account, and its project needs the Google Ads API and the Data Manager API turned on and Explorer access or higher to the Google Ads API. Use a service account made only for Whop, with no roles in its project. Whop never returns it.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -537,7 +537,7 @@ class AsyncAdPixelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

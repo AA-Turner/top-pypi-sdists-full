@@ -397,6 +397,12 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
     claimed = await cxm.pending_injection.claim_pending(
         ctx.conversation_id, request_id=getattr(ctx, "request_id", None)
     )
+    # REPORTS DO NOT WAIT FOR THE RUN TO END (Arman, 2026-10-28). A helper's report, agent mail,
+    # a background run's end or a due wake-up reaches the running agent at its next boundary —
+    # mid-loop, and at the start of a person's new turn — never only at the final boundary.
+    claimed = claimed + await cxm.pending_injection.claim_reports_now(
+        ctx.conversation_id, request_id=getattr(ctx, "request_id", None)
+    )
     if include_turn_end:
         # The turn is completely done — deliver THE NEXT queued message (one
         # per turn; steers drained above ride along with it).

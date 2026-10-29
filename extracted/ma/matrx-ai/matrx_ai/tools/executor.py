@@ -1879,7 +1879,7 @@ class ToolExecutor:
         # normalized schema sent to providers. It never blocks dispatch.
         from matrx_graph.content_ir.model import kind_of
         from matrx_graph.contract_kinds import check_schema
-        from matrx_graph.kinds import check_against_kind
+        from matrx_graph.kinds import KindDegradedReason, check_against_kind
 
         from matrx_ai.tools.kinds import result_kind_slug
 
@@ -2174,10 +2174,9 @@ class ToolExecutor:
         if not result.success and result.error is not None:
             annotate_tool_error(result.error)
 
-        result.input_kind = input_contract.kind
-        result.input_kind_version = input_contract.version
-        result.input_kind_checked = input_kind_verdict.checked
-        result.input_kind_errors = input_kind_verdict.errors
+        # The generated I/O contracts (``content_ir_contracts``) are machine contracts
+        # that live in ``content_ir.io_contract`` (rule 6). They are checked above for
+        # drift, but their slugs are never stamped as the call's kind (rule 28).
 
         # --- Client-delegated suspension: record DELEGATED, skip OK/FAIL ---
         # A delegated call produced no result here — it suspended. The cx_tool_call
@@ -2296,10 +2295,13 @@ class ToolExecutor:
             # Validate the SERIALIZED form: a tool may hand back the KindModel
             # itself, and the registered schema describes the wire shape.
             kind_check = await check_against_kind(serialized_output, curated_kind)
-            result.output_kind = curated_kind
-            result.output_kind_version = kind_check.kind_version
-            result.output_kind_checked = kind_check.checked
-            result.output_kind_errors = list(kind_check.errors)
+            if kind_check.degraded_reason is not KindDegradedReason.KIND_NOT_REGISTERED:
+                # Only a registered kind is stamped (content-ir rule 28); an
+                # unregistered __kind is still screamed below.
+                result.output_kind = curated_kind
+                result.output_kind_version = kind_check.kind_version
+                result.output_kind_checked = kind_check.checked
+                result.output_kind_errors = list(kind_check.errors)
             if kind_check.errors:
                 logger.error(
                     "[Content IR] tool result violates its self-described kind for %s (%s): %s",
@@ -2335,11 +2337,6 @@ class ToolExecutor:
         # a second false drift event that hides the actual failure.
         if result.success and output_contract is not None:
             output_kind_verdict = check_schema(serialized_output, output_contract.json_schema)
-            if curated_kind is None:
-                result.output_kind = output_contract.kind
-                result.output_kind_version = output_contract.version
-                result.output_kind_checked = output_kind_verdict.checked
-                result.output_kind_errors = output_kind_verdict.errors
             if output_kind_verdict.errors:
                 logger.error(
                     "[Content IR] tool output drift for %s (%s): %s",

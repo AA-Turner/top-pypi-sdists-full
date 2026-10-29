@@ -24,7 +24,10 @@ registered nothing is gated (announced once).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Any
 
 from matrx_utils import vcprint
@@ -158,11 +161,137 @@ def _tracked(ctx: Any) -> bool:
         return False
 
 
+# --------------------------------------------------------------------------- #
+# THE PER-CALL SPEND CAP (2026-10-27)                                          #
+# --------------------------------------------------------------------------- #
+#
+# A caller that must keep EACH call cheap (a workflow AI step's ``max_call_cost_usd``) opens
+# :func:`call_spend_cap_scope`; every paid call made inside it is priced BEFORE it is sent — the
+# exact outgoing request's estimated input tokens plus its output ceiling (``max_output_tokens``)
+# at the model's catalog price — and refused over the cap. A call that cannot be priced (no
+# output ceiling, no catalog price) is refused too: a cap that cannot be checked is not a cap.
+# Nothing is spent on a refused call. No scope: one ContextVar read.
+
+CALL_SPEND_CAP = "call_spend_cap"
+FIX_ACTION_RAISE_CALL_CAP = "raise_call_spend_cap"
+
+
+@dataclass(frozen=True)
+class CallSpendCap:
+    max_usd: float
+    subject: str
+
+
+_CALL_SPEND_CAP: ContextVar[CallSpendCap | None] = ContextVar("matrx_call_spend_cap", default=None)
+
+
+@contextmanager
+def call_spend_cap_scope(max_usd: float | None, *, subject: str) -> Iterator[CallSpendCap | None]:
+    """Cap every paid call inside the block at ``max_usd`` (``None`` / ``<= 0``: no cap)."""
+    if max_usd is None or max_usd <= 0:
+        yield None
+        return
+    cap = CallSpendCap(max_usd=float(max_usd), subject=subject)
+    token = _CALL_SPEND_CAP.set(cap)
+    try:
+        yield cap
+    finally:
+        _CALL_SPEND_CAP.reset(token)
+
+
+def current_call_spend_cap() -> CallSpendCap | None:
+    """The per-call cap open around this call, if any (the send boundary bounds its document
+    ceiling by it — ``send_boundary._bound_ceiling_by_spend_cap``)."""
+    return _CALL_SPEND_CAP.get()
+
+
+def _call_cap_stop(cap: CallSpendCap, message: str, observed: float | None) -> GuardrailStopError:
+    stop = GuardrailStopError(
+        kind=CALL_SPEND_CAP,
+        subject_kind="workflow_step",
+        subject_id=cap.subject,
+        limit=cap.max_usd,
+        observed=observed,
+        message=message,
+    )
+    stop.error_info.details["fix_action"] = FIX_ACTION_RAISE_CALL_CAP
+    return stop
+
+
+def estimate_call_usd(profile: Any, config: Any) -> tuple[float | None, str, int, int]:
+    """``(usd | None, model, input_tokens, output_tokens)`` for the call about to be sent: the
+    ONE prompt estimator over the exact config, plus its output ceiling, at the catalog price."""
+    from matrx_ai.config.context_preflight import estimate_prompt_tokens
+    from matrx_ai.config.usage_config import TokenUsage, _get_db_pricing_lookup
+
+    model = str(
+        getattr(profile, "model_name", None)
+        or getattr(config, "matrx_model_name", None)
+        or getattr(config, "model", None)
+        or ""
+    )
+    input_tokens = max(1, int(estimate_prompt_tokens(config)))
+    output_tokens = int(getattr(config, "max_output_tokens", None) or 0)
+    if not model or output_tokens <= 0:
+        return None, model, input_tokens, output_tokens
+    usage = TokenUsage(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        matrx_model_name=model,
+        offering_id=str(getattr(profile, "offering_id", None) or ""),
+    )
+    cost = usage.calculate_catalog_cost(_get_db_pricing_lookup())
+    return (None if cost is None else float(cost)), model, input_tokens, output_tokens
+
+
+def admit_call_spend_cap(profile: Any = None, config: Any = None) -> None:
+    """Refuse the call about to be sent when it is estimated over the open per-call cap."""
+    cap = _CALL_SPEND_CAP.get()
+    if cap is None:
+        return
+    if config is None:
+        raise _call_cap_stop(
+            cap,
+            f"{cap.subject} has a ${cap.max_usd:.2f} cap per AI call, but this call carries no "
+            "request to price. Nothing was sent or charged.",
+            None,
+        )
+    try:
+        usd, model, input_tokens, output_tokens = estimate_call_usd(profile, config)
+    except Exception as exc:  # noqa: BLE001 — an unpriceable call is refused, never waved through
+        usd, model, input_tokens, output_tokens = None, "", 0, 0
+        vcprint(f"[GuardrailGate] call spend cap could not price the call: {exc!r}", color="red")
+    if output_tokens <= 0:
+        raise _call_cap_stop(
+            cap,
+            f"{cap.subject} has a ${cap.max_usd:.2f} cap per AI call, but the call has no longest-"
+            "answer limit, so its price cannot be checked. Set the step's max output tokens. "
+            "Nothing was sent or charged.",
+            None,
+        )
+    if usd is None:
+        raise _call_cap_stop(
+            cap,
+            f"{cap.subject} has a ${cap.max_usd:.2f} cap per AI call, but {model or 'its model'} has "
+            "no catalog price, so the call cannot be checked. Nothing was sent or charged.",
+            None,
+        )
+    if usd > cap.max_usd:
+        raise _call_cap_stop(
+            cap,
+            f"{cap.subject} would cost about ${usd:.3f} on {model} ({input_tokens:,} tokens in, up "
+            f"to {output_tokens:,} out), over its ${cap.max_usd:.2f} cap per AI call. Nothing was "
+            "sent or charged.",
+            round(usd, 6),
+        )
+
+
 def admit_guardrails(profile: Any = None, config: Any = None) -> None:
     """Admit or stop the paid call about to be made. Asked on EVERY paid call."""
     global _unwired_announced
     from matrx_ai.context.app_context import try_get_app_context
 
+    admit_call_spend_cap(profile, config)
     ctx = try_get_app_context()
     if ctx is None:
         return
@@ -332,6 +461,12 @@ def guardrail_stop_in(source: Any, *, _max_depth: int = 16) -> GuardrailStopErro
 
 __all__ = [
     "AUTOMATION_GUARDRAIL",
+    "CALL_SPEND_CAP",
+    "CallSpendCap",
+    "admit_call_spend_cap",
+    "call_spend_cap_scope",
+    "current_call_spend_cap",
+    "estimate_call_usd",
     "FIX_ACTION_RAISE_LIMIT",
     "GuardrailStopError",
     "admit_guardrails",

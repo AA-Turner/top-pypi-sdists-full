@@ -48,7 +48,7 @@ if typing.TYPE_CHECKING:
 
     _MouseInput = tuple[str, int, int, int]
     _CursorPosition = tuple[typing.Literal["cursor position"], int, int]
-    _DecodedInput = list[typing.Union[str, _MouseInput, _CursorPosition]]
+    _DecodedInput = list[str | _MouseInput | _CursorPosition]
 
 
 class Screen(_raw_display_base.Screen):
@@ -60,24 +60,37 @@ class Screen(_raw_display_base.Screen):
 
     def __init__(
         self,
-        input: socket.socket | None = None,  # noqa: A002  # pylint: disable=redefined-builtin
+        input: socket.socket | None = None,  # noqa: A002
         output: _raw_display_base.TextWriter = sys.stdout,
         bracketed_paste_mode: bool | None = None,
         focus_reporting: bool | None = None,
+        extended_keys: bool = False,
     ) -> None:
         """Initialize a screen that directly prints escape codes to an output terminal.
 
+        :param input: the socket the console input is read from.
+            None (default) creates a socket pair and forwards the console input into it.
+        :param output: the terminal output, which the escape codes are written to.
         :param bracketed_paste_mode: enable bracketed paste (`begin`/`end paste` keystrokes).
             None (default) auto-detects via DECRQM and enables it once confirmed supported;
             pass True/False to force it without probing.
         :param focus_reporting: enable focus reporting (`focus in`/`focus out` keystrokes).
             None (default) auto-detects via DECRQM and enables it once confirmed supported;
             pass True/False to force it without probing.
+        :param extended_keys: report the keys the legacy encodings cannot tell apart, such as ``'ctrl enter'``
+            and ``'ctrl i'`` apart from ``'tab'``, through the keyboard protocol the terminal supports.
+            Ctrl+C and Ctrl+Z then arrive as keys instead of signals; see :ref:`extended-keys`.
         """
         if input is None:
             input, self._send_input = socket.socketpair()  # noqa: A001
 
-        super().__init__(input, output, bracketed_paste_mode=bracketed_paste_mode, focus_reporting=focus_reporting)
+        super().__init__(
+            input,
+            output,
+            bracketed_paste_mode=bracketed_paste_mode,
+            focus_reporting=focus_reporting,
+            extended_keys=extended_keys,
+        )
 
     _dwOriginalOutMode: DWORD | None = None
     _dwOriginalInMode: DWORD | None = None
@@ -101,7 +114,10 @@ class Screen(_raw_display_base.Screen):
         """
         Initialize the screen and input mode.
 
-        :param alternate_buffer: use alternate screen buffer
+        :param alternate_buffer: use alternate screen buffer.
+            The switch is not sent to a terminal that reported it has no alternate screen.
+        :param args: not supported; any value raises :exc:`TypeError`.
+        :param kwargs: not supported; any value raises :exc:`TypeError`.
         :raises TypeError: unexpected positional or keyword arguments were given.
         :raises RuntimeError: the console mode could not be set.
         """
@@ -109,7 +125,10 @@ class Screen(_raw_display_base.Screen):
             raise TypeError(f"start() got unexpected arguments: {args=!r}, {kwargs=!r}")
 
         if alternate_buffer:
-            self.write(escape.PrivateMode.ALTERNATE_SCREEN_BUFFER.enable_seq)
+            # A terminal that reported no alternate screen on an earlier start ignores the switch, and the frames are
+            # drawn the same either way.
+            if self.modes.alternate_buffer is not False:
+                self.write(escape.PrivateMode.ALTERNATE_SCREEN_BUFFER.enable_seq)
             self._rows_used = None
         else:
             self._rows_used = 0
@@ -154,6 +173,8 @@ class Screen(_raw_display_base.Screen):
         if self.modes.focus_reporting:
             self.write(escape.PrivateMode.FOCUS_REPORTING.enable_seq)
 
+        self._enable_keyboard_protocol()
+
         self._next_timeout = self.max_wait
 
         signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
@@ -182,12 +203,13 @@ class Screen(_raw_display_base.Screen):
         if self.modes.focus_reporting:
             self.write(escape.PrivateMode.FOCUS_REPORTING.disable_seq)
 
-        signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
-        # After the signal: a main loop still connected to it re-hooks the screen, which starts a reader.
+        # before the alternate screen is left: the kitty keyboard flags are kept per screen
+        self._disable_keyboard_protocol()
+
         self._stop_input_thread()
 
-        self._stop_mouse_restore_buffer()
         self._stop_restore_palette()
+        self._stop_mouse_restore_buffer()
 
         if self._dwOriginalOutMode is not None and self._dwOriginalInMode is not None:
             handle_out = _win32.GetStdHandle(_win32.STD_OUTPUT_HANDLE)
@@ -224,8 +246,13 @@ class Screen(_raw_display_base.Screen):
         The callback should be passed a list of processed keys and a list of unprocessed keycodes.
 
         Subclasses may wish to use parse_input to wrap the callback.
+
+        .. deprecated:: 5.0
+            A subclass that defines ``get_input_nonblocking()`` is still polled through it.
+            Override :meth:`get_available_raw_input` instead. This API will be removed in version 7.0.
         """
-        self._start_input_thread()
+        if self._started:  # a stopped screen has no input to read, and the next console user must get it
+            self._start_input_thread()
 
         if hasattr(self, "get_input_nonblocking"):
             wrapper = self._make_legacy_input_wrapper(event_loop, callback)
@@ -240,15 +267,25 @@ class Screen(_raw_display_base.Screen):
         self._current_event_loop_handles = handles
 
     _input_thread: ReadInputThread | None = None
+    _last_cols_rows: tuple[int, int] | None = None  # the size get_cols_rows() last returned
 
     def _start_input_thread(self) -> None:
         """Start the background console reader, if it isn't already running."""
         if self._input_thread is not None or self._send_input is None:
             return
+        # A window resized while the screen was stopped sent no event: report it before the next draw.
+        window = self._console_window_size()
+        if window is not None and self._last_cols_rows not in {None, window}:
+            self._sigwinch_handler()
         # Console events are only translated for the input socket owned by this screen. signum is
         # left at its default (_raw_display_base._SIGWINCH): this class runs on Windows only,
         # which has no real SIGWINCH to report here anyway.
-        self._input_thread = ReadInputThread(self._send_input, self._sigwinch_handler)
+        self._input_thread = ReadInputThread(
+            self._send_input,
+            self._sigwinch_handler,
+            window_size=self._console_window_size,
+            start_window_size=window,
+        )
         self._input_thread.start()
 
     def _stop_input_thread(self) -> None:
@@ -280,18 +317,26 @@ class Screen(_raw_display_base.Screen):
 
             return chars
 
+    def _console_window_size(self) -> tuple[int, int] | None:
+        """Return the visible console window size (num columns, num rows), or None when it cannot be read.
+
+        The console buffer describes the standard output only: any other stream has no size here.
+        """
+        if self._term_output_file is not sys.stdout:
+            return None
+
+        handle = _win32.GetStdHandle(_win32.STD_OUTPUT_HANDLE)
+        info = _win32.CONSOLE_SCREEN_BUFFER_INFO()
+        if not _win32.GetConsoleScreenBufferInfo(handle, byref(info)):
+            return None
+
+        # The visible window, not the buffer, which on the classic console also holds the scrollback.
+        window = info.srWindow
+        return window.Right - window.Left + 1, window.Bottom - window.Top + 1
+
     def get_cols_rows(self) -> tuple[int, int]:
         """Return the terminal dimensions (num columns, num rows)."""
-        y, x = super().get_cols_rows()
-        # The console buffer describes the standard output only: any other stream keeps the fallback size.
-        if self._term_output_file is sys.stdout:
-            handle = _win32.GetStdHandle(_win32.STD_OUTPUT_HANDLE)
-            info = _win32.CONSOLE_SCREEN_BUFFER_INFO()
-
-            if _win32.GetConsoleScreenBufferInfo(handle, byref(info)):
-                # Fallback will be used in case of term size could not be determined
-                y, x = info.dwSize.Y, info.dwSize.X
-
+        x, y = self._last_cols_rows = self._console_window_size() or super().get_cols_rows()
         self.maxrow = y
         return x, y
 
@@ -307,9 +352,23 @@ class ReadInputThread(threading.Thread):
         self,
         input_socket: socket.socket,
         resize: Callable[[], typing.Any],
+        *,
+        window_size: Callable[[], tuple[int, int] | None] = lambda: None,
+        start_window_size: tuple[int, int] | None = None,
     ) -> None:
+        """Forward console input to *input_socket* and call *resize* when the console window changes size.
+
+        :param input_socket: the socket the console input is written to.
+        :param resize: called when the console window changes size.
+        :param window_size: returns the visible window size, checked on every wake-up of the thread:
+            the console reports a change of its buffer size, which a change of the window alone does not cause.
+        :param start_window_size: the window size read before the thread started, to compare later sizes with;
+            when it is None, the thread reads it when it starts.
+        """
         self._input = input_socket
         self._resize = resize
+        self._window_size = window_size
+        self._start_window_size = start_window_size
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         super().__init__()
 
@@ -322,39 +381,51 @@ class ReadInputThread(threading.Thread):
         input_records = arrtype()
         send_input = self._input.sendall
         resize = self._resize
+        window_size = self._window_size
         key_event = _win32.EventType.KEY_EVENT
         resize_event = _win32.EventType.WINDOW_BUFFER_SIZE_EVENT
 
         # A character outside the Basic Multilingual Plane arrives as two UTF-16 halves in two key events,
         # possibly in two reads: the first half waits here for the second one.
         high_surrogate = ""
+        window = self._start_window_size or window_size()
 
         while not self.should_exit:
-            # The timeout keeps should_exit checked while no input arrives.
+            # The timeout keeps should_exit and the window size checked while no input arrives.
             wait_result = _win32.WaitForSingleObject(hIn, _INPUT_POLL_MS)
-            if wait_result == _win32.WAIT_TIMEOUT:
-                continue
-            if wait_result != _win32.WAIT_OBJECT_0 or not _win32.ReadConsoleInputW(
-                hIn, input_records, MAX, byref(read)
-            ):
-                self.logger.warning("Reading console input failed, no further input is received")
-                return
+            resized = False
+            text = ""
 
-            chars = [high_surrogate]
-            for inp in input_records[: read.value]:
-                if inp.EventType == key_event:
-                    if inp.Event.KeyEvent.bKeyDown:
-                        chars.append(inp.Event.KeyEvent.uChar.UnicodeChar)
-                elif inp.EventType == resize_event:
-                    resize()
-                else:
-                    pass  # TODO: handle mouse events
+            if wait_result != _win32.WAIT_TIMEOUT:
+                if wait_result != _win32.WAIT_OBJECT_0 or not _win32.ReadConsoleInputW(
+                    hIn, input_records, MAX, byref(read)
+                ):
+                    self.logger.warning("Reading console input failed, no further input is received")
+                    return
 
-            # On Windows atomic press/release of modifier keys produce phantom input with code NULL.
-            text = "".join(chars).replace("\x00", "")
-            high_surrogate = text[-1:] if "\ud800" <= text[-1:] <= "\udbff" else ""
-            if high_surrogate:
-                text = text[:-1]
+                chars = [high_surrogate]
+                for inp in input_records[: read.value]:
+                    if inp.EventType == key_event:
+                        if inp.Event.KeyEvent.bKeyDown:
+                            chars.append(inp.Event.KeyEvent.uChar.UnicodeChar)
+                    elif inp.EventType == resize_event:
+                        resized = True
+                    else:
+                        pass  # TODO: handle mouse events
+
+                # On Windows atomic press/release of modifier keys produce phantom input with code NULL.
+                text = "".join(chars).replace("\x00", "")
+                high_surrogate = text[-1:] if "\ud800" <= text[-1:] <= "\udbff" else ""
+                if high_surrogate:
+                    text = text[:-1]
+
+            # A size that cannot be read is no change: only a size read from the console replaces the last one.
+            if (current_window := window_size()) is not None:
+                resized |= window is not None and current_window != window
+                window = current_window
+            if resized:
+                resize()
+
             if text:
                 send_input(text.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "replace").encode("utf-8"))
 

@@ -8,7 +8,13 @@ from typing import Any, Callable, Coroutine, Generic, Mapping, Sequence, TypeVar
 from typing_extensions import ParamSpec
 
 from chalk.utils.duration import Duration, parse_chalk_duration
-from chalk.workflows._context import LocalOrchestrator, TaskHandle, current_orchestrator, current_orchestrator_var
+from chalk.workflows._context import (
+    LocalOrchestrator,
+    TaskHandle,
+    current_orchestrator,
+    current_orchestrator_var,
+    local_workflow_id,
+)
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -118,11 +124,13 @@ class WorkflowDefinition(Generic[P, R]):
             # Calling one workflow from another: run it inline in the caller's
             # orchestration context, so its tasks remain durable task invocations.
             return await self.fn(*args, **kwargs)
-        token: contextvars.Token[Any] = current_orchestrator_var.set(LocalOrchestrator())
+        orchestrator = LocalOrchestrator(local_workflow_id(self.name))
+        token: contextvars.Token[Any] = current_orchestrator_var.set(orchestrator)
         try:
             return await self.fn(*args, **kwargs)
         finally:
             current_orchestrator_var.reset(token)
+            await orchestrator.close()
 
     def __repr__(self) -> str:
         return f"chalk.workflows.workflow(name={self.name!r})"

@@ -1,4 +1,4 @@
-from collections.abc import Callable, Collection, Iterable, Iterator
+from collections.abc import Callable, Collection, Hashable, Iterable, Iterator
 from typing import (
     Any,
     Generic,
@@ -6,11 +6,11 @@ from typing import (
     final,
 )
 
-T = TypeVar("T")
+T = TypeVar("T", bound=Hashable)
 
 
 @final
-class SortedSet(Generic[T], Collection[T]):
+class SortedSet(Collection[T], Generic[T]):
     def __init__(
         self,
         iterable: Iterable[T] | None = None,

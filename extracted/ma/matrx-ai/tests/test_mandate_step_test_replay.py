@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 
 from matrx_ai import mandate_taps
+from matrx_ai.graph_nodes import agent_action as aa
 from matrx_ai.graph_nodes import mandate_action as ma
 from matrx_ai.graph_nodes.agent_action import StepAgent
 from matrx_ai.graph_nodes.shared import AiExecutionResult
@@ -63,7 +64,9 @@ def step(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(ma, "resolve_step_agent_full", resolve)
     monkeypatch.setattr(ma, "resolve_step_iteration_limit", limit)
     monkeypatch.setattr(ma, "build_agent_request", lambda *a, **k: {"req": True})
-    monkeypatch.setattr(ma, "run_step_agent", run)
+    # The doer is reached through the ONE protected dispatch (``run_walled_step_agent``, 77016a930e),
+    # which calls ``agent_action.run_step_agent`` — patch it where that dispatch looks it up.
+    monkeypatch.setattr(aa, "run_step_agent", run)
     yield runs
     mandate_taps.set_mandate_replay(None)
 

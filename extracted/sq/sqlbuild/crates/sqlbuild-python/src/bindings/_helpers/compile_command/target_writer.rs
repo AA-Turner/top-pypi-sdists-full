@@ -1,6 +1,6 @@
 //! Write compiled project output to `target/`: models, functions, audits, SQL tests, manifest.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use pyo3::exceptions::PyValueError;
@@ -12,6 +12,7 @@ use pyo3::{IntoPyObjectExt, pyclass, pyfunction, wrap_pyfunction};
 use sqlbuild_cache::artifacts::main::new_sql_test_record::new_sql_test_record;
 use sqlbuild_cache::artifacts::main::reusable_sql_test_record::reusable_sql_test_record;
 use sqlbuild_cache::artifacts::models::{SqlTestArtifactRecord, SqlTestRecordMiss};
+use sqlbuild_cache::project_reuse::constants::FAILED_COMPILED_DIRECTORY_NAME;
 use sqlbuild_host::compile_context::main::record_compile_timing::record_compile_timing;
 use sqlbuild_host::entries::models::ExecutorHost;
 
@@ -39,10 +40,11 @@ use crate::bindings::_helpers::compile_outputs::runtime_target::{
 };
 use crate::bindings::_helpers::compiled_views::compiled_model_view::NativeCompiledModel;
 use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::records::construct::error_class;
 use crate::bindings::_helpers::records::construct::new_record_with;
+use crate::bindings::_helpers::records::construct::{enum_member, error_class};
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::fields::mapping_get_or;
+use crate::bindings::_helpers::records::fields::path_posix_text;
 use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 use crate::bindings::_helpers::sql_test_glue::plan_driver::plan_compiled_sql_test_artifacts;
 use crate::bindings::_helpers::sql_test_glue::plan_driver::sql_test_model_chain_names_by_key;
@@ -57,6 +59,7 @@ const TESTS_DIR: &str = "tests";
 const MANIFEST_FILE: &str = "manifest.json";
 /// The compile cache file stamping the compiled tree the last stale-file walk left.
 const COMPILED_TREE_STAMP_FILE: &str = "compiled-tree.bin";
+
 const SQL_FILE_SUFFIX: &str = ".sql";
 const SQL_TEST_CACHE_LOGGER: &str = "sqlbuild.compile.reuse";
 /// The miss reason of a SQL test the cache file holds no record for.
@@ -68,6 +71,8 @@ const PUBLISHED_TREE: &str = "tree";
 const TARGET_OPTIONS: (&[&str], &[&str]) = (&["target_dir", "adapter", "project"], &["manifest"]);
 const STAGING_CHANGED_HELP: &str =
     "Rerun the compile; avoid deleting target/ while a compile is running.";
+/// The first line of a compiled model whose Rules failed.
+const RULE_FAILED_HEADER: &str = "-- sqb: compile failed for this model; not buildable";
 
 /// `base / part / ...`.
 fn joined<'py>(base: &Bound<'py, PyAny>, parts: &[&str]) -> PyResult<Bound<'py, PyAny>> {
@@ -748,6 +753,169 @@ pub(crate) fn write_static_target<'py>(
     )
 }
 
+/// `path` relative to `project_dir` with `/` separators, as model files name themselves.
+fn project_relative(path: &Bound<'_, PyAny>, project_dir: &Bound<'_, PyAny>) -> PyResult<String> {
+    let text: String = path_posix_text(path)?;
+    if !Path::new(&text).is_absolute() {
+        return Ok(text);
+    }
+    let root: PathBuf = std::fs::canonicalize(path_posix_text(project_dir)?)?;
+    Ok(Path::new(&text)
+        .strip_prefix(&root)
+        .map_or(text.clone(), |relative| {
+            relative
+                .to_string_lossy()
+                .replace(std::path::MAIN_SEPARATOR, "/")
+        }))
+}
+
+/// Each source file's Rule errors as compiled-file header lines: code, location and message.
+fn rule_error_lines(
+    diagnostics: &Bound<'_, PyAny>,
+    project_dir: &Bound<'_, PyAny>,
+) -> PyResult<HashMap<String, Vec<String>>> {
+    let py: Python<'_> = diagnostics.py();
+    let rule_phase: Bound<'_, PyAny> = enum_member(py, RecordId::DiagnosticPhase, "RULE")?;
+    let mut lines: HashMap<String, Vec<String>> = HashMap::new();
+    for diagnostic in diagnostics.try_iter()? {
+        let diagnostic: Bound<'_, PyAny> = diagnostic?;
+        let path: Bound<'_, PyAny> = native_field(&diagnostic, "path")?;
+        if path.is_none()
+            || !native_field(&diagnostic, "is_error")?.is_truthy()?
+            || !native_field(&diagnostic, "phase")?.is(&rule_phase)
+        {
+            continue;
+        }
+        let relative: String = project_relative(&path, project_dir)?;
+        let position = |field: &str| -> PyResult<String> {
+            let value: Bound<'_, PyAny> = native_field(&diagnostic, field)?;
+            Ok(if value.is_none() {
+                String::new()
+            } else {
+                format!(":{}", value.str()?)
+            })
+        };
+        let message: String = native_field(&diagnostic, "message")?.str()?.to_string();
+        let line: String = format!(
+            "-- {} at {relative}{}{}: {}",
+            native_field(&diagnostic, "code")?.str()?,
+            position("line")?,
+            position("column")?,
+            message.split_whitespace().collect::<Vec<&str>>().join(" "),
+        );
+        lines.entry(relative).or_default().push(line);
+    }
+    Ok(lines)
+}
+
+/// After Rules failed, write every model's compiled SQL to `target/compiled-failed/` and remove every other file there, so it holds exactly the expansion these Rules checked. A model with Rule errors starts with a header marking it not buildable and listing them. `target/compiled/` keeps the last passing compile; only an earlier manifest is removed, since it no longer describes `target/`. Returns the failing models' files, relative to `target/compiled-failed/` and sorted.
+pub(crate) fn write_rule_failed_models<'py>(
+    target_dir: &Bound<'py, PyAny>,
+    (project, project_dir): (&Bound<'py, PyAny>, &Bound<'py, PyAny>),
+    diagnostics: &Bound<'py, PyAny>,
+    recorder: ArtifactRecorder<'_>,
+) -> PyResult<Vec<String>> {
+    let py: Python<'py> = target_dir.py();
+    let errors: HashMap<String, Vec<String>> = rule_error_lines(diagnostics, project_dir)?;
+    let _ = prepared_target(target_dir)?;
+    let target: PathBuf = target_dir.extract()?;
+    match std::fs::remove_file(target.join(MANIFEST_FILE)) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err(error.into()),
+        _ => {}
+    }
+    let failed_dir: PathBuf = target.join(FAILED_COMPILED_DIRECTORY_NAME);
+    let mut models: Vec<(String, String)> = Vec::new();
+    for model in native_field(project, "models")?.try_iter()? {
+        let model: Bound<'py, PyAny> = model?;
+        let (relative_path, query_sql): (String, String) =
+            if let Ok(native) = model.cast::<NativeCompiledModel>() {
+                let (relative_path, query_sql) = native.get().output_texts(py)?;
+                (relative_path, query_sql.to_string())
+            } else {
+                (
+                    path_posix_text(&native_field(&model, "relative_path")?)?,
+                    native_field(&model, "query_sql")?.extract()?,
+                )
+            };
+        models.push((relative_path, query_sql));
+    }
+    if let Some(injection) = crate::bindings::_helpers::compile_context::delta::injection() {
+        models.extend(models_not_rerun(
+            &target,
+            &models,
+            &injection.project_model_paths,
+        )?);
+    }
+    let mut batch: ArtifactBatch = ArtifactBatch::new(true, recorder);
+    let mut failing: Vec<String> = Vec::new();
+    let mut written: Vec<PathBuf> = Vec::new();
+    for (relative_path, query_sql) in models {
+        let path: PathBuf = native_model_output_path(&failed_dir, &relative_path);
+        let sql: String = match errors.get(&relative_path) {
+            Some(lines) => {
+                failing.push(failed_relative(&failed_dir, &path));
+                format!("{RULE_FAILED_HEADER}\n{}\n{query_sql}", lines.join("\n"))
+            }
+            None => query_sql,
+        };
+        written.push(path.clone());
+        batch.queue_sql_at(py, path, &sql)?;
+    }
+    batch.flush(py)?;
+    let _ = remove_stale_artifacts(py, failed_dir, written, None)?;
+    failing.sort_unstable();
+    Ok(failing)
+}
+
+/// In a delta compile, which runs only after a passing compile, the compiled SQL of each project model it did not rerun, unchanged in `target/compiled/` since that compile.
+fn models_not_rerun(
+    target: &Path,
+    rerun: &[(String, String)],
+    project_model_paths: &[String],
+) -> PyResult<Vec<(String, String)>> {
+    let rerun: HashSet<&str> = rerun.iter().map(|(path, _)| path.as_str()).collect();
+    let compiled_dir: PathBuf = target.join(COMPILED_DIR);
+    let mut models: Vec<(String, String)> = Vec::new();
+    for relative_path in project_model_paths {
+        if rerun.contains(relative_path.as_str()) {
+            continue;
+        }
+        let path: PathBuf = native_model_output_path(&compiled_dir, relative_path);
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            return Err(
+                crate::bindings::_helpers::compile_context::delta::delta_unsupported(
+                    "the stored compile's SQL for a model it did not rerun is unreadable",
+                ),
+            );
+        };
+        let query_sql: String = if cfg!(windows) {
+            text.replace("\r\n", "\n")
+        } else {
+            text
+        };
+        models.push((relative_path.clone(), query_sql));
+    }
+    Ok(models)
+}
+
+/// `path` relative to `failed_dir`, with `/` separators.
+fn failed_relative(failed_dir: &Path, path: &Path) -> String {
+    match path.strip_prefix(failed_dir) {
+        Ok(relative) => relative
+            .to_string_lossy()
+            .replace(std::path::MAIN_SEPARATOR, "/"),
+        Err(_outside) => path.to_string_lossy().into_owned(),
+    }
+}
+
+/// Delete `target/compiled-failed/`, which only the latest compile whose Rules failed owns.
+pub(crate) fn remove_failed_compile(target: &Path) -> PyResult<()> {
+    match std::fs::remove_dir_all(target.join(FAILED_COMPILED_DIRECTORY_NAME)) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.into()),
+        _ => Ok(()),
+    }
+}
+
 /// Plan uncached SQL tests and report their errors without writing artifacts or cache.
 pub(crate) fn planning_diagnostics<'py>(
     target_dir: &Bound<'py, PyAny>,
@@ -783,7 +951,7 @@ pub(crate) fn publish_staged_target<'py>(
         .extract()?;
     let (staged, compiled): (PathBuf, PathBuf) = (staged_dir.extract()?, compiled_dir.extract()?);
     let (kind, published) = record_compile_timing("physical_write_ms", || {
-        publish_staged_artifacts(py, staged, compiled, expected)
+        publish_staged_artifacts(py, staged, compiled.clone(), expected.clone())
     })?;
     if kind == PUBLISHED_STAGING_CHANGED {
         return Err(staging_changed(

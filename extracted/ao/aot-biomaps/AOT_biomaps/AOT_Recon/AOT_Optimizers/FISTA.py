@@ -133,9 +133,11 @@ def calibrate_prior_FISTA(
 
     # Prior gradient scale at beta=1
     delta_cal = delta_phys * amp if potential_type == PotentialType.HUBER else delta_phys
+    eps_cal = 0.1 * amp if potential_type == PotentialType.RELATIVE_DIFFERENCE else 1e-6
+
     grad_U1, _, _ = get_potential_function(
         potential_type, SMatrix, lambda_w,
-        beta=1.0, delta=delta_cal,
+        beta=1.0, delta=delta_cal, eps_rd=eps_cal,
         shape=potential_shape, radius=potential_radius,
         compute_grad=True, compute_hess=False, compute_energy=False,
         use_surrogate_hessian=False
@@ -151,11 +153,7 @@ def calibrate_prior_FISTA(
     return G_f, G_U, amp
 
 
-def calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta, delta, num_iters, L_data, show_logs):
-    """
-    Compute the FIXED scalar step size α = 1 / (L_data + L_prior).
-    Valid for QUADRATIC and HUBER.
-    """
+def calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta, delta, num_iters, L_data, show_logs, eps_rd=1e-6):
     if L_data is None:
         L_data = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters, show_logs=show_logs)
 
@@ -165,14 +163,16 @@ def calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta, del
         L_prior = 8.0 * beta
         if delta > 0:
             L_prior = max(L_prior, min(8.0 * beta / max(delta, 1e-30), 10.0 * L_data))
+    elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
+        # Minimum Hessian value for the relative difference potential is 16 * beta / eps_rd, but on the object (u ~ amp), the Hessian is ~ 4 * beta / amp. So we take the minimum of these two values to ensure stability.
+        # In u -> 0, h_max = 16 * beta / eps_rd ; on the object (u ~ amp), h ~ 4 * beta / amp
+        L_prior = min(16.0 * beta / max(eps_rd, 1e-30), 10.0 * L_data)
     else:
         L_prior = 0.0
 
     alpha = 1.0 / (L_data + L_prior)
-
     if show_logs:
         print(f"[AOT-biomaps] Using step size α = {alpha:.3e} (L_data={L_data:.2e}, L_prior={L_prior:.2e})")
-
     return alpha
 
 
@@ -271,6 +271,7 @@ def FISTA(
         if potential_type == PotentialType.NONE or beta_phys == 0.0:
             beta_int = 0.0
             delta_int = 0.0
+            eps_int = 1e-6
             G_f = G_U = 1.0
             amp = 1.0
         else:
@@ -279,20 +280,23 @@ def FISTA(
                 potential_type, potential_shape, potential_radius,
                 L_data, delta_phys=delta_phys, num_warmup=10, show_logs=show_logs
             )
-            # Enforce  ||∇U|| ≈ β_phys * ||∇f||  at the working point:
             beta_int = beta_phys * G_f / G_U
-            # δ in internal units (for Huber):
             if potential_type == PotentialType.HUBER:
                 delta_int = delta_phys * amp
+                eps_int = 1e-6
+            elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
+                delta_int = delta_phys          
+                eps_int = 0.1 * amp             # Epsilon for relative difference potential, scaled to the mean amplitude of the warm-up image
             else:
                 delta_int = 0.0
+                eps_int = 1e-6
 
         prior_ratio = beta_phys
         if show_logs:
             print(f"[AOT-biomaps] β (dimensionless) = {beta_phys:.3e} | β_int = {beta_int:.3e} "
                   f"(G_f={G_f:.2e}, G_U={G_U:.2e}) | δ_int = {delta_int:.3e}")
 
-        alpha_val = calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta_int, delta_int, numIterations_stepCalculation, L_data=L_data, show_logs=show_logs) if alpha == "auto" else alpha
+        alpha_val = calculate_step_size_FISTA(SMatrix, preconditioner, potential_type, beta_int, delta_int, numIterations_stepCalculation, L_data=L_data, show_logs=show_logs, eps_rd=eps_int) if alpha == "auto" else alpha
         alpha_vec = xp.full(ZX, alpha_val, dtype=xp.float32)
 
         # Variables initialization

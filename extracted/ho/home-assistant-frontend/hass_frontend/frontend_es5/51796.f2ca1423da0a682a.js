@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkhome_assistant_frontend=self.rspackChunkhome_assistant_frontend||[]).push([[51796],{64031(e,t,s){s.r(t);var r=s(50026),a=s(70341),n=s(19266);class i extends a.mN{static async generate(e){return{type:"panel",title:e.title,cards:[{type:"iframe",url:e.url}]}}}i.registryDependencies=[],i=(0,r.Cg)([(0,n.EM)("iframe-view-strategy")],i),s.d(t,{IframeViewStrategy:()=>i})}}]);
+//# sourceMappingURL=51796.f2ca1423da0a682a.js.map

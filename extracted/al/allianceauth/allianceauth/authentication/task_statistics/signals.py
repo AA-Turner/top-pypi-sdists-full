@@ -13,7 +13,7 @@ from django.conf import settings
 from .counters import failed_tasks, retried_tasks, succeeded_tasks
 
 
-def reset_counters():
+def reset_counters() -> None:
     """Reset all counters for the celery status."""
     succeeded_tasks.clear()
     failed_tasks.clear()
@@ -28,30 +28,30 @@ def is_enabled() -> bool:
 
 
 @worker_ready.connect
-def reset_counters_when_celery_restarted(*args, **kwargs):
+def reset_counters_when_celery_restarted(*args, **kwargs) -> None:
     if is_enabled():
         reset_counters()
 
 
 @task_success.connect
-def record_task_succeeded(*args, **kwargs):
+def record_task_succeeded(*args, **kwargs) -> None:
     if is_enabled():
         succeeded_tasks.add()
 
 
 @task_retry.connect
-def record_task_retried(*args, **kwargs):
+def record_task_retried(*args, **kwargs) -> None:
     if is_enabled():
         retried_tasks.add()
 
 
 @task_failure.connect
-def record_task_failed(*args, **kwargs):
+def record_task_failed(*args, **kwargs) -> None:
     if is_enabled():
         failed_tasks.add()
 
 
 @task_internal_error.connect
-def record_task_internal_error(*args, **kwargs):
+def record_task_internal_error(*args, **kwargs) -> None:
     if is_enabled():
         failed_tasks.add()

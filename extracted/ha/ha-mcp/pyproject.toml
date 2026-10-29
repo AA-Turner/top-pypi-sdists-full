@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.12.17,<0.13"]
+requires = ["uv_build>=0.12.17,<0.14"]
 build-backend = "uv_build"
 
 [project]
 name = "ha-mcp"
-version = "8.7.0"
+version = "9.0.0"
 description = "Home Assistant MCP Server - Complete control of Home Assistant through MCP"
 readme = "README.md"
 requires-python = ">=3.13,<3.15"
@@ -33,12 +33,12 @@ dependencies = [
     "cyclopts>=4.0.0",
     "exceptiongroup>=1.2.2",
     "griffelib>=2.0.0",
-    "httpx2>=2.5.0",
+    "httpx2>=2.10.0",
     "joserfc>=1.5.0",
     "jsonref>=1.1.0",
     "jsonschema>=4.20.0",
     "jsonschema-path>=0.3.4",
-    "openapi-pydantic>=0.5.1",
+    "openapi-pydantic>=0.6.0",
     "opentelemetry-api>=1.28.0",
     "platformdirs>=4.0.0",
     "psutil>=7.0.0",
@@ -59,8 +59,8 @@ dependencies = [
     "watchfiles>=1.0.0",
     "httpx[socks]>=0.28.1,<0.29",
     "pydantic[email]>=2.13.4,<3",
-    "python-dotenv==1.2.4",
-    "truststore==0.10.4",
+    "python-dotenv>=1.2.4,<2",
+    "truststore>=0.10.4,<0.11",
     "cryptography>=48.0.0,<51",
     "pydantic-monty==0.0.18",
     "tzdata>=2024.1",
@@ -252,6 +252,7 @@ markers = [
     "not_on_haos_embedded: skip on the haos_embedded backend (HAOS_TEST_MODE=embedded) - provably redundant with the lane's own session backend, which enables the entry once and drives the in-process server for the whole suite; #1527",
     "requires_tools_entry: needs the File & YAML Tools config entry - skipped on E2E_NO_TOOLS_ENTRY=1 lanes (#2292)",
     "no_tools_only: runs only on E2E_NO_TOOLS_ENTRY=1 lanes (#2292)",
+    "requires_component_surface: needs an active ha_mcp_tools config entry - skipped on the no-tools lanes without an active server entry (plain container, HAOS inaddon, where it is absent or disabled); #2584",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
@@ -272,6 +273,11 @@ filterwarnings = [
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
+version_variables = [
+    "custom_components/ha_mcp_tools/manifest.json:version",
+    "custom_components/ha_mcp_tools/manifest.json:ha-mcp",
+    "custom_components/ha_mcp_tools/const.py:COMPONENT_VERSION",
+]
 build_command = """
 pip install uv && uv lock
 git add uv.lock
@@ -318,6 +324,6 @@ dev = [
     "ruff>=0.12.12",
     "testcontainers>=4.13.0",
     "ast-grep-cli>=0.42.0",
-    "python-semantic-release==10.6.2",
+    "python-semantic-release==10.7.0",
     "hamcp-test-env",
 ]

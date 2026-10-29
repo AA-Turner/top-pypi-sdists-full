@@ -40,8 +40,7 @@ from .abstract_loop import EventLoop, ExitMainLoop
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
     from concurrent.futures import Executor
-
-    from typing_extensions import Literal, ParamSpec
+    from typing import Literal, ParamSpec
 
     _Spec = ParamSpec("_Spec")
     _T = typing.TypeVar("_T")
@@ -91,7 +90,7 @@ class TornadoEventLoop(EventLoop):
         @functools.wraps(callback)
         def wrapper(*args: _Spec.args, **kwargs: _Spec.kwargs) -> _T | None:
             if not self._idle_asyncio_handle:
-                self._idle_asyncio_handle = self._loop.call_later(0, self._entering_idle)
+                self._idle_asyncio_handle = self._loop.call_later(0, self.handle_exit(self._entering_idle))
             return self._run_callback(callback, *args, **kwargs)
 
         return wrapper
@@ -102,7 +101,7 @@ class TornadoEventLoop(EventLoop):
         :param callback: function or coroutine function to call
         :param args: positional arguments to pass to callback
         :param kwargs: keyword arguments to pass to callback
-        :return: callback return value, or None if it was scheduled as a background task
+        :returns: callback return value, or None if it was scheduled as a background task
         """
         if inspect.iscoroutinefunction(callback):
             task = asyncio.get_running_loop().create_task(callback(*args, **kwargs))
@@ -115,7 +114,8 @@ class TornadoEventLoop(EventLoop):
     def _entering_idle(self) -> None:
         """Call all the registered idle callbacks."""
         try:
-            for callback in self._idle_callbacks.values():
+            # A callback may add or remove idle callbacks.
+            for callback in list(self._idle_callbacks.values()):
                 self._run_callback(callback)
         finally:
             self._idle_asyncio_handle = None
@@ -133,7 +133,7 @@ class TornadoEventLoop(EventLoop):
         :param func: function to call
         :param args: arguments to function (positional only)
         :param kwargs: keyword arguments to function (keyword only)
-        :return: future object for the function call outcome.
+        :returns: future object for the function call outcome.
         """
         return typing.cast(
             "asyncio.Future[_T]",
@@ -165,13 +165,18 @@ class TornadoEventLoop(EventLoop):
 
         return True
 
-    def watch_file(self, fd: int, callback: Callable[[], _T]) -> int:
-        """Call *callback* whenever *fd* is readable and return a handle for :meth:`remove_watch_file`."""
+    def watch_file(self, fd: int, callback: Callable[[], typing.Any]) -> int:
+        """Call *callback* whenever *fd* is readable and return a handle for :meth:`remove_watch_file`.
+
+        A watch already set on *fd* is replaced, and its handle is no longer valid.
+        """
 
         @self._also_call_idle
         def handler(_fd: int, _events: int) -> None:
             self.handle_exit(callback)()
 
+        for old_handle in [old for old, watched_fd in self._watch_handles.items() if watched_fd == fd]:
+            self.remove_watch_file(old_handle)
         self._loop.add_handler(fd, handler, ioloop.IOLoop.READ)
         self._max_watch_handle += 1
         handle = self._max_watch_handle
@@ -190,7 +195,7 @@ class TornadoEventLoop(EventLoop):
         """
         Add a callback for entering idle.
 
-        Returns a handle that may be passed to remove_idle()
+        :returns: a handle that may be passed to remove_enter_idle()
         """
         # XXX there's no such thing as "idle" in most event loops; this fakes
         # it by adding extra callback to the timer and file watch callbacks.
@@ -202,7 +207,7 @@ class TornadoEventLoop(EventLoop):
         """
         Remove an idle callback.
 
-        Returns True if the handle was removed.
+        :returns: True if the handle was removed.
         """
         try:
             del self._idle_callbacks[handle]

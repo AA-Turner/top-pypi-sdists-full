@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.db.models", "django.http", "esi.models"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib.auth.backends import ModelBackend
 
@@ -6,22 +9,28 @@ from .models import (
     CharacterOwnership, OwnershipRecord, Permission, User, UserProfile,
 )
 
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+    from django.http import HttpRequest
+
+    from esi.models import Token
+
 logger = logging.getLogger(__name__)
 
 
 class StateBackend(ModelBackend):
     @staticmethod
-    def _get_state_permissions(user_obj):
+    def _get_state_permissions(user_obj: User) -> "QuerySet[Permission]":
         """returns permissions for state of given user object"""
         if hasattr(user_obj, "profile") and user_obj.profile:
             return Permission.objects.filter(state=user_obj.profile.state)
         else:
             return Permission.objects.none()
 
-    def get_state_permissions(self, user_obj, obj=None):
+    def get_state_permissions(self, user_obj: User, obj=None) -> set[str]:
         return self._get_permissions(user_obj, obj, 'state')
 
-    def get_all_permissions(self, user_obj, obj=None):
+    def get_all_permissions(self, user_obj: User, obj=None) -> set[str]:
         if not user_obj.is_active or user_obj.is_anonymous or obj is not None:
             return set()
         if not hasattr(user_obj, '_perm_cache'):
@@ -30,7 +39,9 @@ class StateBackend(ModelBackend):
             user_obj._perm_cache.update(self.get_state_permissions(user_obj))
         return user_obj._perm_cache
 
-    def authenticate(self, request=None, token=None, **credentials):
+    def authenticate(
+        self, request: "HttpRequest | None" = None, token: "Token | None" = None, **credentials
+    ) -> User | None:
         if not token:
             return None
         try:
@@ -77,7 +88,7 @@ class StateBackend(ModelBackend):
             logger.debug(f'Unable to authenticate character {token.character_name}. Creating new user.')
             return self.create_user(token)
 
-    def create_user(self, token):
+    def create_user(self, token: "Token") -> User:
         username = self.iterate_username(token.character_name)  # build unique username off character name
         user = User.objects.create_user(username, is_active=False)  # prevent login until email set
         user.set_unusable_password()  # prevent login via password
@@ -90,7 +101,7 @@ class StateBackend(ModelBackend):
         return user
 
     @staticmethod
-    def iterate_username(name):
+    def iterate_username(name: str) -> str:
         name = str.replace(name, "'", "")
         name = str.replace(name, ' ', '_')
         if User.objects.filter(username__startswith=name).exists():

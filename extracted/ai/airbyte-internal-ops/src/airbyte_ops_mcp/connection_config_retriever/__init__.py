@@ -13,6 +13,9 @@ from airbyte_ops_mcp.connection_config_retriever.retrieval import (
     ConnectionNotFoundError,
     RetrievalMetadata,
     TestingCandidate,
+    get_connection_dataplane_group,
+    get_connection_residency,
+    residency_for_dataplane_group,
     retrieve_objects,
 )
 from airbyte_ops_mcp.constants import ConnectionObject
@@ -22,5 +25,8 @@ __all__ = [
     "ConnectionObject",
     "RetrievalMetadata",
     "TestingCandidate",
+    "get_connection_dataplane_group",
+    "get_connection_residency",
+    "residency_for_dataplane_group",
     "retrieve_objects",
 ]

@@ -23,7 +23,8 @@ CALLER_PATH = (
 # contracts/OMN-<n>.yaml out of the product paths it reverts. Before it, a fix
 # whose contract the base had since amended failed `git apply -R` and the
 # control refused with "do not revert cleanly at the merge base".
-_MERGED_FIX_REUSABLE_SHA = "4d16322dae9d62f96089b93421a768fb8dd8c8fe"
+# The pin moved to a descendant that keeps this: omnibase_core#2079 (OMN-19513).
+_MERGED_FIX_REUSABLE_TAG = "dev-20261022114039-578228977721"
 
 # omnibase_core#1932: the previous pin, whose control counts the contract as a
 # product path.
@@ -41,7 +42,7 @@ def _job() -> dict[str, object]:
 def test_caller_pins_the_reusable_whose_merged_fix_control_skips_contract_files() -> (
     None
 ):
-    assert _job()["uses"] == f"{_REUSABLE}@{_MERGED_FIX_REUSABLE_SHA}", (
+    assert _job()["uses"] == f"{_REUSABLE}@{_MERGED_FIX_REUSABLE_TAG}", (
         "pin the omnibase_core receipt-gate reusable at or past omnibase_core#1986"
     )
 

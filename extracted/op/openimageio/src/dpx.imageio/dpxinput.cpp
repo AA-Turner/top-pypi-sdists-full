@@ -219,18 +219,44 @@ DPXInput::seek_subimage(int subimage, int miplevel)
     m_spec     = ImageSpec(m_dpx.header.Width(), m_dpx.header.Height(),
                            m_dpx.header.ImageElementComponentCount(subimage),
                            typedesc);
+
+    // xOffset/yOffset are defined as unsigned 32-bit integers, but m_spec.x/y are signed
+    // avoid casts that would result in negative values. Set the origin before
+    // check_open() so it can reject a data window (origin + size) that would
+    // overflow the int scanline coordinates used by the read path.
+    if (m_dpx.header.xOffset <= (unsigned int)std::numeric_limits<int>::max())
+        m_spec.x = m_dpx.header.xOffset;
+    if (m_dpx.header.yOffset <= (unsigned int)std::numeric_limits<int>::max())
+        m_spec.y = m_dpx.header.yOffset;
+
     if (!check_open(m_spec, { 0, 1 << 30, 0, 1 << 30, 0, 1 << 16, 0, 8 })
         || !check_compression_ratio(m_spec, m_filesize)) {
         m_spec = ImageSpec();
         return false;
     }
 
-    // xOffset/yOffset are defined as unsigned 32-bit integers, but m_spec.x/y are signed
-    // avoid casts that would result in negative values
-    if (m_dpx.header.xOffset <= (unsigned int)std::numeric_limits<int>::max())
-        m_spec.x = m_dpx.header.xOffset;
-    if (m_dpx.header.yOffset <= (unsigned int)std::numeric_limits<int>::max())
-        m_spec.y = m_dpx.header.yOffset;
+    // The libdpx code we use is not really 32 bit overflow safe in its
+    // allocations or offsets when reading and decoding individual scanlines.
+    // We'll never see a DPX file that big anyway, so just consider it an
+    // error rather than track down every possible problem in libdpx.
+    if (m_spec.scanline_bytes()
+        > imagesize_t(std::numeric_limits<int32_t>::max())) {
+        errorfmt("Unsupported DPX with scanlines exceeding {} bytes",
+                 std::numeric_limits<int>::max());
+        m_spec = ImageSpec();
+        return false;
+    }
+
+    // The readers hold end-of-line padding in an int, so a larger value
+    // would go negative and step rows backward through the file.
+    if (m_dpx.header.EndOfLinePadding(subimage)
+        > (unsigned int)std::numeric_limits<int>::max()) {
+        errorfmt("Invalid DPX end-of-line padding {}",
+                 m_dpx.header.EndOfLinePadding(subimage));
+        m_spec = ImageSpec();
+        return false;
+    }
+
     if ((int)m_dpx.header.xOriginalSize > 0)
         m_spec.full_width = m_dpx.header.xOriginalSize;
     if ((int)m_dpx.header.yOriginalSize > 0)
@@ -397,7 +423,7 @@ DPXInput::seek_subimage(int subimage, int miplevel)
     // save some typing by using macros
     // "internal" macros
 #define DPX_SET_ATTRIB_S(x, n, s) m_spec.attribute(s, m_dpx.header.x(n))
-#define DPX_SET_ATTRIB(x, n) DPX_SET_ATTRIB_S(x, n, "dpx:" #x)
+#define DPX_SET_ATTRIB(x, n)      DPX_SET_ATTRIB_S(x, n, "dpx:" #x)
     // set without checking for bogus attributes
 #define DPX_SET_ATTRIB_N(x) DPX_SET_ATTRIB(x, subimage)
     // set with checking for bogus attributes
@@ -629,8 +655,10 @@ DPXInput::read_native_scanlines(int subimage, int miplevel, int ybegin,
 
     if (m_rawcolor) {
         // fast path - just read the scanline in
-        if (!m_dpx.ReadBlock(subimage, (unsigned char*)data, block))
+        if (!m_dpx.ReadBlock(subimage, (unsigned char*)data, block)) {
+            errorfmt("Failed to read scanlines {}-{}", ybegin, yend - 1);
             return false;
+        }
     } else {
         // read the scanline and convert to RGB
         unsigned char* ptr = (unsigned char*)data;
@@ -641,8 +669,10 @@ DPXInput::read_native_scanlines(int subimage, int miplevel, int ybegin,
             ptr = m_decodebuf.data();
         }
 
-        if (!m_dpx.ReadBlock(subimage, ptr, block))
+        if (!m_dpx.ReadBlock(subimage, ptr, block)) {
+            errorfmt("Failed to read scanlines {}-{}", ybegin, yend - 1);
             return false;
+        }
         if (!dpx::ConvertToRGB(m_dpx.header, subimage, ptr, data, block))
             return false;
     }

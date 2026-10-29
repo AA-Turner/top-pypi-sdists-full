@@ -1,14 +1,20 @@
+__lazy_modules__ = ["django.db.models", "django.http"]
+
 from collections import defaultdict
 import re
-from typing import List
+from typing import TYPE_CHECKING, List
 
-from django.db.models import Model, Q
-from django.http import HttpRequest, JsonResponse
+from django.db.models import Q
+from django.http import JsonResponse
 from django.template import Context, Template
 from django.template.loader import render_to_string
 from django.views import View
 
 from allianceauth.services.hooks import get_extension_logger
+
+if TYPE_CHECKING:
+    from django.db.models import Model
+    from django.http import HttpRequest
 
 
 logger = get_extension_logger(__name__)
@@ -18,7 +24,7 @@ class nested_param_dict(dict):
     """
     Helper to create infinite depth default dicts for setting from params
     """
-    def __setitem__(self, item, value):
+    def __setitem__(self, item: str, value) -> None:
         if "." in item:
             head, path = item.split(".", 1)
             try:
@@ -42,13 +48,13 @@ def defaultdict_to_dict(d):
 
 class DataTablesView(View):
 
-    model: Model = None
+    model: "type[Model] | None" = None
     columns: list[tuple] = []
 
-    def get_model_qs(self, request: HttpRequest, *args, **kwargs):
+    def get_model_qs(self, request: "HttpRequest", *args, **kwargs):
         return self.model.objects
 
-    def filter_qs(self, table_conf: dict):
+    def filter_qs(self, table_conf: dict) -> Q:
         # Search
         filter_qs = Q()
         for id, c in table_conf["columns"].items():
@@ -101,7 +107,7 @@ class DataTablesView(View):
                     filter_qs |= Q(**{f'{_c}__icontains': _gsv})
         return filter_qs
 
-    def except_qs(self, table_conf: dict):
+    def except_qs(self, table_conf: dict) -> Q:
         # Search
         except_qs = Q()
         for id, c in table_conf["columns"].items():
@@ -132,10 +138,10 @@ class DataTablesView(View):
                                     pass
         return except_qs
 
-    def get_table_config(self, get: dict):
+    def get_table_config(self, get: dict) -> dict:
         _cols = nested_param_dict()
         for c, v in get.items():
-            _keys = [_k for _k in c.replace("]", "").split("[")]
+            _keys = [*c.replace("]", "").split("[")]
             _v = v
             if v in ["true", "false"]:
                 _v = _v == "true"
@@ -147,7 +153,7 @@ class DataTablesView(View):
             _cols[".".join(_keys)] = _v
         return defaultdict_to_dict(_cols)
 
-    def get_order(self, table_conf: dict):
+    def get_order(self, table_conf: dict) -> list[str]:
         order = []
         for oc, od in table_conf.get("order", {}).items():
             _c = table_conf["columns"][od["column"]]
@@ -158,7 +164,7 @@ class DataTablesView(View):
                     order.append(self.columns[int(od["column"])][0])
         return order
 
-    def render_template(self, request: HttpRequest, template: str, ctx: dict):
+    def render_template(self, request: "HttpRequest", template: str, ctx: dict) -> str:
         if "{{" in template:
             _template = Template(template)
             return _template.render(Context(ctx))
@@ -169,13 +175,13 @@ class DataTablesView(View):
                 request
             )
 
-    def get(self, request: HttpRequest, *args, **kwargs):
+    def get(self, request: "HttpRequest", *args, **kwargs) -> JsonResponse:
         return self.handle_request(request, request.GET, *args, **kwargs)
 
-    def post(self, request: HttpRequest, *args, **kwargs):
+    def post(self, request: "HttpRequest", *args, **kwargs) -> JsonResponse:
         return self.handle_request(request, request.POST, *args, **kwargs)
 
-    def handle_request(self, request: HttpRequest, params: dict, *args, **kwargs):
+    def handle_request(self, request: "HttpRequest", params: dict, *args, **kwargs) -> JsonResponse:
         table_conf = self.get_table_config(params)
         draw = int(table_conf["draw"])
         start = int(table_conf["start"])

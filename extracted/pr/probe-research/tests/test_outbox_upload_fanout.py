@@ -159,13 +159,13 @@ def test_the_worker_count_is_bounded_and_survives_nonsense(monkeypatch):
     from probe.sdk.journal import _upload_workers
 
     monkeypatch.delenv("PROBE_UPLOAD_WORKERS", raising=False)
-    assert _upload_workers() == 4
+    assert _upload_workers() == 8
     monkeypatch.setenv("PROBE_UPLOAD_WORKERS", "0")
     assert _upload_workers() == 1
     monkeypatch.setenv("PROBE_UPLOAD_WORKERS", "9999")
     assert _upload_workers() == 32
     monkeypatch.setenv("PROBE_UPLOAD_WORKERS", "not-a-number")
-    assert _upload_workers() == 4
+    assert _upload_workers() == 8
 
 
 def test_the_window_refills_so_late_files_are_parallel_too(queue, tmp_path, monkeypatch):

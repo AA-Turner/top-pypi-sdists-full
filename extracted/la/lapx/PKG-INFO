@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lapx
-Version: 0.12.0
+Version: 0.13.0
 Summary: Linear assignment problem solvers, including single and batch solvers.
 Home-page: https://github.com/rathaROG/lapx
 Author: Ratha SIV
@@ -52,14 +52,10 @@ Dynamic: summary
 
 <details><summary>🆕 What's new</summary><hr>
 
-> <sup>- 2026/10/27: [v0.12.0](https://github.com/rathaROG/lapx/releases/tag/v0.12.0) improved performance on congested inputs for **`lapjvr`**, **`lapjvh`**, **`lapjvr_batch`**, and **`lapjvh_batch`**. </sup><br>
+> <sup>- 2026/10/29: [v0.13.0](https://github.com/rathaROG/lapx/releases/tag/v0.13.0) improved performance on rectangular inputs for native R/H families. </sup><br>
+> <sup>- 2026/10/27: [v0.12.0](https://github.com/rathaROG/lapx/releases/tag/v0.12.0) improved performance on congested rectangular inputs for native R/H families. </sup><br>
 > <sup>- 2026/10/19: [v0.11.0rc1](https://github.com/rathaROG/lapx/releases/tag/v0.11.0rc1) added the Rust and hybrid solvers: **`lapjvr`**, **`lapjvh`**, **`lapjvr_batch`**, and **`lapjvh_batch`**. </sup><br>
 > <sup>- 2026/09/07: [v0.10.0rc1](https://github.com/rathaROG/lapx/releases/tag/v0.10.0rc1) added Python 3.15 support and **`lapmod_batch`**. It improved type hints, stability, and performance. </sup><br>
-> <sup>- 2025/10/31: [v0.9.0](https://github.com/rathaROG/lapx/releases/tag/v0.9.0) improved stability and performance across all solvers. </sup><br>
-> <sup>- 2025/10/27: [v0.8.0](https://github.com/rathaROG/lapx/releases/tag/v0.8.0) added **`lapjvx_batch`**, **`lapjvxa_batch`**, **`lapjvs_batch`**, **`lapjvsa_batch`** and **`lapjvsa`**. </sup><br>
-> <sup>- 2025/10/21: [v0.7.0](https://github.com/rathaROG/lapx/releases/tag/v0.7.0) added **`lapjvs`**. </sup><br>
-> <sup>- 2025/10/16: [v0.6.0](https://github.com/rathaROG/lapx/releases/tag/v0.6.0) added **`lapjvx`**, **`lapjvxa`**, and **`lapjvc`**. </sup><br>
-> <sup>- See [GitHub releases](https://github.com/rathaROG/lapx/releases) for all release notes. </sup><br>
 
 </details>
 
@@ -195,7 +191,7 @@ Results with these values are undefined. Positive infinity (`np.inf`) can repres
 `lapjvc` treats `NaN` and either infinity as forbidden assignments.
 `lapmod` checks its sparse arrays. Stored costs must be finite, non-negative, and less than `lap.LARGE`.
 
-With `return_cost=True` (the default), the solvers sum total costs in float64 from the original costs, even when they solve in float32.
+With `return_cost=True` (the default), the solvers sum total costs in float64 from the original costs, even when working costs are stored in float32.
 Set `return_cost=False` when you need only assignments. This skips the total-cost calculation.
 
 <details><summary>Cost limits and filtering after solving</summary>
@@ -320,6 +316,9 @@ pairs = np.column_stack((rows, cols))
 
 `lapjvs` extends Vadim Markovtsev's [`lapjv`](https://github.com/src-d/lapjv).
 Its scalar kernel does not require AVX2 instructions.
+Working costs use float32 by default; potentials, distances, and reduced-cost
+arithmetic use float64. To preserve float64 input costs, pass
+`prefer_float32=False` with a float64 array.
 It supports square and rectangular cost matrices. It can return either of these output formats:
 
 - Aligned index arrays, as in SciPy's [`linear_sum_assignment`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linear_sum_assignment.html).
@@ -377,7 +376,7 @@ total, x, y = lap.lapmod(n, cc, ii, kk)
 
 #### 8. Rust and hybrid functions `lapjvr` and `lapjvh`
 
-R/H were **about 3–8× faster than SciPy** across benchmarks; see [benchmark.md](https://github.com/rathaROG/lapx/blob/main/benchmark.md#historical-results-lapx-0110rc1).
+R/H were **about 3–10× faster than SciPy** across benchmarks; see [benchmark.md](https://github.com/rathaROG/lapx/blob/main/benchmark.md#historical-results-lapx-0110rc1).
 
 `lapjvr` and `lapjvh` share a Rust Jonker-Volgenant implementation. For square
 problems with infinite `cost_limit`, `lapjvh` uses C++ completion. Both return
@@ -398,6 +397,12 @@ Both support rectangular inputs (`extend_cost=True`), finite `cost_limit`, and
 problems are solved without square padding. See the
 [API guide](https://github.com/rathaROG/lapx/blob/main/src/_lapjvr/README.md)
 for full signatures, return types, and precision rules.
+
+All paths use float64 potentials and distances while retaining the selected
+cost storage. Finite-limit penalties retain their rounding in the selected
+cost precision.
+Wider working arithmetic reduces cancellation; extreme cost ranges can still
+hide small objective differences. Cost conversion can also round input values.
 
 If you don't need the other LAPX solvers, you can use the dedicated
 [laprust](https://github.com/rathaROG/laprust) (Rust, from `lapjvr`) or

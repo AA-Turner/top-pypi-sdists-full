@@ -14,6 +14,7 @@ from collections.abc import Callable
 from enum import StrEnum
 from typing import Protocol
 
+import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from plato.runtimes.base import RuntimeInfo
@@ -24,8 +25,17 @@ logger = logging.getLogger(__name__)
 
 # An OAuth client secret is accepted by ``tailscale up --auth-key`` with these
 # URL-style parameters; a plain auth key carries its own attributes instead.
+# This is the fallback for a plan that still carries the secret (a direct join_tailnet
+# caller). The normal path mints a one-off key on the world VM first (mint_auth_key).
 OAUTH_CLIENT_SECRET_PREFIX = "tskey-client-"
 OAUTH_KEY_PARAMS = "ephemeral=true&preauthorized=true"
+
+# Minting a one-off auth key from the OAuth client secret: exchange the secret for a
+# short-lived access token, then create one single-use ephemeral preauthorized key.
+# https://tailscale.com/api : POST /oauth/token (client_credentials) then POST /keys.
+TAILSCALE_API_BASE = "https://api.tailscale.com/api/v2"
+OAUTH_TOKEN_PATH = "/oauth/token"
+CREATE_KEY_PATH = "/tailnet/-/keys"
 
 TUN_DEVICE = "/dev/net/tun"
 TAILSCALED_SOCKET = "/var/run/tailscale/tailscaled.sock"
@@ -58,6 +68,10 @@ PROXY_ENV_VARS = ("ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy")
 
 class TailscaleError(RuntimeError):
     """A VM could not join or leave the tailnet."""
+
+
+class TailscaleMintError(TailscaleError):
+    """The world VM could not mint a one-off auth key from the OAuth client secret."""
 
 
 class TailscaleUnavailableError(TailscaleError):
@@ -361,20 +375,139 @@ def node_hostname(prefix: str, session_id: str, role: str) -> str:
 
 
 def build_auth_key(secret: str) -> str:
-    """Return the ``--auth-key`` value. An OAuth client secret gets the ephemeral parameters."""
+    """Return the ``--auth-key`` value. An OAuth client secret gets the ephemeral parameters.
+
+    Fallback for a plan that still carries the OAuth client secret. The normal path mints a
+    one-off key with :func:`mint_auth_key` first, so the plan here holds a plain ``tskey-auth-``
+    key and this returns it unchanged.
+    """
     secret = secret.strip()
     if secret.startswith(OAUTH_CLIENT_SECRET_PREFIX) and "?" not in secret:
         return f"{secret}?{OAUTH_KEY_PARAMS}"
     return secret
 
 
-def build_join_plan(ts: TailscaleConfig, *, session_id: str, role: str) -> TailscaleJoinPlan:
-    """Resolve the config for one VM. Raises :class:`TailscaleError` without an auth key."""
-    if not ts.auth_key:
+def is_oauth_client_secret(auth_key: str) -> bool:
+    return auth_key.strip().startswith(OAUTH_CLIENT_SECRET_PREFIX)
+
+
+def _json_body(response: httpx.Response, field: str) -> str:
+    """Pull ``field`` from a JSON response. Raises without ever putting the body in the error.
+
+    Both the token response and the key response hold secrets, so a parse or missing-field
+    error names only the field, never the body text.
+    """
+    try:
+        value = response.json().get(field)
+    except ValueError:
+        raise TailscaleMintError(f"Tailscale API response was not JSON (no {field})") from None
+    if not isinstance(value, str) or not value:
+        raise TailscaleMintError(f"Tailscale API response had no {field}")
+    return value
+
+
+async def mint_auth_key(
+    oauth_secret: str,
+    *,
+    tags: list[str],
+    expiry_s: int,
+    timeout_s: int,
+    client: httpx.AsyncClient | None = None,
+) -> str:
+    """Mint one single-use ephemeral preauthorized auth key from the OAuth client secret.
+
+    Runs on the world VM, which holds the secret. The returned ``tskey-auth-...`` key is the
+    only thing that goes to a joining VM's ``tailscale up``; the OAuth secret never leaves here.
+    Raises :class:`TailscaleMintError`; its text never carries the secret, the token or the key.
+    """
+    if not tags:
+        raise TailscaleMintError("an OAuth client secret needs at least one tag to mint an auth key")
+    owns_client = client is None
+    client = client or httpx.AsyncClient()
+    try:
+        try:
+            token_resp = await client.post(
+                f"{TAILSCALE_API_BASE}{OAUTH_TOKEN_PATH}",
+                data={"client_secret": oauth_secret},
+                timeout=timeout_s,
+            )
+        except httpx.HTTPError as exc:
+            raise TailscaleMintError(f"Tailscale OAuth token request failed ({type(exc).__name__})") from None
+        if token_resp.status_code != 200:
+            raise TailscaleMintError(f"Tailscale OAuth token request failed (HTTP {token_resp.status_code})")
+        token = _json_body(token_resp, "access_token")
+
+        body = {
+            "capabilities": {
+                "devices": {
+                    "create": {
+                        "reusable": False,
+                        "ephemeral": True,
+                        "preauthorized": True,
+                        "tags": list(tags),
+                    }
+                }
+            },
+            "expirySeconds": expiry_s,
+        }
+        try:
+            key_resp = await client.post(
+                f"{TAILSCALE_API_BASE}{CREATE_KEY_PATH}",
+                headers={"Authorization": f"Bearer {token}"},
+                json=body,
+                timeout=timeout_s,
+            )
+        except httpx.HTTPError as exc:
+            raise TailscaleMintError(f"Tailscale auth-key mint failed ({type(exc).__name__})") from None
+        if key_resp.status_code not in (200, 201):
+            raise TailscaleMintError(f"Tailscale auth-key mint failed (HTTP {key_resp.status_code})")
+        return _json_body(key_resp, "key")
+    finally:
+        if owns_client:
+            await client.aclose()
+
+
+async def resolve_auth_key(
+    ts: TailscaleConfig,
+    *,
+    client: httpx.AsyncClient | None = None,
+    log: logging.Logger = logger,
+) -> str:
+    """The auth key for one VM's join. Mints a one-off key from an OAuth client secret.
+
+    A plain auth key is returned as given. Raises :class:`TailscaleError` on an empty key or a
+    failed mint. Call this on the world VM (where the secret lives) and pass the result to
+    :func:`build_join_plan`, so an agent VM only ever receives the minted key.
+    """
+    secret = (ts.auth_key or "").strip()
+    if not secret:
+        raise TailscaleError("tailscale.auth_key is empty")
+    if not is_oauth_client_secret(secret):
+        return secret
+    log.info("Minting a one-off Tailscale auth key (tags %s, expiry %ds)", ",".join(ts.tags), ts.mint_key_expiry_s)
+    return await mint_auth_key(
+        secret,
+        tags=list(ts.tags),
+        expiry_s=ts.mint_key_expiry_s,
+        timeout_s=ts.mint_timeout_s,
+        client=client,
+    )
+
+
+def build_join_plan(
+    ts: TailscaleConfig, *, session_id: str, role: str, auth_key: str | None = None
+) -> TailscaleJoinPlan:
+    """Resolve the config for one VM. Raises :class:`TailscaleError` without an auth key.
+
+    ``auth_key`` overrides ``ts.auth_key`` with the key this VM should use: the normal path
+    passes the one-off key from :func:`resolve_auth_key` so the plan never holds the OAuth secret.
+    """
+    key = auth_key if auth_key is not None else ts.auth_key
+    if not key:
         raise TailscaleError("tailscale.auth_key is empty")
     return TailscaleJoinPlan(
         hostname=node_hostname(ts.hostname_prefix, session_id, role),
-        auth_key=ts.auth_key,
+        auth_key=key,
         tags=list(ts.tags),
         accept_dns=ts.accept_dns,
         join_timeout_s=ts.join_timeout_s,

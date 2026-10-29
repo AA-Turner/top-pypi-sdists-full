@@ -1434,6 +1434,7 @@ def _validate_graph(
 
 def contamination_terms(register: Mapping[str, Any]) -> dict[str, list[str]]:
     """Their grader's grouping: target (all but campaign), campaign, competitor."""
+    register = register_mapping(register)
     target = register.get("target_terms")
     target = target if isinstance(target, dict) else {}
     result: dict[str, list[str]] = {
@@ -1952,6 +1953,47 @@ def seed_register(
     )
 
 
+def register_mapping(register: Mapping[str, Any] | ContaminationRegister) -> dict[str, Any]:
+    """Any stored never-say register, read as the classed mapping every reader here uses.
+
+    Two shapes are stored: the code path's ``{target_terms: {class: [...]}, competitor_terms}``
+    and the workflow's ``never_say_list`` kind ``{terms: [{term, class, match}], ...}``. The kind
+    is turned into the classed mapping (a ``match: proper_name_only`` term joins
+    ``common_word_terms``); the classed shape passes through unchanged."""
+    data = register.model_dump(mode="json") if isinstance(register, BaseModel) else register
+    if not isinstance(data, Mapping):
+        return {}
+    terms = data.get("terms")
+    if "target_terms" in data or "competitor_terms" in data or not isinstance(terms, list):
+        return dict(data)
+    target: dict[str, list[str]] = {c: [] for c in TARGET_TERM_CLASSES}
+    competitors: list[str] = []
+    flagged: list[str] = [str(t) for t in _as_list(data.get("common_word_terms")) if str(t)]
+    for item in terms:
+        if not isinstance(item, Mapping):
+            continue
+        term = str(item.get("term") or "").strip()
+        cls = str(item.get("class") or item.get("term_class") or "").strip()
+        if not term:
+            continue
+        if cls == "competitor_terms":
+            if term not in competitors:
+                competitors.append(term)
+        elif cls in target:
+            if term not in target[cls]:
+                target[cls].append(term)
+        else:
+            continue
+        if item.get("match") == "proper_name_only" and term not in flagged:
+            flagged.append(term)
+    out = {k: v for k, v in data.items() if k != "terms"}
+    out["target_terms"] = target
+    out["competitor_terms"] = competitors
+    if flagged or "common_word_terms" in data:
+        out["common_word_terms"] = flagged
+    return out
+
+
 def _register_terms_payload(register: Mapping[str, Any]) -> dict[str, Any]:
     payload = {
         "target_terms": register.get("target_terms") or {},
@@ -1977,7 +2019,7 @@ def freeze_register(
 
 def register_terms(register: Mapping[str, Any] | ContaminationRegister) -> list[dict[str, str]]:
     """Flat ``[{term, term_class}]`` (the Gate 1 card's ``register_terms``)."""
-    data = register.model_dump(mode="json") if isinstance(register, BaseModel) else register
+    data = register_mapping(register)
     out: list[dict[str, str]] = []
     target = data.get("target_terms") or {}
     for term_class in TARGET_TERM_CLASSES:
@@ -2043,7 +2085,7 @@ def _match_term(
 
 
 def _register_classes(register: Mapping[str, Any] | ContaminationRegister) -> dict[str, list[str]]:
-    data = register.model_dump(mode="json") if isinstance(register, BaseModel) else register
+    data = register_mapping(register)
     target = data.get("target_terms") or {}
     classes: dict[str, list[str]] = {
         c: [str(t) for t in _as_list(target.get(c)) if str(t).strip()] for c in TARGET_TERM_CLASSES
@@ -2064,7 +2106,7 @@ COMMON_WORD_CLASSES: tuple[str, ...] = ("brands", "products", "competitor_terms"
 
 
 def _common_word_set(register: Mapping[str, Any] | ContaminationRegister) -> set[str]:
-    data = register.model_dump(mode="json") if isinstance(register, BaseModel) else register
+    data = register_mapping(register)
     flagged = data.get("common_word_terms")
     if flagged is None:
         # A register built before the flag existed: derive it the same way the builder does.
@@ -4279,6 +4321,7 @@ __all__ = [
     "normalize_prompt",
     "plan_variance_pilot",
     "reconcile_qa",
+    "register_mapping",
     "register_terms",
     "rollup_family",
     "scan_output",

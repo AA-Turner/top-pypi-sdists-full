@@ -113,13 +113,20 @@ class OfflineMessageHandler(BaseMessageHandler):
     def _process_upload_message(
         self, message: UploadFileMessage, context: HandlerContext
     ) -> None:
-        # Create the file on disk with the same extension if set
-        ext = splitext(message.file_path)[1]
+        msg_json = message.to_message_dict()
 
-        if ext:
-            suffix = ".%s" % ext
-        else:
-            suffix = ""
+        if self.fallback_mode and not message.clean:
+            # fallback mode with user-owned file - it would not be removed by online streamer,
+            # so keep the absolute path to the original file instead of copying it.
+            # The clean flag tells the offline sender not to remove the original file after upload.
+            msg_json["file_path"] = os.path.abspath(message.file_path)
+            msg_json["clean"] = False
+            data = {"type": UploadFileMessage.type, "payload": msg_json}
+            self._write(data, context=context)
+            return
+
+        # Create the file on disk with the same extension if set
+        suffix = splitext(message.file_path)[1]
 
         tmp_file = tempfile.NamedTemporaryFile(
             dir=self.tmp_dir, suffix=suffix, delete=False
@@ -128,10 +135,8 @@ class OfflineMessageHandler(BaseMessageHandler):
 
         # do not remove an original file in fallback mode, i.e., when offline streamer is just a backup for online streamer
         if self.fallback_mode:
-            # fallback mode
-            if message.clean:
-                # just copy to keep it after a message would be cleaned by online streamer
-                shutil.copy(message.file_path, tmp_file.name)
+            # just copy to keep it after a message would be cleaned by online streamer
+            shutil.copy(message.file_path, tmp_file.name)
         else:
             # Offline mode
             if message.clean:
@@ -141,9 +146,10 @@ class OfflineMessageHandler(BaseMessageHandler):
                 # copy to our tmp dir
                 shutil.copy(message.file_path, tmp_file.name)
 
-        msg_json = message.to_message_dict()
         # update file_path directly in JSON representation to avoid side effects
         msg_json["file_path"] = os.path.basename(tmp_file.name)
+        # the file now belongs to the offline archive and can be removed after upload
+        msg_json["clean"] = True
         data = {"type": UploadFileMessage.type, "payload": msg_json}
         self._write(data, context=context)
 

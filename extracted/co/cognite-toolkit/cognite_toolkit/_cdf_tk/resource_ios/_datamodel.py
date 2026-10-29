@@ -35,7 +35,9 @@ from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.api.instances import INSTANCE_UPSERT_ENDPOINT
 from cognite_toolkit._cdf_tk.client.http_client import ToolkitAPIError
 from cognite_toolkit._cdf_tk.client.identifiers import (
+    ContainerConstraintId,
     ContainerId,
+    ContainerIndexId,
     DataModelId,
     EdgeId,
     ExternalId,
@@ -106,6 +108,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     FailedReadExtra,
     ReadExtra,
@@ -159,7 +162,7 @@ class SpaceIO(ResourceContainerIO[SpaceId, SpaceRequest, SpaceResponse, SpaceYAM
     kind = "Space"
     yaml_cls = SpaceYAML
     dependencies = frozenset({GroupAllScopedIO})
-    _doc_url = "Spaces#operation/ApplySpaces"
+    _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -295,7 +298,7 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
     kind = "Container"
     dependencies = frozenset({SpaceIO})
     yaml_cls = ContainerYAML
-    _doc_url = "Containers#operation/ApplyContainers"
+    _doc_url = "Containers/operation/ApplyContainers"
     sub_folder_name = "containers"
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -407,12 +410,24 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
         return dumped
 
     def create(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
-        return self._upsert(items)
+        return self._upsert(items, mode="create")
 
-    def _upsert(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
+    def _upsert(self, items: Sequence[ContainerRequest], mode: Literal["create", "update"]) -> list[ContainerResponse]:
         created: list[ContainerResponse] = []
         for batch in self._compute_deploy_batches(items):
-            created.extend(self.client.containers.create(batch))
+            if Flags.v010.is_enabled() and mode == "update":
+                constraint_ids, index_ids = self._find_modified_or_deleted_constraints_and_indexes(batch)
+                self.client.containers.delete_constraints(
+                    sorted(constraint_ids, key=lambda x: (x.space, x.external_id, x.identifier))
+                )
+                self.client.containers.delete_indexes(
+                    sorted(index_ids, key=lambda x: (x.space, x.external_id, x.identifier))
+                )
+            responses = self.client.containers.create(batch)
+            # Keep the lookup cache in sync, otherwise retrieve() would return stale containers.
+            for response in responses:
+                self._container_by_id[response.as_id()] = response
+            created.extend(responses)
         return created
 
     def _compute_deploy_batches(self, items: Sequence[ContainerRequest]) -> list[list[ContainerRequest]]:
@@ -443,24 +458,59 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             ).print_warning(console=self.console)
         return batches
 
+    def _find_modified_or_deleted_constraints_and_indexes(
+        self, items: list[ContainerRequest]
+    ) -> tuple[set[ContainerConstraintId], set[ContainerIndexId]]:
+        modified_deleted_constraints: set[ContainerConstraintId] = set()
+        modified_deleted_indexes: set[ContainerIndexId] = set()
+        cdf_container = self._lookup_containers([self.get_id(item) for item in items], warn=False)
+        for item in items:
+            item_id = self.get_id(item)
+            if item_id not in cdf_container:
+                continue
+            local_dict = item.dump()
+            # dump_resource normalizes server-set default values to match the local representation.
+            cdf_dict = self.dump_resource(cdf_container[item_id], local_dict)
+
+            local_constraints = local_dict.get("constraints") or {}
+            for constraint_id, cdf_constraint in (cdf_dict.get("constraints") or {}).items():
+                if local_constraints.get(constraint_id) != cdf_constraint:
+                    modified_deleted_constraints.add(
+                        ContainerConstraintId(space=item.space, external_id=item.external_id, identifier=constraint_id)
+                    )
+
+            local_indexes = local_dict.get("indexes") or {}
+            for index_id, cdf_index in (cdf_dict.get("indexes") or {}).items():
+                if local_indexes.get(index_id) != cdf_index:
+                    modified_deleted_indexes.add(
+                        ContainerIndexId(space=item.space, external_id=item.external_id, identifier=index_id)
+                    )
+        return modified_deleted_constraints, modified_deleted_indexes
+
     def retrieve(self, ids: Sequence[ContainerId]) -> list[ContainerResponse]:
-        return self.client.containers.retrieve(list(ids))
+        if Flags.v010.is_enabled():
+            # We need the container in the update method to check which constraints and indexes have been modified or deleted,
+            # so we cache them here to avoid a second API call.
+            return list(self._lookup_containers(ids, warn=False).values())
+        else:
+            return self.client.containers.retrieve(list(ids))
 
     def update(self, items: Sequence[ContainerRequest]) -> list[ContainerResponse]:
-        updated = self._upsert(items)
-        # The API might silently fail to apply some changes.
-        updated_by_id = {item.as_id(): item for item in updated}
-        for local in items:
-            item_id = local.as_id()
-            local_dict = local.dump()
-            if item_id not in updated_by_id:
-                raise ToolkitAPIError(
-                    f"The container {item_id} was not updated due to an unknown error.",
-                    code=500,
-                )
-            cdf_dict = self.dump_resource(updated_by_id[item_id], local_dict)
-            if cdf_dict != local_dict:
-                self._print_container_diff_warning(item_id, local_dict, cdf_dict)
+        updated = self._upsert(items, mode="update")
+        if not Flags.v010.is_enabled():
+            # The API might silently fail to apply some changes.
+            updated_by_id = {item.as_id(): item for item in updated}
+            for local in items:
+                item_id = local.as_id()
+                local_dict = local.dump()
+                if item_id not in updated_by_id:
+                    raise ToolkitAPIError(
+                        f"The container {item_id} was not updated due to an unknown error.",
+                        code=500,
+                    )
+                cdf_dict = self.dump_resource(updated_by_id[item_id], local_dict)
+                if cdf_dict != local_dict:
+                    self._print_container_diff_warning(item_id, local_dict, cdf_dict)
         return updated
 
     def _print_container_diff_warning(
@@ -510,6 +560,8 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
     def delete(self, ids: Sequence[ContainerId]) -> list[ContainerId]:
         id_list = list(ids)
         self.client.containers.delete(id_list)
+        for container_id in id_list:
+            self._container_by_id.pop(container_id, None)
         return id_list
 
     def _iterate(
@@ -569,13 +621,15 @@ class ContainerIO(ResourceContainerIO[ContainerId, ContainerRequest, ContainerRe
             ):
                 yield [EdgeId(space=instance.space, external_id=instance.external_id) for instance in instances]
 
-    def _lookup_containers(self, container_ids: Sequence[ContainerId]) -> dict[ContainerId, ContainerResponse]:
+    def _lookup_containers(
+        self, container_ids: Sequence[ContainerId], warn: bool = True
+    ) -> dict[ContainerId, ContainerResponse]:
         ids_to_lookup = [container_id for container_id in container_ids if container_id not in self._container_by_id]
         if ids_to_lookup:
             retrieved_containers = self.client.containers.retrieve(ids_to_lookup)
             for container in retrieved_containers:
                 self._container_by_id[container.as_id()] = container
-        if missing_container_ids := set(container_ids) - set(self._container_by_id.keys()):
+        if warn and (missing_container_ids := set(container_ids) - set(self._container_by_id.keys())):
             MediumSeverityWarning(
                 f"Containers {missing_container_ids} not found or you don't have permission to access them."
             ).print_warning(console=self.console)
@@ -656,7 +710,7 @@ class ViewIO(ResourceIO[ViewId, ViewRequest, ViewResponse, ViewYAML]):
     kind = "View"
     dependencies = frozenset({SpaceIO, ContainerIO})
     yaml_cls = ViewYAML
-    _doc_url = "Views#operation/ApplyViews"
+    _doc_url = "Views/operation/ApplyViews"
     sub_folder_name = "views"
 
     def __init__(
@@ -1051,7 +1105,7 @@ class DataModelIO(ResourceIO[DataModelId, DataModelRequest, DataModelResponse, D
     kind = "DataModel"
     dependencies = frozenset({SpaceIO, ViewIO})
     yaml_cls = DataModelYAML
-    _doc_url = "Data-models#operation/createDataModels"
+    _doc_url = "Data-models/operation/createDataModels"
 
     @property
     def display_name(self) -> str:
@@ -1188,7 +1242,7 @@ class NodeIO(ResourceContainerIO[NodeId, NodeRequest, NodeResponse, NodeYAML]):
     kind = "Node"
     yaml_cls = NodeYAML
     dependencies = frozenset({SpaceIO, ViewIO, ContainerIO})
-    _doc_url = "Instances#operation/applyNodeAndEdges"
+    _doc_url = "Instances/operation/applyNodeAndEdges"
     sub_folder_name = "nodes"
 
     def __init__(
@@ -1446,7 +1500,7 @@ class GraphQLIO(
     dependencies = frozenset({SpaceIO, ContainerIO})
     item_name = "views"
     yaml_cls = GraphQLDataModelYAML
-    _doc_url = "Data-models#operation/createDataModels"
+    _doc_url = "Data-models/operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
 
     def __init__(self, client: ToolkitClient) -> None:
@@ -1709,7 +1763,7 @@ class EdgeIO(ResourceContainerIO[EdgeId, EdgeRequest, EdgeResponse, EdgeYAML]):
     kind = "Edge"
     yaml_cls = EdgeYAML
     dependencies = frozenset({SpaceIO, ViewIO, ContainerIO, NodeIO})
-    _doc_url = "Instances#operation/applyNodeAndEdges"
+    _doc_url = "Instances/operation/applyNodeAndEdges"
 
     @property
     def display_name(self) -> str:

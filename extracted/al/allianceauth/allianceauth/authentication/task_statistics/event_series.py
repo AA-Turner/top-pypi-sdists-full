@@ -1,13 +1,17 @@
 """Event series for Task Statistics."""
 
+__lazy_modules__ = ["redis"]
+
 import logging
 from datetime import datetime, timezone
-
-from redis import Redis
+from typing import TYPE_CHECKING
 
 from django.utils.timezone import now
 
 from .helpers import get_redis_client_or_stub
+
+if TYPE_CHECKING:
+    from redis import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +21,7 @@ class EventSeries:
 
     _ROOT_KEY = "ALLIANCEAUTH_EVENT_SERIES"
 
-    def __init__(self, key_id: str, redis: Redis | None = None) -> None:
+    def __init__(self, key_id: str, redis: "Redis | None" = None) -> None:
         self._redis = get_redis_client_or_stub() if not redis else redis
         self._key_id = str(key_id)
         self.clear()
@@ -96,5 +100,5 @@ class EventSeries:
         return event[0][1]
 
     @staticmethod
-    def _cast_scores_to_dt(score) -> datetime:
+    def _cast_scores_to_dt(score: float) -> datetime:
         return datetime.fromtimestamp(float(score), tz=timezone.utc)

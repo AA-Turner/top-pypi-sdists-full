@@ -1,8 +1,10 @@
 """Admin site for menu app."""
 
+__lazy_modules__ = ["django", "django.db.models", "django.http"]
+
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import admin
-from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_noop as _
 
@@ -16,6 +18,11 @@ from .forms import (
     LinkMenuItemAdminForm,
 )
 from .models import MenuItem
+
+if TYPE_CHECKING:
+    from django import forms
+    from django.db.models import Field
+    from django.http import HttpRequest, HttpResponse
 
 
 @admin.register(MenuItem)
@@ -36,17 +43,17 @@ class MenuItemAdmin(admin.ModelAdmin):
     ordering = ["parent", "order", "text"]
     filter_horizontal = ["permissions"]
 
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
+    def formfield_for_manytomany(self, db_field: "Field", request: "HttpRequest", **kwargs):
         if db_field.name == "permissions":
             kwargs["queryset"] = Permission.objects.select_related("content_type")
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
-    def get_form(self, request: HttpRequest, obj: MenuItem | None = None, **kwargs):
+    def get_form(self, request: "HttpRequest", obj: MenuItem | None = None, **kwargs):
         kwargs["form"] = self._choose_form(request, obj)
         return super().get_form(request, obj, **kwargs)
 
     @classmethod
-    def _choose_form(cls, request: HttpRequest, obj: MenuItem | None):
+    def _choose_form(cls, request: "HttpRequest", obj: MenuItem | None) -> "type[forms.ModelForm]":
         """Return the form for the current menu item type."""
         if obj:  # change
             if obj.hook_hash:
@@ -63,21 +70,23 @@ class MenuItemAdmin(admin.ModelAdmin):
 
         return LinkMenuItemAdminForm
 
-    def add_view(self, request, form_url="", extra_context=None) -> HttpResponse:
+    def add_view(
+        self, request: "HttpRequest", form_url: str = "", extra_context: dict[str, Any] | None = None
+    ) -> "HttpResponse":
         context = extra_context or {}
         item_type = self._type_from_request(request, default=MenuItem.MenuItemType.LINK)
         context["title"] = _("Add %s menu item") % item_type.label
         return super().add_view(request, form_url, context)
 
     def change_view(
-        self, request, object_id, form_url="", extra_context=None
-    ) -> HttpResponse:
+        self, request: "HttpRequest", object_id: str, form_url: str = "", extra_context: dict[str, Any] | None = None
+    ) -> "HttpResponse":
         extra_context = extra_context or {}
         obj = get_object_or_404(MenuItem, id=object_id)
         extra_context["title"] = _("Change %s menu item") % obj.item_type.label
         return super().change_view(request, object_id, form_url, extra_context)
 
-    def changelist_view(self, request: HttpRequest, extra_context=None):
+    def changelist_view(self, request: "HttpRequest", extra_context: dict[str, Any] | None = None) -> "HttpResponse":
         # needed to ensure items are updated after an app change
         # and when the admin page is opened directly
         sync_menu()
@@ -86,7 +95,7 @@ class MenuItemAdmin(admin.ModelAdmin):
         return super().changelist_view(request, extra_context)
 
     @admin.display(description=_("children"))
-    def _children(self, obj: MenuItem):
+    def _children(self, obj: MenuItem) -> list | str:
         if not obj.is_folder:
             return []
 
@@ -109,7 +118,7 @@ class MenuItemAdmin(admin.ModelAdmin):
 
     @staticmethod
     def _type_from_request(
-        request: HttpRequest, default=None
+        request: "HttpRequest", default=None
     ) -> "MenuItem.MenuItemType | None":
         try:
             return MenuItem.MenuItemType(request.GET.get("type"))

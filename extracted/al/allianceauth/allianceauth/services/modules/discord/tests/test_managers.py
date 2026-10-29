@@ -17,6 +17,7 @@ from ..discord_client import (
 from ..discord_client.tests.factories import (
     TEST_GUILD_ID, TEST_USER_ID, TEST_USER_NAME, create_role, create_user,
 )
+from ..managers import DiscordUserAlreadyLinkedError
 from ..models import DiscordUser
 from ..utils import set_logger_to_file
 from . import MODULE_PATH, TEST_MAIN_NAME
@@ -66,6 +67,30 @@ class TestAddUser(NoSocketsTestCase):
         self.assertEqual(kwargs['access_token'], self.access_token)
         self.assertFalse(kwargs['role_ids'])
         self.assertIsNone(kwargs['nick'])
+
+    def test_refuses_to_link_discord_account_already_linked_to_other_user(
+        self,
+        mock_user_formatted_nick,
+        mock_calculate_roles_for_user,
+        mock_exchange_auth_code_for_token,
+        mock_create_bot_client,
+        mock_DiscordClient,
+    ):
+        # given a Discord account already linked to a different Auth user (#1408)
+        other_user = AuthUtils.create_user('Other User')
+        DiscordUser.objects.create(user=other_user, uid=TEST_USER_ID)
+        discord_user = create_user(id=TEST_USER_ID)
+        mock_user_formatted_nick.return_value = None
+        mock_exchange_auth_code_for_token.return_value = self.access_token
+        mock_DiscordClient.return_value.current_user.return_value = discord_user
+        # when / then
+        with self.assertRaises(DiscordUserAlreadyLinkedError):
+            DiscordUser.objects.add_user(self.user, authorization_code='abcdef')
+        self.assertFalse(DiscordUser.objects.filter(user=self.user).exists())
+        self.assertTrue(
+            DiscordUser.objects.filter(user=other_user, uid=TEST_USER_ID).exists()
+        )
+        mock_create_bot_client.return_value.add_guild_member.assert_not_called()
 
     def test_can_create_user_with_roles_no_nick(
         self,

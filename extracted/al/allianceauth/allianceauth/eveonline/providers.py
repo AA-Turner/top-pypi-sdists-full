@@ -1,16 +1,26 @@
-import logging
-from datetime import datetime
-from typing import TYPE_CHECKING
+__lazy_modules__ = ["datetime", "esi.stubs", "httpx2"]
 
-from httpx2 import Response
+import logging
+from typing import TYPE_CHECKING
 
 from esi.openapi_clients import ESIClientProvider
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
+    from httpx2 import Response
+
     from esi.stubs import (
-        AllianceDetail, AllianceID, AlliancesAllianceIdCorporationsGet,
-        CharactersDetail, CorporationID, CorporationsDetail,
-        UniverseFactionsGet, UniverseFactionsGetItem, CharacterID, FactionID
+        AllianceDetail,
+        AllianceID,
+        AlliancesAllianceIdCorporationsGet,
+        CharacterID,
+        CharactersDetail,
+        CorporationID,
+        CorporationsDetail,
+        FactionID,
+        UniverseFactionsGet,
+        UniverseFactionsGetItem,
     )
 
 from allianceauth import __title_useragent__, __url__, __version__
@@ -53,7 +63,7 @@ class EveOpenAPIProvider(ESIClientProvider):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = False,
-            last_modified: datetime | None = None) -> "AlliancesAllianceIdCorporationsGet":
+            last_modified: "datetime | None" = None) -> "AlliancesAllianceIdCorporationsGet":
         """Fetch alliance from ESI."""
         return self.client.Alliance.GetAlliancesAllianceIdCorporations(
             alliance_id=alliance_id,
@@ -71,7 +81,7 @@ class EveOpenAPIProvider(ESIClientProvider):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = False,
-            last_modified: datetime | None = None) -> tuple["AllianceDetail", Response]:
+            last_modified: "datetime | None" = None) -> "tuple[AllianceDetail, Response]":
         """Fetch alliance from ESI."""
         return self.client.Alliance.GetAlliancesAllianceId(
             alliance_id=alliance_id,
@@ -90,7 +100,7 @@ class EveOpenAPIProvider(ESIClientProvider):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = False,
-            last_modified: datetime | None = None) -> tuple["CorporationsDetail", Response]:
+            last_modified: "datetime | None" = None) -> "tuple[CorporationsDetail, Response]":
         """Fetch corporation from ESI."""
         return self.client.Corporation.GetCorporationsCorporationId(
             corporation_id=corporation_id,
@@ -109,7 +119,7 @@ class EveOpenAPIProvider(ESIClientProvider):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = False,
-            last_modified: datetime | None = None) -> tuple["CharactersDetail", Response]:
+            last_modified: "datetime | None" = None) -> "tuple[CharactersDetail, Response]":
         """Fetch character from ESI."""
         return self.client.Character.GetCharactersCharacterId(
             character_id=character_id,
@@ -128,7 +138,7 @@ class EveOpenAPIProvider(ESIClientProvider):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = True,
-            last_modified: datetime | None = None) -> tuple["UniverseFactionsGet", Response]:
+            last_modified: "datetime | None" = None) -> "tuple[UniverseFactionsGet, Response]":
         """Fetch all factions from ESI."""
         return self.client.Universe.GetUniverseFactions().result(
             return_response=True,
@@ -145,7 +155,7 @@ class EveOpenAPIProvider(ESIClientProvider):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = True,
-            last_modified: datetime | None = None) -> tuple["UniverseFactionsGetItem", Response]:
+            last_modified: "datetime | None" = None) -> "tuple[UniverseFactionsGetItem, Response]":
         """Fetch faction from ESI."""
         factions, response = self.get_all_factions(
             last_modified=last_modified,
@@ -165,7 +175,7 @@ class EveOpenAPIProvider(ESIClientProvider):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = False,
-            last_modified: datetime | None = None) -> tuple[list[dict[str, int]], Response]:
+            last_modified: "datetime | None" = None) -> "tuple[list[dict[str, int]], Response]":
         return self.client.Character.PostCharactersAffiliation(
             body=character_ids
         ).result(
@@ -183,7 +193,7 @@ class EveOpenAPIProvider(ESIClientProvider):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = False,
-            last_modified: datetime | None = None) -> list[dict]:
+            last_modified: "datetime | None" = None) -> list[dict]:
         return self.client.Universe.PostUniverseNames(
             body=ids
         ).result(

@@ -27,6 +27,21 @@ class DocAiUsage(UniversalBaseModel):
     Pages that failed processing.
     """
 
+    pages_selected: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Pages selected for processing (Classify and Split).
+    """
+
+    pages_semantically_inspected: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Pages the model inspected (Classify).
+    """
+
+    pages_source: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Pages in the source document (Classify and Split, while the job runs).
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:

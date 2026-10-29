@@ -17,7 +17,12 @@ from redis import ConnectionPool, Redis
 from redis.client import Pipeline
 
 from .connections import parse_connection
-from .defaults import DEFAULT_LOGGING_DATE_FORMAT, DEFAULT_LOGGING_FORMAT, DEFAULT_SCHEDULER_FALLBACK_PERIOD
+from .defaults import (
+    DEFAULT_LOGGING_DATE_FORMAT,
+    DEFAULT_LOGGING_FORMAT,
+    DEFAULT_SCHEDULER_FALLBACK_PERIOD,
+    RQ_KEY_PREFIX,
+)
 from .exceptions import SchedulerNotFound
 from .job import Job
 from .logutils import setup_loghandlers
@@ -33,8 +38,8 @@ try:
 except ValueError:
     ForkProcess = Process
 
-SCHEDULER_KEY_TEMPLATE = 'rq:scheduler:%s'
-SCHEDULER_LOCKING_KEY_TEMPLATE = 'rq:scheduler-lock:%s'
+SCHEDULER_KEY_TEMPLATE = RQ_KEY_PREFIX + ':scheduler:%s'
+SCHEDULER_LOCKING_KEY_TEMPLATE = RQ_KEY_PREFIX + ':scheduler-lock:%s'
 
 
 class SchedulerStatus(str, Enum):
@@ -243,14 +248,33 @@ class RQScheduler:
 
             queue = Queue(registry.name, connection=self.connection, serializer=self.serializer)
 
-            with self.connection.pipeline() as pipeline:
-                jobs = Job.fetch_many(job_ids, connection=self.connection, serializer=self.serializer)
-                for job in jobs:
-                    if job is not None:
+            jobs = Job.fetch_many(job_ids, connection=self.connection, serializer=self.serializer)
+            normal_jobs = []
+            jobs_with_rate_limit = []
+            missing_job_ids = []
+
+            for job_id, job in zip(job_ids, jobs):
+                if job is None:
+                    missing_job_ids.append(job_id)
+                elif job.has_rate_limit:
+                    jobs_with_rate_limit.append(job)
+                else:
+                    normal_jobs.append(job)
+
+            if normal_jobs or missing_job_ids:
+                with self.connection.pipeline() as pipeline:
+                    for job in normal_jobs:
                         queue._enqueue_job(job, pipeline=pipeline, at_front=job.should_enqueue_at_front())
-                for job_id in job_ids:
-                    registry.remove(job_id, pipeline=pipeline)
-                pipeline.execute()
+                        registry.remove(job.id, pipeline=pipeline)
+                    for job_id in missing_job_ids:
+                        registry.remove(job_id, pipeline=pipeline)
+                    pipeline.execute()
+
+            for job in jobs_with_rate_limit:
+                with self.connection.pipeline() as pipeline:
+                    registry.remove(job.id, pipeline=pipeline)
+                    queue._enqueue_rate_limited_job(job, pipeline=pipeline, at_front=job.should_enqueue_at_front())
+                    pipeline.execute()
         self._status = self.Status.STARTED
 
     def _install_signal_handlers(self):

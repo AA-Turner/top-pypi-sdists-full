@@ -85,6 +85,7 @@ class AccountsResource:
         order: str | None = "asc",
         include_over_limit: bool | None = False,
         exclude_hidden: bool | None = False,
+        include_creator_accounts: bool | None = False,
         include_sandbox: bool | None = False,
         include_status_counts: bool | None = False,
         page: int | None = None,
@@ -104,6 +105,7 @@ class AccountsResource:
             order=order,
             include_over_limit=include_over_limit,
             exclude_hidden=exclude_hidden,
+            include_creator_accounts=include_creator_accounts,
             include_sandbox=include_sandbox,
             include_status_counts=include_status_counts,
             page=page,
@@ -630,11 +632,13 @@ class AccountsResource:
         *,
         sync_contacts: bool | None = None,
         log_messages: bool | None = None,
+        report_deals: bool | None = None,
     ) -> dict[str, Any]:
         """Update HubSpot account settings"""
         payload = self._build_payload(
             sync_contacts=sync_contacts,
             log_messages=log_messages,
+            report_deals=report_deals,
         )
         return self._client._patch(
             f"/v1/accounts/{account_id}/hubspot-settings", data=payload
@@ -687,6 +691,7 @@ class AccountsResource:
         order: str | None = "asc",
         include_over_limit: bool | None = False,
         exclude_hidden: bool | None = False,
+        include_creator_accounts: bool | None = False,
         include_sandbox: bool | None = False,
         include_status_counts: bool | None = False,
         page: int | None = None,
@@ -706,6 +711,7 @@ class AccountsResource:
             order=order,
             include_over_limit=include_over_limit,
             exclude_hidden=exclude_hidden,
+            include_creator_accounts=include_creator_accounts,
             include_sandbox=include_sandbox,
             include_status_counts=include_status_counts,
             page=page,
@@ -1236,11 +1242,13 @@ class AccountsResource:
         *,
         sync_contacts: bool | None = None,
         log_messages: bool | None = None,
+        report_deals: bool | None = None,
     ) -> dict[str, Any]:
         """Update HubSpot account settings (async)"""
         payload = self._build_payload(
             sync_contacts=sync_contacts,
             log_messages=log_messages,
+            report_deals=report_deals,
         )
         return await self._client._apatch(
             f"/v1/accounts/{account_id}/hubspot-settings", data=payload

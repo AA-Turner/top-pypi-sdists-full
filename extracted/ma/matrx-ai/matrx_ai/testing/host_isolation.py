@@ -70,6 +70,7 @@ _SEAMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("matrx_ai.mandate_taps", ("_DOOR_TAP", "_OBSERVER", "_REPLAY")),
     ("matrx_ai.graph_nodes.iteration_limit", ("_RESOLVER",)),
     ("matrx_ai.config.live_plan", ("_SOURCE",)),
+    ("matrx_ai.config.helper_roster", ("_SOURCE",)),
     ("matrx_ai.browser_handoff.seam", ("_LEDGER",)),
     ("matrx_ai.capabilities.registry", ("_REGISTRY",)),
     ("matrx_ai.catalog.host_catalog", ("_runtime_models",)),

@@ -66,6 +66,7 @@ optional-dependencies.graphql = [
   "graphql-core>=3.2.3",
 ]
 optional-dependencies.http = [
+  "certifi>=2026.10.19",
   "httpx>=0.24.1",
 ]
 optional-dependencies.httpx2 = [
@@ -82,6 +83,7 @@ optional-dependencies.ryaml = [
   "ryaml>=0.5.1",
 ]
 optional-dependencies.validation = [
+  "certifi>=2026.10.19",
   "openapi-spec-validator>=0.2.8,<0.8",
   "prance>=0.18.2",
 ]
@@ -105,7 +107,7 @@ dev = [
 test = [
   "cryptography>=50",
   "email-validator>=2.2",
-  "hypothesis>=6.136.6",
+  "hypothesis>=6.136.6,<6.170.10",
   "hypothesis-jsonschema>=0.23.1",
   "inline-snapshot>=0.34.2",
   "jsonschema[format-nongpl]>=4.26,<5",
@@ -160,7 +162,7 @@ fastapi = [
 fix = [ "prek>=0.2.22" ]
 isort6 = [ "isort>=6,<7" ]
 isort7 = [ "isort>=7,<8; python_version>='3.10'" ]
-pkg-meta = [ "check-wheel-contents>=0.6.1", "twine>=7", "uv>=0.5.22" ]
+pkg-meta = [ "check-wheel-contents>=0.6.1", "twine>=7", "uv>=0.13.4" ]
 playground = [
   "t-linter>=0.8",
   "tdom>=0.1.16; python_version>='3.14'",
@@ -277,6 +279,15 @@ src.include = [ "src" ]
 environment.python-version = "3.10"
 rules.deprecated = "warn"
 
+[[tool.ty.overrides]]
+include = [
+  "src/datamodel_code_generator/model/**",
+  "src/datamodel_code_generator/parser/**",
+  "src/datamodel_code_generator/reference.py",
+  "src/datamodel_code_generator/types.py",
+]
+rules.missing-override-decorator = "error"
+
 [tool.pytest]
 ini_options.norecursedirs = [ ".hypothesis", ".tox", "tests/data/*" ]
 ini_options.markers = [
@@ -297,6 +308,8 @@ ini_options.filterwarnings = [
   "ignore:^.*Default formatters will change to builtin.*:FutureWarning",
   "ignore:^.*Field name `name` is duplicated on Pet.*",
   "ignore:^.* has a required field after a field with a default.*:UserWarning",
+  "ignore:^.*one dict type cannot express this object, since it .*:UserWarning",
+  "ignore:^.*no value satisfies every part of this schema .*:UserWarning",
   "ignore:^.*format of 'unknown-type' not understood for 'string' - using default.*",
   "ignore:^.*is empty or not a dict. Skipping this file.*:UserWarning",
   """\

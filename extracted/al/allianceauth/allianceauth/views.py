@@ -1,11 +1,19 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
 from django.views.generic.base import View
+
+from allianceauth.impersonate.utils import is_impersonating
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -13,15 +21,15 @@ logger = logging.getLogger(__name__)
 class NightModeRedirectView(View):
     SESSION_VAR = "NIGHT_MODE"
 
-    def _safe_redirect(self, request):
+    def _safe_redirect(self, request: "HttpRequest") -> HttpResponseRedirect:
         next_url = request.GET.get("next", "/")
         if not url_has_allowed_host_and_scheme(next_url, allowed_hosts=settings.ALLOWED_HOSTS, require_https=request.is_secure()):
             next_url = "/"
         return HttpResponseRedirect(next_url)
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request: "HttpRequest", *args, **kwargs) -> "HttpResponse":
         request.session[self.SESSION_VAR] = not self.night_mode_state(request)
-        if not request.user.is_anonymous:
+        if not request.user.is_anonymous and not is_impersonating(request):
             try:
                 request.user.profile.night_mode = request.session[self.SESSION_VAR]
                 request.user.profile.save()
@@ -31,7 +39,7 @@ class NightModeRedirectView(View):
         return self._safe_redirect(request)
 
     @classmethod
-    def night_mode_state(cls, request):
+    def night_mode_state(cls, request: "HttpRequest") -> bool:
         try:
             return request.session.get(cls.SESSION_VAR, False)
         except AttributeError:
@@ -43,12 +51,14 @@ class NightModeRedirectView(View):
 class ThemeRedirectView(View):
     THEME_VAR = "THEME"
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: "HttpRequest", *args, **kwargs) -> "HttpResponse":
         theme = request.POST.get('theme', settings.DEFAULT_THEME)
         if not request.user.is_anonymous:
             try:
-                request.user.profile.theme = theme
-                request.user.profile.save()
+                # Don't overwrite an impersonated user's saved preference
+                if not is_impersonating(request):
+                    request.user.profile.theme = theme
+                    request.user.profile.save()
                 request.session[self.THEME_VAR] = theme
             except Exception as e:
                 logger.exception(e)
@@ -61,9 +71,9 @@ class ThemeRedirectView(View):
 class MinimizeSidebarRedirectView(View):
     SESSION_VAR = "MINIMIZE_SIDEBAR"
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: "HttpRequest", *args, **kwargs) -> "HttpResponse":
         request.session[self.SESSION_VAR] = not self.minimize_sidebar_state(request)
-        if not request.user.is_anonymous:
+        if not request.user.is_anonymous and not is_impersonating(request):
             try:
                 request.user.profile.minimize_sidebar = request.session[self.SESSION_VAR]
                 request.user.profile.save()
@@ -76,7 +86,7 @@ class MinimizeSidebarRedirectView(View):
         return HttpResponseRedirect(next_url)
 
     @classmethod
-    def minimize_sidebar_state(cls, request):
+    def minimize_sidebar_state(cls, request: "HttpRequest") -> bool:
         try:
             return request.session.get(cls.SESSION_VAR, False)
         except AttributeError:
@@ -87,7 +97,7 @@ class MinimizeSidebarRedirectView(View):
 
 # TODO: error views should be renamed to a proper function name when possible
 
-def Generic400Redirect(request, *args, **kwargs):
+def Generic400Redirect(request: "HttpRequest", *args, **kwargs) -> "HttpResponse":
     title = _("Bad Request")
     message = _(
         "Auth encountered an error processing your request, please try again. "
@@ -97,7 +107,7 @@ def Generic400Redirect(request, *args, **kwargs):
     return response
 
 
-def Generic403Redirect(request, *args, **kwargs):
+def Generic403Redirect(request: "HttpRequest", *args, **kwargs) -> "HttpResponse":
     title = _("Permission Denied")
     message = _(
         "You do not have permission to access the requested page. "
@@ -107,7 +117,7 @@ def Generic403Redirect(request, *args, **kwargs):
     return response
 
 
-def Generic404Redirect(request, *args, **kwargs):
+def Generic404Redirect(request: "HttpRequest", *args, **kwargs) -> "HttpResponse":
     title = _("Page Not Found")
     message = _(
         "Page does not exist. "
@@ -117,7 +127,7 @@ def Generic404Redirect(request, *args, **kwargs):
     return response
 
 
-def Generic500Redirect(request, *args, **kwargs):
+def Generic500Redirect(request: "HttpRequest", *args, **kwargs) -> "HttpResponse":
     title = _("Internal Server Error")
     message = _(
         "Auth encountered an error processing your request, please try again. "
@@ -127,7 +137,7 @@ def Generic500Redirect(request, *args, **kwargs):
     return response
 
 
-def _build_error_response(request, title, message, status_code) -> HttpResponse:
+def _build_error_response(request: "HttpRequest", title: str, message: str, status_code: int) -> "HttpResponse":
     context = {"error_title": title, "error_message": message}
     response = render(request, "allianceauth/error.html", context)
     response.status_code = status_code

@@ -1,0 +1,642 @@
+# distutils: language = c++
+# cython: language_level=3
+
+import platform
+import types
+from typing import Mapping
+from typing import Optional
+from typing import Union
+
+from cpython.object cimport PyObject
+from cpython.unicode cimport PyUnicode_AsUTF8AndSize
+from libcpp.unordered_map cimport unordered_map
+from libcpp.utility cimport pair
+
+import ddtrace
+from ddtrace._trace.span import Span
+from ddtrace._trace.tracer import Tracer
+from ddtrace.internal.constants import DEFAULT_SERVICE_NAME
+from ddtrace.internal.datadog.profiling._types import StringType
+from ddtrace.internal.datadog.profiling.code_provenance import get_code_provenance_file
+from ddtrace.internal.datadog.profiling.util import sanitize_string
+from ddtrace.internal.runtime import get_process_role
+from ddtrace.internal.runtime import get_runtime_id
+from ddtrace.internal.settings._agent import config as agent_config
+
+
+ctypedef void (*func_ptr_t)(string_view)
+
+cdef extern from "stdint.h":
+    ctypedef unsigned long long uint64_t
+    ctypedef long long int64_t
+    cdef uint64_t UINT64_MAX
+    cdef int64_t INT64_MAX
+
+cdef extern from "<string_view>" namespace "std" nogil:
+    cdef cppclass string_view:
+        string_view(const char* s, size_t count)
+
+cdef extern from "sample.hpp":
+    ctypedef struct PyFrameObject:
+        pass
+
+cdef extern from "sample.hpp" namespace "Datadog":
+    cdef cppclass Sample:
+        bint push_walltime(int64_t walltime, int64_t count)
+        bint push_cputime(int64_t cputime, int64_t count)
+        bint push_acquire(int64_t acquire_time, int64_t count)
+        bint push_release(int64_t release_time, int64_t count)
+        bint push_alloc(int64_t size, int64_t count)
+        bint push_heap(int64_t size, int64_t count)
+        bint push_gpu_gputime(int64_t time, int64_t count)
+        bint push_gpu_memory(int64_t size, int64_t count)
+        bint push_gpu_flops(int64_t flops, int64_t count)
+        bint push_lock_name(string_view lock_name)
+        bint push_threadinfo(int64_t thread_id, int64_t thread_native_id, string_view thread_name)
+        bint push_task_id(uint64_t task_id)
+        bint push_task_name(string_view task_name)
+        bint push_span_id(uint64_t span_id)
+        bint push_local_root_span_id(uint64_t local_root_span_id)
+        bint push_trace_type(string_view trace_type)
+        bint push_exceptioninfo(string_view exception_type, int64_t count)
+        bint push_exception_message(string_view exception_message)
+        bint push_class_name(string_view class_name)
+        bint push_gpu_device_name(string_view device_name)
+        bint push_monotonic_ns(int64_t monotonic_ns)
+        bint push_absolute_ns(int64_t timestamp_ns)
+        void push_frame(string_view _name, string_view _filename, uint64_t address, int64_t line)
+        void push_pyframes(PyFrameObject* frame)
+        bint flush_sample()
+
+cdef extern from "sample_manager.hpp" namespace "Datadog":
+    cdef cppclass SampleManager:
+        @staticmethod
+        void set_max_nframes(unsigned int max_nframes)
+
+        @staticmethod
+        void set_timeline(bint enable)
+
+        @staticmethod
+        void set_sample_pool_capacity(size_t capacity)
+
+        @staticmethod
+        Sample* start_sample()
+
+        @staticmethod
+        void drop_sample(Sample* sample)
+
+cdef extern from "uploader_builder.hpp" namespace "Datadog":
+    cdef cppclass UploaderBuilder:
+        @staticmethod
+        void set_env(string_view env)
+
+        @staticmethod
+        void set_service(string_view service)
+
+        @staticmethod
+        void set_version(string_view version)
+
+        @staticmethod
+        void set_runtime(string_view runtime)
+
+        @staticmethod
+        void set_runtime_id(string_view runtime_id)
+
+        @staticmethod
+        void set_process_id()
+
+        @staticmethod
+        void set_runtime_version(string_view runtime_version)
+
+        @staticmethod
+        void set_profiler_version(string_view profiler_version)
+
+        @staticmethod
+        void set_url(string_view url)
+
+        @staticmethod
+        void set_tag(string_view key, string_view val)
+
+        @staticmethod
+        void set_process_tags(string_view process_tags)
+
+        @staticmethod
+        void set_output_filename(string_view output_filename)
+
+        @staticmethod
+        void set_max_timeout_ms(uint64_t max_timeout_ms)
+
+cdef extern from "ddup_interface.hpp":
+    void ddup_set_profiler_settings_json(string_view settings_json)
+
+    bint ddup_is_initialized()
+    void ddup_start()
+    void ddup_profile_set_endpoints(unordered_map[int64_t, string_view] span_ids_to_endpoints)
+    void ddup_profile_add_endpoint_counts(unordered_map[string_view, int64_t] trace_endpoints_to_counts)
+    bint ddup_upload() nogil
+
+
+cdef extern from "code_provenance.hpp" namespace "Datadog":
+    cdef cppclass CodeProvenance:
+        @staticmethod
+        CodeProvenance& get_instance()
+
+        void set_file_path(string_view file_path)
+
+
+# Create wrappers for cython
+cdef call_func_with_str(func_ptr_t func, str_arg: StringType):
+    if not str_arg:
+        return
+    if isinstance(str_arg, bytes):
+        func(string_view(<const char*>str_arg, len(str_arg)))
+        return
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    utf8_data = PyUnicode_AsUTF8AndSize(str_arg, &utf8_size)
+    if utf8_data != NULL:
+        func(string_view(utf8_data, utf8_size))
+
+cdef call_uploader_builder_set_tag(key: StringType, val: StringType):
+    if not key or not val:
+        return
+    if isinstance(key, bytes) and isinstance(val, bytes):
+        UploaderBuilder.set_tag(string_view(<const char*>key, len(key)), string_view(<const char*>val, len(val)))
+        return
+    cdef const char* key_utf8_data
+    cdef Py_ssize_t key_utf8_size
+    cdef const char* val_utf8_data
+    cdef Py_ssize_t val_utf8_size
+    key_utf8_data = PyUnicode_AsUTF8AndSize(key, &key_utf8_size)
+    val_utf8_data = PyUnicode_AsUTF8AndSize(val, &val_utf8_size)
+    if key_utf8_data != NULL and val_utf8_data != NULL:
+        UploaderBuilder.set_tag(
+            string_view(key_utf8_data, key_utf8_size),
+            string_view(val_utf8_data, val_utf8_size)
+        )
+
+cdef call_code_provenance_set_file_path(str file_path):
+    cdef const char* file_path_data
+    cdef Py_ssize_t file_path_size
+    file_path_data = PyUnicode_AsUTF8AndSize(file_path, &file_path_size)
+    if file_path_data != NULL:
+        CodeProvenance.get_instance().set_file_path(string_view(file_path_data, file_path_size))
+
+cdef call_ddup_profile_set_endpoints(endpoint_to_span_ids):
+    # We want to make sure that endpoint strings outlive the for loop below
+    # and prevent them to be GC'ed. We do this by storing them in a list.
+    # This is necessary because we pass string_views to the C++ code, which is
+    # a view into the original string. If the original string is GC'ed, the view
+    # will point to garbage.
+    endpoint_list = []
+    cdef unordered_map[int64_t, string_view] span_ids_to_endpoints = unordered_map[int64_t, string_view]()
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    for endpoint, span_ids in endpoint_to_span_ids.items():
+        if not endpoint:
+            continue
+        endpoint_list.append(endpoint)
+        if isinstance(endpoint, bytes):
+            for span_id in span_ids:
+                span_ids_to_endpoints.insert(
+                    pair[int64_t, string_view](
+                        clamp_to_uint64_unsigned(span_id),
+                        string_view(<const char*>endpoint, len(endpoint))
+                    )
+                )
+            continue
+        utf8_data = PyUnicode_AsUTF8AndSize(endpoint, &utf8_size)
+        if utf8_data != NULL:
+            for span_id in span_ids:
+                span_ids_to_endpoints.insert(
+                    pair[int64_t, string_view](
+                        clamp_to_uint64_unsigned(span_id),
+                        string_view(utf8_data, utf8_size)
+                    )
+                )
+    ddup_profile_set_endpoints(span_ids_to_endpoints)
+
+cdef call_ddup_profile_add_endpoint_counts(endpoint_counts):
+    # We want to make sure that endpoint strings outlive the for loop below
+    # and prevent them to be GC'ed. We do this by storing them in a list.
+    # This is necessary because we pass string_views to the C++ code, which is
+    # a view into the original string. If the original string is GC'ed, the view
+    # will point to garbage.
+    endpoint_list = []
+    cdef unordered_map[string_view, int64_t] trace_endpoints_to_counts = unordered_map[string_view, int64_t]()
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    for endpoint, count in endpoint_counts.items():
+        if not endpoint:
+            continue
+        endpoint_list.append(endpoint)
+        if isinstance(endpoint, bytes):
+            trace_endpoints_to_counts.insert(
+                pair[string_view, int64_t](
+                    string_view(<const char*>endpoint, len(endpoint)),
+                    clamp_to_int64_unsigned(count)
+                )
+            )
+            continue
+        utf8_data = PyUnicode_AsUTF8AndSize(endpoint, &utf8_size)
+        if utf8_data != NULL:
+            trace_endpoints_to_counts.insert(
+                pair[string_view, int64_t](
+                    string_view(utf8_data, utf8_size),
+                    clamp_to_int64_unsigned(count)
+                )
+            )
+    ddup_profile_add_endpoint_counts(trace_endpoints_to_counts)
+
+cdef call_ddup_push_lock_name(Sample* sample, lock_name: StringType):
+    if not lock_name:
+        return
+    if isinstance(lock_name, bytes):
+        sample.push_lock_name(string_view(<const char*>lock_name, len(lock_name)))
+        return
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    utf8_data = PyUnicode_AsUTF8AndSize(lock_name, &utf8_size)
+    if utf8_data != NULL:
+        sample.push_lock_name(string_view(utf8_data, utf8_size))
+
+cdef call_ddup_push_frame(Sample* sample, name: StringType, filename: StringType,
+                          uint64_t address, int64_t line):
+    if not name or not filename:
+        return
+    if isinstance(name, bytes) and isinstance(filename, bytes):
+        sample.push_frame(string_view(<const char*>name, len(name)),
+                          string_view(<const char*>filename, len(filename)),
+                          address, line)
+        return
+    cdef const char* name_utf8_data
+    cdef Py_ssize_t name_utf8_size
+    cdef const char* filename_utf8_data
+    cdef Py_ssize_t filename_utf8_size
+    name_utf8_data = PyUnicode_AsUTF8AndSize(name, &name_utf8_size)
+    filename_utf8_data = PyUnicode_AsUTF8AndSize(filename, &filename_utf8_size)
+    if name_utf8_data != NULL and filename_utf8_data != NULL:
+        sample.push_frame(string_view(name_utf8_data, name_utf8_size),
+                          string_view(filename_utf8_data, filename_utf8_size),
+                          address, line)
+
+cdef call_ddup_push_threadinfo(Sample* sample, int64_t thread_id, int64_t thread_native_id, thread_name: StringType):
+    if not thread_name:
+        return
+    if isinstance(thread_name, bytes):
+        sample.push_threadinfo(
+            thread_id, thread_native_id, string_view(<const char*>thread_name, len(thread_name)))
+        return
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    utf8_data = PyUnicode_AsUTF8AndSize(thread_name, &utf8_size)
+    if utf8_data != NULL:
+        sample.push_threadinfo(thread_id, thread_native_id, string_view(utf8_data, utf8_size))
+
+cdef call_ddup_push_task_name(Sample* sample, task_name: StringType):
+    if not task_name:
+        return
+    if isinstance(task_name, bytes):
+        sample.push_task_name(string_view(<const char*>task_name, len(task_name)))
+        return
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    utf8_data = PyUnicode_AsUTF8AndSize(task_name, &utf8_size)
+    if utf8_data != NULL:
+        sample.push_task_name(string_view(utf8_data, utf8_size))
+
+cdef call_ddup_push_exceptioninfo(Sample* sample, exception_name: StringType, uint64_t count):
+    if not exception_name:
+        return
+    if isinstance(exception_name, bytes):
+        sample.push_exceptioninfo(string_view(<const char*>exception_name, len(exception_name)), count)
+        return
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    utf8_data = PyUnicode_AsUTF8AndSize(exception_name, &utf8_size)
+    if utf8_data != NULL:
+        sample.push_exceptioninfo(string_view(utf8_data, utf8_size), count)
+
+cdef call_ddup_push_exception_message(Sample* sample, exception_message: StringType):
+    if not exception_message:
+        return
+    if isinstance(exception_message, bytes):
+        sample.push_exception_message(string_view(<const char*>exception_message, len(exception_message)))
+        return
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    utf8_data = PyUnicode_AsUTF8AndSize(exception_message, &utf8_size)
+    if utf8_data != NULL:
+        sample.push_exception_message(string_view(utf8_data, utf8_size))
+
+cdef call_ddup_push_class_name(Sample* sample, class_name: StringType):
+    if not class_name:
+        return
+    if isinstance(class_name, bytes):
+        sample.push_class_name(string_view(<const char*>class_name, len(class_name)))
+        return
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    utf8_data = PyUnicode_AsUTF8AndSize(class_name, &utf8_size)
+    if utf8_data != NULL:
+        sample.push_class_name(string_view(utf8_data, utf8_size))
+
+cdef call_ddup_push_gpu_device_name(Sample* sample, device_name: StringType):
+    if not device_name:
+        return
+    if isinstance(device_name, bytes):
+        sample.push_gpu_device_name(string_view(<const char*>device_name, len(device_name)))
+        return
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    utf8_data = PyUnicode_AsUTF8AndSize(device_name, &utf8_size)
+    if utf8_data != NULL:
+        sample.push_gpu_device_name(string_view(utf8_data, utf8_size))
+
+cdef call_ddup_push_trace_type(Sample* sample, trace_type: StringType):
+    if not trace_type:
+        return
+    if isinstance(trace_type, bytes):
+        sample.push_trace_type(string_view(<const char*>trace_type, len(trace_type)))
+        return
+    cdef const char* utf8_data
+    cdef Py_ssize_t utf8_size
+    utf8_data = PyUnicode_AsUTF8AndSize(trace_type, &utf8_size)
+    if utf8_data != NULL:
+        sample.push_trace_type(string_view(utf8_data, utf8_size))
+
+# Conversion functions
+cdef uint64_t clamp_to_uint64_unsigned(value):
+    # This clamps a Python int to the nonnegative range of an unsigned 64-bit integer.
+    # The name is redundant, but consistent with the other clamping function.
+    if value < 0:
+        return 0
+    if value > UINT64_MAX:
+        return UINT64_MAX
+    return value
+
+cdef int64_t clamp_to_int64_unsigned(value):
+    # This clamps a Python int to the nonnegative range of a signed 64-bit integer.
+    if value < 0:
+        return 0
+    if value > INT64_MAX:
+        return INT64_MAX
+    return value
+
+
+# Module-level flag to track if code provenance has been set
+cdef bint _code_provenance_set = False
+
+
+def config(
+        service: StringType = None,
+        env: StringType = None,
+        version: StringType = None,
+        tags: Optional[Mapping[Union[str, bytes], Union[str, bytes]]] = None,
+        max_nframes: Optional[int] = None,
+        timeline_enabled: Optional[bool] = None,
+        output_filename: StringType = None,
+        sample_pool_capacity: Optional[int] = None,
+        timeout: Optional[int] = None,
+        process_tags: StringType = None
+) -> None:
+
+    # Try to provide a ddtrace-specific default service if one is not given
+    service = service or DEFAULT_SERVICE_NAME
+    call_func_with_str(UploaderBuilder.set_service, service)
+
+    # Empty values are auto-populated in the backend (omitted in client)
+    if env:
+        call_func_with_str(UploaderBuilder.set_env, env)
+    if version:
+        call_func_with_str(UploaderBuilder.set_version, version)
+    if output_filename:
+        call_func_with_str(UploaderBuilder.set_output_filename, output_filename)
+    if process_tags:
+        call_func_with_str(UploaderBuilder.set_process_tags, process_tags)
+
+    # Inherited
+    call_func_with_str(UploaderBuilder.set_runtime, platform.python_implementation())
+    call_func_with_str(UploaderBuilder.set_runtime_version, platform.python_version())
+    call_func_with_str(UploaderBuilder.set_profiler_version, ddtrace.__version__)
+
+    if max_nframes is not None:
+        SampleManager.set_max_nframes(<int>clamp_to_int64_unsigned(max_nframes))
+    if tags is not None:
+        for key, val in tags.items():
+            if key and val:
+                call_uploader_builder_set_tag(key, val)
+
+    if timeline_enabled is True:
+        SampleManager.set_timeline(True)
+    if sample_pool_capacity:
+        SampleManager.set_sample_pool_capacity(clamp_to_uint64_unsigned(sample_pool_capacity))
+
+    if timeout is not None:
+        UploaderBuilder.set_max_timeout_ms(clamp_to_uint64_unsigned(timeout))
+
+
+def start() -> None:
+    ddup_start()
+
+
+def set_profiler_settings_json(settings_json: StringType) -> None:
+    call_func_with_str(ddup_set_profiler_settings_json, settings_json)
+
+
+def _get_endpoint(tracer: Tracer) -> str:
+    # DEV: ddtrace.profiling.utils has _get_endpoint but importing that function
+    # leads to a circular import, so re-implementing it here.
+    # TODO(taegyunkim): support agentless mode by modifying uploader_builder to
+    # build exporter for agentless mode too.
+    tracer_agent_url = tracer.agent_trace_url
+    endpoint = tracer_agent_url if tracer_agent_url else agent_config.trace_agent_url
+    return endpoint
+
+
+def upload(tracer: Optional[Tracer] = ddtrace.tracer, enable_code_provenance: Optional[bool] = None) -> None:
+    global _code_provenance_set
+
+    call_func_with_str(UploaderBuilder.set_runtime_id, get_runtime_id())
+    UploaderBuilder.set_process_id()
+
+    role = get_process_role()
+    if role is not None:
+        call_uploader_builder_set_tag("process_type", role)
+
+    processor = tracer._endpoint_call_counter_span_processor
+    endpoint_counts, endpoint_to_span_ids = processor.reset()
+
+    call_ddup_profile_set_endpoints(endpoint_to_span_ids)
+    call_ddup_profile_add_endpoint_counts(endpoint_counts)
+
+    endpoint = _get_endpoint(tracer)
+    call_func_with_str(UploaderBuilder.set_url, endpoint)
+
+    if enable_code_provenance and not _code_provenance_set:
+        code_provenance_file = get_code_provenance_file()
+        if code_provenance_file:
+            call_code_provenance_set_file_path(code_provenance_file)
+            _code_provenance_set = True
+
+    with nogil:
+        ddup_upload()
+
+
+cdef class SampleHandle:
+    cdef Sample *ptr
+
+    def __cinit__(self) -> None:
+        self.ptr = NULL
+        ddup_start()
+        if not ddup_is_initialized():
+            return
+        self.ptr = SampleManager.start_sample()
+
+    def __dealloc__(self) -> None:
+        if self.ptr is not NULL:
+            SampleManager.drop_sample(self.ptr)
+            self.ptr = NULL  # defensively, in case of post-dealloc access in native
+
+    def push_cputime(self, value: int, count: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_cputime(clamp_to_int64_unsigned(value), clamp_to_int64_unsigned(count))
+
+    def push_walltime(self, value: int, count: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_walltime(clamp_to_int64_unsigned(value), clamp_to_int64_unsigned(count))
+
+    def push_acquire(self, value: int, count: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_acquire(clamp_to_int64_unsigned(value), clamp_to_int64_unsigned(count))
+
+    def push_release(self, value: int, count: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_release(clamp_to_int64_unsigned(value), clamp_to_int64_unsigned(count))
+
+    def push_alloc(self, value: int, count: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_alloc(clamp_to_int64_unsigned(value), clamp_to_int64_unsigned(count))
+
+    def push_heap(self, value: int, count: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_heap(clamp_to_int64_unsigned(value), clamp_to_int64_unsigned(count))
+
+    def push_gpu_gputime(self, value: int, count: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_gpu_gputime(clamp_to_int64_unsigned(value), clamp_to_int64_unsigned(count))
+
+    def push_gpu_memory(self, value: int, count: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_gpu_memory(clamp_to_int64_unsigned(value), clamp_to_int64_unsigned(count))
+
+    def push_gpu_flops(self, value: int, count: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_gpu_flops(clamp_to_int64_unsigned(value), clamp_to_int64_unsigned(count))
+
+    def push_lock_name(self, lock_name: StringType) -> None:
+        if self.ptr is not NULL:
+            call_ddup_push_lock_name(self.ptr, lock_name)
+
+    def push_frame(self, name: StringType, filename: StringType, address: int, line: int) -> None:
+        if self.ptr is not NULL:
+            # Customers report `name` and `filename` may be unexpected objects, so sanitize.
+            sanitized_name = sanitize_string(name)
+            sanitized_filename = sanitize_string(filename)
+            call_ddup_push_frame(self.ptr, sanitized_name, sanitized_filename,
+                                 clamp_to_uint64_unsigned(address), clamp_to_int64_unsigned(line))
+
+    def push_pyframes(self, object frame) -> None:
+        cdef PyObject* frame_obj
+        cdef PyFrameObject* frame_ptr
+
+        if self.ptr is not NULL and frame is not None:
+            # Validate that frame is actually a frame object to avoid crashes
+            # from invalid casts (e.g., if frame contains a non-frame object)
+            if not isinstance(frame, types.FrameType):
+                return
+            # In Cython, 'frame' is already a PyObject*. Get the raw pointer.
+            frame_obj = <PyObject*>frame
+            # Cast to PyFrameObject* - both are just pointers to the same memory
+            frame_ptr = <PyFrameObject*>frame_obj
+            self.ptr.push_pyframes(frame_ptr)
+
+    def push_threadinfo(self, thread_id: int, thread_native_id: int, thread_name: StringType) -> None:
+        if self.ptr is not NULL:
+            thread_id = thread_id if thread_id is not None else 0
+            thread_native_id = thread_native_id if thread_native_id is not None else 0
+            call_ddup_push_threadinfo(
+                self.ptr,
+                clamp_to_int64_unsigned(thread_id),
+                clamp_to_int64_unsigned(thread_native_id),
+                thread_name
+            )
+
+    def push_task_id(self, task_id: Optional[int]) -> None:
+        if self.ptr is not NULL:
+            if task_id is not None:
+                self.ptr.push_task_id(clamp_to_uint64_unsigned(task_id))
+
+    def push_task_name(self, task_name: StringType) -> None:
+        if self.ptr is not NULL:
+            if task_name is not None:
+                call_ddup_push_task_name(self.ptr, task_name)
+
+    def push_exceptioninfo(self, exc_type: Union[None, bytes, str, type], count: int) -> None:
+        if self.ptr is not NULL:
+            exc_name = None
+            if isinstance(exc_type, type):
+                module = exc_type.__module__
+                exc_name = f"{module}.{exc_type.__name__}" if module else exc_type.__name__
+            else:
+                exc_name = exc_type
+            call_ddup_push_exceptioninfo(self.ptr, exc_name, clamp_to_uint64_unsigned(count))
+
+    def push_exception_message(self, exception_message: StringType) -> None:
+        if self.ptr is NULL:
+            return
+        if exception_message is None:
+            return
+        call_ddup_push_exception_message(self.ptr, exception_message)
+
+    def push_class_name(self, class_name: StringType) -> None:
+        if self.ptr is not NULL:
+            call_ddup_push_class_name(self.ptr, class_name)
+
+    def push_gpu_device_name(self, device_name: StringType) -> None:
+        if self.ptr is not NULL:
+            call_ddup_push_gpu_device_name(self.ptr, device_name)
+
+    def push_span(self, span: Optional[Span] = None) -> None:
+        if self.ptr is NULL:
+            return
+        if not span:
+            return
+        span_id = getattr(span, 'span_id', None)
+        if span_id:
+            self.ptr.push_span_id(clamp_to_uint64_unsigned(span_id))
+        local_root = getattr(span, '_local_root', None)
+        if not local_root:
+            return
+        local_root_span_id = getattr(local_root, 'span_id', None)
+        if local_root_span_id:
+            self.ptr.push_local_root_span_id(clamp_to_uint64_unsigned(local_root_span_id))
+        local_root_span_type = getattr(local_root, 'span_type', None)
+        if local_root_span_type:
+            call_ddup_push_trace_type(self.ptr, local_root_span_type)
+
+    def push_monotonic_ns(self, monotonic_ns: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_monotonic_ns(<int64_t>monotonic_ns)
+
+    def push_absolute_ns(self, timestamp_ns: int) -> None:
+        if self.ptr is not NULL:
+            self.ptr.push_absolute_ns(<int64_t>timestamp_ns)
+
+    def flush_sample(self) -> None:
+        # Flushing the sample consumes it.  The user will no longer be able to use
+        # this handle after flushing it.
+        if self.ptr is not NULL:
+            self.ptr.flush_sample()
+            SampleManager.drop_sample(self.ptr)
+            self.ptr = NULL

@@ -491,21 +491,24 @@ def get_potential_function(
                     e[mask_quad] = 0.5 * beta * w * (diff[mask_quad]**2) / delta
                     e[mask_lin] = beta * w * (abs_diff[mask_lin] - 0.5 * delta)
                     
-                elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
-                    # Exact Nuyts et al. (2002) Eq. (5), (9), (11)
-                    ad = xp.abs(diff)
-                    s = u_i + u_j
+                if potential_type == PotentialType.RELATIVE_DIFFERENCE:
+                    u_i_pos = xp.maximum(u_i, 0.0)
+                    u_j_pos = xp.maximum(u_j, 0.0)
+                    diff_rdp = u_i_pos - u_j_pos
+                    ad = xp.abs(diff_rdp)
+                    s = u_i_pos + u_j_pos
                     V = s + delta * ad + eps_safe
 
-                    if compute_grad:
-                        g = beta * w * diff * (u_i + 3.0 * u_j + delta * ad + 2.0 * eps_safe) / (V * V)
-                        grad_img[slice_c_z, slice_c_x] += g
-                    if compute_hess:
-                        h = beta * w * 4.0 * (2.0 * u_j + eps_safe) * (s + eps_safe) / (V * V * V)
-                        hess_img[slice_c_z, slice_c_x] += h
-                    if compute_energy:
-                        e = beta * w * (diff * diff) / V
-                        U_value += float(xp.sum(e))
+                    g = beta * w * diff_rdp * (u_i_pos + 3.0 * u_j_pos + delta * ad + 2.0 * eps_safe) / (V * V)
+                    h = beta * w * 4.0 * (2.0 * u_j_pos + eps_safe) * (s + eps_safe) / (V * V * V)
+                    e = beta * w * (diff_rdp * diff_rdp) / V
+
+                if compute_grad:
+                    grad_img[slice_c_z, slice_c_x] += g
+                if compute_hess:
+                    hess_img[slice_c_z, slice_c_x] += h
+                if compute_energy:
+                    U_value += float(xp.sum(e))
 
             if compute_energy: U_value /= 2.0
             return (grad_img.flatten() if compute_grad else None, 

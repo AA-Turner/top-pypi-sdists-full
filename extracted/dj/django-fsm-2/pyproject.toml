@@ -1,9 +1,9 @@
 [project]
 name = "django-fsm-2"
-version = "4.2.4"
+version = "4.3.0"
 description = "Django friendly finite state machine support."
 authors = [{ name = "Mikhail Podgurskiy", email = "kmmbvnr@gmail.com" }]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = "README.md"
 license = "MIT"
 classifiers = [
@@ -13,23 +13,21 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Framework :: Django",
-    "Framework :: Django :: 4.2",
-    "Framework :: Django :: 5.0",
-    "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Typing :: Typed",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "django>=4.2.29",
+    "django>=5.2.0",
     "django-stubs-ext",
     "typing-extensions; python_version < '3.12'",
 ]
@@ -57,6 +55,8 @@ dev = [
     "pytest-django",
     "pytest-randomly",
     "tox",
+    "tox-gh-actions",
+    "django-unfold",
 ]
 
 [tool.uv]
@@ -79,7 +79,6 @@ DJANGO_SETTINGS_MODULE = "tests.settings"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
 fix = true
 
 [tool.ruff.lint]
@@ -88,21 +87,20 @@ extend-ignore = [
     "COM812",  # This rule may cause conflicts when used with the formatter
     "D",  # pydocstyle
     "DOC",  # pydoclint
-    "B",
+    "B",  # Bandit
     "PTH",
     "ANN",  # Missing type annotation
     "S101",  # Use of `assert` detected
     "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
     "ARG001",  # Unused function argument
     "ARG002",  # Unused method argument
-    "TRY002",  # Create your own exception
     "TRY003",  # Avoid specifying long messages outside the exception class
     "EM101",  # Exception must not use a string literal, assign to variable first
     "EM102",  # Exception must not use an f-string literal, assign to variable first
     "SLF001",  # Private member accessed
-    "SIM103",  # Return the condition directly
-    "PLC0415",  # `import` should be at the top-level of a file
+    "CPY001",  # Missing copyright notice at top of file
     "PLR0913",  # Too many arguments in function definition
+    "PLR0917",  # Too many positional arguments
 ]
 fixable = [
     "I",  # isort
@@ -113,6 +111,8 @@ fixable = [
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/*" = [
     "DJ008",  # Model does not define `__str__` method
+    "TID252",  # Prefer absolute imports over relative imports from parent modules
+    "TRY002",  # Create your own exception
 ]
 
 [tool.ruff.lint.isort]

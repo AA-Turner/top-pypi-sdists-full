@@ -61,7 +61,10 @@ class TestPutAvailableDatasets(unittest.TestCase):
                             left_dataset_join_key = '', 
                             right_dataset_join_key = '', 
                             join_type = 'inner', ), 
-                        is_static = True, )
+                        is_static = True, 
+                        trace_count = 0.0, 
+                        inference_count = 0.0, 
+                        last_activity_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                     ]
             )
         else:
@@ -92,7 +95,10 @@ class TestPutAvailableDatasets(unittest.TestCase):
                             left_dataset_join_key = '', 
                             right_dataset_join_key = '', 
                             join_type = 'inner', ), 
-                        is_static = True, )
+                        is_static = True, 
+                        trace_count = 0.0, 
+                        inference_count = 0.0, 
+                        last_activity_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                     ],
         )
         """

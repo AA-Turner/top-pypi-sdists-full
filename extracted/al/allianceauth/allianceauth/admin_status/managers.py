@@ -1,24 +1,24 @@
+__lazy_modules__ = ["allianceauth.admin_status.hooks", "allianceauth.admin_status.models"]
+
 from typing import TYPE_CHECKING
 
 import requests
 from django.db import models, transaction
 
-from allianceauth.admin_status.hooks import (
-    Announcement,
-    get_all_applications_announcements,
-)
+from allianceauth.admin_status.hooks import get_all_applications_announcements
 from allianceauth.services.hooks import get_extension_logger
 
 if TYPE_CHECKING:
-    from allianceauth.admin_status.models import ApplicationAnnouncement
+    from allianceauth.admin_status.hooks import Announcement
+    from allianceauth.admin_status.models import ApplicationAnnouncement, SoftwareVersion  # noqa: F401
 
 from packaging.version import InvalidVersion, Version as Pep440Version
 
 logger = get_extension_logger(__name__)
 
 
-class ApplicationAnnouncementManager(models.Manager):
-    def sync_announcements(self):
+class ApplicationAnnouncementManager(models.Manager["ApplicationAnnouncement"]):
+    def sync_announcements(self) -> None:
         """
         Checks all hooks if new notifications need to be created.
         """
@@ -30,12 +30,12 @@ class ApplicationAnnouncementManager(models.Manager):
             self._delete_obsolete_announcements(current_announcements)
             self._store_new_announcements(current_announcements)
 
-    def _delete_obsolete_announcements(self, current_announcements: list[Announcement]):
+    def _delete_obsolete_announcements(self, current_announcements: "list[Announcement]") -> None:
         """Deletes all announcements stored in the database that aren't retrieved anymore"""
         hashes = [announcement.get_hash() for announcement in current_announcements]
         self.exclude(announcement_hash__in=hashes).delete()
 
-    def _store_new_announcements(self, current_announcements: list[Announcement]):
+    def _store_new_announcements(self, current_announcements: "list[Announcement]") -> None:
         """Stores a new database object for new application announcements"""
 
         for current_announcement in current_announcements:
@@ -57,7 +57,7 @@ class ApplicationAnnouncementManager(models.Manager):
                     announcement.save()
 
     def create_from_announcement(
-        self, announcement: Announcement
+        self, announcement: "Announcement"
     ) -> "ApplicationAnnouncement":
         """Creates from the Announcement dataclass"""
         return self.create(
@@ -69,9 +69,9 @@ class ApplicationAnnouncementManager(models.Manager):
         )
 
 
-class SoftwareVersionManager(models.Manager):
+class SoftwareVersionManager(models.Manager["SoftwareVersion"]):
     @staticmethod
-    def fetch_current_version():
+    def fetch_current_version() -> dict[str, str]:
         # Import helpers here to avoid circular imports at module import time
         try:
             from .templatetags.admin_status import (
@@ -103,13 +103,13 @@ class SoftwareVersionManager(models.Manager):
 
         return response
 
-    def sync_versions(self):
+    def sync_versions(self) -> None:
         """
         Fetches the current version of the software from GitLab and updates the database.
         """
 
         # Prevent circular imports by importing the SoftwareVersion model here
-        from allianceauth.admin_status.models import SoftwareVersion
+        from allianceauth.admin_status.models import SoftwareVersion  # noqa: F811
 
         logger.info("Fetching software version")
 

@@ -3,7 +3,7 @@
 #
 
 from dataclasses import dataclass
-from io import BufferedWriter
+from io import BufferedIOBase
 from typing import Dict, Optional
 import os
 from urllib.parse import quote
@@ -23,8 +23,6 @@ from aistore.sdk.const import (
     QPARAM_ARCHPATH,
     QPARAM_ARCHREGX,
     QPARAM_ARCHMODE,
-    QPARAM_ETL_NAME,
-    QPARAM_ETL_ARGS,
     QPARAM_LATEST,
     QPARAM_PROPS,
     QPARAM_SYNC,
@@ -35,9 +33,6 @@ from aistore.sdk.const import (
     URL_PATH_OBJECTS,
     HEADER_RANGE,
     ACT_BLOB_DOWNLOAD,
-    HEADER_OBJECT_BLOB_DOWNLOAD,
-    HEADER_OBJECT_BLOB_WORKERS,
-    HEADER_OBJECT_BLOB_CHUNK_SIZE,
 )
 from aistore.sdk.provider import Provider
 from aistore.sdk.obj.object_client import ObjectClient
@@ -88,7 +83,7 @@ class Object:
     ):
         self._client = client
         self._bck_details = bck_details
-        self._bck_path = f"{URL_PATH_OBJECTS}/{ bck_details.name}"
+        self._bck_path = f"{URL_PATH_OBJECTS}/{bck_details.name}"
         self._name = name
         self._props = props
         self._object_path = f"{self._bck_path}/{quote(name)}"
@@ -198,7 +193,7 @@ class Object:
         blob_download_config: Optional[BlobDownloadConfig] = None,
         chunk_size: Optional[int] = None,
         etl: Optional[ETLConfig] = None,
-        writer: Optional[BufferedWriter] = None,
+        writer: Optional[BufferedIOBase] = None,
         latest: bool = False,
         byte_range: Optional[str] = None,
         direct: bool = False,
@@ -210,12 +205,13 @@ class Object:
 
         Args:
             archive_config (Optional[ArchiveConfig]): Settings for archive extraction.
-            blob_download_config (Optional[BlobDownloadConfig]): Settings for using blob download.
+            blob_download_config (Optional[BlobDownloadConfig]): Settings for selecting and tuning
+                server-side blob download.
             chunk_size (Optional[int]): Chunk size in bytes. For parallel downloads (num_workers
                 set), defaults to the server-provided optimal size. For sequential reads,
                 defaults to DEFAULT_CHUNK_SIZE.
             etl (Optional[ETLConfig]): Settings for ETL-specific operations (name, args).
-            writer (Optional[BufferedWriter]): User-provided writer for writing content output.
+            writer (Optional[BufferedIOBase]): User-provided writer for writing content output.
                 The user is responsible for closing the writer.
             latest (bool, optional): GET the latest object version from the associated remote bucket.
             byte_range (Optional[str]): Byte range in RFC 7233 format for single-range requests
@@ -223,14 +219,15 @@ class Object:
                 See: https://www.rfc-editor.org/rfc/rfc7233#section-2.1.
             direct (bool, optional): If True, the object content is read directly from the target node,
                 bypassing the proxy.
-            num_workers (Optional[int]): If provided, enable parallel download — the
-                object is split into byte ranges fetched concurrently by this many workers.
+            num_workers (Optional[int]): Number of client-side workers for parallel range reads.
+                To configure server-side blob-download workers, set
+                `BlobDownloadConfig.num_workers`.
 
         Returns:
             ObjectReader: An iterator for streaming object content.
 
         Raises:
-            ValueError: If `byte_range` is used with `blob_download_config`.
+            ValueError: If reader options are invalid or incompatible.
             requests.RequestException: If an error occurs during the request.
             requests.ConnectionError: If there is a connection error.
             requests.ConnectTimeout: If the connection times out.
@@ -254,13 +251,7 @@ class Object:
 
         # Blob Download Configuration
         if blob_download_config:
-            headers.update(
-                {
-                    HEADER_OBJECT_BLOB_DOWNLOAD: "true",
-                    HEADER_OBJECT_BLOB_CHUNK_SIZE: blob_download_config.chunk_size,
-                    HEADER_OBJECT_BLOB_WORKERS: blob_download_config.num_workers,
-                }
-            )
+            headers.update(blob_download_config.as_headers())
 
         # ETL Configuration
         if etl:
@@ -285,12 +276,19 @@ class Object:
                 )
             if blob_download_config:
                 raise ValueError(
-                    "Cannot use `num_workers` with `blob_download_config`."
+                    "Cannot use client-side `num_workers` with `blob_download_config`; "
+                    "set `BlobDownloadConfig.num_workers` to configure blob-download workers."
                 )
             if etl:
                 raise ValueError(
                     "Cannot use `num_workers` with `etl`. "
                     "Parallel download issues raw range reads that bypass ETL."
+                )
+            if archive_config:
+                raise ValueError(
+                    "Cannot use `num_workers` with `archive_config`. "
+                    "Parallel download issues raw range reads, and the target "
+                    "rejects a range read of archived content."
                 )
 
         if byte_range:
@@ -355,11 +353,10 @@ class Object:
         if archpath:
             params[QPARAM_ARCHPATH] = archpath
 
-        # ETL Configuration
+        # ETL Configuration. The same call get_reader() and copy() make, so a
+        # pipeline keeps its stages and dict args keep their JSON encoding.
         if etl:
-            params[QPARAM_ETL_NAME] = etl.name
-            if etl.args:
-                params[QPARAM_ETL_ARGS] = etl.args
+            etl.update_qparams(params)
 
         return self._client.get_full_url(self._object_path, params)
 

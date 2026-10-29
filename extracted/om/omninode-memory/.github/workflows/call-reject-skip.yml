@@ -28,5 +28,5 @@ permissions:
 
 jobs:
   call-reject-skip-token:
-    uses: OmniNode-ai/omniclaude/.github/workflows/reject-deploy-gate-skip.yml@e9b550b6be0a8e648ea83f9ed7f5fb8175ae1aaf
+    uses: OmniNode-ai/omniclaude/.github/workflows/reject-deploy-gate-skip.yml@b6ca3729f2a9b70ae6518a8c46d08f3c1ebb8c60
     secrets: inherit

@@ -495,6 +495,11 @@ def get_server_url(host: Optional[str] = None) -> str:
         endpoint = (f'http://{_host_to_url_host(host)}:'
                     f'{get_local_api_server_port()}')
 
+    # A jobs/serve controller always calls the API server on its own host, so
+    # its requests reach the server from loopback, never a configured remote
+    # endpoint.
+    if os.environ.get(constants.OVERRIDE_CONSOLIDATION_MODE) is not None:
+        return endpoint.rstrip('/')
     url = os.environ.get(
         constants.SKY_API_SERVER_URL_ENV_VAR,
         skypilot_config.get_nested(('api_server', 'endpoint'), endpoint))
@@ -589,6 +594,54 @@ def get_dashboard_url(server_url: str,
 def is_api_server_local(endpoint: Optional[str] = None):
     server_url = endpoint if endpoint is not None else get_server_url()
     return server_url in get_available_local_api_server_urls()
+
+
+def mount_containment_enforced(deploy: bool, host: str) -> bool:
+    """Whether a server started with (deploy, host) is reachable by others.
+
+    True on a deployed server or any non-loopback bind; a loopback
+    ``sky api start`` serves only the invoking user, so client and server are
+    the same user and same-user credential overrides are allowed.
+    """
+    if deploy:
+        return True
+    if host == 'localhost':
+        return False
+    try:
+        return not ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        # A hostname we cannot classify as loopback -> treat as reachable.
+        return True
+
+
+def set_mount_containment_enforced(enforced: bool) -> None:
+    """Record the enforce decision in the process env for workers to inherit."""
+    os.environ[constants.ENV_VAR_ENFORCE_MOUNT_CONTAINMENT] = ('1' if enforced
+                                                               else '0')
+
+
+def init_mount_containment_enforced(deploy: bool, host: str) -> None:
+    """Set the enforce flag at startup unless it was set explicitly.
+
+    An operator can export ``ENV_VAR_ENFORCE_MOUNT_CONTAINMENT`` before starting
+    the server to force the decision (e.g. ``0`` to opt out on a deployed server
+    whose clients are all on the same trusted host); that explicit value wins.
+    Otherwise it is computed from the server's mode (see
+    ``mount_containment_enforced``).
+    """
+    if constants.ENV_VAR_ENFORCE_MOUNT_CONTAINMENT in os.environ:
+        return
+    set_mount_containment_enforced(mount_containment_enforced(deploy, host))
+
+
+def should_enforce_mount_containment() -> bool:
+    """Whether the current worker runs on a server reachable by others.
+
+    Reads the server-set flag (see ``set_mount_containment_enforced``). Unset
+    defaults to enforce (fail closed).
+    """
+    return os.environ.get(constants.ENV_VAR_ENFORCE_MOUNT_CONTAINMENT,
+                          '1') != '0'
 
 
 def _handle_non_200_server_status(
@@ -1203,6 +1256,12 @@ def process_mounts_in_task_on_api_server(
     versions.check_recipe_client_version(task)
 
     user_hash = env_vars.get(constants.USER_ID_ENV_VAR, 'unknown')
+    # The user id is joined as a directory component below (and mkdir'd), so an
+    # unvalidated value would create dirs outside the clients dir. With auth off
+    # this id comes straight from the client. Reject a non-component value here,
+    # before any mkdir.
+    if not common_utils.is_single_path_component(user_hash):
+        raise ValueError(f'Invalid user id: {user_hash!r}')
 
     client_dir = (API_SERVER_CLIENT_DIR.expanduser().resolve() / user_hash)
     client_file_mounts_dir = client_dir / 'file_mounts'

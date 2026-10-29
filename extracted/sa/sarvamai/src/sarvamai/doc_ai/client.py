@@ -5,14 +5,18 @@ import typing
 from .. import core
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.doc_ai_capabilities_response import DocAiCapabilitiesResponse
+from ..types.doc_ai_classify_job_request import DocAiClassifyJobRequest
 from ..types.doc_ai_download_url_response import DocAiDownloadUrlResponse
+from ..types.doc_ai_job_accepted_response import DocAiJobAcceptedResponse
 from ..types.doc_ai_job_status_response import DocAiJobStatusResponse
 from ..types.doc_ai_presign_upload_response import DocAiPresignUploadResponse
+from ..types.doc_ai_split_job_request import DocAiSplitJobRequest
 from ..types.doc_ai_start_job_response import DocAiStartJobResponse
 from .raw_client import AsyncRawDocAiClient, RawDocAiClient
-from .types.doc_ai_digitise_request_content_type import DocAiDigitiseRequestContentType
 from .types.doc_ai_extract_request_output_format import DocAiExtractRequestOutputFormat
 from .types.doc_ai_get_results_response import DocAiGetResultsResponse
+from .types.doc_ai_parse_request_content_type import DocAiParseRequestContentType
 from .types.format import Format
 
 # this is used as the default value for optional parameters
@@ -43,7 +47,7 @@ class DocAiClient:
         **Flow:**
         1. Call this endpoint with the MIME type you will upload (e.g. `application/pdf`).
         2. Upload the file using the returned `method`, `url` and `headers` before `expires_at`.
-        3. Pass the returned `upload_id` through the `upload_ids` field on a later digitise or extract job request.
+        3. Pass the returned `upload_id` through the `upload_ids` field on a later parse or extract job request.
 
         When `content_type` is set, the upload's `Content-Type` header must match it.
 
@@ -72,24 +76,24 @@ class DocAiClient:
         _response = self._raw_client.create_upload_url(content_type=content_type, request_options=request_options)
         return _response.data
 
-    def digitise(
+    def parse(
         self,
         *,
         file: typing.Optional[typing.List[core.File]] = OMIT,
         upload_ids: typing.Optional[str] = OMIT,
         language: typing.Optional[str] = OMIT,
-        content_type: typing.Optional[DocAiDigitiseRequestContentType] = OMIT,
+        content_type: typing.Optional[DocAiParseRequestContentType] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocAiStartJobResponse:
         """
-        Creates and starts a digitise job from files or pre-uploaded handles. Digitise converts documents into structured HTML, Markdown, or JSON while preserving layout.
+        Creates and starts a parse job from files or pre-uploaded handles. Parse converts documents into structured HTML, Markdown, or JSON while preserving layout.
 
         **Input:** Exactly one of `file` and `upload_ids` must be provided. Use `POST /doc-ai/v1/job/upload` to obtain upload IDs.
 
         **Processing:** the job runs asynchronously. Poll `GET /doc-ai/v1/job/{job_id}/status` until a terminal status (`completed`, `partially_completed`, `failed`, `rejected`), then fetch output via the results or download-url endpoints.
 
-        Digitise JSON results include blocks with text, tag and bounding box.
+        Parse JSON results include blocks with text, tag and bounding box.
 
         Parameters
         ----------
@@ -102,7 +106,7 @@ class DocAiClient:
         language : typing.Optional[str]
             Language of the document in BCP-47 format (e.g. `hi-IN`, `en-IN`). Defaults to Indic: when omitted, the document is processed as an Indic-language document. To process an English document, set `language` to `en-IN`. Sarvam Vision supports 22 Indian languages plus English; see the [Sarvam Vision model page](/api/getting-started/models/sarvam-vision) for the full list.
 
-        content_type : typing.Optional[DocAiDigitiseRequestContentType]
+        content_type : typing.Optional[DocAiParseRequestContentType]
             Nature of the document content.
 
         model : typing.Optional[str]
@@ -123,9 +127,9 @@ class DocAiClient:
         client = SarvamAI(
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
-        client.doc_ai.digitise()
+        client.doc_ai.parse()
         """
-        _response = self._raw_client.digitise(
+        _response = self._raw_client.parse(
             file=file,
             upload_ids=upload_ids,
             language=language,
@@ -170,7 +174,7 @@ class DocAiClient:
             Inline extraction schema as a JSON string. The root must be `type: "object"` with non-empty `properties`; every field needs a `type` and a non-empty `description`. Supported types: `string`, `number`, `integer`, `boolean`, `object`, `array` (objects need `properties`, arrays need `items`); optional `enum`; maximum nesting depth 4. Exactly one of `schema` and `config_id` is required.
 
         config_id : typing.Optional[str]
-            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required. To get your config_id, follow the steps listed [here](/api/api-guides-tutorials/document-intelligence/how-to/get-your-config-id).
+            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required. To get your config_id, see [Reuse a schema](/api/api-guides-tutorials/document-intelligence/how-to/extract#reuse-a-schema).
 
         output_format : typing.Optional[DocAiExtractRequestOutputFormat]
             Output format of the extraction results.
@@ -209,6 +213,124 @@ class DocAiClient:
             output_format=output_format,
             classification=classification,
             model=model,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def classify(
+        self,
+        *,
+        request: DocAiClassifyJobRequest,
+        idempotency_key: typing.Optional[str] = None,
+        file: typing.Optional[typing.List[core.File]] = OMIT,
+        upload_ids: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DocAiJobAcceptedResponse:
+        """
+        Creates a Classify job. Classify labels a document, or each page, against the categories you define, or suggests a document type when you supply none.
+
+        **Input:** send `file` (PDF, PNG, JPEG or TIFF; repeat the field for up to 10 documents) or `upload_ids`, plus a JSON `request` with the options below. You can also send a JSON body with `input` set to `{"document_ref": "..."}` to classify a child document returned by Split.
+
+        **Processing:** the job runs asynchronously. Poll `GET /doc-ai/v1/job/{job_id}/status` until it is `completed`, then fetch `GET /doc-ai/v1/job/{job_id}/results`. Add `?include=details` to the results for inspected pages, provenance and evidence.
+
+        **Review:** `review_required` tells you whether a person should check the answer. `confidence` can be `null`; it is a token-based score, not a measured probability.
+
+        Parameters
+        ----------
+        request : DocAiClassifyJobRequest
+
+        idempotency_key : typing.Optional[str]
+            Retry the same submission without creating another job. The same key with the same request returns the original job (`idempotency_replayed: true`); the same key with a changed request returns `409 IDEMPOTENCY_CONFLICT`.
+
+        file : typing.Optional[typing.List[core.File]]
+            See core.File for more documentation
+
+        upload_ids : typing.Optional[str]
+            Comma-separated upload IDs returned by `POST /doc-ai/v1/job/upload`, with or instead of `file`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DocAiJobAcceptedResponse
+            Job created. With `request.execution` set to `auto`, a single document that finishes in time instead returns `200` with the results object.
+
+        Examples
+        --------
+        from sarvamai import SarvamAI
+
+        client = SarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+        client.doc_ai.classify(
+            request={},
+        )
+        """
+        _response = self._raw_client.classify(
+            request=request,
+            idempotency_key=idempotency_key,
+            file=file,
+            upload_ids=upload_ids,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def split(
+        self,
+        *,
+        request: DocAiSplitJobRequest,
+        idempotency_key: typing.Optional[str] = None,
+        file: typing.Optional[typing.List[core.File]] = OMIT,
+        upload_ids: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DocAiJobAcceptedResponse:
+        """
+        Creates a Split job. Split divides a bundle of pages into separate child documents, each with its original page numbers and a `document_ref` you can reuse in other requests.
+
+        **Methods:** `fixed_pages` (equal page groups), `page_ranges` (you give the boundaries), `triggers` (split at QR codes, barcodes, blank pages, text or photos) and `semantic` (the model finds the boundaries).
+
+        **Input:** send `file` (PDF, PNG, JPEG or TIFF; repeat the field for up to 10 documents) or `upload_ids`, plus a JSON `request`.
+
+        **Processing:** the job runs asynchronously. Poll `GET /doc-ai/v1/job/{job_id}/status` until it is `completed`, then fetch `GET /doc-ai/v1/job/{job_id}/results`. `completed` means processing finished, not that every segment passed review: check each segment's `review.required`.
+
+        Parameters
+        ----------
+        request : DocAiSplitJobRequest
+
+        idempotency_key : typing.Optional[str]
+            Retry the same submission without creating another job. The same key with the same request returns the original job (`idempotency_replayed: true`); the same key with a changed request returns `409 IDEMPOTENCY_CONFLICT`.
+
+        file : typing.Optional[typing.List[core.File]]
+            See core.File for more documentation
+
+        upload_ids : typing.Optional[str]
+            Comma-separated upload IDs returned by `POST /doc-ai/v1/job/upload`, with or instead of `file`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DocAiJobAcceptedResponse
+            Job created. With `request.execution` set to `auto`, a single document that finishes in time instead returns `200` with the results object.
+
+        Examples
+        --------
+        from sarvamai import SarvamAI
+
+        client = SarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+        client.doc_ai.split(
+            request={},
+        )
+        """
+        _response = self._raw_client.split(
+            request=request,
+            idempotency_key=idempotency_key,
+            file=file,
+            upload_ids=upload_ids,
             request_options=request_options,
         )
         return _response.data
@@ -253,12 +375,13 @@ class DocAiClient:
         job_id: str,
         *,
         format: typing.Optional[Format] = None,
+        include: typing.Optional[typing.Literal["details"]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocAiGetResultsResponse:
         """
         Returns terminal job results. Results are never available while a job is running; requesting them before a terminal status returns `409`.
 
-        **Digitise results** include `job_id`, `type`, `status`, `usage` and `documents`.
+        **Parse results** include `job_id`, `type`, `status`, `usage` and `documents`.
 
         **Extract results** include `job_id`, `type`, `status`, `usage`, `result`, `annotations` and `version`. `annotations` mirrors the result shape; every leaf has `confidence` and `sources`.
 
@@ -269,6 +392,9 @@ class DocAiClient:
 
         format : typing.Optional[Format]
             Output format of the results. Choose `md` for Markdown, `html` for HTML, or `json` for structured JSON. If you omit `format`, the results are returned as `json` by default.
+
+        include : typing.Optional[typing.Literal["details"]]
+            Set to `details` for Classify and Split jobs to add inspected pages, provenance and boundary details. Supporting evidence also needs `output.include_evidence` on the request.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -290,7 +416,9 @@ class DocAiClient:
             format="json",
         )
         """
-        _response = self._raw_client.get_results(job_id, format=format, request_options=request_options)
+        _response = self._raw_client.get_results(
+            job_id, format=format, include=include, request_options=request_options
+        )
         return _response.data
 
     def get_download_url(
@@ -328,6 +456,32 @@ class DocAiClient:
         _response = self._raw_client.get_download_url(job_id, request_options=request_options)
         return _response.data
 
+    def get_capabilities(self, *, request_options: typing.Optional[RequestOptions] = None) -> DocAiCapabilitiesResponse:
+        """
+        Returns the Classify and Split features, input formats, limits and options enabled on this deployment. Check it before using options such as `reasoning_input` image modes or photo triggers.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DocAiCapabilitiesResponse
+            OK
+
+        Examples
+        --------
+        from sarvamai import SarvamAI
+
+        client = SarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+        client.doc_ai.get_capabilities()
+        """
+        _response = self._raw_client.get_capabilities(request_options=request_options)
+        return _response.data
+
 
 class AsyncDocAiClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -353,7 +507,7 @@ class AsyncDocAiClient:
         **Flow:**
         1. Call this endpoint with the MIME type you will upload (e.g. `application/pdf`).
         2. Upload the file using the returned `method`, `url` and `headers` before `expires_at`.
-        3. Pass the returned `upload_id` through the `upload_ids` field on a later digitise or extract job request.
+        3. Pass the returned `upload_id` through the `upload_ids` field on a later parse or extract job request.
 
         When `content_type` is set, the upload's `Content-Type` header must match it.
 
@@ -390,24 +544,24 @@ class AsyncDocAiClient:
         _response = await self._raw_client.create_upload_url(content_type=content_type, request_options=request_options)
         return _response.data
 
-    async def digitise(
+    async def parse(
         self,
         *,
         file: typing.Optional[typing.List[core.File]] = OMIT,
         upload_ids: typing.Optional[str] = OMIT,
         language: typing.Optional[str] = OMIT,
-        content_type: typing.Optional[DocAiDigitiseRequestContentType] = OMIT,
+        content_type: typing.Optional[DocAiParseRequestContentType] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocAiStartJobResponse:
         """
-        Creates and starts a digitise job from files or pre-uploaded handles. Digitise converts documents into structured HTML, Markdown, or JSON while preserving layout.
+        Creates and starts a parse job from files or pre-uploaded handles. Parse converts documents into structured HTML, Markdown, or JSON while preserving layout.
 
         **Input:** Exactly one of `file` and `upload_ids` must be provided. Use `POST /doc-ai/v1/job/upload` to obtain upload IDs.
 
         **Processing:** the job runs asynchronously. Poll `GET /doc-ai/v1/job/{job_id}/status` until a terminal status (`completed`, `partially_completed`, `failed`, `rejected`), then fetch output via the results or download-url endpoints.
 
-        Digitise JSON results include blocks with text, tag and bounding box.
+        Parse JSON results include blocks with text, tag and bounding box.
 
         Parameters
         ----------
@@ -420,7 +574,7 @@ class AsyncDocAiClient:
         language : typing.Optional[str]
             Language of the document in BCP-47 format (e.g. `hi-IN`, `en-IN`). Defaults to Indic: when omitted, the document is processed as an Indic-language document. To process an English document, set `language` to `en-IN`. Sarvam Vision supports 22 Indian languages plus English; see the [Sarvam Vision model page](/api/getting-started/models/sarvam-vision) for the full list.
 
-        content_type : typing.Optional[DocAiDigitiseRequestContentType]
+        content_type : typing.Optional[DocAiParseRequestContentType]
             Nature of the document content.
 
         model : typing.Optional[str]
@@ -446,12 +600,12 @@ class AsyncDocAiClient:
 
 
         async def main() -> None:
-            await client.doc_ai.digitise()
+            await client.doc_ai.parse()
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.digitise(
+        _response = await self._raw_client.parse(
             file=file,
             upload_ids=upload_ids,
             language=language,
@@ -496,7 +650,7 @@ class AsyncDocAiClient:
             Inline extraction schema as a JSON string. The root must be `type: "object"` with non-empty `properties`; every field needs a `type` and a non-empty `description`. Supported types: `string`, `number`, `integer`, `boolean`, `object`, `array` (objects need `properties`, arrays need `items`); optional `enum`; maximum nesting depth 4. Exactly one of `schema` and `config_id` is required.
 
         config_id : typing.Optional[str]
-            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required. To get your config_id, follow the steps listed [here](/api/api-guides-tutorials/document-intelligence/how-to/get-your-config-id).
+            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required. To get your config_id, see [Reuse a schema](/api/api-guides-tutorials/document-intelligence/how-to/extract#reuse-a-schema).
 
         output_format : typing.Optional[DocAiExtractRequestOutputFormat]
             Output format of the extraction results.
@@ -543,6 +697,140 @@ class AsyncDocAiClient:
             output_format=output_format,
             classification=classification,
             model=model,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def classify(
+        self,
+        *,
+        request: DocAiClassifyJobRequest,
+        idempotency_key: typing.Optional[str] = None,
+        file: typing.Optional[typing.List[core.File]] = OMIT,
+        upload_ids: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DocAiJobAcceptedResponse:
+        """
+        Creates a Classify job. Classify labels a document, or each page, against the categories you define, or suggests a document type when you supply none.
+
+        **Input:** send `file` (PDF, PNG, JPEG or TIFF; repeat the field for up to 10 documents) or `upload_ids`, plus a JSON `request` with the options below. You can also send a JSON body with `input` set to `{"document_ref": "..."}` to classify a child document returned by Split.
+
+        **Processing:** the job runs asynchronously. Poll `GET /doc-ai/v1/job/{job_id}/status` until it is `completed`, then fetch `GET /doc-ai/v1/job/{job_id}/results`. Add `?include=details` to the results for inspected pages, provenance and evidence.
+
+        **Review:** `review_required` tells you whether a person should check the answer. `confidence` can be `null`; it is a token-based score, not a measured probability.
+
+        Parameters
+        ----------
+        request : DocAiClassifyJobRequest
+
+        idempotency_key : typing.Optional[str]
+            Retry the same submission without creating another job. The same key with the same request returns the original job (`idempotency_replayed: true`); the same key with a changed request returns `409 IDEMPOTENCY_CONFLICT`.
+
+        file : typing.Optional[typing.List[core.File]]
+            See core.File for more documentation
+
+        upload_ids : typing.Optional[str]
+            Comma-separated upload IDs returned by `POST /doc-ai/v1/job/upload`, with or instead of `file`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DocAiJobAcceptedResponse
+            Job created. With `request.execution` set to `auto`, a single document that finishes in time instead returns `200` with the results object.
+
+        Examples
+        --------
+        import asyncio
+
+        from sarvamai import AsyncSarvamAI
+
+        client = AsyncSarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.doc_ai.classify(
+                request={},
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.classify(
+            request=request,
+            idempotency_key=idempotency_key,
+            file=file,
+            upload_ids=upload_ids,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def split(
+        self,
+        *,
+        request: DocAiSplitJobRequest,
+        idempotency_key: typing.Optional[str] = None,
+        file: typing.Optional[typing.List[core.File]] = OMIT,
+        upload_ids: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> DocAiJobAcceptedResponse:
+        """
+        Creates a Split job. Split divides a bundle of pages into separate child documents, each with its original page numbers and a `document_ref` you can reuse in other requests.
+
+        **Methods:** `fixed_pages` (equal page groups), `page_ranges` (you give the boundaries), `triggers` (split at QR codes, barcodes, blank pages, text or photos) and `semantic` (the model finds the boundaries).
+
+        **Input:** send `file` (PDF, PNG, JPEG or TIFF; repeat the field for up to 10 documents) or `upload_ids`, plus a JSON `request`.
+
+        **Processing:** the job runs asynchronously. Poll `GET /doc-ai/v1/job/{job_id}/status` until it is `completed`, then fetch `GET /doc-ai/v1/job/{job_id}/results`. `completed` means processing finished, not that every segment passed review: check each segment's `review.required`.
+
+        Parameters
+        ----------
+        request : DocAiSplitJobRequest
+
+        idempotency_key : typing.Optional[str]
+            Retry the same submission without creating another job. The same key with the same request returns the original job (`idempotency_replayed: true`); the same key with a changed request returns `409 IDEMPOTENCY_CONFLICT`.
+
+        file : typing.Optional[typing.List[core.File]]
+            See core.File for more documentation
+
+        upload_ids : typing.Optional[str]
+            Comma-separated upload IDs returned by `POST /doc-ai/v1/job/upload`, with or instead of `file`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DocAiJobAcceptedResponse
+            Job created. With `request.execution` set to `auto`, a single document that finishes in time instead returns `200` with the results object.
+
+        Examples
+        --------
+        import asyncio
+
+        from sarvamai import AsyncSarvamAI
+
+        client = AsyncSarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.doc_ai.split(
+                request={},
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.split(
+            request=request,
+            idempotency_key=idempotency_key,
+            file=file,
+            upload_ids=upload_ids,
             request_options=request_options,
         )
         return _response.data
@@ -595,12 +883,13 @@ class AsyncDocAiClient:
         job_id: str,
         *,
         format: typing.Optional[Format] = None,
+        include: typing.Optional[typing.Literal["details"]] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocAiGetResultsResponse:
         """
         Returns terminal job results. Results are never available while a job is running; requesting them before a terminal status returns `409`.
 
-        **Digitise results** include `job_id`, `type`, `status`, `usage` and `documents`.
+        **Parse results** include `job_id`, `type`, `status`, `usage` and `documents`.
 
         **Extract results** include `job_id`, `type`, `status`, `usage`, `result`, `annotations` and `version`. `annotations` mirrors the result shape; every leaf has `confidence` and `sources`.
 
@@ -611,6 +900,9 @@ class AsyncDocAiClient:
 
         format : typing.Optional[Format]
             Output format of the results. Choose `md` for Markdown, `html` for HTML, or `json` for structured JSON. If you omit `format`, the results are returned as `json` by default.
+
+        include : typing.Optional[typing.Literal["details"]]
+            Set to `details` for Classify and Split jobs to add inspected pages, provenance and boundary details. Supporting evidence also needs `output.include_evidence` on the request.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -640,7 +932,9 @@ class AsyncDocAiClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get_results(job_id, format=format, request_options=request_options)
+        _response = await self._raw_client.get_results(
+            job_id, format=format, include=include, request_options=request_options
+        )
         return _response.data
 
     async def get_download_url(
@@ -684,4 +978,40 @@ class AsyncDocAiClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_download_url(job_id, request_options=request_options)
+        return _response.data
+
+    async def get_capabilities(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DocAiCapabilitiesResponse:
+        """
+        Returns the Classify and Split features, input formats, limits and options enabled on this deployment. Check it before using options such as `reasoning_input` image modes or photo triggers.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DocAiCapabilitiesResponse
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from sarvamai import AsyncSarvamAI
+
+        client = AsyncSarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.doc_ai.get_capabilities()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_capabilities(request_options=request_options)
         return _response.data

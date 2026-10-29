@@ -10,8 +10,8 @@ runtime compiles and hands back (`author.kernels`).
 A handler's SIGNATURE is its capability declaration: `Context` says where it runs, and
 everything it DOES rides a typed service parameter it named. A `Model` has two lifecycle
 methods — `load(loader)` and `unload(loader)` — and the runtime owns when each runs
-(model-lifecycle.md). The public computation facade (`cozy_runtime.compute`) constructs prepared
-GPU work separately; this surface exposes only its submission/observation protocols. The codec
+(model-lifecycle.md). A package declares its denoising loop (`denoise_loop`); the Runtime decides
+whether it runs eagerly or as a native program. The codec
 plane is separate (cr-017). Per-service fakes live in `cozy_runtime.author.fakes`.
 """
 
@@ -33,6 +33,8 @@ from cozy_runtime.author._assets import (
 from cozy_runtime.author._attention import (
     AttentionProducer,
     ProducerCall,
+    ProducerSite,
+    producer_sites,
     register_attention,
 )
 from cozy_runtime.author._attention_scope import (
@@ -124,6 +126,7 @@ from cozy_runtime.author._loader import (
     register_adapter,
     registered_adapters,
 )
+from cozy_runtime.author._loop import denoise_loop
 from cozy_runtime.author._markers import (
     AssetBound,
     AssetLimits,
@@ -144,12 +147,13 @@ from cozy_runtime.author._model import (
     ModelTestHarness,
     ScopeCall,
     graph_keys,
+    hold_dtype,
     placeable,
+    plain_forward,
     sequence_parallel,
     uncaptured,
     uses_components,
 )
-from cozy_runtime.author._prepared import Execution, PreparedWork, Progress
 from cozy_runtime.author._recipes import (
     DerivationHook,
     EncodingRule,
@@ -247,7 +251,6 @@ __all__ = [
     "Egress",
     "EgressResponse",
     "EncodingRule",
-    "Execution",
     "FileAsset",
     "Fit",
     "Image",
@@ -283,9 +286,8 @@ __all__ = [
     "Preflight",
     "PreflightViolation",
     "PreparedRequest",
-    "PreparedWork",
     "ProducerCall",
-    "Progress",
+    "ProducerSite",
     "QuantizationPlan",
     "Recipe",
     "ReferenceImages",
@@ -328,15 +330,19 @@ __all__ = [
     "corners",
     "data_values",
     "decode_request",
+    "denoise_loop",
     "describe",
     "device",
     "expect_attention",
     "graph_keys",
     "held",
+    "hold_dtype",
     "invocable",
     "placeable",
+    "plain_forward",
     "prefetch",
     "prepare",
+    "producer_sites",
     "publish_release",
     "register_adapter",
     "register_attention",

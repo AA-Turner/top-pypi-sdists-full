@@ -14,7 +14,7 @@ use super::discovery::TestDiscoveryConfig;
 /// A literal value that can be statically extracted from AST.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
-    Int(i64),
+    Int(i128),
     Float(f64),
     String(String),
     Bool(bool),
@@ -946,22 +946,56 @@ pub(crate) fn eval_literal_binop(
         }
         _ => {}
     }
-    let (LiteralValue::Int(l), LiteralValue::Int(r)) = (left, right) else {
-        return None;
+    let (l, r) = match (left, right) {
+        (LiteralValue::Int(l), LiteralValue::Int(r)) if op != Operator::Div => (l, r),
+        (
+            LiteralValue::Int(_) | LiteralValue::Float(_),
+            LiteralValue::Int(_) | LiteralValue::Float(_),
+        ) => {
+            return eval_float_binop(op, as_f64(left)?, as_f64(right)?);
+        }
+        _ => return None,
     };
     let value = match op {
         Operator::Add => l.checked_add(*r)?,
         Operator::Sub => l.checked_sub(*r)?,
         Operator::Mult => l.checked_mul(*r)?,
-        Operator::LShift if (0..64).contains(r) => l.checked_shl(*r as u32)?,
-        Operator::RShift if (0..64).contains(r) => l.checked_shr(*r as u32)?,
+        Operator::LShift if (0..128).contains(r) => shift_left(*l, *r as u32)?,
+        Operator::RShift if (0..128).contains(r) => l.checked_shr(*r as u32)?,
         Operator::BitOr => *l | *r,
         Operator::BitXor => *l ^ *r,
         Operator::BitAnd => *l & *r,
-        Operator::Pow if *r >= 0 && *r <= 63 => l.checked_pow(*r as u32)?,
+        Operator::Pow if (0..128).contains(r) => l.checked_pow(*r as u32)?,
         _ => return None,
     };
     Some(LiteralValue::Int(value))
+}
+
+/// `value << shift` that fails instead of dropping high bits, since Python ints don't overflow.
+fn shift_left(value: i128, shift: u32) -> Option<i128> {
+    value.checked_mul(2i128.checked_pow(shift)?)
+}
+
+fn as_f64(value: &LiteralValue) -> Option<f64> {
+    match value {
+        // Only ints that f64 represents exactly, so results match Python's correctly rounded int math.
+        LiteralValue::Int(i) if i.unsigned_abs() <= 1 << 53 => Some(*i as f64),
+        LiteralValue::Float(f) => Some(*f),
+        _ => None,
+    }
+}
+
+/// Float arithmetic with Python semantics; non-finite results and division by zero are not folded.
+fn eval_float_binop(op: ruff_python_ast::Operator, l: f64, r: f64) -> Option<LiteralValue> {
+    use ruff_python_ast::Operator;
+    let value = match op {
+        Operator::Add => l + r,
+        Operator::Sub => l - r,
+        Operator::Mult => l * r,
+        Operator::Div if r != 0.0 => l / r,
+        _ => return None,
+    };
+    value.is_finite().then_some(LiteralValue::Float(value))
 }
 
 fn sequence_elts(expr: &Expr) -> Option<&[Expr]> {
@@ -1468,7 +1502,110 @@ fn deduplicate_ids(ids: Vec<String>) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::DuplicateIds;
+    use super::{
+        eval_literal_binop, literal_to_id_string, python_str_float, DuplicateIds, LiteralValue,
+    };
+    use ruff_python_ast::Operator;
+
+    fn fold(op: Operator, left: LiteralValue, right: LiteralValue) -> Option<String> {
+        eval_literal_binop(op, &left, &right).map(|value| literal_to_id_string(&value))
+    }
+
+    #[test]
+    fn test_float_binops_fold_to_python_str() {
+        use LiteralValue::{Float, Int};
+        let mib = eval_literal_binop(Operator::Mult, &Float(0.5), &Int(1024)).unwrap();
+        assert_eq!(
+            fold(Operator::Mult, mib, Int(1024)).as_deref(),
+            Some("524288.0")
+        );
+        assert_eq!(fold(Operator::Div, Int(1), Int(2)).as_deref(), Some("0.5"));
+        assert_eq!(
+            fold(Operator::Div, Int(1), Int(3)).as_deref(),
+            Some("0.3333333333333333")
+        );
+        assert_eq!(fold(Operator::Div, Int(4), Int(2)).as_deref(), Some("2.0"));
+        assert_eq!(
+            fold(Operator::Add, Float(0.1), Float(0.2)).as_deref(),
+            Some("0.30000000000000004")
+        );
+        assert_eq!(
+            fold(Operator::Mult, Int(2), Float(1.5)).as_deref(),
+            Some("3.0")
+        );
+        assert_eq!(
+            fold(Operator::Sub, Float(1.5), Int(2)).as_deref(),
+            Some("-0.5")
+        );
+        assert_eq!(
+            fold(Operator::Mult, Int(1024), Int(1024)).as_deref(),
+            Some("1048576")
+        );
+    }
+
+    #[test]
+    fn test_unsupported_binops_do_not_fold() {
+        use LiteralValue::{Float, Int};
+        assert_eq!(fold(Operator::Div, Int(10), Int(0)), None);
+        assert_eq!(fold(Operator::Div, Float(1.0), Float(0.0)), None);
+        assert_eq!(fold(Operator::FloorDiv, Int(7), Int(2)), None);
+        assert_eq!(fold(Operator::Mod, Int(7), Int(2)), None);
+        assert_eq!(fold(Operator::Pow, Float(2.0), Int(2)), None);
+        assert_eq!(fold(Operator::Mult, Float(1e308), Float(10.0)), None);
+        assert_eq!(
+            fold(Operator::Add, Int(i128::from(i64::MAX)), Float(1.0)),
+            None
+        );
+    }
+
+    #[test]
+    fn test_int_binops_fold_past_64_bits() {
+        use LiteralValue::Int;
+        let two_pow = |exp| eval_literal_binop(Operator::Pow, &Int(2), &Int(exp)).unwrap();
+        assert_eq!(
+            fold(Operator::Sub, two_pow(63), Int(1)).as_deref(),
+            Some("9223372036854775807")
+        );
+        assert_eq!(
+            fold(Operator::Sub, two_pow(64), Int(1)).as_deref(),
+            Some("18446744073709551615")
+        );
+        assert_eq!(
+            fold(Operator::LShift, Int(1), Int(100)).as_deref(),
+            Some("1267650600228229401496703205376")
+        );
+        assert_eq!(
+            fold(Operator::Mult, Int(-1), two_pow(126)).as_deref(),
+            Some("-85070591730234615865843651857942052864")
+        );
+    }
+
+    #[test]
+    fn test_int_binops_past_128_bits_do_not_fold() {
+        use LiteralValue::Int;
+        assert_eq!(fold(Operator::Pow, Int(2), Int(127)), None);
+        assert_eq!(fold(Operator::LShift, Int(1), Int(127)), None);
+        assert_eq!(fold(Operator::LShift, Int(3), Int(126)), None);
+        assert_eq!(fold(Operator::Mult, Int(i128::MAX), Int(2)), None);
+    }
+
+    #[test]
+    fn test_python_str_float_matches_python() {
+        let cases = [
+            (524288.0, "524288.0"),
+            (0.1 + 0.2, "0.30000000000000004"),
+            (1e16, "1e+16"),
+            (1.0 / 3.0, "0.3333333333333333"),
+            (2.5e-05, "2.5e-05"),
+            (1e-4, "0.0001"),
+            (1e15, "1000000000000000.0"),
+            (1.5e300, "1.5e+300"),
+            (-0.0, "-0.0"),
+        ];
+        for (value, expected) in cases {
+            assert_eq!(python_str_float(value), expected, "{value:?}");
+        }
+    }
 
     fn apply(rule: DuplicateIds, ids: &[&str]) -> Vec<String> {
         rule.apply(ids.iter().map(|id| (*id).to_string()).collect())

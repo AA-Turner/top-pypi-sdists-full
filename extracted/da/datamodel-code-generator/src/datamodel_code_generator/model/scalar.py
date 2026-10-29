@@ -8,6 +8,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from typing_extensions import override
+
 from datamodel_code_generator.imports import (
     IMPORT_TYPE_ALIAS,
     IMPORT_TYPE_ALIAS_TYPE,
@@ -20,6 +22,7 @@ from datamodel_code_generator.python_literal import represent_untrusted_public_t
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from datamodel_code_generator._requirements import PydanticConstruct
     from datamodel_code_generator.model import DataModelFieldBase
     from datamodel_code_generator.reference import Reference
 
@@ -92,6 +95,7 @@ class _DataTypeScalarBase(TypeAliasBase):
             treat_dot_as_module=treat_dot_as_module,
         )
 
+    @override
     def _builtin_template_data(self) -> dict[str, Any]:
         """Serialize public scalar aliases before built-in templates emit them."""
         template_data = super()._builtin_template_data()
@@ -123,3 +127,4 @@ class DataTypeScalarTypeStatement(_DataTypeScalarBase):
     TEMPLATE_FILE_PATH: ClassVar[str] = "ScalarTypeStatement.jinja2"
     BASE_CLASS: ClassVar[str] = ""
     DEFAULT_IMPORTS: ClassVar[tuple[Import, ...]] = ()
+    _PYDANTIC_FORM: ClassVar[PydanticConstruct | None] = "pydantic.type_statement"

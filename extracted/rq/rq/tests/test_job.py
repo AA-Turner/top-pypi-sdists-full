@@ -1,3 +1,4 @@
+import asyncio
 import json
 import queue
 import time
@@ -19,10 +20,24 @@ from rq.registry import (
     ScheduledJobRegistry,
     StartedJobRegistry,
 )
+from rq.results import Result
 from rq.serializers import JSONSerializer
 from rq.utils import as_text, now, utcformat
 from rq.worker import Worker
 from tests import RQTestCase, fixtures, min_redis_version
+
+
+def close_test_loop(loop):
+    """Clean up resources even when testing an implementation that leaks its loop."""
+    if not loop.is_closed():
+        tasks = asyncio.all_tasks(loop)
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        loop.run_until_complete(loop.shutdown_default_executor())
+        loop.close()
 
 
 class TestJob(RQTestCase):
@@ -456,6 +471,31 @@ class TestJob(RQTestCase):
         serialized2.pop('meta')
         self.assertDictEqual(serialized, serialized2)
 
+    def test_unreadable_meta(self):
+        """Meta this process could not deserialize is written back by save() and save_meta() until it is changed."""
+        job = Job.create(func=fixtures.say_hello, args=('Lionel',), connection=self.connection)
+        job.save()
+        # Pickled meta naming a module this process cannot import (e.g. a type only the enqueuing app has)
+        unreadable_meta = b'cnot_an_importable_module\nOwner\n.'
+        self.connection.hset(job.key, 'meta', unreadable_meta)
+        job.refresh()
+        self.assertEqual(job.meta, {'unserialized': unreadable_meta})
+
+        job.save()
+        self.assertEqual(self.connection.hget(job.key, 'meta'), unreadable_meta)
+
+        job.save_meta()
+        self.assertEqual(self.connection.hget(job.key, 'meta'), unreadable_meta)
+
+        # Changed meta is saved as usual
+        job.meta['foo'] = 'bar'
+        job.save_meta()
+        self.assertEqual(loads(self.connection.hget(job.key, 'meta')), {'unserialized': unreadable_meta, 'foo': 'bar'})
+
+        job.meta = {'foo': 'baz'}
+        job.save()
+        self.assertEqual(loads(self.connection.hget(job.key, 'meta')), {'foo': 'baz'})
+
     def test_unpickleable_result(self):
         """Unpickleable job result doesn't crash job.save() and job.refresh()"""
         job = Job.create(func=fixtures.say_hello, args=('Lionel',), connection=self.connection)
@@ -592,18 +632,6 @@ class TestJob(RQTestCase):
         job = queue.enqueue(fixtures.say_hello, ttl=ttl)
         self.assertEqual(job.get_ttl(), ttl)
 
-    def test_never_expire_during_execution(self):
-        """Test what happens when job expires during execution"""
-        ttl = 1
-        queue = Queue(connection=self.connection)
-        job = queue.enqueue(fixtures.long_running_job, args=(2,), ttl=ttl)
-        self.assertEqual(job.get_ttl(), ttl)
-        job.save()
-        job.perform()
-        self.assertEqual(job.get_ttl(), ttl)
-        self.assertTrue(job.exists(job.id, connection=self.connection))
-        self.assertEqual(job.result, 'Done sleeping...')
-
     def test_cleanup(self):
         """Test that jobs and results are expired properly."""
         job = Job.create(func=fixtures.say_hello, connection=self.connection, status=JobStatus.QUEUED)
@@ -724,6 +752,39 @@ class TestJob(RQTestCase):
         job.delete()
         self.assertNotIn(job, registry)
 
+    def test_job_delete_removes_results(self):
+        """Deleting a job also removes its stored execution results."""
+        job = Job.create(fixtures.say_hello, connection=self.connection, status=JobStatus.FINISHED)
+        job.save()
+        Result.create_failure(job, ttl=-1, exc_string='failed attempt')
+        Result.create(job, Result.Type.SUCCESSFUL, ttl=-1, return_value='Hello')
+        other_job = Job.create(fixtures.say_hello, connection=self.connection, status=JobStatus.FINISHED)
+        other_job.save()
+        Result.create(other_job, Result.Type.SUCCESSFUL, ttl=-1, return_value='Other result')
+
+        self.assertEqual(Result.count(job), 2)
+        job.delete()
+
+        self.assertFalse(self.connection.exists(job.key))
+        self.assertFalse(self.connection.exists(Result.get_key(job.id)))
+        self.assertEqual(job.results(), [])
+        self.assertEqual(other_job.return_value(), 'Other result')
+
+    def test_job_delete_results_with_pipeline(self):
+        """Result deletion waits for the caller's pipeline to execute."""
+        job = Job.create(fixtures.say_hello, connection=self.connection, status=JobStatus.FINISHED)
+        job.save()
+        Result.create(job, Result.Type.SUCCESSFUL, ttl=500, return_value='Hello')
+
+        with self.connection.pipeline() as pipeline:
+            job.delete(pipeline=pipeline)
+            self.assertTrue(self.connection.exists(job.key))
+            self.assertEqual(job.return_value(), 'Hello')
+            pipeline.execute()
+
+        self.assertFalse(self.connection.exists(job.key))
+        self.assertFalse(self.connection.exists(Result.get_key(job.id)))
+
     def test_job_delete_execution_registry(self):
         """job.delete() also deletes ExecutionRegistry and all job executions"""
         queue = Queue(connection=self.connection)
@@ -789,6 +850,58 @@ class TestJob(RQTestCase):
         sync_task_result = sync_job.perform()
 
         self.assertEqual(sync_task_result, async_task_result)
+
+    def test_coroutine_job_closes_event_loop(self):
+        """Successful coroutine jobs close their event loop and restore job context."""
+        state = {}
+        job = Job.create(fixtures.record_job_loop, args=(state,), connection=self.connection)
+        try:
+            self.assertEqual(job.perform(), 42)
+            self.assertIs(state['job'], job)
+            self.assertIsNone(get_current_job())
+            self.assertTrue(state['loop'].is_closed())
+        finally:
+            close_test_loop(state['loop'])
+
+    def test_coroutine_job_closes_event_loop_on_failure(self):
+        """Failing coroutine jobs close their event loop and propagate the exception."""
+        state = {}
+        error = ValueError('job failed')
+        job = Job.create(fixtures.record_job_loop, args=(state, error), connection=self.connection)
+        try:
+            with self.assertRaises(ValueError) as raised:
+                job.perform()
+            self.assertIs(raised.exception, error)
+            self.assertIs(state['job'], job)
+            self.assertIsNone(get_current_job())
+            self.assertTrue(state['loop'].is_closed())
+        finally:
+            close_test_loop(state['loop'])
+
+    def test_coroutine_job_closes_event_loop_on_cancellation(self):
+        """Cancelled coroutine jobs close their event loop and propagate cancellation."""
+        state = {}
+        job = Job.create(fixtures.record_job_loop, args=(state, asyncio.CancelledError()), connection=self.connection)
+        try:
+            with self.assertRaises(asyncio.CancelledError):
+                job.perform()
+            self.assertIs(state['job'], job)
+            self.assertIsNone(get_current_job())
+            self.assertTrue(state['loop'].is_closed())
+        finally:
+            close_test_loop(state['loop'])
+
+    def test_coroutine_job_finalizes_async_resources(self):
+        """Coroutine jobs finalize pending tasks and asynchronous generators."""
+        state = {}
+        job = Job.create(fixtures.leave_async_resources, args=(state,), connection=self.connection)
+        try:
+            self.assertEqual(job.perform(), 42)
+            self.assertIs(state.get('task_closed'), True)
+            self.assertIs(state.get('generator_closed'), True)
+            self.assertTrue(state['task'].done())
+        finally:
+            close_test_loop(state['loop'])
 
     def test_get_call_string_unicode(self):
         """test call string with unicode keyword arguments"""
@@ -890,7 +1003,7 @@ class TestJob(RQTestCase):
         self.assertLess(blocked_for, block_seconds)
 
     def test_should_enqueue_at_front(self):
-        job = Job.create(fixtures.say_hello,connection=self.connection)
+        job = Job.create(fixtures.say_hello, connection=self.connection)
 
         job.enqueue_at_front_on_retry = True
         job.enqueue_at_front = False

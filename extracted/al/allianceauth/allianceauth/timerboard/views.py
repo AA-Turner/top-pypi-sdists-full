@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
 from django.contrib.auth.mixins import (
@@ -18,6 +21,9 @@ from allianceauth.eveonline.models import EveCorporationInfo
 from allianceauth.timerboard.form import TimerForm
 from allianceauth.timerboard.models import Timer
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 TIMER_VIEW_PERMISSION = "auth.timer_view"
@@ -32,7 +38,7 @@ class TimerView(BaseTimerView):
     template_name = "timerboard/view.html"
     permission_required = TIMER_VIEW_PERMISSION
 
-    def get(self, request):
+    def get(self, request: "HttpRequest") -> "HttpResponse":
         """
         Renders the timer view
 
@@ -42,7 +48,7 @@ class TimerView(BaseTimerView):
         :rtype:
         """
 
-        def get_bg_modifier(structure):
+        def get_bg_modifier(structure: str) -> str:
             """
             Returns the bootstrap bg modifier for the given structure
 
@@ -144,12 +150,12 @@ class TimerManagementView(BaseTimerView):
     success_url = reverse_lazy(index_redirect)
     model = Timer
 
-    def get_timer(self, timer_id):
+    def get_timer(self, timer_id: int) -> Timer:
         return get_object_or_404(self.model, id=timer_id)
 
 
 class AddUpdateMixin:
-    def get_form_kwargs(self):
+    def get_form_kwargs(self) -> dict[str, Any]:
         """
         Inject the request user into the kwargs passed to the form
         """
@@ -162,7 +168,7 @@ class AddTimerView(TimerManagementView, AddUpdateMixin, CreateView):
     template_name_suffix = "_create_form"
     form_class = TimerForm
 
-    def form_valid(self, form):
+    def form_valid(self, form: TimerForm) -> "HttpResponse":
         result = super().form_valid(form)
         timer = self.object
         logger.info(
@@ -180,7 +186,7 @@ class EditTimerView(TimerManagementView, AddUpdateMixin, UpdateView):
     template_name_suffix = "_update_form"
     form_class = TimerForm
 
-    def form_valid(self, form):
+    def form_valid(self, form: TimerForm) -> "HttpResponse":
         messages.success(self.request, _("Saved changes to the timer."))
         return super().form_valid(form)
 
@@ -189,7 +195,7 @@ class RemoveTimerView(TimerManagementView, DeleteView):
     pass
 
 
-def dashboard_timers(request):
+def dashboard_timers(request: "HttpRequest") -> str:
     if request.user.has_perm(TIMER_VIEW_PERMISSION):
         try:
             corp = request.user.profile.main_character.corporation

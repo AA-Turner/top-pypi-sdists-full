@@ -120,7 +120,7 @@ NOTE_BLOCK_VERSION = 2
 
 #: Bumped when POINTER_BODY changes, so an older installed block is recognised
 #: as stale and rewritten instead of being left in place or duplicated.
-POINTER_VERSION = 50
+POINTER_VERSION = 52
 
 POINTER_BODY = """## Probe Research
 
@@ -186,11 +186,12 @@ stopped), send the Probe team a diagnostic report; quote its id in feedback.
 
 ### FYI:
 
-- Everything is a tree of projects. A project has a `kind`
-  (training|evaluation|research|general|experiment) and can hold subprojects
-  and runs.
-- A phase of a bigger effort is a SUBPROJECT of it (`project create
-  --parent`), never a new top-level sibling.
+- Projects are flat. A project has a `kind`
+  (training|evaluation|research|general|experiment) and holds experiments and
+  runs.
+- A phase of a bigger effort is its own project linked `--part-of` it
+  (`project create --part-of`); related-but-separate work is `project
+  reference add --to`.
 - Runs hold the measurements: metrics, spans, and files (artifacts), plus the
   agent sessions that produced them.
 - Notes, decisions and an overview page attach to any project or run.
@@ -213,7 +214,7 @@ class Profile(StrEnum):
 #: Versioned with POINTER_VERSION (one stamp, one bump).
 DAEMON_POINTER_BODY = """## Probe Research
 
-Probe records a team's ML work: projects, experiments, runs, files and agent sessions. You instrument your runs (`instrument-code` skill) and can look at one by its id (`probe run get <id>`, `probe metrics plot <id>`). A Probe daemon runs beside you and does all other Probe reads and writes.
+Probe records a team's ML work: projects, experiments, runs, files and agent sessions. You instrument your runs (`instrument-code` skill) and can look at one by its id (`probe run get <id>`, `probe metrics plot <id>`). A Probe daemon runs beside you and does all other Probe reads and writes. `probe docs "<question>"` searches Probe's own docs.
 
 ### ASK THE DAEMON:
 

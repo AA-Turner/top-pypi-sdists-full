@@ -68,7 +68,7 @@ from types import ModuleType
 from typing import Any, TypeVar
 
 import httpx
-from pydantic import BaseModel, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
 from pydantic_core import to_jsonable_python
 
 from plato.chronos.api.login_vault import (
@@ -90,6 +90,7 @@ from plato.chronos.api.login_vault import (
     set_login_vault_account_persona,
     set_login_vault_persona,
     update_login_vault_account,
+    update_login_vault_app,
 )
 from plato.chronos.errors import APIError, NotFoundError, raise_for_status
 from plato.chronos.models import (
@@ -102,6 +103,7 @@ from plato.chronos.models import (
     LoginVaultAccountSummary,
     LoginVaultAccountUpdate,
     LoginVaultAppHint,
+    LoginVaultAppHintUpdate,
     LoginVaultArchiveRequest,
     LoginVaultBakeRequest,
     LoginVaultBakeResponse,
@@ -126,6 +128,7 @@ __all__ = [
     "GrantKind",
     "InvalidVaultFields",
     "LoginVault",
+    "LoginVaultAppSettings",
     "VaultBadReply",
     "VaultRouteMissing",
     "archive_reason",
@@ -151,6 +154,15 @@ _DEFAULT_CHRONOS_URL = "https://chronos.plato.so"
 
 
 # The writable fields of an account (create and edit take the same set).
+class AccountStatus(StrEnum):
+    """An account's ``account_status``: does it exist on the site yet. Unset = an
+    account made before the field (it does). The CLI and the login world share it."""
+
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+
 VAULT_FIELDS = (
     "username",
     "password",
@@ -168,6 +180,9 @@ VAULT_FIELDS = (
     # How many live sessions (opens, bakes, runs) may use the account at once:
     # 1..50; 1 is the default.
     "max_sessions",
+    # Whether the account exists on the site yet: not_started / in_progress /
+    # done ("" clears; unset = an account made before the field).
+    "account_status",
 )
 
 _NON_SLUG = re.compile(r"[^a-z0-9]+")
@@ -433,6 +448,23 @@ def _app_args(login_key: str, api_key: str) -> dict[str, Any]:
     return get_login_vault_app._build_request_args(login_key=_slug(login_key, "login_key"), x_api_key=api_key)
 
 
+class LoginVaultAppSettings(BaseModel):
+    """``GET /apps/{login_key}`` with the app's sign-up settings: whether a run
+    may sign up a new account on it (``signup_allowed``, off unless a person
+    turned it on) and its sign-up flow (``signup_hint``). Written here until the
+    generated ``LoginVaultAppHint`` has them; a Chronos without them answers
+    sign-up off."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    login_key: str
+    login_hint: str | None = None
+    signup_allowed: bool = False
+    signup_hint: str | None = None
+    # The site's sign-up page (a sign-up run starts there).
+    signup_url: str | None = None
+
+
 class GrantKind(StrEnum):
     """Which app grant of an account: ``api`` (the vendor's REST API) or ``hosted_mcp`` (its hosted MCP server)."""
 
@@ -695,6 +727,23 @@ class LoginVault(_VaultBase):
         None when none is recorded. A bake joins it with the account's own."""
         return _parse(LoginVaultAppHint, self._call(_app_args(login_key, self._api_key)))
 
+    def get_app_settings(self, login_key: str) -> LoginVaultAppSettings:
+        """The app's shared settings, the sign-up ones included."""
+        return _parse(LoginVaultAppSettings, self._call(_app_args(login_key, self._api_key)))
+
+    def update_app_settings(self, login_key: str, **fields: Any) -> LoginVaultAppSettings:
+        """Change the app's shared settings: ``login_hint``, ``signup_hint``,
+        ``signup_url`` (``""`` clears one) and ``signup_allowed`` (a person's own
+        key only). A field left out stays as it is."""
+        unknown = sorted(set(fields) - {"login_hint", "signup_hint", "signup_url", "signup_allowed"})
+        if unknown:
+            raise ValueError(f"unknown app setting(s): {', '.join(unknown)}")
+        body = _validated(LoginVaultAppHintUpdate, {k: v for k, v in fields.items() if v is not None})
+        args = update_login_vault_app._build_request_args(
+            login_key=_slug(login_key, "login_key"), body=body, x_api_key=self._api_key
+        )
+        return _parse(LoginVaultAppSettings, self._call(args))
+
     def list_exits(self) -> LoginVaultExitList:
         """Every proxy exit with its bans (read fresh; ``login_key`` ``*`` = every
         app) and the accounts bound to it. No provider credentials."""
@@ -892,6 +941,27 @@ class AsyncLoginVault(_VaultBase):
     async def list_exits(self) -> LoginVaultExitList:
         args = list_login_vault_exits._build_request_args(x_api_key=self._api_key)
         return _parse(LoginVaultExitList, await self._call(args))
+
+    async def get_app_settings(self, login_key: str) -> LoginVaultAppSettings:
+        """The app's shared settings, the sign-up ones included."""
+        return _parse(LoginVaultAppSettings, await self._call(_app_args(login_key, self._api_key)))
+
+    async def free_personas(self, login_key: str, *, show_all: bool = False) -> LoginVaultFreePersonas:
+        """The personas with no account on ``login_key`` yet, free ones first;
+        ``show_all`` adds every other persona with its state."""
+        args = list_login_vault_free_personas._build_request_args(
+            login_key=_slug(login_key, "login_key"), all=True if show_all else None, x_api_key=self._api_key
+        )
+        return _parse(LoginVaultFreePersonas, await self._call(args))
+
+    async def get_account_persona(self, login_key: str, account: str) -> LoginVaultAccountPersona | None:
+        """The account's persona record; None when it has none."""
+        lk, ac = _keys(login_key, account)
+        args = get_login_vault_account_persona._build_request_args(login_key=lk, account=ac, x_api_key=self._api_key)
+        try:
+            return _parse(LoginVaultAccountPersona, await self._call(args))
+        except NotFoundError:
+            return None
 
     async def get_grant(self, login_key: str, account: str, kind: GrantKind) -> LoginVaultGrant | None:
         args = _grant_args(get_login_vault_grant, login_key, account, kind, self._api_key)

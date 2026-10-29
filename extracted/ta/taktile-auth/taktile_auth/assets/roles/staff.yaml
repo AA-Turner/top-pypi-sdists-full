@@ -16,6 +16,7 @@ taktile_d_admin_org/org_id:
     - w+d:workspace_management/org_id,*,{env=*,type=*}
     - r+w:workspace_feature_query/org_id,*,{env=*,component=*,current_status_live=*}
     - r+w+d:workspace_prebuilt_agent_management/org_id,*
+    - w:workspace_category/org_id,*
 taktile_aws_account_viewer_org/org_id:
     - r:aws_account/org_id
 fwd_d/org_id:

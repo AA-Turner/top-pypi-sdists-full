@@ -126,6 +126,8 @@ impl RSGIHTTPProtocol {
     }
 
     pub fn tx(&self) -> Option<oneshot::Sender<PyResponse>> {
+        _ = self.body.lock().unwrap().take();
+        _ = self.body_stream.try_lock().map(|mut guard| guard.take());
         self.tx.lock().unwrap().take()
     }
 }
@@ -162,16 +164,14 @@ impl RSGIHTTPProtocol {
         let body_stream = self.body_stream.clone();
         future_into_py_futlike(self.rt.clone(), py, async move {
             let guard = &mut *body_stream.lock().await;
-            match guard.as_mut().unwrap().next().await {
-                Some(chunk) => {
+            if let Some(stream) = guard.as_mut() {
+                if let Some(chunk) = stream.next().await {
                     let chunk = chunk.map_or(body::Bytes::new(), |buf| buf.into_data().unwrap_or_default());
-                    FutureResultToPy::Bytes(chunk)
+                    return FutureResultToPy::Bytes(chunk);
                 }
-                _ => {
-                    _ = guard.take();
-                    FutureResultToPy::Bytes(body::Bytes::new())
-                }
+                _ = guard.take();
             }
+            FutureResultToPy::Bytes(body::Bytes::new())
         })
     }
 
@@ -401,7 +401,7 @@ impl RSGIWebsocketProtocol {
                     handle = Some(transport);
                 }
 
-                let _ = tx.send((status.unwrap_or(0), consumed, handle));
+                let _ = tx.send((status.unwrap_or(403), consumed, handle));
             });
         }
     }

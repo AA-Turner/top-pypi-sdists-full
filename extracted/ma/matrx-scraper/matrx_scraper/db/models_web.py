@@ -1,5 +1,5 @@
 # File: matrx_scraper/db/models_web.py
-from matrx_orm import BigIntegerField, BooleanField, CharField, DateField, DateTimeField, DecimalField, EnumField, FloatField, ForeignKey, IntegerField, JSONBField, MatrxEntity, Model, SmallIntegerField, TextArrayField, TextField, UUIDField, model_registry, BaseDTO, BaseManager
+from matrx_orm import BigIntegerField, BooleanField, DateField, DateTimeField, DecimalField, EnumField, FloatField, ForeignKey, IntegerField, JSONBField, MatrxEntity, Model, SmallIntegerField, TextArrayField, TextField, UUIDField, model_registry, BaseDTO, BaseManager
 from enum import StrEnum
 from dataclasses import dataclass
 from typing import ClassVar
@@ -207,13 +207,16 @@ class DomainCategoryObservation(MatrxEntity):
     updated_at = DateTimeField(null=False)
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
+    deleted_at = DateTimeField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "domain_category_observation"
     _db_schema = "web"
     _entity_token = "web_domain_category_observation"
     _is_versioned = False
-    _has_soft_delete = False
+    _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "ledger"
 
@@ -607,6 +610,8 @@ class BrandAsset(MatrxEntity):
     confirmed_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     confirmed_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'resolved_asset_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand_asset"
@@ -727,6 +732,8 @@ class BrandOffering(MatrxEntity):
     price_currency = TextField()
     price_unit = TextField()
     price_note = TextField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'resolved_offering_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'site_offering': {'from_model': 'SiteOffering', 'from_field': 'brand_offering_id', 'referenced_field': 'id', 'related_name': 'site_offering', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand_offering"
@@ -874,6 +881,8 @@ class BusinessFact(MatrxEntity):
     confirmed_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     confirmed_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'resolved_fact_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'temp_brand_presence': {'from_model': 'TempBrandPresence', 'from_field': 'source_fact_id', 'referenced_field': 'id', 'related_name': 'temp_brand_presence', 'from_schema': 'web'}, 'temp_brand_recognition': {'from_model': 'TempBrandRecognition', 'from_field': 'source_fact_id', 'referenced_field': 'id', 'related_name': 'temp_brand_recognition', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "business_fact"
@@ -917,6 +926,8 @@ class BusinessLocation(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'location_listing': {'from_model': 'LocationListing', 'from_field': 'location_id', 'referenced_field': 'id', 'related_name': 'location_listing', 'from_schema': 'web'}, 'temp_brand_presence': {'from_model': 'TempBrandPresence', 'from_field': 'location_id', 'referenced_field': 'id', 'related_name': 'temp_brand_presence', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "business_location"
@@ -1054,6 +1065,8 @@ class LocationListing(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "location_listing"
@@ -1093,6 +1106,8 @@ class AnalysisResult(MatrxEntity):
     issue_count = IntegerField(null=False, default=0)
     confidence = DecimalField(null=False, default=1)
     payload_instance_id = ForeignKey(to_model='KindInstance', to_column='id', to_schema='content_ir', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'finding': {'from_model': 'Finding', 'from_field': 'last_result_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "analysis_result"
@@ -1125,6 +1140,8 @@ class CrawlEvent(MatrxEntity):
     payload = JSONBField(null=False, default={})
     occurred_at = DateTimeField(null=False)
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "crawl_event"
@@ -1216,6 +1233,8 @@ class CrawlSession(MatrxEntity):
     finished_at = DateTimeField()
     error = TextField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'session_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}, 'crawl_schedule': {'from_model': 'CrawlSchedule', 'from_field': 'last_session_id', 'referenced_field': 'id', 'related_name': 'crawl_schedule', 'from_schema': 'web'}, 'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'session_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'snapshot': {'from_model': 'Snapshot', 'from_field': 'session_id', 'referenced_field': 'id', 'related_name': 'snapshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "crawl_session"
@@ -1257,6 +1276,8 @@ class CrawlUrl(MatrxEntity):
     discovered_at = DateTimeField(null=False)
     completed_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'crawl_url_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "crawl_url"
@@ -1298,6 +1319,8 @@ class DiscoveredItem(MatrxEntity):
     relation_key = TextField()
     sentiment = TextField()
     resolved_offering_id = ForeignKey(to_model=BrandOffering, to_column='id', to_schema='web', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'temp_brand_presence': {'from_model': 'TempBrandPresence', 'from_field': 'source_item_id', 'referenced_field': 'id', 'related_name': 'temp_brand_presence', 'from_schema': 'web'}, 'temp_brand_recognition': {'from_model': 'TempBrandRecognition', 'from_field': 'source_item_id', 'referenced_field': 'id', 'related_name': 'temp_brand_recognition', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "discovered_item"
@@ -1357,6 +1380,8 @@ class Finding(MatrxEntity):
     last_detected_at = DateTimeField(null=False)
     resolved_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "finding"
@@ -1415,6 +1440,8 @@ class LinkEdge(MatrxEntity):
     anchor_text = TextField()
     http_status = IntegerField()
     position = IntegerField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "link_edge"
@@ -1457,6 +1484,8 @@ class Page(MatrxEntity):
     link_score_computed_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
     processed_document_id = ForeignKey(to_model='ProcessedDocuments', to_column='id', to_schema='docproc', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}, 'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'finding': {'from_model': 'Finding', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}, 'gsc_page_stat': {'from_model': 'GscPageStat', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'gsc_page_stat', 'from_schema': 'web'}, 'link_edge': {'from_model': 'LinkEdge', 'from_field': 'target_page_id', 'referenced_field': 'id', 'related_name': 'link_edge', 'from_schema': 'web'}, 'page_content': {'from_model': 'PageContent', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'page_content', 'from_schema': 'web'}, 'page_evidence': {'from_model': 'PageEvidence', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'page_evidence', 'from_schema': 'web'}, 'page_sitemap': {'from_model': 'PageSitemap', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'page_sitemap', 'from_schema': 'web'}, 'screenshot': {'from_model': 'Screenshot', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'screenshot', 'from_schema': 'web'}, 'snapshot': {'from_model': 'Snapshot', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'snapshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "page"
@@ -1481,6 +1510,8 @@ class PageContent(MatrxEntity):
     updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     deleted_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "page_content"
@@ -1512,6 +1543,8 @@ class PageEvidence(MatrxEntity):
     last_checked_at = DateTimeField()
     evidence = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "page_evidence"
@@ -1541,6 +1574,8 @@ class PageSitemap(MatrxEntity):
     first_seen = DateTimeField(null=False)
     last_seen = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "page_sitemap"
@@ -1602,6 +1637,8 @@ class Screenshot(MatrxEntity):
     captured_at = DateTimeField(null=False)
     file_id = ForeignKey(to_model='Files', to_column='id', to_schema='files', null=False)
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'site': {'from_model': 'Site', 'from_field': 'homepage_screenshot_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "screenshot"
@@ -1745,6 +1782,8 @@ class SiteOffering(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "site_offering"
@@ -1778,6 +1817,8 @@ class Sitemap(MatrxEntity):
     last_fetched_at = DateTimeField()
     fetch_error = TextField()
     custom_fields = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'page_sitemap': {'from_model': 'PageSitemap', 'from_field': 'sitemap_id', 'referenced_field': 'id', 'related_name': 'page_sitemap', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "sitemap"
@@ -1818,6 +1859,8 @@ class Snapshot(MatrxEntity):
     seo_metrics = JSONBField()
     audit_metrics = JSONBField()
     processed_document_id = ForeignKey(to_model='ProcessedDocuments', to_column='id', to_schema='docproc', )
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'link_edge': {'from_model': 'LinkEdge', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'link_edge', 'from_schema': 'web'}, 'screenshot': {'from_model': 'Screenshot', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'screenshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "snapshot"

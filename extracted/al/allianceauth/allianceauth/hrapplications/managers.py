@@ -1,11 +1,17 @@
+__lazy_modules__ = ["allianceauth.authentication.models", "allianceauth.hrapplications.models"]
+
+from typing import TYPE_CHECKING
+
 from django.db import models
 
-from allianceauth.authentication.models import User
+if TYPE_CHECKING:
+    from allianceauth.authentication.models import User
+    from allianceauth.hrapplications.models import Application  # noqa: F401
 
 
-class ApplicationManager(models.Manager):
+class ApplicationManager(models.Manager["Application"]):
 
-    def pending_requests_count_for_user(self, user: User) -> int | None:
+    def pending_requests_count_for_user(self, user: "User") -> int | None:
         """Returns the number of pending group requests for the given user"""
         if user.is_superuser:
             return self.filter(approved__isnull=True).count()

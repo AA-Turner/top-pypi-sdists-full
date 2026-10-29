@@ -52,6 +52,8 @@ class DisputesClient:
         currency: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
+        query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Dispute, ListDisputesResponse]:
         """
@@ -92,6 +94,12 @@ class DisputesClient:
         created_after : typing.Optional[str]
             Only disputes opened after this ISO 8601 timestamp.
 
+        query : typing.Optional[str]
+            Search disputes by dispute ID, payment ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+
+        include_connected_accounts : typing.Optional[bool]
+            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, covers the disputes of the account and every connected account, in any order. The listing is cut off after 10 seconds; add a `query` to narrow it. With `query`, matches on dispute, payment, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' disputes are returned only for connected accounts you can read disputes on.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -105,7 +113,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -128,6 +136,8 @@ class DisputesClient:
             currency=currency,
             created_before=created_before,
             created_after=created_after,
+            query=query,
+            include_connected_accounts=include_connected_accounts,
             request_options=request_options,
         )
 
@@ -144,6 +154,8 @@ class DisputesClient:
         currency: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
+        query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SummaryDisputesResponse:
         """
@@ -169,6 +181,12 @@ class DisputesClient:
         created_after : typing.Optional[str]
             Only disputes opened after this ISO 8601 timestamp.
 
+        query : typing.Optional[str]
+            Search disputes by dispute ID, payment ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+
+        include_connected_accounts : typing.Optional[bool]
+            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, covers the disputes of the account and every connected account, in any order. The listing is cut off after 10 seconds; add a `query` to narrow it. With `query`, matches on dispute, payment, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' disputes are returned only for connected accounts you can read disputes on.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -182,7 +200,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -195,6 +213,8 @@ class DisputesClient:
             currency=currency,
             created_before=created_before,
             created_after=created_after,
+            query=query,
+            include_connected_accounts=include_connected_accounts,
             request_options=request_options,
         )
         return _response.data
@@ -221,7 +241,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -263,7 +283,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -296,7 +316,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -329,7 +349,7 @@ class DisputesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -372,7 +392,7 @@ class DisputesClient:
         from whop_sdk.disputes import UploadEvidenceDisputesRequestDocumentsItem
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -420,6 +440,8 @@ class AsyncDisputesClient:
         currency: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
+        query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Dispute, ListDisputesResponse]:
         """
@@ -460,6 +482,12 @@ class AsyncDisputesClient:
         created_after : typing.Optional[str]
             Only disputes opened after this ISO 8601 timestamp.
 
+        query : typing.Optional[str]
+            Search disputes by dispute ID, payment ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+
+        include_connected_accounts : typing.Optional[bool]
+            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, covers the disputes of the account and every connected account, in any order. The listing is cut off after 10 seconds; add a `query` to narrow it. With `query`, matches on dispute, payment, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' disputes are returned only for connected accounts you can read disputes on.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -475,7 +503,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -505,6 +533,8 @@ class AsyncDisputesClient:
             currency=currency,
             created_before=created_before,
             created_after=created_after,
+            query=query,
+            include_connected_accounts=include_connected_accounts,
             request_options=request_options,
         )
 
@@ -521,6 +551,8 @@ class AsyncDisputesClient:
         currency: typing.Optional[str] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
+        query: typing.Optional[str] = None,
+        include_connected_accounts: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SummaryDisputesResponse:
         """
@@ -546,6 +578,12 @@ class AsyncDisputesClient:
         created_after : typing.Optional[str]
             Only disputes opened after this ISO 8601 timestamp.
 
+        query : typing.Optional[str]
+            Search disputes by dispute ID, payment ID, user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
+
+        include_connected_accounts : typing.Optional[bool]
+            Also cover the account's connected accounts. Requires `account_id`, and is a 400 without it. Without `query`, covers the disputes of the account and every connected account, in any order. The listing is cut off after 10 seconds; add a `query` to narrow it. With `query`, matches on dispute, payment, user or membership ID, buyer email, or a card's first 6 or 8 digits and last 4 separated by a space or dash (`424242 4242`); free-text queries such as a name search only the named account. Connected accounts' disputes are returned only for connected accounts you can read disputes on.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -561,7 +599,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -580,6 +618,8 @@ class AsyncDisputesClient:
             currency=currency,
             created_before=created_before,
             created_after=created_after,
+            query=query,
+            include_connected_accounts=include_connected_accounts,
             request_options=request_options,
         )
         return _response.data
@@ -608,7 +648,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -658,7 +698,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -699,7 +739,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -740,7 +780,7 @@ class AsyncDisputesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -791,7 +831,7 @@ class AsyncDisputesClient:
         from whop_sdk.disputes import UploadEvidenceDisputesRequestDocumentsItem
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

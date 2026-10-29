@@ -1,18 +1,12 @@
 Metadata-Version: 2.4
 Name: azure-cli-diff-tool
-Version: 0.1.1
+Version: 0.1.2
 Summary: A tool for cli metadata management
-Author: Microsoft Corporation
-Author-email: azpycli@microsoft.com
-License: MIT
+Author-email: Microsoft Corporation <azpycli@microsoft.com>
+License-Expression: MIT
+Description-Content-Type: text/x-rst
 Requires-Dist: deepdiff~=8.6.1
-Requires-Dist: requests~=2.32.3
-Dynamic: author
-Dynamic: author-email
-Dynamic: description
-Dynamic: license
-Dynamic: requires-dist
-Dynamic: summary
+Requires-Dist: requests<3,>=2.32.3
 
 Microsoft Azure CLI Diff Tools (azure-cli-diff-tool)
 =======================================================
@@ -99,11 +93,14 @@ License
 
     THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.::
 
-
 .. :changelog:
 
 Release History
 ===============
+0.1.2
+++++++
+* Allow Requests 2.x updates without restricting installations to the 2.32 patch line.
+
 0.1.1
 ++++++
 * Bump `deepDiff` to 8.6.1

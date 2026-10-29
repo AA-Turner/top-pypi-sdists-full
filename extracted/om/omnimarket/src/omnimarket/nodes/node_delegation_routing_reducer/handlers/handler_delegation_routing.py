@@ -58,7 +58,7 @@ from omnibase_infra.errors import ProtocolConfigurationError
 from omnibase_infra.models.errors.model_infra_error_context import (
     ModelInfraErrorContext,
 )
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from omnimarket.adapters.llm.bifrost.config_loader_bifrost_delegation import (
     load_bifrost_delegation_config,
@@ -68,12 +68,17 @@ from omnimarket.enums.enum_requested_response_shape import (
     EnumRequestedResponseShape,
 )
 from omnimarket.enums.enum_routing_exclusion import EnumRoutingExclusionReason
+from omnimarket.handlers.handler_capability_start import (
+    ModelCapabilityMapRead,
+    resolve_capability_start,
+)
 from omnimarket.handlers.handler_size_band_measurement import measure_size_band
 from omnimarket.inference.delegation_config_provenance import (
     resolve_bifrost_path_binding,
     resolve_path_config,
 )
 from omnimarket.inference.provider_quota_state import (
+    HOST_UNREACHABLE_DISPOSITION,
     ModelProviderQuotaBlock,
     ModelProviderQuotaSnapshot,
     quota_block_for_backend,
@@ -97,6 +102,9 @@ from omnimarket.models.delegation.model_entry_tier_share import (
     entry_share_draw,
     entry_share_from_contract_entry,
     validate_entry_share,
+)
+from omnimarket.models.delegation.model_escalation_transitions import (
+    ModelTaskClassTransitions,
 )
 from omnimarket.models.delegation.model_grounding_budget_by_task_class import (
     ModelGroundingBudgetByTaskClass,
@@ -470,7 +478,13 @@ def _backend_routable(
         return False
     if require_credential and not _backend_secret_available(backend):
         return False
-    return _quota_block(backend, quota_state) is None
+    block = _quota_block(backend, quota_state)
+    if block is None:
+        return True
+    # OMN-20910: a host that refused the connection is skipped for ordinary
+    # work only. A pinned run (a smoke run is one) still reaches it, which is
+    # how the host is proved back; a quota refusal binds a pin as before.
+    return explicit_pin and block.disposition == HOST_UNREACHABLE_DISPOSITION
 
 
 def _select_model_for_task(
@@ -706,9 +720,15 @@ def _select_primary_model_for_task(
 # files -- the same single-derivation rule OMN-15628 applied to routing_tiers.
 _DEFAULT_TASK_CLASS_CONTRACT_PATH = TASK_CLASS_CONTRACT_PACKAGED_DEFAULT_PATH
 
-# Module-level config singletons — loaded once on first call.
+# Module-level config singletons — reused while their bindings remain unchanged.
 # Tests can override by replacing these variables before calling delta().
 _config: ModelDelegationConfig | None = None
+# Placements belong to the bifrost binding as well as the tiers file. Reusing
+# a ladder across bindings can leave a newly placed tier empty, or retain a
+# backend the replacement contract withdrew.
+_config_binding: (
+    tuple[ModelDelegationConfig, tuple[Path, Path | None, Path | None]] | None
+) = None
 # OMN-19215 AC4: the spread groups of the placements _get_config applied, bound
 # to the exact config object they were derived from. A config installed any
 # other way (a test assigning ``_config``) has no recorded groups and routes
@@ -721,14 +741,26 @@ _config_spread_weights: tuple[ModelDelegationConfig, dict[str, float]] | None = 
 
 
 def _get_config() -> ModelDelegationConfig:
-    global _config, _config_spread_peers, _config_spread_weights
-    if _config is None:
+    global _config, _config_binding, _config_spread_peers, _config_spread_weights
+    # An explicitly installed config has no loader-owned binding to refresh.
+    if _config is not None and (
+        _config_binding is None or _config_binding[0] is not _config
+    ):
+        return _config
+
+    config_path = resolve_routing_tiers_path()
+    bifrost_binding = resolve_bifrost_path_binding()
+    binding_key = (
+        config_path,
+        bifrost_binding.contract_path,
+        bifrost_binding.overlay_path,
+    )
+    if _config is None or _config_binding is None or _config_binding[1] != binding_key:
         # OMN-16200: an unbound DELEGATION_ROUTING_TIERS_PATH resolves to the
         # packaged tiers file with a logged bootstrap_default provenance line
         # (resolve_routing_tiers_path), so a clean install routes on the ladder
         # it ships. A bound key is read verbatim, and a bound-but-unreadable
         # path still refuses below, naming the key and the path (OMN-15628).
-        config_path = resolve_routing_tiers_path()
         try:
             yaml_text = config_path.read_text()
         except OSError as exc:
@@ -758,6 +790,13 @@ def _get_config() -> ModelDelegationConfig:
         )
         _config_spread_peers = (_config, spread_groups(placed))
         _config_spread_weights = (_config, spread_weights(placed))
+        _config_binding = (_config, binding_key)
+        # Endpoint references must come from the same binding as placements.
+        # A supplied endpoint resolver may be uncached; only cached resolvers
+        # need invalidating when the binding changes.
+        clear_endpoint_cache = getattr(_load_bifrost_endpoints, "cache_clear", None)
+        if callable(clear_endpoint_cache):
+            clear_endpoint_cache()
     return _config
 
 
@@ -2419,6 +2458,42 @@ def resolve_task_class_max_escalations(task_type: str) -> int | None:
     return raw + added
 
 
+class TaskClassTransitionsError(ValueError):
+    """A declared task class carries no valid transition lists (OMN-21213)."""
+
+
+def resolve_task_class_transitions(task_type: str) -> ModelTaskClassTransitions:
+    """The retry, move, skip and terminate lists for ``task_type`` (OMN-21213).
+
+    Read from the SAME contract file both delegation paths route by. A declared
+    class must carry all four lists; one that does not refuses here, so neither
+    path decides a transition from rules the contract did not declare. A task
+    type the contract does not declare takes the contract's
+    ``transitions_default``, or the packaged contract's when the bound file has
+    none, so an undeclared class is decided by declared lists too.
+    """
+    contract = _get_task_class_contract()
+    entry = _task_class_entry(contract, task_type)
+    if entry is not None:
+        raw = entry.get("transitions")
+        if raw is None:
+            raise TaskClassTransitionsError(
+                f"task class {task_type!r} declares no transitions "
+                "(retry_on, move_on, skip_on, terminate_on); it refuses to load"
+            )
+    else:
+        raw = contract.get("transitions_default") if contract is not None else None
+        if raw is None:
+            packaged = yaml.safe_load(_DEFAULT_TASK_CLASS_CONTRACT_PATH.read_text())
+            raw = packaged.get("transitions_default")
+    try:
+        return ModelTaskClassTransitions.model_validate(raw)
+    except ValidationError as exc:
+        raise TaskClassTransitionsError(
+            f"task class {task_type!r} transitions are invalid: {exc}"
+        ) from exc
+
+
 def is_free_tier(tier_name: str) -> bool:
     """Return whether ``tier_name`` is a $0 (free_local) tier in routing_tiers.yaml.
 
@@ -2661,8 +2736,14 @@ def _candidate_exclusion_reason(
         return (EnumRoutingExclusionReason.BACKEND_REQUIRES_EXPLICIT_PIN, backend)
     if not _backend_secret_available(backend):
         return (EnumRoutingExclusionReason.BACKEND_SECRET_REF_UNRESOLVED, backend)
-    if _quota_block(backend, quota_state) is not None:
-        return (EnumRoutingExclusionReason.BACKEND_QUOTA_DOMAIN_DISABLED, backend)
+    quota_block = _quota_block(backend, quota_state)
+    if quota_block is not None:
+        return (
+            EnumRoutingExclusionReason.BACKEND_HOST_UNREACHABLE
+            if quota_block.disposition == HOST_UNREACHABLE_DISPOSITION
+            else EnumRoutingExclusionReason.BACKEND_QUOTA_DOMAIN_DISABLED,
+            backend,
+        )
     if task_type not in model.use_for:
         return (EnumRoutingExclusionReason.TASK_TYPE_NOT_IN_USE_FOR, backend)
     if estimated_tokens > model.max_context_tokens:
@@ -2753,7 +2834,11 @@ def build_routing_exclusion_report(
             quota_block = (
                 _quota_block(backend, quota_state)
                 if backend is not None
-                and reason is EnumRoutingExclusionReason.BACKEND_QUOTA_DOMAIN_DISABLED
+                and reason
+                in (
+                    EnumRoutingExclusionReason.BACKEND_QUOTA_DOMAIN_DISABLED,
+                    EnumRoutingExclusionReason.BACKEND_HOST_UNREACHABLE,
+                )
                 else None
             )
             exceeds_context = (
@@ -2811,6 +2896,7 @@ def delta(
     tenant_overlay: ModelTenantRoutingOverlayBackend | None = None,
     surface: EnumDelegationSurface = EnumDelegationSurface.CLOUD,
     quota_state: ModelProviderQuotaSnapshot | None = None,
+    capability_map: ModelCapabilityMapRead | None = None,
 ) -> ModelRoutingDecision:
     """Compute routing decision for a delegation request.
 
@@ -2906,6 +2992,12 @@ def delta(
             iteration order. Used by the escalation path after quality gate failure.
         roi_overlay: When set, the resolved captured-ROI signal used to demote
             proven-failing tiers before the static order.
+        capability_map: When set (OMN-20170), the capability-map read for this
+            request. A first, unpinned request starts at the cheapest tier in
+            the tier order measured MET for its class and band, and falls back to
+            the static order when that tier routes nothing; an unreadable map, a
+            class whose eval false-pass line is not MET, an unmeasured band or no
+            MET cell keep the static order. The read is logged either way.
         excluded_backend_refs: Backend refs to skip in every tier's selection
             (OMN-14402 same-tier backend fallback).
         tenant_overlay: When set, the resolved tenant-scoped backend override
@@ -3134,14 +3226,24 @@ def delta(
         task_type, contract
     )
 
-    def _route(roi_skip: frozenset[str]) -> ModelRoutingDecision | None:
+    def _route(
+        roi_skip: frozenset[str], start_tier: str | None = None
+    ) -> ModelRoutingDecision | None:
         # Escalation support (OMN-12254): skip tiers before min_tier_name.
         skip_until_found = min_tier_name is not None
+        # OMN-20170: on a first request, start at the cheapest tier the
+        # capability map measures MET for the class and band.
+        before_start = start_tier is not None
 
         for tier in tiers:
             if skip_until_found:
                 if tier.name == min_tier_name:
                     skip_until_found = False
+                else:
+                    continue
+            if before_start:
+                if tier.name == start_tier:
+                    before_start = False
                 else:
                     continue
 
@@ -3253,6 +3355,8 @@ def delta(
                 )
             if min_tier_name is not None:
                 rationale += f" Escalated: min_tier_name='{min_tier_name}'."
+            if start_tier is not None and capability_start is not None:
+                rationale += f" Capability-start: {capability_start.describe()}."
             if roi_skip:
                 # Reached only for a tier NOT in roi_skip (suppressed tiers are
                 # skipped above) — record that captured ROI demoted past them.
@@ -3328,7 +3432,34 @@ def delta(
         if requested_backend_ref is not None
         else _roi_suppressed_tiers(roi_overlay)
     )
-    decision = _route(suppressed)
+    # OMN-20170: a measured start applies only to a first, unpinned request; an
+    # escalation keeps its own floor and a caller's pin keeps its backend.
+    capability_start = (
+        resolve_capability_start(
+            tiers,
+            capability_map.cells,
+            task_class=task_type,
+            size_band=size_band.band if size_band is not None else None,
+            eval_line_verdict=capability_map.eval_line_verdict,
+        )
+        if capability_map is not None
+        and min_tier_name is None
+        and requested_backend_ref is None
+        else None
+    )
+    if capability_start is not None:
+        _logger.info(
+            "delegation routing: correlation_id=%s %s",
+            request.correlation_id,
+            capability_start.describe(),
+        )
+    start_tier = (
+        capability_start.start_tier_name if capability_start is not None else None
+    )
+    decision = _route(suppressed, start_tier)
+    if decision is None and start_tier is not None:
+        # Fail-safe: the measured tier routes nothing here; take the static order.
+        decision = _route(suppressed)
     if decision is None and suppressed:
         # Fail-safe: ROI suppression would leave no routable tier — honour the
         # static order rather than fail a request the static path would serve.
@@ -3409,6 +3540,7 @@ __all__: list[str] = [
     # reducer's private models package (cross-node model reach-in guard).
     "ModelRoutingDecision",
     "ModelRoutingExclusionReport",
+    "TaskClassTransitionsError",
     "_decision_from_tenant_overlay",
     "_get_contract_model_ref",
     "_is_explicit_task_model_override",
@@ -3426,6 +3558,7 @@ __all__: list[str] = [
     "resolve_task_class_max_escalations",
     "resolve_task_class_response_contract",
     "resolve_task_class_tier_order",
+    "resolve_task_class_transitions",
     "shipped_house_credential_refs",
     "sibling_backend_available_in_tier",
     "tier_for_backend",

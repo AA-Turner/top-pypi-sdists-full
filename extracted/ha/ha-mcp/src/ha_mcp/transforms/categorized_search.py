@@ -35,6 +35,7 @@ from ha_mcp._vendor.mcp.types import ToolAnnotations
 
 from ..errors import TOOL_ERROR_LOG_LEVEL, ErrorCode, create_error_response
 from ..renamed_tools import adapt_retired_arguments, current_tool_name
+from ..server_tool_text import SKILL_TOOL_NAME
 from .compact_params import compact_params, summary
 from .write_tool_note import DESKTOP_APPROVAL_NOTE
 
@@ -87,7 +88,7 @@ DEFAULT_PINNED_TOOLS: tuple[str, ...] = (
     # Skill guide must stay visible when tool search hides the catalog —
     # its description carries the bundled best-practices trigger
     # conditions that the LLM needs to see before writing config.
-    "ha_get_skill_guide",
+    SKILL_TOOL_NAME,
 )
 
 # Tool name patterns that indicate delete/remove operations
@@ -631,7 +632,10 @@ class CategorizedSearchTransform(BM25SearchTransform):
         indices = self._index.query(query, self._max_results + pinned_count)
         slots = self._max_results
         results: list[Tool] = []
-        for rank, tool in enumerate(self._indexed_tools[i] for i in indices):
+        tools_by_name = {tool.name: tool for tool in tools}
+        for rank, tool in enumerate(
+            tools_by_name[self._indexed_names[i]] for i in indices
+        ):
             if tool.name in self._always_visible:
                 if rank < self._max_results:
                     results.append(tool)

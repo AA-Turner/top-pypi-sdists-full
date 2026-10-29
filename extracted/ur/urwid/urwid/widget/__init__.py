@@ -27,9 +27,15 @@ from .constants import (
     simplify_valign,
     simplify_width,
 )
-from .container import WidgetContainerListContentsMixin, WidgetContainerMixin
+from .container import (
+    SelectNavigationListContentsMixin,
+    SelectNavigationMixin,
+    WidgetContainerListContentsMixin,
+    WidgetContainerMixin,
+)
 from .deque_walker import SimpleDequeWalker, SimpleFocusDequeWalker
 from .divider import Divider
+from .drop_down import DropDown
 from .edit import Edit, EditError, IntEdit
 from .filler import Filler, FillerError, FillerWarning, calculate_top_bottom_filler
 from .frame import Frame, FrameError
@@ -108,6 +114,7 @@ __all__ = (
     "ColumnsError",
     "ColumnsWarning",
     "Divider",
+    "DropDown",
     "Edit",
     "EditError",
     "Filler",
@@ -146,6 +153,8 @@ __all__ = (
     "ScrollBar",
     "Scrollable",
     "ScrollableError",
+    "SelectNavigationListContentsMixin",
+    "SelectNavigationMixin",
     "SelectableIcon",
     "SimpleDequeWalker",
     "SimpleFocusDequeWalker",
@@ -191,7 +200,7 @@ __all__ = (
     "simplify_width",
 )
 
-# Backward compatibility
+# Backward compatibility aliases of the enum members. Not deprecated: too widely used to be removed.
 FLOW: typing.Literal[Sizing.FLOW] = Sizing.FLOW
 BOX: typing.Literal[Sizing.BOX] = Sizing.BOX
 FIXED: typing.Literal[Sizing.FIXED] = Sizing.FIXED

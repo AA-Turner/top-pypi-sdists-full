@@ -104,7 +104,7 @@ _settings: Settings | None = None
 
 # In-process (embedded) HA connection, set only when ha-mcp runs inside Home
 # Assistant core via the ha_mcp_tools custom component's in-process server entry.
-# The component hands the loopback URL + a provisioned admin token to ha-mcp
+# The component hands the loopback URL + the administrator's token to ha-mcp
 # THROUGH THIS DICT — never
 # via os.environ — so the admin token can't be read from the shared HA process
 # environment. Applied onto the Settings singleton in ``get_global_settings``.
@@ -165,6 +165,16 @@ def set_embedded_connection(
         _EMBEDDED_CONNECTION["llm_api_enabled"] = llm_api_enabled
     if _settings is not None:
         _apply_embedded_connection(_settings)
+
+
+def is_embedded_mode() -> bool:
+    """True when ha-mcp runs in-process inside Home Assistant.
+
+    Set by the custom component's in-process server entry via
+    ``set_embedded_connection``; false for the CLI, the HTTP launchers and the
+    app (add-on) build.
+    """
+    return bool(_EMBEDDED_CONNECTION)
 
 
 def get_embedded_config_dir() -> str | None:

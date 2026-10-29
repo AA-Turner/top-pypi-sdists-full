@@ -1503,6 +1503,7 @@ __all__ = (
     "TaskTemplateConstraintsOutputTypeDef",
     "TaskTemplateConstraintsTypeDef",
     "TaskTemplateConstraintsUnionTypeDef",
+    "TaskTemplateContactHooksTypeDef",
     "TaskTemplateDefaultFieldValueTypeDef",
     "TaskTemplateDefaultsOutputTypeDef",
     "TaskTemplateDefaultsTypeDef",
@@ -2574,6 +2575,9 @@ FlowModuleTypeDef = TypedDict(
         "FlowModuleId": NotRequired[str],
     },
 )
+
+class TaskTemplateContactHooksTypeDef(TypedDict):
+    WrapUpFlowId: NotRequired[str]
 
 class CreateTrafficDistributionGroupRequestTypeDef(TypedDict):
     Name: str
@@ -9184,6 +9188,7 @@ class GetTaskTemplateResponseTypeDef(TypedDict):
     Description: str
     ContactFlowId: str
     SelfAssignFlowId: str
+    ContactHooks: TaskTemplateContactHooksTypeDef
     Constraints: TaskTemplateConstraintsOutputTypeDef
     Defaults: TaskTemplateDefaultsOutputTypeDef
     Fields: list[TaskTemplateFieldOutputTypeDef]
@@ -9201,6 +9206,7 @@ class UpdateTaskTemplateResponseTypeDef(TypedDict):
     Description: str
     ContactFlowId: str
     SelfAssignFlowId: str
+    ContactHooks: TaskTemplateContactHooksTypeDef
     Constraints: TaskTemplateConstraintsOutputTypeDef
     Defaults: TaskTemplateDefaultsOutputTypeDef
     Fields: list[TaskTemplateFieldOutputTypeDef]
@@ -9662,6 +9668,7 @@ class CreateTaskTemplateRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     ContactFlowId: NotRequired[str]
     SelfAssignFlowId: NotRequired[str]
+    ContactHooks: NotRequired[TaskTemplateContactHooksTypeDef]
     Constraints: NotRequired[TaskTemplateConstraintsUnionTypeDef]
     Defaults: NotRequired[TaskTemplateDefaultsUnionTypeDef]
     Status: NotRequired[TaskTemplateStatusType]
@@ -9674,6 +9681,7 @@ class UpdateTaskTemplateRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     ContactFlowId: NotRequired[str]
     SelfAssignFlowId: NotRequired[str]
+    ContactHooks: NotRequired[TaskTemplateContactHooksTypeDef]
     Constraints: NotRequired[TaskTemplateConstraintsUnionTypeDef]
     Defaults: NotRequired[TaskTemplateDefaultsUnionTypeDef]
     Status: NotRequired[TaskTemplateStatusType]

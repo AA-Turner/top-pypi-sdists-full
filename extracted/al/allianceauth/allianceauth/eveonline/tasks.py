@@ -1,3 +1,5 @@
+__lazy_modules__ = ["celery", "collections.abc"]
+
 import logging
 from random import randint
 from typing import TYPE_CHECKING
@@ -21,18 +23,20 @@ CHARACTER_AFFILIATION_CHUNK_SIZE = 500
 EVEONLINE_TASK_JITTER = 600
 
 if TYPE_CHECKING:
-    from celery.result import AsyncResult
+    from collections.abc import Iterator
+
+    from celery import Task
 
     # https://github.com/sbdchd/celery-types
     classes = [
-        AsyncResult,
+        Task,
     ]
 
     for cls in classes:
         setattr(cls, "__class_getitem__", classmethod(lambda cls, *args, **kwargs: cls))
 
 
-def chunks(lst, n):
+def chunks(lst: list, n: int) -> "Iterator[list]":
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
@@ -40,14 +44,14 @@ def chunks(lst, n):
 
 @shared_task(bind=True)
 @rate_limit_retry_task
-def update_corp(self, corp_id: int) -> None:
+def update_corp(self: "Task", corp_id: int) -> None:
     """Update given corporation from ESI"""
     EveCorporationInfo.objects.update_corporation(corp_id)
 
 
 @shared_task(bind=True)
 @rate_limit_retry_task
-def update_alliance(self, alliance_id: int) -> None:
+def update_alliance(self: "Task", alliance_id: int) -> None:
     """Update given alliance from ESI"""
     EveAllianceInfo.objects.get(alliance_id=alliance_id).update_alliance()
     EveAllianceInfo.objects.get(alliance_id=alliance_id).populate_alliance()
@@ -55,7 +59,7 @@ def update_alliance(self, alliance_id: int) -> None:
 
 @shared_task(bind=True)
 @rate_limit_retry_task
-def update_character(self, character_id: int) -> None:
+def update_character(self: "Task", character_id: int) -> None:
     """Update given character from ESI."""
     # TODO: split these up as they operated on different Caches (1hr/1day)
     EveCharacter.objects.update_character(character_id)  # Primary Affilation Data
@@ -64,7 +68,7 @@ def update_character(self, character_id: int) -> None:
 
 @shared_task(bind=True)
 @rate_limit_retry_task
-def update_all_factions(self) -> None:
+def update_all_factions(self: "Task") -> None:
     """Update given character from ESI."""
     EveFactionInfo.objects.update_factions()
 

@@ -69,6 +69,7 @@ class APIKeysResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> CreatedAPIKey:
         """Create a new API key.
 
@@ -96,6 +97,8 @@ class APIKeysResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         return self._post(
             "/org/api_keys",
@@ -110,7 +113,11 @@ class APIKeysResource(SyncAPIResource):
                 api_key_create_params.APIKeyCreateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=CreatedAPIKey,
         )
@@ -171,6 +178,7 @@ class APIKeysResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> APIKey:
         """
         Update an API key's name.
@@ -185,6 +193,8 @@ class APIKeysResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
@@ -192,7 +202,11 @@ class APIKeysResource(SyncAPIResource):
             path_template("/org/api_keys/{id}", id=id),
             body=maybe_transform({"name": name}, api_key_update_params.APIKeyUpdateParams),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=APIKey,
         )
@@ -205,7 +219,7 @@ class APIKeysResource(SyncAPIResource):
         name: str | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
-        sort_by: Literal["created_at", "name", "expires_at"] | Omit = omit,
+        sort_by: Literal["created_at", "name", "expires_at", "last_used_at"] | Omit = omit,
         sort_direction: Literal["asc", "desc"] | Omit = omit,
         status: Literal["active", "deleted", "all"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -235,7 +249,8 @@ class APIKeysResource(SyncAPIResource):
           query: Case-insensitive substring match against API key name, creator, and project. API
               key identifiers and masked keys match by exact value or prefix.
 
-          sort_by: Field to sort API keys by.
+          sort_by: Field to sort API keys by. Keys with no expiry or no recorded use sort last for
+              expires_at and last_used_at in either direction.
 
           sort_direction: Sort direction for API keys.
 
@@ -286,6 +301,7 @@ class APIKeysResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> None:
         """Delete an API key.
 
@@ -300,6 +316,8 @@ class APIKeysResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
@@ -307,7 +325,11 @@ class APIKeysResource(SyncAPIResource):
         return self._delete(
             path_template("/org/api_keys/{id}", id=id),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=NoneType,
         )
@@ -324,6 +346,7 @@ class APIKeysResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> CreatedAPIKey:
         """Rotate an API key.
 
@@ -345,6 +368,8 @@ class APIKeysResource(SyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
@@ -358,7 +383,11 @@ class APIKeysResource(SyncAPIResource):
                 api_key_rotate_params.APIKeyRotateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=CreatedAPIKey,
         )
@@ -400,6 +429,7 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> CreatedAPIKey:
         """Create a new API key.
 
@@ -427,6 +457,8 @@ class AsyncAPIKeysResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         return await self._post(
             "/org/api_keys",
@@ -441,7 +473,11 @@ class AsyncAPIKeysResource(AsyncAPIResource):
                 api_key_create_params.APIKeyCreateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=CreatedAPIKey,
         )
@@ -502,6 +538,7 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> APIKey:
         """
         Update an API key's name.
@@ -516,6 +553,8 @@ class AsyncAPIKeysResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
@@ -523,7 +562,11 @@ class AsyncAPIKeysResource(AsyncAPIResource):
             path_template("/org/api_keys/{id}", id=id),
             body=await async_maybe_transform({"name": name}, api_key_update_params.APIKeyUpdateParams),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=APIKey,
         )
@@ -536,7 +579,7 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         name: str | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
-        sort_by: Literal["created_at", "name", "expires_at"] | Omit = omit,
+        sort_by: Literal["created_at", "name", "expires_at", "last_used_at"] | Omit = omit,
         sort_direction: Literal["asc", "desc"] | Omit = omit,
         status: Literal["active", "deleted", "all"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -566,7 +609,8 @@ class AsyncAPIKeysResource(AsyncAPIResource):
           query: Case-insensitive substring match against API key name, creator, and project. API
               key identifiers and masked keys match by exact value or prefix.
 
-          sort_by: Field to sort API keys by.
+          sort_by: Field to sort API keys by. Keys with no expiry or no recorded use sort last for
+              expires_at and last_used_at in either direction.
 
           sort_direction: Sort direction for API keys.
 
@@ -617,6 +661,7 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> None:
         """Delete an API key.
 
@@ -631,6 +676,8 @@ class AsyncAPIKeysResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
@@ -638,7 +685,11 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         return await self._delete(
             path_template("/org/api_keys/{id}", id=id),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=NoneType,
         )
@@ -655,6 +706,7 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
     ) -> CreatedAPIKey:
         """Rotate an API key.
 
@@ -676,6 +728,8 @@ class AsyncAPIKeysResource(AsyncAPIResource):
           extra_body: Add additional JSON properties to the request
 
           timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
         """
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
@@ -689,7 +743,11 @@ class AsyncAPIKeysResource(AsyncAPIResource):
                 api_key_rotate_params.APIKeyRotateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
             ),
             cast_to=CreatedAPIKey,
         )

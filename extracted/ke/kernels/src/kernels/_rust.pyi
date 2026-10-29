@@ -21,12 +21,19 @@ __all__ = [
     "KernelLocks",
     "KernelName",
     "KernelVersion",
+    "Oid",
     "Metadata",
     "NixKernelLock",
     "NixKernelLocks",
     "Digest",
     "DigestViolation",
     "DigestValidationError",
+    "KernelLocation",
+    "SignatureReceipt",
+    "SignatureReceiptStore",
+    "DigestReceipt",
+    "DigestReceiptStore",
+    "ReceiptError",
     "Version",
     "__version__",
 ]
@@ -83,8 +90,8 @@ class GitStatus:
     """The state of a git working tree."""
 
     @property
-    def commit(self) -> str:
-        """Identifier of the `HEAD` commit, as lowercase hexadecimal digits."""
+    def commit(self) -> "Oid":
+        """Identifier of the `HEAD` commit."""
         ...
 
     @property
@@ -285,6 +292,154 @@ class DigestValidationError(Exception):
         """The individual digest violations."""
         ...
 
+@final
+class Oid:
+    """A git object identifier."""
+
+    @staticmethod
+    def from_str(s: str) -> "Oid":
+        """Parse a full SHA-1 or SHA-256 object id.
+
+        Abbreviated identifiers are rejected: an object id must identify the
+        object unambiguously and permanently.
+
+        Raises:
+            ValueError: If `s` is not 40 or 64 hexadecimal digits.
+        """
+        ...
+
+    def __str__(self) -> str: ...
+    def __repr__(self) -> str: ...
+
+@final
+class KernelLocation:
+    """The location of a kernel that a verification applies to.
+
+    The location changes whenever the kernel's contents change, so that a
+    receipt is never reused for a kernel that was updated or re-signed.
+    """
+
+    @staticmethod
+    def remote(repo_id: str, revision: Oid, variant: str) -> "KernelLocation":
+        """The location of a kernel variant in a Hub repository.
+
+        Args:
+            repo_id: Repository the kernel was downloaded from.
+            revision: Resolved commit (as a Git SHA).
+            variant: Build variant of the kernel.
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+
+@final
+class SignatureReceipt:
+    """Receipt of a successful signature verification of a kernel.
+
+    A receipt states that a kernel's signature has already been verified. If
+    the kernel location changed, the receipt's hash will not match anymore."""
+
+    def __new__(cls, location: KernelLocation) -> "SignatureReceipt": ...
+    @property
+    def location(self) -> KernelLocation:
+        """The kernel location the verification applies to."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+@final
+class SignatureReceiptStore:
+    """Store of kernel signature verification receipts."""
+
+    @staticmethod
+    def in_kernels_cache() -> "SignatureReceiptStore":
+        """The signature receipt store inside the kernels cache.
+
+        The cache location is resolved from the environment, falling back to
+        the Hub cache and then the user's home directory.
+
+        Raises:
+            ReceiptError: If the cache directory cannot be determined.
+        """
+        ...
+
+    @staticmethod
+    def from_path(path: os.PathLike[str] | str) -> "SignatureReceiptStore":
+        """A signature receipt store in the given directory."""
+        ...
+
+    def load(self, location: KernelLocation) -> Optional[SignatureReceipt]:
+        """The receipt for `location`, or `None` when the kernel signature has not been verified yet.
+
+        Raises:
+            ReceiptError: If a receipt exists but cannot be used.
+        """
+        ...
+
+    def store(self, receipt: SignatureReceipt) -> None:
+        """Store `receipt`, replacing any existing receipt for its location.
+
+        Raises:
+            ReceiptError: If the receipt cannot be written.
+        """
+        ...
+
+@final
+class DigestReceipt:
+    """Receipt of a successful digest verification of a kernel.
+
+    A receipt states that a kernel's files have already been verified against
+    the digest in its metadata. If the kernel location changed, the receipt's
+    hash will not match anymore."""
+
+    def __new__(cls, location: KernelLocation) -> "DigestReceipt": ...
+    @property
+    def location(self) -> KernelLocation:
+        """The kernel location the verification applies to."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+@final
+class DigestReceiptStore:
+    """Store of kernel digest verification receipts."""
+
+    @staticmethod
+    def in_kernels_cache() -> "DigestReceiptStore":
+        """The digest receipt store inside the kernels cache.
+
+        The cache location is resolved from the environment, falling back to
+        the Hub cache and then the user's home directory.
+
+        Raises:
+            ReceiptError: If the cache directory cannot be determined.
+        """
+        ...
+
+    @staticmethod
+    def from_path(path: os.PathLike[str] | str) -> "DigestReceiptStore":
+        """A digest receipt store in the given directory."""
+        ...
+
+    def load(self, location: KernelLocation) -> Optional[DigestReceipt]:
+        """The receipt for `location`, or `None` when the kernel digest has not been verified yet.
+
+        Raises:
+            ReceiptError: If a receipt exists but cannot be used.
+        """
+        ...
+
+    def store(self, receipt: DigestReceipt) -> None:
+        """Store `receipt`, replacing any existing receipt for its location.
+
+        Raises:
+            ReceiptError: If the receipt cannot be written.
+        """
+        ...
+
+class ReceiptError(Exception):
+    """Raised by `SignatureReceiptStore` and `DigestReceiptStore` when a receipt cannot be read, written, or interpreted."""
+
 class KernelVersion:
     """A kernel version: either a numeric version or a git revision string."""
 
@@ -340,8 +495,8 @@ class KernelLock:
         ...
 
     @property
-    def commit(self) -> str:
-        """Locked commit of the kernel, as lowercase hexadecimal digits."""
+    def commit(self) -> "Oid":
+        """Locked commit of the kernel."""
         ...
 
     @staticmethod
@@ -434,8 +589,8 @@ class NixKernelLock:
         ...
 
     @property
-    def commit(self) -> str:
-        """Locked commit of the kernel, as lowercase hexadecimal digits."""
+    def commit(self) -> "Oid":
+        """Locked commit of the kernel."""
         ...
 
     @property

@@ -1,12 +1,14 @@
 """Client for interacting with the Discord API."""
 
+__lazy_modules__ = ["collections.abc"]
+
 import json
 import logging
-from collections.abc import Iterable
 from enum import IntEnum
 from hashlib import md5
 from http import HTTPStatus
 from time import sleep
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 from uuid import uuid1
 
@@ -32,6 +34,9 @@ from .app_settings import (
 from .exceptions import DiscordRateLimitExhausted, DiscordTooManyRequestsError
 from .helpers import RolesSet
 from .models import Guild, GuildMember, Role, User
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 logger = LoggerAddTag(logging.getLogger(__name__), __title__)
 
@@ -150,7 +155,7 @@ class DiscordClient:
         """Wether this instance is rate limited."""
         return self._is_rate_limited
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{type(self).__name__}(access_token=...{self.access_token[-5:]})'
 
     def _redis_decr_or_set(self, name: str, value: str, px: int) -> bool:
@@ -332,7 +337,7 @@ class DiscordClient:
         return guild_roles.role_by_name(role_name)
 
     def match_or_create_roles_from_names(
-        self, guild_id: int, role_names: Iterable[str]
+        self, guild_id: int, role_names: "Iterable[str]"
     ) -> list[tuple[Role, bool]]:
         """Fetch or create Discord roles matching the given names (cached).
 
@@ -394,7 +399,7 @@ class DiscordClient:
         return role, created
 
     def match_or_create_roles_from_names_2(
-        self, guild_id: int, role_names: Iterable[str]
+        self, guild_id: int, role_names: "Iterable[str]"
     ) -> RolesSet:
         """Fetch or create Discord role matching the given name.
 
@@ -788,7 +793,7 @@ class DiscordClient:
         )
         raise DiscordTooManyRequestsError(retry_after=retry_after)
 
-    def _report_rate_limit_from_api(self, r, uid) -> None:
+    def _report_rate_limit_from_api(self, r: requests.Response, uid: str) -> None:
         """Try to log the current rate limit reported from API."""
         if (
             logger.getEffectiveLevel() <= logging.DEBUG
@@ -823,6 +828,6 @@ class DiscordClient:
         return md5(key.encode('utf-8')).hexdigest()
 
     @staticmethod
-    def _sanitize_role_ids(role_ids: Iterable[int]) -> list[int]:
+    def _sanitize_role_ids(role_ids: "Iterable[int]") -> list[int]:
         """Sanitize a list of role IDs, i.e. make sure its a list of unique integers."""
         return [int(role_id) for role_id in set(role_ids)]

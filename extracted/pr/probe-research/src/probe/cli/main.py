@@ -9555,9 +9555,14 @@ def project_create(
     name: str = typer.Option(
         None, "--name", help="display name; omit it and the row reads as its slug"
     ),
-    parent: str = typer.Option(
-        None, "--parent", help="file under this project (slug or id:<uuid>)"
+    part_of: list[str] = typer.Option(
+        None,
+        "--part-of",
+        help="the bigger effort this project is a part of (slug or id:<uuid>; repeatable)",
     ),
+    # 0401: the older spelling of --part-of, kept so scripts and installed
+    # skills that still type it keep working. It sends the same `part_of`.
+    parent: str = typer.Option(None, "--parent", hidden=True),
     description: str = description_opt(),
     summary: str = entity_markdown_opt(),
     tag: list[str] = typer.Option(None, "--tag", help="tag at creation (repeatable)"),
@@ -9572,21 +9577,21 @@ def project_create(
     which forced an experiment and an invented question into existence alongside it.
 
     --kind is REQUIRED (0149): the creator declares intent, before content
-    exists. --parent files the newborn under an existing project (0148); it
-    then lives in the parent's workspace. An explicit --workspace beside
-    --parent is SENT, not dropped, so the server refuses a mismatch (422)
-    exactly as documented; omitted, the parent's workspace is inherited.
+    exists. Projects are flat: a phase of a bigger effort is its own project
+    linked --part-of it, and nothing moves or is inherited. With --part-of and
+    no --workspace it is filed in the first target's workspace.
     """
+    targets = list(dict.fromkeys([*(part_of or []), *([parent] if parent else [])]))
     with _client() as c:
-        parent_id = _project_id(c, parent) if parent else None
         created = c.create_project(
             slug,
             name,
             kind=kind.value,
-            parent_project_id=parent_id,
-            # Only resolve the ambient default when NOT filing under a parent:
-            # a parented create with no explicit workspace inherits server-side.
-            workspace_id=(_resolve_workspace(c, workspace) if workspace or not parent else None),
+            part_of=[_project_id(c, target) for target in targets] or None,
+            # Only resolve the ambient default for an unlinked create: a linked
+            # one with no explicit workspace is filed beside its first target,
+            # server-side.
+            workspace_id=(_resolve_workspace(c, workspace) if workspace or not targets else None),
             description=description,
             document=_text_value(summary),
             tags=tag or None,
@@ -9607,33 +9612,38 @@ def project_list(
     tag: list[str] = typer.Option(
         None, "--tag", help="filter: project must carry ALL (repeatable)"
     ),
-    parent: str = typer.Option(
-        None, "--parent", help="only the DIRECT subprojects of this project (slug or id:<uuid>)"
+    part_of: str = typer.Option(
+        None,
+        "--part-of",
+        help="only the projects linked as a part of this one (slug or id:<uuid>)",
     ),
+    # 0401: the older spelling of --part-of, kept for scripts that type it.
+    parent: str = typer.Option(None, "--parent", hidden=True),
     limit: int = typer.Option(50, "--limit", min=1, max=200),
     cursor: str = typer.Option(None, "--cursor", help="keyset cursor from a previous page"),
     fields: str = _FIELDS_OPTION,
 ) -> None:
     """List projects in a workspace, or across all of them with --all.
 
-    `--parent` answers "what is under this project?" -- one level, the same
-    direct children the dashboard's Subprojects tab shows. Walk it again on a
-    child for the next level; the server caps depth at MAX_PROJECT_DEPTH.
+    `--part-of P` answers "what are the parts of P?": the projects linked
+    `--part-of` it, one hop, in any workspace. Ask again on a part for its own.
     """
     params: dict[str, Any] = {"limit": limit}
     if cursor:
         params["cursor"] = cursor
     # Omitting workspace_id IS "all workspaces" — the server has no all-sentinel, so
     # --all means "send no filter" rather than some magic value.
+    whole = part_of or parent
     with _client() as c:
-        # A subproject can only be asked for by its parent, and a tree is one
-        # workspace (0148) — so --parent carries the workspace with it and a
-        # workspace filter alongside it can only narrow a set that is already
-        # correct, or contradict it.
-        workspace_id = None if (all_workspaces or parent) else _resolve_workspace(c, workspace)
-        parent_id = _project_id(c, parent) if parent else None
+        # A part is asked for by what it is part of, and a link crosses
+        # workspaces -- so --part-of carries its own scope, and the active
+        # workspace beside it would hide the parts filed elsewhere.
+        workspace_id = None if (all_workspaces or whole) else _resolve_workspace(c, workspace)
         page = c.list_projects(
-            workspace_id=workspace_id, tags=tag or None, parent_id=parent_id, **params
+            workspace_id=workspace_id,
+            tags=tag or None,
+            part_of=_project_id(c, whole) if whole else None,
+            **params,
         )
     _print_json(_select_fields({"items": page.items, "next_cursor": page.next_cursor}, fields))
 
@@ -9671,16 +9681,15 @@ def project_branches(project_id: str = slug_ref("project")) -> None:
 def project_contributors(
     project_id: str = slug_ref("project"),
     add: str = typer.Option(None, "--add", help="credit this user id"),
-    remove: str = typer.Option(None, "--remove", help="drop this user id's direct credit"),
+    remove: str = typer.Option(None, "--remove", help="drop this user id's credit"),
     fields: str = _FIELDS_OPTION,
 ) -> None:
     """Who worked on this project.
 
     A project shows up in the workspace of everyone credited here. Credit is
-    recorded automatically by writing under the project, including in a
-    subproject -- those show `direct: false` with the subproject in
-    `via_project_id`. `--add` is for someone who has not written anything yet;
-    `--remove` drops a direct credit and is not a ban.
+    recorded automatically by writing under the project or its experiments,
+    and is always the project's own. `--add` is for someone who has not
+    written anything yet; `--remove` drops a credit and is not a ban.
     """
     if add and remove:
         typer.echo("--add and --remove are separate calls; pass one", err=True)
@@ -9866,12 +9875,12 @@ def project_tag(
 @project_app.command("move", context_settings=_PROJECT_KIND_CONTEXT)
 def project_move(
     project_id: str = slug_ref("project"),
-    parent: str = typer.Option(
-        None, "--parent", help="file under this project (slug or id:<uuid>)"
-    ),
-    top_level: bool = typer.Option(
-        False, "--top-level", help="detach: back to a top-level project"
-    ),
+    # 0401: the older tree moves, kept so scripts that type them keep working.
+    # They send what they always sent (PATCH parent_project_id, a uuid or
+    # null); the server moves (or drops) the one `part_of` link that stands
+    # for the old filing, and the project's other links stay.
+    parent: str = typer.Option(None, "--parent", hidden=True),
+    top_level: bool = typer.Option(False, "--top-level", hidden=True),
     workspace: str = typer.Option(
         None, "--workspace", help="destination workspace slug (or id:<uuid>)"
     ),
@@ -9879,21 +9888,21 @@ def project_move(
         None, "--kind", help="also re-declare what the project is for"
     ),
 ) -> None:
-    """Move a project: under a parent, back to top level, or between workspaces.
+    """Move a project to another workspace.
 
-    Exactly one destination — --parent, --top-level, or --workspace. Filing
-    under a parent (0148) re-files the project AND its subtree into the
-    parent's workspace (tree = one workspace, owned by the root); the server
-    refuses cycles, depth past the cap, and oversized subtree moves. A
-    workspace move applies to a top-level project only — a subproject's
-    workspace follows its root (409 otherwise) — and reindexes every live
-    descendant document in the same transaction. ONE command for all three
-    because Typer keeps only the LAST registration of a name: two `move`
-    commands shipped once, and the first was silently unreachable.
+    Projects are flat, so a project is never moved under another one: link it
+    instead (`probe project reference add P --to BIG --part-of`). The move
+    reindexes the project's live documents in the same transaction; projects
+    linked to it stay where they are. ONE `move` command because Typer keeps
+    only the LAST registration of a name: two `move` commands shipped once,
+    and the first was silently unreachable.
     """
     destinations = [parent is not None, top_level, workspace is not None]
     if sum(destinations) != 1:
-        raise typer.BadParameter("pass exactly one of --parent, --top-level, or --workspace")
+        raise typer.BadParameter(
+            "pass --workspace; to say a project is part of another, "
+            "`probe project reference add P --to BIG --part-of`"
+        )
     with _client() as c:
         if workspace is not None:
             moved = c.move_project(_project_id(c, project_id), _ref(c, "workspace", workspace).id)
@@ -9915,10 +9924,19 @@ def project_move(
 def project_delete(
     project_id: str = slug_ref("project"),
     yes: bool = typer.Option(False, "--yes", help="skip the confirmation prompt"),
+    # Kept for older scripts (0148's subtree delete), and changes nothing:
+    # projects are flat, so no project is filed under another (the server
+    # emptied and dropped the filing) and a `part_of` link never takes a
+    # project with it. Still sent, and the server ignores it; the prompt says
+    # the linked projects stay.
     recursive: bool = typer.Option(
         False,
         "--recursive",
-        help="also delete every SUBPROJECT and everything in them (0148)",
+        hidden=True,
+        help=(
+            "kept for older scripts; accepted and changes nothing: the projects "
+            "linked to it (part_of or references) stay"
+        ),
     ),
     dry_run: bool = typer.Option(
         False,
@@ -9930,8 +9948,8 @@ def project_delete(
     restore it for 21 days, then it is deleted for good). A server without the
     trash deletes it permanently, and the prompt says so.
 
-    A project with live subprojects refuses (409 naming the total blast
-    radius) unless --recursive explicitly takes the whole subtree with it.
+    Deleting a project never deletes the projects linked to it (`--part-of`
+    or references); they stay, without the link.
     """
     _confirmed_delete(
         "project",
@@ -9939,7 +9957,12 @@ def project_delete(
         yes=yes,
         cascade=(
             "every experiment, run, metric and file inside it goes too"
-            + (", AND every subproject with everything in them" if recursive else "")
+            + (
+                " (--recursive is accepted and changes nothing: the projects linked "
+                "to it, part_of included, stay where they are)"
+                if recursive
+                else ""
+            )
         ),
         delete_kwargs={"recursive": True} if recursive else None,
         trash=True,
@@ -10813,13 +10836,98 @@ def _write_paper_find_snapshot(path: Path, payload: dict) -> None:
         pass
 
 
+# -- Probe's own docs ----------------------------------------------------------
+#: The most `probe docs` prints, in characters: whole sections, best first, up
+#: to the one that would pass it. The first section always prints.
+DOCS_PRINT_CHARS = 8_000
+#: The longest question `GET /public/v1/docs` takes (`probe.mcp.contract.
+#: DOCS_QUERY_MAX_CHARS`, not imported: `probe.mcp` loads the whole MCP service).
+DOCS_QUERY_MAX_CHARS = 512
+
+
+class DocsState(str, Enum):
+    """`GET /public/v1/docs`'s `state` (`Client.docs`)."""
+
+    OK = "ok"
+    #: The last good copy, served while docs.prbe.ai cannot be read.
+    STALE = "stale"
+    #: No copy yet: `sections` is empty.
+    UNAVAILABLE = "unavailable"
+
+
+# Every word after the first is the question's, a `--flag` included: asking
+# about `--no-capture` is the point, not an unknown option.
+@app.command("docs", context_settings={"ignore_unknown_options": True, "allow_interspersed_args": False})
+def docs(
+    question: list[str] = typer.Argument(..., help="what you want to know, in plain words"),
+) -> None:
+    """Search Probe's own docs (docs.prbe.ai) and print the sections that answer."""
+    # Reads Probe's public docs only: no credential is sent (`Transport`
+    # skips auth for `/public/`), so it answers signed out, and it opens,
+    # stamps and records nothing.
+    query = " ".join(question).strip()
+    if not query:
+        raise typer.BadParameter("ask a question", param_hint="QUESTION")
+    if len(query) > DOCS_QUERY_MAX_CHARS:
+        raise typer.BadParameter(
+            f"at most {DOCS_QUERY_MAX_CHARS} characters (this has {len(query)}): "
+            "name the feature, command or error",
+            param_hint="QUESTION",
+        )
+    try:
+        with _client() as c:
+            answer = c.docs(query)
+    except (errors.RosError, ValueError) as exc:
+        # ValueError: a 2xx that is not JSON (a proxy's page in front of the API).
+        reason = (str(exc).strip().splitlines() or [type(exc).__name__])[0]
+        typer.echo(f"error: Probe's docs could not be read: {reason}", err=True)
+        raise typer.Exit(1) from None
+    state = answer.get("state") if isinstance(answer, dict) else None
+    sections = answer.get("sections") if isinstance(answer, dict) else None
+    if state == DocsState.UNAVAILABLE.value or not isinstance(sections, list):
+        typer.echo("error: Probe's docs are unavailable right now; try again in a minute.", err=True)
+        raise typer.Exit(1)
+    if state == DocsState.STALE.value:
+        typer.echo("docs.prbe.ai could not be read just now; this is the last good copy.", err=True)
+    if not sections:
+        typer.echo("Nothing in Probe's docs matched; try other words.")
+        return
+    blocks: list[str] = []
+    used = 0
+    for section in sections:
+        block = _docs_block(section)
+        if blocks and used + len(block) > DOCS_PRINT_CHARS:
+            break
+        blocks.append(block)
+        used += len(block) + 2  # the blank line between sections
+    typer.echo("\n\n".join(blocks))
+    more = len(sections) - len(blocks)
+    if more:
+        typer.echo(f"\n{more} more matching section{'' if more == 1 else 's'} not shown.")
+
+
+def _docs_block(section: object) -> str:
+    """One docs section as markdown: `## <page> — <heading>`, its URL, its text."""
+    fields = section if isinstance(section, dict) else {}
+    page = str(fields.get("page") or "").strip()
+    heading = str(fields.get("heading") or "").strip()
+    title = " — ".join(part for part in (page, heading) if part) or "Probe docs"
+    lines = [f"## {title}"]
+    url = str(fields.get("url") or "").strip()
+    if url:
+        lines.append(url)
+    text = str(fields.get("text") or "").strip()
+    return "\n".join(lines) + (f"\n\n{text}" if text else "")
+
+
 # -- project references (0153) -----------------------------------------------
 reference_app = typer.Typer(
     no_args_is_help=True,
     help=(
-        "Lateral links between projects: A references B. Use this when a "
-        "review informed a training run, or two efforts share a method — the "
-        "relation --parent would claim wrongly. Cycles and any depth are fine."
+        "Links between projects, which are flat. A references B: a review "
+        "informed a training run, or two efforts share a method. A is part "
+        "of B (--part-of): a phase of a bigger effort. Cycles and any depth "
+        "are fine."
     ),
 )
 project_app.add_typer(reference_app, name="reference")
@@ -10829,15 +10937,27 @@ project_app.add_typer(reference_app, name="reference")
 def project_reference_add(
     project_id: str = slug_ref("project"),
     to: str = typer.Option(..., "--to", help="the project it references (slug or id:<uuid>)"),
+    part_of: bool = typer.Option(
+        False, "--part-of", help="this project is a part of that one, not only drawing on it"
+    ),
 ) -> None:
-    """Record that this project references another.
+    """Record that this project references another, or is a part of it.
 
     Idempotent and DIRECTED: adding A->B does not add B->A. Neither project
-    moves — this is not `--parent`, and nothing is nested by it.
+    moves, and nothing is shared or deleted through the link. One link per
+    pair: --part-of upgrades a reference, and a plain add never downgrades a
+    part-of link. `project get` shows them apart: `references` and
+    `part_of_links`.
     """
+    from ..sdk.client import ProjectRelation
+
     with _client() as c:
-        c.add_project_reference(_project_id(c, project_id), _project_id(c, to))
-    print("referenced")
+        c.add_project_reference(
+            _project_id(c, project_id),
+            _project_id(c, to),
+            relation=ProjectRelation.PART_OF.value if part_of else None,
+        )
+    print("linked as a part" if part_of else "referenced")
 
 
 @reference_app.command("remove")
@@ -10845,7 +10965,8 @@ def project_reference_remove(
     project_id: str = slug_ref("project"),
     to: str = typer.Option(..., "--to", help="the referenced project (slug or id:<uuid>)"),
 ) -> None:
-    """Drop one directed edge; the opposite direction stays."""
+    """Drop one directed link, a reference or a part-of; the opposite
+    direction stays."""
     with _client() as c:
         c.remove_project_reference(_project_id(c, project_id), _project_id(c, to))
     print("removed")
@@ -11326,9 +11447,10 @@ def run_set(
         # PATCH /v1/runs/{run_id} is UUID-typed, so a petname has to be resolved
         # before it is sent -- unresolved it 422s with a raw pydantic uuid dump.
         # Same reason `run delete` resolves; this verb was missed by that pass.
+        run_id = _ref(c, "run", run).id
         _print_json(
             c.update_run(
-                _ref(c, "run", run).id,
+                run_id,
                 name=name,
                 description=description,
                 notes=_text_value(notes),
@@ -11336,6 +11458,8 @@ def run_set(
                 authored_by=_authored_by_value(authored_by),
             )
         )
+    if notes:
+        _note_landed("run", run_id)
 
 
 @run_app.command("move")
@@ -11418,18 +11542,23 @@ def run_tag(
     wins — CONTRACT.md "tags")."""
     with _client() as c:
         handle = _run_handle(c, run)
+        before = list(handle.tags or [])
         # strict=True: an interactive tag edit must fail loudly, never spool a
         # stale whole-list replace for delayed replay (review 2026-07-30).
-        _print_json(
-            _tag_verb_flow(
-                handle.id,
-                handle.tags,
-                add,
-                remove,
-                replace,
-                lambda wanted: handle.set_tags(wanted, strict=True),
-            )
+        result = _tag_verb_flow(
+            handle.id,
+            handle.tags,
+            add,
+            remove,
+            replace,
+            lambda wanted: handle.set_tags(wanted, strict=True),
         )
+        _print_json(result)
+    from . import owed
+
+    # A result tagged not to trust owes a note on what to believe instead (notes
+    # parity N3); one no longer tagged so owes nothing (`--remove invalid`, `--set`).
+    owed.after_tag(run, str(result.get("id") or handle.id), before, result.get("tags"))
 
 
 @run_app.command("expect")
@@ -13480,6 +13609,34 @@ def _initializing_agent() -> "str | None":
         return detected
     harness = get_registry().find(os.environ.get("PROBE_AGENT"))
     return harness.id if harness is not None and harness.installable else None
+
+
+@session_app.command("owed", hidden=True)
+def session_owed(
+    session: str = typer.Option(None, "--session", help="session id (defaults to this one)"),
+    send_back: bool = typer.Option(
+        False, "--send-back", help="print what an inline agent is sent back with, and count it"
+    ),
+) -> None:
+    """What this session still owes (notes parity N3, `owed`): a summary for a
+    project or experiment it created or concluded, a note on a run it tagged
+    invalid. `--send-back`: in an inline session only, the words the agent is
+    sent back with at the end of its turn, each item at most twice, else
+    nothing. Host-facing (the plugin's Stop hook, pi's extension), so hidden."""
+    from . import owed
+
+    resolved = _resolve_agent_session(session, read=True)
+    if not session_marker.valid_session_id(resolved):
+        print(f"error: not a session id: {resolved!r}", file=sys.stderr)
+        raise typer.Exit(1)
+    if send_back:
+        text = owed.send_back(resolved) if session_marker.is_inline(resolved) else None
+        if text:
+            print(text)
+        return
+    _print_json({"session": resolved, "owed": [
+        {k: item.get(k) for k in ("why", "kind", "ref", "by")} for item in owed.owed(resolved)
+    ]})
 
 
 @session_app.command("export")
@@ -18035,6 +18192,7 @@ def notes_push(
     if report.detail:
         print(f"{label}: {report.detail}", file=sys.stderr)
     if report.pushed:
+        _note_landed(kind, entity_id)
         print(f"pushed {kind} note ({label}) v{report.version}", file=sys.stderr)
         return
     # Exit 2 means SOMEONE HAS TO LOOK, matching `notes sync`, which exits 2 only
@@ -18298,6 +18456,16 @@ def _headroom_fields(row: object) -> dict[str, int]:
 _CAP_REFUSALS = ("notes limit", "sub-note body exceeds the")
 
 
+def _note_landed(kind: str, entity_id: str) -> None:
+    """A note on a run landed: what this session owed it is settled (`owed`;
+    `probe run tag RUN invalid` owes one)."""
+    if kind != "run":
+        return
+    from . import owed
+
+    owed.settle(owed.NOTE, {f"run:{entity_id}"})
+
+
 def _notes_write(kind: str, label: str, write):
     """Run a notes write; on a CAP REFUSAL, add the advice the 422 cannot carry.
 
@@ -18420,6 +18588,8 @@ def notes_create(
             _sub_notes_supported(exc)
             raise
     row = _sub_note_row_for_headroom(row)
+    if body:
+        _note_landed(kind, entity_id)
     print(f"created {kind} sub-note {title!r} ({label})", file=sys.stderr)
     payload = {"target": kind, "label": label, "title": title, "chars": len(body)}
     if isinstance(row, dict):
@@ -18619,33 +18789,42 @@ def _refuse_over_cap(row: object, text: str, kind: str, label: str, *, appending
     older than token caps `notes_limit_chars` IS the cap and there is no token
     limit, so the first check alone is that server's rule. A limit the read did
     not publish, or a text this machine cannot count, is left to the server,
-    which answers for itself."""
+    which answers for itself.
+
+    HOW FAR, IN THE UNIT IT IS OVER (notes parity N4, as the server's 422):
+    the token cap whenever the text is past it, else the backstop, each with
+    how many to cut -- a text under the token cap is never told it is over it."""
     from ..sdk.notes import full_note_message, notes_limit, tokens_past_cap
 
     if not isinstance(row, dict):
         return
-    limit, unit, size = 0, "", None
     backstop = row.get("notes_limit_chars")
-    if isinstance(backstop, int) and not isinstance(backstop, bool) and 0 < backstop < len(text):
-        limit, unit, size = backstop, "character", len(text)
-    else:
-        cap = notes_limit(row)
-        if cap is not None:
-            limit, unit, size = cap, "token", tokens_past_cap(text, cap)
-    if size is None:
+    if not (isinstance(backstop, int) and not isinstance(backstop, bool) and 0 < backstop):
+        backstop = None
+    over_chars = len(text) - backstop if backstop is not None and backstop < len(text) else 0
+    cap = notes_limit(row)
+    # A server older than token caps has none: its backstop IS its cap.
+    size = tokens_past_cap(text, cap) if cap is not None else None
+    over_tokens = size - cap if size is not None else 0
+    if not (over_tokens or over_chars):
         return
+    limit, unit = (cap, "token") if over_tokens else (backstop, "character")
+    words = " and ".join(f"{n:,} {u}{'s' if n != 1 else ''}"
+                         for n, u in ((over_tokens, "token"), (over_chars, "character")) if n)
+    over = f"by {words}; cut at least {words}"
     if appending:
         print(
-            f"error: appending would exceed the {limit:,}-{unit} notes limit; "
+            f"error: appending would exceed the {limit:,}-{unit} notes limit {over}; "
             "nothing was written",
             file=sys.stderr,
         )
         for line in textwrap.wrap(full_note_message(kind, label), width=76):
             print(f"       {line}", file=sys.stderr)
     else:
+        at = f"at {size:,} tokens, " if size is not None else ""
         print(
-            f"error: the edit would leave the {kind} note ({label}) at {size:,} "
-            f"{unit}s, over its {limit:,}-{unit} limit; nothing was written",
+            f"error: the edit would leave the {kind} note ({label}) {at}over its "
+            f"{limit:,}-{unit} limit {over}; nothing was written",
             file=sys.stderr,
         )
     raise typer.Exit(1)
@@ -18909,6 +19088,7 @@ def notes_append(
             c, project=project, experiment=experiment, run=run, note=note
         )
         row = _rewrite_note(c, kind, entity_id, sub_id, label, change, appending=True)
+    _note_landed(kind, entity_id)
     print(f"appended to {kind} note ({label})", file=sys.stderr)
     payload: dict[str, Any] = {"target": kind, "label": label}
     if note is not None:
@@ -18970,6 +19150,8 @@ def notes_edit(
             return document[:at], new, document[at + len(old) :]
 
         row = _rewrite_note(c, kind, entity_id, sub_id, label, change, appending=False)
+    if new:
+        _note_landed(kind, entity_id)
     print(f"edited {kind} note ({label})", file=sys.stderr)
     payload: dict[str, Any] = {"target": kind, "label": label}
     if note is not None:
@@ -20264,19 +20446,27 @@ def main(argv: list[str] | None = None) -> int:
     if code == 0 and not _UNDELIVERED.total:
         _label_status_line(args)
     if code == 0:
-        _remind_summary(args)
+        _remind_summary(args, offline=bool(_UNDELIVERED.total))
     return code
 
 
-def _remind_summary(args: list[str]) -> None:
-    """The first write of a session landing on a project or experiment whose
-    summary it has not checked out says so, once (`summary_cli.remind`)."""
-    try:
-        from .summary_cli import remind
+def _remind_summary(args: list[str], *, offline: bool = False) -> None:
+    """After a write exited 0: a create or a conclusion makes a summary owed
+    (`owed.after_write`), FIRST, so a Ctrl-C during the reads below cannot lose
+    it; the first write of a session landing on a project or experiment whose
+    summary it has not checked out says so, once (`summary_cli.remind`); and
+    the first one landing on an entity prints its note's opening
+    (`first_touch.show`) -- not when the write was only queued (`offline`):
+    Probe did not answer it, and would not answer the read."""
+    from . import first_touch, owed
+    from .summary_cli import remind
 
-        remind(args)
-    except (Exception, KeyboardInterrupt):  # noqa: BLE001 -- a reminder
-        pass
+    for step in (lambda: owed.after_write(args), lambda: remind(args),
+                 lambda: None if offline else first_touch.show(args)):
+        try:
+            step()
+        except (Exception, KeyboardInterrupt):  # noqa: BLE001 -- a reminder
+            return
 
 
 def _label_session() -> str | None:

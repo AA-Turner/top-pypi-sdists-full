@@ -33,10 +33,9 @@ from omnimarket.nodes.node_projection_session_content.handlers.handler_session_c
 
 pytestmark = pytest.mark.integration
 
-MIGRATION = (
+MIGRATIONS_DIR = (
     Path(__file__).resolve().parents[1]
     / "src/omnimarket/nodes/node_projection_session_content/migrations"
-    / "0001_create_session_content.sql"
 )
 TOPIC = "onex.cmd.omniintelligence.content-captured.v1"
 
@@ -93,12 +92,13 @@ async def _migrated_writer() -> AsyncIterator[
         # Every reference to the lab schema and the runtime role is rebound to
         # the throwaway schema and the connecting role, so the migration's own
         # preconditions, post-conditions and grants all run for real.
-        ddl = (
-            MIGRATION.read_text(encoding="utf-8")
-            .replace("omninode_internal", schema)
-            .replace("omninode_runtime", str(user))
-        )
-        await connection.execute(ddl)
+        for migration in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            ddl = (
+                migration.read_text(encoding="utf-8")
+                .replace("omninode_internal", schema)
+                .replace("omninode_runtime", str(user))
+            )
+            await connection.execute(ddl)
         writer = SessionContentProjectionWriter()
         writer._db = _ConnectionDb(connection)  # type: ignore[assignment]
         writer_module._UPSERT = original_upsert.replace(
@@ -138,7 +138,7 @@ def _record(**overrides: Any) -> dict[str, Any]:
 @pytest.mark.asyncio
 async def test_the_row_lands_with_real_column_types() -> None:
     async with _migrated_writer() as (writer, connection, schema):
-        await writer._write(TOPIC, _record())
+        await writer._write(writer.db, TOPIC, _record())
         stored = await connection.fetchrow(f"SELECT * FROM {schema}.session_content")
         assert stored is not None
         assert isinstance(stored["emitted_at"], datetime)
@@ -151,8 +151,8 @@ async def test_the_row_lands_with_real_column_types() -> None:
 @pytest.mark.asyncio
 async def test_a_replay_is_one_row() -> None:
     async with _migrated_writer() as (writer, connection, schema):
-        await writer._write(TOPIC, _record())
-        await writer._write(TOPIC, _record())
+        await writer._write(writer.db, TOPIC, _record())
+        await writer._write(writer.db, TOPIC, _record())
         count = await connection.fetchval(
             f"SELECT count(*) FROM {schema}.session_content"
         )
@@ -163,7 +163,7 @@ async def test_a_replay_is_one_row() -> None:
 @pytest.mark.asyncio
 async def test_a_nul_character_and_a_long_chunk_are_stored() -> None:
     async with _migrated_writer() as (writer, connection, schema):
-        await writer._write(TOPIC, _record(content="a\x00b" + "z" * 65000))
+        await writer._write(writer.db, TOPIC, _record(content="a\x00b" + "z" * 65000))
         stored = await connection.fetchval(
             f"SELECT content FROM {schema}.session_content"
         )
@@ -194,11 +194,17 @@ async def test_both_streams_barriers_of_one_call_land_as_two_rows() -> None:
     ]
     async with _migrated_writer() as (writer, connection, schema):
         for barrier in barriers + barriers:
-            await writer._write(TOPIC, dict(barrier))
+            await writer._write(writer.db, TOPIC, dict(barrier))
         rows = await connection.fetch(
-            f"SELECT content_kind, content FROM {schema}.session_content"
+            f"SELECT * FROM {schema}.session_content ORDER BY stream"
         )
         assert [(r["content_kind"], r["content"]) for r in rows] == [
             ("barrier", ""),
             ("barrier", ""),
         ]
+        assert [(r["stream"], r["high_water"]) for r in rows] == [
+            ("content", 4),
+            ("lineage", 6),
+        ]
+        assert all(r["barrier_id"] == "pg-barrier" for r in rows)
+        assert rows[1]["content_capture"] == "enabled"

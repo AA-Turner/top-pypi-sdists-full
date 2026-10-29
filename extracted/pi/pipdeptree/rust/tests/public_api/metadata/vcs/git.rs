@@ -107,13 +107,30 @@ fn reports_git_failures(
 #[rstest]
 #[case::absolute(GitRemote::Absolute, "git+file://", true)]
 #[case::relative(GitRemote::Relative, "git+file://", true)]
+#[case::missing_absolute(GitRemote::MissingAbsolute, "git+file://", true)]
+#[case::missing_relative(GitRemote::Value("../missing"), "/../missing@", true)]
+#[case::relative_colon(GitRemote::Value("missing/host:path"), "/missing/host:path@", true)]
 #[case::host(GitRemote::Value("host:path"), "git+ssh://host/path", true)]
 #[case::user(
     GitRemote::Value("user_name@host:path"),
-    "git+ssh://user_name@host/path",
+    "git+ssh://host/path@commit",
     true
 )]
-#[case::host_slash(GitRemote::Value("bad/host:path"), "invalid URI", false)]
+#[case::git_user(
+    GitRemote::Value("git@host:path"),
+    "git+ssh://git@host/path@commit",
+    true
+)]
+#[case::credentials(
+    GitRemote::Value("https://ci:token@host/path"),
+    "git+https://host/path@commit",
+    true
+)]
+#[case::environment_credentials(
+    GitRemote::Value("https://${USER}:${TOKEN}@host/path"),
+    "git+https://${USER}:${TOKEN}@host/path@commit",
+    true
+)]
 #[case::empty_path(GitRemote::Value("host:"), "invalid URI", false)]
 #[case::absolute_scp_path(GitRemote::Value("host:/path"), "invalid URI", false)]
 #[case::colon_path(GitRemote::Value("host:path:tail"), "invalid URI", false)]
@@ -133,6 +150,11 @@ fn normalizes_git_remotes(#[case] source: GitRemote, #[case] expected: &str, #[c
             fs::create_dir(repository.path().join("relative")).unwrap();
             "relative".to_string()
         }
+        GitRemote::MissingAbsolute => repository
+            .path()
+            .join("missing")
+            .to_string_lossy()
+            .into_owned(),
         GitRemote::Value(value) => value.to_string(),
     };
     let site = editable_site(repository.path());
@@ -156,6 +178,38 @@ fn normalizes_git_remotes(#[case] source: GitRemote, #[case] expected: &str, #[c
     assert_eq!(
         (frozen.starts_with("-e "), frozen.contains(expected)),
         (valid, true)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn keeps_git_remote_links_unresolved() {
+    let repository = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let link = repository.path().join("link");
+    std::os::unix::fs::symlink(outside.path(), &link).unwrap();
+    let site = editable_site(repository.path());
+    let mut processes = MockProcesses::new();
+    expect_git_root(&mut processes, repository.path());
+    expect_process(
+        &mut processes,
+        "git",
+        &["config", "--get-regexp", r"remote\..*\.url"],
+        Ok(process_output(format!(
+            "remote.origin.url {}",
+            link.display()
+        ))),
+    );
+    expect_process(
+        &mut processes,
+        "git",
+        &["rev-parse", "HEAD"],
+        Ok(process_output("commit")),
+    );
+
+    assert_eq!(
+        freeze(&site, &processes),
+        format!("-e git+file://{}@commit#egg=demo\n", link.display())
     );
 }
 
@@ -189,5 +243,6 @@ fn omits_git_subdirectory_for_repository_project() {
 enum GitRemote {
     Absolute,
     Relative,
+    MissingAbsolute,
     Value(&'static str),
 }

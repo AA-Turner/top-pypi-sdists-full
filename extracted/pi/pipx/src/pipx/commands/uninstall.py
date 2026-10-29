@@ -17,6 +17,7 @@ from pipx import paths
 from pipx.commands.common import (
     can_symlink,
     drop_copies_claimed_elsewhere,
+    drop_links_taken_over,
     get_exposed_man_paths_for_package,
     get_exposed_paths_for_package,
     group_app_paths,
@@ -33,7 +34,7 @@ from pipx.constants import (
 from pipx.emojis import hazard, sleep, stars
 from pipx.pipx_metadata_file import PackageInfo
 from pipx.result import OperationData, OperationError, OperationResult, OutputMessage
-from pipx.util import PipxError, rmdir, safe_unlink
+from pipx.util import PipxError, rmdir_via_trash, safe_unlink
 from pipx.venv import Venv, VenvContainer
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
@@ -109,7 +110,7 @@ def uninstall(
             package_infos,
         )
 
-    for path in drop_copies_claimed_elsewhere(resource_paths, venv.bin_path):
+    for path in drop_links_taken_over(drop_copies_claimed_elsewhere(resource_paths, venv.bin_path), venv_dir):
         _remove_resource(path)
 
     package_info = next(
@@ -122,7 +123,8 @@ def uninstall(
         version=None if package_info is None else package_info.package_version or None,
         location=str(venv.root),
     )
-    rmdir(venv_dir)
+    # to reinstall, a venv that lost its record but kept its package looks like one from pipx before 0.15
+    rmdir_via_trash(venv_dir)
     return OperationResult(
         command=("uninstall",),
         data=UninstallData(packages=(package,)),

@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-16T15:14:49.369322                                                            #
+# Generated on 2026-10-28T20:25:48.035738                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import metaflow.metaflow_current
+    import metaflow.events
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
     import metaflow
+    import metaflow.plugins.cards.component_serializer
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import metaflow.metaflow_current
-    import metaflow.plugins.cards.component_serializer
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
     import typing
-    import metaflow.events
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
 
 
 TYPE_CHECKING: bool
@@ -232,6 +232,35 @@ class Current(object, metaclass=type):
     def perimeter(_, v = None):
         ...
     @property
+    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+        """
+        (only in the presence of the @card decorator)
+        
+        The `@card` decorator makes the cards available through the `current.card`
+        object. If multiple `@card` decorators are present, you can add an `ID` to
+        distinguish between them using `@card(id=ID)` as the decorator. You will then
+        be able to access that specific card using `current.card[ID].
+        
+        Methods available are `append` and `extend`
+        
+        Returns
+        -------
+        CardComponentCollector
+            The or one of the cards attached to this step.
+        """
+        ...
+    @property
+    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator.FlowAppManager":
+        """
+        (only in the presence of the @app_deploy_internal decorator)
+        
+        
+        Returns
+        ----------
+        FlowAppManager
+        """
+        ...
+    @property
     def parallel(self) -> "metaflow.metaflow_current.Parallel":
         """
         (only in the presence of the @parallel decorator)
@@ -258,6 +287,24 @@ class Current(object, metaclass=type):
         (only in the presence of the @parallel decorator)
         
         True if the current step is a @parallel step.
+        """
+        ...
+    @property
+    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
+        """
+        (only in the presence of the @checkpoint decorator)
+        
+        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
+        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
+        
+        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
+        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
+        where the checkpoint maybe loaded or saved.
+        
+        Returns
+        ----------
+        CurrentCheckpointer
+            The object for handling checkpointing within a step.
         """
         ...
     @property
@@ -327,56 +374,9 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
-        """
-        (only in the presence of the @checkpoint decorator)
-        
-        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
-        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
-        
-        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
-        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
-        where the checkpoint maybe loaded or saved.
-        
-        Returns
-        ----------
-        CurrentCheckpointer
-            The object for handling checkpointing within a step.
-        """
-        ...
-    @property
-    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator.FlowAppManager":
-        """
-        (only in the presence of the @app_deploy_internal decorator)
-        
-        
-        Returns
-        ----------
-        FlowAppManager
-        """
-        ...
-    @property
-    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
-        """
-        (only in the presence of the @card decorator)
-        
-        The `@card` decorator makes the cards available through the `current.card`
-        object. If multiple `@card` decorators are present, you can add an `ID` to
-        distinguish between them using `@card(id=ID)` as the decorator. You will then
-        be able to access that specific card using `current.card[ID].
-        
-        Methods available are `append` and `extend`
-        
-        Returns
-        -------
-        CardComponentCollector
-            The or one of the cards attached to this step.
-        """
-        ...
-    @property
     def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @trigger, or @trigger_on_finish decorators)
+        (only in the presence of the @trigger_on_finish, or @trigger decorators)
         
         Returns `Trigger` if the current run is triggered by an event
         

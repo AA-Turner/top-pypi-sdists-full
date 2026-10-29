@@ -54,7 +54,6 @@ from datamodel_code_generator.parser.base import (
     _DEFERRED_INHERITED_CLASS_KEY,
     _DEFERRED_INHERITED_TYPE_KEY,
     _RAW_SCHEMA_DEFAULT_KEY,
-    _SOURCE_REFERENCE_PATH_KEY,
     SPECIAL_PATH_FORMAT,
     Parser,
     Source,
@@ -68,7 +67,6 @@ from datamodel_code_generator.parser.jsonschema import (
     Types,
     _get_json_value_type,
     _get_union_variant_name,
-    _get_unique_rw_model_variant_source_path,
     _json_literal_may_accept_container,
     _json_literal_values_equal,
     _json_schema_type_may_accept_container,
@@ -94,6 +92,13 @@ assert_file_content = create_assert_file_content(EXPECTED_PARSER_PATH)
 
 def _json_schema_object(data: dict[str, Any]) -> JsonSchemaObject:
     return JsonSchemaObject.model_validate(data)
+
+
+def test_json_schema_object_ref_type() -> None:
+    """Keep the public ``ref_type`` property: the kind of the ``$ref``, or None without one."""
+    refs = ["#/$defs/Model", "other.json#/Model", "https://example.com/schema.json", None]
+    kinds = [_json_schema_object({"$ref": ref} if ref else {}).ref_type for ref in refs]
+    assert_output("\n".join(f"{ref}: {kind}" for ref, kind in zip(refs, kinds, strict=True)))
 
 
 @pytest.mark.parametrize("entrypoint", ["config", "options", "api"])
@@ -1520,18 +1525,11 @@ def test_traverse_schema_objects_falls_back_for_parser_subclass_children() -> No
             obj: JsonSchemaObject,
             path: list[str],
             callback: Callable[[JsonSchemaObject, list[str]], None],
-            *,
-            include_one_of: bool = True,
         ) -> None:
-            super()._traverse_schema_objects(obj, path, callback, include_one_of=include_one_of)
+            super()._traverse_schema_objects(obj, path, callback)
             if isinstance(obj, ExtensionSchema):
                 for index, child in enumerate(obj.children):
-                    self._traverse_schema_objects(
-                        child,
-                        [*path, "children", str(index)],
-                        callback,
-                        include_one_of=include_one_of,
-                    )
+                    self._traverse_schema_objects(child, [*path, "children", str(index)], callback)
 
     parser = ExtensionParser("")
     obj = ExtensionSchema.model_validate({"children": [{"type": "string"}]})
@@ -3980,7 +3978,7 @@ def test_clear_inherited_field_caches_releases_deferred_list_wrapper_cycles(
 
 
 def test_inherited_parent_property_cache_is_context_scoped() -> None:
-    """Pure references reuse only identical recursive and relative-ref contexts."""
+    """Pure references reuse only identical recursive and parent contexts."""
     parser = JsonSchemaParser("")
     parser.raw_obj = {
         "$defs": {
@@ -4002,36 +4000,27 @@ def test_inherited_parent_property_cache_is_context_scoped() -> None:
         "#/$defs/Parent",
         frozenset({"#/$defs/Target"}),
     )
-    resolved_context = parser._resolve_inherited_parent_property(
-        pure_ref,
-        "#/$defs/Parent",
-        refs_resolved=True,
-    )
     relative_ref = JsonSchemaObject.model_validate({
         "$ref": "./types.json#/$defs/Target",
     })
     first_parent_ref = f"{DATA_PATH / 'first' / 'parent.json'}#/$defs/Parent"
     second_parent_ref = f"{DATA_PATH / 'second' / 'parent.json'}#/$defs/Parent"
-    with parser._inherited_ref_context(first_parent_ref):
-        first_resolved_ref = parser.model_resolver.resolve_ref(relative_ref.ref)
-    with parser._inherited_ref_context(second_parent_ref):
-        second_resolved_ref = parser.model_resolver.resolve_ref(relative_ref.ref)
+    resolved_relative_ref = parser._ref_path(relative_ref.ref)
     first_relative = parser._resolve_inherited_parent_property(
         relative_ref,
         first_parent_ref,
-        frozenset({first_resolved_ref}),
+        frozenset({resolved_relative_ref}),
     )
     second_relative = parser._resolve_inherited_parent_property(
         relative_ref,
         second_parent_ref,
-        frozenset({second_resolved_ref}),
+        frozenset({resolved_relative_ref}),
     )
 
     assert repeated is first
     assert recursive is not first
-    assert resolved_context is not first
     assert first_relative is not second_relative
-    assert len(parser._inherited_parent_property_cache) == 5
+    assert len(parser._inherited_parent_property_cache) == 4
     assert all(
         cached_source is pure_ref or cached_source is relative_ref
         for cached_source, _ in parser._inherited_parent_property_cache.values()
@@ -4059,12 +4048,7 @@ def test_inherited_parent_property_cache_bypasses_mutable_sibling_refs() -> None
         sibling_ref,
         "#/$defs/Parent",
     )
-    resolved_sibling = parser._resolve_inherited_parent_property(
-        sibling_ref,
-        "#/$defs/Parent",
-        refs_resolved=True,
-    )
-    inline_schema = JsonSchemaObject.model_validate({"type": "integer"})
+    inline_schema = JsonSchemaObject.model_validate({"type": "string"})
     inline = parser._resolve_inherited_parent_property(
         inline_schema,
         "#/$defs/Parent",
@@ -4073,7 +4057,7 @@ def test_inherited_parent_property_cache_bypasses_mutable_sibling_refs() -> None
         inline_schema,
         "#/$defs/Parent",
     )
-    inline_cache_key = (id(inline_schema), "#/$defs/Parent", frozenset(), False)
+    inline_cache_key = (id(inline_schema), "#/$defs/Parent", frozenset())
     inline_schema.ref = "#/$defs/Target"
     mutated_inline = parser._resolve_inherited_parent_property(
         inline_schema,
@@ -4082,8 +4066,6 @@ def test_inherited_parent_property_cache_bypasses_mutable_sibling_refs() -> None
 
     assert sibling is not first
     assert sibling[0].minLength == 2
-    assert resolved_sibling[0].minLength == 2
-    assert resolved_sibling[3]
     assert repeated_inline is inline
     assert mutated_inline is not inline
     assert parser._inherited_parent_property_cache[inline_cache_key][0] is inline_schema
@@ -4393,7 +4375,6 @@ def test_inherited_type_shape_branch_matrix() -> None:
         {"allOf": [{"type": "string"}]},
         {"minLength": 1},
         "#/$defs/Parent",
-        parent_refs_resolved=True,
     ) == {
         "type": "string",
         "minLength": 1,
@@ -4402,7 +4383,6 @@ def test_inherited_type_shape_branch_matrix() -> None:
         {"enum": ["value"]},
         {"minLength": 1},
         "#/$defs/Parent",
-        parent_refs_resolved=True,
     ) == {
         "type": "string",
         "minLength": 1,
@@ -4411,7 +4391,6 @@ def test_inherited_type_shape_branch_matrix() -> None:
         {"type": ["null"]},
         {"nullable": False},
         "#/$defs/Parent",
-        parent_refs_resolved=True,
     ) == {
         "type": ["null"],
         "nullable": False,
@@ -4427,7 +4406,6 @@ def test_inherited_type_shape_branch_matrix() -> None:
             inherited_union,
             {},
             "#/$defs/Parent",
-            parent_refs_resolved=True,
         )
         == inherited_union
     )
@@ -4760,7 +4738,7 @@ def test_partial_inherited_nested_nullable_ref_type_compatibility(
         parser._is_partial_inherited_nested_value(
             child,
             JsonSchemaObject.model_validate({"$ref": parent_ref}),
-            context=("#/$defs/Owner", frozenset(), False),
+            context=("#/$defs/Owner", frozenset()),
         )
         is expected
     )
@@ -5316,13 +5294,6 @@ def test_request_response_variant_graph_handles_cached_internal_and_missing_refs
     assert parser._get_raw_inherited_fields(cached_reference, frozenset()) == []
     assert parser._raw_inherited_own_names_cache[cached_reference.path] == frozenset({"value"})
 
-    all_parser = JsonSchemaParser(
-        "",
-        read_only_write_only_model_type=ReadOnlyWriteOnlyModelType.All,
-    )
-    all_parser.raw_obj = None  # type: ignore[assignment]  # exercise an unresolved external document
-    assert not all_parser._ref_schema_generates_variant("#/$defs/Missing", "Request")
-
 
 def test_request_response_schema_graph_helper_edges(tmp_path: Path) -> None:
     """Schema graph helpers cover tuple items, combined key schemas, and mapped leaves."""
@@ -5330,7 +5301,11 @@ def test_request_response_schema_graph_helper_edges(tmp_path: Path) -> None:
     tuple_schema = JsonSchemaObject.model_validate({
         "items": [{"type": "string"}, False],
     })
-    children = list(parser._iter_rw_model_schema_children(tuple_schema, detect_inline_variant=True))
+    children = list(
+        parser._iter_rw_model_schema_children(
+            tuple_schema, "#", detect_inline_variant=True, types_map=True, extras=None
+        )
+    )
 
     assert len(children) == 1
     assert children[0][0].type == "string"
@@ -5388,43 +5363,8 @@ def test_request_response_schema_graph_helper_edges(tmp_path: Path) -> None:
     assert parser._get_inline_property_names(inline_properties) == frozenset({"direct", "nested"})
 
 
-def test_request_response_variant_source_path_collision_fallbacks() -> None:
-    """Variant metadata paths remain unique for unrelated names and repeated source collisions."""
-    assert (
-        _get_unique_rw_model_variant_source_path(
-            "#/$defs/ChildRequest",
-            "ChildRequest",
-            "RenamedRequest",
-            collides_with_source=True,
-        )
-        == "#/$defs/RenamedRequest"
-    )
-
-    parser = JsonSchemaParser(
-        "",
-        read_only_write_only_model_type=ReadOnlyWriteOnlyModelType.RequestResponse,
-    )
-    parser.raw_obj = {
-        "$defs": {
-            "Child": {},
-            "ChildRequest": {},
-            "ChildRequest1": {},
-        },
-    }
-    base_reference = parser.model_resolver.add(
-        ["#", "$defs", "Child"],
-        "Child",
-        class_name=True,
-        loaded=True,
-    )
-
-    request_reference = parser._get_rw_model_variant_reference(base_reference, "Request")
-
-    assert request_reference.__dict__[_SOURCE_REFERENCE_PATH_KEY] == "#/$defs/ChildRequest11"
-
-
-def test_request_response_variant_affix_keeps_numeric_suffix_and_unique_source_path() -> None:
-    """Variant affixes precede collision indexes and never reuse a source schema path."""
+def test_request_response_variant_affix_keeps_numeric_suffix() -> None:
+    """Variant affixes precede collision indexes."""
     parser = JsonSchemaParser(
         "",
         class_name_prefix="Api",
@@ -5451,11 +5391,6 @@ def test_request_response_variant_affix_keeps_numeric_suffix_and_unique_source_p
     assert base_reference.name == "ApiChildModel1"
     assert request_reference.name == "ApiChildRequestModel1"
     assert response_reference.name == "ApiChildResponseModel1"
-    source_paths = {
-        request_reference.__dict__[_SOURCE_REFERENCE_PATH_KEY],
-        response_reference.__dict__[_SOURCE_REFERENCE_PATH_KEY],
-    }
-    assert len(source_paths | {"#/$defs/ChildRequest", "#/$defs/ChildResponse"}) == 4
 
 
 def test_request_response_typed_dict_additional_properties_metadata_uses_variants() -> None:
@@ -5720,7 +5655,7 @@ def test_set_unevaluated_properties_schema_allows_extra_without_typed_runtime() 
 
     parser.set_unevaluated_properties(
         "#/Model",
-        JsonSchemaObject.model_validate({"unevaluatedProperties": {"type": "integer"}}),
+        JsonSchemaObject.model_validate({"allOf": [{"type": "object"}], "unevaluatedProperties": {"type": "integer"}}),
     )
 
     assert parser.extra_template_data["#/Model"] == {"unevaluatedProperties": True}

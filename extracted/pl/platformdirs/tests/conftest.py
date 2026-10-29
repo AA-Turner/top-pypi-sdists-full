@@ -124,7 +124,14 @@ def modes() -> Callable[[Path], dict[str, int]]:
     return collect
 
 
-@pytest.fixture(params=[pytest.param(None, id="home-unset"), pytest.param("", id="home-empty")])
+@pytest.fixture(
+    params=[
+        pytest.param(None, id="home-unset"),
+        pytest.param("", id="home-empty"),
+        pytest.param("relhome", id="home-relative"),
+        pytest.param(".", id="home-dot"),
+    ]
+)
 def _unknown_home(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, pwd: ModuleType
 ) -> None:
@@ -138,3 +145,12 @@ def _unknown_home(
 @pytest.fixture
 def pwd() -> ModuleType:
     return pytest.importorskip("pwd")
+
+
+@pytest.fixture(params=["file", "file-symlink"])
+def media_file(request: SubRequest, tmp_path: Path) -> Path:
+    (target := tmp_path / "file").touch()
+    if request.param == "file":
+        return target
+    (link := tmp_path / "media").symlink_to(target)
+    return link

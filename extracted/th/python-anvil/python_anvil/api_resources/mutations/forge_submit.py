@@ -1,80 +1,34 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from python_anvil.api_resources.mutations.base import BaseQuery
 from python_anvil.api_resources.mutations.helpers import get_payload_attrs
 from python_anvil.api_resources.payload import ForgeSubmitPayload
+from python_anvil.graphql.mutations.forge_submit import (
+    DEFAULT_RESPONSE_QUERY,
+    generate_mutation,
+)
+from python_anvil.utils import camel_to_snake
 
 
-DEFAULT_RESPONSE_QUERY = """
-{
-  eid
-  status
-  resolvedPayload
-  currentStep
-  completedAt
-  createdAt
-  updatedAt
-  signer {
-    name
-    email
-    status
-    routingOrder
-  }
-  weldData {
-    eid
-    status
-    isTest
-    isComplete
-    agents
-  }
-}
-"""
-
-# NOTE: Since the below will be used as a formatted string (this also applies
-#   to f-strings) any literal curly braces need to be doubled, else they'll be
-#   interpreted as string replacement tokens.
-FORGE_SUBMIT = """
-mutation ForgeSubmit(
-    $forgeEid: String!,
-    $weldDataEid: String,
-    $submissionEid: String,
-    $payload: JSON!,
-    $currentStep: Int,
-    $complete: Boolean,
-    $isTest: Boolean,
-    $timezone: String,
-    $groupArrayId: String,
-    $groupArrayIndex: Int,
-    $webhookURL: String,
-) {{
-    forgeSubmit (
-        forgeEid: $forgeEid,
-        weldDataEid: $weldDataEid,
-        submissionEid: $submissionEid,
-        payload: $payload,
-        currentStep: $currentStep,
-        complete: $complete,
-        isTest: $isTest,
-        timezone: $timezone,
-        groupArrayId: $groupArrayId,
-        groupArrayIndex: $groupArrayIndex,
-        webhookURL: $webhookURL
-    ) {query}
-}}
-"""
+# The mutation, under the name it had before 6.0.0
+FORGE_SUBMIT = generate_mutation()
 
 
 class ForgeSubmit(BaseQuery):
-    mutation = FORGE_SUBMIT
-    mutation_res_query = DEFAULT_RESPONSE_QUERY
+    """Builds a `forgeSubmit` mutation and its variables."""
+
+    default_response_query = DEFAULT_RESPONSE_QUERY
+
+    def get_mutation(self, response_query: str | None = None) -> str:
+        return generate_mutation(self.response_fields(response_query))
 
     def __init__(
         self,
-        payload: Union[Dict[str, Any], ForgeSubmitPayload],
-        forge_eid: Optional[str] = None,
-        weld_data_eid: Optional[str] = None,
-        submission_eid: Optional[str] = None,
-        is_test: Optional[bool] = None,
+        payload: dict[str, Any] | ForgeSubmitPayload,
+        forge_eid: str | None = None,
+        weld_data_eid: str | None = None,
+        submission_eid: str | None = None,
+        is_test: bool | None = None,
         **kwargs,
     ):
         """
@@ -107,10 +61,9 @@ class ForgeSubmit(BaseQuery):
                 setattr(self, attr, kwargs[attr])
 
     @classmethod
-    def create_from_dict(cls, payload: Dict[str, Any]):
-        # Parse the data through the model class to validate and pass it back
-        # as variables in this class.
-        return cls(**payload)
+    def create_from_dict(cls, payload: dict[str, Any]):
+        """Create a `ForgeSubmit` from a dict. Keys may be snake_case or camelCase."""
+        return cls(**{camel_to_snake(k): v for k, v in payload.items()})
 
     def create_payload(self):
         # If provided a payload and no forge_eid, we'll assume that it's the

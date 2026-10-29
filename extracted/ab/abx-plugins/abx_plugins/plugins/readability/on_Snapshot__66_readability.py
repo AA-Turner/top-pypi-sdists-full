@@ -24,7 +24,6 @@ Note: Requires readability-extractor from https://github.com/ArchiveBox/readabil
 import sys
 import html
 import json
-import mmap
 import os
 import re
 import shutil
@@ -43,6 +42,7 @@ from abx_plugins.plugins.base.utils import (
     write_text_atomic,
     find_article_html_source,
     preserve_article_image_dimensions,
+    read_article_html,
 )
 
 from urllib.parse import unquote, urljoin, urlparse
@@ -179,84 +179,13 @@ blockquote {{ padding-left: 1.25rem; border-left: 4px solid #cbd5e1; color: #475
 </style></head><body><main><article>{content}</article></main></body></html>'''
 
 
-def read_article_html(path: str) -> tuple[str, bool]:
-    # Match readability-extractor's data URL policy before UTF-8 decoding:
-    # one non-BMP character otherwise widens hundreds of MB of inline payload
-    # in Python while Node holds another copy. Keep the original capture intact.
-    # The regex accepts a read-only mapping: scan captured payloads without
-    # allocating a second full-file heap buffer, and unmap before Node starts.
-    # These are completed saved inputs, never writable browser capture streams.
-    with Path(path).open("rb") as source_file:
-        if not os.fstat(source_file.fileno()).st_size:
-            return "", False
-        with mmap.mmap(source_file.fileno(), 0, access=mmap.ACCESS_READ) as source:
-            strip_base64 = len(source) > 14_000_000
-            header = rb"data:[^,\s\"'<>:]*,"
-            base64 = rb"data:[^,\s\"'<>:]*;base64,[A-Za-z0-9+/=\s]+"
-            # Quoted base64 permits wrapping; generic URLs exclude whitespace so a
-            # srcset's other candidates survive. Only bare CSS URLs end at ')'.
-            urls = re.compile(
-                rb'"('
-                + base64
-                + b"|"
-                + header
-                + rb'[^"\s<>]+)"'
-                + rb"|'("
-                + base64
-                + b"|"
-                + header
-                + rb"[^'\s<>]+)'"
-                + rb"|\b(url\(\s*)("
-                + header
-                + rb"[^\s\"'<>)]*)"
-                + rb"|(?<![\w:-])("
-                + header
-                + rb"[^\s\"'<>]+)",
-                re.I,
-            )
-            base64_header = re.compile(rb"data:[^,]*;base64,", re.I)
-            stripped_urls = 0
-
-            def replace(match: re.Match[bytes]) -> bytes:
-                nonlocal stripped_urls
-                group = next(index for index in (1, 2, 4, 5) if match.start(index) >= 0)
-                start, end = match.span(group)
-                # Inspect spans rather than copying an enormous group just to size it.
-                if end - start <= 1024**2 and not (
-                    strip_base64 and base64_header.match(source, start, end)
-                ):
-                    return match.group()
-                stripped_urls += 1
-                quote = b'"' if group == 1 else b"'" if group == 2 else b""
-                prefix = match.group(3) if group == 4 else b""
-                return (
-                    quote
-                    + prefix
-                    + b"data:image/png;base64,inline-images-stripped-by-archivebox-because-size-limit-exceeded=="
-                    + quote
-                )
-
-            cleaned = urls.sub(replace, source)
-            if stripped_urls:
-                print(
-                    f"[!] WARNING: Stripped {stripped_urls} inline data URLs exceeding extraction size limits",
-                    file=sys.stderr,
-                )
-            # Retain read_text's universal-newline behavior for article offset parsing.
-            text = (
-                cleaned.decode("utf-8", errors="replace")
-                .replace("\r\n", "\n")
-                .replace("\r", "\n")
-            )
-            return text, bool(stripped_urls)
-
-
 def primary_article_html(source: str) -> str:
     """Exclude separately headed articles appended to a known primary article.
 
-    A unique H1 must agree with explicit Article JSON-LD. Without that evidence,
-    leave selection to Readability. Keep the primary article's nested sections
-    and unheaded article blocks, which may be continuations of the same story.
+    Exactly one H1 must agree with explicit Article JSON-LD. Other H1s must
+    belong to bounded articles, not ambiguous page-level headings. Without that
+    evidence, leave selection to Readability. Keep the primary article's nested
+    sections and unheaded blocks, which may continue the same story.
     """
     if "application/ld+json" not in source:
         return source
@@ -310,6 +239,11 @@ def primary_article_html(source: str) -> str:
                     for node in nodes:
                         if not isinstance(node, dict):
                             continue
+                        # JSON-LD commonly wraps Article nodes in @graph. Match
+                        # infiniscroll's metadata handling, including headlines
+                        # containing HTML entities rather than literal glyphs.
+                        if isinstance(node.get("@graph"), list):
+                            nodes.extend(node["@graph"])
                         types = node.get("@type", [])
                         types = [types] if isinstance(types, str) else types
                         if not isinstance(types, list) or not all(
@@ -322,21 +256,32 @@ def primary_article_html(source: str) -> str:
                         ):
                             headline = node.get("headline")
                             if isinstance(headline, str):
-                                self.headlines.add(" ".join(headline.split()))
+                                self.headlines.add(
+                                    " ".join(html.unescape(headline).split()),
+                                )
                 except (ValueError, TypeError):
                     pass
                 self.script = None
 
     parser = Articles()
     parser.feed(source)
-    primary = [h for h in parser.headings if h[0] == "h1"]
-    if (
-        parser.depth
-        or len(primary) != 1
-        or " ".join(primary[0][2].split()) not in parser.headlines
-    ):
+    primary = [
+        h
+        for h in parser.headings
+        if h[0] == "h1" and " ".join(h[2].split()) in parser.headlines
+    ]
+    if parser.depth or len(primary) != 1:
         return source
     _, primary_start, primary_title = primary[0]
+    # Appended stories legitimately have their own H1. A heading outside any
+    # complete article has no safe removal boundary, so keep native selection.
+    if any(
+        tag == "h1"
+        and position != primary_start
+        and not any(start <= position < end for start, end in parser.articles)
+        for tag, position, _ in parser.headings
+    ):
+        return source
     primary_title = " ".join(primary_title.split())
     chunks = []
     cursor = 0

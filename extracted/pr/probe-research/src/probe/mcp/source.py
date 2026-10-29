@@ -400,6 +400,11 @@ class ResearchOSSource:
             expand=expand,
         )
 
+    def docs(self, query: str, *, limit: int | None = None) -> dict:
+        """``GET /public/v1/docs``: Probe's own docs, best section first, each
+        whole. Sent without a credential (it is public)."""
+        return self.client.docs(query, limit=limit)
+
     def identity(self) -> dict:
         """``GET /v1/me``, cached for ``_IDENTITY_TTL_SECONDS``.
 

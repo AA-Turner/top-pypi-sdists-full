@@ -522,7 +522,7 @@ def write_top_level(key: str, value: str | None, *, path: Path | None = None) ->
     newline = "\r\n" if "\r\n" in original else "\n"
     lines = original.splitlines(keepends=True)
     first_table = _first_table(lines)
-    pattern = re.compile(rf'^\s*(?:{re.escape(key)}|"{re.escape(key)}")\s*=')
+    pattern = re.compile(rf'''^\s*(?:{re.escape(key)}|"{re.escape(key)}"|'{re.escape(key)}')\s*=''')
     found = next((i for i in range(first_table) if pattern.match(lines[i])), None)
     new_line = None if value is None else f"{key} = {_toml_string(value)}{newline}"
     if found is not None:

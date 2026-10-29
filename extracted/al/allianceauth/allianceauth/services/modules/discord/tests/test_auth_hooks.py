@@ -76,7 +76,7 @@ class TestDiscordService(NoSocketsTestCase):
         self.assertTrue(DiscordUser.objects.filter(user=self.member).exists())
 
         # Test none member is deleted
-        DiscordUser.objects.create(user=self.none_member, uid=TEST_USER_ID)
+        DiscordUser.objects.create(user=self.none_member, uid=TEST_USER_ID + 1)
         service.validate_user(self.none_member)
         self.assertFalse(DiscordUser.objects.filter(user=self.none_member).exists())
 

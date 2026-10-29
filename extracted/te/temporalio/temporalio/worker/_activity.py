@@ -95,6 +95,17 @@ class _ActivityWorker:
                     f"Activity named {defn.name} is a class instead of an instance"
                 )
 
+            # A plain function whose first parameter is "self" is almost always
+            # a method referenced from the class instead of from an instance
+            if inspect.isfunction(activity):
+                params = list(inspect.signature(activity).parameters)
+                if params and params[0] == "self":
+                    warnings.warn(
+                        f"Activity named {defn.name} has a first parameter named self "
+                        "but is not bound to an instance, did you mean to register it "
+                        "from an instance of the class?"
+                    )
+
             # Some extra requirements for sync functions
             if not defn.is_async:
                 if not activity_executor:
@@ -154,9 +165,8 @@ class _ActivityWorker:
 
                 if task.HasField("start"):
                     # Cancelled event and sync field will be updated inside
-                    # _run_activity when the activity function is obtained. Max
-                    # size of 1000 should be plenty for the heartbeat queue.
-                    activity = _RunningActivity(pending_heartbeats=asyncio.Queue(1000))
+                    # _run_activity when the activity function is obtained.
+                    activity = _RunningActivity()
                     activity.task = asyncio.create_task(
                         self._handle_start_activity_task(
                             task.task_token, task.start, activity
@@ -197,7 +207,14 @@ class _ActivityWorker:
     async def wait_all_completed(self) -> None:
         running_tasks = [v.task for v in self._running_activities.values() if v.task]
         if running_tasks:
-            await asyncio.gather(*running_tasks, return_exceptions=False)
+            # Never let a task exception escape and stall shutdown
+            for result in await asyncio.gather(*running_tasks, return_exceptions=True):
+                if isinstance(result, BaseException) and not isinstance(
+                    result, asyncio.CancelledError
+                ):
+                    logger.warning(
+                        "Activity task raised during worker shutdown", exc_info=result
+                    )
 
     def _handle_cancel_activity_task(
         self,
@@ -223,14 +240,14 @@ class _ActivityWorker:
         # converter is async, we have to schedule it. If the activity is done,
         # we do not schedule any more. Technically this should be impossible to
         # call if the activity is done because this sync call can only be called
-        # inside the activity and done is set to False when the activity
+        # inside the activity and done is set to True when the activity
         # returns.
         logger = temporalio.activity.logger
         activity = self._running_activities.get(task_token)
         if activity and not activity.done:
-            # Put on queue and schedule a task. We will let the queue-full error
-            # be thrown here.
-            activity.pending_heartbeats.put_nowait(details)
+            # Only the newest heartbeat gets sent, so it replaces one that hasn't
+            # been picked up yet
+            activity.pending_heartbeat = details
             activity.last_heartbeat_task = asyncio.create_task(
                 self._heartbeat_async(logger, activity, task_token)
             )
@@ -241,10 +258,20 @@ class _ActivityWorker:
         activity: _RunningActivity,
         task_token: bytes,
     ) -> None:
-        # Drain the queue, only taking the last value to actually heartbeat
-        details: Sequence[Any] | None = None
-        while not activity.pending_heartbeats.empty():
-            details = activity.pending_heartbeats.get_nowait()
+        # One heartbeat at a time, so a slow encode can't let an older heartbeat
+        # reach core after a newer one
+        async with activity.heartbeat_lock:
+            await self._send_latest_heartbeat(logger, activity, task_token)
+
+    async def _send_latest_heartbeat(
+        self,
+        logger: logging.LoggerAdapter,
+        activity: _RunningActivity,
+        task_token: bytes,
+    ) -> None:
+        # Nothing to send if an earlier task already sent the newest heartbeat
+        details = activity.pending_heartbeat
+        activity.pending_heartbeat = None
         if details is None:
             return
 
@@ -348,9 +375,15 @@ class _ActivityWorker:
             context, StorageDriverStoreContext(target=store_target)
         )
         try:
-            result = await self._execute_activity(
-                start, running_activity, task_token, data_converter
-            )
+            try:
+                result = await self._execute_activity(
+                    start, running_activity, task_token, data_converter
+                )
+            finally:
+                # The activity code has finished, so a cancel from here on must
+                # not interrupt reporting its outcome; done stops cancel() from
+                # cancelling this task
+                running_activity.done = True
             [payload] = await data_converter.encode([result])
             completion.result.completed.result.CopyFrom(payload)
         except BaseException as err:
@@ -472,9 +505,7 @@ class _ActivityWorker:
 
         # Do final completion
         try:
-            # We mark the activity as done and let the currently running
-            # heartbeat task finish
-            running_activity.done = True
+            # Let the currently running heartbeat task finish
             if running_activity.last_heartbeat_task:
                 try:
                     await running_activity.last_heartbeat_task
@@ -662,7 +693,7 @@ class _ActivityWorker:
                     if not running_activity.cancel_thread_raiser
                     else running_activity.cancel_thread_raiser.shielded
                 ),
-                payload_converter_class_or_instance=data_converter._get_internal_payload_converter(),
+                payload_converter_class_or_instance=data_converter.payload_converter,
                 runtime_metric_meter=None if sync_non_threaded else self._metric_meter,
                 client=self._client if not running_activity.sync else None,
                 cancellation_details=running_activity.cancellation_details,
@@ -694,12 +725,13 @@ class _ActivityWorker:
 
 @dataclass
 class _RunningActivity:
-    pending_heartbeats: asyncio.Queue[Sequence[Any]]
     # Most of these optional values are set before use
     info: temporalio.activity.Info | None = None
     task: asyncio.Task | None = None
     cancelled_event: temporalio.common._CompositeEvent | None = None
     last_heartbeat_task: asyncio.Task | None = None
+    pending_heartbeat: Sequence[Any] | None = None
+    heartbeat_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     cancel_thread_raiser: _ThreadExceptionRaiser | None = None
     sync: bool = False
     done: bool = False
@@ -847,7 +879,7 @@ class _ActivityInboundImpl(ActivityInboundInterceptor):
             # The payload converter is the already instantiated one for thread
             # or the picklable class for non-thread
             payload_converter_class_or_instance = (
-                self._worker._data_converter._get_internal_payload_converter()
+                self._worker._data_converter.payload_converter
                 if isinstance(input.executor, concurrent.futures.ThreadPoolExecutor)
                 else self._worker._data_converter.payload_converter_class
             )

@@ -1,5 +1,6 @@
 import logging
 import re
+import warnings
 
 from django.conf import settings
 from django.contrib import auth, messages
@@ -9,6 +10,7 @@ from django.utils.module_loading import import_string
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
 
+from authlib.admin_oauth.checks import accepts_user_data
 from authlib.views import retrieve_next, set_next_cookie
 
 
@@ -76,8 +78,7 @@ def admin_oauth(request, client_class=None):
                     )
                     continue
                 if not user and ADMIN_OAUTH_CREATE_USER_CALLBACK:
-                    fn = import_string(ADMIN_OAUTH_CREATE_USER_CALLBACK)
-                    fn(request, user_mail)
+                    _create_user(request, user_mail, user_data)
                     user = auth.authenticate(email=user_mail)
                 if user and user.is_staff:
                     auth.login(request, user)
@@ -110,7 +111,22 @@ def admin_oauth(request, client_class=None):
     return response
 
 
-def create_superuser(request, email):
+def _create_user(request, email, user_data):
+    fn = import_string(ADMIN_OAUTH_CREATE_USER_CALLBACK)
+    if accepts_user_data(fn):
+        fn(request, email, user_data=user_data)
+    else:
+        warnings.warn(
+            f"ADMIN_OAUTH_CREATE_USER_CALLBACK ({ADMIN_OAUTH_CREATE_USER_CALLBACK!r})"
+            " doesn't accept a user_data keyword argument. Calling it without"
+            " user_data is deprecated.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        fn(request, email)
+
+
+def create_superuser(request, email, **kwargs):
     user_model = auth.get_user_model()
     if user_model.objects.filter(email=email).exists() is False:
         user = user_model(email=email, is_active=True, is_staff=True, is_superuser=True)

@@ -25,14 +25,14 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.16.6
+  rev: v0.16.10
   hooks:
   - id: ruff-check
     args: ["--fix", "--show-fixes"]
   - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v2.3.1
+  rev: v2.4.0
   hooks:
   - id: mypy
     files: ^src
@@ -58,3 +58,9 @@ repos:
   rev: v0.11.0.1-1
   hooks:
   - id: shellcheck
+
+- repo: https://github.com/henryiii/flake8-lazy
+  rev: v0.10.1
+  hooks:
+  - id: flake8-lazy
+    args: [--apply=set, --strict-typing]

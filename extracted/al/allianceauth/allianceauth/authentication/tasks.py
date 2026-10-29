@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task
-def check_character_ownership(owner_hash):
+def check_character_ownership(owner_hash: str) -> None:
     tokens = Token.objects.filter(character_owner_hash=owner_hash)
     if tokens:
         for t in tokens:
@@ -38,6 +38,6 @@ def check_character_ownership(owner_hash):
 
 
 @shared_task
-def check_all_character_ownership():
+def check_all_character_ownership() -> None:
     for c in CharacterOwnership.objects.all().only('owner_hash'):
         check_character_ownership.delay(c.owner_hash)

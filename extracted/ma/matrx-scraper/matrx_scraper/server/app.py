@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from matrx_connect import require_authenticated, require_authenticated_or_service
@@ -987,6 +987,13 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
         resolve_current_session=session_authority,
     )
 
+    # THE TEST STAMP: X-Matrx-Test-Run -> ContextVar -> `app.test_run` at every
+    # transaction open, so platform._stamp_test_run stamps what a test's crawl
+    # writes (matrx_scraper/test_stamp.py). Inert without the header.
+    from matrx_scraper.test_stamp import install_test_run_stamp
+
+    install_test_run_stamp(app)
+
     # CORS must wrap shared authentication refusals as well as route responses.
     app.add_middleware(
         CORSMiddleware,
@@ -1068,11 +1075,30 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
         tags=["preview"],
         dependencies=[Depends(scraper_caller)],
     )
+    # The crawl router admits the same two callers: a person's login (the audit
+    # screen) OR one of our servers acting for a named person in a named
+    # organization. Until 2026-10-28 it took a login only, so every crawl a
+    # resumed or worker-run workflow started (no login token: background work)
+    # was refused `401 token_required` while the same secret passed the five
+    # routers above. A crawl writes rows owned by a person (build_user_claims
+    # needs `sub`), so the service path must name one: require_user=True. The
+    # login branch keeps its account-only rule: a guest token is refused with
+    # `401 account_required` exactly as `require_authenticated` always did.
+    crawl_service_caller = require_authenticated_or_service(
+        config.admin_api_token, require_user=True
+    )
+
+    async def crawl_caller(request: Request) -> None:
+        ctx = getattr(request.state, "context", None)
+        if ctx is not None and ctx.is_authenticated:
+            await require_authenticated(request)
+            return
+        await crawl_service_caller(request)
     app.include_router(
         crawl_router,
         prefix="/api/scraper",
         tags=["crawler"],
-        dependencies=[Depends(require_authenticated)],
+        dependencies=[Depends(crawl_caller)],
     )
 
     @app.get("/health")

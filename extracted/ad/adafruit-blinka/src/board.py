@@ -10,7 +10,7 @@ See `CircuitPython:board` in CircuitPython for more details.
 * Author(s): cefn, Melissa LeBlanc-Williams
 """
 
-__version__ = "10.0.0"
+__version__ = "10.1.0"
 __repo__ = "https://github.com/adafruit/Adafruit_Blinka.git"
 __blinka__ = True
 
@@ -46,7 +46,7 @@ with open(get_import_file("board_imports.json", __file__)) as f:
                 import_mod(globals(), board_module)
                 break
         else:
-            if board_id == getattr(ap_board, board_key):
+            if board_id is not None and board_id == getattr(ap_board, board_key, None):
                 import_mod(globals(), board_module)
                 break
     else:

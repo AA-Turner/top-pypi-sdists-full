@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-__lazy_modules__ = ["pipx.backends.uv", "pipx.util", "shutil"]
+__lazy_modules__ = ["pipx", "pipx.backends.uv", "pipx.util", "shutil"]
 
 import logging
+import os
 from shutil import which
 from typing import TYPE_CHECKING, Final, NoReturn
 
+from pipx import paths
 from pipx.backends.uv import UvBackend, resolve_uv_binary
 from pipx.emojis import hazard
-from pipx.util import PipxError, exec_app, pipx_wrap
+from pipx.util import PipxError, exec_app, pipx_wrap, redact_url_credentials
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -17,8 +19,9 @@ if TYPE_CHECKING:
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
 _UV_VALUE_FLAG_MAP: Final[dict[str, str]] = {
-    "--index-url": "--index-url",
-    "-i": "-i",
+    # uv lets UV_DEFAULT_INDEX override a command-line --index-url, but not --default-index
+    "--index-url": "--default-index",
+    "-i": "--default-index",
     "--extra-index-url": "--extra-index-url",
     "--find-links": "--find-links",
     "-f": "-f",
@@ -78,14 +81,15 @@ def run_via_uv_tool_run(  # ruff:ignore[too-many-arguments]  # builds a flat `uv
         cmd.append("--verbose")
     cmd += translate_pip_args_for_uv(pip_args)
     cmd += UvBackend.cooldown_args(cooldown_days)
-    cmd.append(app)
-    cmd += app_args
+    # without the separator uv reads an app name that starts with a dash as one of its own options
+    cmd += ["--", app, *app_args]
     exec_app(cmd)
 
 
 def run_script_via_uv_run(  # ruff:ignore[too-many-arguments]  # builds a flat `uv run --script` invocation from the run options
     *,
     script_path: Path,
+    venv_dir: Path,
     app_args: list[str],
     python: str,
     pip_args: list[str],
@@ -97,7 +101,8 @@ def run_script_via_uv_run(  # ruff:ignore[too-many-arguments]  # builds a flat `
     cooldown_days: int | None = None,
 ) -> NoReturn:
     _reject_venv_args(venv_args)
-    cmd: list[str] = [str(resolve_uv_binary()), "run", "--script"]
+    # uv searches for project config from --project, or else from the script's directory, which another account may own
+    cmd: list[str] = [str(resolve_uv_binary()), "run", "--active", "--script", "--project", str(paths.ctx.home)]
     if python:
         cmd += ["--python", python]
     if not use_cache:
@@ -111,7 +116,7 @@ def run_script_via_uv_run(  # ruff:ignore[too-many-arguments]  # builds a flat `
     cmd += translate_pip_args_for_uv(pip_args)
     cmd += UvBackend.cooldown_args(cooldown_days)
     cmd += [str(script_path), *app_args]
-    exec_app(cmd)
+    exec_app(cmd, env={**os.environ, "VIRTUAL_ENV": str(venv_dir)})
 
 
 def translate_pip_args_for_uv(pip_args: list[str]) -> list[str]:
@@ -143,7 +148,7 @@ def translate_pip_args_for_uv(pip_args: list[str]) -> list[str]:
                 translated.extend([translated_flag, _next_pip_arg(flag, iterator)])
             continue
         msg = (
-            f"--pip-args contains {arg!r}, which has no `uv tool run` equivalent.\n"
+            f"--pip-args contains {redact_url_credentials(arg)!r}, which has no `uv tool run` equivalent.\n"
             "Use `--backend pip` if you need pip-only flags."
         )
         raise PipxError(msg)
@@ -154,7 +159,7 @@ def _reject_venv_args(venv_args: list[str]) -> None:
     # uv creates the venv, so accepting these options would ignore the requested behavior.
     if venv_args:
         msg = (
-            f"{' '.join(venv_args)} is not supported by `pipx run` under the uv backend.\n"
+            f"{' '.join(map(redact_url_credentials, venv_args))} is not supported by `pipx run` under the uv backend.\n"
             "Use `pipx run --backend pip` if you need it, or drop it."
         )
         raise PipxError(msg)

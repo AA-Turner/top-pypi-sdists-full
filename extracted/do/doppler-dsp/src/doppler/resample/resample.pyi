@@ -14,13 +14,21 @@ class Resampler:
 
     Parameters
     ----------
-    rate : float, default 0.0
-        Output-to-input sample rate ratio (any positive float). Values >= 1.0
-        interpolate; values < 1.0 decimate.
+    rate : float, default 1.0
+        Output-to-input sample rate ratio: finite and > 0
+        (dp_resamp_rate_ok()). Values >= 1.0 interpolate; values < 1.0
+        decimate. From Python it defaults to 1.0.
     bank : NDArray[np.float32] or None
         Optional polyphase bank: a 2-D float32 array of shape (num_phases,
         num_taps), num_phases a power of two. Omit for the built-in 4096x19
         Kaiser bank.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``Resampler: invalid
+        parameter (need rate finite and > 0; a bank of num_phases a power of
+        two, num_taps >= 1)``.
 
     Examples
     --------
@@ -36,7 +44,7 @@ class Resampler:
 
     def __init__(
         self,
-        rate: float = 0.0,
+        rate: float = 1.0,
         bank: npt.NDArray[np.float32] | None = None,
     ) -> None: ...
     def execute(
@@ -61,7 +69,9 @@ class Resampler:
         -------
         NDArray[np.complex64]
             CF32 output array; length is approximately x_len * rate, capped at
-            max_out.
+            max_out. A full out stops the call with input unread, never
+            dropped: dp_Resampler_get_consumed() (Python: `consumed`) says
+            where to resume.
 
         Examples
         --------
@@ -75,12 +85,12 @@ class Resampler:
         """
 
     def execute_max_out(self) -> int:
-        """Always returns RESAMPLER_MAX_OUT.
+        """Output-capacity hint for dp_Resampler_execute().
 
         Returns
         -------
         int
-            Output.
+            Always RESAMPLER_MAX_OUT.
         """
 
     def execute_ctrl(
@@ -113,7 +123,9 @@ class Resampler:
             capped at max_out. In C, the count written (>= 0), or
             DP_ERR_INVALID (negative) when ctrl_len is shorter than x_len:
             nothing is written. 0 stays a valid, empty result, so the sign
-            alone tells a refusal from it (doppler#1869).
+            alone tells a refusal from it (doppler#1869). A full out stops the
+            call with input unread, never dropped: dp_Resampler_get_consumed()
+            (Python: `consumed`) says where to resume.
 
         Raises
         ------
@@ -136,19 +148,20 @@ class Resampler:
         """
 
     def execute_ctrl_max_out(self) -> int:
-        """Always returns RESAMPLER_MAX_OUT.
+        """Output-capacity hint for dp_Resampler_execute_ctrl().
 
         Returns
         -------
         int
-            Output.
+            Always RESAMPLER_MAX_OUT.
         """
 
     def reset(self) -> None:
         """Zero the delay line and phase accumulator. Rate and polyphase bank
         are preserved so the resampler can be resumed at the same ratio.
         Zeroing state eliminates transient artefacts when starting a new signal
-        burst.
+        burst. The control accumulator read by dp_Resampler_get_ctrl_acc()
+        returns to 0.0 as well.
 
         Examples
         --------
@@ -222,10 +235,21 @@ class Resampler:
     @property
     def rate(self) -> float:
         """Get / set the output-to-input sample rate ratio. The setter
-        recomputes the phase increment immediately; the delay line and phase
-        accumulator are preserved so in-stream rate changes are glitch-free.
-        Switching sign of (rate - 1) (i.e. crossing the boundary between interp
-        and decim modes) requires a fresh create().
+        recomputes the phase increment immediately. On the same side of 1.0 the
+        delay line and phase accumulator are preserved, so in-stream rate
+        changes are glitch-free. Crossing 1.0 switches the engine between its
+        interpolation and decimation modes (the doctest below goes 0.5 -> 1.5);
+        the mode taking over was never advanced, so the crossing resets the
+        state as reset() does, and the output from there on is what a fresh
+        Resampler at the new rate gives. A rate that is not finite and > 0
+        raises ValueError and leaves the rate as it was.
+
+        Raises
+        ------
+        ValueError
+            On assignment, if ``dp_Resampler_set_rate`` refuses the value by
+            returning non-zero. The exception message is ``Resampler: rate must
+            be finite and > 0``, with the return code appended.
         """
     @rate.setter
     def rate(self, value: float) -> None: ...
@@ -234,8 +258,15 @@ class Resampler:
         """The control accumulator's fractional phase, in [0, 1)."""
 
     @property
+    def consumed(self) -> int:
+        """Input samples the last execute() or execute_ctrl() took."""
+
+    @property
     def num_phases(self) -> int:
-        """Num phases."""
+        """Number of polyphase branches in the filter bank. Always a power of
+        two. The built-in bank has 4096 phases giving sub-sample timing
+        resolution of 1/4096 of an input sample period.
+        """
 
     @property
     def num_taps(self) -> int:
@@ -306,8 +337,11 @@ class HalfbandDecimator:
     Parameters
     ----------
     h : NDArray[np.float32]
-        Float32 FIR branch coefficients. Must be a symmetric halfband prototype
-        (antisymmetric even-indexed taps zeroed).
+        Float32 FIR branch coefficients (the branch of the halfband prototype
+        with more than one nonzero tap, not the whole prototype). Must be
+        symmetric, `h[k] == h[h_len-1-k]`: only the first h_len/2 are read, and
+        for odd h_len the centre tap is ignored in favor of the fixed 0.5 delay
+        branch. Copied and scaled by 0.5; must be non-NULL.
 
     Examples
     --------
@@ -327,24 +361,30 @@ class HalfbandDecimator:
         x: npt.NDArray[np.complex64],
         out: npt.NDArray[np.complex64] | None = None,
     ) -> NDArray[np.complex64]:
-        """Decimate x by 2 using the polyphase halfband FIR filter. Processes
-        every second input sample through the FIR branch and passes the other
-        branch through the all-pass (zero-delay) path. State persists between
-        calls — contiguous blocks give identical output to one large block.
-        Output length is floor(x_len / 2).
+        """Decimate x by 2 using the polyphase halfband FIR filter. Each (even,
+        odd) input pair yields one output: one phase runs through the symmetric
+        FIR branch and the other through a pure delay weighted 0.5. State
+        persists between calls: a sample left unpaired at the end of a block
+        (counting one held from the previous call) is held for the next, so
+        contiguous blocks give identical output to one large block.
 
         Parameters
         ----------
         x : npt.NDArray[np.complex64]
-            CF32 input array. Length must be even for exact half-rate output;
-            odd lengths write floor(x_len/2).
+            CF32 input array. A sample left unpaired at the end is held for the
+            next call.
         out : npt.NDArray[np.complex64] | None
-            Output buffer; must hold at least floor(x_len/2) samples.
+            Output buffer; must hold at least (x_len + 1) / 2 samples, which is
+            dp_HalfbandDecimator_execute_max_out(). Python refuses a shorter
+            `out=`. In C a shorter one drops nothing: the call stops at a pair
+            boundary and dp_hbdecim_consumed() says how much input it took.
 
         Returns
         -------
         NDArray[np.complex64]
-            CF32 decimated output; length is min(floor(x_len / 2), max_out).
+            Number of CF32 samples written to out: min((x_len + held) / 2,
+            max_out), where held is 1 if a trailing sample was carried in from
+            the previous call. 0 if x_len or max_out is 0.
 
         Examples
         --------
@@ -359,20 +399,34 @@ class HalfbandDecimator:
 
         """
 
-    def execute_max_out(self) -> int:
-        """Always returns HBDECIM_MAX_OUT.
+    def execute_max_out(self, x_len: int, /) -> int:
+        """The most outputs one dp_HalfbandDecimator_execute() call over x_len
+        inputs can write: `(x_len + 1) / 2`.
+
+        A 2:1 decimator emits one output per input pair, and at most one sample
+        is held over from the previous call, so `(x_len + held) / 2` never
+        exceeds this. It is a true per-call bound, which is what lets the
+        binding accept an `out=` of `len(x) // 2 + 1` and allocate no more than
+        that when it sizes the output itself (doppler#2644; this used to return
+        a fixed 32768, which the binding then demanded of every `out=`).
+
+        Parameters
+        ----------
+        x_len : int
+            Number of inputs the call will be given.
 
         Returns
         -------
         int
-            Output.
+            `(x_len + 1) / 2`; 0 for an empty call.
         """
 
     def reset(self) -> None:
         """Zero all delay lines. Coefficients and num_taps preserved. Call
         between signal bursts to suppress transient ringing from prior filter
         state. The next execute() after reset produces the same output as a
-        freshly created decimator fed the same input.
+        freshly created decimator fed the same input. Any sample held for the
+        next call is dropped too.
 
         Examples
         --------
@@ -456,9 +510,10 @@ class HalfbandDecimator:
 
     @property
     def num_taps(self) -> int:
-        """Number of FIR branch taps as passed to create. The all-pass
-        (even-phase) branch has no taps; only the odd-phase FIR branch has
-        length num_taps. The total prototype length is 2 * num_taps - 1.
+        """Number of FIR branch taps as passed to create. The pure-delay branch
+        has no taps; only the FIR branch has length num_taps (it runs on the
+        even-indexed inputs when num_taps is even, the odd-indexed ones when it
+        is odd). The total prototype length is 2 * num_taps - 1.
         """
 
     def destroy(self) -> None:
@@ -541,7 +596,8 @@ class CIC:
         """Zero all integrator and comb accumulators; preserve R and shift. The
         first output sample after reset arrives after R more input samples,
         matching post-create behaviour. Use between signal bursts to eliminate
-        transient artefacts caused by residual pipeline state.
+        transient artefacts caused by residual pipeline state. Also clears the
+        sticky clipped flag.
 
         Examples
         --------
@@ -599,8 +655,9 @@ class CIC:
         Returns
         -------
         NDArray[np.complex64]
-            CF32 output array; length is min(floor((phase + n_in) / R),
-            max_out).
+            Number of CF32 samples written to out: min(floor((phase + n_in) /
+            R), max_out), where phase is the input count carried from the
+            previous call.
 
         Notes
         -----
@@ -632,7 +689,8 @@ class CIC:
         Returns
         -------
         int
-            Output.
+            Always 0, meaning "no fixed cap": size the output to the input
+            length.
         """
 
     def state_bytes(self) -> int:
@@ -694,11 +752,15 @@ class CIC:
 
     @property
     def R(self) -> int:
-        """R."""
+        """Decimation ratio, a power of two in `[2, CIC_R_MAX]`; config, set by
+        create and dp_cic_reconfigure().
+        """
 
     @property
     def shift(self) -> int:
-        """Shift."""
+        """Normalizing right-shift in bits, `CIC_N * log2(R)`; derived from
+        R.
+        """
 
     @property
     def clipped(self) -> bool:
@@ -769,7 +831,8 @@ class RateConverter:
     Parameters
     ----------
     rate : float, default 1.0
-        Output-to-input sample rate ratio. Any positive float.
+        Output-to-input sample rate ratio: finite and > 0
+        (dp_resamp_rate_ok()).
     compensate : int, default 0
         Non-zero to append a CIC passband-droop compensating FIR after any CIC
         stage.
@@ -834,7 +897,7 @@ class RateConverter:
         Returns
         -------
         int
-            Output.
+            Output capacity in samples.
         """
 
     def execute_ctrl(
@@ -890,12 +953,16 @@ class RateConverter:
         """
 
     def execute_ctrl_max_out(self) -> int:
-        """As dp_RateConverter_execute_max_out(), for the block control form.
+        """Output-capacity hint for the block control form.
+
+        Unlike dp_RateConverter_execute_max_out() this always returns 0, which
+        tells the binding to size the output buffer from the input block
+        instead.
 
         Returns
         -------
         int
-            Output.
+            0.
         """
 
     def execute_ctrl_push(
@@ -948,13 +1015,16 @@ class RateConverter:
         """
 
     def execute_ctrl_push_max_out(self) -> int:
-        """Bound for ONE pushed input: `ceil(rate) + 1` output periods.
-        Non-zero because the push form has no input block to size from.
+        """Output bound for ONE pushed input.
+
+        Computed as `(size_t)max(rate, 1.0) + 2`, which is at least `ceil(rate)
+        + 1`. Non-zero because the push form has no input block to size from.
 
         Returns
         -------
         int
-            Output.
+            Output capacity, in samples, for one
+            dp_RateConverter_execute_ctrl_push() call.
         """
 
     def reset(self) -> None:
@@ -962,6 +1032,9 @@ class RateConverter:
         types are preserved. Processing from a reset state produces the same
         output as a freshly created converter fed the same input. Use between
         signal bursts to suppress transient artefacts from prior filter memory.
+        An enabled AGC is reset too (back to unity gain with its detector at
+        the reference), and the clip flag read by
+        dp_RateConverter_get_clipped() is cleared with the CIC stages.
 
         Examples
         --------
@@ -1037,7 +1110,8 @@ class RateConverter:
         """Get / set the output-to-input sample rate ratio. The setter rebuilds
         the entire cascade (new stage selection, new sub-objects) and resets
         all filter memories — equivalent to destroying and recreating with the
-        new rate. Setting rate <= 0 is silently ignored.
+        new rate. A rate that is not finite and > 0 is refused and leaves the
+        converter as it was.
         """
     @rate.setter
     def rate(self, value: float) -> None: ...
@@ -1134,9 +1208,10 @@ class MatchedRateConverter:
     Parameters
     ----------
     rate : float, default 1.0
-        Output-to-input sample rate ratio (any positive float). Rate-agnostic:
-        this object never learns about symbols — a caller wanting `m` samples
-        per symbol asks for `rate = m/sps`.
+        Output-to-input sample rate ratio (finite and > 0,
+        dp_resamp_rate_ok()). Rate-agnostic: this object never learns about
+        symbols — a caller wanting `m` samples per symbol asks for `rate =
+        m/sps`.
     compensate : int, default 1
         Non-zero to correct CIC passband droop (folded into the bank here, not
         appended as a stage).
@@ -1235,7 +1310,7 @@ class MatchedRateConverter:
         Returns
         -------
         int
-            Output.
+            Output capacity in samples.
         """
 
     def execute_ctrl(
@@ -1291,12 +1366,16 @@ class MatchedRateConverter:
         """
 
     def execute_ctrl_max_out(self) -> int:
-        """As dp_RateConverter_execute_max_out(), for the block control form.
+        """Output-capacity hint for the block control form.
+
+        Unlike dp_RateConverter_execute_max_out() this always returns 0, which
+        tells the binding to size the output buffer from the input block
+        instead.
 
         Returns
         -------
         int
-            Output.
+            0.
         """
 
     def execute_ctrl_push(
@@ -1349,13 +1428,16 @@ class MatchedRateConverter:
         """
 
     def execute_ctrl_push_max_out(self) -> int:
-        """Bound for ONE pushed input: `ceil(rate) + 1` output periods.
-        Non-zero because the push form has no input block to size from.
+        """Output bound for ONE pushed input.
+
+        Computed as `(size_t)max(rate, 1.0) + 2`, which is at least `ceil(rate)
+        + 1`. Non-zero because the push form has no input block to size from.
 
         Returns
         -------
         int
-            Output.
+            Output capacity, in samples, for one
+            dp_RateConverter_execute_ctrl_push() call.
         """
 
     def reset(self) -> None:
@@ -1363,6 +1445,9 @@ class MatchedRateConverter:
         types are preserved. Processing from a reset state produces the same
         output as a freshly created converter fed the same input. Use between
         signal bursts to suppress transient artefacts from prior filter memory.
+        An enabled AGC is reset too (back to unity gain with its detector at
+        the reference), and the clip flag read by
+        dp_RateConverter_get_clipped() is cleared with the CIC stages.
 
         Examples
         --------
@@ -1439,7 +1524,8 @@ class MatchedRateConverter:
         """Get / set the output-to-input sample rate ratio. The setter rebuilds
         the entire cascade (new stage selection, new sub-objects) and resets
         all filter memories — equivalent to destroying and recreating with the
-        new rate. Setting rate <= 0 is silently ignored.
+        new rate. A rate that is not finite and > 0 is refused and leaves the
+        converter as it was.
         """
     @rate.setter
     def rate(self, value: float) -> None: ...
@@ -1586,8 +1672,9 @@ class Farrow:
         Returns
         -------
         NDArray[np.complex64]
-            CF32 output array, same length as x, each sample delayed by
-            `group_delay - mu`.
+            Number of samples written to out, `min(x_len, max_out)`; from
+            Python, the CF32 output array (same length as x), each sample
+            delayed by `group_delay - mu`.
 
         Examples
         --------
@@ -1602,17 +1689,15 @@ class Farrow:
         """
 
     def delay_max_out(self) -> int:
-        """Largest number of samples delay() can return in the current state.
+        """Output capacity hint for dp_farrow_delay().
 
-        Size an `out=` buffer with this before calling delay(), or use it to
-        allocate one up front. The bound is this object's own: what it depends
-        on is a property of the algorithm, so a header block on delay_max_out()
-        replaces this text.
+        delay() emits exactly one output per input sample, so the caller sizes
+        out to the input length; this returns the "caller sizes it" sentinel.
 
         Returns
         -------
         int
-            Upper bound on the output length; the actual call may return fewer.
+            Always 0.
         """
 
     def reset(self) -> None:
@@ -1697,7 +1782,7 @@ class Farrow:
 
     @property
     def group_delay(self) -> int:
-        """Group delay."""
+        """Group delay of the interpolator, in samples."""
 
     def destroy(self) -> None:
         """Release the underlying C resources immediately.
@@ -1758,7 +1843,8 @@ class HalfbandDecimatorQ15:
     ----------
     h : NDArray[np.float32]
         Float FIR branch coefficients of length num_taps. Must be symmetric
-        (`h[k]` == `h[num_taps-1-k]`).
+        (`h[k]` == `h[num_taps-1-k]`): only the first num_taps/2 are read,
+        scaled by 0.5 and saturated to Q15.
 
     Examples
     --------
@@ -1782,9 +1868,11 @@ class HalfbandDecimatorQ15:
         """Decimate a block of interleaved IQ int16 samples by 2. Input must be
         interleaved int16_t IQ pairs (I₀ Q₀ I₁ Q₁ …); pass a 1-D array of
         2*n_complex elements. Each pair of complex input samples produces one
-        complex output sample, so an array of length 2N yields at most N output
-        pairs (2N int16 output values). If n_in is odd the trailing IQ pair is
-        buffered and consumed on the next call.
+        complex output sample, counting an IQ pair held from the previous call
+        as the first of the block, so an array of length 2N yields at most (N +
+        held) / 2 output pairs. An IQ pair left unpaired at the end is held for
+        the next call, so contiguous blocks give the same output as one large
+        block.
 
         Parameters
         ----------
@@ -1798,7 +1886,10 @@ class HalfbandDecimatorQ15:
         -------
         NDArray[np.int16]
             min(available, max_out) COMPLEX samples -- twice that many int16_t
-            values.
+            values; 0 when n_in or max_out is 0. When max_out stops the loop
+            early, the call stops at the pair boundary and drops nothing:
+            dp_hbdecim_q15_consumed() says how much input it took, and offering
+            the rest again resumes exactly (doppler#2643).
 
         Examples
         --------
@@ -1826,7 +1917,7 @@ class HalfbandDecimatorQ15:
         Returns
         -------
         int
-            Output.
+            Always 0 (no fixed bound; size the output from n_in).
         """
 
     def reset(self) -> None:
@@ -2057,11 +2148,13 @@ def kaiser_num_taps(
         Number of polyphase branches (power of two). A value below 1 is not
         a bank; the function returns 0.
     atten : float
-        Desired stopband attenuation in dB.
+        Desired stopband attenuation in dB. Below 8 dB the Kaiser length
+        formula falls under one tap, and the prototype is floored at one.
     pb : float
-        Normalised passband edge (0 < pb < sb < 1).
+        Passband edge in cycles per sample at the branch (input) rate, so
+        Nyquist is 0.5 (0 < pb < sb < 1).
     sb : float
-        Normalised stopband edge.
+        Stopband edge, same units as pb.
 
     Returns
     -------

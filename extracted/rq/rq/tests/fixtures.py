@@ -5,6 +5,7 @@ fixtures has a slightly different characteristics.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import signal
 import subprocess
@@ -20,7 +21,8 @@ from rq.connections import get_connection_kwargs
 from rq.defaults import DEFAULT_JOB_MONITORING_INTERVAL
 from rq.job import Job
 from rq.suspension import resume
-from rq.worker import HerokuWorker, Worker
+from rq.timeouts import UnixSignalDeathPenalty
+from rq.worker import HerokuWorker, SpawnWorker, Worker
 
 
 def say_pid():
@@ -37,6 +39,42 @@ def say_hello(name=None):
 async def say_hello_async(name=None):
     """A async job with a single argument and a return value."""
     return say_hello(name)
+
+
+async def record_job_loop(state, error=None):
+    """Record the coroutine job's loop and context, optionally raising an error."""
+    state['loop'] = asyncio.get_running_loop()
+    state['job'] = get_current_job()
+    if error is not None:
+        raise error
+    return 42
+
+
+async def leave_async_resources(state):
+    """Leave a pending task and an asynchronous generator for the job to finalize."""
+    state['loop'] = asyncio.get_running_loop()
+    started = asyncio.Event()
+
+    async def background():
+        try:
+            started.set()
+            await asyncio.Event().wait()
+        finally:
+            await asyncio.sleep(0)
+            state['task_closed'] = True
+
+    async def generate():
+        try:
+            yield 1
+        finally:
+            await asyncio.sleep(0)
+            state['generator_closed'] = True
+
+    state['task'] = asyncio.create_task(background())
+    state['generator'] = generate()
+    await state['generator'].__anext__()
+    await started.wait()
+    return 42
 
 
 def say_hello_unicode(name=None):
@@ -75,6 +113,13 @@ def returns_retry():
     from rq import Retry
 
     return Retry(max=1)
+
+
+def returns_retry_with_delay():
+    """Always returns a delayed Retry object (return-based retry)."""
+    from rq import Retry
+
+    return Retry(max=1, interval=30)
 
 
 def long_process():
@@ -217,7 +262,7 @@ def run_dummy_heroku_worker(sandbox, _imminent_shutdown_delay, connection):
     class TestHerokuWorker(HerokuWorker):
         imminent_shutdown_delay = _imminent_shutdown_delay
 
-        def perform_job(self, job, queue):
+        def perform_job(self, job, queue, execution=None):
             create_file(os.path.join(sandbox, 'started'))
             # have to loop here rather than one sleep to avoid holding the GIL
             # and preventing signals being received
@@ -366,3 +411,40 @@ def _send_kill_horse_command(worker_name, connection_kwargs, delay=0.25):
 
 class CustomJob(Job):
     """A custom job class just to test it"""
+
+
+class CustomQueue(Queue):
+    """A custom queue class just to test it, with its own key prefix"""
+
+    redis_queue_namespace_prefix = 'custom:queue:'
+
+
+class CustomDeathPenalty(UnixSignalDeathPenalty):
+    """A custom death penalty class just to test it"""
+
+
+def get_job_id_from_environ():
+    return os.environ['RQ_JOB_ID']
+
+
+class RecordingSpawnWorker(SpawnWorker):
+    """Records, from inside the horse, the classes it runs the job with."""
+
+    def perform_job(self, job, queue, execution):
+        self.connection.set(
+            'spawn-worker-config',
+            f'{type(self).__name__} {type(job).__name__} {type(queue).__name__} {self.death_penalty_class.__name__}',
+        )
+        return super().perform_job(job, queue, execution)
+
+
+async def async_success_callback(job, connection, result):
+    connection.set(f'async_success_callback:{job.id}', result, ex=60)
+
+
+async def async_failure_callback(job, connection, type, value, traceback):
+    connection.set(f'async_failure_callback:{job.id}', str(value), ex=60)
+
+
+async def async_stopped_callback(job, connection):
+    connection.set(f'async_stopped_callback:{job.id}', 'stopped', ex=60)

@@ -1,8 +1,7 @@
 import logging
-import random
 import re
-import string
 
+from django.utils.crypto import get_random_string
 from passlib.hash import bcrypt
 
 from django.conf import settings
@@ -24,9 +23,9 @@ class Ips4Manager:
     MEMBER_GROUP_ID = 3
 
     @classmethod
-    def add_user(cls, username, email):
+    def add_user(cls, username: str, email: str) -> tuple[str, str, int | None]:
         logger.debug(f"Adding new IPS4 user {username}")
-        plain_password = cls.__generate_random_pass()
+        plain_password = get_random_string(length=20)
         hash = cls._gen_pwhash(plain_password)
         salt = cls._get_salt(hash)
         group = cls.MEMBER_GROUP_ID
@@ -36,7 +35,7 @@ class Ips4Manager:
         return username, plain_password, member_id
 
     @staticmethod
-    def get_user_id(username):
+    def get_user_id(username: str) -> int | None:
         cursor = connections['ips4'].cursor()
         cursor.execute(Ips4Manager.SQL_GET_ID, [username])
         row = cursor.fetchone()
@@ -48,21 +47,17 @@ class Ips4Manager:
             return None
 
     @staticmethod
-    def __generate_random_pass():
-        return ''.join([random.choice(string.ascii_letters + string.digits) for n in range(16)])
-
-    @staticmethod
-    def _gen_pwhash(password):
+    def _gen_pwhash(password: str) -> str:
         return bcrypt.using(ident='2y').encrypt(password.encode('utf-8'), rounds=13)
 
     @staticmethod
-    def _get_salt(pw_hash):
+    def _get_salt(pw_hash: str) -> str:
         search = re.compile(r"^\$2[a-z]?\$([0-9]+)\$(.{22})(.{31})$")
         match = re.match(search, pw_hash)
         return match.group(2)
 
     @staticmethod
-    def delete_user(id):
+    def delete_user(id: int) -> bool:
         logger.debug(f"Deleting IPS4 user id {id}")
         try:
             cursor = connections['ips4'].cursor()
@@ -74,10 +69,10 @@ class Ips4Manager:
             return False
 
     @classmethod
-    def update_user_password(cls, username):
+    def update_user_password(cls, username: str) -> str:
         logger.debug(f"Updating IPS4 user id {id} password")
         if cls.check_user(username):
-            plain_password = Ips4Manager.__generate_random_pass()
+            plain_password = get_random_string(length=20)
             hash = cls._gen_pwhash(plain_password)
             salt = cls._get_salt(hash)
             cursor = connections['ips4'].cursor()
@@ -88,7 +83,7 @@ class Ips4Manager:
             return ""
 
     @staticmethod
-    def check_user(username):
+    def check_user(username: str) -> bool:
         logger.debug(f"Checking IPS4 username {username}")
         cursor = connections['ips4'].cursor()
         cursor.execute(Ips4Manager.SQL_GET_ID, [username])
@@ -100,7 +95,7 @@ class Ips4Manager:
         return False
 
     @classmethod
-    def update_custom_password(cls, username, plain_password):
+    def update_custom_password(cls, username: str, plain_password: str) -> str:
         logger.debug(f"Updating IPS4 user id {id} password")
         if cls.check_user(username):
             hash = cls._gen_pwhash(plain_password)

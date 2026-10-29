@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aistore
-Version: 2.0.0
+Version: 2.1.0
 Summary: Client-side APIs to access and utilize clusters, buckets, and objects on AIStore.
 Project-URL: Homepage, https://aistore.nvidia.com
 Project-URL: Documentation, https://aistore.nvidia.com/docs/python-sdk
@@ -9,7 +9,7 @@ Project-URL: Source, https://github.com/NVIDIA/aistore/tree/main/python/aistore/
 Author-email: Team AIStore <aistore@nvidia.com>
 License-Expression: MIT
 Keywords: AIStore,Artificial Intelligence,Deep Learning,ETL,High Performance,Lightweight Object Storage,Object Storage,Petascale
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research

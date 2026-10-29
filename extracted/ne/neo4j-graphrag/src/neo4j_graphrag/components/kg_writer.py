@@ -143,8 +143,11 @@ class KGWriterModel(DataModel):
               ``is_primary_key``, and ``is_unique`` (KEY / synthetic ``__id__`` / ``from``/``to``
               vs UNIQUENESS constraints per :class:`~neo4j_graphrag.components.schema.GraphSchema`).
               Node files include a ``constraints`` list with ``KEY``, ``UNIQUENESS``, and node-scoped
-              ``EXISTENCE`` entries (grouped ``properties`` lists), plus at least one single-property
-              ``KEY`` (``__id__`` is injected when the schema has none). Node files whose
+              ``EXISTENCE`` entries (grouped ``properties`` lists). A synthetic single-property
+              ``KEY`` on ``__id__`` is injected only when the schema has no KEY for that label.
+              When a semantic KEY exists but relationship joins still use ``__id__``
+              (composite-only KEY), a synthetic ``UNIQUENESS`` on ``__id__`` is added instead
+              so Data Importer join validation passes without a second KEY. Node files whose
               source ``Neo4jNode.embedding_properties`` contain one or more keys also include
               an ``indexes`` list: one ``VECTOR`` entry per embedding property
               (``properties``: ``[name]``, ``dimensions``: inferred from the first non-empty
@@ -226,9 +229,12 @@ class Neo4jWriter(KGWriter):
         self.is_version_5_24_or_above = is_version_5_24_or_above(version_tuple)
 
     def _db_setup(self) -> None:
-        self.driver.execute_query("""
+        self.driver.execute_query(
+            """
         CREATE INDEX __entity__tmp_internal_id IF NOT EXISTS FOR (n:__KGBuilder__) ON (n.__tmp_internal_id)
-        """)
+        """,
+            database_=self.neo4j_database,
+        )
 
     @staticmethod
     def _nodes_to_rows(
@@ -291,7 +297,7 @@ class Neo4jWriter(KGWriter):
             support_variable_scope_clause=self.is_version_5_23_or_above,
             batch_size=self.batch_size,
         )
-        with self.driver.session() as session:
+        with self.driver.session(database=self.neo4j_database) as session:
             session.run(query)
 
     @validate_call

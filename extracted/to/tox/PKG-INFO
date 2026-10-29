@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tox
-Version: 4.67.3
+Version: 4.67.4
 Import-Name: tox
 Summary: tox is a generic virtualenv management and test command line tool
 Project-URL: Changelog, https://tox.wiki/en/latest/changelog.html

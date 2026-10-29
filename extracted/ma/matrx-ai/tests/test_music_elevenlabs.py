@@ -59,7 +59,7 @@ def test_length_is_exact_and_clamped_to_the_provider_limits():
     assert music_length_seconds(cfg(62)) == 62
     assert music_length_seconds(cfg(1)) == 3
     assert music_length_seconds(cfg(9999)) == 300
-    assert music_length_seconds(cfg(None)) == music_api.DEFAULT_MUSIC_SECONDS
+    assert music_length_seconds(cfg(None)) == music_api.DEFAULT_MUSIC_MIRROR
 
 
 def test_prompt_is_the_last_user_text():

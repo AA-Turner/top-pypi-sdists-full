@@ -17,6 +17,7 @@ import pytest
 import sqlalchemy as sa
 from opentelemetry import context as otel_context
 from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import Session
 
@@ -135,7 +136,7 @@ def _count_notifications(client: DBOSClient, workflow_id: str) -> int:
 
 
 def test_client_no_migrate(
-    dbos: DBOS, config: DBOSConfig, skip_with_sqlite: None
+    dbos: DBOS, config: DBOSConfig, skip_with_sqlite: None, skip_with_sharding: None
 ) -> None:
     # Drop the system database
     DBOS.destroy()
@@ -487,7 +488,11 @@ def run_send_worker(
 
 
 def test_client_send_idempotent(
-    dbos: DBOS, client: DBOSClient, sqlite_path: Path, skip_with_sqlite: None
+    dbos: DBOS,
+    client: DBOSClient,
+    sqlite_path: Path,
+    skip_with_sqlite: None,
+    skip_with_sharding: None,
 ) -> None:
     run_client_collateral()
 
@@ -684,6 +689,17 @@ def test_db_retry_connection_error_opt_out() -> None:
         flaky(FakeSystemDatabase(False), _connection_error())
     assert calls == 1
 
+    # A pool checkout timeout is retried like a connection error, and the opt-out covers it too.
+    pool_timeout = PoolTimeoutError("QueuePool limit of size 1 overflow 0 reached")
+    calls = 0
+    assert flaky(FakeSystemDatabase(True, is_sqlite=False), pool_timeout) == "ok"
+    assert calls == 3
+
+    calls = 0
+    with pytest.raises(PoolTimeoutError):
+        flaky(FakeSystemDatabase(False), pool_timeout)
+    assert calls == 1
+
     calls = 0
     locked = OperationalError("SELECT 1", None, Exception("database is locked"))
     assert flaky(FakeSystemDatabase(False), locked) == "ok"
@@ -750,7 +766,7 @@ def test_client_no_retry_raises_on_unreachable_database() -> None:
 
 
 def test_client_listen_notify_get_event(
-    config: DBOSConfig, dbos: DBOS, skip_with_sqlite: None
+    config: DBOSConfig, dbos: DBOS, skip_with_sqlite: None, skip_with_sharding: None
 ) -> None:
     """With use_listen_notify=True the client runs a listener thread, so waits stop
     polling the database and rely on notifications: the fallback re-check is 60s, so
@@ -979,7 +995,9 @@ async def test_client_fork_async(dbos: DBOS, client: DBOSClient) -> None:
     assert len(await client.list_workflows_async()) == 3
 
 
-def test_enqueue_with_deduplication(dbos: DBOS, client: DBOSClient) -> None:
+def test_enqueue_with_deduplication(
+    dbos: DBOS, client: DBOSClient, skip_with_sharding: None
+) -> None:
     run_client_collateral()
 
     wfid = str(uuid.uuid4())
@@ -1101,7 +1119,9 @@ def test_enqueue_in_transaction_pre_commit_invisible(
                 assert row is None
 
 
-def test_enqueue_in_transaction_deduplication(dbos: DBOS, client: DBOSClient) -> None:
+def test_enqueue_in_transaction_deduplication(
+    dbos: DBOS, client: DBOSClient, skip_with_sharding: None
+) -> None:
     run_client_collateral()
 
     wfid = str(uuid.uuid4())
@@ -1197,6 +1217,37 @@ def test_enqueue_in_transaction_session_after_statement(
     finally:
         engine.dispose()
     assert handle.get_result() == "after-statement"
+
+
+def test_enqueue_in_transaction_on_another_driver(
+    dbos: DBOS, client: DBOSClient, skip_with_sqlite: None
+) -> None:
+    # A caller's engine may use another driver than DBOS's, here psycopg2; its connection
+    # must compile DBOS's statements itself rather than receive psycopg 3's.
+    run_client_collateral()
+
+    url = client._sys_db.engine.url.set(drivername="postgresql+psycopg2")
+    engine = sa.create_engine(url)
+    try:
+        with engine.begin() as conn:
+            options: EnqueueOptions = {
+                "queue_name": "test_queue",
+                "workflow_name": "retrieve_test",
+                "workflow_id": str(uuid.uuid4()),
+            }
+            via_conn: WorkflowHandle[str] = client.enqueue_in_transaction(
+                conn, options, "psycopg2-connection"
+            )
+        with Session(engine) as session:
+            with session.begin():
+                options["workflow_id"] = str(uuid.uuid4())
+                via_session: WorkflowHandle[str] = client.enqueue_in_transaction(
+                    session, options, "psycopg2-session"
+                )
+    finally:
+        engine.dispose()
+    assert via_conn.get_result() == "psycopg2-connection"
+    assert via_session.get_result() == "psycopg2-session"
 
 
 @pytest.mark.asyncio

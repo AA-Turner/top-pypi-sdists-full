@@ -7,6 +7,7 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .create_methods_request_recipient import CreateMethodsRequestRecipient
+    from .create_methods_request_recipient_address import CreateMethodsRequestRecipientAddress
     from .create_methods_response import CreateMethodsResponse
     from .create_methods_response_bank_verification_state import CreateMethodsResponseBankVerificationState
     from .create_methods_response_object import CreateMethodsResponseObject
@@ -49,6 +50,7 @@ if typing.TYPE_CHECKING:
     from .list_methods_response_limits_standard import ListMethodsResponseLimitsStandard
     from .list_methods_response_limits_standard_error_code import ListMethodsResponseLimitsStandardErrorCode
     from .list_methods_response_page_info import ListMethodsResponsePageInfo
+    from .update_methods_request_address import UpdateMethodsRequestAddress
     from .update_methods_response import UpdateMethodsResponse
     from .update_methods_response_bank_verification_state import UpdateMethodsResponseBankVerificationState
     from .update_methods_response_object import UpdateMethodsResponseObject
@@ -61,6 +63,7 @@ if typing.TYPE_CHECKING:
     from .update_methods_response_unavailable_reason import UpdateMethodsResponseUnavailableReason
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateMethodsRequestRecipient": ".create_methods_request_recipient",
+    "CreateMethodsRequestRecipientAddress": ".create_methods_request_recipient_address",
     "CreateMethodsResponse": ".create_methods_response",
     "CreateMethodsResponseBankVerificationState": ".create_methods_response_bank_verification_state",
     "CreateMethodsResponseObject": ".create_methods_response_object",
@@ -93,6 +96,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListMethodsResponseLimitsStandard": ".list_methods_response_limits_standard",
     "ListMethodsResponseLimitsStandardErrorCode": ".list_methods_response_limits_standard_error_code",
     "ListMethodsResponsePageInfo": ".list_methods_response_page_info",
+    "UpdateMethodsRequestAddress": ".update_methods_request_address",
     "UpdateMethodsResponse": ".update_methods_response",
     "UpdateMethodsResponseBankVerificationState": ".update_methods_response_bank_verification_state",
     "UpdateMethodsResponseObject": ".update_methods_response_object",
@@ -127,6 +131,7 @@ def __dir__():
 
 __all__ = [
     "CreateMethodsRequestRecipient",
+    "CreateMethodsRequestRecipientAddress",
     "CreateMethodsResponse",
     "CreateMethodsResponseBankVerificationState",
     "CreateMethodsResponseObject",
@@ -159,6 +164,7 @@ __all__ = [
     "ListMethodsResponseLimitsStandard",
     "ListMethodsResponseLimitsStandardErrorCode",
     "ListMethodsResponsePageInfo",
+    "UpdateMethodsRequestAddress",
     "UpdateMethodsResponse",
     "UpdateMethodsResponseBankVerificationState",
     "UpdateMethodsResponseObject",

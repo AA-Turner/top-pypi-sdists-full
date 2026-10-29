@@ -262,9 +262,7 @@ def compute_trend(detrended_data, future_time_points=None):
         X = add_constant(future_time_points, has_constant="add")
         trend_component = model["extrap_model"].predict(X)
     elif model_type == "mean":
-        trend_component = model.predict(
-            np.ones(len(future_time_points)), has_constant="add"
-        )
+        trend_component = model.predict(np.ones(len(future_time_points)))
     elif model_type == "linear":
         X_linear = add_constant(future_time_points, has_constant="add")
         trend_component = model.predict(X_linear)

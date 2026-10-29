@@ -45,7 +45,7 @@ class FFT:
         nthreads: int = 1,
     ) -> None: ...
     def reset(self) -> None:
-        """No-op reset (plans are immutable after creation).
+        """No-op reset: an FFT keeps no running state between calls.
         """
 
     def execute_cf64(
@@ -85,12 +85,12 @@ class FFT:
         """
 
     def execute_cf64_max_out(self) -> int:
-        """Maximum output samples per execute call (always == n).
+        """Output capacity for dp_fft_execute_cf64().
 
         Returns
         -------
         int
-            Output.
+            state->n, the number of bins one call writes.
         """
 
     def execute_cf32(
@@ -130,12 +130,12 @@ class FFT:
         """
 
     def execute_cf32_max_out(self) -> int:
-        """Maximum output samples for CF32 execute (always == n).
+        """Output capacity for dp_fft_execute_cf32().
 
         Returns
         -------
         int
-            Output.
+            state->n, the number of bins one call writes.
         """
 
     def execute_inplace_cf64(
@@ -175,12 +175,12 @@ class FFT:
         """
 
     def execute_inplace_cf64_max_out(self) -> int:
-        """Maximum output samples for inplace CF64 (always == n).
+        """Output capacity for dp_fft_execute_inplace_cf64().
 
         Returns
         -------
         int
-            Output.
+            state->n, the number of bins one call writes.
         """
 
     def execute_inplace_cf32(
@@ -219,12 +219,12 @@ class FFT:
         """
 
     def execute_inplace_cf32_max_out(self) -> int:
-        """Maximum output samples for inplace CF32 (always == n).
+        """Output capacity for dp_fft_execute_inplace_cf32().
 
         Returns
         -------
         int
-            Output.
+            state->n, the number of bins one call writes.
         """
 
     def execute_ci16(self, iq: NDArray[np.int16]) -> NDArray[np.complex64]:
@@ -420,12 +420,12 @@ class FFT2D:
         """
 
     def execute_cf64_max_out(self) -> int:
-        """Maximum output samples per execute call (ny * nx).
+        """Output capacity dp_fft2d_execute_cf64() needs.
 
         Returns
         -------
         int
-            Output.
+            ny * nx samples.
         """
 
     def execute_cf32(
@@ -474,12 +474,12 @@ class FFT2D:
         """
 
     def execute_cf32_max_out(self) -> int:
-        """Maximum output samples for CF32 execute (ny * nx).
+        """Output capacity dp_fft2d_execute_cf32() needs.
 
         Returns
         -------
         int
-            Output.
+            ny * nx samples.
         """
 
     def execute_inplace_cf64(
@@ -526,12 +526,12 @@ class FFT2D:
         """
 
     def execute_inplace_cf64_max_out(self) -> int:
-        """Maximum output samples for inplace CF64 execute (ny * nx).
+        """Output capacity dp_fft2d_execute_inplace_cf64() needs.
 
         Returns
         -------
         int
-            Output.
+            ny * nx samples.
         """
 
     def execute_inplace_cf32(
@@ -577,12 +577,12 @@ class FFT2D:
         """
 
     def execute_inplace_cf32_max_out(self) -> int:
-        """Maximum output samples for inplace CF32 execute (ny * nx).
+        """Output capacity dp_fft2d_execute_inplace_cf32() needs.
 
         Returns
         -------
         int
-            Output.
+            ny * nx samples.
         """
 
     @property
@@ -657,8 +657,8 @@ class Corr:
     ref : NDArray[np.complex64]
         Reference signal, CF32, length ref_len.
     dwell : int, default 1
-        Integration depth; must be >= 1. Pass 1 for immediate output on every
-        call.
+        Integration depth; must be >= 1 (0 is refused). Pass 1 for immediate
+        output on every call.
     nthreads : int, default 1
         Accepted for API compatibility; ignored.
     n_out : int, default 0
@@ -667,6 +667,12 @@ class Corr:
         band-limited (Dirichlet) interpolation of the correlation on a finer
         length-n_out grid — same peak, sub-bin lag resolution. Native is
         bit-exact and allocates no extra buffer.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``Corr: invalid
+        parameter (need dwell >= 1, and n_out 0 or at least len(ref))``.
 
     Examples
     --------
@@ -763,10 +769,14 @@ class Corr:
     def execute_max_out(self) -> int:
         """Maximum output samples per execute call (== n_out).
 
+        Size an output buffer with this before calling dp_corr_execute().
+
         Returns
         -------
         int
-            Output.
+            The configured output length n_out in samples: the reference length
+            n for the native path, or the zero-padded length passed to
+            dp_corr_create().
         """
 
     def state_bytes(self) -> int:
@@ -905,7 +915,11 @@ class Corr2D:
     dwell : int, default 1
         Integration depth; must be >= 1.
     nthreads : int, default 1
-        Accepted for API compatibility; ignored.
+        Workers for the single-row-reference fast path's per-row stage: 1 runs
+        serially (no threads), N runs N workers (the caller included), <= 0
+        uses every online core. The count is capped at ny, one row per worker
+        at most. The output is bit-identical whatever the count. The general
+        2-D path and the col_out path run serially and ignore it.
     ny_out : int, default 0
         Inverse/output rows; 0 => native (ny). Must be >= ny. A larger output
         zero-pads the cross-spectrum before the inverse, returning the
@@ -926,6 +940,13 @@ class Corr2D:
         fractional lag, which no time-domain sum produces. create() returns
         NULL if col_out >= 0 with a reference the fast path rejects, with
         ny_out or nx_out decoupled, or with a lag outside 0 .. nx-1.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``Corr2D: invalid
+        parameter (need dwell >= 1, and ny_out and nx_out each 0 or at least
+        the ref extent)``.
 
     Examples
     --------
@@ -987,16 +1008,16 @@ class Corr2D:
         x : npt.NDArray[np.complex64]
             Input.
         out : npt.NDArray[np.complex64] | None
-            Output buffer for the correlation map (CF32, length ny*nx); written
-            only on a dump call.
+            Output buffer for the correlation map (CF32, length n_out:
+            ny_out*nx_out, or ny with col_out); written only on a dump call.
 
         Returns
         -------
         NDArray[np.complex64] | None
-            ny*nx on a dump (or max_out if smaller), 0 otherwise If n_in is not
-            the required length the call is REFUSED with nothing read, written
-            or counted: SIZE_MAX in C, ValueError in Python (#1925). (None in
-            Python). None when the C call writes no output.
+            n_out on a dump (or max_out if smaller), 0 otherwise (None in
+            Python). If n_in is not the required length the call is REFUSED
+            with nothing read, written or counted: SIZE_MAX in C, ValueError in
+            Python (#1925). None when the C call writes no output.
 
         Raises
         ------
@@ -1021,13 +1042,13 @@ class Corr2D:
 
     def execute_max_out(self) -> int:
         """Maximum output samples per execute call (dp_corr2d_state_t::n_out --
-        ny*nx_out normally, or ny when a single dp_corr2d_state_t::col_out was
-        selected).
+        ny_out*nx_out normally, or ny when a single dp_corr2d_state_t::col_out
+        was selected).
 
         Returns
         -------
         int
-            Output.
+            n_out, fixed at create().
         """
 
     def state_bytes(self) -> int:
@@ -1167,6 +1188,283 @@ class Corr2D:
         """
 
 @final
+class DelayDoppler:
+    """Allocate the delay-Doppler flavor: a code correlator that maps a raw
+    stream of ny code periods onto (Doppler, delay).
+
+    Parameters
+    ----------
+    code : NDArray[np.complex64]
+        The code replica, code_len samples (one period).
+    ny : int, default 1
+        Periods per frame, the slow-time length; must be >= 1.
+    dwell : int, default 1
+        Frames coherently accumulated per dump; must be >= 1.
+    nthreads : int, default 1
+        Workers: 1 serial, N for N (the caller included), <= 0 every online
+        core; capped at the most chunks a stage can use, `max(ny, ceil(code_len
+        / 16))`.
+    ny_out : int, default 0
+        Doppler bins in the map; 0 means ny. Must be >= ny.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``Corr2D: invalid
+        parameter (need dwell >= 1, and ny_out and nx_out each 0 or at least
+        the ref extent)``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from doppler.spectral import DelayDoppler
+    >>> rng = np.random.default_rng(0)
+    >>> ny, nx, d, k = 16, 64, 5, 3       # delay 5, Doppler 3 bins
+    >>> code = np.exp(2j * np.pi * rng.random(nx)).astype(np.complex64)
+    >>> n = np.arange(ny * nx)
+    >>> f = k / (ny * nx)                 # cycles/sample
+    >>> x = (np.tile(np.roll(code, d), ny)
+    ...      * np.exp(2j * np.pi * f * n)).astype(np.complex64)
+    >>> dd = DelayDoppler(code, ny=ny, dwell=2)
+    >>> out = np.empty(dd.execute_max_out(), np.complex64)
+    >>> for _ in range(2):                # one preallocated map per dump
+    ...     m = dd.execute(x, out=out)
+    >>> m is not None and m.base is out
+    True
+    >>> row, col = np.unravel_index(np.argmax(np.abs(out)), (ny, nx))
+    >>> int(row) - ny // 2, int(col)      # (Doppler bins, delay)
+    (3, 5)
+    >>> dd.doppler_step == 1 / (ny * nx)
+    True
+
+    """
+
+    def __init__(
+        self,
+        code: npt.NDArray[np.complex64],
+        ny: int = 1,
+        dwell: int = 1,
+        nthreads: int = 1,
+        ny_out: int = 0,
+    ) -> None: ...
+    def reset(self) -> None:
+        """Zero the accumulator and reset the integration counter to 0.
+        Equivalent to starting a fresh dwell cycle without rebuilding FFT plans
+        or recomputing ref_spec.
+
+        Examples
+        --------
+        >>> from doppler.spectral import Corr2D
+        >>> import numpy as np
+        >>> ref = np.zeros((2, 2), dtype=np.complex64); ref[0, 0] = 1.0
+        >>> c = Corr2D(ref=ref, dwell=3)
+        >>> _ = c.execute(np.ones((2, 2), dtype=np.complex64))
+        >>> c.count
+        1
+        >>> c.reset()
+        >>> c.count
+        0
+
+        """
+
+    def execute(
+        self,
+        x: npt.NDArray[np.complex64],
+        out: npt.NDArray[np.complex64] | None = None,
+    ) -> NDArray[np.complex64] | None:
+        """Correlate one 2-D frame and optionally dump the coherent
+        accumulator. Runs the 2-D pipeline: FFT2 → pointwise multiply with
+        ref_spec → accumulate the cross-spectrum; on dump, IFFT2 → normalise (÷
+        ny*nx). Accumulating in the frequency domain and inverting once is
+        exactly the per-frame inverse summed, by linearity of the IFFT — valid
+        because the dwell is **coherent** (a complex sum); a non-coherent
+        (magnitude) integration could not defer the inverse. The Python wrapper
+        accepts a (ny, nx) CF32 ndarray; a dump returns a flat length-ny*nx
+        ndarray, a no-dump returns None.
+
+        Parameters
+        ----------
+        x : npt.NDArray[np.complex64]
+            Input.
+        out : npt.NDArray[np.complex64] | None
+            Output buffer for the correlation map (CF32, length n_out:
+            ny_out*nx_out, or ny with col_out); written only on a dump call.
+
+        Returns
+        -------
+        NDArray[np.complex64] | None
+            n_out on a dump (or max_out if smaller), 0 otherwise (None in
+            Python). If n_in is not the required length the call is REFUSED
+            with nothing read, written or counted: SIZE_MAX in C, ValueError in
+            Python (#1925). None when the C call writes no output.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns ``SIZE_MAX``, its refusal value, in place of
+            a count. The exception message is ``input length is not ny*nx;
+            execute takes exactly one frame``.
+
+        Examples
+        --------
+        >>> from doppler.spectral import Corr2D
+        >>> import numpy as np
+        >>> ref = np.zeros((2, 2), dtype=np.complex64); ref[0, 0] = 1.0
+        >>> c = Corr2D(ref=ref, dwell=2)
+        >>> x = np.ones((2, 2), dtype=np.complex64)
+        >>> c.execute(x) is None   # frame 1 — no dump
+        True
+        >>> c.execute(x).tolist()  # frame 2 — dump
+        [(2+0j), (2+0j), (2+0j), (2+0j)]
+
+        """
+
+    def execute_max_out(self) -> int:
+        """Maximum output samples per execute call (dp_corr2d_state_t::n_out --
+        ny_out*nx_out normally, or ny when a single dp_corr2d_state_t::col_out
+        was selected).
+
+        Returns
+        -------
+        int
+            n_out, fixed at create().
+        """
+
+    def state_bytes(self) -> int:
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the DelayDoppler has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
+    def get_state(self) -> bytes:
+        """Serialize this object's mutable state to bytes.
+
+        Captures the state that evolves as the object runs, including any value
+        a setter changed after construction, so a blob taken now and restored
+        later resumes from this point. Construction parameters are not
+        restored: restore into an object built the same way. A core may check
+        some of them and refuse a blob built differently.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the DelayDoppler has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
+    def set_state(self, blob: bytes, /) -> None:
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place, including any value a setter
+        changed after construction. Construction parameters are not restored:
+        restore into an object built the same way. Length is validated against
+        `state_bytes()` before the blob is handed to the C core, which may
+        reject it too: a core may check some construction parameters and refuse
+        a blob built differently.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the DelayDoppler has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
+
+    @property
+    def ny(self) -> int:
+        """Row count."""
+
+    @property
+    def nx(self) -> int:
+        """Column count."""
+
+    @property
+    def ny_out(self) -> int:
+        """Output rows (== ny unless decoupled)."""
+
+    @property
+    def n_out(self) -> int:
+        """ny_out * nx_out — output element count."""
+
+    @property
+    def dwell(self) -> int:
+        """Integration depth."""
+
+    @property
+    def count(self) -> int:
+        """Frames accumulated (0 … dwell-1)."""
+
+    @property
+    def doppler_step(self) -> float:
+        """Doppler spacing between adjacent output rows, cycles/sample: 1 /
+        (ny_out * nx). 0 for Corr2D.
+        """
+
+    def destroy(self) -> None:
+        """Release the underlying C resources immediately.
+
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on
+        exit.
+
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
+        """
+
+    def __enter__(self) -> "DelayDoppler":
+        """Enter a context manager, returning this object.
+
+        Lets a DelayDoppler be used in a `with` statement so its C resources
+        are released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        DelayDoppler
+            This same object, not a copy.
+        """
+
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+        /,
+    ) -> None:
+        """Exit a context manager, releasing the DelayDoppler.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
+
+@final
 class CorrDetector:
     """Allocate a 1-D streaming signal detector backed by an FFT correlator.
     Combines a dp_corr_state_t with a double-mapped ring buffer so that
@@ -1195,6 +1493,12 @@ class CorrDetector:
     nthreads : int, default 1
         Accepted for API compatibility; ignored.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``CorrDetector: invalid
+        parameter (need a non-empty ref and dwell >= 1)``.
+
     Examples
     --------
     >>> from doppler.spectral import CorrDetector
@@ -1221,7 +1525,10 @@ class CorrDetector:
         """Reset the correlator, the carry, and last-corr flag. Discards any
         partial frame carried between pushes and zeroes the coherent
         accumulator. Equivalent to starting fresh from the same reference
-        without rebuilding any internal object.
+        without rebuilding any internal object. The last-dump fields (peak_lag,
+        peak_mag, noise_est, test_stat) read 0 until the next dump, so the
+        state blob after a reset matches a fresh object's (doppler#2642).
+        dp_detector_consumed() reads 0 afterwards.
 
         Examples
         --------
@@ -1456,7 +1763,15 @@ class CorrDetector2D:
     threshold : float, default 0.0
         Test-stat gate; 0.0 = always emit.
     nthreads : int, default 1
-        Accepted for API compatibility; ignored.
+        Forwarded to dp_corr2d_create(): workers for the single-row-reference
+        fast path (1 serial, <= 0 every online core); the general 2-D path
+        ignores it.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``CorrDetector2D:
+        invalid parameter (need a non-empty 2-D ref and dwell >= 1)``.
 
     Examples
     --------
@@ -1483,7 +1798,10 @@ class CorrDetector2D:
     def reset(self) -> None:
         """Reset the 2-D correlator, the carry, and last-corr flag. Discards
         any partial frame carried between pushes and zeroes the coherent
-        accumulator. The reference spectrum and FFT plans are preserved.
+        accumulator. The reference spectrum and FFT plans are preserved. The
+        last-dump fields (peak_row, peak_col, peak_mag, noise_est, test_stat)
+        read 0 until the next dump, so the state blob after a reset matches a
+        fresh object's (doppler#2642).
 
         Examples
         --------
@@ -1857,12 +2175,12 @@ class PSD:
         """
 
     def psd_db_max_out(self) -> int:
-        """Output capacity hint for psd_db(); equals nfft.
+        """Output capacity hint for dp_psd_psd_db().
 
         Returns
         -------
         int
-            Output.
+            nfft.
         """
 
     def psd_dbhz(
@@ -1875,14 +2193,13 @@ class PSD:
         Parameters
         ----------
         out : npt.NDArray[np.float32] | None
-            Optional pre-allocated output buffer. When given, the result is
-            written into it and the returned array is a view of exactly the
-            samples produced; when omitted, a fresh array is allocated.
+            Destination, at least nfft float32 elements.
 
         Returns
         -------
         NDArray[np.float32] | None
-            Output. None when the C call writes no output.
+            min(nfft, max_out), or 0 if empty. None when the C call writes no
+            output.
 
         Examples
         --------
@@ -1897,12 +2214,12 @@ class PSD:
         """
 
     def psd_dbhz_max_out(self) -> int:
-        """Output capacity hint for psd_dbhz(); equals nfft.
+        """Output capacity hint for dp_psd_psd_dbhz().
 
         Returns
         -------
         int
-            Output.
+            nfft.
         """
 
     def power_twosided(
@@ -1925,12 +2242,12 @@ class PSD:
         """
 
     def power_twosided_max_out(self) -> int:
-        """Output capacity hint for dp_psd_power_twosided(); equals nfft.
+        """Output capacity hint for dp_psd_power_twosided().
 
         Returns
         -------
         int
-            Output.
+            nfft, the zero-padded transform length.
         """
 
     def power_onesided(
@@ -1953,12 +2270,12 @@ class PSD:
         """
 
     def power_onesided_max_out(self) -> int:
-        """Output capacity hint for dp_psd_power_onesided(); equals nfft/2+1.
+        """Output capacity hint for dp_psd_power_onesided().
 
         Returns
         -------
         int
-            Output.
+            nfft/2 + 1.
         """
 
     def band_power(
@@ -1997,12 +2314,15 @@ class PSD:
         """
 
     def band_power_max_out(self) -> int:
-        """Output capacity hint for band_power(); 0 (binding sizes from bands).
+        """Output capacity hint for dp_psd_band_power().
+
+        The output length depends on the bands argument, which this cannot see,
+        so the binding sizes the buffer from the bands itself.
 
         Returns
         -------
         int
-            Output.
+            Always 0 (the "caller sizes it" sentinel).
         """
 
     def total_band_power(self, bands: npt.NDArray[np.float64]) -> float:
@@ -2054,6 +2374,9 @@ class PSD:
 
     def noise_floor(self) -> float:
         """Median of the averaged dB trace (noise-floor estimate).
+
+        Fills the object's internal dB scratch (the psd_db() trace over all
+        nfft bins) and takes its median.
 
         Returns
         -------
@@ -2375,7 +2698,7 @@ class Spectrogram:
         Returns
         -------
         int
-            Output.
+            Floats: rows_for(n_in) * nfft, or SIZE_MAX on overflow.
         """
 
     def flush(
@@ -2443,7 +2766,7 @@ class Spectrogram:
         Returns
         -------
         int
-            Output.
+            Floats: nfft.
         """
 
     def rows_for(self, n_in: int) -> int:
@@ -2469,7 +2792,7 @@ class Spectrogram:
         Returns
         -------
         int
-            Output.
+            Rows (not floats) that push would complete.
         """
 
     def reset(self) -> None:
@@ -2927,4 +3250,21 @@ def obw_from_power(
     """
 
 def noise_floor_db(db: npt.NDArray[np.float32]) -> float:
-    """Noise floor db."""
+    """Robust noise-floor estimate: the median of a dB spectrum.
+
+    Tones and spurs occupy few bins and sit well above the median, so the
+    median tracks the noise pedestal rather than the signal. The median is
+    taken on a sorted heap copy; db is not modified. For an even length it
+    is the mean of the two middle values.
+
+    Parameters
+    ----------
+    db : npt.NDArray[np.float32]
+        Spectrum in dB (any reference: dBFS, dBc, ...).
+
+    Returns
+    -------
+    float
+        Median of db, in the same dB units; 0.0 when db_len is 0 or the
+        scratch copy cannot be allocated.
+    """

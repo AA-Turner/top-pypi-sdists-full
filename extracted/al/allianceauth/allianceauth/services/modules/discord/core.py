@@ -1,18 +1,30 @@
 """Core functionality of the Discord service not directly related to models."""
 
+__lazy_modules__ = [
+    "allianceauth.authentication.models",
+    "allianceauth.groupmanagement.models",
+    "allianceauth.services.modules.discord.discord_client",
+]
+
 import logging
+from typing import TYPE_CHECKING
 
 from requests.exceptions import HTTPError
 
-from allianceauth.authentication.models import User
-from allianceauth.groupmanagement.models import Group, ReservedGroupName
+from allianceauth.groupmanagement.models import ReservedGroupName
 from allianceauth.services.hooks import NameFormatter
 
 from . import __title__
 from .app_settings import DISCORD_BOT_TOKEN, DISCORD_GUILD_ID
-from .discord_client import DiscordClient, Role, RolesSet
+from .discord_client import DiscordClient
 from .discord_client.exceptions import DiscordClientException
 from .utils import LoggerAddTag
+
+if TYPE_CHECKING:
+    from allianceauth.authentication.models import User
+    from allianceauth.groupmanagement.models import Group
+
+    from .discord_client import Role, RolesSet
 
 logger = LoggerAddTag(logging.getLogger(__name__), __title__)
 
@@ -30,11 +42,11 @@ def create_bot_client(is_rate_limited: bool = True) -> DiscordClient:
 
 
 def calculate_roles_for_user(
-    user: User,
+    user: "User",
     client: DiscordClient,
     discord_uid: int,
     state_name: str = None,
-) -> tuple[RolesSet, bool | None]:
+) -> "tuple[RolesSet, bool | None]":
     """Calculate current Discord roles for an Auth user.
 
     Takes into account reserved groups and existing managed roles (e.g. nitro).
@@ -66,7 +78,7 @@ def calculate_roles_for_user(
     return roles_calculated.union(roles_persistent), True
 
 
-def _user_group_names(user: User, state_name: str = None) -> list[str]:
+def _user_group_names(user: "User", state_name: str = None) -> list[str]:
     """Names of groups and state the given user is a member of."""
     if not state_name:
         state_name = user.profile.state.name
@@ -75,7 +87,7 @@ def _user_group_names(user: User, state_name: str = None) -> list[str]:
     return group_names
 
 
-def user_formatted_nick(user: User) -> str | None:
+def user_formatted_nick(user: "User") -> str | None:
     """Name of the given user's main character with name formatting applied.
 
     Returns:
@@ -88,7 +100,7 @@ def user_formatted_nick(user: User) -> str | None:
     return None
 
 
-def group_to_role(group: Group) -> Role | None:
+def group_to_role(group: "Group") -> "Role | None":
     """Fetch the Discord role matching the given Django group by name.
 
     Returns:

@@ -27,14 +27,15 @@ import dataclasses
 import itertools
 import re
 import typing
-import warnings
 import weakref
+from collections.abc import Mapping
 
 import wcwidth
 
 from urwid.str_util import calc_text_pos, calc_width, get_byte_encoding
 from urwid.text_layout import LayoutSegment, trim_line
 from urwid.util import (
+    LayeredAttr,
     apply_target_encoding,
     get_encoding,
     rle_append_modify,
@@ -45,20 +46,22 @@ from urwid.util import (
 )
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
+    from collections.abc import Callable, Hashable, Iterable, Iterator, Sequence
+    from typing import Literal, NotRequired
 
-    from typing_extensions import Literal, NotRequired
-
-    from .display.common import AttrSpec
     from .widget import AbstractWidget
 
-    _ContentLine = list[tuple[typing.Union[AttrSpec, str, None], typing.Union[Literal["0", "U"], None], bytes]]
-    _CView = tuple[int, int, int, int, typing.Union[dict[Hashable, Hashable], None], "Canvas"]
+    _ContentLine = list[tuple[Hashable, Literal["0", "U"] | None, bytes]]
+    _CView = tuple[int, int, int, int, Mapping[Hashable, Hashable] | None, "Canvas"]
 
     _CanvasCoords = typing.TypedDict(
         "_CanvasCoords",
         {
             "pop up": NotRequired[tuple[int, int, tuple[AbstractWidget, int, int]]],
+            # Same (x, y) as "pop up", so both move together; the data part is the anchor height.
+            "pop up anchor": NotRequired[tuple[int, int, int]],
+            # Same (x, y) as "pop up"; the data part is the pop-up widget and its unhandled key callback.
+            "pop up unhandled key": NotRequired[tuple[int, int, tuple[AbstractWidget, Callable[[str], str | None]]]],
             "cursor": NotRequired[tuple[int, int, None]],
         },
     )
@@ -314,7 +317,7 @@ class Canvas:
 
     @property
     def text(self) -> list[bytes]:
-        """Return the text content of the canvas as a list of strings, one for each row."""
+        """Return the text content of the canvas as a list of byte strings in the screen encoding, one for each row."""
         return [b"".join(text for (attr, cs, text) in row) for row in self.content()]
 
     @property
@@ -329,14 +332,14 @@ class Canvas:
         trim_top: int = 0,
         cols: int = 0,
         rows: int = 0,
-        attr: Mapping[Hashable, AttrSpec | str | None] | None = None,
+        attr: Mapping[Hashable, Hashable] | None = None,
     ) -> Iterator[_ContentLine]:
         """
         Return the canvas content as a list of rows of ``(attr, cs, text)`` tuples.
 
         :raises NotImplementedError: the subclass does not implement the canvas content protocol.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def cols(self) -> int:
         """
@@ -344,7 +347,7 @@ class Canvas:
 
         :raises NotImplementedError: the subclass does not report its own width.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def rows(self) -> int:
         """
@@ -352,23 +355,7 @@ class Canvas:
 
         :raises NotImplementedError: the subclass does not report its own height.
         """
-        raise NotImplementedError()
-
-    def content_delta(self, other: Canvas) -> list[int] | Iterator[_ContentLine]:
-        """Delta between two canvases.
-
-        :returns: a list of row deltas if other is None, otherwise an iterator of row deltas.
-        :raises NotImplementedError: the subclass does not implement the canvas content protocol.
-
-        .. deprecated:: 4.0.3
-            Not used by the code base; there is no replacement. It will be removed in version 5.0.
-        """
-        warnings.warn(
-            "content_delta is not used by the code base and will be removed in version 5.0",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_cursor(self) -> tuple[int, int] | None:
         """Return the cursor position as ``(x, y)``, or ``None`` if no cursor is set."""
@@ -396,6 +383,24 @@ class Canvas:
         """Return the pop-up info set on this canvas, or ``None`` if none was set."""
         return self.coords.get("pop up", None)
 
+    def get_pop_up_anchor_height(self) -> int | None:
+        """Return the anchor height set with the pop-up on this canvas, or ``None`` if none was set."""
+        pop_up = self.coords.get("pop up", None)
+        anchor = self.coords.get("pop up anchor", None)
+        # A merged canvas can hold the anchor of one pop-up and the position of another: use only a matching pair.
+        if pop_up is None or anchor is None or anchor[:2] != pop_up[:2]:
+            return None
+        return anchor[2]
+
+    def get_pop_up_unhandled_key(self) -> Callable[[str], str | None] | None:
+        """Return the unhandled key callback set with the pop-up on this canvas, or ``None`` if none was set."""
+        pop_up = self.coords.get("pop up", None)
+        on_key = self.coords.get("pop up unhandled key", None)
+        # As for the anchor, use only the callback set together with this pop-up.
+        if pop_up is None or on_key is None or on_key[:2] != pop_up[:2] or on_key[2][0] is not pop_up[2][0]:
+            return None
+        return on_key[2][1]
+
     def set_pop_up(
         self,
         w: AbstractWidget,
@@ -403,6 +408,9 @@ class Canvas:
         top: int,
         overlay_width: int,
         overlay_height: int,
+        *,
+        anchor_height: int | None = None,
+        on_unhandled_key: Callable[[str], str | None] | None = None,
     ) -> None:
         """Add pop-up information to the canvas.
 
@@ -410,19 +418,27 @@ class Canvas:
         display a pop-up at the given (left, top) position relative to the
         current canvas.
 
+        A negative position opens the pop-up to the left of or above this canvas, for example over a launcher
+        with the current item on the launcher's row. A pop-up that would extend past an edge of the
+        :class:`PopUpTarget <urwid.PopUpTarget>` is moved, and shrunk when it is larger, to fit inside it.
+
         :param w: widget to use for the pop-up
-        :param left: x position for left edge of pop-up >= 0
-        :param top: y position for top edge of pop-up >= 0
+        :param left: x position for left edge of pop-up, may be negative
+        :param top: y position for top edge of pop-up, may be negative
         :param overlay_width: width of overlay in screen columns > 0
         :param overlay_height: height of overlay in screen rows > 0
-        :raises CanvasError: the canvas is already finalised, the position is negative
+        :param anchor_height: rows of the launcher directly above the pop-up, >= 0, or ``None`` to place the pop-up
+            exactly as given. With an anchor, :class:`PopUpTarget <urwid.PopUpTarget>` keeps the pop-up off those
+            rows: it goes below them when it fits there, above them when it fits there, and otherwise on the side
+            with more rows, with its height clipped to that side.
+        :param on_unhandled_key: called by :class:`PopUpTarget <urwid.PopUpTarget>` with a key that `w` returned
+            unhandled while it is the topmost open pop-up; it returns ``None`` when it handled the key, or the key
+            to pass on. ``None`` passes every unhandled key on.
+        :raises CanvasError: the canvas is already finalised, the anchor height is negative
             or the overlay size is not positive
         """
         if self.widget_info and self.cacheable:
             raise CanvasError(self._finalized_message)
-
-        if left < 0 or top < 0:
-            raise CanvasError(f"Pop-up position must not be negative, got left={left!r} and top={top!r}")
 
         if overlay_width <= 0 or overlay_height <= 0:
             raise CanvasError(
@@ -430,7 +446,18 @@ class Canvas:
                 f"got overlay_width={overlay_width!r} and overlay_height={overlay_height!r}"
             )
 
+        if anchor_height is not None and anchor_height < 0:
+            raise CanvasError(f"Pop-up anchor height must not be negative, got {anchor_height!r}")
+
         self.coords["pop up"] = (left, top, (w, overlay_width, overlay_height))
+        if anchor_height is None:
+            self.coords.pop("pop up anchor", None)
+        else:
+            self.coords["pop up anchor"] = (left, top, anchor_height)
+        if on_unhandled_key is None:
+            self.coords.pop("pop up unhandled key", None)
+        else:
+            self.coords["pop up unhandled key"] = (left, top, (w, on_unhandled_key))
 
     def translate_coords(self, dx: int, dy: int) -> _CanvasCoords:
         """Return coords shifted by (dx, dy)."""
@@ -517,7 +544,7 @@ class TextCanvas(Canvas):
             cs = [[] for _ in range(len(text))]
 
         # pad text and attr to maxcol
-        for i, (w, a_row, cs_row) in enumerate(zip(widths, attr, cs)):
+        for i, (w, a_row, cs_row) in enumerate(zip(widths, attr, cs, strict=False)):
             if w > maxcol:
                 raise CanvasError(
                     f"Canvas text is wider than the maxcol specified:\n"
@@ -540,7 +567,7 @@ class TextCanvas(Canvas):
             if cs_gap < 0:
                 raise CanvasError(f"Character Set extends beyond text \n{t!r}\n{cs_row!r}")
             if cs_gap:
-                rle_append_modify(cs_row, (None, cs_gap))  # type: ignore[arg-type]  # str|None is Hashable
+                rle_append_modify(cs_row, (None, cs_gap))
 
         self._attr = attr
         self._cs = cs
@@ -569,7 +596,7 @@ class TextCanvas(Canvas):
         trim_top: int = 0,
         cols: int = 0,
         rows: int = 0,
-        attr: Mapping[object, AttrSpec | str | None] | None = None,
+        attr: Mapping[Hashable, Hashable] | None = None,
     ) -> Iterator[_ContentLine]:
         """Return the canvas content as a list of rows where each row is a list of (attr, cs, text) tuples.
 
@@ -599,51 +626,96 @@ class TextCanvas(Canvas):
                 self._text[trim_top : trim_top + rows],
                 self._attr[trim_top : trim_top + rows],
                 self._cs[trim_top : trim_top + rows],
+                strict=False,
             )
         else:
-            text_attr_cs = zip(self._text, self._attr, self._cs)
+            text_attr_cs = zip(self._text, self._attr, self._cs, strict=False)
 
         for text, a_row, cs_row in text_attr_cs:
             if trim_left or cols < self._maxcol:
-                text, a_row, cs_row = trim_text_attr_cs(  # type: ignore[assignment]  # noqa: PLW2901
+                # each row is replaced by its trimmed form before the attributes are combined below
+                text, a_row, cs_row = trim_text_attr_cs(  # noqa: PLW2901
                     text,
                     a_row,
-                    cs_row,  # type: ignore[arg-type]  # str|None is Hashable
+                    cs_row,
                     trim_left,
                     trim_left + cols,
                 )
 
-            attr_cs = typing.cast(
-                "list[tuple[tuple[Hashable, Literal['0', 'U'] | None], int]]",
-                rle_product(a_row, cs_row),  # type: ignore[arg-type]  # str|None is Hashable
-            )
+            attr_cs = rle_product(a_row, cs_row)
             i = 0
             row = []
             for (a, cs), run in attr_cs:
                 if attr:
                     a = attr.get(a, a)  # noqa: PLW2901  # single lookup instead of `in` + `[]`
-                row.append((typing.cast("AttrSpec | str | None", a), cs, text[i : i + run]))
+                row.append((a, cs, text[i : i + run]))
                 i += run
             yield row
 
-    def content_delta(self, other: Canvas) -> list[int] | Iterator[_ContentLine]:
-        """
-        Return the differences between other and this canvas.
 
-        If other is the same object as self this will return no differences,
-        otherwise this is the same as calling content().
+class _AttrMapChain(Mapping["Hashable", "Hashable"]):
+    """Attribute maps applied one after another, innermost first, as nested :class:`AttrMap` widgets apply them.
 
-        .. deprecated:: 4.0.3
-            Not used by the code base; there is no replacement. It will be removed in version 5.0.
-        """
-        warnings.warn(
-            "content_delta is not used by the code base and will be removed in version 5.0",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if other is self:
-            return [self.cols()] * self.rows()
-        return self.content()
+    Each map replaces the attributes it names, and places every attribute over its own ``None`` entry
+    (see :meth:`LayeredAttr.layer`), so a color left 'inherit' inside a map shows the color of the map.
+    A :class:`LayeredAttr` the map names as a whole is replaced; otherwise each of its layers is mapped.
+    An attribute, or a layer of a :class:`LayeredAttr`, that a map sends to ``None`` is dropped and shows
+    the map's ``None`` entry instead.
+
+    A lookup never raises: an attribute no map names is passed through, placed over the ``None`` entries,
+    so ``key in chain`` is true for every key. Iteration, ``len()`` and ``keys()`` list only the attributes
+    the maps name.
+    """
+
+    __slots__ = ("_mapped", "_maps")
+
+    def __init__(self, maps: tuple[Mapping[Hashable, Hashable], ...]) -> None:
+        """Chain *maps*, innermost first."""
+        self._maps = maps
+        self._mapped: dict[Hashable, Hashable] = {}
+
+    def append(self, mapping: Mapping[Hashable, Hashable]) -> _AttrMapChain:
+        """Return a new chain with *mapping* applied after the maps of this one."""
+        return _AttrMapChain((*self._maps, mapping))
+
+    def __getitem__(self, attr: Hashable) -> Hashable:
+        """Return *attr* passed through every map of the chain."""
+        try:
+            return self._mapped[attr]
+        except KeyError:
+            result = attr
+        for mapping in self._maps:
+            outer = mapping.get(None)
+            if result is None:
+                result = outer
+                continue
+            if isinstance(result, LayeredAttr) and result not in mapping:
+                folded: Hashable = None
+                for layer in reversed(result.layers):
+                    if (mapped := mapping.get(layer, layer)) is not None:
+                        folded = mapped if folded is None else LayeredAttr.layer(mapped, folded)
+                if folded is None:
+                    result = outer
+                    continue
+                result = folded
+            elif (result := mapping.get(result, result)) is None:
+                result = outer
+                continue
+            result = LayeredAttr.layer(result, outer)
+        self._mapped[attr] = result
+        return result
+
+    def __iter__(self) -> Iterator[Hashable]:
+        """Iterate over the attributes named by any map of the chain."""
+        return iter({key: None for mapping in self._maps for key in mapping})
+
+    def __len__(self) -> int:
+        """Return the number of attributes named by any map of the chain."""
+        return len(set(itertools.chain.from_iterable(self._maps)))
+
+    def __bool__(self) -> bool:
+        """Return whether any map of the chain names an attribute."""
+        return any(self._maps)
 
 
 class BlankCanvas(Canvas):
@@ -660,13 +732,13 @@ class BlankCanvas(Canvas):
         trim_top: int = 0,
         cols: int = 0,
         rows: int = 0,
-        attr: Mapping[Hashable, AttrSpec | str | None] | None = None,
+        attr: Mapping[Hashable, Hashable] | None = None,
     ) -> Iterator[_ContentLine]:
         """Return (cols, rows) of spaces with default attributes."""
         def_attr = attr.get(None) if attr else None
-        line = [(def_attr, None, b"".rjust(cols))]
+        line: _ContentLine = [(def_attr, None, b"".rjust(cols))]
         for _ in range(rows):
-            yield line  # type: ignore[misc]  # Yes, list is invariant, but we return it
+            yield line
 
     def cols(self) -> typing.NoReturn:
         """
@@ -682,22 +754,6 @@ class BlankCanvas(Canvas):
 
         :raises NotImplementedError: a BlankCanvas does not know its own size.
         """
-        raise NotImplementedError("BlankCanvas doesn't know its own size!")
-
-    def content_delta(self, other: Canvas) -> typing.NoReturn:
-        """
-        Raise :exc:`NotImplementedError`: a BlankCanvas does not know its own size.
-
-        .. deprecated:: 4.0.3
-            Not used by the code base; there is no replacement. It will be removed in version 5.0.
-
-        :raises NotImplementedError: a BlankCanvas does not know its own size.
-        """
-        warnings.warn(
-            "content_delta is not used by the code base and will be removed in version 5.0",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         raise NotImplementedError("BlankCanvas doesn't know its own size!")
 
 
@@ -736,7 +792,7 @@ class SolidCanvas(Canvas):
         trim_top: int = 0,
         cols: int | None = None,
         rows: int | None = None,
-        attr: Mapping[Hashable, AttrSpec | str | None] | None = None,
+        attr: Mapping[Hashable, Hashable] | None = None,
     ) -> Iterator[_ContentLine]:
         """Return the canvas content as rows of ``(attr, cs, text)`` tuples, each row filled with *fill_char*."""
         if cols is None:
@@ -748,22 +804,6 @@ class SolidCanvas(Canvas):
         line = [(def_attr, self._cs, self._text * cols)]
         for _ in range(rows):
             yield line
-
-    def content_delta(self, other: Canvas) -> list[int] | Iterator[_ContentLine]:
-        """
-        Return the differences between other and this canvas.
-
-        .. deprecated:: 4.0.3
-            Not used by the code base; there is no replacement. It will be removed in version 5.0.
-        """
-        warnings.warn(
-            "content_delta is not used by the code base and will be removed in version 5.0",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if other is self:
-            return [self.cols()] * self.rows()
-        return self.content()
 
 
 class CompositeCanvas(Canvas):
@@ -854,7 +894,7 @@ class CompositeCanvas(Canvas):
         trim_top: int = 0,
         cols: int = 0,
         rows: int = 0,
-        attr: Mapping[Hashable, AttrSpec | str | None] | None = None,
+        attr: Mapping[Hashable, Hashable] | None = None,
     ) -> Iterator[_ContentLine]:
         """
         Return the canvas content as a list of rows where each row is a list of (attr, cs, text) tuples.
@@ -872,40 +912,6 @@ class CompositeCanvas(Canvas):
 
             # prepare next shard tail
             shard_tail = shard_body_tail(num_rows, sbody)
-
-    def content_delta(self, other: Canvas) -> Iterator[_ContentLine]:
-        """
-        Return the differences between other and this canvas.
-
-        .. deprecated:: 4.0.3
-            Not used by the code base; there is no replacement. It will be removed in version 5.0.
-        """
-        warnings.warn(
-            "content_delta is not used by the code base and will be removed in version 5.0",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if not hasattr(other, "shards"):
-            yield from self.content()
-
-        else:
-            shard_tail: list[tuple[int, int, Iterator[_ContentLine] | None, _CView]] = []
-            for num_rows, cviews in shards_delta(self.shards, other.shards):
-                # combine shard and shard tail
-                # broken contract, content_delta is deprecated and not used
-                sbody = shard_body(cviews, shard_tail)  # type: ignore[arg-type]
-
-                # output rows
-                row: _ContentLine = []
-                for _ in range(num_rows):
-                    # if whole shard is unchanged, don't keep
-                    # calling shard_body_row
-                    if len(row) != 1 or not isinstance(row[0], int):
-                        row = shard_body_row(sbody)
-                    yield row
-
-                # prepare next shard tail
-                shard_tail = shard_body_tail(num_rows, sbody)
 
     def trim(self, top: int, count: int | None = None) -> None:
         """Trim lines from the top and/or bottom of canvas.
@@ -926,11 +932,12 @@ class CompositeCanvas(Canvas):
             self.shards = shards_trim_top(self.shards, top)
 
         if count == 0:
-            self.shards = []
+            self.shards = self._shards_without_rows()
         elif count is not None:
             self.shards = shards_trim_rows(self.shards, count)
 
         self.coords = self.translate_coords(0, -top)
+        self._drop_cursor_outside_rows()
 
     def trim_end(self, end: int) -> None:
         """Trim lines from the bottom of the canvas.
@@ -946,7 +953,19 @@ class CompositeCanvas(Canvas):
         if self.widget_info:
             raise CanvasError(self._finalized_message)
 
-        self.shards = shards_trim_rows(self.shards, self.rows() - end)
+        if end == self.rows():
+            self.shards = self._shards_without_rows()
+        else:
+            self.shards = shards_trim_rows(self.shards, self.rows() - end)
+        self._drop_cursor_outside_rows()
+
+    def _drop_cursor_outside_rows(self) -> None:
+        if (cursor := self.get_cursor()) is not None and not 0 <= cursor[1] < self.rows():
+            self.cursor = None
+
+    def _shards_without_rows(self) -> list[tuple[int, list[_CView]]]:
+        # An empty shard list has no width, so a canvas trimmed to no rows keeps one blank shard of no rows.
+        return [(0, [(0, 0, self.cols(), 0, None, blank_canvas)])]
 
     def pad_trim_left_right(self, left: int, right: int) -> None:
         """
@@ -967,15 +986,23 @@ class CompositeCanvas(Canvas):
 
         rows = self.rows()
         if left > 0 or right > 0:
-            top_rows, top_cviews = shards[0]
-            if left > 0:
-                new_top_cviews = [(0, 0, left, rows, None, blank_canvas), *top_cviews]
-            else:
-                new_top_cviews = top_cviews.copy()
 
-            if right > 0:
-                new_top_cviews.append((0, 0, right, rows, None, blank_canvas))
-            shards = [(top_rows, new_top_cviews), *shards[1:]]
+            def padded(cviews: list[_CView], pad_rows: int) -> list[_CView]:
+                new_cviews: list[_CView] = [(0, 0, left, pad_rows, None, blank_canvas)] if left > 0 else []
+                new_cviews.extend(cviews)
+                if right > 0:
+                    new_cviews.append((0, 0, right, pad_rows, None, blank_canvas))
+                return new_cviews
+
+            top_rows, top_cviews = shards[0]
+            new_shards = [(top_rows, padded(top_cviews, rows))]
+            done_rows = top_rows
+            for num_rows, cviews in shards[1:]:
+                # The padding started in the first shard ends with the last row,
+                # so a shard of no rows after that row needs padding of its own.
+                new_shards.append((num_rows, padded(cviews, 0) if done_rows == rows else cviews))
+                done_rows += num_rows
+            shards = new_shards
 
         self.coords = self.translate_coords(left, 0)
         self.shards = shards
@@ -1024,10 +1051,14 @@ class CompositeCanvas(Canvas):
         if bottom < 0:
             raise ValueError(f"top canvas of overlay not the size expected!{(other.rows(), top, bottom, height)!r}")
 
+        self.coords.update(other.translate_coords(left, top))
+        if not height:
+            return  # a canvas of no rows covers nothing, and the row trims below need at least one row
+
         shards = self.shards
-        top_shards = []
+        top_shards: list[tuple[int, list[_CView]]] = []
         side_shards = self.shards
-        bottom_shards = []
+        bottom_shards: list[tuple[int, list[_CView]]] = []
         if top:
             side_shards = shards_trim_top(shards, top)
             top_shards = shards_trim_rows(shards, top)
@@ -1035,23 +1066,16 @@ class CompositeCanvas(Canvas):
             bottom_shards = shards_trim_top(side_shards, height)
             side_shards = shards_trim_rows(side_shards, height)
 
-        left_shards = []
-        right_shards = []
+        left_shards: list[list[tuple[int, list[_CView]]]] = []
+        right_shards: list[list[tuple[int, list[_CView]]]] = []
         if left > 0:
             left_shards = [shards_trim_sides(side_shards, 0, left)]
         if right > 0:
             right_shards = [shards_trim_sides(side_shards, max(0, left + width), right)]
 
-        if not self.rows():
-            middle_shards = []
-        elif left or right:
-            middle_shards = shards_join((*left_shards, other.shards, *right_shards))
-        else:
-            middle_shards = other.shards
+        middle_shards = shards_join((*left_shards, other.shards, *right_shards)) if left or right else other.shards
 
         self.shards = top_shards + middle_shards + bottom_shards
-
-        self.coords.update(other.translate_coords(left, top))
 
     def fill_attr(self, a: Hashable) -> None:
         """Apply attribute a to all areas of this canvas with default attribute currently set to None.
@@ -1060,9 +1084,13 @@ class CompositeCanvas(Canvas):
         """
         self.fill_attr_apply({None: a})
 
-    def fill_attr_apply(self, mapping: dict[Hashable, Hashable]) -> None:
+    def fill_attr_apply(self, mapping: Mapping[Hashable, Hashable]) -> None:
         """
         Apply an attribute-mapping dictionary to the canvas.
+
+        Attributes not in *mapping* are kept, placed over ``mapping[None]`` when it is set,
+        so their 'inherit' colors show it (see :class:`LayeredAttr`).
+        An attribute *mapping* sends to ``None`` shows ``mapping[None]``.
 
         :param mapping: dictionary of original-attribute:new-attribute items
         :raises CanvasError: this canvas has already been finalized and can no longer be modified.
@@ -1076,11 +1104,12 @@ class CompositeCanvas(Canvas):
             for cv in original_cviews:
                 # cv[4] == attr_map
                 if cv[4] is None:
-                    new_cviews.append((*cv[:4], mapping, *cv[5:]))
+                    chain = _AttrMapChain((mapping,))
+                elif isinstance(cv[4], _AttrMapChain):
+                    chain = cv[4].append(mapping)
                 else:
-                    combined = mapping.copy()
-                    combined.update((k, mapping.get(v, v)) for k, v in cv[4].items())
-                    new_cviews.append((*cv[:4], combined, *cv[5:]))
+                    chain = _AttrMapChain((cv[4], mapping))
+                new_cviews.append((*cv[:4], chain, *cv[5:]))
             shards.append((num_rows, new_cviews))
         self.shards = shards
 
@@ -1097,7 +1126,7 @@ class CompositeCanvas(Canvas):
         self.depends_on = widget_list
 
 
-def shard_body_row(sbody: list[tuple[int, Iterator[_ContentLine] | None, _CView]]) -> _ContentLine:
+def shard_body_row(sbody: Iterable[tuple[int, Iterator[_ContentLine] | None, _CView]]) -> _ContentLine:
     """
     Return one row, advancing the iterators in sbody.
 
@@ -1118,7 +1147,7 @@ def shard_body_row(sbody: list[tuple[int, Iterator[_ContentLine] | None, _CView]
 
 def shard_body_tail(
     num_rows: int,
-    sbody: list[tuple[int, Iterator[_ContentLine] | None, _CView]],
+    sbody: Iterable[tuple[int, Iterator[_ContentLine] | None, _CView]],
 ) -> list[tuple[int, int, Iterator[_ContentLine] | None, _CView]]:
     """Return a new shard tail that follows this shard body."""
     shard_tail = []
@@ -1135,85 +1164,9 @@ def shard_body_tail(
     return shard_tail
 
 
-def shards_delta(
-    shards: list[tuple[int, list[_CView]]],
-    other_shards: list[tuple[int, list[_CView]]],
-) -> Iterator[tuple[int, Iterable[_CView | tuple[int, int, int, int, dict[Hashable, Hashable] | None, None]]]]:
-    """
-    Yield shards1 with cviews that are the same as shards2 having canv = None.
-
-    .. deprecated:: 4.0.3
-        Not used by the code base; there is no replacement. It will be removed in version 5.0.
-    """
-    warnings.warn(
-        "shards_delta is not used by the code base and will be removed in version 5.0",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    # pylint: disable=stop-iteration-return
-    other_shards_iter = iter(other_shards)
-    other_num_rows = other_cviews = None
-    done = other_done = 0
-    for num_rows, cviews in shards:
-        if other_num_rows is None:
-            other_num_rows, other_cviews = next(other_shards_iter)
-        while other_done < done:
-            other_done += other_num_rows
-            other_num_rows, other_cviews = next(other_shards_iter)
-        if other_done > done:
-            yield (num_rows, cviews)
-            done += num_rows
-            continue
-        # top-aligned shards, compare each cview
-        yield (num_rows, shard_cviews_delta(cviews, other_cviews))  # type: ignore[arg-type]  # `list` is `Iterable`
-        other_done += other_num_rows
-        other_num_rows = None
-        done += num_rows
-
-
-def shard_cviews_delta(
-    cviews: Iterable[_CView],
-    other_cviews: Iterable[_CView],
-) -> Iterator[_CView | tuple[int, int, int, int, dict[Hashable, Hashable] | None, None]]:
-    """Return iterator of cviews with differences between shards.
-
-    If Canvas and shard tail are equal between shards, return None instead of canvas.
-
-    .. deprecated:: 4.0.3
-        Not used by the code base; there is no replacement. It will be removed in version 5.0.
-    """
-    warnings.warn(
-        "shard_cviews_delta is not used by the code base and will be removed in version 5.0",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    # pylint: disable=stop-iteration-return
-    other_cviews_iter = iter(other_cviews)
-    other_cv = None
-    cols = other_cols = 0
-    for cv in cviews:
-        if other_cv is None:
-            other_cv = next(other_cviews_iter)
-        while other_cols < cols:
-            other_cols += other_cv[2]
-            other_cv = next(other_cviews_iter)
-        if other_cols > cols:
-            yield cv
-            cols += cv[2]
-            continue
-        # top-left-aligned cviews, compare them
-        if cv[5] is other_cv[5] and cv[:5] == other_cv[:5]:
-            yield (*cv[:5], None, *cv[6:])
-        else:
-            yield cv
-        other_cols += other_cv[2]
-        other_cv = None
-        cols += cv[2]
-
-
 def shard_body(
     cviews: Iterable[_CView],
-    shard_tail: list[tuple[int, int, Iterator[_ContentLine] | None, _CView]],
+    shard_tail: Iterable[tuple[int, int, Iterator[_ContentLine] | None, _CView]],
     create_iter: bool = True,
     iter_default: Iterator[_ContentLine] | None = None,
     num_rows: int | None = None,
@@ -1221,7 +1174,7 @@ def shard_body(
     """
     Return a list of (done_rows, content_iter, cview) tuples for this shard and shard tail.
 
-    If a canvas in cviews is None (eg. when unchanged from shard_cviews_delta())
+    If a canvas in cviews is None
     or if create_iter is False
     then no iterator is created for content_iter.
 
@@ -1242,12 +1195,10 @@ def shard_body(
             try:
                 cview = next(cviews_iter)
             except StopIteration:
-                # The shard calculation is inconsistent: this shard's cviews don't add up
-                # to the width the previous shard's tail expects to continue into. This is
-                # a known open issue (https://github.com/urwid/urwid/issues/340) that we
-                # haven't been able to root-cause; rather than raising (crashing the whole
-                # app) or silently leaving the row short (a corrupted-looking canvas), pad
-                # the unmet gap with blank filler so the canvas stays rectangular.
+                # The shards are inconsistent: this shard's cviews don't add up to the width
+                # the previous shard's tail expects to continue into. Rather than raising
+                # (crashing the whole app) or leaving the row short (a corrupted-looking
+                # canvas), pad the unmet gap with blank filler so the canvas stays rectangular.
                 fill_rows = num_rows if num_rows is not None else done_rows + 1
                 filler_cview = (0, 0, col_gap, fill_rows, None, blank_canvas)
                 new_iter = blank_canvas.content(0, 0, col_gap, fill_rows, None) if create_iter else iter_default
@@ -1261,7 +1212,7 @@ def shard_body(
             if col_gap < 0:
                 raise CanvasError("cviews overflow gaps in shard_tail!")
             if create_iter and canv:
-                new_iter = canv.content(trim_left, trim_top, cols, rows, attr_map)  # type: ignore[arg-type]
+                new_iter = canv.content(trim_left, trim_top, cols, rows, attr_map)
             else:
                 new_iter = iter_default
             body.append((0, new_iter, cview))
@@ -1269,7 +1220,7 @@ def shard_body(
     for cview in cviews_iter:
         (trim_left, trim_top, cols, rows, attr_map, canv) = cview[:6]
         if create_iter and canv:
-            new_iter = canv.content(trim_left, trim_top, cols, rows, attr_map)  # type: ignore[arg-type]
+            new_iter = canv.content(trim_left, trim_top, cols, rows, attr_map)
         else:
             new_iter = iter_default
         body.append((0, new_iter, cview))
@@ -1317,7 +1268,7 @@ def shards_trim_top(
 
 
 def shards_trim_rows(
-    shards: list[tuple[int, list[_CView]]],
+    shards: Iterable[tuple[int, list[_CView]]],
     keep_rows: int,
 ) -> list[tuple[int, list[_CView]]]:
     """
@@ -1350,7 +1301,7 @@ def shards_trim_rows(
 
 
 def shards_trim_sides(
-    shards: list[tuple[int, list[_CView]]],
+    shards: Iterable[tuple[int, list[_CView]]],
     left: int,
     cols: int,
 ) -> list[tuple[int, list[_CView]]]:
@@ -1367,14 +1318,17 @@ def shards_trim_sides(
     new_shards: list[tuple[int, list[_CView]]] = []
     right = left + cols
     for num_rows, cviews in shards:
-        sbody = shard_body(cviews, shard_tail, False, num_rows=num_rows)
+        # Cviews starting in this shard get this shard's marker and continued ones keep an earlier one:
+        # done_rows cannot tell them apart, since it stays 0 for a cview continued past a shard of no rows.
+        started_here: Iterator[_ContentLine] = iter(())
+        sbody = shard_body(cviews, shard_tail, False, started_here, num_rows=num_rows)
         shard_tail = shard_body_tail(num_rows, sbody)
         new_cviews = []
         col = 0
-        for done_rows, _content_iter, cv in sbody:
+        for _done_rows, content_iter, cv in sbody:
             cv_cols = cv[2]
             next_col = col + cv_cols
-            if done_rows or next_col <= left or col >= right:
+            if content_iter is not started_here or next_col <= left or col >= right:
                 col = next_col
                 continue
             if col < left:
@@ -1392,7 +1346,7 @@ def shards_trim_sides(
     return new_shards
 
 
-def shards_join(shard_lists: Iterable[list[tuple[int, list[_CView]]]]) -> list[tuple[int, list[_CView]]]:
+def shards_join(shard_lists: Iterable[Iterable[tuple[int, list[_CView]]]]) -> list[tuple[int, list[_CView]]]:
     """Return the result of joining shard lists horizontally.
 
     All shards lists must have the same number of rows.
@@ -1459,7 +1413,7 @@ def CanvasCombine(canvas_info: Iterable[tuple[Canvas, typing.Any, bool]]) -> Com
 
     combined_canvas = CompositeCanvas()
     shards = []
-    children = []
+    children: list[tuple[int, int, Canvas, typing.Any]] = []
     row = 0
     focus_index = 0
 
@@ -1477,12 +1431,14 @@ def CanvasCombine(canvas_info: Iterable[tuple[Canvas, typing.Any, bool]]) -> Com
         children = [children[focus_index], *children[:focus_index], *children[focus_index + 1 :]]
 
     combined_canvas.shards = shards
-    combined_canvas.children = children  # type: ignore[assignment]  # `CompositeCanvas` is subtype of `Canvas`
+    combined_canvas.children = children
     return combined_canvas
 
 
-def CanvasOverlay(top_c: CompositeCanvas, bottom_c: Canvas, left: int, top: int) -> CompositeCanvas:
+def CanvasOverlay(top_c: Canvas, bottom_c: Canvas, left: int, top: int) -> CompositeCanvas:
     """Overlay canvas top_c onto bottom_c at position (left, top)."""
+    if not isinstance(top_c, CompositeCanvas):
+        top_c = CompositeCanvas(top_c)
     overlayed_canvas = CompositeCanvas(bottom_c)
     overlayed_canvas.overlay(top_c, left, top)
     overlayed_canvas.children = [(left, top, top_c, None), (0, 0, bottom_c, None)]
@@ -1520,7 +1476,7 @@ def CanvasJoin(canvas_info: Iterable[tuple[Canvas, typing.Any, bool, int]]) -> C
         l2.append((canv, pos, pad_right, rows))
 
     shard_lists = []
-    children = []
+    children: list[tuple[int, int, Canvas, typing.Any]] = []
     joined_canvas = CompositeCanvas()
     col = 0
     for canv, pos, pad_right, rows in l2:
@@ -1540,7 +1496,7 @@ def CanvasJoin(canvas_info: Iterable[tuple[Canvas, typing.Any, bool, int]]) -> C
         children = [children[focus_item], *children[:focus_item], *children[focus_item + 1 :]]
 
     joined_canvas.shards = shards_join(shard_lists)
-    joined_canvas.children = children  # type: ignore[assignment]  # `CompositeCanvas` is subtype of `Canvas`
+    joined_canvas.children = children
     return joined_canvas
 
 
@@ -1604,8 +1560,8 @@ class _AttrWalk:
 
 def apply_text_layout(
     text: str | bytes,
-    attr: list[tuple[Hashable, int]],
-    ls: list[list[tuple[int, int, int | bytes] | tuple[int, int | None]]],
+    attr: Sequence[tuple[Hashable, int]],
+    ls: Iterable[list[tuple[int, int, int | bytes] | tuple[int, int | None]]],
     maxcol: int,
 ) -> TextCanvas:
     """Build a :class:`TextCanvas` by encoding *text* and *attr* according to the line layout *ls*.
@@ -1666,6 +1622,9 @@ def apply_text_layout(
         ) -> None:
             """Add attributes based on attributes between start_offs and end_offs.
 
+            :param start_offs: offset into *src* where the range starts
+            :param end_offs: offset into *src* where the range ends
+            :param destw: number of bytes the range encodes to
             :param src: the text *start_offs* and *end_offs* index, which encodes to *destw* bytes
             :param runs: the attributes of src[start_offs:end_offs], ``None`` to look them up in *attr*
             """
@@ -1703,9 +1662,11 @@ def apply_text_layout(
                     tseg, cs = apply_target_encoding(text[offs : s.end])
                     attrrange(offs, s.end, rle_len(cs))
                 else:
-                    seg_text = typing.cast("str", text[:0]).join(
-                        typing.cast("str", text[start:end]) for start, end in drawn
-                    )
+                    seg_text: str | bytes
+                    if isinstance(text, bytes):
+                        seg_text = b"".join(text[start:end] for start, end in drawn)
+                    else:
+                        seg_text = "".join(text[start:end] for start, end in drawn)
                     tseg, cs = apply_target_encoding(seg_text)
                     runs: list[tuple[Hashable, int]] = []
                     for start, end in drawn:
@@ -1713,12 +1674,12 @@ def apply_text_layout(
                             rle_append_modify(runs, run)
                     attrrange(0, len(seg_text), rle_len(cs), src=seg_text, runs=runs)
                 line.append(tseg)
-                rle_join_modify(linec, cs)  # type: ignore[arg-type]
+                rle_join_modify(linec, cs)
             elif s.text:
                 tseg, cs = apply_target_encoding(s.text)
                 line.append(tseg)
                 attrrange(typing.cast("int", s.offs), typing.cast("int", s.offs), len(tseg))  # s.text is set
-                rle_join_modify(linec, cs)  # type: ignore[arg-type]
+                rle_join_modify(linec, cs)
             elif s.offs:
                 if s.sc:
                     line.append(b"".rjust(s.sc))

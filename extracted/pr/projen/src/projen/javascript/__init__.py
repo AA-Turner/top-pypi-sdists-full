@@ -11497,6 +11497,15 @@ class NodeProject(
         return typing.cast("NodePackage", jsii.get(self, "package"))
 
     @builtins.property
+    @jsii.member(jsii_name="projenCommand")
+    def projen_command(self) -> builtins.str:
+        '''(experimental) The command to use in order to run the projen CLI.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "projenCommand"))
+
+    @builtins.property
     @jsii.member(jsii_name="runScriptCommand")
     def run_script_command(self) -> builtins.str:
         '''(experimental) The command to use to run scripts (e.g. ``yarn run`` or ``npm run`` depends on the package manager).
@@ -21012,6 +21021,7 @@ class Transform(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.Transform"
         "resolve_json_module": "resolveJsonModule",
         "resolve_package_json_exports": "resolvePackageJsonExports",
         "resolve_package_json_imports": "resolvePackageJsonImports",
+        "rewrite_relative_import_extensions": "rewriteRelativeImportExtensions",
         "root_dir": "rootDir",
         "skip_lib_check": "skipLibCheck",
         "source_map": "sourceMap",
@@ -21084,6 +21094,7 @@ class TypeScriptCompilerOptions:
         resolve_json_module: typing.Optional[builtins.bool] = None,
         resolve_package_json_exports: typing.Optional[builtins.bool] = None,
         resolve_package_json_imports: typing.Optional[builtins.bool] = None,
+        rewrite_relative_import_extensions: typing.Optional[builtins.bool] = None,
         root_dir: typing.Optional[builtins.str] = None,
         skip_lib_check: typing.Optional[builtins.bool] = None,
         source_map: typing.Optional[builtins.bool] = None,
@@ -21152,6 +21163,7 @@ class TypeScriptCompilerOptions:
         :param resolve_json_module: (experimental) Allows importing modules with a ‘.json’ extension, which is a common practice in node projects. This includes generating a type for the import based on the static JSON shape. Default: true
         :param resolve_package_json_exports: (experimental) Forces TypeScript to consult the ``exports`` field of ``package.json`` files if it ever reads from a package in ``node_modules``. Default: true
         :param resolve_package_json_imports: (experimental) Forces TypeScript to consult the ``imports`` field of ``package.json`` when performing a lookup that begins with ``#`` from a file that has a ``package.json`` as an ancestor. Default: undefined
+        :param rewrite_relative_import_extensions: (experimental) Rewrite ``.ts``, ``.tsx``, ``.mts``, and ``.cts`` extensions in relative import paths to their JavaScript equivalents in emitted files. Requires TypeScript 5.7 or later. Default: undefined
         :param root_dir: (experimental) Specifies the root directory of input files. Only use to control the output directory structure with ``outDir``.
         :param skip_lib_check: (experimental) Skip type checking of all declaration files (*.d.ts). Default: false
         :param source_map: (experimental) Enables the generation of sourcemap files. Default: undefined
@@ -21223,6 +21235,7 @@ class TypeScriptCompilerOptions:
             check_type(argname="argument resolve_json_module", value=resolve_json_module, expected_type=type_hints["resolve_json_module"])
             check_type(argname="argument resolve_package_json_exports", value=resolve_package_json_exports, expected_type=type_hints["resolve_package_json_exports"])
             check_type(argname="argument resolve_package_json_imports", value=resolve_package_json_imports, expected_type=type_hints["resolve_package_json_imports"])
+            check_type(argname="argument rewrite_relative_import_extensions", value=rewrite_relative_import_extensions, expected_type=type_hints["rewrite_relative_import_extensions"])
             check_type(argname="argument root_dir", value=root_dir, expected_type=type_hints["root_dir"])
             check_type(argname="argument skip_lib_check", value=skip_lib_check, expected_type=type_hints["skip_lib_check"])
             check_type(argname="argument source_map", value=source_map, expected_type=type_hints["source_map"])
@@ -21342,6 +21355,8 @@ class TypeScriptCompilerOptions:
             self._values["resolve_package_json_exports"] = resolve_package_json_exports
         if resolve_package_json_imports is not None:
             self._values["resolve_package_json_imports"] = resolve_package_json_imports
+        if rewrite_relative_import_extensions is not None:
+            self._values["rewrite_relative_import_extensions"] = rewrite_relative_import_extensions
         if root_dir is not None:
             self._values["root_dir"] = root_dir
         if skip_lib_check is not None:
@@ -22014,6 +22029,18 @@ class TypeScriptCompilerOptions:
         :stability: experimental
         '''
         result = self._values.get("resolve_package_json_imports")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def rewrite_relative_import_extensions(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Rewrite ``.ts``, ``.tsx``, ``.mts``, and ``.cts`` extensions in relative import paths to their JavaScript equivalents in emitted files. Requires TypeScript 5.7 or later.
+
+        :default: undefined
+
+        :see: https://www.typescriptlang.org/tsconfig/rewriteRelativeImportExtensions.html
+        :stability: experimental
+        '''
+        result = self._values.get("rewrite_relative_import_extensions")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -32211,6 +32238,7 @@ def _typecheckingstub__c3368fe3a3107764de1a64c16f7fe4c15d510477a888b2a74df2afb14
     resolve_json_module: typing.Optional[builtins.bool] = None,
     resolve_package_json_exports: typing.Optional[builtins.bool] = None,
     resolve_package_json_imports: typing.Optional[builtins.bool] = None,
+    rewrite_relative_import_extensions: typing.Optional[builtins.bool] = None,
     root_dir: typing.Optional[builtins.str] = None,
     skip_lib_check: typing.Optional[builtins.bool] = None,
     source_map: typing.Optional[builtins.bool] = None,

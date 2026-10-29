@@ -3,18 +3,18 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
-#include <mutex>
+#include <cstring>
+#include <vector>
 #include <stdexcept>
 #include <string>
 
-#include "batch.h"
+#include "rust_backend.h"
 
 namespace py = pybind11;
 
 namespace {
 constexpr double pi = 3.14159265358979323e0;
 constexpr py::ssize_t mgrs_width = 15;
-std::mutex projection_mutex;
 
 struct MGRSError : std::runtime_error {
     using std::runtime_error::runtime_error;
@@ -42,6 +42,9 @@ void check_result(long status, const char *function, bool batch = false,
     if (!status) {
         return;
     }
+    if (status & (MGRS_PANIC | MGRS_LAYOUT_ERROR)) {
+        throw std::runtime_error("Rust MGRS backend failed internally");
+    }
     std::string message;
     for (auto error : errors) {
         if (status & error.bit) {
@@ -68,13 +71,11 @@ void check_result(long status, const char *function, bool batch = false,
     }
 }
 
-// Always release the GIL BEFORE waiting for the process-wide GeoTrans mutex.
-// Unlock BEFORE reacquiring the GIL, including when an exception unwinds.
-// Only native pointers and values may be accessed by the supplied callable.
+// Rust projection state is immutable and shareable. Only owned native inputs
+// and unpublished output storage may be accessed while the GIL is released.
 template <typename Function>
 long convert(Function &&function) {
     py::gil_scoped_release release;
-    std::lock_guard<std::mutex> lock(projection_mutex);
     return function();
 }
 
@@ -141,8 +142,8 @@ struct MGRS {
         char text[mgrs_width + 1] = {};
         size_t index = 0;
         const long status = convert([&] {
-            return Convert_Geodetic_To_MGRS_Array(
-                point, 1, degrees, precision, text, &index);
+            return mgrs_rust_forward(
+                point, 1, degrees, precision, reinterpret_cast<std::uint8_t *>(text), &index);
         });
         check_result(status, "Convert_Geodetic_To_MGRS");
         return text;
@@ -152,7 +153,8 @@ struct MGRS {
         auto text = code_bytes(code);
         double latitude = 0, longitude = 0;
         const long status = convert([&] {
-            return Convert_MGRS_To_Geodetic(text.data(), &latitude, &longitude);
+            return mgrs_rust_inverse(reinterpret_cast<const std::uint8_t *>(text.data()),
+                                     text.size(), &latitude, &longitude);
         });
         check_result(status, "Convert_MGRS_To_Geodetic");
         if (degrees) {
@@ -162,14 +164,49 @@ struct MGRS {
         return py::make_tuple(latitude, longitude);
     }
 
+    std::string geometry_text(py::handle code, bool geojson) const {
+        auto text = code_bytes(code);
+        std::string output(1024, '\0');
+        std::size_t required = 0;
+        const long status = convert([&] {
+            auto call = [&] {
+                auto function = geojson ? mgrs_rust_to_geojson : mgrs_rust_to_wkt;
+                return function(
+                    reinterpret_cast<const std::uint8_t *>(text.data()), text.size(),
+                    reinterpret_cast<std::uint8_t *>(output.data()), output.size(), &required);
+            };
+            auto result = call();
+            if (required > output.size()) {
+                output.resize(required);
+                result = call();
+            }
+            return result;
+        });
+        check_result(status, geojson ? "Convert_MGRS_To_GeoJSON" : "Convert_MGRS_To_WKT");
+        output.resize(required);
+        return output;
+    }
+
+    std::string to_wkt(py::handle code) const {
+        return geometry_text(code, false);
+    }
+
+    py::dict to_geojson(py::handle code) const {
+        // Standard-library JSON constructs only built-in dict/list/str/float
+        // values, suitable as the value of an object's __geo_interface__.
+        auto text = geometry_text(code, true);
+        return py::module_::import("json").attr("loads")(text).cast<py::dict>();
+    }
+
     py::tuple mgrs_to_utm(py::handle code, const std::string &encoding) const {
         auto text = code_bytes(code, encoding.c_str());
-        long zone = 0;
+        std::int32_t zone = 0;
         char hemisphere = 0;
         double easting = 0, northing = 0;
         const long status = convert([&] {
-            return Convert_MGRS_To_UTM(
-                text.data(), &zone, &hemisphere, &easting, &northing);
+            return mgrs_rust_to_utm(
+                reinterpret_cast<const std::uint8_t *>(text.data()), text.size(),
+                &zone, reinterpret_cast<std::uint8_t *>(&hemisphere), &easting, &northing);
         });
         check_result(status, "Convert_MGRS_To_UTM");
         return py::make_tuple(zone, std::string(1, hemisphere), easting, northing);
@@ -189,8 +226,9 @@ struct MGRS {
         }
         char text[80] = {};
         const long status = convert([&] {
-            return Convert_UTM_To_MGRS(
-                zone, hemi[0], easting, northing, precision, text);
+            return mgrs_rust_from_utm(
+                zone, hemi[0], easting, northing, precision,
+                reinterpret_cast<std::uint8_t *>(text));
         });
         check_result(status, "Convert_UTM_To_MGRS");
         return text;
@@ -222,12 +260,17 @@ struct MGRS {
         if (!output) {
             throw py::error_already_set();
         }
-        const auto *input = static_cast<const double *>(info.ptr);
+        // Snapshot mutable Python storage before releasing the GIL.
+        std::vector<double> input(info.size);
+        if (info.size) {
+            std::memcpy(input.data(), info.ptr, info.size * sizeof(double));
+        }
         char *target = PyByteArray_AS_STRING(output.ptr());
         size_t index = 0;
         const long status = convert([&] {
-            return Convert_Geodetic_To_MGRS_Array(
-                input, count, degrees, precision, target, &index);
+            return mgrs_rust_forward(
+                input.data(), count, degrees, precision,
+                reinterpret_cast<std::uint8_t *>(target), &index);
         });
         check_result(status, "Convert_Geodetic_To_MGRS_Array", true, index);
         return output;
@@ -263,12 +306,15 @@ struct MGRS {
             throw py::error_already_set();
         }
         auto target = py::reinterpret_borrow<py::buffer>(output).request(true);
-        const auto *input = static_cast<const char *>(info.ptr);
+        std::vector<std::uint8_t> input(info.size);
+        if (info.size) {
+            std::memcpy(input.data(), info.ptr, info.size);
+        }
         auto *coordinates = static_cast<double *>(target.ptr);
         size_t index = 0;
         const long status = convert([&] {
-            return Convert_MGRS_To_Geodetic_Array(
-                input, count, width, degrees, coordinates, &index);
+            return mgrs_rust_inverse_array(
+                input.data(), count, width, degrees, coordinates, &index);
         });
         check_result(status, "Convert_MGRS_To_Geodetic_Array", true, index);
         return output;
@@ -277,13 +323,21 @@ struct MGRS {
 } // namespace
 
 PYBIND11_MODULE(_native, module) {
-    module.doc() = "MGRS conversions with statically linked GeoTrans kernels.";
+    module.doc() = "MGRS conversions with the statically linked Rust GEOTRANS 3.10 translation.";
+    module.attr("backend") = "rust";
     py::register_exception<MGRSError>(module, "MGRSError", PyExc_Exception);
     py::class_<MGRS>(module, "MGRS")
         .def(py::init<>())
         .def("toMGRS", &MGRS::to_mgrs, py::arg("latitude"), py::arg("longitude"),
              py::arg("inDegrees") = true, py::arg("MGRSPrecision") = 5)
         .def("toLatLon", &MGRS::to_latlon, py::arg("MGRS"), py::arg("inDegrees") = true)
+        .def("toWKT", &MGRS::to_wkt, py::arg("MGRS"),
+             "Return the full cell as a WGS84 longitude/latitude WKT POLYGON. "
+             "Curved edges are sampled; antimeridian longitudes may exceed +/-180.")
+        .def("toGeoJSON", &MGRS::to_geojson, py::arg("MGRS"),
+             "Return a __geo_interface__ geometry mapping using built-in types. "
+             "Coordinates are WGS84 longitude/latitude. Antimeridian crossings "
+             "produce a MultiPolygon; other cells produce a Polygon.")
         .def("MGRSToUTM", &MGRS::mgrs_to_utm, py::arg("MGRS"), py::arg("encoding") = "utf-8")
         .def("UTMToMGRS", &MGRS::utm_to_mgrs, py::arg("zone"), py::arg("hemisphere"),
              py::arg("easting"), py::arg("northing"), py::arg("MGRSPrecision") = 5)

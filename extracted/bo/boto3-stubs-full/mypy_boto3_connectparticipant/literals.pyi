@@ -26,6 +26,7 @@ __all__ = (
     "ChatItemTypeType",
     "ConnectParticipantServiceName",
     "ConnectionTypeType",
+    "ContentDispositionType",
     "MeetingFeatureStatusType",
     "MessageProcessingStatusType",
     "ParticipantRoleType",
@@ -52,6 +53,7 @@ ChatItemTypeType = Literal[
     "TYPING",
 ]
 ConnectionTypeType = Literal["CONNECTION_CREDENTIALS", "WEBRTC_CONNECTION", "WEBSOCKET"]
+ContentDispositionType = Literal["ATTACHMENT", "INLINE"]
 MeetingFeatureStatusType = Literal["AVAILABLE", "UNAVAILABLE"]
 MessageProcessingStatusType = Literal["FAILED", "PROCESSING", "REJECTED"]
 ParticipantRoleType = Literal["AGENT", "CUSTOMER", "CUSTOM_BOT", "SUPERVISOR", "SYSTEM"]

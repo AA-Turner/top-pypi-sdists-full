@@ -154,7 +154,9 @@ CorrDetectorObj_init (CorrDetectorObject *self, PyObject *args, PyObject *kwds)
   Py_DECREF (ref_arr);
   if (!self->handle)
     {
-      PyErr_SetString (PyExc_MemoryError, "dp_detector_create returned NULL");
+      PyErr_SetString (PyExc_ValueError,
+                       "CorrDetector: invalid parameter (need a non-empty "
+                       "ref and dwell >= 1)");
       return -1;
     }
   return 0;
@@ -470,7 +472,10 @@ static PyMethodDef CorrDetectorObj_methods[] = {
     "Reset the correlator, the carry, and last-corr flag. Discards any\n"
     "partial frame carried between pushes and zeroes the coherent\n"
     "accumulator. Equivalent to starting fresh from the same reference\n"
-    "without rebuilding any internal object.\n"
+    "without rebuilding any internal object. The last-dump fields (peak_lag,\n"
+    "peak_mag, noise_est, test_stat) read 0 until the next dump, so the\n"
+    "state blob after a reset matches a fresh object's (doppler#2642).\n"
+    "dp_detector_consumed() reads 0 afterwards.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -655,6 +660,13 @@ static PyTypeObject CorrDetectorObjType = {
     "    Test-stat gate; 0.0 = always emit.\n"
     "nthreads : int, default 1\n"
     "    Accepted for API compatibility; ignored.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If construction fails. The exception message is ``CorrDetector: "
+    "invalid\n"
+    "    parameter (need a non-empty ref and dwell >= 1)``.\n"
     "\n"
     "Examples\n"
     "--------\n"

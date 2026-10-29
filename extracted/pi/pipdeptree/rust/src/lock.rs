@@ -7,7 +7,9 @@ use pep508_rs::{MarkerEnvironment, MarkerTree};
 use serde::Deserialize;
 
 use crate::Error;
-use crate::metadata::{Discovered, Package, canonicalize_name};
+use crate::metadata::{
+    Discovered, MAX_IDENTITY_LENGTH, Package, canonicalize_name, oversized_identity, printable,
+};
 
 #[derive(Debug, Deserialize)]
 struct Lock {
@@ -39,14 +41,14 @@ pub fn load(path: &Path, marker: &MarkerEnvironment) -> Result<Discovered, Error
         )));
     }
     let content = fs::read_to_string(path)?;
-    let lock: Lock = toml::from_str(&content)
-        .map_err(|error| Error::message(format!("malformed TOML: {error}")))?;
+    let lock: Lock = toml::from_str(&content).map_err(|error| parse_error(&content, &error))?;
     // PEP 751 tools must refuse a lock whose major version they do not implement.
     if let Some(version) = &lock.lock_version
         && version.split('.').next() != Some("1")
     {
         return Err(Error::message(format!(
-            "unsupported lock-version: {version}"
+            "unsupported lock-version: {}",
+            printable(version)
         )));
     }
     let packages = lock
@@ -77,6 +79,11 @@ pub fn load(path: &Path, marker: &MarkerEnvironment) -> Result<Discovered, Error
             let name = package
                 .name
                 .ok_or_else(|| Error::message("package is missing 'name'"))?;
+            if let Some(field) = oversized_identity(&name, &package.version) {
+                return Err(Error::message(format!(
+                    "package '{field}' is longer than {MAX_IDENTITY_LENGTH} bytes"
+                )));
+            }
             let requires = package
                 .dependencies
                 .into_iter()
@@ -94,11 +101,24 @@ pub fn load(path: &Path, marker: &MarkerEnvironment) -> Result<Discovered, Error
                             },
                         )
                 })
-                .collect();
-            Ok(Package::synthetic(name, package.version, requires))
+                .collect::<Vec<_>>();
+            Ok(Package::synthetic(&name, &package.version, &requires))
         })
         .collect::<Result<Vec<_>, _>>()
         .map(Discovered::new)
+}
+
+// The Display form of a toml error quotes the source line, and the lock path can be a symlink to
+// any readable file, so the error reports only the position and the parser's message.
+fn parse_error(content: &str, error: &toml::de::Error) -> Error {
+    let before = &content[..error.span().map_or(0, |span| span.start)];
+    let line_start = before.rfind('\n').map_or(0, |index| index + 1);
+    Error::message(format!(
+        "malformed TOML at line {}, column {}: {}",
+        before.matches('\n').count() + 1,
+        before[line_start..].chars().count() + 1,
+        error.message()
+    ))
 }
 
 fn applies(marker: Option<&str>, environment: &MarkerEnvironment) -> bool {

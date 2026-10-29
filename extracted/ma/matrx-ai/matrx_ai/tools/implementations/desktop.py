@@ -648,7 +648,9 @@ def _web_plan(
 #: research reads at most this many pages in one web.scrape op (the op's own limit).
 _RESEARCH_SCRAPE_BATCH = 20
 #: The compiled pages' text the model is shown, at most (the rest is said to be cut).
-_RESEARCH_TEXT_BUDGET = 60_000
+_RESEARCH_TEXT_KEY = "text_max_chars"
+#: KNOB MIRROR of platform.feature_knob "agents.desktop_research" "text_max_chars"
+_RESEARCH_TEXT_MIRROR = 60_000
 
 
 async def _research_hits(
@@ -739,10 +741,14 @@ async def _desktop_research(
         sections.append(f"## {title}\n{p.get('url')}\n\n{(p.get('text') or '').strip()}")
     text = "\n\n---\n\n".join(sections)
     total = len(text)
-    cut = total > _RESEARCH_TEXT_BUDGET
+    from matrx_ai.knobs import package_knob_number
+
+    budget = package_knob_number("agents.desktop_research", _RESEARCH_TEXT_KEY, _RESEARCH_TEXT_MIRROR,
+                                 low=1_000, high=1_000_000)
+    cut = total > budget
     if cut:
-        text = text[:_RESEARCH_TEXT_BUDGET] + (
-            f"\n\n[Cut at {_RESEARCH_TEXT_BUDGET:,} of {total:,} characters: read a page in"
+        text = text[:budget] + (
+            f"\n\n[Cut at {budget:,} of {total:,} characters: read a page in"
             " full with action scrape.]"
         )
     output: dict[str, Any] = {

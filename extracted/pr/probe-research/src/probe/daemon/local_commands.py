@@ -336,15 +336,16 @@ async def _mcp(deps: Any, argv: list[str]):
             if len(argv) < 3 or argv[2].startswith("-"):
                 return _ok("usage: probe mcp call <tool> '<json arguments>'", 2)
             tool = argv[2]
-            if deps.audit:
-                from probe.daemon.agent import AUDIT_REFUSED_TOOLS, AUDIT_WEB_REFUSED
-
-                if tool in AUDIT_REFUSED_TOOLS:
-                    return AUDIT_WEB_REFUSED, None
             try:
                 payload = mcp_bridge.parse_arguments(" ".join(argv[3:]) if len(argv) > 3 else None)
             except ValueError as exc:
                 return _ok(f"error: {exc}", 2)
+            if deps.audit:
+                from probe.daemon.agent import audit_tool_refusal
+
+                refusal = audit_tool_refusal(tool, payload)
+                if refusal is not None:
+                    return refusal, None
             if deps.reader and tool in ("search", "search_knowledge"):
                 # The watched session is never the team's prior work (`agent.ExcludeWatchedSession`).
                 payload = {**payload, "exclude_session": deps.session_id}

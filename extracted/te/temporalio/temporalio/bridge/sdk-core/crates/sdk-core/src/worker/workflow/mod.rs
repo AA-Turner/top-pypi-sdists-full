@@ -44,7 +44,12 @@ use crate::{
     },
 };
 use anyhow::anyhow;
-use futures_util::{Stream, StreamExt, future::abortable, stream, stream::BoxStream};
+use futures_util::{
+    Stream, StreamExt,
+    future::abortable,
+    stream,
+    stream::{BoxStream, PollNext},
+};
 use itertools::Itertools;
 use prost_types::TimestampError;
 use std::{
@@ -177,7 +182,7 @@ impl Workflows {
         wft_stream: impl Stream<Item = WFTStreamIn> + Send + 'static,
         local_activity_request_sink: Option<impl LocalActivityRequestSink>,
         local_act_mgr: Option<Arc<LocalActivityManager>>,
-        heartbeat_timeout_rx: Option<UnboundedReceiver<HeartbeatTimeoutMsg>>,
+        la_notify_rx: Option<UnboundedReceiver<LocalActivityNotification>>,
         activity_tasks_handle: Option<ActivitiesFromWFTsHandle>,
         tracing_sub: Option<Arc<dyn Subscriber + Send + Sync>>,
     ) -> Self {
@@ -197,10 +202,14 @@ impl Workflows {
             wft_stream,
             UnboundedReceiverStream::new(fetch_rx),
         );
-        let locals_stream = if let Some(hb_rx) = heartbeat_timeout_rx {
-            Either::Left(stream::select(
+        let locals_stream = if let Some(la_notify_rx) = la_notify_rx {
+            // LA manager notifications go first so that one is never processed after an input lang
+            // could only have produced in reaction to it, such as the resolution of an attempt
+            // whose cancel delivery the notification announces
+            Either::Left(stream::select_with_strategy(
+                UnboundedReceiverStream::new(la_notify_rx).map(Into::into),
                 UnboundedReceiverStream::new(local_rx),
-                UnboundedReceiverStream::new(hb_rx).map(Into::into),
+                |_: &mut ()| PollNext::Left,
             ))
         } else {
             Either::Right(UnboundedReceiverStream::new(local_rx))
@@ -1277,6 +1286,17 @@ pub(crate) struct HeartbeatTimeoutMsg {
     pub(crate) run_id: String,
     pub(crate) span: Span,
 }
+/// Messages the local activity manager pushes into the workflow stream. They need their own channel
+/// because lang's next workflow poll cannot be relied on to carry them.
+#[derive(Debug)]
+pub(crate) enum LocalActivityNotification {
+    HeartbeatTimeout(HeartbeatTimeoutMsg),
+    /// A queued local activity cancel was handed to lang. Recheck whether the run can evict.
+    CancelProcessed {
+        run_id: String,
+        span: Span,
+    },
+}
 #[derive(Debug)]
 struct GetStateInfoMsg {
     response_tx: oneshot::Sender<WorkflowStateInfo>,
@@ -1711,77 +1731,33 @@ pub(crate) enum WFMachinesError {
     Fatal(String),
 }
 
-/// Helper macro to create Nondeterminism errors with automatic assertion
+/// Helper macro to create Nondeterminism errors
 ///
 /// Usage: `nondeterminism!("Activity id mismatch: {} vs {}", id1, id2)`
 macro_rules! nondeterminism {
     ($($arg:tt)*) => {{
-        let msg = format!($($arg)*);
-        #[cfg(feature = "antithesis_assertions")]
-        $crate::antithesis::assert_unreachable!(
-            "Nondeterminism error detected",
-            ::serde_json::json!({
-                "error_message": &msg,
-                "error_type": "Nondeterminism",
-                "location": format!("{}:{}", file!(), line!())
-            })
-        );
-        WFMachinesError::Nondeterminism(msg)
+        WFMachinesError::Nondeterminism(format!($($arg)*))
     }};
 }
 pub(crate) use nondeterminism;
 
-/// Helper macro to create Fatal errors with automatic assertion
+/// Helper macro to create Fatal errors
 ///
 /// Usage: `fatal!("Invalid state transition: {:?}", state)`
 macro_rules! fatal {
     ($($arg:tt)*) => {{
-        let msg = format!($($arg)*);
-        #[cfg(feature = "antithesis_assertions")]
-        $crate::antithesis::assert_unreachable!(
-            "Fatal error detected",
-            ::serde_json::json!({
-                "error_message": &msg,
-                "error_type": "Fatal",
-                "location": format!("{}:{}", file!(), line!())
-            })
-        );
-        WFMachinesError::Fatal(msg)
+        WFMachinesError::Fatal(format!($($arg)*))
     }};
 }
 pub(crate) use fatal;
 
 impl WFMachinesError {
-    /// Create a new Nondeterminism error with assertion instrumentation
     pub(crate) fn nondeterminism(message: impl Into<String>) -> Self {
-        let msg = message.into();
-
-        #[cfg(feature = "antithesis_assertions")]
-        crate::antithesis::assert_unreachable!(
-            "Nondeterminism error detected",
-            ::serde_json::json!({
-                "error_message": msg,
-                "error_type": "Nondeterminism"
-            })
-        );
-
-        WFMachinesError::Nondeterminism(msg)
+        WFMachinesError::Nondeterminism(message.into())
     }
 
-    /// Create a new Fatal error with assertion instrumentation
     pub(crate) fn fatal(message: impl Into<String>) -> Self {
-        let msg = message.into();
-
-        #[cfg(feature = "antithesis_assertions")]
-        crate::antithesis::assert_unreachable!(
-            "Fatal error detected",
-            ::serde_json::json!({
-                "error_message": msg,
-                "error_type": "Fatal"
-            })
-        );
-
-        WFMachinesError::Fatal(msg)
+        WFMachinesError::Fatal(message.into())
     }
 
     fn evict_reason(&self) -> EvictionReason {
@@ -1830,6 +1806,9 @@ impl From<anyhow::Error> for WFMachinesError {
 
 pub(crate) trait LocalActivityRequestSink: Send + Sync + 'static {
     fn sink_reqs(&self, reqs: Vec<LocalActRequest>) -> Vec<LocalActivityResolution>;
+    /// True while a cancel for one of the run's in-flight local activities has been queued but not
+    /// yet handed to lang by an activity poll
+    fn has_undelivered_cancels(&self, run_id: &str) -> bool;
 }
 
 #[derive(derive_more::Constructor)]
@@ -1843,6 +1822,10 @@ impl LocalActivityRequestSink for LAReqSink {
             return vec![];
         }
         self.lam.enqueue(reqs)
+    }
+
+    fn has_undelivered_cancels(&self, run_id: &str) -> bool {
+        self.lam.has_undelivered_cancels(run_id)
     }
 }
 

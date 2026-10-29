@@ -1,14 +1,15 @@
+__lazy_modules__ = ["django.http", "esi.models"]
+
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db.models import Count
-from django.http import (
-    Http404, HttpResponse, HttpResponseRedirect, JsonResponse,
-)
+from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.crypto import get_random_string
 
@@ -25,6 +26,11 @@ from allianceauth.services.forms import ServicePasswordModelForm
 
 from .managers import MumbleManager
 from .models import MumbleUser, TempLink, TempUser
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+
+    from esi.models import Token
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +65,7 @@ class SetPasswordMumbleView(MumbleViewMixin, BaseSetPasswordServiceAccountView):
 
 @login_required
 @permission_required('mumble.view_connection_history')
-def connection_history(request) -> HttpResponse:
+def connection_history(request: "HttpRequest") -> "HttpResponse":
 
     context = {
         "mumble_url": settings.MUMBLE_URL,
@@ -70,7 +76,7 @@ def connection_history(request) -> HttpResponse:
 
 @login_required
 @permission_required("mumble.view_connection_history")
-def connection_history_data(request) -> JsonResponse:
+def connection_history_data(request: "HttpRequest") -> JsonResponse:
     users = MumbleUser.objects.all()
     connection_history_data = []
     for user in users:
@@ -88,7 +94,7 @@ def connection_history_data(request) -> JsonResponse:
 
 @login_required
 @permission_required("mumble.view_connection_history")
-def release_counts_data(request) -> JsonResponse:
+def release_counts_data(request: "HttpRequest") -> JsonResponse:
     release_counts_data = MumbleUser.objects.values('release').annotate(user_count=Count('user_id')).order_by('release')
 
     return JsonResponse({
@@ -98,7 +104,7 @@ def release_counts_data(request) -> JsonResponse:
 
 @login_required
 @permission_required("mumble.view_connection_history")
-def release_pie_chart_data(request) -> JsonResponse:
+def release_pie_chart_data(request: "HttpRequest") -> JsonResponse:
     release_counts = MumbleUser.objects.values('release').annotate(user_count=Count('user_id')).order_by('release')
 
     return JsonResponse({
@@ -109,7 +115,7 @@ def release_pie_chart_data(request) -> JsonResponse:
 
 @login_required
 @permission_required("mumble.create_new_links")
-def templinks(request) -> HttpResponse:
+def templinks(request: "HttpRequest") -> "HttpResponse":
     tl = None
 
     if request.method == "POST":
@@ -138,7 +144,7 @@ def templinks(request) -> HttpResponse:
     )
 
 
-def link(request, link_ref) -> HttpResponse | HttpResponseRedirect:
+def link(request: "HttpRequest", link_ref: str) -> "HttpResponse | HttpResponseRedirect":
     try:
         templink = TempLink.objects.get(link_ref=link_ref, expires__gte=datetime.now(timezone.utc))
     except ObjectDoesNotExist:
@@ -160,7 +166,7 @@ def link(request, link_ref) -> HttpResponse | HttpResponseRedirect:
     )
 
 
-def link_sso(request, token, link) -> HttpResponse:
+def link_sso(request: "HttpRequest", token: "Token", link: TempLink) -> "HttpResponse":
     try:
         char = EveCharacter.objects.get(character_id=token.character_id)
     except ObjectDoesNotExist:
@@ -201,7 +207,7 @@ def link_sso(request, token, link) -> HttpResponse:
 
 @login_required
 @permission_required("mumble.create_new_links")
-def nuke(request, link_ref) -> HttpResponseRedirect:
+def nuke(request: "HttpRequest", link_ref: str) -> "HttpResponseRedirect":
     try:
         TempLink.objects.get(link_ref=link_ref).delete()
         TempUser.objects.filter(templink__isnull=True).delete()

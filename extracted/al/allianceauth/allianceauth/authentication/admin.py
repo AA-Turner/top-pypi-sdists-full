@@ -1,22 +1,23 @@
-from collections import OrderedDict
-from typing import Any
+__lazy_modules__ = ["collections", "collections.abc", "django.db.models", "django.forms", "django.http"]
 
+from typing import TYPE_CHECKING, Any
+
+from django.apps import apps
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import (
     Permission as BasePermission, User as BaseUser,
 )
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, Q
 from django.db.models.functions import Lower
 from django.db.models.signals import (
     m2m_changed, post_delete, post_save, pre_delete, pre_save,
 )
 from django.dispatch import receiver
-from django.forms import ModelMultipleChoiceField
-from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.text import slugify
+from django.utils.translation import gettext_lazy as _
 
 from allianceauth.eveonline.models import (
     EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
@@ -37,14 +38,24 @@ from .models import (
     get_guest_state,
 )
 
+if TYPE_CHECKING:
+    from collections import OrderedDict
+    from collections.abc import Callable
 
-def make_service_hooks_update_groups_action(service):
+    from django.db.models import Field, Model, QuerySet
+    from django.forms import Field as FormField, ModelForm, ModelMultipleChoiceField
+    from django.http import HttpRequest
+
+
+def make_service_hooks_update_groups_action(service: ServicesHook) -> "Callable[..., None]":
     """
     Make a admin action for the given service
     :param service: services.hooks.ServicesHook
     :return: fn to update services groups for the selected users
     """
-    def update_service_groups(modeladmin, request, queryset):
+    def update_service_groups(
+        modeladmin: admin.ModelAdmin, request: "HttpRequest", queryset: "QuerySet[User]"
+    ) -> None:
         if hasattr(service, 'update_groups_bulk'):
             service.update_groups_bulk(queryset)
         else:
@@ -56,13 +67,13 @@ def make_service_hooks_update_groups_action(service):
     return update_service_groups
 
 
-def make_service_hooks_sync_nickname_action(service):
+def make_service_hooks_sync_nickname_action(service: ServicesHook) -> "Callable[..., None]":
     """
     Make a sync_nickname admin action for the given service
     :param service: services.hooks.ServicesHook
     :return: fn to sync nickname for the selected users
     """
-    def sync_nickname(modeladmin, request, queryset):
+    def sync_nickname(modeladmin: admin.ModelAdmin, request: "HttpRequest", queryset: "QuerySet[User]") -> None:
         if hasattr(service, 'sync_nicknames_bulk'):
             service.sync_nicknames_bulk(queryset)
         else:
@@ -81,7 +92,7 @@ class UserProfileInline(admin.StackedInline):
     verbose_name = ''
     verbose_name_plural = 'Profile'
 
-    def get_formset(self, request, obj=None, **kwargs):
+    def get_formset(self, request: "HttpRequest", obj: User | None = None, **kwargs):
         # main_character field can only show current value or unclaimed alts
         # if superuser, allow selecting from any unclaimed main
         query = Q()
@@ -93,20 +104,20 @@ class UserProfileInline(admin.StackedInline):
                 query |= Q(character_ownership__user=obj)
         formset = super().get_formset(request, obj=obj, **kwargs)
 
-        def get_kwargs(self, index):
+        def get_kwargs(self, index: int) -> dict[str, Any]:
             return {'querysets': {'main_character': EveCharacter.objects.filter(query)}}
         formset.get_form_kwargs = get_kwargs
         return formset
 
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: "HttpRequest", obj: User | None = None) -> bool:
         return False
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, request: "HttpRequest", obj: User | None = None) -> bool:
         return False
 
 
 @admin.display(description="")
-def user_profile_pic(obj):
+def user_profile_pic(obj: "Model") -> str:
     """profile pic column data for user objects
 
     works for both User objects and objects with `user` as FK to User
@@ -122,7 +133,7 @@ def user_profile_pic(obj):
 
 
 @admin.display(description="user / main", ordering="username")
-def user_username(obj):
+def user_username(obj: "Model") -> str:
     """user column data for user objects
 
     works for both User objects and objects with `user` as FK to User
@@ -151,7 +162,7 @@ def user_username(obj):
     description="Corporation / Alliance (Main)",
     ordering="profile__main_character__corporation_name"
 )
-def user_main_organization(obj):
+def user_main_organization(obj: "Model") -> str:
     """main organization column data for user objects
 
     works for both User objects and objects with `user` as FK to User
@@ -177,7 +188,7 @@ class MainCorporationsFilter(admin.SimpleListFilter):
     title = 'corporation'
     parameter_name = 'main_corporation_id__exact'
 
-    def lookups(self, request, model_admin):
+    def lookups(self, request: "HttpRequest", model_admin: admin.ModelAdmin) -> list[tuple[Any, str]]:
         qs = EveCharacter.objects\
             .exclude(userprofile=None)\
             .values('corporation_id', 'corporation_name')\
@@ -187,7 +198,7 @@ class MainCorporationsFilter(admin.SimpleListFilter):
             (x['corporation_id'], x['corporation_name']) for x in qs
         )
 
-    def queryset(self, request, qs):
+    def queryset(self, request: "HttpRequest", qs: "QuerySet") -> "QuerySet":
         if self.value() is None:
             return qs.all()
         if qs.model == User:
@@ -208,7 +219,7 @@ class MainAllianceFilter(admin.SimpleListFilter):
     title = 'alliance'
     parameter_name = 'main_alliance_id__exact'
 
-    def lookups(self, request, model_admin):
+    def lookups(self, request: "HttpRequest", model_admin: admin.ModelAdmin) -> list[tuple[Any, str]]:
         qs = (
             EveCharacter.objects
             .exclude(alliance_id=None)
@@ -221,7 +232,7 @@ class MainAllianceFilter(admin.SimpleListFilter):
             (x['alliance_id'], x['alliance_name']) for x in qs
         )
 
-    def queryset(self, request, qs):
+    def queryset(self, request: "HttpRequest", qs: "QuerySet") -> "QuerySet":
         if self.value() is None:
             return qs.all()
         if qs.model == User:
@@ -240,7 +251,7 @@ class MainFactionFilter(admin.SimpleListFilter):
     title = 'faction'
     parameter_name = 'main_faction_id__exact'
 
-    def lookups(self, request, model_admin):
+    def lookups(self, request: "HttpRequest", model_admin: admin.ModelAdmin) -> list[tuple[Any, str]]:
         qs = (
             EveCharacter.objects
             .exclude(faction_id=None)
@@ -253,7 +264,7 @@ class MainFactionFilter(admin.SimpleListFilter):
             (x['faction_id'], x['faction_name']) for x in qs
         )
 
-    def queryset(self, request, qs):
+    def queryset(self, request: "HttpRequest", qs: "QuerySet") -> "QuerySet":
         if self.value() is None:
             return qs.all()
         if qs.model == User:
@@ -264,7 +275,7 @@ class MainFactionFilter(admin.SimpleListFilter):
 
 
 @admin.action(description="Update Main Character from ESI (Celery)")
-def update_main_character_model(modeladmin: "UserAdmin", request: HttpRequest, queryset: QuerySet["User"]) -> None:
+def update_main_character_model(modeladmin: "UserAdmin", request: "HttpRequest", queryset: "QuerySet[User]") -> None:
     tasks_count = 0
     for obj in queryset:
         if obj.profile.main_character:
@@ -277,7 +288,7 @@ def update_main_character_model(modeladmin: "UserAdmin", request: HttpRequest, q
 
 
 @admin.action(description="Update Main Character from ESI (Browser)")
-def update_main_character_model_blocking(modeladmin: "UserAdmin", request: HttpRequest, queryset: QuerySet["User"]) -> None:
+def update_main_character_model_blocking(modeladmin: "UserAdmin", request: "HttpRequest", queryset: "QuerySet[User]") -> None:
     tasks_count = 0
     for obj in queryset:
         if obj.profile.main_character:
@@ -291,7 +302,7 @@ def update_main_character_model_blocking(modeladmin: "UserAdmin", request: HttpR
 
 
 @admin.action(description="Update Main Character from ESI (Browser) - Clear ETag/Cache")
-def update_main_character_model_blocking_forcerefresh(modeladmin: "UserAdmin", request: HttpRequest, queryset: QuerySet["User"]) -> None:
+def update_main_character_model_blocking_forcerefresh(modeladmin: "UserAdmin", request: "HttpRequest", queryset: "QuerySet[User]") -> None:
     tasks_count = 0
     for obj in queryset:
         if obj.profile.main_character:
@@ -305,7 +316,7 @@ def update_main_character_model_blocking_forcerefresh(modeladmin: "UserAdmin", r
 
 
 @admin.action(description="Verify User has a Main Character with valid CharacterOwnership")
-def check_main_character_and_character_ownership(modeladmin: "UserAdmin", request: HttpRequest, queryset: QuerySet["User"]) -> None:
+def check_main_character_and_character_ownership(modeladmin: "UserAdmin", request: "HttpRequest", queryset: "QuerySet[User]") -> None:
     tasks_count = 0
     for obj in queryset:
         if obj.profile.main_character and not obj.profile.main_character.character_ownership:
@@ -318,7 +329,7 @@ def check_main_character_and_character_ownership(modeladmin: "UserAdmin", reques
 
 
 @admin.action(description="Validate Service accounts for User")
-def verify_service_accounts(modeladmin: "UserAdmin", request: HttpRequest, queryset: QuerySet["User"]) -> None:
+def verify_service_accounts(modeladmin: "UserAdmin", request: "HttpRequest", queryset: "QuerySet[User]") -> None:
     tasks_count = 0
     for obj in queryset:
         validate_services(obj.pk)
@@ -371,24 +382,24 @@ class UserAdmin(BaseUserAdmin):
             "all": ("allianceauth/authentication/css/admin.css",)
         }
 
-    def get_queryset(self, request):
+    def get_queryset(self, request: "HttpRequest") -> "QuerySet[User]":
         qs = super().get_queryset(request)
         return qs.prefetch_related("character_ownerships__character", "groups")
 
-    def get_form(self, request, obj=None, **kwargs):
+    def get_form(self, request: "HttpRequest", obj: User | None = None, **kwargs) -> "type[ModelForm]":
         """Inject current request into change form object."""
 
         MyForm = super().get_form(request, obj, **kwargs)
         if obj:
             class MyFormInjected(MyForm):
-                def __new__(cls, *args, **kwargs):
+                def __new__(cls, *args, **kwargs) -> "ModelForm":
                     kwargs['request'] = request
                     return MyForm(*args, **kwargs)
 
             return MyFormInjected
         return MyForm
 
-    def get_actions(self, request) -> OrderedDict[Any, Any]:
+    def get_actions(self, request: "HttpRequest") -> "OrderedDict[Any, Any]":
         actions = super().get_actions(request)
         actions.update({  # Add this files defined actions to the default ones, in bulk
             'update_main_character_model': (update_main_character_model, 'update_main_character_model', update_main_character_model.short_description),
@@ -435,7 +446,7 @@ class UserAdmin(BaseUserAdmin):
             )
         return result
 
-    def _characters(self, obj):
+    def _characters(self, obj: User) -> str:
         character_ownerships = list(obj.character_ownerships.all())
         characters = [obj.character.character_name for obj in character_ownerships]
         return self._list_2_html_w_tooltips(
@@ -444,16 +455,16 @@ class UserAdmin(BaseUserAdmin):
         )
 
     @admin.display(ordering="profile__state")
-    def _state(self, obj):
+    def _state(self, obj: User) -> str:
         return obj.profile.state.name
 
-    def _groups(self, obj):
+    def _groups(self, obj: User) -> str:
         my_groups = sorted(group.name for group in list(obj.groups.all()))
         return self._list_2_html_w_tooltips(
             my_groups, AUTHENTICATION_ADMIN_USERS_MAX_GROUPS
         )
 
-    def _role(self, obj):
+    def _role(self, obj: User) -> str:
         if obj.is_superuser:
             role = 'Superuser'
         elif obj.is_staff:
@@ -462,21 +473,38 @@ class UserAdmin(BaseUserAdmin):
             role = 'User'
         return role
 
-    def has_change_permission(self, request, obj=None):
+    def get_list_display(self, request: "HttpRequest") -> tuple:
+        list_display = super().get_list_display(request)
+        if apps.is_installed('allianceauth.impersonate') and request.user.is_superuser:
+            list_display = (*list_display, '_impersonate')
+        return list_display
+
+    @admin.display(description=_('Impersonate'))
+    def _impersonate(self, obj: User) -> str:
+        # Superusers can't be impersonated, the confirm view enforces the full check
+        if obj.is_superuser or not obj.is_active:
+            return ''
+        return format_html(
+            '<a href="{}" class="button">{}</a>',
+            reverse('impersonate:confirm', args=[obj.pk]),
+            _('Impersonate'),
+        )
+
+    def has_change_permission(self, request: "HttpRequest", obj: User | None = None) -> bool:
         return request.user.has_perm('auth.change_user')
 
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: "HttpRequest", obj: User | None = None) -> bool:
         return request.user.has_perm('auth.add_user')
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, request: "HttpRequest", obj: User | None = None) -> bool:
         return request.user.has_perm('auth.delete_user')
 
-    def get_object(self, *args , **kwargs):
+    def get_object(self, *args, **kwargs) -> User | None:
         obj = super().get_object(*args , **kwargs)
         self.obj = obj  # storing current object for use in formfield_for_manytomany
         return obj
 
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
+    def formfield_for_manytomany(self, db_field: "Field", request: "HttpRequest", **kwargs) -> "FormField | None":
         if db_field.name == "groups":
             groups_qs = Group.objects.filter(authgroup__states__isnull=True)
             obj_state = self.obj.profile.state
@@ -486,7 +514,7 @@ class UserAdmin(BaseUserAdmin):
             kwargs["queryset"] = groups_qs.order_by(Lower("name"))
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
-    def get_readonly_fields(self, request, obj=None):
+    def get_readonly_fields(self, request: "HttpRequest", obj: User | None = None):
         if obj and not request.user.is_superuser:
             return self.readonly_fields + (
                 "is_staff", "is_superuser", "user_permissions"
@@ -501,7 +529,7 @@ finally:
 
 
 @admin.action(description="trigger_state_check for users in selected states")
-def trigger_state_check(modeladmin: "StateAdmin", request: HttpRequest, queryset: QuerySet["State"]) -> None:
+def trigger_state_check(modeladmin: "StateAdmin", request: "HttpRequest", queryset: "QuerySet[State]") -> None:
     if queryset.count() != 1:
         modeladmin.message_user(
             request,
@@ -523,12 +551,12 @@ class StateAdmin(admin.ModelAdmin):
     list_display = ('name', 'priority', '_user_count')
     actions = [trigger_state_check]
 
-    def get_queryset(self, request):
+    def get_queryset(self, request: "HttpRequest") -> "QuerySet[State]":
         qs = super().get_queryset(request)
         return qs.annotate(user_count=Count("userprofile__id"))
 
     @admin.display(description="Users", ordering="user_count")
-    def _user_count(self, obj):
+    def _user_count(self, obj: State) -> int:
         return obj.user_count
 
     fieldsets = (
@@ -553,7 +581,9 @@ class StateAdmin(admin.ModelAdmin):
         'permissions'
     ]
 
-    def formfield_for_manytomany(self, db_field, request, **kwargs) -> ModelMultipleChoiceField:
+    def formfield_for_manytomany(
+        self, db_field: "Field", request: "HttpRequest", **kwargs
+    ) -> "ModelMultipleChoiceField":
         """overriding this formfield to have sorted lists in the form"""
         if db_field.name == "member_characters":
             kwargs["queryset"] = EveCharacter.objects.all()\
@@ -571,12 +601,12 @@ class StateAdmin(admin.ModelAdmin):
             kwargs["queryset"] = Permission.objects.select_related("content_type").all()
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, request: "HttpRequest", obj: State | None = None) -> bool:
         if obj == get_guest_state():
             return False
         return super().has_delete_permission(request, obj=obj)
 
-    def get_fieldsets(self, request, obj=None):
+    def get_fieldsets(self, request: "HttpRequest", obj: State | None = None):
         if obj == get_guest_state():
             return (
                 (None, {
@@ -585,7 +615,7 @@ class StateAdmin(admin.ModelAdmin):
             )
         return super().get_fieldsets(request, obj=obj)
 
-    def get_readonly_fields(self, request, obj=None):
+    def get_readonly_fields(self, request: "HttpRequest", obj: State | None = None):
         if not request.user.is_superuser:
             return self.readonly_fields + ("permissions",)
         return self.readonly_fields
@@ -617,7 +647,7 @@ class BaseOwnershipAdmin(admin.ModelAdmin):
             "all": ("allianceauth/authentication/css/admin.css",)
         }
 
-    def get_readonly_fields(self, request, obj=None):
+    def get_readonly_fields(self, request: "HttpRequest", obj: CharacterOwnership | OwnershipRecord | None = None):
         if obj and obj.pk:
             return 'owner_hash', 'character'
         return ()
@@ -630,7 +660,7 @@ class OwnershipRecordAdmin(BaseOwnershipAdmin):
 
 @admin.register(CharacterOwnership)
 class CharacterOwnershipAdmin(BaseOwnershipAdmin):
-    def has_add_permission(self, request):
+    def has_add_permission(self, request: "HttpRequest") -> bool:
         return False
 
 
@@ -643,48 +673,48 @@ class PermissionAdmin(admin.ModelAdmin):
     list_filter = ('content_type__app_label',)
 
     @staticmethod
-    def admin_name(obj):
+    def admin_name(obj: Permission) -> str:
         return str(obj)
 
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: "HttpRequest", obj: Permission | None = None) -> bool:
         return False
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, request: "HttpRequest", obj: Permission | None = None) -> bool:
         return False
 
-    def has_module_permission(self, request):
+    def has_module_permission(self, request: "HttpRequest") -> bool:
         return True
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request: "HttpRequest", obj: Permission | None = None) -> bool:
         # can see list but not edit it
         return not obj
 
 
 @receiver(pre_save, sender=User)
-def redirect_pre_save(sender, signal=None, *args, **kwargs):
+def redirect_pre_save(sender: type, signal=None, *args, **kwargs) -> None:
     pre_save.send(BaseUser, *args, **kwargs)
 
 
 @receiver(post_save, sender=User)
-def redirect_post_save(sender, signal=None, *args, **kwargs):
+def redirect_post_save(sender: type, signal=None, *args, **kwargs) -> None:
     post_save.send(BaseUser, *args, **kwargs)
 
 
 @receiver(pre_delete, sender=User)
-def redirect_pre_delete(sender, signal=None, *args, **kwargs):
+def redirect_pre_delete(sender: type, signal=None, *args, **kwargs) -> None:
     pre_delete.send(BaseUser, *args, **kwargs)
 
 
 @receiver(post_delete, sender=User)
-def redirect_post_delete(sender, signal=None, *args, **kwargs):
+def redirect_post_delete(sender: type, signal=None, *args, **kwargs) -> None:
     post_delete.send(BaseUser, *args, **kwargs)
 
 
 @receiver(m2m_changed, sender=User.groups.through)
-def redirect_m2m_changed_groups(sender, signal=None, *args, **kwargs):
+def redirect_m2m_changed_groups(sender: type, signal=None, *args, **kwargs) -> None:
     m2m_changed.send(BaseUser, *args, **kwargs)
 
 
 @receiver(m2m_changed, sender=User.user_permissions.through)
-def redirect_m2m_changed_permissions(sender, signal=None, *args, **kwargs):
+def redirect_m2m_changed_permissions(sender: type, signal=None, *args, **kwargs) -> None:
     m2m_changed.send(BaseUser, *args, **kwargs)

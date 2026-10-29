@@ -19,16 +19,20 @@ from pydantic import Field
 from .config import _PACKAGE_VERSION, get_global_settings
 from .errors import ErrorCode, create_error_response
 from .http_transport import HttpTransportFastMCP as FastMCP
+from .server_instructions import (
+    build_skills_instructions,
+    compose_instructions,
+    search_tool_skills_hint,
+    skill_tool_hidden,
+)
 from .server_lifespan import server_lifespan
 from .server_tool_text import (
-    ISSUE_FILING_INSTRUCTIONS,
     LITE_DOCSTRING_DESTINATIONS,
     LITE_DOCSTRINGS,
-    READ_ONLY_INSTRUCTIONS,
     SEARCH_KEYWORDS,
     SEARCH_TOOL_DESCRIPTION,
+    SKILL_TOOL_NAME,
     SKILL_USE_BEFORE_KEYWORDS,
-    TOOL_DISCOVERY_INSTRUCTIONS,
 )
 from .tools.helpers import raise_tool_error
 from .tools.tool_hints import read_only_hints
@@ -45,12 +49,6 @@ if TYPE_CHECKING:
     from .tools.registry import ToolsRegistry
 
 logger = logging.getLogger(__name__)
-
-# Name of the consolidated skill tool. Defined as a module
-# constant so settings UI, instructions, tests, and pinning all agree on
-# one canonical string. 18 chars — well under the 40-char cap that
-# Cloudflare's MCP portal enforces (#1121).
-SKILL_TOOL_NAME = "ha_get_skill_guide"
 
 # Names this tool replaced in #1134. Appended to the catalog description
 # so agents trained on the prior catalog (or pasting old instructions)
@@ -319,146 +317,17 @@ class HomeAssistantSmartMCPServer:
 
         return get_skills_dir()
 
-    def _skill_tool_hidden(self) -> bool:
-        """True when ha_get_skill_guide will be absent from the catalog.
-
-        The tool is user- or env-disableable only while strict-BPS mode
-        is off (#1886) — apply_tool_visibility strips the disable
-        otherwise. Consulted at instruction-build time so the skills
-        header doesn't direct clients to a tool that is not being
-        served. Fails toward False (mention the tool): a wrong mention
-        costs one unknown-tool error, a wrong omission hides the only
-        non-resource access path.
-        """
-        try:
-            from .settings_ui._persistence import effective_tool_config
-            from .settings_ui._tools_meta import effective_mandatory_tools
-
-            states = effective_tool_config().get("tools", {})
-            return states.get(
-                SKILL_TOOL_NAME
-            ) == "disabled" and SKILL_TOOL_NAME not in effective_mandatory_tools(
-                self.settings
-            )
-        except Exception:
-            logger.debug("skill-tool visibility lookup failed", exc_info=True)
-            return False
-
     def _build_instructions(self) -> str:
         """Compose the server instructions sent in the MCP initialize response."""
-        sections: list[str] = []
-        skills = self._build_skills_instructions()
-        if skills:
-            sections.append(skills)
-
-        # Surface Read Only Mode in the startup instructions so clients
-        # that show server instructions warn the model up front. Startup
-        # state only — live flips are covered by the structured
-        # READ_ONLY_MODE call errors and the ha_get_overview field.
-        if self.settings.read_only_mode:
-            sections.append(READ_ONLY_INSTRUCTIONS)
-        sections.append(ISSUE_FILING_INSTRUCTIONS)
-        return "\n\n".join(sections)
+        return compose_instructions(self._build_skills_instructions(), self.settings)
 
     def _build_skills_instructions(self) -> str | None:
-        """Build server instructions from bundled skill frontmatter.
-
-        Reads the description field from each SKILL.md's YAML frontmatter
-        and includes it as-is in the server instructions. The description
-        is authored for LLM consumption and should not be parsed or
-        restructured by code.
-
-        Returns None when no skills directory or no parseable skills are
-        present, leaving instructions unchanged from the default (None).
-        """
-        skills_dir = self._get_skills_dir()
-        if not skills_dir:
-            return None
-
-        try:
-            entries = sorted(skills_dir.iterdir())
-        except OSError as e:
-            logger.warning("Could not read skills directory %s: %s", skills_dir, e)
-            return None
-
-        skill_blocks: list[str] = []
-        for skill_dir in entries:
-            main_file = skill_dir / "SKILL.md"
-            if not skill_dir.is_dir() or not main_file.exists():
-                continue
-
-            block = self._build_skill_block(skill_dir.name, main_file)
-            if block:
-                skill_blocks.append(block)
-
-        if not skill_blocks:
-            return None
-
-        if self._skill_tool_hidden():
-            # The user disabled the skill tool (possible only outside
-            # strict-BPS mode, #1886) — directing clients to it would
-            # steer them into a tool that is not in the catalog. Their
-            # stated fallback is a local skills install.
-            access_method = (
-                "Read the skill via MCP resources (resources/read with the "
-                "skill:// URI) — if you can read these instructions, you "
-                "should be able to access resources as well. If for any "
-                "reason you cannot access MCP resources, refer to your "
-                "locally installed copy of these skills instead (the "
-                f"{SKILL_TOOL_NAME} fallback tool is disabled on this "
-                "server)."
-            )
-        else:
-            access_method = (
-                "Read the skill via MCP resources (resources/read with the "
-                "skill:// URI) — if you can read these instructions, you "
-                "should be able to access resources as well. If for any "
-                f"reason you cannot access MCP resources, call {SKILL_TOOL_NAME}() "
-                "with no arguments as a fallback: it returns SKILL.md, then "
-                "pass file='<path>' for a reference file. If you can access "
-                "resources normally, do "
-                "not waste time or tokens on that tool."
-            )
-
-        header = (
-            "IMPORTANT: This server provides best-practice skills that MUST "
-            "be consulted before performing matching actions. "
-            "Read the SKILL.md for the matching skill "
-            "\u2014 it contains a Reference Files table that maps tasks to "
-            "specific reference files. You MUST read the referenced files "
-            "that match your current task before proceeding. "
-            "Do NOT load all reference files upfront "
-            "\u2014 only the ones the table directs you to.\n\n"
-            f"How to access: {access_method}\n"
+        """The skills section of the instructions, or None without skills."""
+        return build_skills_instructions(
+            self._get_skills_dir(), self.settings, skill_tool_hidden(self.settings)
         )
 
-        instructions = header + "\n".join(skill_blocks)
-
-        # Append tool search instructions when enabled
-        if self.settings.enable_tool_search:
-            instructions += TOOL_DISCOVERY_INSTRUCTIONS.format(
-                pinned=", ".join(DEFAULT_PINNED_TOOLS)
-            )
-
-        return instructions
-
     _parse_skill_frontmatter = staticmethod(parse_skill_frontmatter)
-
-    def _build_skill_block(self, skill_name: str, main_file: Path) -> str | None:
-        """Build an instruction block for a single skill.
-
-        Reads the description field from YAML frontmatter and includes it
-        verbatim. The description is designed for LLM consumption and
-        contains its own trigger conditions and symptom indicators.
-        """
-        frontmatter = self._parse_skill_frontmatter(main_file)
-        if not frontmatter:
-            return None
-
-        description = frontmatter["description"]
-        uri = f"skill://{skill_name}/SKILL.md"
-
-        return f"\n### Skill: {skill_name} ({uri})\n{description.strip()}"
 
     def _apply_settings_visibility(self) -> None:
         """Apply persisted tool visibility from ``tool_config.json``.
@@ -527,50 +396,6 @@ class HomeAssistantSmartMCPServer:
     # unnecessarily trim context for other clients.
     _SEARCH_DESCRIPTION_OVERRIDES: ClassVar[dict[str, str]] = {}
 
-    @staticmethod
-    def _lite_docstring_tokens() -> dict[str, str]:
-        """Operator-tuned values interpolated into the lite descriptions.
-
-        ``_LITE_DOCSTRINGS`` is a static ``ClassVar``, but not every full
-        description it replaces is static: ``ha_manage_backup``'s is an
-        f-string built in ``register_backup_tools()`` that interpolates
-        ``_get_backup_hint_text()`` from ``BACKUP_HINT``
-        (strong/normal/weak). Hard-coding one wording into the lite text
-        would make that setting a silent no-op whenever lite mode is on —
-        the add-on UI would confirm a Backup-hint change that changed
-        nothing. So the lite values carry ``{token}`` placeholders and are
-        resolved here, reading the same env var at the same point in
-        startup the full description does.
-        """
-        # Local import: same lazy-seam pattern as backup_manager's
-        # _normalize_config_for_roundtrip import. It does NOT keep the tools
-        # package off the module-load path — server.py already imports
-        # .tools.helpers at module scope — what it avoids is pulling in
-        # tools.backup, which is the actual reason to keep it local.
-        from .tools.backup import _get_backup_hint_text
-
-        return {"backup_hint_text": _get_backup_hint_text()}
-
-    @classmethod
-    def _resolve_lite_docstrings(cls) -> dict[str, str]:
-        """Return ``_LITE_DOCSTRINGS`` with its placeholders filled in.
-
-        Uses ``str.replace`` rather than ``str.format`` so the descriptions
-        stay free to contain literal braces (Jinja examples, JSON) without
-        a stray ``{`` turning into a ``KeyError`` at startup. An unknown
-        placeholder is left verbatim rather than raising —
-        ``test_every_placeholder_in_the_map_is_resolvable`` is what catches a
-        typo'd token, at test time instead of in a user's tool catalog.
-        """
-        tokens = cls._lite_docstring_tokens()
-        resolved: dict[str, str] = {}
-        for name, lite in cls._LITE_DOCSTRINGS.items():
-            filled = lite
-            for token, value in tokens.items():
-                filled = filled.replace("{" + token + "}", value)
-            resolved[name] = filled
-        return resolved
-
     def _apply_lite_docstrings(self) -> None:
         """Swap heavy tool descriptions for shorter variants if enabled.
 
@@ -580,10 +405,6 @@ class HomeAssistantSmartMCPServer:
         that defers detail to
         ``ha_get_skill_guide``. Tools not in the
         mapping pass through unchanged.
-
-        Descriptions are resolved through ``_resolve_lite_docstrings`` so
-        operator-tuned text (``BACKUP_HINT``) survives the swap instead of
-        being pinned to whatever wording the static map happened to carry.
 
         Emits a startup WARNING when enabled so non-addon users (Docker,
         uvx, pip) see the trade-off in their logs — the addon UI surfaces
@@ -619,7 +440,7 @@ class HomeAssistantSmartMCPServer:
 
         try:
             self.mcp.add_transform(
-                LiteDocstringsTransform(replacements=self._resolve_lite_docstrings())
+                LiteDocstringsTransform(replacements=self._LITE_DOCSTRINGS)
             )
         except Exception:
             logger.exception("Failed to apply LiteDocstringsTransform")
@@ -720,10 +541,11 @@ class HomeAssistantSmartMCPServer:
 
         # Build the always_visible list: defaults (minus tools the user
         # explicitly toggled to "enabled" in the Tools tab) + user pins.
-        # The skill guide tool is part of DEFAULT_PINNED_TOOLS and is
-        # also in MANDATORY_TOOLS (settings UI strips it from any
-        # disable list before applying), so the catalog presence is
-        # protected from both the search transform and user disables.
+        # The skill guide tool is part of DEFAULT_PINNED_TOOLS, and in
+        # strict-BPS mode also in BPS_MANDATORY_TOOLS (settings UI strips
+        # it from any disable list before applying), so the catalog
+        # presence is protected from the search transform and, in strict
+        # mode, from user disables.
         # Filtering by _user_enabled_tools is how a user unpins a
         # default-pinned tool — flipping its UI state to "enabled" (not
         # "pinned") removes it from the always_visible set so it goes
@@ -743,13 +565,10 @@ class HomeAssistantSmartMCPServer:
         # The client may not support resources or server instructions — add
         # skills hint to the search tool description (the one place the LLM
         # is guaranteed to see).
-        description = self._SEARCH_TOOL_DESCRIPTION + (
-            "\n\nThis server also provides best-practice skills via "
-            "skill:// resources. If your client supports MCP resources, "
-            f"prefer reading them directly. Otherwise, call "
-            f"{SKILL_TOOL_NAME} (directly, no proxy needed) to access the "
-            "relevant SKILL.md before creating automations or configuring "
-            "devices."
+        description = (
+            self._SEARCH_TOOL_DESCRIPTION
+            + "\n\n"
+            + search_tool_skills_hint(skill_tool_hidden(self.settings))
         )
 
         try:
@@ -1088,32 +907,6 @@ class HomeAssistantSmartMCPServer:
             logger.info(message, *args)
         else:
             logger.warning(message, *args)
-
-    def _list_bundled_skills(
-        self, skills_dir: Path
-    ) -> list[tuple[str, Path, dict[str, Any]]]:
-        """Return parsed (name, dir, frontmatter) triples for valid bundled skills.
-
-        Skips entries that aren't directories, lack ``SKILL.md``, or whose
-        frontmatter doesn't parse. Sorted by directory name for stable
-        ordering across clients.
-        """
-        try:
-            entries = sorted(skills_dir.iterdir())
-        except OSError as e:
-            logger.warning("Could not read skills directory %s: %s", skills_dir, e)
-            return []
-
-        skills: list[tuple[str, Path, dict[str, Any]]] = []
-        for skill_dir in entries:
-            main_file = skill_dir / "SKILL.md"
-            if not skill_dir.is_dir() or not main_file.exists():
-                continue
-            frontmatter = self._parse_skill_frontmatter(main_file)
-            if not frontmatter:
-                continue
-            skills.append((skill_dir.name, skill_dir, frontmatter))
-        return skills
 
     def _register_skill_guide_tool(self, skills_dir: Path | None) -> int:
         """Register the ``ha_get_skill_guide`` tool unconditionally.

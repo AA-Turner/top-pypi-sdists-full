@@ -8,7 +8,7 @@ import typing_extensions
 class DocAiPresignUploadResponseParams(typing_extensions.TypedDict):
     upload_id: str
     """
-    Handle for the uploaded file. Pass it through `upload_ids` on a later digitise or extract job request.
+    Handle for the uploaded file. Pass it through `upload_ids` on a later parse or extract job request.
     """
 
     method: str

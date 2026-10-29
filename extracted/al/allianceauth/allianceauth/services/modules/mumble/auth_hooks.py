@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.contrib.auth.models", "django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 import urllib
 
 from django.conf import settings
@@ -14,11 +17,15 @@ from . import urls
 from .models import MumbleUser
 from .tasks import MumbleTasks
 
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User
+    from django.http import HttpRequest
+
 logger = logging.getLogger(__name__)
 
 
 class MumbleService(ServicesHook):
-    def __init__(self):
+    def __init__(self) -> None:
         ServicesHook.__init__(self)
         self.name = 'mumble'
         # self.urlpatterns = urlpatterns  # Migrated intentionally to URLHook to allow for excluded views
@@ -27,7 +34,7 @@ class MumbleService(ServicesHook):
         self.service_ctrl_template = 'services/mumble/mumble_service_ctrl.html'
         self.name_format = '[{corp_ticker}]{character_name}'
 
-    def delete_user(self, user, notify_user=False):
+    def delete_user(self, user: "User", notify_user: bool = False) -> bool:
         logging.debug(f"Deleting user {user} {self.name} account")
         try:
             if user.mumble.delete():
@@ -38,18 +45,18 @@ class MumbleService(ServicesHook):
         except MumbleUser.DoesNotExist:
             logging.debug("User does not have a mumble account")
 
-    def validate_user(self, user):
+    def validate_user(self, user: "User") -> None:
         if MumbleTasks.has_account(user) and not self.service_active_for_user(user):
             self.delete_user(user, notify_user=True)
 
-    def update_all_groups(self):
+    def update_all_groups(self) -> None:
         logger.debug(f"Updating all {self.name} groups")
         MumbleTasks.update_all_groups.delay()
 
-    def service_active_for_user(self, user):
+    def service_active_for_user(self, user: "User") -> bool:
         return user.has_perm(self.access_perm)
 
-    def render_services_ctrl(self, request):
+    def render_services_ctrl(self, request: "HttpRequest") -> str:
         urls = self.Urls()
         urls.auth_activate = 'mumble:activate'
         urls.auth_deactivate = 'mumble:deactivate'
@@ -80,7 +87,7 @@ class MumbleMenuItem(MenuItemHook):
             navactive=["mumble:templinks"],
         )
 
-    def render(self, request) -> str:
+    def render(self, request: "HttpRequest") -> str:
         if request.user.has_perm("mumble.create_new_links"):
             return MenuItemHook.render(self, request)
         return ""

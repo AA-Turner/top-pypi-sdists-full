@@ -279,6 +279,11 @@ def test_appname_within_base_is_accepted(appname: str) -> None:
 
 _KINDS: Final = [pytest.param(kind, id=kind) for kind in ("config", "data", "cache", "state", "log", "runtime")]
 _POSIX_ONLY: Final = pytest.mark.skipif(sys.platform == "win32", reason="Windows ignores POSIX mode bits")
+# Unix checks the owner of the runtime directory against geteuid, which Windows lacks.
+_EXISTING_KINDS: Final = [
+    *(pytest.param(kind, id=kind) for kind in ("config", "data", "cache", "state", "log")),
+    pytest.param("runtime", id="runtime", marks=_POSIX_ONLY),
+]
 
 
 @pytest.fixture
@@ -311,21 +316,25 @@ def _place(kind: str, *, ensure_exists: bool = False) -> Callable[[str | Path], 
     return getattr(Unix(appname="app", ensure_exists=ensure_exists), f"place_{kind}_file")
 
 
-@pytest.mark.parametrize("kind", _KINDS)
+@pytest.mark.parametrize("kind", _EXISTING_KINDS)
 def test_place_file_returns_path_under_user_dir(user_dirs: dict[str, Path], kind: str) -> None:
     assert _place(kind)("sub/app.toml") == user_dirs[kind] / "sub" / "app.toml"
 
 
-@pytest.mark.parametrize("kind", _KINDS)
+@pytest.mark.parametrize("kind", _EXISTING_KINDS)
 def test_place_file_creates_parent_directories(user_dirs: dict[str, Path], kind: str) -> None:
     _place(kind)("sub/deeper/app.toml")
     assert (user_dirs[kind] / "sub" / "deeper").is_dir()
 
 
-@pytest.mark.parametrize("kind", _KINDS)
+@pytest.mark.parametrize("kind", _EXISTING_KINDS)
 @pytest.mark.usefixtures("user_dirs")
 def test_place_file_does_not_create_the_file(kind: str) -> None:
     assert not _place(kind)("app.toml").exists()
+
+
+def test_place_runtime_file_outside_unix(user_dirs: dict[str, Path]) -> None:
+    assert MacOS(appname="app").place_runtime_file("app.sock") == user_dirs["runtime"] / "app.sock"
 
 
 @pytest.mark.usefixtures("home")
@@ -393,13 +402,16 @@ def test_place_file_rejected_name_creates_nothing(home: Path) -> None:
     assert not home.exists()
 
 
+@pytest.mark.usefixtures("home")
+def test_place_file_on_missing_root_raises_file_not_found(mocker: MockerFixture) -> None:
+    # On a missing Windows drive or network share, even the root fails with FileNotFoundError.
+    mocker.patch.object(Path, "mkdir", autospec=True, side_effect=FileNotFoundError)
+    with pytest.raises(FileNotFoundError):
+        _place("config")("app.toml")
+
+
 _SUFFIXES: Final = [pytest.param("file", id="file"), pytest.param("files", id="files")]
 _MISSING: Final = [pytest.param("file", None, id="file"), pytest.param("files", [], id="files")]
-# Unix checks the owner of an existing XDG_RUNTIME_DIR against getuid, which Windows lacks.
-_EXISTING_KINDS: Final = [
-    *(pytest.param(kind, id=kind) for kind in ("config", "data", "cache", "state", "log")),
-    pytest.param("runtime", id="runtime", marks=_POSIX_ONLY),
-]
 
 
 @pytest.fixture
@@ -470,6 +482,24 @@ def test_find_config_files_orders_user_before_site(dirs: Unix, config_paths: lis
     assert dirs.find_config_files("app.toml") == expected
 
 
+@pytest.mark.parametrize(
+    ("suffix", "expected"),
+    [
+        pytest.param("file", Path("second", "app.toml"), id="file"),
+        pytest.param("files", [Path("second", "app.toml"), Path("first", "app.toml")], id="files"),
+    ],
+)
+@pytest.mark.parametrize("kind", _EXISTING_KINDS)
+def test_find_searches_overridden_path_iterator(
+    dirs: Unix, kind: str, suffix: str, expected: Path | list[Path]
+) -> None:
+    directories = [Path("second"), Path("first")]
+    for directory in directories:
+        _touch(directory / "app.toml")
+    custom_class = type("CustomDirs", (Unix,), {f"iter_{kind}_paths": lambda _: iter(directories)})
+    assert getattr(custom_class(dirs.appname), f"find_{kind}_{suffix}")("app.toml") == expected
+
+
 def test_find_config_file_accepts_nested_path_like(dirs: Unix, config_paths: list[Path]) -> None:
     nested = _touch(config_paths[1] / "sub" / "app.toml")
     assert dirs.find_config_file(Path("sub", "app.toml")) == nested
@@ -480,7 +510,7 @@ def test_find_config_file_accepts_nested_path_like(dirs: Unix, config_paths: lis
 def test_find_file_finds_root_placed_file_in_first_site_dir(
     dirs: Unix, mocker: MockerFixture, kind: str, multipath: bool
 ) -> None:
-    mocker.patch("platformdirs.unix.getuid", return_value=0)
+    mocker.patch("platformdirs.unix.geteuid", return_value=0)
     dirs.use_site_for_root = True
     dirs.multipath = multipath
     getattr(dirs, f"place_{kind}_file")("app.toml").touch()

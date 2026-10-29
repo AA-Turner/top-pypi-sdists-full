@@ -40,6 +40,7 @@ import json
 import logging
 import os
 import re
+import shlex
 from collections import Counter
 from dataclasses import dataclass, field, replace
 from probe._compat import StrEnum
@@ -50,6 +51,7 @@ from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.exceptions import SkipToolExecution, UnexpectedModelBehavior
 
+from probe.cli import owed as owed_ledger
 from probe.daemon import lease, toolset, tools
 from probe.daemon import trace as trace_mod
 # The Probe MCP's address, shared with the CLI's `probe mcp tools|call` (`/probe inline`).
@@ -362,18 +364,19 @@ WRITE_LOST = ("Not ended: a write in this response did not land, so the run goes
 
 #: The retry a writer reads when it ends a run that created a project or
 #: experiment, or set an experiment's conclusion, without pushing that summary
-#: (plan 3.5): once per run, and "say why not" ends it.
-SUMMARY_OWED = ("Not ended: these summaries were not updated in this run: {entities}. Update each "
-                "(probe summary checkout, edit the file, probe summary push), or say why not, then end with "
-                "final_result.")
+#: (plan 3.5): once per run, and "say why not" ends it. The words are the CLI's
+#: owed ledger's (`probe.cli.owed`), which an inline agent is sent back with too.
+SUMMARY_OWED = owed_ledger.SUMMARY_OWED + ", then end with final_result."
+#: The same, for a run this run tagged invalid with no note on it (notes parity N3).
+NOTE_OWED = owed_ledger.NOTE_OWED + ", then end with final_result."
 #: The same, for an eligible experiment this run concluded with no tables or
 #: charts set (plan 3.8; the checkout said so).
 VISUALS_OWED = ("Not ended: these experiments have no tables or charts set: {entities}. Set them (read "
                 "overview-visuals, then probe visuals options and probe visuals set), or say why not, then end "
                 "with final_result.")
-#: How many times the writer's output validator can send a run back: once for
-#: SUMMARY_OWED, once for VISUALS_OWED.
-OWED_SEND_BACKS = 2
+#: How many times the writer's output validator can send a run back: once each
+#: for SUMMARY_OWED, NOTE_OWED and VISUALS_OWED.
+OWED_SEND_BACKS = 3
 
 
 def ends_run(ctx: RunContext) -> bool:
@@ -1162,7 +1165,7 @@ def build_agent(instructions: str, *, model, state: RunState | None = None):
         _native_mcp(capabilities, "")
     capabilities += _harness(state)
 
-    # The OUTPUT budget also pays for the two send-backs below (`summaries_owed`),
+    # The OUTPUT budget also pays for the send-backs below (`summaries_owed`),
     # and a run never refills it: past it pydantic-ai fails the whole run.
     agent = Agent(model, instructions=instructions, deps_type=tools.Deps, output_type=BiteResult,
                   capabilities=capabilities, retries={"tools": 2, "output": 2 + OWED_SEND_BACKS})
@@ -1178,6 +1181,12 @@ def build_agent(instructions: str, *, model, state: RunState | None = None):
             return output
         owed = tools.summaries_owed(ctx.deps)
         tables = tools.visuals_owed(ctx.deps)
+        notes = tools.notes_owed(ctx.deps)
+        if notes and not ctx.deps.notes_owed_asked:
+            # A note is not the summary door's: no mode to wait for.
+            ctx.deps.notes_owed_asked = True
+            tools.tally_save(ctx.deps)
+            raise ModelRetry(NOTE_OWED.format(entities=", ".join(notes)))
         due = (owed and not ctx.deps.summaries_owed_asked) or (tables and not ctx.deps.visuals_owed_asked)
         if due and await tools.summaries_mode(ctx.deps, (owed or tables)[0]) != "recorder":
             # Lane mode refuses the push, and an unknown mode is no reason to
@@ -1570,6 +1579,22 @@ AUDIT_REPORT_CHARS = 1150
 #: must not take in.
 AUDIT_REFUSED_TOOLS = frozenset({"find_papers"})
 AUDIT_WEB_REFUSED = "not run: the team-note audit reads the team's records and the session's folders, not the open web."
+
+
+def audit_tool_refusal(tool_name: str, args: Any) -> str | None:
+    """Why the team-note audit does not run this MCP call, or None: an open-web
+    tool, or a search that names Probe's docs (outside text too; mixed, it rides
+    beside the team's hits). Named as `ExcludeWatchedSession` names it."""
+    name = str(tool_name).rsplit("__", 1)[-1]
+    if name in AUDIT_REFUSED_TOOLS:
+        return AUDIT_WEB_REFUSED
+    search_in = args.get("search_in") if isinstance(args, dict) else None
+    if name in _KNOWLEDGE_SEARCH_TOOLS and isinstance(search_in, list):
+        from probe.mcp.contract import ToolCorpus  # as in `_searches_only_probe_docs`
+
+        if ToolCorpus.DOCS in search_in:
+            return AUDIT_WEB_REFUSED
+    return None
 #: The team note's folder and file (`team_note_file.paths`: `<state>/probe/team-note/
 #: probe-team-note.md`) and the audit's own copy (`audit.draft_dir`, `<state>/probe/
 #: audit/`): a command that names them is about the note, not evidence for it. The
@@ -1628,19 +1653,62 @@ def _opens_a_file(words: list[str]) -> bool:
     return any(not w.startswith("-") and not _NUMBER.match(w) for w in words[1:])
 
 
+def _searches_only_probe_docs(tool_name: str, args: Any) -> bool:
+    """A knowledge search whose `search_in` is Probe's own docs alone: a product
+    reference, not the team's record. Named as `ExcludeWatchedSession` names it
+    (the last `__` segment); a mixed search still reads the team's record."""
+    if str(tool_name).rsplit("__", 1)[-1] not in _KNOWLEDGE_SEARCH_TOOLS or not isinstance(args, dict):
+        return False
+    # Here, not at the top: `probe.mcp` loads the SDK client, which the daemon's
+    # import does not otherwise pay for.
+    from probe.mcp.contract import is_docs_only
+
+    return is_docs_only(args.get("search_in"))
+
+
+def _shell_reads_only_probe_docs(part: str) -> bool:
+    """`probe docs ...`, or `probe mcp call search '<json>'` (the `bash` tool set's
+    door to the MCP) with docs-only `search_in`, root options (`--base-url x`)
+    allowed before the command. JSON this cannot read is a look, as any other
+    command is."""
+    from probe.sdk.session_marker import command_words
+
+    try:
+        words = shlex.split(part)
+    except ValueError:
+        return False
+    if words[:1] != ["probe"]:
+        return False
+    args = words[1:]
+    command = command_words(args)
+    if command[:1] == ["docs"]:
+        return True
+    if command[:2] != ["mcp", "call"] or len(command) < 3:
+        return False
+    tool = args.index(command[2], args.index("call") + 1)
+    try:
+        payload = json.loads(" ".join(args[tool + 1 :]))
+    except ValueError:
+        return False
+    return isinstance(payload, dict) and _searches_only_probe_docs(command[2], payload)
+
+
 def is_a_look(tool_name: str, args: Any, draft: str = "") -> bool:
     """Did this (successful) tool call open some of what the note claims? A read or
-    command about the team note itself, and a command that reads nothing, is not."""
+    command about the team note itself, a command that reads nothing, and a read
+    of Probe's own docs (not the team's record), is not."""
     if tool_name == "read":
         return not _names_team_note(str((args or {}).get("path", "")), draft)
     if tool_name not in ("shell", "bash"):
-        return True  # the Probe MCP: the team's record
+        # the Probe MCP: the team's record, unless it searched only Probe's docs
+        return not _searches_only_probe_docs(tool_name, args)
     command = str((args or {}).get("command", ""))
     if _names_team_note(command, draft):
         return False
     for part in _SEGMENTS.split(command):
         words = part.strip().split()
-        if not words or words[0] in _NOT_A_LOOK or _NOTE_ITSELF.match(part):
+        if (not words or words[0] in _NOT_A_LOOK or _NOTE_ITSELF.match(part)
+                or _shell_reads_only_probe_docs(part)):
             continue
         if words[0] in _FILTERS and not _opens_a_file(words):
             continue
@@ -1658,9 +1726,9 @@ class EvidenceGate(AbstractCapability[tools.Deps]):
     state: AuditState
 
     async def before_tool_execute(self, ctx: Any, *, call: Any, tool_def: Any, args: Any) -> Any:
-        name = str(getattr(call, "tool_name", "")).rsplit("__", 1)[-1]
-        if name in AUDIT_REFUSED_TOOLS:
-            raise SkipToolExecution(AUDIT_WEB_REFUSED)
+        refusal = audit_tool_refusal(str(getattr(call, "tool_name", "")), args)
+        if refusal is not None:
+            raise SkipToolExecution(refusal)
         if (call.tool_name in ("shell", "bash") and self.state.evidence == 0
                 and writes_draft(str((args or {}).get("command", "")), self.state.draft)):
             raise SkipToolExecution(NO_EVIDENCE_YET)

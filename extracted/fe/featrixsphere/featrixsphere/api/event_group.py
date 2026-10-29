@@ -73,7 +73,12 @@ class TargetReadiness:
         labelled_rows: Rows carrying a value for this target.
         usable_rows: Training rows the group's events make.
         rows_required: The minimum the blocking check needs.
-        min_per_class: Per-class minimum (classification).
+        min_per_class: Per-class minimum for an ordinary split (classification).
+        rare_class_min: Fewest examples a class below min_per_class needs to be
+            evaluated by holding each one out in turn (classification).
+        rare_class_evidence: For early (or insufficient_labels after a thin
+            training): how the held-out rare examples ranked -- k, per_example
+            scores and ranks, heldout_auc, p_value, alpha, beats_chance, summary.
         distinct_values: Distinct values seen, when fewer than 2.
         blocked_by: For stale: the state that kept newer data out.
         node_error: For failed (or stale after a failure): the node's reason.
@@ -92,6 +97,8 @@ class TargetReadiness:
     usable_rows: Optional[int] = None
     rows_required: Optional[int] = None
     min_per_class: Optional[int] = None
+    rare_class_min: Optional[int] = None
+    rare_class_evidence: Optional[Dict[str, Any]] = None
     distinct_values: Optional[int] = None
     blocked_by: Optional[str] = None
     node_error: Optional[str] = None
@@ -112,6 +119,8 @@ class TargetReadiness:
             usable_rows=entry.get('usable_rows'),
             rows_required=entry.get('rows_required'),
             min_per_class=entry.get('min_per_class'),
+            rare_class_min=entry.get('rare_class_min'),
+            rare_class_evidence=entry.get('rare_class_evidence'),
             distinct_values=entry.get('distinct_values'),
             blocked_by=entry.get('blocked_by'),
             node_error=entry.get('node_error'),

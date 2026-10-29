@@ -25,7 +25,6 @@ from __future__ import annotations
 import curses
 import sys
 import typing
-import warnings
 from contextlib import suppress
 
 from urwid import util
@@ -35,15 +34,18 @@ from .common import UNPRINTABLE_TRANS_TABLE, AttrSpec, BaseScreen, RealTerminal
 
 if typing.TYPE_CHECKING:
     from collections.abc import Hashable
-
-    from typing_extensions import Literal
+    from typing import Literal
 
     from urwid import Canvas
 
     _MouseInput = tuple[str, int, int, int]
     _CursorPosition = tuple[typing.Literal["cursor position"], int, int]
     _PrivateModeReport = tuple[typing.Literal["private mode report"], str, int]
-    _DecodedInput = list[typing.Union[str, _MouseInput, _CursorPosition, _PrivateModeReport]]
+    _KeyboardProtocolReport = tuple[typing.Literal["keyboard protocol report"], int]
+    _ModifyKeysReport = tuple[typing.Literal["modify keys report"], int, int | None]
+    _DeviceAttributesReport = tuple[typing.Literal["device attributes"], tuple[int, ...]]
+    _TerminalReport = _PrivateModeReport | _KeyboardProtocolReport | _ModifyKeysReport | _DeviceAttributesReport
+    _DecodedInput = list[str | _MouseInput | _CursorPosition | _TerminalReport]
 
 IS_WINDOWS = sys.platform == "win32"
 
@@ -137,9 +139,8 @@ class Screen(BaseScreen, RealTerminal):
         After calling this function get_input will include mouse
         click events along with keystrokes.
 
-        :raises NotImplementedError: *enable* is false; tracking cannot be turned off.
+        :raises NotImplementedError: *enable* is false while tracking is on; tracking cannot be turned off.
         """
-        enable = bool(enable)
         if enable == self._mouse_tracking_enabled:
             return
 
@@ -171,7 +172,7 @@ class Screen(BaseScreen, RealTerminal):
                 | curses.BUTTON_CTRL
             )
         else:
-            raise NotImplementedError()
+            raise NotImplementedError
 
         self._mouse_tracking_enabled = enable
 
@@ -249,31 +250,25 @@ class Screen(BaseScreen, RealTerminal):
         except curses.error:
             self.cursor_state = "fixed"
 
-    def _clear(self) -> None:
-        """Clear the screen and redraw it.
-
-        .. deprecated:: 4.1.4
-            Not used by the urwid code base; there is no replacement.
-        """
-        warnings.warn(
-            "_clear is not used by the urwid code base. API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.s.clear()
-        self.s.refresh()
-
     def _getch(self, wait_tenths: int | None) -> int:
         if wait_tenths == 0:
             return self._getch_nodelay()
 
+        self.s.nodelay(False)
         if not IS_WINDOWS:
             if wait_tenths is None:
                 curses.cbreak()
             else:
+                # halfdelay accepts at most 255 tenths; keep waiting after each
+                # chunk expires, but return immediately when input arrives.
+                while wait_tenths > 255:
+                    curses.halfdelay(255)
+                    key = self.s.getch()
+                    if key != -1:
+                        return key
+                    wait_tenths -= 255
                 curses.halfdelay(wait_tenths)
 
-        self.s.nodelay(False)
         return self.s.getch()
 
     def _getch_nodelay(self) -> int:
@@ -297,8 +292,8 @@ class Screen(BaseScreen, RealTerminal):
         """Set the get_input timeout values.
 
         All values have a granularity of 0.1s, ie. any value between 0.15 and 0.05 will be treated as
-        0.1 and any value less than 0.05 will be treated as 0.  The
-        maximum timeout value for this module is 25.5 seconds.
+        0.1 and any value less than 0.05 will be treated as 0.  Waits
+        longer than 25.5 seconds are split into multiple curses waits.
 
         :param max_wait: amount of time in seconds to wait for input when there is no input pending, wait forever if
             None
@@ -346,17 +341,9 @@ class Screen(BaseScreen, RealTerminal):
         * Key combinations:  :kbd:`shift f1`, :kbd:`meta a`, :kbd:`ctrl b`
         * Window events:  ``"window resize"``
 
-        When a narrow encoding is not enabled:
+        Other characters, decoded from the terminal encoding (UTF-8, or a single- or double-byte encoding):
 
-        * "Extended ASCII" characters:  "\xa1", "\xb2", "\xfe"
-
-        When a wide encoding is enabled:
-
-        * Double-byte characters:  "\xa1\xea", "\xb2\xd4"
-
-        When utf8 encoding is enabled:
-
-        * Unicode characters: u"\u00a5", u'\u253c"
+        * Unicode characters: "\u00a5", "\u253c", "\u4e2d"
 
         Examples of mouse events returned:
 
@@ -404,7 +391,7 @@ class Screen(BaseScreen, RealTerminal):
         key = self._getch(wait_tenths)
         resize = False
         raw = []
-        keys = []
+        keys: list[int] = []
 
         while key >= 0:
             raw.append(key)
@@ -517,83 +504,14 @@ class Screen(BaseScreen, RealTerminal):
         self.last_bstate = next_state
         return result
 
-    def _dbg_instr(self) -> bytes:
-        """Read a line of input with echo on (intended for debugging).
-
-        .. deprecated:: 4.1.4
-            Not used by the urwid code base; there is no replacement.
-        """
-        warnings.warn(
-            "_dbg_instr is not used by the urwid code base. API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        curses.echo()
-        self.s.nodelay(False)
-        curses.halfdelay(100)
-        string = self.s.getstr()
-        curses.noecho()
-        return string
-
-    def _dbg_out(self, string: str) -> None:
-        """Write *string* at the cursor and refresh (intended for debugging).
-
-        .. deprecated:: 4.1.4
-            Not used by the urwid code base; there is no replacement.
-        """
-        warnings.warn(
-            "_dbg_out is not used by the urwid code base. API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.s.clrtoeol()
-        self.s.addstr(string)
-        self.s.refresh()
-        self._curs_set(1)
-
-    def _dbg_query(self, question: str) -> bytes:
-        """Write *question* and read the reply (intended for debugging).
-
-        .. deprecated:: 4.1.4
-            Not used by the urwid code base; there is no replacement.
-        """
-        warnings.warn(
-            "_dbg_query is not used by the urwid code base. API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        with warnings.catch_warnings():
-            # _dbg_out and _dbg_instr are deprecated alongside this method,
-            # so their warnings would only repeat the one raised above.
-            warnings.simplefilter("ignore", DeprecationWarning)
-            self._dbg_out(question)
-            return self._dbg_instr()
-
-    def _dbg_refresh(self) -> None:
-        """Refresh the screen (intended for debugging).
-
-        .. deprecated:: 4.1.4
-            Not used by the urwid code base; there is no replacement.
-        """
-        warnings.warn(
-            "_dbg_refresh is not used by the urwid code base. API will be removed in version 5.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.s.refresh()
-
     def get_cols_rows(self) -> tuple[int, int]:
         """Return the terminal dimensions (num columns, num rows)."""
         rows, cols = self.s.getmaxyx()
         return cols, rows
 
-    def _setattr(self, a: AttrSpec | str | None) -> None:
-        if a is None:
-            self.s.attrset(0)
-            return
-        if not isinstance(a, AttrSpec):
-            p = self._palette.get(a, (AttrSpec("default", "default"),))
-            a = p[0]
+    def _setattr(self, a: Hashable) -> None:
+        # curses cannot draw hyperlinks, so attributes differing only by one share a cache entry
+        a = self.resolve_attr(a, 0).style_only()
 
         try:
             attr = self._curses_attr_cache[a]
@@ -667,10 +585,10 @@ class Screen(BaseScreen, RealTerminal):
 
             aborted = False
             for nr, (a, cs, seg) in enumerate(row):
+                if not isinstance(seg, bytes):  # canvases render with bytes
+                    raise TypeError(seg)
                 if cs != "U":
                     seg = seg.translate(UNPRINTABLE_TRANS_TABLE)  # noqa: PLW2901
-                    if not isinstance(seg, bytes):
-                        raise TypeError(seg)
 
                 if first or lasta != a:
                     self._setattr(a)
@@ -682,9 +600,7 @@ class Screen(BaseScreen, RealTerminal):
                     else:
                         if cs is not None:
                             raise ValueError(f"cs not in ('0', 'U' ,'None'): {cs!r}")
-                        if not isinstance(seg, bytes):
-                            raise TypeError(seg)
-                        self.s.addstr(seg.decode(util.get_encoding()))
+                        self.s.addstr(seg.decode(util.get_encoding(), "replace"))
                 except curses.error:
                     # it's OK to get out of the
                     # screen on the lower right
@@ -755,7 +671,7 @@ class _test:
         keys = None
         while keys != ["q"]:
             r = TextCanvas(
-                text=([t.encode(encoding).ljust(cols) for t in text] + [b""] * rows)[:rows],
+                text=([t.encode(encoding, "replace").ljust(cols) for t in text] + [b""] * rows)[:rows],
                 attr=(attr + [[] for _ in range(rows)])[:rows],
             )
             self.ui.draw_screen((cols, rows), r)
@@ -767,11 +683,10 @@ class _test:
             t = ""
             a = []
             for k in keys:
-                if isinstance(k, str):
-                    k = k.encode(encoding)  # type: ignore[assignment]  # noqa: PLW2901
-
-                t += f"'{k}' "
-                a += [(None, 1), ("yellow on dark blue", len(k)), (None, 2)]
+                shown = k if isinstance(k, str) else repr(k)
+                t += f"'{shown}' "
+                # canvas attribute runs are measured in bytes of the encoded text
+                a += [(None, 1), ("yellow on dark blue", len(shown.encode(encoding, "replace"))), (None, 2)]
 
             text.append(f"{t}: {raw!r}")
             attr.append(a)

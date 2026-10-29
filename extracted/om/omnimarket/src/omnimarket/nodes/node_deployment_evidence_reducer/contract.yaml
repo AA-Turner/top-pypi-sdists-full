@@ -72,7 +72,6 @@ event_bus:
   subscribe_topics:
     - onex.evt.omnimarket.evidence-validated.v1
     - onex.evt.omnimarket.readiness-scored.v1
-    - onex.evt.omnimarket.occ-pr-created.v1
   publish_topics:
     - onex.evt.omnimarket.deployment-evidence-reduced.v1
 
@@ -95,6 +94,9 @@ projection_api:
   expose: true
   exposures:
     - topic: "onex.snapshot.projection.deployment-evidence.v1" # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      topic_config:
+        kafka_config:
+          "cleanup.policy": "compact"
       key_grain: "mutable"
       table: "deployment_evidence_projection"
       schema: "public"
@@ -116,6 +118,9 @@ projection_api:
       freshness_column: "updated_at"
       limit: 500
     - topic: "onex.snapshot.projection.deployment-readiness.v1" # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      topic_config:
+        kafka_config:
+          "cleanup.policy": "compact"
       key_grain: "mutable"
       table: "deployment_readiness_projection"
       schema: "public"
@@ -177,12 +182,6 @@ state_machine:
       from_state: reduced
       to_state: reduced
       trigger: readiness_scored
-    # OCC PR creation folded.
-    - version: {major: 1, minor: 0, patch: 0}
-      transition_name: reduced_to_reduced_on_occ_pr_created
-      from_state: reduced
-      to_state: reduced
-      trigger: occ_pr_created
     # Re-observe own projection (idempotent).
     - version: {major: 1, minor: 0, patch: 0}
       transition_name: reduced_to_reduced_on_deployment_evidence_reduced

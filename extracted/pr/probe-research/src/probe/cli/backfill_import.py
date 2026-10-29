@@ -1355,7 +1355,7 @@ def _run(
         if answer is None:
             raise KeyboardInterrupt
         if answer is not True:
-            coverage.put_meta(structure.REVIEWED_KEY, "declined")
+            structure.decline(coverage)
             imported = {}
     reviewed_plan = None
     if selected or imported:
@@ -1926,14 +1926,12 @@ def _deliver_approved(
     complete = not pending and not incomplete and not known.partial
     coverage.put_meta("last_verified_complete", complete)
     if complete and known["delivered"]:
-        from .backfill_reconstruction import complete_reconstruction
+        # The record pass: the project's words, notes and pages by the
+        # researcher's skills, published as the live writer publishes them --
+        # unattended, interactive or not.
+        from .backfill_record import complete_record
 
-        report.add(
-            *complete_reconstruction(
-                client, folder, coverage, git, agent=agent, interactive=interactive, yes=yes,
-                agents=agents,
-            )
-        )
+        report.add(*complete_record(client, folder, coverage, git, agent=agent, agents=agents))
     final_count = len(final_records)
     stats.update(
         files=final_count,

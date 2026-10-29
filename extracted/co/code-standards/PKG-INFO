@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-standards
-Version: 8.142.0
+Version: 8.153.1
 Summary: One deterministic quality gate for Sarj Python, TypeScript, Swift, Kotlin, shell, SQL, IaC, and repository policy.
 Project-URL: Homepage, https://code-standards.sarj.ai/
 Project-URL: Documentation, https://code-standards.sarj.ai/cli/
@@ -28,12 +28,12 @@ Requires-Dist: pre-commit==4.7.0
 Requires-Dist: pydantic==2.14.1
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: referencing==0.37.0
-Requires-Dist: repo-standards==6.13.0
+Requires-Dist: repo-standards==6.14.0
 Requires-Dist: ruff==0.17.2
-Requires-Dist: sarj-iac-lint==0.30.2
-Requires-Dist: sarj-python-lint==1.83.0
-Requires-Dist: sarj-rule-contracts==0.4.2
-Requires-Dist: sarj-sql-lint==0.30.0
+Requires-Dist: sarj-iac-lint==0.31.0
+Requires-Dist: sarj-python-lint==1.90.0
+Requires-Dist: sarj-rule-contracts==0.5.0
+Requires-Dist: sarj-sql-lint==0.33.0
 Requires-Dist: shellcheck-py==0.11.0.1; (sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'darwin' and platform_machine == 'x86_64') or (sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')
 Requires-Dist: typer==0.27.3
 Description-Content-Type: text/markdown
@@ -66,6 +66,8 @@ code-standards update
 New ESLint setups use `eslint.config.ts` and the compiler-checked `eslint.strict.ts` preset. Existing `.mjs` preset imports remain supported; to migrate, remove the old generated preset and change its imports to `.ts` before running setup.
 
 Use repeatable `check --rule ENGINE:ID` selectors to select native rules, ESLint rules, or managed security audits. Exclusions, baselines, and severities still apply; Ruff selectors are not supported. Native linters and ESLint execute only selected rules. ESLint retains configured parsers, options, severities, and suppression directives.
+
+For a history-free initial import, set `SARJ_STANDARDS_INITIAL_IMPORT_SOURCE` only on the initial commit process to the full lowercase object ID of an available source commit with exactly one available parent. HEAD must be an unborn branch; the entire staged tree must equal that commit, tracked worktree files must match the index without hidden index flags, and nonignored files must be staged. Native staged checks compare the source commit with its parent, preserving the usual changed-line failures for findings introduced in that commit while allowing inherited diagnostic budgets. Validation runs before and after analysis; all analyzers and baseline limits still apply. The caller must qualify the source commit separately. Git replacement objects and lazy fetching are disabled; explicitly supplied temporary object alternates may provide the source history without copying it into the new repository. Remove the input and alternates before subsequent commits, pushes, and CI. Invalid or changed import context fails analysis, including clean reports; ordinary checks without this input retain their existing behavior.
 
 Selected ESLint checks apply live inline suppressions and validate selected bulk suppression counts. The complete lint gate owns unused inline-directive and inline-configuration checks: a partial run cannot establish whether an unselected rule's directive is needed.
 
@@ -102,6 +104,8 @@ The opt-in `knip` capability uses Knip 6.42.1 production mode. Remove it from `[
 Unused private Python test helpers require `reportUnusedFunction` set to `warning` in the consumer's existing BasedPyright test execution environments. This bundle preserves native configuration and bounds test warnings to authored, undecorated module-level private helpers in conventional test paths. Decorated fixtures, methods and production callbacks are excluded; no consumer diagnostic setting is enabled automatically. Existing production diagnostics are preserved.
 
 `check --jobs 2` overlaps native analysis with the external-tool pipeline. The default is `--jobs 1`; external tools remain sequential and report ordering is deterministic.
+
+Public Python suggested edits retain `expected_source_hash`, the lowercase SHA-256 digest of the exact captured source bytes, alongside `expected_text_hash` for the replaced slice. Use `to_json(report, include_fix_source_hashes=True)` or the same keyword on report, diagnostic, fix or edit `as_dict` to emit `expectedSourceHash`. The default JSON output is unchanged. Opted-in JSON requires the updated bundled `analysis.schema.json`; older strict v1 schemas reject the added field. This provenance does not apply edits or validate a current file, and SARIF output is unchanged.
 
 DevOps execution blocks may sequence existing commands without helper scripts. Keep interpreter source, control flow, logical chains, pipelines and substitutions in independently linted files; Python `-m` and script paths, and jq/awk `-f` files remain supported. SARJ310 is an error, including short inline programs. Cloud Build SARJ315 checks YAML and JSON for unique IDs, ordered step dependencies, script/argv exclusivity and untrusted substitutions in shell source; pass substitutions as quoted arguments to external scripts. JSON configs are discovered in operational directories or with `cloudbuild` in their filename; JSON syntax must be strict, with unique keys and finite numbers. Files named with `cloudbuild`, and Build-shaped files under a `cloudbuild` directory, use the bundled, digest-verified Google Build v1 field schema for field names, types, enums and protobuf durations/integers. The offline schema rejects output-only fields; trigger expansion, resource access and hosted admission require the deployment environment.
 

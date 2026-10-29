@@ -245,6 +245,8 @@ def _token_call(
     extra: dict[str, Any] = {}
     if recipe.client_auth == ClientAuth.basic:
         extra["auth"] = httpx.BasicAuth(client_id, client_secret.get_secret_value())
+    elif recipe.client_auth == ClientAuth.none:
+        body["client_id"] = client_id
     else:
         body.update(client_id=client_id, client_secret=client_secret.get_secret_value())
     try:

@@ -54,3 +54,27 @@ def test_a_provider_failure_is_not_a_refusal():
     assert isinstance(result, Failure)
     assert not is_caller_refusal(node_error=result.error)
     assert "approval_url" not in result.error.details
+
+
+def test_a_wrapped_spend_refusal_still_carries_its_approval_link():
+    """The turn's terminal exception can WRAP the gate's refusal (a provider/client layer re-raising
+    ``from`` it): the approval link is read off the refusal in the chain, never dropped (2026-10-27)."""
+    refusal = RunApprovalRequiredError(
+        approval_id="6f1e2d3c-4b5a-4968-8776-5a4b3c2d1e0f",
+        subject_kind="mandate",
+        subject_id="flashcards.generate_from_source",
+        status="waiting",
+        approval_url=APPROVAL,
+        reason="over_threshold",
+    )
+    try:
+        try:
+            raise refusal
+        except RunApprovalRequiredError as inner:
+            raise RuntimeError("the provider call did not run") from inner
+    except RuntimeError as wrapped:
+        terminal = wrapped
+    result = normalize_completed_result(_completed("run_approval_required", terminal))
+    assert isinstance(result, Failure)
+    assert is_caller_refusal(node_error=result.error)
+    assert result.error.details["approval_url"] == APPROVAL

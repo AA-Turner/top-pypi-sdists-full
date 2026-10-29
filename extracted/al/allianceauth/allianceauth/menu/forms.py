@@ -1,3 +1,5 @@
+from typing import Any
+
 from django import forms
 
 from .constants import DEFAULT_FOLDER_ICON_CLASSES
@@ -11,7 +13,7 @@ class FolderMenuItemAdminForm(forms.ModelForm):
         model = MenuItem
         fields = ["text", "classes", "order", "is_hidden"]
 
-    def clean(self):
+    def clean(self) -> dict[str, Any]:
         data = super().clean()
         if not data["classes"]:
             data["classes"] = DEFAULT_FOLDER_ICON_CLASSES
@@ -19,7 +21,7 @@ class FolderMenuItemAdminForm(forms.ModelForm):
 
 
 class _BasedMenuItemAdminForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.fields["parent"].queryset = MenuItem.objects.filter_folders().order_by(
             "text"

@@ -1,16 +1,21 @@
+__lazy_modules__ = ["django.http"]
+
 import tempfile
+from typing import TYPE_CHECKING
 import webbrowser
 from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from django.http import HttpResponse
 from django.template import Context, Template
+
+if TYPE_CHECKING:
+    from django.http import HttpResponse
 
 PACKAGE_PATH = "allianceauth.menu"
 
 
-def extract_links(response: HttpResponse) -> dict:
+def extract_links(response: "HttpResponse") -> dict:
     soup = extract_html(response)
     links = {
         link["href"]: "".join(link.stripped_strings)
@@ -19,12 +24,12 @@ def extract_links(response: HttpResponse) -> dict:
     return links
 
 
-def extract_html(response: HttpResponse) -> BeautifulSoup:
+def extract_html(response: "HttpResponse") -> BeautifulSoup:
     soup = BeautifulSoup(response.content, "html.parser")
     return soup
 
 
-def open_page_in_browser(response: HttpResponse):
+def open_page_in_browser(response: "HttpResponse"):
     """Open the response in the system's default browser.
 
     This will create a temporary file in the user's home.

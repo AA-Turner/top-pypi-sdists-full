@@ -126,6 +126,16 @@ def rmdir(path: Path, *, safe_rm: bool = True) -> None:
             _LOGGER.warning("Failed to delete %s. You may need to delete it manually.", path)
 
 
+def rmdir_via_trash(path: Path) -> None:
+    # a removal killed halfway leaves the directory whole or gone from its parent, never partly deleted in place
+    try:
+        path.rename(trash := _get_trash_file(path))
+    except OSError:
+        rmdir(path)
+    else:
+        rmdir(trash)
+
+
 def mkdir(path: Path) -> None:
     if path.is_dir():
         return
@@ -341,6 +351,11 @@ def run_subprocess(  # ruff:ignore[too-many-arguments]  # thin wrapper over subp
             None if hold_stderr else _without_terminal_escapes(stderr),
         )
 
+    # an installer quotes an operand it rejects as typed, so its output can carry the credentials of a URL
+    completed_process.stdout, completed_process.stderr = (
+        None if output is None else redact_url_credentials(output)
+        for output in (completed_process.stdout, completed_process.stderr)
+    )
     if capture_stdout and log_stdout and not stream_output:
         _LOGGER.debug(f"stdout: {completed_process.stdout}".rstrip())
     if capture_stderr and log_stderr and not stream_output:
@@ -359,16 +374,21 @@ def _without_terminal_escapes(output: str | None) -> str | None:
 
 
 def _command_line(cmd: Sequence[str | Path]) -> str:
-    return redact_url_credentials(" ".join(str(c) for c in cmd))
+    return " ".join(redact_url_credentials(str(c)) for c in cmd)
 
 
 def redact_url_credentials(text: str) -> str:
-    # index and package URLs can carry credentials, which must not reach the log file or the verbose output; masked the
-    # way pip masks them in its own messages, which also hides a bare user such as git@ since it may be a token. The
-    # authority ends at the first /, ? or #, and its userinfo runs to the last @ before that.
+    # index and package URLs can carry credentials, which must not reach the log file or the verbose output. A bare user
+    # such as git@ may be a token, and so may the user before an empty or placeholder password (TOKEN:@), so with a
+    # colon both parts are masked.
+    #
+    # The authority ends at the first /, ? or #, and its userinfo runs to the last @ before that. A password may hold a
+    # space, so callers mask each argument before joining a command line; a line break still ends it, as installer
+    # output holds a URL per line. Across a space the match can start at a bare token and end at a later word's @, so a
+    # user part holding an @ is masked as a bare user.
     return re.sub(
-        r"(?<=://)([^\s/?#]*)@",
-        lambda match: f"{userinfo[0]}:****@" if (userinfo := match[1].partition(":"))[1] else "****@",
+        r"(?<=://)([^/?#\r\n]*)@",
+        lambda match: "****:****@" if (userinfo := match[1].partition(":"))[1] and "@" not in userinfo[0] else "****@",
         text,
     )
 
@@ -667,6 +687,11 @@ def _log_failed_builds(
         _LOGGER.error("pip seemed to fail to build package:\n    %s", last_collecting_dep)
 
 
+def open_owner_only(path: str | os.PathLike[str], flags: int) -> int:
+    # logs record command lines that can carry secrets, and a global store keeps them under a world-readable /opt/pipx
+    return os.open(path, flags, 0o600)
+
+
 def subprocess_post_check_handle_pip_error(
     completed_process: subprocess.CompletedProcess[str],
     tool_name: str = "pip",
@@ -690,7 +715,7 @@ def subprocess_post_check_handle_pip_error(
     error_file = paths.ctx.log_file.parent / f"{paths.ctx.log_file.stem}_{tool_name}_errors.log"
     upper_label = tool_name.upper()
     # the fan-out tasks of an -all command append their failures to the same file at once
-    with _ERROR_LOG_LOCK, error_file.open("a", encoding="utf-8") as error_fh:
+    with _ERROR_LOG_LOCK, open(error_file, "a", encoding="utf-8", opener=open_owner_only) as error_fh:
         error_fh.write(
             f"{upper_label} STDOUT\n----------\n{completed_process.stdout or ''}"
             f"\n{upper_label} STDERR\n----------\n{completed_process.stderr or ''}"
@@ -741,12 +766,31 @@ def exec_app(
 
 def full_package_description(package_name: str, package_spec: str) -> str:
     if package_name == package_spec:
-        return package_name
+        return redact_url_credentials(package_name)
     return f"{package_name} from spec {redact_url_credentials(package_spec)!r}"
 
 
 def is_paths_relative(path: Path, parent: Path) -> bool:
     return path.is_relative_to(parent)
+
+
+def is_file_name(name: str) -> bool:
+    # joined to a directory, ".." names its parent and a separator or a drive leads anywhere
+    return name not in {"", ".."} and Path(name).name == name
+
+
+def reject_empty_index(pip_args: Sequence[str]) -> None:
+    # an empty value usually comes from an unset variable, as in --index-url "$INDEX_URL", and uv reads it as the
+    # default index
+    for position, argument in enumerate(pip_args):
+        option, separator, value = argument.partition("=")
+        if option not in {"--default-index", "--extra-index-url", "--index", "--index-url", "-i"} or (
+            not separator and position + 1 == len(pip_args)
+        ):
+            continue
+        if not (value if separator else pip_args[position + 1]).strip():
+            msg = f"{option} is empty; pass the index URL or leave the option out"
+            raise PipxError(msg)
 
 
 __all__ = [
@@ -760,11 +804,15 @@ __all__ = [
     "get_pypackage_bin_path",
     "get_site_packages",
     "get_venv_paths",
+    "is_file_name",
     "is_paths_relative",
     "mkdir",
+    "open_owner_only",
     "pipx_wrap",
     "redact_url_credentials",
+    "reject_empty_index",
     "rmdir",
+    "rmdir_via_trash",
     "run_pypackage_bin",
     "run_subprocess",
     "safe_unlink",

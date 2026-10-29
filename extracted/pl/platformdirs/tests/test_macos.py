@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import re
+import stat
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
@@ -8,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Final
 import pytest
 
 import platformdirs
+from platformdirs import RuntimeDirWarning
 from platformdirs.macos import MacOS
 
 if TYPE_CHECKING:
@@ -242,6 +245,38 @@ def test_macos_xdg_site_dirs(
 def test_macos_xdg_media_dirs(monkeypatch: pytest.MonkeyPatch, env_var: str, prop: str) -> None:
     monkeypatch.setenv(env_var, "/custom/media")
     assert getattr(MacOS(), prop) == "/custom/media"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="creating symlinks needs elevated rights on Windows")
+@pytest.mark.parametrize(("env_var", "prop"), _MEDIA_DIRS)
+def test_macos_ensure_exists_raises_on_configured_media_file(
+    monkeypatch: pytest.MonkeyPatch, media_file: Path, env_var: str, prop: str
+) -> None:
+    monkeypatch.setenv(env_var, str(media_file))
+    with pytest.raises(FileExistsError):
+        getattr(MacOS(ensure_exists=True), prop)
+
+
+def _link_to_directory(path: Path, target: Path) -> None:
+    target.mkdir()
+    path.symlink_to(target)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="creating symlinks needs elevated rights on Windows")
+@pytest.mark.parametrize(
+    ("plant", "is_dir"),
+    [
+        pytest.param(_link_to_directory, True, id="directory-symlink"),
+        pytest.param(lambda path, target: path.symlink_to(target), False, id="dangling-symlink"),
+        pytest.param(lambda path, _: path.symlink_to(path), False, id="symlink-loop"),
+    ],
+)
+def test_macos_ensure_exists_returns_configured_media_symlink(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, plant: Callable[[Path, Path], None], is_dir: bool
+) -> None:
+    plant(path := tmp_path / "media", tmp_path / "target")
+    monkeypatch.setenv("XDG_DOCUMENTS_DIR", str(path))
+    assert (MacOS(ensure_exists=True).user_documents_path, path.is_dir()) == (path, is_dir)
 
 
 @pytest.mark.parametrize(("xdg_value", "created"), [("/custom/media", True), (None, False)], ids=["xdg", "default"])
@@ -485,6 +520,7 @@ def test_homebrew_site_dir_ensure_exists_creates_only_the_returned_entries(
     mocker: MockerFixture, prop: str, multipath: bool, created: list[str]
 ) -> None:
     mkdir = mocker.patch.object(Path, "mkdir", autospec=True)
+    mocker.patch.object(Path, "lstat", return_value=mocker.MagicMock(st_mode=stat.S_IFDIR, st_uid=0))
     getattr(MacOS(appname="foo", multipath=multipath, ensure_exists=True), prop)
     assert [c.args[0] for c in mkdir.call_args_list] == [Path(p) for p in created]
 
@@ -671,3 +707,132 @@ def test_macos_user_log_dir_creates_missing_components_private(
     monkeypatch.setenv("HOME", str(tmp_path))
     _ = MacOS(appname="app", ensure_exists=True).user_log_dir
     assert modes(tmp_path) == {"Library": 0o700, "Library/Logs": 0o700, "Library/Logs/app": 0o700}
+
+
+_SITE_CACHE_READS: Final = [
+    pytest.param(lambda dirs: dirs.site_cache_dir, id="dir"),
+    pytest.param(lambda dirs: dirs.site_cache_path, id="path"),
+    pytest.param(lambda dirs: list(dirs.iter_cache_dirs()), id="iter-dirs"),
+    pytest.param(lambda dirs: list(dirs.iter_cache_paths()), id="iter-paths"),
+]
+
+
+@pytest.fixture
+def site_cache(mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    mocker.patch("platformdirs.macos._SITE_CACHE", str(shared := tmp_path / "Caches"))
+    shared.mkdir()
+    return shared
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="creating symlinks needs elevated rights on Windows")
+@pytest.mark.usefixtures("_clear_xdg_env", "_builtin_py_prefix")
+@pytest.mark.parametrize("read", _SITE_CACHE_READS)
+@pytest.mark.parametrize(
+    ("plant", "problem"),
+    [
+        pytest.param(lambda entry, target: entry.symlink_to(target), "is a symlink", id="symlink"),
+        pytest.param(lambda entry, _: entry.symlink_to("missing"), "is a symlink", id="dangling-symlink"),
+        pytest.param(lambda entry, _: entry.touch(), "is not a directory", id="file"),
+    ],
+)
+def test_site_cache_ensure_exists_rejects_planted_entry(
+    site_cache: Path,
+    tmp_path: Path,
+    read: Callable[[MacOS], str | Path | list[str] | list[Path]],
+    plant: Callable[[Path, Path], None],
+    problem: str,
+) -> None:
+    plant(entry := site_cache / "app", tmp_path)
+    with pytest.raises(PermissionError, match=f"^site cache directory {re.escape(str(entry))} {problem}$"):
+        read(MacOS(appname="app", version="1.0", ensure_exists=True))
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="creating symlinks needs elevated rights on Windows")
+@pytest.mark.usefixtures("_clear_xdg_env", "_builtin_py_prefix")
+def test_site_cache_ensure_exists_creates_nothing_through_symlink(site_cache: Path, tmp_path: Path) -> None:
+    (site_cache / "app").symlink_to(target := tmp_path / "target", target_is_directory=True)
+    target.mkdir()
+    with pytest.raises(PermissionError):
+        _ = MacOS(appname="app", version="1.0", ensure_exists=True).site_cache_path
+    assert list(target.iterdir()) == []
+
+
+@pytest.mark.usefixtures("_clear_xdg_env", "_builtin_py_prefix")
+@pytest.mark.parametrize("read", _SITE_CACHE_READS)
+def test_site_cache_ensure_exists_rejects_other_owner(
+    mocker: MockerFixture, site_cache: Path, read: Callable[[MacOS], str | Path | list[str] | list[Path]]
+) -> None:
+    (entry := site_cache / "app").mkdir()
+    mocker.patch.object(Path, "lstat", return_value=mocker.MagicMock(st_mode=stat.S_IFDIR, st_uid=501))
+    mocker.patch("platformdirs.macos.geteuid", return_value=502)
+    expected = f"^site cache directory {re.escape(str(entry))} is owned by uid 501, not root or 502$"
+    with pytest.raises(PermissionError, match=expected):
+        read(MacOS(appname="app", version="1.0", ensure_exists=True))
+
+
+@pytest.mark.usefixtures("_clear_xdg_env", "_builtin_py_prefix")
+@pytest.mark.parametrize("owner", [pytest.param(0, id="root"), pytest.param(502, id="current-user")])
+def test_site_cache_ensure_exists_accepts_trusted_owner(mocker: MockerFixture, site_cache: Path, owner: int) -> None:
+    (site_cache / "app").mkdir()
+    mocker.patch.object(Path, "lstat", return_value=mocker.MagicMock(st_mode=stat.S_IFDIR, st_uid=owner))
+    mocker.patch("platformdirs.macos.geteuid", return_value=502)
+    assert MacOS(appname="app", version="1.0", ensure_exists=True).site_cache_path.is_dir()
+
+
+@pytest.mark.usefixtures("_clear_xdg_env", "_builtin_py_prefix")
+def test_site_cache_ensure_exists_creates_missing_entry(site_cache: Path) -> None:
+    _ = MacOS(appname="app", version="1.0", ensure_exists=True).site_cache_path
+    assert (site_cache / "app" / "1.0").is_dir()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="creating symlinks needs elevated rights on Windows")
+@pytest.mark.usefixtures("_clear_xdg_env", "_builtin_py_prefix")
+def test_site_cache_lookup_leaves_planted_entry_alone(site_cache: Path, tmp_path: Path) -> None:
+    (site_cache / "app").symlink_to(tmp_path)
+    assert MacOS(appname="app").site_cache_path == site_cache / "app"
+
+
+_POSIX_ONLY: Final = pytest.mark.skipif(sys.platform == "win32", reason="Windows has no POSIX owners or modes")
+
+
+@pytest.fixture
+def runtime_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> Path:
+    # The runtime dir warnings are emitted once per process, so give every test its own record of them.
+    mocker.patch("platformdirs.unix._WARNED", set())
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(path := tmp_path / "runtime"))
+    return path
+
+
+@pytest.fixture
+def foreign_runtime_dir(runtime_dir: Path, mocker: MockerFixture) -> Path:
+    runtime_dir.mkdir(mode=0o700)
+    mocker.patch("platformdirs.unix.geteuid", return_value=runtime_dir.stat().st_uid + 1)
+    return runtime_dir
+
+
+@_POSIX_ONLY
+@pytest.mark.usefixtures("foreign_runtime_dir")
+@pytest.mark.filterwarnings("ignore::platformdirs.RuntimeDirWarning")
+def test_macos_user_runtime_dir_rejects_xdg_runtime_dir_of_other_user(home: str) -> None:
+    assert MacOS(appname="foo").user_runtime_dir == f"{home}/Library/Caches/TemporaryItems/foo"
+
+
+@_POSIX_ONLY
+def test_macos_user_runtime_dir_rejects_xdg_runtime_dir_of_other_user_warns(foreign_runtime_dir: Path) -> None:
+    owner: Final = foreign_runtime_dir.stat().st_uid
+    with pytest.warns(RuntimeDirWarning) as record:
+        _ = MacOS(appname="foo").user_runtime_dir
+    expected: Final = (
+        f"XDG_RUNTIME_DIR {foreign_runtime_dir} is owned by uid {owner}, not {owner + 1}, "
+        "falling back to the platform default"
+    )
+    assert [(str(warning.message), warning.filename) for warning in record] == [(expected, __file__)]
+
+
+@_POSIX_ONLY
+@pytest.mark.filterwarnings("ignore::platformdirs.RuntimeDirWarning")
+def test_macos_user_runtime_dir_rejects_shared_xdg_runtime_dir(runtime_dir: Path, home: str) -> None:
+    runtime_dir.mkdir()
+    runtime_dir.chmod(0o777)
+    assert MacOS(appname="foo").user_runtime_dir == f"{home}/Library/Caches/TemporaryItems/foo"

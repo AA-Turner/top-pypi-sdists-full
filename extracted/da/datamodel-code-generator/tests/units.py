@@ -122,6 +122,8 @@ _CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
 _DRIVE = re.compile(r"[A-Za-z]:")
 _BAD_PARTS = frozenset({"", ".", ".."})
 _MAX_NAME = 120
+_MAX_PATH = 200
+"""The longest stored path from the repository root; a Windows checkout fails beyond MAX_PATH."""
 
 
 KEEP = object()
@@ -717,6 +719,16 @@ def payload_problem(payload: object, rootpath: Path, index: RefsIndex) -> str | 
     return None if "missing" in payload else _payload_value_problem(payload)
 
 
+def split_name(stem: str, mark: str, suffix: str, limit: int) -> str:
+    """Return ``<stem><mark><suffix>``; over the limit a digest replaces the end of the stem, or the stem and mark."""
+    name = f"{stem}{mark}{suffix}"
+    if len(name) <= limit:
+        return name
+    if (keep := limit - len(suffix) - len(mark) - 9) >= 0:
+        return f"{stem[:keep]}~{hashlib.sha1(stem.encode()).hexdigest()[:8]}{mark}{suffix}"
+    return f"~{hashlib.sha1(f'{stem}{mark}'.encode()).hexdigest()[:8]}{suffix}"
+
+
 def derived_name(name: str) -> str:
     """Return a file-name-safe form of a test item name, shortened with a digest when it is long."""
     safe = _WINDOWS_INVALID.sub("_", name).rstrip(". ") or "_"
@@ -959,8 +971,12 @@ class _Resolution:
         base = outer if outer is not None else target
         suffix = "" if tree or outer is not None else base.suffix
         stem = base.name.removesuffix(suffix) if suffix else base.name
+        below = len(target.relative_to(outer).as_posix()) + 1 if outer is not None else 0
+        limit = (
+            _MAX_PATH - len(Path(os.path.relpath(base.parent, self.expected_root.parents[2])).as_posix()) - 1 - below
+        )
         for number in range(1, 1000):
-            candidate = base.parent / f"{stem}{mark}{'' if number == 1 else f'-{number}'}{suffix}"
+            candidate = base.parent / split_name(stem, f"{mark}{'' if number == 1 else f'-{number}'}", suffix, limit)
             path = candidate / target.relative_to(outer) if outer is not None else candidate
             if self.free(candidate, tree=tree or outer is not None) and self.free(path, tree=tree):
                 return path
@@ -1386,6 +1402,7 @@ INPUT_TREES = (
     "jsonschema/dotted_module_exports_reuse",
     "jsonschema/dynamic_ref_merged_generic",
     "jsonschema/dynamic_ref_partial_binding",
+    "jsonschema/external_ref_mapping_whole_document",
     "jsonschema/external_reference",
     "jsonschema/field_type_collision_inherited_modules",
     "jsonschema/field_type_collision_inherited_modules_child_first",

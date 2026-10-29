@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: funasr
-Version: 1.4.16
+Version: 1.4.17
 Summary: OpenAI-compatible speech recognition toolkit with WebSocket streaming, vLLM acceleration, and llama.cpp/GGUF edge runtime.
 Home-page: https://github.com/modelscope/FunASR
 Author: Speech Lab of Alibaba Group
@@ -31,6 +31,7 @@ Requires-Python: >=3.7.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: scipy>=1.4.1
+Requires-Dist: threadpoolctl>=3.0.0
 Requires-Dist: librosa
 Requires-Dist: soundfile>=0.12.1
 Requires-Dist: numpy
@@ -252,7 +253,7 @@ results = model.generate(["audio1.wav", "audio2.wav"], language="auto")
 >
 > **Use with AI agents:** [MCP Server](examples/mcp_server/) for Claude/Cursor · [OpenAI API](examples/openai_api/) for LangChain/Dify/AutoGen
 >
-> **Use with voice agents:** [OpenClaw realtime plugin](integrations/openclaw/) for self-hosted Talk and Voice Call transcription
+> **Use with voice agents:** [OpenClaw realtime plugin](integrations/openclaw/) for self-hosted Talk and Voice Call transcription · [Hugging Face speech-to-speech with SenseVoice](./docs/community_projects.md#speech-to-speech) (merged source checkout; not in v1.0.0)
 
 ### Why FunASR?
 
@@ -491,7 +492,8 @@ recordings with the same evaluation scope.
 ## What's new
 
 - **MOSS-Transcribe-Diarize** brings long-form ASR, timestamps, and anonymous speaker labels to FunASR services, Docker, Kubernetes, vLLM/SGLang workflows, and FunClip. [Deploy MOSS ->](./docs/moss_transcribe_diarize.md)
-- **FunASR 1.4.16** preserves explicit VAD, punctuation, and speaker-model device placement across inference calls, and adds tested native Transformers adoption guides. Install with `python -m pip install -U "funasr==1.4.16"`. [Release and verification scope ->](https://github.com/modelscope/FunASR/releases/tag/v1.4.16)
+- **FunASR 1.4.17** adds explicit PCM16 input and improves timestamp, hotword, speaker-sample-rate, and long-segment streaming handling. Install with `python -m pip install -U "funasr==1.4.17"`. [Release and verification scope ->](https://github.com/modelscope/FunASR/releases/tag/v1.4.17)
+  **Previous release: FunASR 1.4.16** preserves explicit VAD, punctuation, and speaker-model device placement across inference calls, and adds tested native Transformers adoption guides. [Release and verification scope ->](https://github.com/modelscope/FunASR/releases/tag/v1.4.16)
 - **Native Transformers:** Released **5.17.0** supports Fun-ASR-Nano with the official `-hf` checkpoint, CPU examples and a notebook. [Get started ->](./docs/transformers_native.md)
 
 > See [GitHub Releases](https://github.com/modelscope/FunASR/releases) for the complete changelog and downloadable assets.

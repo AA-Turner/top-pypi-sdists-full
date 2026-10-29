@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-alembic
-Version: 0.13.1
+Version: 0.13.2
 Summary: A pytest plugin for verifying alembic migrations.
 Keywords: pytest,sqlalchemy,alembic,migration,revision
 Author: Dan Cardin

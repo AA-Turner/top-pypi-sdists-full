@@ -1,17 +1,22 @@
+__lazy_modules__ = ["collections", "django.http"]
+
 import logging
-from typing import Any
-from collections import OrderedDict
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import admin
 from django.db import models
-from django.http import HttpRequest
 
 from .models import AutogroupsConfig, ManagedAllianceGroup, ManagedCorpGroup
+
+if TYPE_CHECKING:
+    from collections import OrderedDict
+
+    from django.http import HttpRequest
 
 logger = logging.getLogger(__name__)
 
 
-def _sync_user_groups(modeladmin: admin.ModelAdmin, request: HttpRequest, queryset: "models.QuerySet[AutogroupsConfig]") -> None:
+def _sync_user_groups(modeladmin: admin.ModelAdmin, request: "HttpRequest", queryset: "models.QuerySet[AutogroupsConfig]") -> None:
     for agc in queryset:
         logger.debug(f"update_all_states_group_membership for {agc}")
         agc.update_all_states_group_membership()
@@ -21,7 +26,7 @@ def _sync_user_groups(modeladmin: admin.ModelAdmin, request: HttpRequest, querys
 class AutogroupsConfigAdmin(admin.ModelAdmin):
     formfield_overrides = {models.CharField: {'strip': False}}
 
-    def get_readonly_fields(self, request, obj=None) -> list[str] | list[Any]:
+    def get_readonly_fields(self, request: "HttpRequest", obj: AutogroupsConfig | None = None) -> list[str]:
         if obj:  # This is the case when obj is already created i.e. it's an edit
             return [
                 'corp_group_prefix', 'corp_name_source', 'alliance_group_prefix', 'alliance_name_source',
@@ -30,7 +35,7 @@ class AutogroupsConfigAdmin(admin.ModelAdmin):
         else:
             return []
 
-    def get_actions(self, request) -> OrderedDict[Any, Any]:
+    def get_actions(self, request: "HttpRequest") -> "OrderedDict[Any, Any]":
         actions = super().get_actions(request)
         actions['sync_user_groups'] = (
             _sync_user_groups,

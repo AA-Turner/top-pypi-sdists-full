@@ -6,7 +6,7 @@ no_state = "true"
 no_step = "true"
 class_name = "Despreader"
 create_error = "ValueError"
-create_error_message = "Despreader: invalid parameter (need a non-empty code; for the code loop a finite init_chip, bn_code >= 0 and zeta > 0 both finite, whose loop gains come out finite, and 0 < spacing < len(code)/2; for the carrier loop bn_carrier >= 0, finite, whose loop gains come out finite)"
+create_error_message = "Despreader: invalid parameter (need a non-empty code; for the code loop a finite init_chip, bn_code >= 0 and zeta > 0 both finite, whose loop gains come out finite, and 0 < spacing < len(code)/2; for the carrier loop bn_carrier >= 0, finite, whose loop gains come out finite, and bn_fll >= 0 and finite)"
 # detection: dll_core's configure_lock now derives the CFAR threshold via
 # det_threshold_noncoherent, so anything linking dll_core links detection_core.
 depends_on = [
@@ -82,7 +82,7 @@ params = [{ name = "x", type = "float _Complex[]" }]
 
 [[despreader.methods]]
 name = "bits"
-doc = "Same tracking kernel as steps(), but bit-sync the per-period prompts into hard data bits: periods_per_bit prompts are coherently summed across each detected bit boundary and one 0/1 bit is emitted per data bit."
+doc = "Same tracking kernel as steps(), but bit-sync the per-period prompts into hard data bits: periods_per_bit prompts are coherently summed across each detected bit boundary and one 0/1 bit is emitted per data bit, by the library's one polarity: bit b is sent as 1 - 2b (mpsk_core.h), so a negative summed prompt is a 1."
 arg_type = "void"
 return_type = "uint8_t"
 variable_output = true

@@ -51,6 +51,8 @@ The contract every task inherits
 
 from __future__ import annotations
 
+from matrx_orm import db_sqlstate
+
 import json
 import logging
 import uuid
@@ -273,8 +275,7 @@ async def _queue_continuation(
     try:
         await SchRunModel.create(**payload)
     except Exception as exc:  # noqa: BLE001 — classified below; never breaks shutdown
-        msg = str(exc)
-        if "23505" in msg or "sch_run_unique_active_per_task" in msg or "duplicate key" in msg.lower():
+        if db_sqlstate(exc) == "23505":
             log.warning(
                 "[scheduler-continuation] run %s: task %s already has an active run, which "
                 "carries the remaining work; no continuation queued",

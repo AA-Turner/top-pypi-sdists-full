@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: conan
-Version: 2.33.0
+Version: 2.34.0
 Summary: Conan C/C++ package manager
 Home-page: https://conan.io
 Author: JFrog LTD
@@ -32,7 +32,7 @@ Requires-Dist: patch-ng<1.20,>=1.18.0
 Requires-Dist: fasteners>=0.15
 Requires-Dist: distro<2.0.0,>=1.4.0; platform_system == "Linux" or platform_system == "FreeBSD"
 Requires-Dist: Jinja2<4.0.0,>=3.0
-Requires-Dist: python-dateutil<3,>=2.8.0
+Requires-Dist: python-dateutil<3,>=2.8.0; python_version < "3.11"
 Requires-Dist: truststore<1.0,>=0.8; python_version >= "3.10"
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"

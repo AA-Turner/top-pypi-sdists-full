@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslo.config
-Version: 10.7.0
+Version: 10.8.0
 Summary: Oslo Configuration API
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License-Expression: Apache-2.0
@@ -17,18 +17,21 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: pbr>=2.0.0
 Requires-Dist: netaddr>=0.7.18
 Requires-Dist: stevedore>=5.6.0
 Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: rfc3986>=1.2.0
 Requires-Dist: PyYAML>=5.1
 Requires-Dist: requests>=2.18.0
+Requires-Dist: typing-extensions>=4.11.0
 Provides-Extra: rst-generator
 Requires-Dist: rst2txt>=1.1.0; extra == "rst-generator"
 Requires-Dist: sphinx>=1.8.0; extra == "rst-generator"

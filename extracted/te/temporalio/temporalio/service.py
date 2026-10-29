@@ -24,7 +24,7 @@ import temporalio.exceptions
 import temporalio.runtime
 from temporalio.bridge.client import RPCError as BridgeRPCError
 
-__version__ = "1.34.0"
+__version__ = "1.35.0"
 
 ServiceRequest = TypeVar("ServiceRequest", bound=google.protobuf.message.Message)
 ServiceResponse = TypeVar("ServiceResponse", bound=google.protobuf.message.Message)
@@ -239,6 +239,7 @@ class ConnectConfig:
     dns_load_balancing_config: DnsLoadBalancingConfig | None = None
     grpc_compression: GrpcCompression = GrpcCompression.GZIP
     payload_limits: PayloadLimitsConfig = field(default_factory=PayloadLimitsConfig)
+    connect_timeout: timedelta | None = None
 
     def __post_init__(self) -> None:
         """Set extra defaults on unset properties."""
@@ -285,6 +286,11 @@ class ConnectConfig:
             keep_alive_config=(
                 self.keep_alive_config._to_bridge_config()
                 if self.keep_alive_config
+                else None
+            ),
+            connect_timeout_millis=(
+                int(self.connect_timeout.total_seconds() * 1000)
+                if self.connect_timeout is not None
                 else None
             ),
             metadata=self.rpc_metadata,
@@ -418,6 +424,8 @@ class _BridgeServiceClient(ServiceClient):
         self._bridge_config = config._to_bridge_config()
         self._bridge_client: temporalio.bridge.client.Client | None = None
         self._bridge_client_connect_lock = asyncio.Lock()
+        # Runtime we connected with, so the default one if none was set
+        self._runtime: temporalio.runtime.Runtime | None = None
 
     async def _connected_client(self) -> temporalio.bridge.client.Client:
         # Fast path avoids touching the lock once connected. This keeps the
@@ -433,6 +441,7 @@ class _BridgeServiceClient(ServiceClient):
                     runtime._core_runtime,
                     self._bridge_config,
                 )
+                self._runtime = runtime
             return self._bridge_client
 
     @property

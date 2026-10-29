@@ -3,9 +3,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+import asyncio
+from typing import Any, cast
 
 import pytest
+from fastmcp import FastMCP
+from fastmcp.exceptions import ValidationError as FastMCPValidationError
 
 from airbyte_ops_mcp import zendesk_api
 from airbyte_ops_mcp.mcp import zendesk_ops
@@ -14,6 +17,13 @@ from airbyte_ops_mcp.zendesk_api import (
     ZendeskCredentials,
     resolve_zendesk_credentials,
 )
+
+
+@pytest.fixture
+def zendesk_ops_mcp_app() -> FastMCP:
+    app = FastMCP("zendesk-ops-test")
+    zendesk_ops.register_zendesk_ops_tools(app)
+    return app
 
 
 @pytest.mark.unit
@@ -481,6 +491,239 @@ def test_add_ticket_tags_rejects_empty(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("total", [26, -1, True, 3.0])
+def test_set_ticket_tcm_total_score_rejects_invalid_total_before_requests(
+    monkeypatch: pytest.MonkeyPatch,
+    total: object,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_api,
+        "resolve_zendesk_credentials",
+        lambda: pytest.fail("invalid totals must not resolve credentials"),
+    )
+    monkeypatch.setattr(
+        zendesk_api,
+        "get_ticket",
+        lambda *args, **kwargs: pytest.fail("invalid totals must not fetch tickets"),
+    )
+    monkeypatch.setattr(
+        zendesk_api,
+        "_put",
+        lambda *args, **kwargs: pytest.fail("invalid totals must not update tickets"),
+    )
+
+    with pytest.raises(ZendeskAPIError, match="integer from 0 to 25"):
+        zendesk_api.set_ticket_tcm_total_score(42, cast(int, total))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "status,expected_message",
+    [
+        pytest.param("closed", "doesn't allow edits to Closed tickets", id="closed"),
+        pytest.param("open", "Only Solved tickets", id="open"),
+        pytest.param("pending", "Only Solved tickets", id="pending"),
+    ],
+)
+def test_set_ticket_tcm_total_score_rejects_non_solved_tickets(
+    monkeypatch: pytest.MonkeyPatch,
+    status: str,
+    expected_message: str,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_api,
+        "get_ticket",
+        lambda ticket_id, credentials: {"status": status},
+    )
+    monkeypatch.setattr(
+        zendesk_api,
+        "_put",
+        lambda *args, **kwargs: pytest.fail("non-Solved tickets must not update"),
+    )
+
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+    with pytest.raises(ZendeskAPIError, match=expected_message):
+        zendesk_api.set_ticket_tcm_total_score(42, 8, credentials=creds)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("current", [11, "11"])
+def test_set_ticket_tcm_total_score_is_noop_when_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+    current: int | str,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_api,
+        "get_ticket",
+        lambda ticket_id, credentials: {
+            "status": "solved",
+            "custom_fields": [
+                {"id": zendesk_api.TCM_TOTAL_SCORE_FIELD_ID, "value": current}
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        zendesk_api,
+        "_put",
+        lambda *args, **kwargs: pytest.fail("unchanged scores must not update"),
+    )
+
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+    assert zendesk_api.set_ticket_tcm_total_score(42, 11, credentials=creds) == (
+        11,
+        False,
+    )
+
+
+@pytest.mark.unit
+def test_set_ticket_tcm_total_score_requires_overwrite_for_existing_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_api,
+        "get_ticket",
+        lambda ticket_id, credentials: {
+            "status": "solved",
+            "custom_fields": [{"id": zendesk_api.TCM_TOTAL_SCORE_FIELD_ID, "value": 8}],
+        },
+    )
+    monkeypatch.setattr(
+        zendesk_api,
+        "_put",
+        lambda *args, **kwargs: pytest.fail("existing scores require overwrite"),
+    )
+
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+    with pytest.raises(
+        zendesk_api.ZendeskTcmScoreConflictError,
+        match="already has TCM total score 8",
+    ) as exc_info:
+        zendesk_api.set_ticket_tcm_total_score(42, 11, credentials=creds)
+    assert exc_info.value.current == 8
+
+
+@pytest.mark.unit
+def test_set_ticket_tcm_total_score_overwrites_existing_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+    ticket = {
+        "status": "solved",
+        "updated_at": "2025-01-01T00:00:00Z",
+        "custom_fields": [{"id": zendesk_api.TCM_TOTAL_SCORE_FIELD_ID, "value": 8}],
+    }
+    monkeypatch.setattr(zendesk_api, "get_ticket", lambda *args: ticket)
+
+    def _fake_put(credentials: ZendeskCredentials, path: str, json_body: dict) -> dict:
+        captured["path"] = path
+        captured["json_body"] = json_body
+        return {
+            "ticket": {
+                "custom_fields": [
+                    {"id": zendesk_api.TCM_TOTAL_SCORE_FIELD_ID, "value": 11}
+                ]
+            }
+        }
+
+    monkeypatch.setattr(zendesk_api, "_put", _fake_put)
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+
+    assert zendesk_api.set_ticket_tcm_total_score(
+        42,
+        11,
+        overwrite=True,
+        credentials=creds,
+    ) == (8, True)
+    assert captured["path"] == "/tickets/42.json"
+    assert captured["json_body"] == {
+        "ticket": {
+            "custom_fields": [
+                {"id": zendesk_api.TCM_TOTAL_SCORE_FIELD_ID, "value": 11}
+            ],
+            "safe_update": True,
+            "updated_stamp": "2025-01-01T00:00:00Z",
+        }
+    }
+
+
+@pytest.mark.unit
+def test_set_ticket_tcm_total_score_sets_only_score_field(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        zendesk_api,
+        "get_ticket",
+        lambda *args: {
+            "status": "solved",
+            "updated_at": "2025-01-01T00:00:00Z",
+            "custom_fields": [
+                {"id": zendesk_api.TCM_TOTAL_SCORE_FIELD_ID, "value": None}
+            ],
+        },
+    )
+
+    def _fake_put(credentials: ZendeskCredentials, path: str, json_body: dict) -> dict:
+        captured["path"] = path
+        captured["json_body"] = json_body
+        return {
+            "ticket": {
+                "custom_fields": [
+                    {"id": zendesk_api.TCM_TOTAL_SCORE_FIELD_ID, "value": 11}
+                ]
+            }
+        }
+
+    monkeypatch.setattr(zendesk_api, "_put", _fake_put)
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+
+    assert zendesk_api.set_ticket_tcm_total_score(42, 11, credentials=creds) == (
+        None,
+        True,
+    )
+    assert captured["path"] == "/tickets/42.json"
+    assert captured["json_body"] == {
+        "ticket": {
+            "custom_fields": [
+                {"id": zendesk_api.TCM_TOTAL_SCORE_FIELD_ID, "value": 11}
+            ],
+            "safe_update": True,
+            "updated_stamp": "2025-01-01T00:00:00Z",
+        }
+    }
+
+
+@pytest.mark.unit
+def test_set_ticket_tcm_total_score_rejects_mismatched_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_api,
+        "get_ticket",
+        lambda *args: {
+            "status": "solved",
+            "updated_at": "2025-01-01T00:00:00Z",
+            "custom_fields": [],
+        },
+    )
+    monkeypatch.setattr(
+        zendesk_api,
+        "_put",
+        lambda *args: {
+            "ticket": {
+                "custom_fields": [
+                    {"id": zendesk_api.TCM_TOTAL_SCORE_FIELD_ID, "value": 10}
+                ]
+            }
+        },
+    )
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+
+    with pytest.raises(ZendeskAPIError, match="did not save the requested"):
+        zendesk_api.set_ticket_tcm_total_score(42, 11, credentials=creds)
+
+
+@pytest.mark.unit
 def test_set_ticket_email_ccs_puts_only_email_ccs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -569,6 +812,178 @@ def test_add_zendesk_ticket_tags_tool_reports_error(
     assert result.ticket_id == 42
     assert result.tags == []
     assert "non-empty tag" in result.message
+
+
+@pytest.mark.unit
+def test_set_zendesk_tcm_total_score_tool_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_ops,
+        "set_ticket_tcm_total_score",
+        lambda ticket_id, total: (8, True),
+    )
+
+    result = zendesk_ops.set_zendesk_tcm_total_score(
+        ticket_id=42,
+        total=11,
+        run_id="tcm-run-123",
+        review_status="approved",
+    )
+
+    assert result.success is True
+    assert result.ticket_id == 42
+    assert result.run_id == "tcm-run-123"
+    assert result.previous_value == 8
+    assert result.total == 11
+    assert result.changed is True
+    assert "approved" in result.message
+
+
+@pytest.mark.unit
+def test_set_zendesk_tcm_total_score_tool_reports_existing_score(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _raise(ticket_id: int, total: int) -> None:
+        raise zendesk_api.ZendeskTcmScoreConflictError(20038, 6)
+
+    monkeypatch.setattr(zendesk_ops, "set_ticket_tcm_total_score", _raise)
+
+    result = zendesk_ops.set_zendesk_tcm_total_score(
+        ticket_id=20038,
+        total=7,
+        run_id="tcm-run-123",
+        review_status="not_required",
+    )
+
+    assert result.success is False
+    assert result.previous_value == 6
+    assert result.changed is False
+    assert result.total == 7
+    assert "overwrite" not in result.message
+    assert "never replaces" in result.message
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("ticket_id", True),
+        ("ticket_id", 3.0),
+        ("ticket_id", "11"),
+        ("total", True),
+        ("total", 3.0),
+        ("total", "11"),
+    ],
+)
+def test_set_zendesk_tcm_total_score_tool_rejects_non_strict_integers(
+    monkeypatch: pytest.MonkeyPatch,
+    zendesk_ops_mcp_app: FastMCP,
+    field_name: str,
+    value: object,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_ops,
+        "set_ticket_tcm_total_score",
+        lambda *args, **kwargs: pytest.fail(
+            "input validation must not call the Zendesk API helper"
+        ),
+    )
+    arguments: dict[str, Any] = {
+        "ticket_id": 42,
+        "total": 11,
+        "run_id": "",
+        "review_status": "not_required",
+    }
+    arguments[field_name] = value
+
+    with pytest.raises(FastMCPValidationError):
+        asyncio.run(
+            zendesk_ops_mcp_app.call_tool(
+                "set_zendesk_tcm_total_score",
+                arguments,
+            )
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("field_name", ["ticket_id", "total"])
+def test_set_zendesk_tcm_total_score_tool_accepts_strict_integer_without_api_call(
+    monkeypatch: pytest.MonkeyPatch,
+    zendesk_ops_mcp_app: FastMCP,
+    field_name: str,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_ops,
+        "set_ticket_tcm_total_score",
+        lambda *args, **kwargs: pytest.fail(
+            "blank run IDs must not call the Zendesk API helper"
+        ),
+    )
+    arguments: dict[str, Any] = {
+        "ticket_id": 42,
+        "total": 11,
+        "run_id": "",
+        "review_status": "not_required",
+    }
+    arguments[field_name] = 11
+
+    asyncio.run(
+        zendesk_ops_mcp_app.call_tool(
+            "set_zendesk_tcm_total_score",
+            arguments,
+        )
+    )
+
+
+@pytest.mark.unit
+def test_set_zendesk_tcm_total_score_tool_reports_api_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _raise(ticket_id: int, total: int) -> None:
+        raise ZendeskAPIError("Only Solved tickets are scored and written.")
+
+    monkeypatch.setattr(zendesk_ops, "set_ticket_tcm_total_score", _raise)
+
+    result = zendesk_ops.set_zendesk_tcm_total_score(
+        ticket_id=42,
+        total=11,
+        run_id="tcm-run-123",
+        review_status="not_required",
+    )
+
+    assert result.success is False
+    assert result.ticket_id == 42
+    assert result.run_id == "tcm-run-123"
+    assert result.total == 11
+    assert result.changed is False
+    assert "Only Solved tickets" in result.message
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("run_id", ["", "  \t"])
+def test_set_zendesk_tcm_total_score_tool_rejects_blank_run_id(
+    monkeypatch: pytest.MonkeyPatch,
+    run_id: str,
+) -> None:
+    monkeypatch.setattr(
+        zendesk_ops,
+        "set_ticket_tcm_total_score",
+        lambda *args, **kwargs: pytest.fail("blank run IDs must not call the API"),
+    )
+
+    result = zendesk_ops.set_zendesk_tcm_total_score(
+        ticket_id=42,
+        total=11,
+        run_id=run_id,
+        review_status="not_required",
+    )
+
+    assert result.success is False
+    assert result.ticket_id == 42
+    assert result.run_id == run_id
+    assert result.changed is False
+    assert "run ID must not be empty" in result.message
 
 
 @pytest.mark.unit

@@ -44,10 +44,13 @@ def discover_self_managed_environment(
     if (home := venv.parent.parent).resolve() != global_home.resolve():
         environment["PIPX_HOME"] = str(home)
         invoked_executable = _invoked_executable(sys.argv[0] if executable is None else executable)
+        # only the exposed link, a link outside the venv that leads into it, names the bin directory; compare real
+        # locations, as ".." or a symlinked directory spell the venv's own script as a path outside the venv
+        real_venv: Final[Path] = venv.resolve()
         if (
             invoked_executable is not None
-            and not invoked_executable.is_relative_to(venv)
-            and invoked_executable.resolve().is_relative_to(venv)
+            and not invoked_executable.parent.resolve().is_relative_to(real_venv)
+            and invoked_executable.resolve().is_relative_to(real_venv)
         ):
             environment["PIPX_BIN_DIR"] = str(invoked_executable.parent)
 
@@ -56,6 +59,8 @@ def discover_self_managed_environment(
         isinstance(source_interpreter, dict)
         and source_interpreter.get("__type__") == "Path"
         and isinstance(source_path := source_interpreter.get("__Path__"), str)
+        # a record pointing at a since-removed bootstrap venv must not outlive it or adopt whatever appears there later
+        and Path(source_path).resolve() == (venv / "bin" / "python").resolve()
     ):
         environment["PIPX_DEFAULT_PYTHON"] = source_path
     return environment

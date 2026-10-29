@@ -224,6 +224,11 @@ dp_hbdecim_q15_create (size_t num_taps, const float *h)
    * harmless (multiply by zero).                                        */
 #ifdef _WIN32
   r->coeffs = (int16_t *)_aligned_malloc (r->K_pad * sizeof (int16_t), 32);
+  if (!r->coeffs)
+    {
+      free (r);
+      return NULL;
+    }
 #else
   if (posix_memalign ((void **)&r->coeffs, 32, r->K_pad * sizeof (int16_t))
       != 0)
@@ -301,6 +306,9 @@ dp_hbdecim_q15_reset (dp_hbdecim_q15_state_t *r)
   r->even_head   = 0;
   r->odd_head    = 0;
   r->has_pending = 0;
+  r->pending_I   = 0; /* in the blob: a held sample is state, a stale one */
+  r->pending_Q   = 0; /* not (doppler#2642, as hbdecim does)              */
+  r->consumed    = 0;
   memset (r->even_I, 0, 2 * r->cap * sizeof (int16_t));
   memset (r->even_Q, 0, 2 * r->cap * sizeof (int16_t));
   memset (r->odd_I, 0, 2 * r->cap * sizeof (int16_t));
@@ -348,6 +356,7 @@ dp_hbdecim_q15_set_state (dp_hbdecim_q15_state_t *s, const void *blob)
   dp_r_bytes (&_r, s->even_Q, rb);
   dp_r_bytes (&_r, s->odd_I, rb);
   dp_r_bytes (&_r, s->odd_Q, rb);
+  s->consumed = 0; /* per-call, not state */
   return DP_OK;
 }
 
@@ -381,10 +390,17 @@ dp_hbdecim_q15_get_num_taps (const dp_hbdecim_q15_state_t *r)
 /* ================================================================== */
 
 size_t
+dp_hbdecim_q15_consumed (const dp_hbdecim_q15_state_t *r)
+{
+  return r->consumed;
+}
+
+size_t
 dp_hbdecim_q15_execute (dp_hbdecim_q15_state_t *r, const int16_t *in,
                         size_t n_in, int16_t *out, size_t max_out)
 {
-  if (!n_in || !max_out)
+  r->consumed = 0;
+  if (!n_in)
     return 0;
 
   size_t oi = 0; /* output complex-sample index  */
@@ -402,6 +418,8 @@ dp_hbdecim_q15_execute (dp_hbdecim_q15_state_t *r, const int16_t *in,
       out[2 * oi + 1] = rq;
       oi++;
       r->has_pending = 0;
+      r->pending_I   = 0; /* consumed: the blob carries no stale sample */
+      r->pending_Q   = 0;
     }
 
   /* Process complete (even, odd) input pairs. */
@@ -417,13 +435,19 @@ dp_hbdecim_q15_execute (dp_hbdecim_q15_state_t *r, const int16_t *in,
       oi++;
     }
 
-  /* Buffer any trailing even sample. */
-  if (xi < n_in)
+  /* Hold a trailing even sample only when it is the LAST input: with the
+     output full and pairs still waiting, stop at the pair boundary instead,
+     so nothing is dropped and the caller resumes at in + consumed
+     (doppler#2643). A later pair would otherwise be skipped, and the held
+     sample paired with unrelated input. */
+  if (xi + 1 == n_in && !r->has_pending)
     {
       r->pending_I   = in[2 * xi];
       r->pending_Q   = in[2 * xi + 1];
       r->has_pending = 1;
+      xi++;
     }
 
+  r->consumed = xi;
   return oi;
 }

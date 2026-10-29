@@ -12,6 +12,7 @@ from .types.delete_methods_response import DeleteMethodsResponse
 from .types.list_methods_request_status import ListMethodsRequestStatus
 from .types.list_methods_response import ListMethodsResponse
 from .types.list_methods_response_data_item import ListMethodsResponseDataItem
+from .types.update_methods_request_address import UpdateMethodsRequestAddress
 from .types.update_methods_response import UpdateMethodsResponse
 
 # this is used as the default value for optional parameters
@@ -100,7 +101,7 @@ class MethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -185,7 +186,7 @@ class MethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -229,7 +230,7 @@ class MethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -244,17 +245,21 @@ class MethodsClient:
         self,
         id: str,
         *,
+        address: typing.Optional[UpdateMethodsRequestAddress] = OMIT,
         is_default: typing.Optional[bool] = OMIT,
         nickname: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateMethodsResponse:
         """
-        Changes the label used to identify a saved payout method or makes it the account's default payout method.
+        Changes the label used to identify a saved payout method, makes it the account's default payout method, or updates the payout address on file for it. Send `address` on its own: it cannot be combined with `nickname` or `is_default`. Address updates require the `payout:account:update` scope as well, on the same account, and are supported only for bank and wallet payout methods, not recipient payout methods.
 
         Parameters
         ----------
         id : str
             Payout method ID, prefixed `potk_`.
+
+        address : typing.Optional[UpdateMethodsRequestAddress]
+            The payout address to keep on file for this payout method. Only the fields you send are changed; blank fields are ignored.
 
         is_default : typing.Optional[bool]
             Set to `true` to make this the account's default payout method. `false` is not accepted.
@@ -275,7 +280,7 @@ class MethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -284,7 +289,7 @@ class MethodsClient:
         )
         """
         _response = self._raw_client.update(
-            id, is_default=is_default, nickname=nickname, request_options=request_options
+            id, address=address, is_default=is_default, nickname=nickname, request_options=request_options
         )
         return _response.data
 
@@ -373,7 +378,7 @@ class AsyncMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -467,7 +472,7 @@ class AsyncMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -521,7 +526,7 @@ class AsyncMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -542,17 +547,21 @@ class AsyncMethodsClient:
         self,
         id: str,
         *,
+        address: typing.Optional[UpdateMethodsRequestAddress] = OMIT,
         is_default: typing.Optional[bool] = OMIT,
         nickname: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateMethodsResponse:
         """
-        Changes the label used to identify a saved payout method or makes it the account's default payout method.
+        Changes the label used to identify a saved payout method, makes it the account's default payout method, or updates the payout address on file for it. Send `address` on its own: it cannot be combined with `nickname` or `is_default`. Address updates require the `payout:account:update` scope as well, on the same account, and are supported only for bank and wallet payout methods, not recipient payout methods.
 
         Parameters
         ----------
         id : str
             Payout method ID, prefixed `potk_`.
+
+        address : typing.Optional[UpdateMethodsRequestAddress]
+            The payout address to keep on file for this payout method. Only the fields you send are changed; blank fields are ignored.
 
         is_default : typing.Optional[bool]
             Set to `true` to make this the account's default payout method. `false` is not accepted.
@@ -575,7 +584,7 @@ class AsyncMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -590,6 +599,6 @@ class AsyncMethodsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.update(
-            id, is_default=is_default, nickname=nickname, request_options=request_options
+            id, address=address, is_default=is_default, nickname=nickname, request_options=request_options
         )
         return _response.data

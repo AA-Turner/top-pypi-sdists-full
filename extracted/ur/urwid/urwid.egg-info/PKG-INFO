@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urwid
-Version: 4.2.5
+Version: 5.0.0
 Summary: A full-featured console (xterm et al.) user interface library
 Author-email: Ian Ward <ian@excess.org>
 License-Expression: LGPL-2.1-only
@@ -22,8 +22,6 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: User Interfaces
 Classifier: Topic :: Software Development :: Widget Sets
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -35,11 +33,11 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: GraalPy
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Typing :: Typed
-Requires-Python: >=3.9.0
+Requires-Python: >=3.11.0
 Description-Content-Type: text/x-rst
 License-File: COPYING
 Requires-Dist: wcwidth!=0.9.0,!=0.9.1,>=0.4
-Requires-Dist: typing-extensions
+Requires-Dist: typing_extensions>=4.5.0; python_version < "3.13"
 Provides-Extra: curses
 Requires-Dist: windows-curses; sys_platform == "win32" and extra == "curses"
 Provides-Extra: glib
@@ -47,11 +45,9 @@ Requires-Dist: pygobject; extra == "glib"
 Provides-Extra: tornado
 Requires-Dist: tornado>=6.5.8; extra == "tornado"
 Provides-Extra: trio
-Requires-Dist: exceptiongroup; python_version < "3.11" and extra == "trio"
 Requires-Dist: trio>=0.31.0; extra == "trio"
 Provides-Extra: twisted
-Requires-Dist: twisted>=24.7.0; extra == "twisted"
-Requires-Dist: twisted>=26.4.0; python_full_version >= "3.9.12" and extra == "twisted"
+Requires-Dist: twisted>=26.4.0; extra == "twisted"
 Provides-Extra: zmq
 Requires-Dist: pyzmq>=26.0.0; extra == "zmq"
 Provides-Extra: serial
@@ -81,7 +77,7 @@ It includes many features useful for text console application developers includi
 - Display modules include raw, curses, and experimental LCD and web displays
 - Support for UTF-8, simple 8-bit and CJK encodings
 - 24-bit (true color), 256 color, and 88 color mode support
-- Compatible with Python 3.9+ and PyPy
+- Compatible with Python 3.11+ and PyPy
 
 Home Page:
   http://urwid.org/
@@ -142,10 +138,10 @@ To test code in all Python versions:
 .. code:: bash
 
     tox                           # Test all versions specified in tox.ini
-    tox -e py39                   # Test Python 3.9 only
+    tox -e py311                  # Test Python 3.11 only
     tox -e py313t                 # Test Python 3.13 with free-threading
-    tox -e pypy3                  # Test PyPy3
-    tox -e py39,py310,pypy3       # Test specific versions
+    tox -e pypy311                # Test PyPy 3.11
+    tox -e py311,py312,pypy311    # Test specific versions
 
 Testing different Python implementations
 ----------------------------------------
@@ -168,13 +164,14 @@ Tests with compatible extras (tornado, trio, twisted, serial). Excludes C extens
     tox -e py314t        # Python 3.14 free-threaded
     tox -e py315t        # Python 3.15 free-threaded
 
-**PyPy3**
+**PyPy**
 
 Tests with compatible extras (tornado, trio, serial). Excludes problematic C extensions.
 
 .. code:: bash
 
-    tox -e pypy3
+    tox -e pypy311       # PyPy 3.11
+    tox -e pypy312       # PyPy 3.12
 
 **GraalPy**
 
@@ -186,18 +183,18 @@ so its tests are skipped rather than run.
 
 .. code:: bash
 
-    tox -e graalpy311      # GraalPy 3.11
     tox -e graalpy312      # GraalPy 3.12
+    tox -e graalpy313      # GraalPy 3.13
 
 Supported Python versions
 =========================
 
 Urwid supports:
 
-- CPython 3.9, 3.10, 3.11, 3.12, 3.13, 3.14, 3.15
+- CPython 3.11, 3.12, 3.13, 3.14, 3.15
 - CPython 3.13+ with free-threading (PEP 703 ``--disable-gil``)
-- PyPy 3.x
-- GraalPy 3.11, 3.12 (experimental)
+- PyPy 3.11
+- GraalPy 3.12, 3.13 (experimental)
 
 Python implementation notes
 ===========================
@@ -205,12 +202,13 @@ Python implementation notes
 **CPython (standard Python)**
 
 Full support for all optional features. All extras (``curses``, ``glib``, ``serial``, ``tornado``, ``trio``, ``twisted``, ``zmq``) can be installed.
+On Windows, the ``curses`` extra cannot be installed on Python 3.15 yet: ``windows-curses`` publishes no 3.15 wheel.
 
 **CPython with Free-Threading (3.13, 3.14, 3.15+)**
 
 Urwid core and pure-Python event loops are fully supported. Some extras require C extensions that may not have free-threading wheels available:
 
-- ✅ Supported: core, tornado, trio, twisted (24.10.0+), serial, lcd
+- ✅ Supported: core, tornado, trio, twisted, serial, lcd
 - ❌ Unsupported: glib, zmq (require C extensions with free-threading wheel support)
 
 For free-threading Python, install with compatible extras:
@@ -226,6 +224,8 @@ Urwid core is fully supported. Some extras may have compatibility issues:
 - ✅ Supported: core, tornado, trio, serial, lcd
 - ⚠️ Limited: twisted (may have issues, test before using)
 - ❌ Unsupported: glib, zmq (C extensions with limited PyPy support)
+- ❌ Unsupported: curses on Windows (PyPy for Windows ships no ``_curses`` module and ``windows-curses`` publishes
+  no PyPy wheels)
 
 **GraalPy (experimental)**
 
@@ -236,6 +236,8 @@ modules, and the Terminal widget are not:
 - ❌ Unsupported: curses (GraalPy ships no ``_curses`` module), glib, zmq, twisted, trio (no C
   extension support, or known compatibility issues), Terminal widget/``urwid.vterm`` (like on
   Windows, ``fcntl``/``pty`` usage doesn't work on GraalPy)
+- ❌ Unsupported: GraalPy 3.11 (GraalPy 24), whose ``os`` module has no ``O_NOFOLLOW`` and whose ASCII and Latin-1
+  codecs ignore registered error handlers
 
 Authors
 =======

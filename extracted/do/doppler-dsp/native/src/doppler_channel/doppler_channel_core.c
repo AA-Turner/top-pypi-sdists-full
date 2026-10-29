@@ -36,7 +36,17 @@ dp_doppler_channel_create (double fs, double carrier_hz, double doppler_ppm,
       return NULL;
     }
 
-  obj->rs       = dp_xnn (dp_resamp_create (doppler_channel_ratio (obj, 0.0)));
+  /* dp_resamp_create() refuses a ratio it cannot run (doppler#2640): a NaN
+     or infinite doppler_ppm passes the scale test above (NaN compares false,
+     +inf is > 0) and reaches it as a NaN or zero ratio. That is a refused
+     configuration, not an allocation failure, so it fails the create the way
+     the scale test does instead of aborting the process in dp_xnn(). */
+  obj->rs = dp_resamp_create (doppler_channel_ratio (obj, 0.0));
+  if (!obj->rs)
+    {
+      free (obj);
+      return NULL;
+    }
   obj->ctrl     = dp_xmalloc (DOPPLER_CHANNEL_MAX_BLOCK * sizeof (*obj->ctrl));
   obj->ctrl_cap = DOPPLER_CHANNEL_MAX_BLOCK;
   return obj;
@@ -63,6 +73,7 @@ dp_doppler_channel_reset (dp_doppler_channel_state_t *state)
      leaving it would report a fresh stream at the previous one's offset. */
   state->prof_d   = 0.0;
   state->profiled = 0u;
+  state->consumed = 0;
 }
 
 size_t
@@ -92,15 +103,11 @@ dp_doppler_channel_execute (dp_doppler_channel_state_t *state,
                             float _Complex *out, size_t max_out)
 {
   size_t n_out = 0;
-  /* The closed form drives this call, so it is what offset_hz describes
-     again: a profile's last d would otherwise outlive the stream it was the
-     Doppler of. An empty call applies nothing and leaves it alone. */
-  if (x_len)
-    state->profiled = 0u;
   /* Chip away at the input in ctrl-buffer-sized pieces. dp_resamp_execute_ctrl
      is input-driven and its accumulator carries across calls, so chunking here
      is invisible in the output. */
-  for (size_t off = 0; off < x_len && n_out < max_out;)
+  size_t off = 0;
+  for (; off < x_len && n_out < max_out;)
     {
       size_t m = x_len - off;
       if (m > state->ctrl_cap)
@@ -125,10 +132,22 @@ dp_doppler_channel_execute (dp_doppler_channel_state_t *state,
 
       size_t got = dp_resamp_execute_ctrl (state->rs, x + off, state->ctrl, m,
                                            out + n_out, max_out - n_out);
-      state->n_in += m;
+      /* The resampler stops offering input once out is full, so the clock
+         advances by what it took, not by m (doppler#2643). */
+      size_t took = dp_resamp_consumed (state->rs);
+      state->n_in += took;
       n_out += got;
-      off += m;
+      off += took;
+      if (took < m)
+        break;
     }
+  state->consumed = off;
+  /* The closed form drove this call, so it is what offset_hz describes
+     again: a profile's last d would otherwise outlive the stream it was the
+     Doppler of. A call that took nothing -- an empty one, or a max_out of 0
+     -- applied nothing and leaves it alone, the execute_profile rule. */
+  if (off)
+    state->profiled = 0u;
 
   /* Carrier, on the OUTPUT clock. Skipping the loop when there is nothing to
      apply keeps a pure time-dilation configuration (carrier_hz = 0, used to
@@ -198,6 +217,7 @@ dp_doppler_channel_execute_profile (dp_doppler_channel_state_t *state,
      here, so the return value alone must tell the two apart (doppler#1869). */
   if (!state || !x || !ppm || !out)
     return DP_ERR_INVALID;
+  state->consumed = 0;
   /* The length contract, enforced rather than documented: one Doppler value
      per waveform sample. */
   if (ppm_len != x_len)
@@ -221,7 +241,8 @@ dp_doppler_channel_execute_profile (dp_doppler_channel_state_t *state,
   double base  = doppler_channel_ratio (state, 0.0);
   int    turn  = (state->carrier_hz != 0.0);
 
-  for (size_t off = 0; off < x_len && n_out < max_out;)
+  size_t off = 0;
+  for (; off < x_len && n_out < max_out;)
     {
       size_t m = x_len - off;
       if (m > state->ctrl_cap)
@@ -265,16 +286,34 @@ dp_doppler_channel_execute_profile (dp_doppler_channel_state_t *state,
               out[n_out + j] *= cexpf ((float)(2.0 * M_PI * ph) * I);
           }
 
-      state->n_in += m;
+      /* The resampler stops offering input once out is full, so the clock
+         advances by what it took, not by m (doppler#2643). */
+      size_t took = dp_resamp_consumed (state->rs);
+      state->n_in += took;
       n_out += got;
-      off += m;
+      off += took;
+      if (took < m)
+        break;
     }
 
-  if (x_len)
-    state->prof_d = ppm[x_len - 1] * 1e-6;
-  state->profiled = 1u;
+  /* The last instantaneous d is the last CONSUMED sample's: ppm past an
+     early stop described input this call did not take. A call that took
+     nothing -- an empty one included -- changes nothing, so offset_hz keeps
+     reporting whatever drove the stream before it (doppler#2643). */
+  if (off)
+    {
+      state->prof_d   = ppm[off - 1] * 1e-6;
+      state->profiled = 1u;
+    }
+  state->consumed = off;
   state->n_out += n_out;
   return (int64_t)n_out;
+}
+
+size_t
+dp_doppler_channel_consumed (const dp_doppler_channel_state_t *state)
+{
+  return state->consumed;
 }
 
 double

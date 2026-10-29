@@ -105,6 +105,14 @@ del find_qt
 
         return dunder_init
 
+    def get_limited_abi_version(self):
+        """ Return the version number of the limited ABI to use. """
+
+        # We use PyWeakref_GetObject() which was removed from the limited API
+        # in Python v3.15.  It's replacement, PyWeakref_GetRef() was added to
+        # the limited ABI in Python v3.13.
+        return (3, 13, 0) if sys.hexversion >= 0x030f0000 else None
+
     def get_options(self):
         """ Return the sequence of configurable options. """
 
@@ -159,6 +167,14 @@ del find_qt
             raise UserException(
                     "Qt v6 is required, not v{0}".format(
                             self.builder.qt_version_str))
+
+        # QtPdf and QtPdfWidgets were moved to PyQt6-WebEngine in v6.12.
+        if (self.builder.qt_version >> 8) & 0xff >= 12:
+            try:
+                del self.bindings['QtPdf']
+                del self.bindings['QtPdfWidgets']
+            except KeyError:
+                pass
 
         # Automatically confirm the license if there might not be a command
         # line option to do so.
@@ -501,6 +517,7 @@ class QtCore(PyQtBindings):
     def __init__(self, project):
         """ Initialise the bindings. """
 
+        # Note that QT_KEYPAD_NAVIGATION is unsupported in Qt v6.12 and later.
         super().__init__(project, 'QtCore', qmake_QT=['-gui'],
                 define_macros=['QT_KEYPAD_NAVIGATION'])
 
@@ -594,7 +611,7 @@ class QtGui(PyQtBindings):
     def __init__(self, project):
         """ Initialise the bindings. """
 
-        super().__init__(project, 'QtGui')
+        super().__init__(project, 'QtGui', qmake_QT=['gui-private'])
 
 
 class QtHelp(PyQtBindings):
@@ -741,7 +758,7 @@ class QtQuick(PyQtBindings):
     def __init__(self, project):
         """ Initialise the bindings. """
 
-        super().__init__(project, 'QtQuick', qmake_QT=['quick'],
+        super().__init__(project, 'QtQuick', qmake_QT=['gui-private', 'quick'],
                 test_headers=['qquickwindow.h'],
                 test_statement='new QQuickWindow()')
 
@@ -909,7 +926,8 @@ class QtWidgets(PyQtBindings):
     def __init__(self, project):
         """ Initialise the bindings. """
 
-        super().__init__(project, 'QtWidgets', qmake_QT=['widgets'],
+        super().__init__(project, 'QtWidgets',
+                qmake_QT=['gui-private', 'widgets'],
                 test_headers=['qwidget.h'], test_statement='new QWidget()')
 
 

@@ -1,0 +1,149 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-17427"
+title: "omnimemory: remove unread documentation; pr-title check calls the omnibase_core reusable"
+summary: >-
+  Delete unread human documentation, replace the README with a short public knowledge-base pointer, and
+  retain agent instructions, templates, legal text and machine-read files. The pr-title check also calls
+  omnibase_core's reusable pr-title-check.yml under the unchanged pr-title / check-title context.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: "req-documentation-removal"
+    statement: "Human documentation belongs in the public knowledge base."
+    acceptance:
+      - id: "AC1"
+        statement: "Unread prose files are removed and the root README is three to five lines linking
+          to the public knowledge base."
+      - id: "AC2"
+        statement: "Legal text, agent instructions, templates and machine-read files remain, with no local
+          markdown links to removed files."
+      - id: "AC3"
+        statement: "The existing focused release metadata tests still pass."
+  - id: "req-pr-title-core-reusable"
+    statement: >-
+      PR Title Check runs from omnibase_core's reusable workflow with only this repository's parameters
+      and keeps its required context, triggers and title decision.
+    acceptance:
+      - id: "AC4"
+        statement: >-
+          AC4: PR Title Check's one job pr-title calls omnibase_core's pr-title-check.yml at a full sha
+          with only omnimarket-version, composing pr-title / check-title on pull_request and merge_group
+          -- falsifier: python -m pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -k "workflow
+          or context" fails at the merge base.
+      - id: "AC5"
+        statement: >-
+          AC5: .github/required-checks.yaml names the pr-title / check-title row as a cross_repo producer
+          whose cross_repo_ref equals the workflow's call -- falsifier: python -m pytest tests/ci/test_pr_title_check_omnimarket_node.py
+          -q -k manifest fails at the merge base.
+  - id: "req-contract-migration"
+    statement: "The scheduled closer can resolve the migrated ticket contracts in this repository."
+    acceptance:
+      - id: "AC6"
+        statement: >-
+          contracts/OMN-17390.yaml and contracts/OMN-20868.yaml contain exactly the source bytes from
+          change-control commit 49cfc14c21a2c50f9964c1aeed4b66001ce279a3, readable without a sibling checkout.
+  - id: "req-pr677-qdrant-lock"
+    statement: "PR 677's widened Qdrant requirement remains installable from the committed lockfile."
+    acceptance:
+      - id: "AC7"
+        statement: "The lockfile matches both Qdrant requirement entries allowing >=1.18.0,<1.21.0, and
+          locked dependency resolution succeeds without rewriting it."
+      - id: "AC8"
+        statement: "The existing focused Qdrant handler tests pass with the locked dependencies."
+  - id: "req-fastapi-lock-pr676"
+    statement: "The FastAPI requirement update in PR 676 remains installable with the committed lockfile."
+    acceptance:
+      - id: "AC7"
+        statement: >-
+          uv.lock records the FastAPI requirement from pyproject.toml, so uv lock --check accepts the
+          widened upper bound without rewriting dependency metadata.
+evidence_requirements:
+  - kind: "tests"
+    description: "Documentation inventory, local links and existing release metadata checks."
+    command: "uv run --no-project --python 3.12 python tests/test_documentation_inventory_omn17427.py"
+  - kind: "tests"
+    description: "Focused workflow, context, manifest and installed-node verdict checks."
+    command: "uv run --no-project --with pytest --with pytest-asyncio --with pytest-xdist --with pyyaml
+      pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-documentation-inventory"
+    description: "The removed files are absent and the README points to the public knowledge base."
+    source: "manual"
+    binds_ac: ["AC1"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run --no-project --python 3.12 python tests/test_documentation_inventory_omn17427.py
+          TestRemovedProse"
+  - id: "dod-preserved-readers-and-links"
+    description: "Every retained prose exception exists, markdown links avoid the removed files and the
+      public hygiene allowlist no longer names SECURITY.md."
+    source: "manual"
+    binds_ac: ["AC2"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run --no-project --python 3.12 python tests/test_documentation_inventory_omn17427.py
+          TestRetainedReaders"
+  - id: "dod-release-metadata"
+    description: "With the prose removed, the existing three release metadata checks pass with the retained
+      changelog."
+    source: "manual"
+    binds_ac: ["AC3"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run --no-project --python 3.12 python tests/test_documentation_inventory_omn17427.py
+          TestReleaseMetadataAfterRemoval"
+  - id: "dod-workflow-core-reusable"
+    description: "Workflow calls the core reusable with only its parameters under the required context."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run --no-project --with pytest --with pytest-asyncio --with pytest-xdist --with
+          pyyaml pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0 -k \"workflow or context\""
+    binds_ac: ["AC4"]
+  - id: "dod-manifest-core-reusable-producer"
+    description: "Required-check manifest declares the core reusable producer."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run --no-project --with pytest --with pytest-asyncio --with pytest-xdist --with
+          pyyaml pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0 -k manifest"
+    binds_ac: ["AC5"]
+  - id: "dod-migrated-contract-bytes"
+    description: "Resolve both migrated contracts locally and compare their Git blob identities with the
+      source bytes; the merge base lacks both contracts."
+    source: "manual"
+    binds_ac: ["AC6"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "python3 tests/ci/test_migrated_contracts_omn17427.py"
+  - id: "dod-pr677-qdrant-lock"
+    description: "Locked resolution accepts the manifest and lockfile after the Qdrant ceiling change."
+    source: "manual"
+    binds_ac: ["AC7"]
+    checks:
+      - check_type: "command"
+        check_value: "uv lock --check"
+  - id: "dod-pr677-qdrant-handler"
+    description: "The existing Qdrant handler unit tests pass with the committed dependency resolution."
+    source: "manual"
+    binds_ac: ["AC8"]
+    checks:
+      - check_type: "test_passes"
+        check_value: "env PYTHONDONTWRITEBYTECODE=1 uv run --locked pytest tests/unit/nodes/test_handler_qdrant.py
+          -q"
+  - id: "dod-fastapi-lock-pr676"
+    description: "The dependency lock accepts the widened FastAPI requirement without an update."
+    source: "manual"
+    binds_ac: ["AC7"]
+    checks:
+      - check_type: "command"
+        check_value: "uv lock --check"
+        cwd: "${OMNI_HOME}/omnimemory"

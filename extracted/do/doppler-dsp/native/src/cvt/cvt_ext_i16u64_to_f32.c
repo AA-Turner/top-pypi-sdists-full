@@ -49,8 +49,8 @@ I16U64ToF32Obj_init (I16U64ToF32Object *self, PyObject *args, PyObject *kwds)
   self->handle = dp_i16u64_to_f32_create (scale);
   if (!self->handle)
     {
-      PyErr_SetString (PyExc_MemoryError,
-                       "dp_i16u64_to_f32_create returned NULL");
+      PyErr_SetString (PyExc_ValueError,
+                       "I16U64ToF32: scale must be positive and finite");
       return -1;
     }
   return 0;
@@ -260,8 +260,10 @@ static PyMethodDef I16U64ToF32Obj_methods[] = {
     "\n"
     "Process a block of Q15-in-uint64 samples to float32.\n"
     "\n"
-    "Applies step() to every element. Accepts an optional pre-allocated\n"
-    "output array; allocates a fresh one when output is NULL.\n"
+    "Applies step() to every element. In C, output must be a caller-owned\n"
+    "array of at least n elements (NULL is not accepted). From Python it is\n"
+    "the optional `out=` array; the binding allocates a fresh one when\n"
+    "omitted.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -324,22 +326,30 @@ static PyTypeObject I16U64ToF32ObjType = {
   .tp_basicsize                           = sizeof (I16U64ToF32Object),
   .tp_dealloc                             = (destructor)I16U64ToF32Obj_dealloc,
   .tp_flags                               = Py_TPFLAGS_DEFAULT,
-  .tp_doc
-  = "Create a i16u64_to_f32 instance.\n"
-    "\n"
-    "Parameters\n"
-    "----------\n"
-    "scale : float, default 32768.0\n"
-    "    Denominator scale; 1/scale is applied after sign-extension "
-    "(default:\n"
-    "    32768.0f). Use 32768.0 to match F32ToI16U64 at its default scale.\n"
-    "\n"
-    "Examples\n"
-    "--------\n"
-    "Create with defaults:\n"
-    "\n"
-    ">>> from doppler.cvt import I16U64ToF32\n"
-    ">>> obj = I16U64ToF32(scale=32768.0)\n",
+  .tp_doc     = "Create an I16U64ToF32 converter (Q15-in-uint64 to float).\n"
+                "\n"
+                "Parameters\n"
+                "----------\n"
+                "scale : float, default 32768.0\n"
+                "    Denominator scale; 1/scale is applied after sign-extension "
+                "(default:\n"
+                "    32768.0f). Use 32768.0 to match F32ToI16U64 at its default "
+                "scale. Must\n"
+                "    be positive and finite.\n"
+                "\n"
+                "Raises\n"
+                "------\n"
+                "ValueError\n"
+                "    If construction fails. The exception message is "
+                "``I16U64ToF32: scale\n"
+                "    must be positive and finite``.\n"
+                "\n"
+                "Examples\n"
+                "--------\n"
+                "Create with defaults:\n"
+                "\n"
+                ">>> from doppler.cvt import I16U64ToF32\n"
+                ">>> obj = I16U64ToF32(scale=32768.0)\n",
   .tp_methods = I16U64ToF32Obj_methods,
   .tp_new     = I16U64ToF32Obj_new,
   .tp_init    = (initproc)I16U64ToF32Obj_init,

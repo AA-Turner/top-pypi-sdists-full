@@ -200,7 +200,8 @@ def test_append_past_the_cap_is_refused_before_anything_is_sent(wired, tmp_path,
 
     assert cli.main(["notes", "append", "--run", run.id, "--text", "one more line"]) == 1
     err = capsys.readouterr().err
-    assert "the 2,000-token notes limit; nothing was written" in err and "FULL" in err
+    assert "the 2,000-token notes limit by 2 tokens; cut at least 2 tokens; nothing was written" in err
+    assert "FULL" in err
     assert _patches(wired, f"/v1/runs/{run.id}") == []
 
 
@@ -229,7 +230,8 @@ def test_a_run_note_past_the_token_cap_is_refused_before_it_is_sent(wired, tmp_p
     err = capsys.readouterr().err
     # The CLI's own words, not the server's 422 ("this run note would exceed ..."):
     # the refusal happened before any request.
-    assert "error: appending would exceed the 2,000-token notes limit; nothing was written" in err
+    assert ("error: appending would exceed the 2,000-token notes limit by 500 tokens; cut at least 500 tokens; "
+            "nothing was written") in err
     assert "FULL" in err
     assert _patches(wired, f"/v1/runs/{run.id}") == []
     assert not wired.runs[run.id].get("notes")
@@ -243,7 +245,8 @@ def test_an_edit_past_the_token_cap_names_the_count_it_would_leave(wired, tmp_pa
         ["notes", "edit", "--run", run.id, "--old", "short", "--new", token_text(2_500)]
     ) == 1
     err = capsys.readouterr().err
-    assert "at 2,501 tokens, over its 2,000-token limit; nothing was written" in err
+    assert ("at 2,501 tokens, over its 2,000-token limit by 501 tokens; cut at least 501 tokens; "
+            "nothing was written") in err
     assert _patches(wired, f"/v1/runs/{run.id}") == []
     assert wired.runs[run.id]["notes"] == "short note"
 
@@ -257,7 +260,10 @@ def test_the_character_backstop_is_checked_too(wired, tmp_path, capsys):
 
     assert cli.main(["notes", "append", "--run", run.id, "--text", text]) == 1
     err = capsys.readouterr().err
-    assert "the 10,000-character notes limit; nothing was written" in err
+    # Under the token cap, so named as the backstop it passed (notes parity N4), with the cut.
+    assert ("the 10,000-character notes limit by 504 characters; cut at least 504 characters; "
+            "nothing was written") in err
+    assert "token" not in err.split("\n", 1)[0]
     assert _patches(wired, f"/v1/runs/{run.id}") == []
 
 
@@ -270,7 +276,8 @@ def test_a_backend_before_token_caps_is_held_to_its_character_cap(wired, tmp_pat
 
     assert cli.main(["notes", "append", "--run", run.id, "--text", "one more line"]) == 1
     err = capsys.readouterr().err
-    assert "the 4,000-character notes limit; nothing was written" in err and "FULL" in err
+    assert "the 4,000-character notes limit by 5 characters; cut at least 5 characters; nothing was written" in err
+    assert "FULL" in err
     assert _patches(wired, f"/v1/runs/{run.id}") == []
 
 

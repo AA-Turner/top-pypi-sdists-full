@@ -117,7 +117,9 @@ static int
 rc_plan (double rate, int compensate, int force_terminal,
          rc_plan_entry_t plan[RC_MAX_STAGES])
 {
-  if (rate <= 0.0)
+  /* resamp's one rate predicate: NaN fails it, so `(int)round(NaN)` below
+     is never reached (doppler#2640). */
+  if (!dp_resamp_rate_ok (rate))
     return 0;
 
   if (rate >= 1.0)
@@ -804,7 +806,7 @@ JM_FORCEINLINE float _Complex rc_agc_tap (dp_RateConverter_state_t *s,
 dp_RateConverter_state_t *
 dp_RateConverter_create (double rate, int compensate)
 {
-  if (rate <= 0.0)
+  if (!dp_resamp_rate_ok (rate))
     return NULL;
 
   dp_RateConverter_state_t *s
@@ -834,7 +836,7 @@ dp_RateConverter_create_matched (double rate, int compensate, int pulse,
                                  size_t num_phases)
 {
   /* Written as !(x >= y) so a NaN parameter is rejected, not accepted. */
-  if (!(rate > 0.0) || !(beta >= 0.0) || !(beta <= 1.0) || span < 1
+  if (!dp_resamp_rate_ok (rate) || !(beta >= 0.0) || !(beta <= 1.0) || span < 1
       || !(pulse_sps > 0.0) || num_phases < 2u
       || (num_phases & (num_phases - 1u)) != 0u
       || (pulse != RC_PULSE_IANDD && pulse != RC_PULSE_RRC))
@@ -987,7 +989,8 @@ dp_RateConverter_reset (dp_RateConverter_state_t *s)
 size_t
 dp_RateConverter_state_bytes (const dp_RateConverter_state_t *s)
 {
-  size_t b = sizeof (dp_state_hdr_t);
+  /* The rate rides ahead of the stages as a reject key (v3). */
+  size_t b = sizeof (dp_state_hdr_t) + sizeof (double);
   for (int i = 0; i < s->n_stages; i++)
     b += rc_stage_state_bytes (s->stage_types[i], s->stage_ptrs[i]);
   if (s->agc)
@@ -1001,7 +1004,8 @@ dp_RateConverter_get_state (const dp_RateConverter_state_t *s, void *blob)
   dp_writer_t w = dp_writer_init (blob, dp_RateConverter_state_bytes (s));
   dp_w_hdr (&w, RC_STATE_MAGIC, RC_STATE_VERSION,
             dp_RateConverter_state_bytes (s));
-  char *p = (char *)blob + sizeof (dp_state_hdr_t);
+  dp_w_f64 (&w, s->rate);
+  char *p = (char *)blob + sizeof (dp_state_hdr_t) + sizeof (double);
   for (int i = 0; i < s->n_stages; i++)
     p = rc_stage_get_state (s->stage_types[i], s->stage_ptrs[i], p);
   if (s->agc)
@@ -1015,7 +1019,18 @@ dp_RateConverter_set_state (dp_RateConverter_state_t *s, const void *blob)
                               RC_STATE_MAGIC, RC_STATE_VERSION);
   if (rc != DP_OK)
     return rc;
-  const char *p = (const char *)blob + sizeof (dp_state_hdr_t);
+  /* The rate is a reject key: it sizes the stage chain, and two rates whose
+     chains happen to give the same blob size (1/64 and 1/128 differ only in
+     the CIC's R) would otherwise restore one rate's stages behind the
+     other's reported rate -- a CIC child adopts the R its sub-blob carries
+     (doppler#2642). Refused before any stage is touched. */
+  double blob_rate;
+  memcpy (&blob_rate, (const char *)blob + sizeof (dp_state_hdr_t),
+          sizeof blob_rate);
+  if (blob_rate != s->rate)
+    return DP_ERR_INVALID;
+  const char *p
+      = (const char *)blob + sizeof (dp_state_hdr_t) + sizeof (double);
   for (int i = 0; i < s->n_stages; i++)
     {
       rc = rc_stage_set_state (s->stage_types[i], s->stage_ptrs[i], &p);
@@ -1240,7 +1255,7 @@ dp_RateConverter_get_rate (const dp_RateConverter_state_t *s)
 void
 dp_RateConverter_set_rate (dp_RateConverter_state_t *s, double rate)
 {
-  if (rate <= 0.0)
+  if (!dp_resamp_rate_ok (rate))
     return;
 
   int             matched = s->pulse != RC_PULSE_NONE;
@@ -1252,19 +1267,33 @@ dp_RateConverter_set_rate (dp_RateConverter_state_t *s, double rate)
     for (int i = 0; i < n; i++)
       plan[i].compensate = 0;
 
-  rc_destroy_all_stages (s);
-  s->rate = rate;
-
-  if (!rc_build_stages (s, plan, n))
+  /* Build the new cascade on a scratch copy and commit only once all of it
+     exists, so a failed rebuild leaves the converter exactly as it was --
+     old stages, old rate, old AGC -- instead of a zero-stage converter that
+     silently emits nothing (doppler#2640). The copy carries the
+     configuration rc_build_stages() reads (pulse, span, num_phases, ...);
+     the stage slots, buffers and AGC start empty. */
+  dp_RateConverter_state_t t = *s;
+  t.n_stages                 = 0;
+  memset (t.stage_ptrs, 0, sizeof t.stage_ptrs);
+  t.bufs[0] = t.bufs[1] = NULL;
+  t.buf_cap             = 0;
+  t.agc                 = NULL;
+  if (!rc_build_stages (&t, plan, n))
+    return;
+  /* The new plan means a new terminal bank, so the AGC's reference and seed
+     length are stale -- re-derive rather than carry them. An enabled AGC
+     survives a rate change the way the pulse does. */
+  if (s->agc && !rc_agc_build (&t))
     {
-      s->n_stages = 0;
+      rc_destroy_all_stages (&t);
       return;
     }
-  /* The new plan means a new terminal bank, so the AGC's reference and seed
-     length are stale — re-derive rather than carry them. An enabled AGC
-     survives a rate change the way the pulse does. */
-  if (s->agc)
-    (void)rc_agc_build (s);
+
+  rc_destroy_all_stages (s);
+  dp_agc_destroy (s->agc);
+  t.rate = rate;
+  *s     = t;
 }
 
 bool
@@ -1333,6 +1362,10 @@ dp_RateConverter_num_bank_shape (const dp_RateConverter_state_t *s)
 size_t
 dp_RateConverter_bank_shape_value (const dp_RateConverter_state_t *s, size_t i)
 {
+  /* The generated loop is bounded by num_bank_shape, but a C caller is not:
+     with no terminal Resampler there is no bank to read (doppler#2640). */
+  if (dp_RateConverter_num_bank_shape (s) == 0)
+    return 0;
   const resamp_state_t *r
       = (const resamp_state_t *)s->stage_ptrs[s->n_stages - 1];
   return i == 0 ? dp_resamp_get_num_phases (r) : dp_resamp_get_num_taps (r);

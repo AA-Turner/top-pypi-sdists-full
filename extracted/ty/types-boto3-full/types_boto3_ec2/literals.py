@@ -99,6 +99,7 @@ __all__ = (
     "CapacityReservationTenancyType",
     "CapacityReservationTypeType",
     "CapacityTenancyType",
+    "CapacityUnitType",
     "CarrierGatewayStateType",
     "ChronologicalOrderType",
     "ClientCertificateRevocationListStatusCodeType",
@@ -640,6 +641,8 @@ __all__ = (
     "SubnetCidrReservationTypeType",
     "SubnetStateType",
     "SummaryStatusType",
+    "SupportabilityMarketTypeType",
+    "SupportabilityScoreType",
     "SupportedAdditionalProcessorFeatureType",
     "SystemStatusOkWaiterName",
     "TaggableResourceTypeType",
@@ -959,6 +962,7 @@ CapacityReservationStateType = Literal[
 CapacityReservationTenancyType = Literal["dedicated", "default"]
 CapacityReservationTypeType = Literal["capacity-block", "default"]
 CapacityTenancyType = Literal["dedicated", "default"]
+CapacityUnitType = Literal["instances", "vcpus"]
 CarrierGatewayStateType = Literal["available", "deleted", "deleting", "pending"]
 ChronologicalOrderType = Literal["forward", "reverse"]
 ClientCertificateRevocationListStatusCodeType = Literal["active", "pending"]
@@ -3201,6 +3205,11 @@ MarketTypeType = Literal[
 MembershipTypeType = Literal["igmp", "static"]
 MetadataDefaultHttpTokensStateType = Literal["no-preference", "optional", "required"]
 MetricType = Literal[
+    "avg-inst-az-count-per-requested-vcpu",
+    "capacity-request-fulfillment-rate",
+    "capacity-total-fulfilled-vcpu",
+    "capacity-total-requested-vcpu",
+    "inst-az-fulfillment-rate",
     "reservation-avg-committed-size-inst",
     "reservation-avg-committed-size-vcpu",
     "reservation-avg-future-size-inst",
@@ -3235,7 +3244,12 @@ MetricType = Literal[
     "reserved-total-estimated-cost",
     "reserved-total-usage-hrs-inst",
     "reserved-total-usage-hrs-vcpu",
+    "spot-avg-inst-az-count-per-requested-vcpu",
     "spot-avg-run-time-before-interruption-inst",
+    "spot-capacity-request-fulfillment-rate",
+    "spot-capacity-total-fulfilled-vcpu",
+    "spot-capacity-total-requested-vcpu",
+    "spot-inst-az-fulfillment-rate",
     "spot-interruption-rate-inst",
     "spot-interruption-rate-vcpu",
     "spot-max-run-time-before-interruption-inst",
@@ -3657,6 +3671,8 @@ SubnetStateType = Literal[
     "available", "failed", "failed-insufficient-capacity", "pending", "unavailable"
 ]
 SummaryStatusType = Literal["impaired", "initializing", "insufficient-data", "not-applicable", "ok"]
+SupportabilityMarketTypeType = Literal["on-demand", "spot"]
+SupportabilityScoreType = Literal["high", "low", "medium"]
 SupportedAdditionalProcessorFeatureType = Literal["amd-sev-snp", "nested-virtualization"]
 SystemStatusOkWaiterName = Literal["system_status_ok"]
 TaggableResourceTypeType = Literal["auto-scaling-group", "instance", "network-interface"]

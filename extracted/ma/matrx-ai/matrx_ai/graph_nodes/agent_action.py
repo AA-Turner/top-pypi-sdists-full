@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -53,6 +53,14 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, m
 from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.capabilities import ClientContext, UserOverrides
 from matrx_ai.config.host_turn import HostTurn
+from matrx_ai.config.request_firewall import (
+    FirewallMatch,
+    FirewallScope,
+    FirewallTerm,
+    RequestFirewall,
+    firewall_from_step_fields,
+    request_firewall_scope,
+)
 from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.iteration_limit import (
     AGENT_MAX_ITERATIONS_CEILING,
@@ -206,6 +214,26 @@ class AgentRunCommonInput(BaseModel):
             "config_overrides replaces the whole authored dict)."
         ),
         json_schema_extra=field_extras(widget="json"),
+    )
+
+    # --- per-call money guards (2026-10-27) ---
+    max_output_tokens: int | None = Field(
+        default=None,
+        ge=0,
+        title="Longest answer (tokens)",
+        description=(
+            "The output-token ceiling sent with this step's AI calls, above every other setting. "
+            "Often fed from a setting. Blank or 0: the doer's own."
+        ),
+    )
+    max_call_cost_usd: float | None = Field(
+        default=None,
+        ge=0,
+        title="Cap per AI call (USD)",
+        description=(
+            "Each AI call is priced before it is sent (request plus longest answer, at the "
+            "model's price) and refused over this cap. Blank or 0: no cap."
+        ),
     )
 
     @field_validator("config_overrides", "runtime_config_overrides")
@@ -468,6 +496,49 @@ class AgentRunCommonInput(BaseModel):
     )
 
 
+class StepProtectionInput(BaseModel):
+    """THE REQUEST FIREWALL, on every step that can stand in for a mandate (2026-10-28).
+
+    Run Mandate (``ai.mandate.start``) and Run Typed Agent (``ai.agent.produce``) both declare these
+    by inheriting this one class, and both enforce them through :func:`run_walled_step_agent` — a
+    mandate step converted to a typed step keeps its wall (before 2026-10-28 the typed step accepted
+    the fields as extras and dropped them). Checked at the send boundary on the exact outgoing request
+    of EVERY provider call and by the host's doors; a hit refuses before anything is spent and names
+    the class, never the term (``matrx_ai.config.request_firewall``)."""
+
+    must_not_contain: list[str | FirewallTerm] | None = Field(
+        default=None,
+        title="Must not contain",
+        description=("Words the request sent to the AI must never contain — often fed from another step. "
+                     "A word, or {term, class}. Any hit stops the step before it is paid for."),
+    )
+    must_not_contain_match: FirewallMatch = Field(
+        default="folded",
+        title="Match",
+        description="folded: ignore case, accents and punctuation. exact: the same characters.",
+    )
+    no_tools: bool = Field(
+        default=False,
+        title="No tools",
+        description="Stop the step if the agent doing the job carries any tool.",
+    )
+    no_auto_context: bool = Field(
+        default=False,
+        title="No automatic context",
+        description="Stop the step if automatic context is on for the agent doing the job.",
+    )
+
+
+def step_firewall(inputs: Any) -> RequestFirewall | None:
+    """The step's request firewall (None when it declares none)."""
+    return firewall_from_step_fields(
+        getattr(inputs, "must_not_contain", None),
+        match=getattr(inputs, "must_not_contain_match", "folded"),
+        no_tools=bool(getattr(inputs, "no_tools", False)),
+        no_auto_context=bool(getattr(inputs, "no_auto_context", False)),
+    )
+
+
 def mandate_key_field(*, required: bool) -> Any:
     """The Mandate selector, in the one place it is defined.
 
@@ -699,6 +770,10 @@ class StepWorkflowMandate:
 #: The door a workflow step's mandate run is recorded under (``chat.user_request.door``).
 WORKFLOW_STEP_DOOR = "workflow_step"
 
+#: Set on a step's ``mandate_resolution`` when a Run Typed Agent step runs AS a job with no resolver
+#: stamp: the step grades its answer against its own goal, so the host's run record never judges it again.
+STEP_JUDGES_ITSELF = "judged_by_step"
+
 
 class StepOffer(Offer):
     """The offer of a workflow AI step that runs its Holder on its OWN transport (the graph's agent
@@ -732,6 +807,40 @@ async def prepare_step_mandate(mandate_key: str, *, consumer: str, door: str = W
             "prepare does not serve a workflow step (StepOffer)."
         )
     return resolution
+
+
+class JobBindingUnavailable(RuntimeError):
+    """A step runs AS a mandate's job, but the job's binding cannot be applied — the step refuses rather
+    than hand its agent blanks the binding would have filled."""
+
+
+async def job_variable_binder(
+    mandate_key: str, *, consumer: str
+) -> Callable[[dict[str, Any] | None], Awaitable[dict[str, Any]]]:
+    """THE JOB'S BINDING for a step that runs the job's agent directly (Run Typed Agent, single and batch;
+    2026-10-28). A converted step carries ``mandate_key_origin`` and hands its agent the agent's own
+    variables, so the binding's map never ran and every value it fills by itself (a brand-packet fact, a
+    builder, a fixed value, a default) reached the agent BLANK with no error — the topical map's author
+    wrote 30 topics instead of 51 on a blank brand name, description and industry.
+
+    Resolves the job through the runner port exactly like Run Mandate (:func:`prepare_step_mandate`) and
+    returns the host's filler (``MandateResolution.fill_unsupplied``): blank variables are filled by the
+    binding's own pipeline, a value the step passes always wins. THE GUARD: a job whose binding cannot be
+    applied (no runner, an unresolvable job, a host that offers no filler) RAISES here — a step that runs
+    as a job never runs on blanks silently."""
+    # The runner's own refusals (no runner installed, an unresolvable job) propagate as themselves.
+    resolution = await prepare_step_mandate(mandate_key, consumer=consumer)
+    fill = getattr(resolution, "fill_unsupplied", None)
+    if fill is None:
+        raise JobBindingUnavailable(
+            f"{consumer} runs as job {mandate_key!r}, but this host offers no way to apply the job's "
+            "binding to the step's variables. The step does not run on values the binding would fill."
+        )
+
+    async def bind(variables: dict[str, Any] | None) -> dict[str, Any]:
+        return dict(await fill(dict(variables or {})))
+
+    return bind
 
 
 async def resolve_step_agent(
@@ -1037,6 +1146,10 @@ HOST_REQUEST_EXCLUDED_INPUTS: frozenset[str] = frozenset(
         "must_not_contain_match",
         "no_tools",
         "no_auto_context",
+        # The per-call money guards: max_output_tokens folds into config_overrides (top layer);
+        # max_call_cost_usd opens the call spend cap around the run (``run_step_agent``).
+        "max_output_tokens",
+        "max_call_cost_usd",
     }
 )
 
@@ -1143,10 +1256,14 @@ def build_agent_request(
     from matrx_ai.config.llm_params import merge_llm_overrides
 
     layered: dict[str, Any] = {}
+    # The step's longest-answer limit sits above the author's and the run's overrides (it is the
+    # step's own money guard), below the node type's own contract.
+    step_ceiling = {"max_output_tokens": inputs.max_output_tokens} if inputs.max_output_tokens else None
     for layer in (
         resolved.config_overrides,
         request_payload.get("config_overrides"),
         inputs.runtime_config_overrides,
+        step_ceiling,
         top_config_overrides,
     ):
         layered = merge_llm_overrides(layered, dict(layer) if layer else None)
@@ -1166,6 +1283,9 @@ def build_agent_request(
     # carried on the request's private channel; the host's ``prepare_agent_run`` reads it.
     if not include_org_catalog:
         request._include_org_catalog = False
+    # The step's per-call spend cap, carried to ``run_step_agent`` (which opens the scope).
+    if inputs.max_call_cost_usd:
+        object.__setattr__(request, "_max_call_cost_usd", float(inputs.max_call_cost_usd))
     return request
 
 
@@ -1247,6 +1367,20 @@ async def run_step_agent(
             # the request as ``mandate_resolution`` like every other door's.
             if run_stamp:
                 ctx.app.metadata["mandate_resolution"] = {**dict(run_stamp), "door": "workflow_step"}
+            else:
+                # A Run Typed Agent step running AS a job (``mandate_key_origin``, or the job its
+                # agent holds) names its agent itself: no resolver handed a stamp, so the run
+                # record never landed and ``chat.user_request.mandate_key`` stayed NULL for every
+                # converted step (2026-10-28). The step's own agent is the Holder that answered;
+                # the step grades its answer against its own goal, so the record never judges it.
+                is_version = bool(getattr(request, "is_version", False))
+                ctx.app.metadata["mandate_resolution"] = {
+                    "holder_type": "agent",
+                    "holder_id": None if is_version else agent_id,
+                    "holder_version_id": agent_id if is_version else None,
+                    "door": "workflow_step",
+                    STEP_JUDGES_ITSELF: True,
+                }
             ctx.app.metadata["workflow_run_id"] = str(getattr(ctx, "run_id", "") or "") or None
         except Exception as exc:  # noqa: BLE001
             vcprint(
@@ -1281,11 +1415,143 @@ async def run_step_agent(
             # A workflow step is one-shot by construction: nothing continues its
             # conversation, so only a tool loop reads its rolling cache mark.
             from matrx_ai.config.cache_plan import one_shot_call
+            from matrx_ai.providers.guardrail_gate import call_spend_cap_scope
 
-            with one_shot_call():
+            # THE STEP'S PER-CALL SPEND CAP: every paid call of this run is priced before it is
+            # sent and refused over the cap (``guardrail_gate.admit_call_spend_cap``).
+            cap_usd = getattr(request, "_max_call_cost_usd", None)
+            if cap_usd:
+                from matrx_ai.config.usage_config import ensure_pricing_lookup
+
+                await ensure_pricing_lookup()
+            subject = f"Step {getattr(ctx, 'node_id', None) or '?'}" + (f" ({mandate_key})" if mandate_key else "")
+            with one_shot_call(), call_spend_cap_scope(cap_usd, subject=subject):
                 return await agent_runner(agent_id, request, ambient)
     finally:
         clear_app_context(token)
+
+
+async def refuse_if_mandate_paused(mandate_key: str | None) -> None:
+    """THE PAUSE SWITCH — the host's ONE pause check (``run_mandate`` makes the same): a paused
+    mandate refuses in words before anything resolves or spends. Run Mandate checks its job; Run
+    Typed Agent checks the job it stands in for (``mandate_key`` or ``mandate_key_origin``)."""
+    if mandate_key and has_ext("mandate_pause_check"):
+        await get_ext("mandate_pause_check")(mandate_key)
+
+
+async def run_walled_step_agent(
+    ctx: NodeExecutionContext,
+    agent_id: str,
+    request: Any,
+    *,
+    node_type: str,
+    firewall: RequestFirewall | None,
+    mandate_key: str | None,
+    run_stamp: dict[str, Any] | None = None,
+    capture: bool = False,
+) -> tuple[Any, list[dict[str, Any]] | None]:
+    """THE ONE PROTECTED DISPATCH of a workflow AI step that runs a mandate's job — Run Mandate and
+    Run Typed Agent both call this, so neither can drop a protection the other keeps (2026-10-28).
+
+    * ``mandate_key`` — the job this call runs AS (Run Mandate's key; a typed step's ``mandate_key``,
+      or the ``mandate_key_origin`` a converted step carries). It rides the host request's private
+      channel (``request._mandate_key``), so every host protection keyed by the mandate applies on
+      this door exactly as on ``/ai/mandates``: its dispatch guards (the AI-visibility blind wall),
+      its contract (automatic context closed, required context policies), and its spend holds (the
+      run is the mandate's approval subject, never an inferred ``sole_holder`` attribution the
+      run-approval gate ignores).
+    * ``firewall`` — the step's request firewall, opened around the run; a door refusal re-raises as
+      itself; a run that no door or send checked is refused (``firewall_outcome``).
+
+    Returns ``(completed, firewall_records)``. ``capture`` (a sampled step's check): a captured
+    provider request ends the run quietly with ``completed=None``."""
+    from matrx_ai.providers.request_capture import ProviderRequestCaptured
+
+    if mandate_key and not getattr(request, "_mandate_key", None):
+        try:
+            request._mandate_key = mandate_key
+        except (AttributeError, TypeError, ValueError):  # a test's plain stand-in request
+            pass
+    node_id = getattr(ctx, "node_id", None) or "?"
+    with request_firewall_scope(firewall, mandate_key=mandate_key) as scope:
+        try:
+            completed = await run_step_agent(
+                ctx, agent_id, request, mandate_key=mandate_key or None, run_stamp=run_stamp
+            )
+        except ProviderRequestCaptured:
+            if not capture:
+                raise
+            completed = None
+        except Exception as exc:
+            if scope is not None and scope.refusals:
+                raise scope.refusals[-1] from exc
+            raise
+    return completed, firewall_outcome(scope, mandate_key, node_type=node_type, node_id=node_id)
+
+
+async def run_sampled_firewall_check(
+    ctx: Any,
+    firewall: RequestFirewall | None,
+    *,
+    node_type: str,
+    job: str,
+    body: Callable[[Any], Awaitable[Any]],
+) -> dict[str, Any] | None:
+    """THE FIREWALL ON A SAMPLED STEP — ONE implementation for Run Mandate and Run Typed Agent.
+
+    A TEST run answers a step from its declared sample, but its request firewall must still be
+    provable without spending: ``body(capture_ctx)`` is the step's own body run in capture mode
+    (``capturing_provider_request``, a muted emitter, ``store=False`` on the app) — every door check,
+    the send boundary's ``check_at_send`` and the dispatch check run on the request it WOULD send, and
+    the transport stops it. A refusal raises exactly as the live call would; a clean scan returns
+    ``{"request_firewall": [...]}`` for the sampled outcome. No firewall -> nothing to check (None).
+    ``job`` names the step's mandate/agent in the sentence a paid pre-step call produces."""
+    if firewall is None:
+        return None
+    import copy as _copy
+
+    from matrx_connect.emitters.silent_emitter import SilentEmitter
+
+    from matrx_ai.providers.request_capture import (
+        PaidSendBlockedInCapture,
+        capturing_provider_request,
+    )
+
+    capture_ctx = _copy.copy(ctx)
+    override = getattr(ctx.app, "with_overrides", None)
+    if callable(override):
+        capture_ctx.app = override(emitter=SilentEmitter(), store=False)
+    node_id = getattr(ctx, "node_id", None) or "?"
+    with capturing_provider_request():
+        try:
+            records = await body(capture_ctx)
+        except PaidSendBlockedInCapture as blocked:
+            raise ValueError(
+                f"{node_type}:{node_id} ({job}) is answered from its sample, "
+                f"but its request firewall could not be checked: the run makes a paid call "
+                f"({blocked.method} {blocked.url}) before its request, which a check never makes."
+            ) from None
+    return {"request_firewall": records}
+
+
+def firewall_outcome(
+    scope: FirewallScope | None, mandate_key: str | None, *, node_type: str, node_id: str
+) -> list[dict[str, Any]] | None:
+    """What the request firewall scanned (door records first, then one per provider call the send
+    boundary cleared), for the step outcome — or a refusal the host turned into a failed result,
+    raised as itself. BACKSTOP: the send boundary refuses before any unscanned call, so a run with
+    neither a door record nor a cleared send reached no provider through it — never trusted."""
+    if scope is None:
+        return None
+    if scope.refusals:
+        raise scope.refusals[-1]
+    if not scope.records and not scope.sends:
+        raise ValueError(
+            f"{node_type}:{node_id} (mandate {mandate_key!r}) ran, but no dispatch door checked its "
+            "request firewall, so nothing proves the request was clean. Its answer is not used. This "
+            "host's agent runner does not run the firewall; report it."
+        )
+    return [record.to_dict() for record in (*scope.records, *scope.sends)]
 
 
 async def _announce_step_request(app: Any) -> None:

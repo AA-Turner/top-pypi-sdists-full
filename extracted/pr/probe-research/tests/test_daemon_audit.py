@@ -547,6 +547,9 @@ def test_the_copy_is_written_with_no_question(tmp_path):
         (["paper", "find", "why GRPO collapses"], False),
         (["paper", "find", "--mode", "read", "--paper-id", "arxiv:2610.02140"], False),
         (["paper", "list"], True),
+        # Probe's docs: outside text, refused as `search_in=["docs"]` is.
+        (["docs", "codex", "mcp", "install"], False),
+        (["--base-url", "x", "docs", "codex"], False),
     ],
 )
 def test_the_probe_commands_it_may_run(argv, runs):
@@ -590,6 +593,58 @@ def test_what_counts_as_a_look(tool, args, look):
     assert agent_mod.is_a_look(tool, args) is look
 
 
+_DOCS_ONLY = json.dumps({"query": "codex mcp install", "search_in": ["docs"]})
+_DOCS_AND_NOTES = json.dumps({"query": "relay", "search_in": ["docs", "notes"]})
+
+
+@pytest.mark.parametrize(
+    ("tool", "args", "look"),
+    [
+        # Probe's own docs are a product reference, not the team's record.
+        ("search", {"query": "codex", "search_in": ["docs"]}, False),
+        ("probe__search", {"query": "codex", "search_in": ["docs"]}, False),
+        ("mcp__probe__search", {"query": "codex", "search_in": ["docs", "docs"]}, False),
+        # A mixed search reads the team's record too; omitted or empty means every team corpus.
+        ("probe__search", {"query": "relay", "search_in": ["docs", "notes"]}, True),
+        ("probe__search", {"query": "relay", "search_in": []}, True),
+        ("probe__search", {"query": "relay", "search_in": None}, True),
+        ("probe__search", {"query": "relay", "search_in": "docs"}, True),
+        # Only `search` takes `search_in`; a tool merely ending in those letters is not it.
+        ("probe__entity", {"refs": ["team-note"], "search_in": ["docs"]}, True),
+        ("probe__research", {"query": "x", "search_in": ["docs"]}, True),
+        # The `bash` tool set reaches the same two doors from the shell.
+        ("bash", {"command": 'probe docs "codex mcp install"'}, False),
+        ("shell", {"command": "probe docs codex"}, False),
+        ("bash", {"command": f"probe mcp call search '{_DOCS_ONLY}'"}, False),
+        ("bash", {"command": f"probe mcp call search '{_DOCS_AND_NOTES}'"}, True),
+        ("bash", {"command": """probe mcp call search '{"query": "relay"}'"""}, True),
+        ("bash", {"command": "probe mcp call search 'not json'"}, True),
+        ("bash", {"command": f"probe mcp call entity '{_DOCS_ONLY}'"}, True),
+        # A docs read beside a real look is still a look.
+        ("bash", {"command": "probe docs codex && git log -1"}, True),
+        ("bash", {"command": "cd /repo && probe docs codex"}, False),
+        # Root options before the command word, as click reads them.
+        ("bash", {"command": "probe --base-url x docs install"}, False),
+        ("bash", {"command": "probe docs install"}, False),
+        ("bash", {"command": f"probe --base-url x mcp call search '{_DOCS_ONLY}'"}, False),
+        ("bash", {"command": "probe --base-url x run list"}, True),
+        ("bash", {"command": "probe run list"}, True),
+    ],
+)
+def test_a_read_of_probes_own_docs_is_not_a_look(tool, args, look):
+    assert agent_mod.is_a_look(tool, args) is look
+
+
+def test_the_audit_uses_the_mcp_definition_of_docs_only():
+    """One test of "docs only" (`probe.mcp.contract.is_docs_only`): the audit's
+    answer follows it rather than a copy of its rule."""
+    contract = pytest.importorskip("probe.mcp.contract")
+    for search_in in (["docs"], ["docs", "notes"], [], None, ["notes"]):
+        assert agent_mod.is_a_look("search", {"search_in": search_in}) is (
+            not contract.is_docs_only(search_in)
+        )
+
+
 DRAFT = "/s/probe/audit/x/probe-team-note.md"
 
 
@@ -615,6 +670,29 @@ def test_the_open_web_is_refused():
     call = types.SimpleNamespace(tool_name="probe__find_papers")
     with pytest.raises(SkipToolExecution):
         asyncio.run(gate.before_tool_execute(None, call=call, tool_def=None, args={"query": "x"}))
+
+
+@pytest.mark.parametrize(
+    ("search_in", "refused"),
+    [(["docs"], True), (["docs", "notes"], True), (["notes"], False), (None, False)],
+)
+def test_a_search_of_probes_docs_is_refused(search_in, refused):
+    """Probe's docs are text from outside the team, which an audit publishing into
+    every teammate's instructions must not take in; mixed, they ride beside the
+    team's hits, so that search is refused too."""
+    import types
+
+    from pydantic_ai.exceptions import SkipToolExecution
+
+    gate = agent_mod.EvidenceGate(agent_mod.AuditState(draft=DRAFT))
+    call = types.SimpleNamespace(tool_name="probe__search")
+    args = {"query": "codex", "search_in": search_in}
+    if not refused:
+        assert asyncio.run(gate.before_tool_execute(None, call=call, tool_def=None, args=args)) == args
+        return
+    with pytest.raises(SkipToolExecution) as skipped:
+        asyncio.run(gate.before_tool_execute(None, call=call, tool_def=None, args=args))
+    assert skipped.value.result == agent_mod.AUDIT_WEB_REFUSED
 
 
 def test_the_web_tools_are_the_mcp_servers():

@@ -1,3 +1,7 @@
+__lazy_modules__ = ["allianceauth.eveonline.models"]
+
+from typing import TYPE_CHECKING
+
 from django.conf import settings
 from django.contrib.auth.models import Group as BaseGroup
 from django.db import models
@@ -6,6 +10,9 @@ from django.utils.translation import gettext_lazy as _
 
 from allianceauth.authentication.models import State, User
 from allianceauth.notifications import notify
+
+if TYPE_CHECKING:
+    from allianceauth.eveonline.models import EveCharacter
 
 
 class Group(BaseGroup):
@@ -30,7 +37,7 @@ class GroupRequest(models.Model):
         return self.user.username + ":" + self.group.name
 
     @property
-    def main_char(self):
+    def main_char(self) -> "EveCharacter | None":
         """
         Legacy property for main character
         :return: self.users main character
@@ -46,45 +53,63 @@ class GroupRequest(models.Model):
             return
         keyword = "leave" if self.leave_request else "join"
         title = f"Group Management: {keyword.title()} request for {self.group.name}"
-        message = f"{self.user} want's to {keyword} {self.group.name}."
-        for appover in self.group.authgroup.group_request_approvers():
-            notify(user=appover, title=title, message=message, level="info")
+        message = f"{self.user} wants to {keyword} {self.group.name}."
+        for approver in self.group.authgroup.group_request_approvers():
+            notify(user=approver, title=title, message=message, level="info")
+
+    def request_type(self) -> str:
+        """
+        Return the type of request (join or leave) based on the leave_request field.
+
+        :return:
+        """
+
+        return RequestLog.Type.LEAVE if self.leave_request else RequestLog.Type.JOIN
 
 
 class RequestLog(models.Model):
-    """Log entry about who joined and left a group and who approved it."""
+    """
+    Log entry about who joined and left a group and who approved it.
+    """
 
-    request_type = models.BooleanField(null=True)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE)
-    request_info = models.CharField(max_length=254)
-    action = models.BooleanField(default=False)
-    request_actor = models.ForeignKey(User, on_delete=models.CASCADE)
+    class Type(models.TextChoices):
+        """
+        Type of request log entry.
+        """
+
+        JOIN = "join", _("Join")
+        LEAVE = "leave", _("Leave")
+        REMOVE = "remove", _("Remove")
+
+    class Action(models.TextChoices):
+        """
+        Action taken on the request log entry.
+        """
+
+        ACCEPT = "accept", _("Accept")
+        REJECT = "reject", _("Reject")
+        REMOVE = "remove", _("Remove")
+
+    request_type = models.CharField(
+        max_length=6, choices=Type.choices, default=Type.REMOVE
+    )
+    group = models.ForeignKey(to=Group, on_delete=models.CASCADE)
+    action = models.CharField(
+        max_length=6, choices=Action.choices, default=Action.REMOVE
+    )
+    request_actor = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, related_name="groupmanagement_audit_request_actor"
+    )
+    requestor = models.ForeignKey(
+        to=User,
+        on_delete=models.CASCADE,
+        null=True,
+        related_name="groupmanagement_audit_requestor",
+    )
     date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
         return str(self.pk)
-
-    def requestor(self) -> str:
-        return self.request_info.split(":")[0]
-
-    def type_to_str(self):
-        if self.request_type is None:
-            return "Removed"
-        elif self.request_type is True:
-            return "Leave"
-        elif self.request_type is False:
-            return "Join"
-
-    def action_to_str(self):
-        if self.action is True:
-            return "Accept"
-        elif self.action is False:
-            return "Reject"
-
-    def req_char(self):
-        usr = self.requestor()
-        user = User.objects.get(username=usr)
-        return user.profile.main_character
 
 
 class AuthGroup(models.Model):

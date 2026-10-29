@@ -12,7 +12,7 @@ __all__ = (
     "cachedmethod",
 )
 
-__version__ = "7.2.6"
+__version__ = "7.2.7"
 
 import collections
 import collections.abc
@@ -24,30 +24,12 @@ import time
 from . import keys
 
 
-class _DefaultSize:
-    """A minimal "fake" dict that returns a constant size 1 for any key."""
-
-    __slots__ = ()
-
-    def __getitem__(self, _key):
-        return 1
-
-    def __setitem__(self, _key, _value):
-        pass
-
-    def pop(self, _key):
-        return 1
-
-    def clear(self):
-        pass
-
-
 class Cache(collections.abc.MutableMapping):
     """Mutable mapping to serve as a simple cache or cache base class."""
 
     __marker = object()
 
-    __size = _DefaultSize()
+    __size = None
 
     def __init__(self, maxsize, getsizeof=None):
         if maxsize < 0:
@@ -75,30 +57,48 @@ class Cache(collections.abc.MutableMapping):
             return self.__missing__(key)
 
     def __setitem__(self, key, value):
+        data = self.__data
+        size = self.__size
         maxsize = self.__maxsize
-        size = self.getsizeof(value)
-        if size < 0:
-            raise ValueError("value size must be non-negative")
-        if size > maxsize:
-            raise ValueError("value too large")
-        if key not in self.__data:
-            diffsize = size
-            while self.__currsize + diffsize > maxsize:
-                self.popitem()
+        if size is None:
+            if maxsize < 1:
+                raise ValueError("value too large")
+            elif key in data:
+                data[key] = value
+            else:
+                while self.__currsize + 1 > maxsize:
+                    self.popitem()
+                data[key] = value
+                self.__currsize += 1
         else:
-            diffsize = size - self.__size[key]
-            while self.__currsize + diffsize > maxsize:
-                self.popitem()
-                if key not in self.__data:
-                    diffsize = size
-        self.__data[key] = value
-        self.__size[key] = size
-        self.__currsize += diffsize
+            itemsize = self.getsizeof(value)
+            if itemsize > maxsize:
+                raise ValueError("value too large")
+            if itemsize < 0:
+                raise ValueError("value size must be non-negative")
+            if key not in data:
+                diffsize = itemsize
+                while self.__currsize + diffsize > maxsize:
+                    self.popitem()
+            else:
+                diffsize = itemsize - size[key]
+                while self.__currsize + diffsize > maxsize:
+                    self.popitem()
+                    if key not in data:
+                        diffsize = itemsize
+            data[key] = value
+            size[key] = itemsize
+            self.__currsize += diffsize
 
     def __delitem__(self, key):
-        size = self.__size.pop(key)
-        del self.__data[key]
-        self.__currsize -= size
+        size = self.__size
+        if size is None:
+            del self.__data[key]
+            self.__currsize -= 1
+        else:
+            itemsize = size.pop(key)
+            del self.__data[key]
+            self.__currsize -= itemsize
 
     def __contains__(self, key):
         return key in self.__data
@@ -148,8 +148,10 @@ class Cache(collections.abc.MutableMapping):
     # optimized version for each Cache subclass.
 
     def clear(self):
+        size = self.__size
+        if size is not None:
+            size.clear()
         self.__data.clear()
-        self.__size.clear()
         self.__currsize = 0
 
     @property
@@ -508,11 +510,12 @@ class TTLCache(_TimedCache):
             expires = time + self.__ttl
             self.expire(time)
             cache_setitem(self, key, value)
-        try:
-            link = self.__getlink(key)
-        except KeyError:
-            self.__links[key] = link = TTLCache._Link(key)
+        links = self.__links
+        link = links.get(key)
+        if link is None:
+            links[key] = link = TTLCache._Link(key)
         else:
+            links.move_to_end(key)
             link.unlink()
         link.expires = expires
         link.next = root = self.__root
@@ -560,6 +563,8 @@ class TTLCache(_TimedCache):
             time = self.timer()
         root = self.__root
         curr = root.next
+        if curr is root or time < curr.expires:
+            return []  # fast path: nothing has expired
         links = self.__links
         expired = []
         cache_delitem = Cache.__delitem__
@@ -594,11 +599,6 @@ class TTLCache(_TimedCache):
         root = self.__root
         root.prev = root.next = root
         self.__links.clear()
-
-    def __getlink(self, key):
-        value = self.__links[key]
-        self.__links.move_to_end(key)
-        return value
 
 
 class TLRUCache(_TimedCache):
@@ -655,11 +655,12 @@ class TLRUCache(_TimedCache):
             cache_setitem(self, key, value)
         # removing an existing item would break the heap structure, so
         # only mark it as removed for now
-        try:
-            self.__getitem(key).removed = True
-        except KeyError:
-            pass
-        self.__items[key] = item = TLRUCache._Item(key, expires)
+        items = self.__items
+        item = items.get(key)
+        if item is not None:
+            item.removed = True
+            items.move_to_end(key)
+        items[key] = item = TLRUCache._Item(key, expires)
         heapq.heappush(self.__order, item)
 
     def __delitem__(self, key, cache_delitem=Cache.__delitem__):
@@ -696,6 +697,8 @@ class TLRUCache(_TimedCache):
         if len(order) > len(items) * self.__HEAP_CLEANUP_FACTOR:
             self.__order = order = [item for item in order if not item.removed]
             heapq.heapify(order)
+        if not order or (not order[0].removed and time < order[0].expires):
+            return []  # fast path: nothing has expired
         expired = []
         cache_delitem = Cache.__delitem__
         cache_getitem = Cache.__getitem__
@@ -727,11 +730,6 @@ class TLRUCache(_TimedCache):
         _TimedCache.clear(self)
         self.__items.clear()
         del self.__order[:]
-
-    def __getitem(self, key):
-        value = self.__items[key]
-        self.__items.move_to_end(key)
-        return value
 
     def __delitem(self, key, cache_delitem=Cache.__delitem__):
         try:

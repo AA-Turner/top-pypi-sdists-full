@@ -9,6 +9,8 @@ extern crate tracing;
 
 #[cfg(feature = "envconfig")]
 pub mod envconfig;
+#[cfg(feature = "experimental")]
+pub(crate) mod external_storage_references;
 #[doc(hidden)]
 pub mod fsm_trait;
 #[doc(hidden)]
@@ -20,8 +22,9 @@ pub mod worker;
 pub use temporalio_common_wasm::{
     ActivityCloseTimeouts, ActivityDefinition, ActivityError, HasWorkflowDefinition, Memo,
     MemoValue, MemoValues, Priority, QueryDefinition, RetryPolicy, SignalDefinition,
-    UntypedActivity, UntypedWorkflow, UpdateDefinition, WorkerDeploymentVersion,
-    WorkflowDefinition, WorkflowExecution, data_converters, error, search_attributes,
+    UntypedActivity, UntypedWorkflow, UpdateDefinition, VersioningOverride,
+    WorkerDeploymentVersion, WorkflowDefinition, WorkflowExecution, data_converters, error,
+    search_attributes,
 };
 
 macro_rules! dbg_panic {

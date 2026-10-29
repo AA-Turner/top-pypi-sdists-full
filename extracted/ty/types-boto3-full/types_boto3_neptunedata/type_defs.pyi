@@ -31,8 +31,11 @@ from .literals import (
     ModeType,
     OpenCypherExplainModeType,
     ParallelismType,
+    RebuildStatusType,
     S3BucketRegionType,
+    ScopeType,
     StatisticsAutoGenerationModeType,
+    WriteBufferSizeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -43,6 +46,8 @@ else:
 __all__ = (
     "CancelGremlinQueryInputTypeDef",
     "CancelGremlinQueryOutputTypeDef",
+    "CancelIndexRebuildInputTypeDef",
+    "CancelIndexRebuildOutputTypeDef",
     "CancelLoaderJobInputTypeDef",
     "CancelLoaderJobOutputTypeDef",
     "CancelMLDataProcessingJobInputTypeDef",
@@ -62,6 +67,7 @@ __all__ = (
     "DeletePropertygraphStatisticsOutputTypeDef",
     "DeleteSparqlStatisticsOutputTypeDef",
     "DeleteStatisticsValueMapTypeDef",
+    "DictionariesInfoTypeDef",
     "EdgeStructureTypeDef",
     "ExecuteFastResetInputTypeDef",
     "ExecuteFastResetOutputTypeDef",
@@ -79,6 +85,8 @@ __all__ = (
     "GetEngineStatusOutputTypeDef",
     "GetGremlinQueryStatusInputTypeDef",
     "GetGremlinQueryStatusOutputTypeDef",
+    "GetIndexRebuildStatusInputTypeDef",
+    "GetIndexRebuildStatusOutputTypeDef",
     "GetLoaderJobStatusInputTypeDef",
     "GetLoaderJobStatusOutputTypeDef",
     "GetMLDataProcessingJobInputTypeDef",
@@ -101,10 +109,12 @@ __all__ = (
     "GetSparqlStatisticsOutputTypeDef",
     "GetSparqlStreamInputTypeDef",
     "GetSparqlStreamOutputTypeDef",
+    "GetStorageOutputTypeDef",
     "GremlinQueryStatusAttributesTypeDef",
     "GremlinQueryStatusTypeDef",
     "ListGremlinQueriesInputTypeDef",
     "ListGremlinQueriesOutputTypeDef",
+    "ListIndexRebuildsOutputTypeDef",
     "ListLoaderJobsInputTypeDef",
     "ListLoaderJobsOutputTypeDef",
     "ListMLDataProcessingJobsInputTypeDef",
@@ -129,6 +139,8 @@ __all__ = (
     "PropertygraphRecordTypeDef",
     "PropertygraphSummaryTypeDef",
     "PropertygraphSummaryValueMapTypeDef",
+    "QuadsIndexesInfoTypeDef",
+    "QuadsInfoTypeDef",
     "QueryEvalStatsTypeDef",
     "QueryLanguageVersionTypeDef",
     "RDFGraphSummaryTypeDef",
@@ -137,6 +149,8 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "SparqlDataTypeDef",
     "SparqlRecordTypeDef",
+    "StartIndexRebuildInputTypeDef",
+    "StartIndexRebuildOutputTypeDef",
     "StartLoaderJobInputTypeDef",
     "StartLoaderJobOutputTypeDef",
     "StartMLDataProcessingJobInputTypeDef",
@@ -147,7 +161,9 @@ __all__ = (
     "StartMLModelTransformJobOutputTypeDef",
     "StatisticsSummaryTypeDef",
     "StatisticsTypeDef",
+    "StorageMetricsTypeDef",
     "SubjectStructureTypeDef",
+    "UndoLogsMetricsTypeDef",
 )
 
 class CancelGremlinQueryInputTypeDef(TypedDict):
@@ -159,6 +175,9 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class CancelIndexRebuildInputTypeDef(TypedDict):
+    rebuildId: str
 
 class CancelLoaderJobInputTypeDef(TypedDict):
     loadId: str
@@ -229,6 +248,10 @@ class DeleteStatisticsValueMapTypeDef(TypedDict):
     active: NotRequired[bool]
     statisticsId: NotRequired[str]
 
+class StorageMetricsTypeDef(TypedDict):
+    sizeInBytes: int
+    count: int
+
 class EdgeStructureTypeDef(TypedDict):
     count: NotRequired[int]
     edgeProperties: NotRequired[list[str]]
@@ -279,6 +302,9 @@ class QueryEvalStatsTypeDef(TypedDict):
     elapsed: NotRequired[int]
     cancelled: NotRequired[bool]
     subqueries: NotRequired[dict[str, Any]]
+
+class GetIndexRebuildStatusInputTypeDef(TypedDict):
+    rebuildId: str
 
 class GetLoaderJobStatusInputTypeDef(TypedDict):
     loadId: str
@@ -353,6 +379,10 @@ class GetSparqlStreamInputTypeDef(TypedDict):
     opNum: NotRequired[int]
     encoding: NotRequired[Literal["gzip"]]
 
+class UndoLogsMetricsTypeDef(TypedDict):
+    sizeInBytes: int
+    listSize: int
+
 class ListGremlinQueriesInputTypeDef(TypedDict):
     includeWaiting: NotRequired[bool]
 
@@ -415,6 +445,12 @@ class SubjectStructureTypeDef(TypedDict):
 class SparqlDataTypeDef(TypedDict):
     stmt: str
 
+class StartIndexRebuildInputTypeDef(TypedDict):
+    scope: NotRequired[ScopeType]
+    concurrency: NotRequired[int]
+    writeBufferSize: NotRequired[WriteBufferSizeType]
+    clientToken: NotRequired[str]
+
 StartLoaderJobInputTypeDef = TypedDict(
     "StartLoaderJobInputTypeDef",
     {
@@ -461,6 +497,12 @@ class StatisticsSummaryTypeDef(TypedDict):
 
 class CancelGremlinQueryOutputTypeDef(TypedDict):
     status: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CancelIndexRebuildOutputTypeDef(TypedDict):
+    status: RebuildStatusType
+    concurrency: int
+    writeBufferSize: WriteBufferSizeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CancelLoaderJobOutputTypeDef(TypedDict):
@@ -514,9 +556,25 @@ class ExecuteOpenCypherQueryOutputTypeDef(TypedDict):
     results: dict[str, Any]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetIndexRebuildStatusOutputTypeDef(TypedDict):
+    status: RebuildStatusType
+    scope: ScopeType
+    concurrency: int
+    writeBufferSize: WriteBufferSizeType
+    startTime: datetime
+    progressPercentage: int
+    estimatedEndTime: datetime
+    endTime: datetime
+    failureReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetLoaderJobStatusOutputTypeDef(TypedDict):
     status: str
     payload: dict[str, Any]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListIndexRebuildsOutputTypeDef(TypedDict):
+    rebuildIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListMLDataProcessingJobsOutputTypeDef(TypedDict):
@@ -533,6 +591,14 @@ class ListMLModelTrainingJobsOutputTypeDef(TypedDict):
 
 class ListMLModelTransformJobsOutputTypeDef(TypedDict):
     ids: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartIndexRebuildOutputTypeDef(TypedDict):
+    status: RebuildStatusType
+    rebuildId: str
+    scope: ScopeType
+    concurrency: int
+    writeBufferSize: WriteBufferSizeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartLoaderJobOutputTypeDef(TypedDict):
@@ -621,6 +687,17 @@ class DeleteSparqlStatisticsOutputTypeDef(TypedDict):
     status: str
     payload: DeleteStatisticsValueMapTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class DictionariesInfoTypeDef(TypedDict):
+    total: NotRequired[StorageMetricsTypeDef]
+    blobs: NotRequired[StorageMetricsTypeDef]
+
+class QuadsInfoTypeDef(TypedDict):
+    SPOG: NotRequired[StorageMetricsTypeDef]
+    POGS: NotRequired[StorageMetricsTypeDef]
+    GPSO: NotRequired[StorageMetricsTypeDef]
+    OSGP: NotRequired[StorageMetricsTypeDef]
+    PZSOG: NotRequired[StorageMetricsTypeDef]
 
 class ExecuteFastResetOutputTypeDef(TypedDict):
     status: str
@@ -772,6 +849,10 @@ class StatisticsTypeDef(TypedDict):
     note: NotRequired[str]
     signatureInfo: NotRequired[StatisticsSummaryTypeDef]
 
+class QuadsIndexesInfoTypeDef(TypedDict):
+    RDF: NotRequired[QuadsInfoTypeDef]
+    PG: NotRequired[QuadsInfoTypeDef]
+
 class ListGremlinQueriesOutputTypeDef(TypedDict):
     acceptedQueryCount: int
     runningQueryCount: int
@@ -826,6 +907,17 @@ class GetPropertygraphStatisticsOutputTypeDef(TypedDict):
 class GetSparqlStatisticsOutputTypeDef(TypedDict):
     status: str
     payload: StatisticsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetStorageOutputTypeDef(TypedDict):
+    totalStorageBytesUsed: int
+    quads: QuadsIndexesInfoTypeDef
+    dictionaries: DictionariesInfoTypeDef
+    undoLogs: UndoLogsMetricsTypeDef
+    streams: StorageMetricsTypeDef
+    dfeStatistics: StorageMetricsTypeDef
+    schema: StorageMetricsTypeDef
+    internals: StorageMetricsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPropertygraphSummaryOutputTypeDef(TypedDict):

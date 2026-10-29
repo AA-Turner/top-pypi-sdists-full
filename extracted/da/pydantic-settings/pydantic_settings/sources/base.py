@@ -274,28 +274,39 @@ def _get_discriminator(field_info: FieldInfo) -> str | Callable[[Any], Hashable]
     return discriminator.discriminator if isinstance(discriminator, Discriminator) else discriminator
 
 
-def _get_member_fields(model_cls: type[Any]) -> dict[str, FieldInfo]:
-    """Get the fields of a discriminated union member: a model, a pydantic dataclass or a stdlib dataclass."""
+def _get_member_field(model_cls: type[Any], name: str) -> FieldInfo | None:
+    """Get a field of a discriminated union member: a model, a pydantic dataclass or a stdlib dataclass.
+
+    Returns ``None`` if a stdlib dataclass field's annotation can't be resolved, e.g. when it names a class that
+    is only in a local scope, so a `Field()` in its `Annotated` metadata is then not found.
+    """
     if _is_model_or_dataclass(model_cls):
-        return _get_model_fields(model_cls)
-    # Pydantic doesn't attach `__pydantic_fields__` to a stdlib dataclass, so collect the `FieldInfo`s itself:
+        return _get_model_fields(model_cls).get(name)
+    # Pydantic doesn't attach `__pydantic_fields__` to a stdlib dataclass, so find the `FieldInfo` itself:
     # `Field()` is kept as the dataclass field's default, or in its `Annotated` metadata.
-    fields: dict[str, FieldInfo] = {}
-    hints = get_type_hints(model_cls, include_extras=True)
-    for dc_field in dataclass_fields(model_cls):
-        if isinstance(dc_field.default, FieldInfo):
-            fields[dc_field.name] = dc_field.default
-        else:
-            metadata = get_args(hints.get(dc_field.name))[1:]
-            field_info = next((m for m in metadata if isinstance(m, FieldInfo)), None)
-            if field_info is not None:
-                fields[dc_field.name] = field_info
-    return fields
+    dc_field = next((f for f in dataclass_fields(model_cls) if f.name == name), None)
+    if dc_field is None:
+        return None
+    if isinstance(dc_field.default, FieldInfo):
+        return dc_field.default
+    # Resolve this field's annotation alone, as another field may name a class that is only in a local scope.
+    # `typing` can't evaluate a single annotation, so it is put on a class created in the module of the class
+    # declaring the field, which may be a base in another module.
+    try:
+        # On Python 3.14+ reading `__annotations__` evaluates them, so it can raise `NameError` too
+        owner = next((c for c in model_cls.__mro__ if name in getattr(c, '__annotations__', {})), model_cls)
+        annotations_holder = type(
+            owner.__name__, (), {'__module__': owner.__module__, '__annotations__': {name: dc_field.type}}
+        )
+        hint = get_type_hints(annotations_holder, localns=dict(vars(owner)), include_extras=True)[name]
+    except NameError:
+        return None
+    return next((m for m in get_args(hint)[1:] if isinstance(m, FieldInfo)), None)
 
 
 def _get_discriminator_keys(model_cls: type[Any], discriminator: str) -> tuple[str, ...]:
     """Get the keys that can hold the discriminator value of a discriminated union member: its name and alias."""
-    alias = getattr(_get_member_fields(model_cls).get(discriminator), 'validation_alias', None)
+    alias = getattr(_get_member_field(model_cls, discriminator), 'validation_alias', None)
     return (discriminator, alias) if isinstance(alias, str) else (discriminator,)
 
 
@@ -307,6 +318,8 @@ def _get_nested_discriminators(annotation: Any) -> list[str] | None:
     reaching ``BlackCat`` requires both ``pet_type='cat'`` and ``color='black'``. Each one has to keep the
     default's value for its default to still apply.
 
+    A nested discriminator can be given as ``Discriminator(...)`` or ``Field(discriminator=...)``.
+
     Returns ``None`` if a nested discriminator can't be resolved to a field name (i.e. it is callable), as
     the member it selects can't be looked up in the incoming value.
     """
@@ -317,10 +330,18 @@ def _get_nested_discriminators(annotation: Any) -> list[str] | None:
         if arg is type(None):
             continue
         for metadata in get_args(arg)[1:]:
-            if isinstance(metadata, Discriminator):
-                if not isinstance(metadata.discriminator, str):
-                    return None
-                discriminators.append(metadata.discriminator)
+            # A nested discriminator is set either with `Discriminator(...)` or `Field(discriminator=...)`
+            if isinstance(metadata, FieldInfo):
+                discriminator = _get_discriminator(metadata)
+            elif isinstance(metadata, Discriminator):
+                discriminator = metadata.discriminator
+            else:
+                continue
+            if discriminator is None:
+                continue
+            if not isinstance(discriminator, str):
+                return None
+            discriminators.append(discriminator)
         nested = _get_nested_discriminators(arg)
         if nested is None:
             return None

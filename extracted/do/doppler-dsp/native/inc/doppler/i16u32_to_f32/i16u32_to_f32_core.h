@@ -44,7 +44,8 @@ extern "C" {
  * Allocate with dp_i16u32_to_f32_create().
  */
 typedef struct {
-    float iscale; /* 1.0f / scale, pre-computed for single-multiply step */
+    float iscale; /**< 1.0f / scale, pre-computed by create() so step()
+                       is a single multiply (config; never changes). */
 } dp_i16u32_to_f32_state_t;
 
 /**
@@ -55,8 +56,9 @@ typedef struct {
  *
  * @param scale  Denominator scale; 1/scale is applied after sign-extension
  *               (default: 32768.0f).  Use 32768.0 to match F32ToI16U32 at
- *               its default scale.
- * @return Heap-allocated state, or NULL on allocation failure.
+ *               its default scale.  Must be positive and finite.
+ * @return Heap-allocated state, or NULL if @p scale is not positive and
+ *         finite, or on allocation failure.
  * @note Caller must call dp_i16u32_to_f32_destroy() when done.
  */
 dp_i16u32_to_f32_state_t *dp_i16u32_to_f32_create(float scale);
@@ -120,8 +122,10 @@ dp_i16u32_to_f32_step(const dp_i16u32_to_f32_state_t *state, uint32_t x)
 /**
  * @brief Process a block of Q15-in-uint32 samples to float32.
  *
- * Applies step() to every element.  Accepts an optional pre-allocated output
- * array; allocates a fresh one when @p output is NULL.
+ * Applies step() to every element.
+ * In C, @p output must be a caller-owned array of at least @p n elements
+ * (NULL is not accepted).  From Python it is the optional `out=` array;
+ * the binding allocates a fresh one when omitted.
  *
  * @param state   Must be non-NULL.
  * @param input   Input uint32 array (Q15 packed in lower 16 bits);

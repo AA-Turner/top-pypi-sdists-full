@@ -30,6 +30,7 @@ _FIELDS = (
     "workspace_id",
     "workspace_name",
     "parent_project_id",
+    "part_of",
     "experiment_count",
     "run_count",
     "active_run_count",
@@ -128,6 +129,7 @@ def _smaller(row: dict):
         "workspace_id",
         "repo",
         "parent_project_id",
+        "part_of",
         "contributor_count",
         "code_source_count",
     ):

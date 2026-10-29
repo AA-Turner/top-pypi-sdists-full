@@ -20,6 +20,7 @@ class TestUserSettingsMiddlewareSaveLang(TestCase):
         }
         self.request.user.profile.language = 'de'
         self.request.user.is_anonymous = False
+        self.request.session = {}
         self.response = Mock()
         self.response.content = 'hello world'
 
@@ -32,6 +33,19 @@ class TestUserSettingsMiddlewareSaveLang(TestCase):
             self.response
             )
         self.assertEqual(self.response, response)
+
+    def test_middleware_save_language_false_impersonating(self):
+        """
+        Ensures the middleware wont change the usersettings
+        of a user being impersonated by a superuser
+        """
+        self.request.session = {"hijack_history": ["1"]}
+        self.middleware.process_response(
+            self.request,
+            self.response
+            )
+        self.assertEqual(self.request.user.profile.language, 'de')
+        self.assertFalse(self.request.user.profile.save.called)
 
     def test_middleware_save_language_false_anonymous(self):
         """

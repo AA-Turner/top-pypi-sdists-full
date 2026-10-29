@@ -755,6 +755,47 @@ def _env_moved(started: Path | None = None) -> bool:
         return False
 
 
+def runtime_follows_switch(installed: str) -> str | None:
+    """The CLI version the next service runs, given `installed`: what
+    runtime.json's interpreter answered. When the tool path names another env
+    than runtime.json's, runtime.json went stale after the switch: a restart
+    would start the env the switch replaced, and its guard would watch for the
+    wrong version and switch a good update back (10-28, probe demo: 0.339.0 ->
+    0.342.0 installed, the guard was started "for 0.339.0" and undid it). Then
+    runtime.json is pointed at the tool path's env and that env's version is
+    the answer. `installed` unchanged with no switch layout; None when they
+    disagree and it cannot be put right here (the env's version unreadable,
+    Probe being uninstalled): no restart then, since any would be watched for
+    the wrong version. Blocking (may read that version): a thread. Never
+    raises."""
+    try:
+        from probe._shared import installs
+
+        from . import client
+
+        active = installs.active()
+        python = client.runtime_python()
+        same = active is None or python is None or _resolved(str(Path(python).parent.parent)) == active
+    except Exception as exc:  # noqa: BLE001 -- nothing to check against: as before
+        log(f"could not check runtime.json against the tool path: {exc!r}")
+        return installed
+    if same:
+        return installed
+    try:
+        version = installs._dist_info_version(active)
+        if not version or client.uninstall_barrier() is not None:
+            log(f"runtime.json names {python} ({installed}) while the tool path names {active} "
+                f"({version or 'version unreadable'}): no restart this time")
+            return None
+        client.write_runtime(str(installs.env_python(active)), version)
+        log(f"runtime.json named {python} ({installed}) while the tool path names {active} ({version}): "
+            f"pointed it at {version}")
+        return version
+    except Exception as exc:  # noqa: BLE001 -- they disagree: no restart on what may be stale
+        log(f"could not point runtime.json at the tool path's env: {exc!r}")
+        return None
+
+
 def hand_over_workers(dirs: list[Path]) -> int:
     """After a side-by-side switch, ask every live session's running worker to
     hand over at its next safe point; its supervisor starts it again through
@@ -2476,6 +2517,8 @@ class Updater:
             log(f"version check after the update action could not start: {exc}")
             return
         installed = value.get("cli_version") if isinstance(value, dict) else None
+        if code == 0 and isinstance(installed, str) and installed:
+            installed = await asyncio.to_thread(runtime_follows_switch, installed)  # None: no restart
         moved = code == 0 and isinstance(installed, str) and bool(installed) and (
             installed != self.version or await asyncio.to_thread(_env_moved))
         if moved:
@@ -2549,7 +2592,9 @@ class Updater:
         if code != 0 or not isinstance(installed, str) or not installed:
             self._step(cycle_id, step, StepState.FAILED, detail="could not read the installed CLI version")
             return {"state": StepState.FAILED, "detail": "could not read the installed CLI version"}, False
-        restart = installed != self.version or await asyncio.to_thread(_env_moved)
+        followed = await asyncio.to_thread(runtime_follows_switch, installed)
+        installed = followed or installed
+        restart = followed is not None and (installed != self.version or await asyncio.to_thread(_env_moved))
         detail = {"from_version": self.version, "to_version": installed, "restart": restart}
         self._step(cycle_id, step, StepState.DONE, **detail)
         return {"state": StepState.DONE, **detail}, restart

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opencage
-Version: 3.4.0
+Version: 3.5.0
 Summary: Wrapper module for the OpenCage Geocoder API
 Author-email: OpenCage GmbH <info@opencagedata.com>
 License-Expression: BSD-3-Clause
@@ -12,20 +12,20 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: Requests>=2.31.0
+Requires-Dist: Requests>=2.33.0
 Requires-Dist: backoff>=2.2.1
-Requires-Dist: aiohttp>=3.10.5
+Requires-Dist: aiohttp>=3.14.4
 Provides-Extra: dev
 Requires-Dist: responses>=0.25.7; extra == "dev"
 Requires-Dist: flake8>=7.0.0; extra == "dev"
@@ -59,7 +59,7 @@ There is an [Agent Skill for working with the OpenCage Geocoding API](https://gi
 
 ## Usage
 
-Supports Python 3.9 or newer. Starting opencage version 3.0 depends on asyncio package.
+Supports Python 3.10 or newer. Starting opencage version 3.0 depends on asyncio package.
 
 Install the module:
 
@@ -127,7 +127,7 @@ with OpenCageGeocode(key) as geocoder:
 
 You can run requests in parallel with the `geocode_async` and `reverse_geocode_async`
 method which have the same parameters and response as their synronous counterparts.
-You will need at least Python 3.8 and the `asyncio` and `aiohttp` packages installed.
+You will need the `asyncio` and `aiohttp` packages installed.
 
 ```python
 async with OpenCageGeocode(key) as geocoder:
@@ -153,6 +153,8 @@ If anything goes wrong, then an exception will be raised:
 - `ForbiddenError` API key is blocked or suspended
 - `RateLimitExceededError` if you go past your rate limit
 - `UnknownError` if there's some problem with the API (bad results, 500 status code, etc)
+- `NetworkError` if the request fails at the network level (connection refused, DNS or TLS failure, etc)
+- `NetworkTimeoutError` if the request times out. A subclass of `NetworkError` and of `asyncio.TimeoutError`
 
 ## Command-line batch geocoding
 

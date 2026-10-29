@@ -22,6 +22,7 @@
 
 from __future__ import annotations
 
+import codecs
 import dataclasses
 import glob
 import html
@@ -41,12 +42,11 @@ from email.message import Message
 from urwid.str_util import calc_text_pos, calc_width, move_next_char
 from urwid.util import StoppingContext, get_encoding
 
-from .common import AttrSpec, BaseScreen, attr_spec_to_css
+from .common import AttrSpec, BaseScreen, _browser_href, attr_spec_to_css
 
 if typing.TYPE_CHECKING:
     from types import FrameType
-
-    from typing_extensions import Literal
+    from typing import Literal
 
     from urwid.canvas import Canvas
 
@@ -60,6 +60,8 @@ POLL_CONNECT = 3
 MAX_COLS = 200
 MAX_ROWS = 100
 MAX_READ = 4096
+# encoding of the keyboard input pipe, written by handle_short_request() and read by Screen.get_input()
+_PIPE_ENCODING: typing.Final = "utf-8"
 BUF_SZ = 16384
 
 # Characters that may appear in an id produced by secrets.token_urlsafe():
@@ -131,11 +133,13 @@ class Screen(BaseScreen):
         self.has_underline = True  # ignored: the browser renders underline as requested
         self._colour_index = _COLOUR_INDEX[self.colors]
         self.update_method = ""
-        self.last_screen: dict[tuple[tuple[AttrSpec | str | None, str] | int | None, ...], list[int]] = {}
+        self.last_screen: dict[tuple[tuple[AttrSpec, str] | int | None, ...], list[int]] = {}
         self.last_screen_width = 0
         self.pipe_name = ""
         self.input_fd: int | None = None
         self.input_tail = ""
+        # keeps a character split between two reads of the input pipe until its last byte arrives
+        self._input_decoder = codecs.getincrementaldecoder(_PIPE_ENCODING)("replace")
         self.content_head = ""
         self.screen_size: tuple[int, int] | None = None
         self.server_socket: socket.socket | None = None
@@ -240,6 +244,7 @@ class Screen(BaseScreen):
 
         self.input_fd = os.open(f"{self.pipe_name}.in", os.O_NONBLOCK | os.O_RDONLY)
         self.input_tail = ""
+        self._input_decoder.reset()
         self.content_head = (
             f"Content-type: multipart/x-mixed-replace;boundary=ZZ\r\nX-Urwid-ID: {urwid_id}\r\n\r\n\r\n--ZZ\r\n"
         )
@@ -306,7 +311,7 @@ class Screen(BaseScreen):
         if cols != self.last_screen_width:
             self.last_screen = {}
 
-        sendq = [self.content_head]
+        sendq: list[str] = [self.content_head]
 
         if self.update_method == "polling":
             send = sendq.append
@@ -314,9 +319,10 @@ class Screen(BaseScreen):
             signal.alarm(0)
             try:
                 s, _addr = typing.cast("socket.socket", self.server_socket).accept()
-            except socket.timeout:
+            except TimeoutError:
                 sys.exit(0)
-            send = s.sendall  # type: ignore[assignment]  # use default flags
+            sendq = []
+            send = sendq.append
         else:
             signal.alarm(0)
             send = sendq.append
@@ -329,18 +335,22 @@ class Screen(BaseScreen):
         if canvas.cursor is not None:
             cx, cy = canvas.cursor
         else:
-            cx = cy = None
+            cx = cy = -1  # no cursor: matches no row
 
-        new_screen: dict[tuple[tuple[AttrSpec | str | None, str] | int | None, ...], list[int]] = {}
+        new_screen: dict[tuple[tuple[AttrSpec, str] | int | None, ...], list[int]] = {}
 
         y = -1
         for row in canvas.content():
             y += 1
-            l_row = tuple((attr_, line.decode(encoding)) for attr_, _, line in row)
+            # resolved, so a row is sent again when a palette change gives it other colors
+            l_row = tuple(
+                (self.resolve_attr(attr_, self._colour_index), line.decode(encoding, "replace"))
+                for attr_, _, line in row
+            )
 
             line = []
 
-            sig: tuple[tuple[AttrSpec | str | None, str] | int | None, ...] = l_row
+            sig: tuple[tuple[AttrSpec, str] | int | None, ...] = l_row
             if y == cy:
                 sig = (*sig, cx)
             new_screen.setdefault(sig, []).append(y)
@@ -354,12 +364,8 @@ class Screen(BaseScreen):
                 continue
 
             col = 0
-            for a, run in l_row:
+            for aspec, run in l_row:
                 t_run = run.translate(_trans_table)
-                if isinstance(a, AttrSpec):
-                    aspec = a
-                else:
-                    aspec = self._palette[a][self._colour_index]
                 if y == cy and col <= cx:
                     run_width = calc_width(t_run, 0, len(t_run))
                     if col + run_width > cx:
@@ -380,6 +386,7 @@ class Screen(BaseScreen):
             sys.stdout.close()
             self._fork_child()
         elif self.update_method == "polling child":
+            s.sendall("".join(sendq).encode("utf-8"))  # handle_short_request() decodes UTF-8
             s.close()
         else:  # update_method == "multipart"
             send("\r\n--ZZ\r\n")
@@ -421,7 +428,7 @@ class Screen(BaseScreen):
             try:
                 s, _addr = typing.cast("socket.socket", self.server_socket).accept()
                 s.close()
-            except socket.timeout:
+            except TimeoutError:
                 sys.exit(0)
         else:
             # send empty update
@@ -454,7 +461,7 @@ class Screen(BaseScreen):
                 return [], []
             return []
 
-        keydata = os.read(input_fd, MAX_READ).decode(get_encoding())
+        keydata = self._input_decoder.decode(os.read(input_fd, MAX_READ))
         os.close(input_fd)
         self.input_fd = os.open(f"{self.pipe_name}.in", os.O_NONBLOCK | os.O_RDONLY)
         # sys.stderr.write( repr((keydata,self.input_tail))+"\n" )
@@ -475,17 +482,24 @@ class Screen(BaseScreen):
         return pending_input
 
 
-# the separator between a span's inline CSS and its text content in the wire format;
-# safe because control characters in the text have already been replaced by _trans_table
+# the separator between the fields of a span in the wire format: inline CSS, the optional link URL, and the text;
+# safe because control characters in the text have already been replaced by _trans_table,
+# and a Hyperlink URI is printable ASCII
 _STYLE_SEP = "\x01"
 
 
 def code_span(s: str, aspec: AttrSpec, cursor: int = -1) -> str:
-    """Return `s` wrapped in an HTML ``<code>`` span styled per `aspec`, with the cursor column highlighted."""
+    """Return `s` wrapped in an HTML ``<code>`` span styled per `aspec`, with the cursor column highlighted.
+
+    A piece is sent as ``css SEP text``, or as ``css SEP url SEP text`` when *aspec* has a hyperlink
+    with a scheme a browser may follow (see :ref:`hyperlinks`).
+    """
     fg, bg, extra = attr_spec_to_css(aspec)
+    href = _browser_href(aspec.hyperlink) if aspec.hyperlink is not None else None
+    link = "" if href is None else f"{href}{_STYLE_SEP}"
 
     def _piece(fg_: str, bg_: str, text: str) -> str:
-        return f"color:{fg_};background-color:{bg_}{extra}{_STYLE_SEP}{text}\n"
+        return f"color:{fg_};background-color:{bg_}{extra}{_STYLE_SEP}{link}{text}\n"
 
     if cursor >= 0:
         c_off, _ign = calc_text_pos(s, 0, len(s), cursor)
@@ -574,8 +588,8 @@ def handle_short_request() -> bool:
 
     try:
         try:
-            keydata = sys.stdin.read(MAX_READ)
-            encoded_keydata = keydata.encode(_request_charset())
+            keydata = sys.stdin.buffer.read(MAX_READ)
+            encoded_keydata = keydata.decode(_request_charset()).encode(_PIPE_ENCODING)
         except (LookupError, UnicodeError):
             sys.stdout.write("Status: 400 Bad Request\r\n\r\n")
             return True

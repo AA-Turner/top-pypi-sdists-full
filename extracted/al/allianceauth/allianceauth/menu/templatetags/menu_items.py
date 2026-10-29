@@ -1,9 +1,15 @@
 """Template tags for rendering the classic side menu."""
 
+__lazy_modules__ = ["django.http"]
+
+from typing import TYPE_CHECKING
+
 from django import template
-from django.http import HttpRequest
 
 from allianceauth.hooks import get_hooks
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
 
 register = template.Library()
 
@@ -19,7 +25,7 @@ def menu_items(context: dict) -> dict:
     return {"menu_items": items}
 
 
-def render_menu(request: HttpRequest):
+def render_menu(request: "HttpRequest") -> list[str]:
     """Return the rendered side menu for including in a template.
 
     This function is creating a BS3 style menu.

@@ -30,7 +30,17 @@ if TYPE_CHECKING:
 MIN_MUSIC_SECONDS = 3
 MAX_MUSIC_SECONDS = 300
 #: Used only when the caller named no length at all (a bed is always asked for the video's length by the pipeline).
-DEFAULT_MUSIC_SECONDS = 30
+DEFAULT_MUSIC_KEY = "default_length_seconds"
+#: KNOB MIRROR of platform.feature_knob "ai.music" "default_length_seconds"
+DEFAULT_MUSIC_MIRROR = 30
+
+
+def default_music_seconds() -> int:
+    """The length asked for when the caller named none, live (``ai.music.default_length_seconds``)."""
+    from matrx_ai.knobs import package_knob_number
+
+    return package_knob_number("ai.music", DEFAULT_MUSIC_KEY, DEFAULT_MUSIC_MIRROR,
+                               low=MIN_MUSIC_SECONDS, high=MAX_MUSIC_SECONDS)
 _OUTPUT_FORMAT = "mp3_44100_128"
 #: ElevenLabs error statuses (body ``detail.status``) that mean the PROMPT was declined, not that the service failed.
 _DECLINED_STATUSES = frozenset({"bad_prompt", "bad_composition_plan"})
@@ -38,7 +48,7 @@ _DECLINED_STATUSES = frozenset({"bad_prompt", "bad_composition_plan"})
 
 def music_length_seconds(config: UnifiedConfig) -> int:
     """The length to ask for: the config's own ``duration_seconds`` clamped to the provider's 3-300 s."""
-    asked = getattr(config, "duration_seconds", None) or DEFAULT_MUSIC_SECONDS
+    asked = getattr(config, "duration_seconds", None) or default_music_seconds()
     return int(min(MAX_MUSIC_SECONDS, max(MIN_MUSIC_SECONDS, round(float(asked)))))
 
 

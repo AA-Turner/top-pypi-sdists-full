@@ -43,6 +43,7 @@ from starlette.routing import Route
 
 from langgraph_api import config as lg_config
 from langgraph_api import store as api_store
+from langgraph_api.asyncio import NoSignalServer
 from langgraph_api.auth.custom import DotDict, ProxyUser, connection_method
 from langgraph_api.config import LANGGRAPH_AUTH, LANGGRAPH_AUTH_TYPE
 from langgraph_api.js.base import BaseRemotePregel, RemoteInterrupt
@@ -974,7 +975,7 @@ async def run_remote_checkpointer():
         ]
     )
 
-    server = uvicorn.Server(
+    server = NoSignalServer(
         uvicorn.Config(
             remote,
             port=REMOTE_PORT,

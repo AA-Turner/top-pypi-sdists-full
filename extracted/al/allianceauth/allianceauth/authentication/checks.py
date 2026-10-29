@@ -1,8 +1,15 @@
+__lazy_modules__ = ["django.core.checks"]
+
+from typing import TYPE_CHECKING
+
 from django.conf import settings
 from django.core.checks import Error
 
+if TYPE_CHECKING:
+    from django.core.checks import CheckMessage
 
-def check_login_scopes_setting(*args, **kwargs):
+
+def check_login_scopes_setting(*args, **kwargs) -> "list[CheckMessage]":
     errors = []
     try:
         assert settings.LOGIN_TOKEN_SCOPES

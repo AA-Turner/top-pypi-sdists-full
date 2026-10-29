@@ -14,7 +14,8 @@ def is_testenv_active(arg_string: Optional[str] = None) -> bool:
 
     Parameter
     ----------
-    arg_string  : optional, if None : str(sys.argv())
+    arg_string  : optional, if None : str(sys.argv()), and a pytest-xdist worker
+                  (PYTEST_XDIST_WORKER set) counts as pytest
 
 
     Result
@@ -32,6 +33,8 @@ def is_testenv_active(arg_string: Optional[str] = None) -> bool:
 
     >>> assert is_testenv_active() == True
     """
+    if arg_string is None and _is_pytest_xdist_worker():
+        return True
     arg_string = _get_sys_argv_str(arg_string)
     return is_doctest_active(arg_string=arg_string) or is_pytest_active(arg_string=arg_string) or is_setup_test_active(arg_string=arg_string)
 
@@ -71,7 +74,8 @@ def is_pytest_active(arg_string: Optional[str] = None) -> bool:
 
     Parameter
     ----------
-    arg_string  : optional, if None : str(sys.argv())
+    arg_string  : optional, if None : str(sys.argv()), and a pytest-xdist worker
+                  (PYTEST_XDIST_WORKER set) counts as pytest
 
 
     Result
@@ -88,6 +92,8 @@ def is_pytest_active(arg_string: Optional[str] = None) -> bool:
 
     """
 
+    if arg_string is None and _is_pytest_xdist_worker():
+        return True
     arg_string = _get_sys_argv_str(arg_string)
     # this is used in our tests when we test cli-commands
     if os.getenv("PYTEST_IS_RUNNING"):
@@ -165,6 +171,17 @@ def is_doctest_in_arg_string(arg_string: str) -> bool:
 
     """
     return "docrunner.py" in arg_string
+
+
+def _is_pytest_xdist_worker() -> bool:
+    """
+    returns True inside a pytest-xdist worker process
+
+    A worker is started by execnet as "python -c <bootstrap>", so its sys.argv names neither
+    pytest nor a test file; pytest-xdist sets PYTEST_XDIST_WORKER (gw0, gw1, ...) in every worker.
+    Only a call that reads the real process asks this: an explicit arg_string is judged alone.
+    """
+    return bool(os.getenv("PYTEST_XDIST_WORKER"))
 
 
 def _get_sys_argv_str(arg_string: Optional[str] = None) -> str:

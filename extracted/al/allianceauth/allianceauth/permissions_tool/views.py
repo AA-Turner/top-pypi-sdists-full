@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Count
@@ -6,12 +9,15 @@ from django.shortcuts import Http404, render
 
 from allianceauth.authentication.models import Permission
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 
 @login_required
 @permission_required('permissions_tool.audit_permissions')
-def permissions_overview(request):
+def permissions_overview(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"permissions_overview called by user {request.user}")
     perms = Permission.objects.select_related('content_type').all()\
         .annotate(Count('user', distinct=True))\
@@ -42,7 +48,7 @@ def permissions_overview(request):
 
 @login_required
 @permission_required('permissions_tool.audit_permissions')
-def permissions_audit(request, app_label, model, codename):
+def permissions_audit(request: "HttpRequest", app_label: str, model: str, codename: str) -> "HttpResponse":
     logger.debug(f"permissions_audit called by user {request.user} on {app_label}:{model}:{codename}")
     try:
         perm = Permission.objects\

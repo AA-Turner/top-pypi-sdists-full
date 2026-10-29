@@ -33,12 +33,11 @@ from urwid.util import calc_trim_text, get_encoding
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
-
-    from typing_extensions import Literal
+    from typing import Literal
 
     from urwid.widget import Align, WrapMode
 
-    _LayoutSegment = typing.Union[tuple[int, int, typing.Union[int | bytes]], tuple[int, typing.Union[int | None]]]
+    _LayoutSegment = tuple[int, int, int | bytes] | tuple[int, int | None]
     _LayoutLine = list[_LayoutSegment]
     _LayoutFormat = list[_LayoutLine]
 
@@ -184,7 +183,8 @@ class StandardTextLayout(TextLayout):
         """Return a layout structure for text."""
         try:
             segs = self.calculate_text_segments(text, width, wrap)
-            return self.align_layout(text, width, segs, wrap, align)  # type: ignore[arg-type]  # segs is narrowed
+            # list is invariant: the unaligned lines hold int offsets where a layout line allows None
+            return self.align_layout(text, width, segs, wrap, align)  # type: ignore[arg-type]
         except CanNotDisplayText:
             return [[]]
 
@@ -299,7 +299,7 @@ class StandardTextLayout(TextLayout):
                 pad_right = 0
 
             line: list[tuple[int, int, int | bytes] | tuple[int, int]] = []
-            if idx != end_off:
+            if idx != end_off and screen_columns:
                 line += [(screen_columns, idx, end_off)]
             if trimmed:
                 line += [(ellipsis_width, end_off, ellipsis_char)]
@@ -318,6 +318,9 @@ class StandardTextLayout(TextLayout):
     ) -> tuple[list[tuple[int, int, int | bytes] | tuple[int, int]], int, int]:
         """Lay out one line holding tab characters without wrapping it.
 
+        :param text: the text the line is part of
+        :param start: the offset in *text* where the line starts
+        :param end: the offset in *text* where the line ends
         :param limit: screen columns to stop at, ``None`` to lay out the whole line.
         :returns: the line segments, their total screen columns,
             and the text offset the layout stopped at (*end* unless *limit* cut the line short).
@@ -395,10 +398,13 @@ class StandardTextLayout(TextLayout):
                 elif wrap == "space":
                     # the tab at the line end is the break itself: drop it, as a space is dropped
                     lines.append([*line, (0, pos)])
-                    line, column, pos = [], 0, pos + 1
+                    line = []
+                    column = 0
+                    pos += 1
                 else:
                     lines.append(line)
-                    line, column = [], 0
+                    line = []
+                    column = 0
                 continue
 
             # the tab found for an earlier display line still ends the chunk this one continues
@@ -447,15 +453,18 @@ class StandardTextLayout(TextLayout):
                 else:
                     # break right after the preceding tab
                     lines.append(line)
-                    line, column = [], 0
+                    line = []
+                    column = 0
                     continue
 
-            if cut > pos:
-                line.append((calc_width(text, pos, cut), pos, cut))
+            if cut > pos and (chunk_width := calc_width(text, pos, cut)):
+                line.append((chunk_width, pos, cut))
             if resume > cut:
                 line.append((0, cut))  # removed character hint
             lines.append(line)
-            line, column, pos = [], 0, resume
+            line = []
+            column = 0
+            pos = resume
 
         lines.append([*line, (0, end)])  # removed character hint
         return lines
@@ -561,7 +570,7 @@ class StandardTextLayout(TextLayout):
                 if text[prev] == sp_o:
                     screen_columns = calc_width(text, idx, prev)
                     line: list[tuple[int, int, int | bytes] | tuple[int, int]] = [(0, prev)]
-                    if idx != prev:
+                    if screen_columns:
                         line = [(screen_columns, idx, prev), *line]
                     segments.append(line)
                     idx = prev + 1
@@ -708,7 +717,7 @@ class LayoutSegment:
             if self.end:
                 # use text passed as parameter (text)
                 spos, epos, pad_left, pad_right = calc_trim_text(text, self.offs, self.end, start, end)
-                lines: list[tuple[int, int, int] | tuple[int, int]] = []
+                lines: _LayoutLine = []
                 if pad_left:
                     lines.append((1, move_prev_char(text, self.offs, spos)))
                 # A window that both starts and ends inside wide characters has
@@ -718,7 +727,7 @@ class LayoutSegment:
                     lines.append((seg_cols, spos, epos))
                 if pad_right:
                     lines.append((1, epos))
-                return lines  # type: ignore[return-value]  # we're narrowing return type
+                return lines
 
         return [(end - start, self.offs)]
 
@@ -774,11 +783,12 @@ def trim_line(
     """
     Return a trimmed line of a text layout structure.
 
+    :param segs: layout line to trim
     :param text: text to which this layout structure applies
     :param start: starting screen column
     :param end: ending screen column
     """
-    result = []
+    result: _LayoutLine = []
     x = 0
     for seg in segs:
         sc = seg[0]
@@ -853,8 +863,7 @@ def calc_line_pos(
 ) -> int | None:
     """Calculate the closest linear position to pref_col given a line layout structure.
 
-    Returns None if no position found.
-
+    :returns: None if no position found.
     :raises TypeError: *pref_col* is neither an integer nor ``'left'``/``'right'``.
     """
     if pref_col in {"left", "right"}:
@@ -940,6 +949,7 @@ def calc_coords(
     :param layout: layout structure applied to text
     :param pos: integer position into text
     :param clamp: ignored right now
+    :returns: the (x, y) coordinates: the screen column and the line of the layout.
     """
     closest: tuple[int, tuple[int, int]] | None = None
     y = 0

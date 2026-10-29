@@ -2,17 +2,23 @@
 Django system checks for Alliance Auth
 """
 
+__lazy_modules__ = ["django.core.checks"]
+
 from datetime import datetime, timezone
 from sqlite3.dbapi2 import sqlite_version_info
+from typing import TYPE_CHECKING
 
 from celery import current_app
 from packaging.version import InvalidVersion, Version as Pep440Version
 
 from django import db
 from django.conf import settings
-from django.core.checks import CheckMessage, Error, Warning, register
+from django.core.checks import Error, Warning, register
 
 from allianceauth.utils.cache import get_redis_client
+
+if TYPE_CHECKING:
+    from django.core.checks import CheckMessage
 
 """
 A = System Packages
@@ -21,7 +27,7 @@ B = Configuration
 
 
 @register()
-def django_settings(app_configs, **kwargs) -> list[CheckMessage]:
+def django_settings(app_configs, **kwargs) -> "list[CheckMessage]":
     """
     Check that Django settings are correctly configured
 
@@ -111,7 +117,7 @@ def django_settings(app_configs, **kwargs) -> list[CheckMessage]:
 
 
 @register()
-def system_package_redis(app_configs, **kwargs) -> list[CheckMessage]:
+def system_package_redis(app_configs, **kwargs) -> "list[CheckMessage]":
     """
     Check that Redis is a supported version
 
@@ -177,7 +183,7 @@ def system_package_redis(app_configs, **kwargs) -> list[CheckMessage]:
 
 
 @register()
-def system_package_valkey(app_configs, **kwargs) -> list[CheckMessage]:
+def system_package_valkey(app_configs, **kwargs) -> "list[CheckMessage]":
     """
     Check that Valkey is a supported version
 
@@ -242,7 +248,7 @@ def system_package_valkey(app_configs, **kwargs) -> list[CheckMessage]:
 
 
 @register()
-def system_package_mysql(app_configs, **kwargs) -> list[CheckMessage]:
+def system_package_mysql(app_configs, **kwargs) -> "list[CheckMessage]":
     """
     Check that MySQL is a supported version
 
@@ -316,7 +322,7 @@ def system_package_mysql(app_configs, **kwargs) -> list[CheckMessage]:
 
 
 @register()
-def system_package_mariadb(app_configs, **kwargs) -> list[CheckMessage]:
+def system_package_mariadb(app_configs, **kwargs) -> "list[CheckMessage]":
     """
     Check that MariaDB is a supported version
     """
@@ -405,7 +411,7 @@ def system_package_mariadb(app_configs, **kwargs) -> list[CheckMessage]:
 
 
 @register()
-def system_package_sqlite(app_configs, **kwargs) -> list[CheckMessage]:
+def system_package_sqlite(app_configs, **kwargs) -> "list[CheckMessage]":
     """
     Check that SQLite is a supported version
 
@@ -442,7 +448,7 @@ def system_package_sqlite(app_configs, **kwargs) -> list[CheckMessage]:
 
 
 @register()
-def sql_settings(app_configs, **kwargs) -> list[CheckMessage]:
+def sql_settings(app_configs, **kwargs) -> "list[CheckMessage]":
     """
     Check that SQL settings are correctly configured
 
@@ -504,7 +510,7 @@ def sql_settings(app_configs, **kwargs) -> list[CheckMessage]:
 
 
 @register()
-def celery_settings(app_configs, **kwargs) -> list[CheckMessage]:
+def celery_settings(app_configs, **kwargs) -> "list[CheckMessage]":
     """
     Check that Celery settings are correctly configured
 

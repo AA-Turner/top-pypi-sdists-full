@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloudsmith-cli
-Version: 1.30.0
+Version: 1.30.1
 Summary: Cloudsmith Command-Line Interface (CLI)
 Author-email: Cloudsmith Ltd <support@cloudsmith.io>
 License-Expression: Apache-2.0
@@ -22,7 +22,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.11.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: certifi>=2024.7.4
+Requires-Dist: certifi>=2026.10.23
 Requires-Dist: click!=8.3.0,>=8.2
 Requires-Dist: click-configfile>=0.2.3
 Requires-Dist: click-didyoumean>=0.0.3

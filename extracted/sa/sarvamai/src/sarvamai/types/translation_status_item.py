@@ -35,6 +35,16 @@ class TranslationStatusItem(UniversalBaseModel):
     Total text segments for this target language (Office format jobs).
     """
 
+    chunks_completed: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Number of chunks translated so far (Markdown / plain-text jobs).
+    """
+
+    chunks_failed: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Number of chunks that failed translation (Markdown / plain-text jobs).
+    """
+
     error_message: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:

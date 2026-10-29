@@ -5,9 +5,9 @@ from __future__ import annotations
 import keyword
 from dataclasses import dataclass
 from math import isfinite, isnan
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
-from typing_extensions import Self
+from typing_extensions import Self, Sentinel
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -216,13 +216,35 @@ def _safe_non_finite_float(value: float) -> float:
     return _NonFiniteFloat(value) if not isfinite(value) else value
 
 
+def _safe_non_finite_value(value: Any) -> Any:
+    """Make every non-finite float of a parsed JSON value source-safe, copying only containers that hold one."""
+    match value:
+        case float():
+            return _safe_non_finite_float(value)
+        case dict():
+            safe_items = {key: _safe_non_finite_value(item) for key, item in value.items()}
+            return value if all(safe_items[key] is item for key, item in value.items()) else safe_items
+        case list():
+            safe_list = [_safe_non_finite_value(item) for item in value]
+            return value if all(safe is item for safe, item in zip(safe_list, value, strict=True)) else safe_list
+    return value
+
+
 def _semantic_value_text(value: object) -> str:
     """Return parser-internal text without source-literal replacements."""
     return repr(float(value)) if isinstance(value, _NonFiniteFloat) else str(value)
 
 
-_INTERNAL_TYPE_EXPRESSION_TOKEN = object()
+_INTERNAL_TYPE_EXPRESSION_TOKEN = Sentinel("_INTERNAL_TYPE_EXPRESSION_TOKEN")
 _INTERNAL_TYPE_EXPRESSION_ERROR = "internal type expressions must be created by the parser"
+
+
+class _TypeHintSource(Protocol):
+    """An object that renders a type hint with the current names of the classes it references."""
+
+    @property
+    def type_hint(self) -> str:
+        """The type hint with the current class names."""
 
 
 class _InternalTypeExpression(str):  # noqa: FURB189 - must remain string-compatible for template contexts.
@@ -230,22 +252,32 @@ class _InternalTypeExpression(str):  # noqa: FURB189 - must remain string-compat
 
     Public template data never creates this value.  The private token makes the
     raw-expression path unavailable to ordinary API and JSON template data.
+    ``source`` is the parser data type the expression was rendered from, when the
+    classes it references may still be renamed.
     """
 
     code: str
-    __slots__ = ("code",)
+    source: _TypeHintSource | None
+    __slots__ = ("code", "source")
 
-    def __new__(cls, value: str, token: object, code: str | None = None) -> Self:
+    def __new__(cls, value: str, token: object, code: str | None = None, source: _TypeHintSource | None = None) -> Self:
         if token is not _INTERNAL_TYPE_EXPRESSION_TOKEN:
             raise TypeError(_INTERNAL_TYPE_EXPRESSION_ERROR)
         obj = super().__new__(cls, value)
         obj.code = value if code is None else code
+        obj.source = source
         return obj
 
 
 def _make_internal_type_expression(value: str, code: str | None = None) -> _InternalTypeExpression:
-    """Mark a parser-generated type hint as safe to emit as Python source."""
-    return _InternalTypeExpression(value, _INTERNAL_TYPE_EXPRESSION_TOKEN, code)
+    """Mark a parser-generated type hint as safe to emit as Python source; an internal ``value`` keeps its source."""
+    source = value.source if isinstance(value, _InternalTypeExpression) else None
+    return _InternalTypeExpression(value, _INTERNAL_TYPE_EXPRESSION_TOKEN, code, source)
+
+
+def _make_referencing_type_expression(source: _TypeHintSource) -> _InternalTypeExpression:
+    """Mark the type hint of ``source`` so that it can be rendered again once class names are final."""
+    return _InternalTypeExpression(source.type_hint, _INTERNAL_TYPE_EXPRESSION_TOKEN, source=source)
 
 
 def _normalize_string(value: str) -> str:

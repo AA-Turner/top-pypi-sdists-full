@@ -1,6 +1,6 @@
 [project]
 name = "matrx-scheduler"
-version = "0.3.403"
+version = "0.3.404"
 description = "Server-side execution engine for the matrx scheduling spine (sch_* tables): scanner, claim, runner, cron parser, HTTP API."
 readme = "README.md"
 license = { text = "MIT" }
@@ -16,7 +16,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "matrx-utils>=2.0.97",
+    "matrx-utils>=2.0.98",
     "pydantic>=2.12",
     "croniter>=2.0",
     "supabase>=2.0",
@@ -25,8 +25,8 @@ dependencies = [
 [project.optional-dependencies]
 host = [
     "matrx-connect>=0.1.256",
-    "matrx-ai>=0.5.678",
-    "matrx-orm>=3.1.265",
+    "matrx-ai>=0.5.679",
+    "matrx-orm>=3.1.267",
 ]
 api = [
     "fastapi>=0.115",

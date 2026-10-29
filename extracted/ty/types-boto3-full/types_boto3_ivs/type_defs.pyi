@@ -164,6 +164,7 @@ __all__ = (
     "ThumbnailConfigurationOutputTypeDef",
     "ThumbnailConfigurationTypeDef",
     "ThumbnailConfigurationUnionTypeDef",
+    "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAdConfigurationRequestTypeDef",
     "UpdateAdConfigurationResponseTypeDef",
@@ -381,9 +382,7 @@ class VideoConfigurationTypeDef(TypedDict):
     track: NotRequired[str]
     profile: NotRequired[str]
 
-class InsertAdBreakRequestTypeDef(TypedDict):
-    channelArn: str
-    durationSeconds: int
+TimestampTypeDef = Union[datetime, str]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -564,6 +563,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 class InsertAdBreakResponseTypeDef(TypedDict):
     adBreakId: str
+    targetStartAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
@@ -719,6 +719,12 @@ class IngestConfigurationTypeDef(TypedDict):
 class IngestConfigurationsTypeDef(TypedDict):
     videoConfigurations: list[VideoConfigurationTypeDef]
     audioConfigurations: list[AudioConfigurationTypeDef]
+
+class InsertAdBreakRequestTypeDef(TypedDict):
+    channelArn: str
+    durationSeconds: int
+    adBreakId: NotRequired[str]
+    targetStartAt: NotRequired[TimestampTypeDef]
 
 class ListAdConfigurationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]

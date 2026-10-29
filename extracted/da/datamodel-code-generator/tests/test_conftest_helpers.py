@@ -58,6 +58,18 @@ def test_infer_expected_file(function_name: str, expected_file: str) -> None:
     assert _infer_expected_file(function_name) == expected_file
 
 
+@pytest.mark.parametrize(
+    ("stem", "limit", "expected"),
+    [
+        ("short", 40, "short.part1.py"),
+        ("a" * 40, 30, "aaaaaaaaaaaa~a5655941.part1.py"),
+    ],
+)
+def test_split_name(stem: str, limit: int, expected: str) -> None:
+    """Split names over the limit replace the end of the stem by a digest and fit the limit."""
+    assert units.split_name(stem, ".part1", ".py", limit) == expected
+
+
 def test_assert_exact_directory_content_reports_diff(tmp_path: Path) -> None:
     """Test exact directory comparison reports the mismatched file path."""
     output_dir = tmp_path / "output"
@@ -619,6 +631,68 @@ def test_z():
 
 def _shared(ledger: LedgerProject, **outputs: str) -> None:
     ledger.write("test_m.py", f"OUTPUTS = {outputs!r}\n{SHARED}")
+
+
+def test_test_part_and_shard_options_partition_collection(ledger: LedgerProject) -> None:
+    """The --test-part parts of a node id and the --test-shard shards each select every test once."""
+    ledger.write(
+        "test_m.py",
+        """
+        import pytest
+
+
+        @pytest.mark.parametrize("case", range(6))
+        def test_heavy(case):
+            pass
+
+
+        def test_heavy_other():
+            pass
+        """,
+    )
+
+    def collected(*args: str) -> list[str]:
+        result = ledger.run("--collect-only", "-q", "suite", *args)
+        return [line for line in result.stdout.lines if "::" in line]
+
+    heavy = "suite/test_m.py::test_heavy"
+    parts = [collected(f"--test-part={heavy}@{index}/2") for index in (1, 2)]
+    shards = [collected(f"--test-shard={index}/2") for index in (1, 2)]
+    every = collected()
+    assert all(f"{heavy}_other" in part for part in parts)
+    assert sorted(nodeid for part in parts for nodeid in part if nodeid.startswith(f"{heavy}[")) == sorted(
+        nodeid for nodeid in every if nodeid.startswith(f"{heavy}[")
+    )
+    assert all(len(part) == 4 for part in parts)
+    assert sorted(nodeid for shard in shards for nodeid in shard) == sorted(every)
+
+
+@pytest.mark.parametrize("narrow_first", [True, False])
+def test_test_part_gives_each_test_to_its_most_specific_part(ledger: LedgerProject, narrow_first: bool) -> None:
+    """Nested --test-part node ids select each test under the longest one, whatever the option order."""
+    ledger.write(
+        "test_m.py",
+        """
+        import pytest
+
+
+        @pytest.mark.parametrize("case", range(4))
+        def test_heavy(case):
+            pass
+
+
+        def test_light():
+            pass
+        """,
+    )
+    broad, narrow = "--test-part=suite/test_m.py@1/2", "--test-part=suite/test_m.py::test_heavy@2/2"
+    result = ledger.run("--collect-only", "-q", "suite", *((narrow, broad) if narrow_first else (broad, narrow)))
+    selected = sorted(line for line in result.stdout.lines if "::" in line)
+    assert selected == [
+        "suite/test_m.py::test_heavy[1]",
+        "suite/test_m.py::test_heavy[3]",
+        "suite/test_m.py::test_light",
+    ]
 
 
 def test_ledger_creates_derived_output_and_records_it(ledger: LedgerProject) -> None:
@@ -1551,6 +1625,44 @@ def test_ledger_file_inside_shared_tree(ledger: LedgerProject) -> None:
     ledger.run("suite/test_m.py::test_tree", "--inline-snapshot=fix").assert_outcomes(passed=1)
     assert ledger.files() == {"t/y.txt": "y\n", "t~file/x.txt": "x\n"}
     ledger.run("suite", env=GITHUB).assert_outcomes(passed=2)
+
+
+@pytest.mark.parametrize("depth", [90, 150])
+def test_ledger_long_split_names_fit_the_path_limit(ledger: LedgerProject, depth: int) -> None:
+    """A split of a file deep inside a stored tree gets a name that keeps its stored path within the path limit.
+
+    The name budget counts the path below the tree: a digest replaces the end of the tree's name (90), or the name and
+    the split mark when the mark alone does not fit (150).
+    """
+    below = ("d" * depth, "x.txt")
+    function, tree, stem = "f" * 60, "g" * 60, "t" * 40
+    ledger.write(
+        "test_m.py",
+        f"""
+        from pathlib import Path
+
+        from tests.conftest import assert_generated_modules_output, assert_output
+
+        EXPECTED = Path(__file__).parent / "data" / "expected"
+        X = "x\\n"
+
+
+        def test_{tree}():
+            assert_generated_modules_output({{{below!r}: "x\\n"}}, EXPECTED / {stem!r}, pattern="*")
+
+
+        def test_{function}():
+            assert_output(X, EXPECTED.joinpath({stem!r}, *{below!r}))
+        """,
+    )
+    ledger.run(f"suite/test_m.py::test_{tree}").assert_outcomes(passed=1)
+    ledger.run(f"suite/test_m.py::test_{function}").assert_outcomes(passed=1)
+    source = (ledger.suite / "test_m.py").read_text(encoding="utf-8")
+    ledger.write("test_m.py", source.replace('X = "x\\n"', 'X = "x2\\n"'))
+    ledger.run(f"suite/test_m.py::test_{function}", "--inline-snapshot=fix").assert_outcomes(passed=1)
+    split = next(name for name in ledger.files() if not name.startswith(f"{stem}/"))
+    assert len(f"suite/data/expected/{split}") <= 200
+    assert split.endswith("/".join(below))
 
 
 def test_ledger_tree_pattern_and_taken_names(ledger: LedgerProject) -> None:

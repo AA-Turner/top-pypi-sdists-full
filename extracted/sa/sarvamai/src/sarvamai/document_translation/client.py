@@ -66,7 +66,7 @@ class DocumentTranslationClient:
             Source language (BCP-47).
 
         original_filename : str
-            Original filename with extension. Supported: `.pdf`, `.doc`, `.docx`, `.odt`, `.xls`, `.xlsx`, `.ods`, `.ppt`, `.pptx`, `.odp`, `.html`, `.xhtml`, `.mhtml`.
+            Original filename with extension. Supported: `.pdf`, `.doc`, `.docx`, `.odt`, `.xls`, `.xlsx`, `.ods`, `.ppt`, `.pptx`, `.odp`, `.html`, `.xhtml`, `.mhtml`, `.md`, `.markdown`, `.txt`.
 
         target_language_codes : typing.Sequence[DocumentLanguage]
             Target languages (BCP-47).
@@ -229,6 +229,7 @@ class DocumentTranslationClient:
 
             - **PDF uploads:** may be set to `pdf` (default), `docx`, `html`, `txt`, or `epub`.
             - **Microsoft Office uploads** (`.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, and related formats): always export in the original format only; other values are rejected.
+            - **Markdown / plain-text uploads** (`.md`, `.markdown`, `.txt`): export in the original format only — `md` (`markdown` is accepted as an alias) or `txt`.
 
         fit_line_height : typing.Optional[bool]
             When true, the export may reduce line spacing to fit translated text within the original layout. PDF/DOCX only.
@@ -367,7 +368,7 @@ class AsyncDocumentTranslationClient:
             Source language (BCP-47).
 
         original_filename : str
-            Original filename with extension. Supported: `.pdf`, `.doc`, `.docx`, `.odt`, `.xls`, `.xlsx`, `.ods`, `.ppt`, `.pptx`, `.odp`, `.html`, `.xhtml`, `.mhtml`.
+            Original filename with extension. Supported: `.pdf`, `.doc`, `.docx`, `.odt`, `.xls`, `.xlsx`, `.ods`, `.ppt`, `.pptx`, `.odp`, `.html`, `.xhtml`, `.mhtml`, `.md`, `.markdown`, `.txt`.
 
         target_language_codes : typing.Sequence[DocumentLanguage]
             Target languages (BCP-47).
@@ -554,6 +555,7 @@ class AsyncDocumentTranslationClient:
 
             - **PDF uploads:** may be set to `pdf` (default), `docx`, `html`, `txt`, or `epub`.
             - **Microsoft Office uploads** (`.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, and related formats): always export in the original format only; other values are rejected.
+            - **Markdown / plain-text uploads** (`.md`, `.markdown`, `.txt`): export in the original format only — `md` (`markdown` is accepted as an alias) or `txt`.
 
         fit_line_height : typing.Optional[bool]
             When true, the export may reduce line spacing to fit translated text within the original layout. PDF/DOCX only.

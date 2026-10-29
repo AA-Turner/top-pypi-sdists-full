@@ -1,5 +1,5 @@
 # File: matrx_scraper/db/models_scraper.py
-from matrx_orm import BooleanField, CharField, DateTimeField, DecimalField, EnumField, ForeignKey, IntegerField, JSONBField, MatrxEntity, Model, TextField, UUIDField, model_registry, BaseDTO, BaseManager
+from matrx_orm import BooleanField, CharField, DateTimeField, DecimalField, EnumField, ForeignKey, IntegerField, JSONBField, MatrxEntity, TextField, UUIDField, model_registry, BaseDTO, BaseManager
 from enum import StrEnum
 from dataclasses import dataclass
 from typing import ClassVar

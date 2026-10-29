@@ -603,6 +603,36 @@ def test_main_graphql_enums_subclass(output_file: Path) -> None:
     )
 
 
+def test_main_graphql_enums_subclass_specialized(output_file: Path) -> None:
+    """Write GraphQL enums as importable StrEnum classes under --use-subclass-enum on Python 3.11+.
+
+    A StrEnum subclasses str already, so it takes no extra str base: up to 0.86.0 the output was
+    ``class Color(str, StrEnum)``, which fails at import (no consistent method resolution order).
+    """
+    run_main_and_assert(
+        input_path=GRAPHQL_DATA_PATH / "enums.graphql",
+        output_path=output_file,
+        input_file_type="graphql",
+        extra_args=["--target-python-version", "3.11", "--use-subclass-enum"],
+        force_exec_validation=True,
+    )
+
+
+def test_main_graphql_enums_dated_preset(output_file: Path) -> None:
+    """Write GraphQL enums as importable StrEnum classes under a dated preset, which sets --use-subclass-enum.
+
+    The preset's own target is passed too, so that the output (``type`` statements) is compiled and imported only on
+    Python 3.14 and compared everywhere.
+    """
+    run_main_and_assert(
+        input_path=GRAPHQL_DATA_PATH / "enums.graphql",
+        output_path=output_file,
+        input_file_type="graphql",
+        extra_args=["--preset", "standard-py314-20261017", "--target-python-version", "3.14"],
+        force_exec_validation=True,
+    )
+
+
 @pytest.mark.skipif(
     black.__version__.split(".")[0] == "19",
     reason="Installed black doesn't support the old style",
@@ -1205,4 +1235,33 @@ def test_main_graphql_alias_generator_union_members(output_file: Path, target_py
             "--graphql-no-typename",
             *target_pydantic_args(target_pydantic_version),
         ],
+    )
+
+
+@pytest.mark.parametrize(
+    "output_model_type",
+    [
+        pytest.param("pydantic_v2.dataclass", id="pydantic-dataclass"),
+        pytest.param("msgspec.Struct", id="msgspec"),
+    ],
+)
+def test_main_graphql_strip_default_none_constructor_order(output_model_type: str, output_file: Path) -> None:
+    """Order a nullable field after the required ones under --strip-default-none.
+
+    A Pydantic dataclass keeps ``= None`` on a nullable field, and msgspec.Struct keeps every default.
+    """
+    run_main_and_assert(
+        input_path=GRAPHQL_DATA_PATH / "strip_default_none_constructor_order.graphql",
+        output_path=output_file,
+        input_file_type="graphql",
+        extra_args=[
+            "--output-model-type",
+            output_model_type,
+            "--strip-default-none",
+            "--target-python-version",
+            "3.10",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
     )

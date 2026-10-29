@@ -1,5 +1,6 @@
 #include "doppler/burst_despreader/burst_despreader_core.h"
 #include "doppler/dp_complex.h"
+#include "doppler/mpsk/mpsk_core.h" /* mpsk_bpsk_bit -- the ONE polarity */
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -25,19 +26,40 @@ chip_sign (uint8_t c)
   return (c & 1u) ? -1.0f : 1.0f;
 }
 
+/* The symbol period in force, in samples: the acq code's while a set_acq
+ * preamble is still running, the data code's after. The carrier loop's
+ * integrator holds the per-SYMBOL phase advance, car_w = integ / this, so
+ * every write of a frequency into it scales by this and nothing else
+ * (#2648). steps() reads the same rule at each symbol boundary. */
+static size_t
+burst_despreader_cur_tsamps (const dp_burst_despreader_state_t *s)
+{
+  return (s->preamble_left > 0 ? s->acq_sf : s->sf) * s->sps;
+}
+
+/* Write a carrier frequency (rad/sample) into the NCO and the carrier
+ * loop's integrator, at the symbol period in force. */
+static void
+burst_despreader_put_car_w (dp_burst_despreader_state_t *s, double w)
+{
+  s->car_w        = w;
+  s->lf_car.integ = w * (double)burst_despreader_cur_tsamps (s);
+}
+
 /* Seed/clear the per-symbol and loop state to the create-time conditions. */
 static void
 burst_despreader_seed (dp_burst_despreader_state_t *s)
 {
   dp_loop_filter_reset (&s->lf_car);
   dp_loop_filter_reset (&s->lf_code);
-  /* The carrier integrator holds the per-symbol phase advance; seed it from
-   * the create-time per-sample angular frequency. */
-  s->lf_car.integ = s->seed_w * (double)s->tsamps;
-  s->car_w        = s->seed_w;
-  s->car_phase    = 0.0;
-  s->chip_pos     = s->seed_chip;
-  s->code_rate    = 1.0;
+  /* Re-arm the preamble FIRST: it decides the symbol period the seed
+   * frequency is scaled by. Seeding at the data period while a preamble
+   * ran gave seed * sf / acq_sf at the first symbol (#2648). */
+  s->preamble_left = s->acq_reps; /* re-arm preamble-aided pull-in */
+  burst_despreader_put_car_w (s, s->seed_w);
+  s->car_phase = 0.0;
+  s->chip_pos  = s->seed_chip;
+  s->code_rate = 1.0;
   s->acc_e = s->acc_p = s->acc_l = 0.0f;
   s->lock_metric                 = 0.0;
   s->snr_est                     = 0.0;
@@ -45,7 +67,6 @@ burst_despreader_seed (dp_burst_despreader_state_t *s)
   s->sum_re2                     = 0.0;
   s->sum_im2                     = 0.0;
   s->stat_n                      = 0;
-  s->preamble_left = s->acq_reps; /* re-arm preamble-aided pull-in */
 }
 
 dp_burst_despreader_state_t *
@@ -116,27 +137,46 @@ burst_despreader_acq_ok (size_t acq_sf, size_t acq_reps, size_t preamble_left)
   return preamble_left <= acq_reps;
 }
 
-void
+int
 dp_burst_despreader_set_acq (dp_burst_despreader_state_t *state,
                              const uint8_t *acq_code, size_t acq_code_len,
                              size_t acq_reps)
 {
-  free (state->acq_code);
-  state->acq_code      = NULL;
-  state->acq_sf        = 0;
-  state->acq_reps      = 0;
-  state->preamble_left = 0;
   if (!acq_code || acq_code_len == 0
       || !burst_despreader_acq_ok (acq_code_len, acq_reps, 0))
-    return; /* disable: payload-only */
-  state->acq_code = malloc (acq_code_len);
-  if (!state->acq_code)
-    return;
+    {
+      /* The documented disable: payload-only. */
+      free (state->acq_code);
+      state->acq_code      = NULL;
+      state->acq_sf        = 0;
+      state->acq_reps      = 0;
+      state->preamble_left = 0;
+      /* The period in force may have changed: keep the tracked frequency
+         (#2648). */
+      burst_despreader_put_car_w (state, state->car_w);
+      return DP_OK;
+    }
+  /* Allocate before touching the state (#2647): a failure used to leave
+     the preamble silently disabled, and the preamble's chips were then
+     despread as payload. Now it is reported and the previous preamble, or
+     its absence, stands. */
+  uint8_t *copy = malloc (acq_code_len);
+  if (!copy)
+    return DP_ERR_MEMORY;
   for (size_t i = 0; i < acq_code_len; i++)
-    state->acq_code[i] = acq_code[i];
+    copy[i] = acq_code[i];
+  free (state->acq_code);
+  state->acq_code      = copy;
   state->acq_sf        = acq_code_len;
   state->acq_reps      = acq_reps;
   state->preamble_left = acq_reps;
+  /* The preamble's symbol period is now in force: rescale the carrier
+     integrator so the tracked frequency carries over unchanged, as the
+     preamble -> payload switch in steps() does the other way. Without it a
+     frequency seeded at the data period read back as car_w * sf / acq_sf
+     at the first preamble symbol (#2648). */
+  burst_despreader_put_car_w (state, state->car_w);
+  return DP_OK;
 }
 
 void
@@ -260,6 +300,42 @@ chip_index (double pos, size_t n)
   return (size_t)pos;
 }
 
+/* The preamble sets the payload's ABSOLUTE phase (#2664). Called once, at
+   the preamble -> payload handover, after the carrier loop has stepped on
+   the last preamble prompt, whose phase error is e_last.
+
+   The payload's decision-directed Costas detector is blind to a rotation by
+   pi: it settles on whichever of 0 and pi is nearer when it takes over. A
+   short preamble need not have pulled the carrier in -- five 512-chip reps
+   against an unseeded 4e-5 cycles/sample offset end 1.8 rad off -- so the
+   payload used to lock at pi and decode complemented. The receiver was told
+   better: every preamble symbol is the known +1 (bit 0 under 1 - 2b), and
+   e_last = atan2(Im P, Re P) is already the phase of the prompt's
+   correlation with it. So the handover finishes the job the loop's
+   proportional step began: that step turned the NCO by kp * e_last, this
+   turns it by the rest, and the payload starts at the preamble's phase.
+   It turns the NCO itself, so every later prompt, soft symbol, bit and the
+   SNR and lock statistics see the corrected carrier.
+
+   Why the whole error and not only pi when it is past pi/2: a residual near
+   pi/2 is a coin flip either way, and the sign alone misjudged it. Measured
+   over 16 phases x f0 in 0..8e-5 x 3 seeds, per reps (1..5) and chip SNR
+   (none, -3, -6 dB): the sign test still inverted up to 39 of those 288
+   bursts, and this none; out to f0 = 1.6e-4 it still inverts none. The half
+   symbol the residual frequency drifts between the prompt's midpoint and the
+   handover is left to the Costas loop, which pulls in from there: it is a
+   fraction of a radian wherever the preamble's loop tracks at all.
+
+   No threshold, no abstention: the phase of a prompt with no signal in it
+   is noise, and so is a payload that follows it. Needs no state: e_last is
+   this boundary's own prompt. */
+static void
+burst_despreader_take_preamble_phase (dp_burst_despreader_state_t *s,
+                                      double                       e_last)
+{
+  s->car_phase += (1.0 - s->lf_car.kp) * e_last;
+}
+
 /* Shared streaming kernel: carrier wipe-off, early/prompt/late despread, and
  * per-symbol integrate-and-dump driving the two tracking loops. Exactly one of
  * csym / bits is non-NULL; returns the number of symbols emitted. */
@@ -277,7 +353,7 @@ despread_run (dp_burst_despreader_state_t *s, const float _Complex *x,
   int            preamble   = s->preamble_left > 0;
   const uint8_t *code       = preamble ? s->acq_code : s->code;
   size_t         cur_sf     = preamble ? s->acq_sf : s->sf;
-  size_t         cur_tsamps = cur_sf * s->sps;
+  size_t         cur_tsamps = burst_despreader_cur_tsamps (s);
 
   for (size_t n = 0; n < x_len && n_out < max_out; n++)
     {
@@ -316,7 +392,7 @@ despread_run (dp_burst_despreader_state_t *s, const float _Complex *x,
           if (bitsym_csym)
             bitsym_csym[n_out] = P / (float)cur_tsamps;
           else
-            bits[n_out] = (crealf (P) >= 0.0f) ? 1u : 0u;
+            bits[n_out] = mpsk_bpsk_bit (crealf (P));
           n_out++;
         }
 
@@ -375,12 +451,12 @@ despread_run (dp_burst_despreader_state_t *s, const float _Complex *x,
           s->preamble_left--;
           if (s->preamble_left == 0)
             {
-              size_t new_tsamps = s->sf * s->sps;
-              s->lf_car.integ   = s->car_w * (double)new_tsamps;
-              preamble          = 0;
-              code              = s->code;
-              cur_sf            = s->sf;
-              cur_tsamps        = new_tsamps;
+              burst_despreader_take_preamble_phase (s, e_cos);
+              burst_despreader_put_car_w (s, s->car_w);
+              preamble   = 0;
+              code       = s->code;
+              cur_sf     = s->sf;
+              cur_tsamps = burst_despreader_cur_tsamps (s);
             }
         }
     }
@@ -452,8 +528,7 @@ dp_burst_despreader_get_norm_freq (const dp_burst_despreader_state_t *s)
 void
 dp_burst_despreader_set_norm_freq (dp_burst_despreader_state_t *s, double val)
 {
-  s->car_w        = val * 2.0 * M_PI;
-  s->lf_car.integ = s->car_w * (double)s->tsamps;
+  burst_despreader_put_car_w (s, val * 2.0 * M_PI);
 }
 double
 dp_burst_despreader_get_code_phase (const dp_burst_despreader_state_t *s)

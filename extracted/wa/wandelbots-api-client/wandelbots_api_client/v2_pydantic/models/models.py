@@ -712,6 +712,10 @@ class ServiceStatus(BaseModel):
     service: str
     group: ServiceGroup
     status: Status
+    modified: bool = False
+    """
+    Indicates the service uses an image tag override.
+    """
 
 
 ServiceStatusList = TypeAliasType("ServiceStatusList", list[ServiceStatus])
@@ -1081,6 +1085,22 @@ class UpdateNovaVersionRequest(BaseModel):
     """
 
 
+class SystemFeatures(BaseModel):
+    """
+    Features that are enabled on this Wandelbots NOVA instance.
+
+    """
+
+    physical_devices_enabled: bool
+    """
+    Indicates whether this instance supports physical devices.
+    If `false`, the instance rejects physical robot controllers, PROFINET bus I/O services
+    and MODBUS server bus I/O services with HTTP status 400.
+    Virtual robot controllers are not affected by this setting.
+
+    """
+
+
 class User(BaseModel):
     """
     Identity information for the session user. On unmanaged instances all fields are empty strings representing an anonymous user.
@@ -1301,7 +1321,7 @@ class License(BaseModel):
     """
     Name of the licensed product.
     """
-    owner_email: EmailStr
+    owner_email: EmailStr | None = None
     """
     Mail address of the license owner.
     """
@@ -1338,10 +1358,17 @@ class License(BaseModel):
 
 class ActivateLicenseRequest(BaseModel):
     """
-    The authentication token to fetch the license from the license server.
+    Either a license key or an owner refresh token to activate a license. Exactly one of the two must be provided.
     """
 
-    owner_refresh_token: str
+    license_key: str | None = None
+    """
+    The license key to activate directly.
+    """
+    owner_refresh_token: str | None = None
+    """
+    The authentication token used to fetch the license from the license server.
+    """
 
 
 class MotionGroupModelDescription(BaseModel):
@@ -1376,6 +1403,11 @@ class MotionGroupModelCatalog(BaseModel):
     readable_name: str = Field(..., examples=["UR10e"])
     """
     Readable name for the motion group.
+    """
+    serial_number: str | None = Field(None, examples=["000000"])
+    """
+    Serial number of the physical robot this motion group model was created for. Empty if configuration didn't return data.
+
     """
 
 
@@ -4839,13 +4871,6 @@ class RerunLoggingConfigurationRequest(BaseModel):
     """
     Whether new Rerun logging sessions should be enabled.
     """
-    rerun_url: str | None = None
-    """
-    Optional gRPC URL for the Rerun viewer.
-    Omit this field to keep the current URL.
-    Set it to `null` or an empty string to clear the current URL.
-
-    """
 
 
 class RerunLoggingConfigurationResponse(BaseModel):
@@ -4856,10 +4881,6 @@ class RerunLoggingConfigurationResponse(BaseModel):
     rerun: str | None = None
     """
     Raw value of the `RERUN` environment variable in the service process.
-    """
-    rerun_url: str | None = None
-    """
-    Current Rerun gRPC URL used by the service process, if any.
     """
 
 
@@ -5608,6 +5629,12 @@ class ActionChunkRequest(BaseModel):
     waypoints: list[Waypoint]
     """
     List of waypoints.
+
+    """
+    delay_until_braking: int | None = Field(None, ge=0)
+    """
+    Upon completing the chunk, the motion group will maintain its velocity for the specified delay in [ms] until braking.
+    Recommended for sending chunks of length 1, e.g., teleoperation, policies without foresight, etc.
 
     """
 

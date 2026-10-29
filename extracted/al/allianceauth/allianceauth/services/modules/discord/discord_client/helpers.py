@@ -1,7 +1,12 @@
-from collections.abc import Iterable
+__lazy_modules__ = ["collections.abc"]
+
 from copy import copy
+from typing import TYPE_CHECKING
 
 from .models import Role
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
 
 
 class RolesSet:
@@ -15,7 +20,7 @@ class RolesSet:
     Args:
         roles_lst: List of dicts, each defining a role
     """
-    def __init__(self, roles_lst: Iterable[Role]) -> None:
+    def __init__(self, roles_lst: "Iterable[Role]") -> None:
         if not isinstance(roles_lst, list | set | tuple):
             raise TypeError('roles_lst must be of type list, set or tuple')
         self._roles = {}
@@ -33,21 +38,21 @@ class RolesSet:
             roles = ""
         return f'{self.__class__.__name__}([{roles}])'
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, type(self)):
             return self.ids() == other.ids()
         return NotImplemented
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(tuple(sorted(self._roles.keys())))
 
-    def __iter__(self):
+    def __iter__(self) -> "Iterator[Role]":
         yield from self._roles.values()
 
     def __contains__(self, item) -> bool:
         return int(item) in self._roles
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._roles.keys())
 
     def has_roles(self, role_ids: set[int]) -> bool:
@@ -64,9 +69,9 @@ class RolesSet:
 
     def subset(
         self,
-        role_ids: Iterable[int] = None,
+        role_ids: "Iterable[int]" = None,
         managed_only: bool = False,
-        role_names: Iterable[str] = None
+        role_names: "Iterable[str]" = None
     ) -> "RolesSet":
         """Create instance containing the subset of roles
 

@@ -1,10 +1,12 @@
 """Define protein molecular dynamics workflows and trajectory results."""
 
+from decimal import Decimal
 from typing import Annotated, Any, Self
 
 from pydantic import AfterValidator, AliasChoices, BaseModel, Field, NonNegativeFloat, NonNegativeInt, PositiveFloat, PositiveInt, model_validator
 
 from ..base import Base, UniqueList, round_float
+from ..enhanced_sampling import REST2Settings
 from ..method import FFMethod, Method, ProteinForceField, WaterForceField
 from ..pdb import PDB
 from ..restraint import MDRestraints
@@ -196,6 +198,12 @@ class ProteinMDSettingsMixin(Base, ProteinMDSimulationSettings):
 class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureWorkflow):
     """Protein molecular dynamics workflow.
 
+    With REST2, `num_trajectories` counts independent exchange ensembles. Production
+    duration applies to every replica. Each ensemble saves only the unscaled (λ=1)
+    state trajectory and computes analyses from those frames. This trajectory
+    follows the state through exchanges, not a fixed replica. Exchange trajectories
+    describe equilibrium sampling, not physical kinetics.
+
     Attributes:
         protein: PDB or UUID of the (holo) protein.
         equilibration_time_ns: how long to equilibrate trajectories for, in ns
@@ -214,6 +222,7 @@ class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureW
             quantities (SASA, polar SASA), in ps; `None` disables those analyses
 
         num_trajectories: number of trajectories to run
+        enhanced_sampling: enhanced sampling settings; `None` uses conventional MD
         save_solvent: save solvent when true
         num_solvent_to_save: saves this many solvent molecules nearest the binder, or all if None;
             only meaningful when save_solvent is True and a binder is present
@@ -246,6 +255,7 @@ class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureW
     """
 
     num_trajectories: PositiveInt = 1
+    enhanced_sampling: REST2Settings | None = Field(default=None, discriminator="type")
     save_solvent: bool = False
     num_solvent_to_save: PositiveInt | None = None
 
@@ -260,6 +270,18 @@ class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureW
     bonds: list[tuple[int, int]] = []
     trajectories: list[BindingPoseTrajectory] = []
     hydration_sites: list[HydrationSite] = []
+
+    @model_validator(mode="after")
+    def validate_enhanced_sampling(self) -> Self:
+        """Validate REST2 against the physical temperature and integration timestep."""
+        if self.enhanced_sampling is None:
+            return self
+        if self.enhanced_sampling.effective_temperatures[0] != self.temperature:
+            raise ValueError("effective_temperatures must start at the workflow temperature")
+        interval_fs = Decimal(str(self.enhanced_sampling.exchange_interval_ps)) * 1000
+        if interval_fs % Decimal(str(self.timestep_fs)) != 0:
+            raise ValueError("exchange_interval_ps must be an integer multiple of timestep_fs")
+        return self
 
     @model_validator(mode="after")
     def validate_restraints(self) -> Self:

@@ -74,7 +74,7 @@ from typing import Any, Literal
 from matrx_graph.actions import register_node
 from matrx_graph.errors import ExecutionError
 from matrx_graph.types.context import NodeExecutionContext
-from matrx_graph.types.primitives import ActionTier, NodeCategory
+from matrx_graph.types.primitives import ActionTier, NodeCategory, RetryPolicy
 from matrx_graph.types.result import RESERVED_PAYLOAD_FIELDS, NodeResult, failure, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field
@@ -84,10 +84,15 @@ from matrx_ai.graph_nodes.agent_action import (
     AgentStartConfig,
     AgentStartInput,
     MandateSelectorInput,
+    StepProtectionInput,
     build_agent_request,
+    job_variable_binder,
+    refuse_if_mandate_paused,
     require_agent_host,
     resolve_step_agent_full,
-    run_step_agent,
+    run_sampled_firewall_check,
+    run_walled_step_agent,
+    step_firewall,
     step_result_version,
 )
 from matrx_ai.graph_nodes.iteration_limit import resolve_step_iteration_limit
@@ -97,14 +102,14 @@ from matrx_ai.graph_nodes.shared import (
     ai_output_failure,
     normalize_completed_result,
 )
-from matrx_ai.kinds import is_bindable_kind, response_format_for_kind
+from matrx_ai.kinds import TEXT_SHAPED_KINDS, is_bindable_kind, response_format_for_kind
 
 logger = logging.getLogger(__name__)
 
 _NODE_TYPE = "ai.agent.produce"
 
 
-class AgentProduceInput(AgentStartInput, MandateSelectorInput):
+class AgentProduceInput(AgentStartInput, MandateSelectorInput, StepProtectionInput):
     """``ai.agent.start``'s input, plus the optional Mandate selector.
 
     Deliberately a subclass and not a trimmed copy: everything the API supports
@@ -120,6 +125,8 @@ class AgentProduceInput(AgentStartInput, MandateSelectorInput):
     shared resolver refuses both.
     """
 
+    # The request firewall fields come from ``StepProtectionInput`` — the SAME declaration Run
+    # Mandate has, enforced the same way (``run_walled_step_agent``), so converting a step keeps it.
     # Pydantic merges multiple-inheritance config from left to right, so the
     # strict MandateSelectorInput base would otherwise overwrite
     # AgentStartInput's dynamic variable-port contract. Produce nodes accept
@@ -194,6 +201,14 @@ class TypedAgentConfig(AgentStartConfig):
             "the same fields Run Agent and Run Mandate hand over."
         ),
     )
+    mandate_key_origin: str | None = Field(
+        default=None,
+        title="Runs as job",
+        description=(
+            "The mandate this step was converted from. The step still runs that job's protections: "
+            "its dispatch guards, closed context, spend approval and pause switch."
+        ),
+    )
     output_kind: str | None = Field(
         default=None,
         title="Output kind",
@@ -237,6 +252,46 @@ def _with_run_envelope(
 #: 2026-10-27: goal + grading are the point, so text-output agents convert too). Its payload is
 #: the registered ``text`` kind's shape: ``{"__kind": "text", "text": <the answer>}``.
 TEXT_KIND = "text"
+# ``markdown`` (and any kind in ``matrx_ai.kinds.TEXT_SHAPED_KINDS``) is handled the same way,
+# wrapping the answer as ``{"__kind": <that kind>, "text": ...}``.
+
+#: The one media kind (image / video / audio agents answer with media, not JSON). Such a step is
+#: never bound to a response_format; its answer is the LAST media block the agent produced, as the
+#: registered ``media_asset`` kind (aidream/kinds/media_asset.py): a durable handle, never bytes.
+MEDIA_KIND = "media_asset"
+
+#: The ``media_asset`` fields a stored media block carries under the same name
+#: (``ImageContent.to_storage_dict`` & siblings: ``{"type": "media", "kind": "image", ...}``).
+#: ``base64_data`` / ``file_uri`` / ``role`` are deliberately absent: never bytes, never a
+#: provider-internal handle.
+_MEDIA_BLOCK_FIELDS: tuple[str, ...] = (
+    "origin", "file_id", "url", "cdn_url", "download_url", "external_url", "source_label",
+    "mime_type", "file_name", "size_bytes", "width", "height", "duration_ms", "poster_url",
+    "transcript", "page_count",
+)
+_MEDIA_TYPES = frozenset({"image", "video", "audio", "document", "youtube"})
+
+
+def _produced_media(normalized: AiExecutionResult) -> dict[str, Any] | None:
+    """The last media block of the last assistant turn that has one, as a ``media_asset``."""
+    for message in reversed(normalized.messages or []):
+        if message.role != "assistant" or not isinstance(message.content, list):
+            continue
+        for block in reversed(message.content):
+            if not isinstance(block, dict) or not (block.get("url") or block.get("file_id")):
+                continue
+            media_type = block.get("kind") if block.get("type") == "media" else block.get("type")
+            if media_type not in _MEDIA_TYPES and block.get("type") != "media":
+                continue
+            asset: dict[str, Any] = {
+                "__kind": MEDIA_KIND,
+                "media_type": media_type if media_type in _MEDIA_TYPES else "unknown",
+            }
+            asset.update({f: block[f] for f in _MEDIA_BLOCK_FIELDS if block.get(f) is not None})
+            if asset.get("origin") not in ("matrx", "external"):
+                asset["origin"] = "matrx" if asset.get("file_id") else "external"
+            return asset
+    return None
 
 
 def _declared_kind(ctx: NodeExecutionContext, config: TypedAgentConfig | None = None) -> str:
@@ -256,7 +311,7 @@ def _declared_kind(ctx: NodeExecutionContext, config: TypedAgentConfig | None = 
             "produces — e.g. 'flashcard_set'. For a free-text or free-JSON "
             "agent step, use ai.agent.start instead."
         )
-    if kind == TEXT_KIND:
+    if kind in TEXT_SHAPED_KINDS or kind == MEDIA_KIND:
         return kind
     if not is_bindable_kind(kind):
         raise ExecutionError(
@@ -345,6 +400,19 @@ async def _apply_mandate_binding(
     return request
 
 
+def _protected_mandate_key(inputs: AgentProduceInput, config: TypedAgentConfig | None, node_id: str) -> str | None:
+    """The mandate whose protections this step runs under: ``mandate_key`` when it names one, else the
+    ``mandate_key_origin`` a converted step carries. Two different jobs on one step is refused."""
+    named = (getattr(inputs, "mandate_key", None) or "").strip() or None
+    origin = (getattr(config, "mandate_key_origin", None) or "").strip() or None
+    if named and origin and named != origin:
+        raise ExecutionError(
+            f"{_NODE_TYPE} step '{node_id}' runs mandate {named!r} but says it was converted from "
+            f"{origin!r}. A step runs as one job: clear 'Runs as job' or make it {named!r}."
+        )
+    return named or origin
+
+
 def _record_spend(ctx: NodeExecutionContext, normalized: AiExecutionResult) -> None:
     """Declare this invocation's billed usage on the engine plane.
 
@@ -429,6 +497,21 @@ def _judge_against_goal(
     detached_task(_judged(), name=f"typed-step-judge:{node_id}")
 
 
+#: AN ANSWER WE CANNOT USE IS ASKED FOR ONCE MORE (2026-10-28). The model answered, but the one parse
+#: funnel (``parse_agent_output``) refused it: malformed JSON, a schema miss, or a DEGENERATE answer
+#: (placeholder filler — "the model abandoned the generation; the run must be retried"). Live: Group
+#: offerings runs 48191b96 and ed375042 each lost the whole run to one Claude Haiku 5.5 call that answered
+#: ``{"groups":[{"keys":[],"label":"Placeholder"}]}``; the other 15 of 16 / 8 of 9 calls were fine. A
+#: second sample of a non-deterministic model is the right repair, so the step retries those codes once
+#: (``structured_output_empty`` is the same "answered, unusable" class). Never ``output_truncated``: the
+#: same ceiling cuts the same answer again. A ``retry_policy`` an author sets on the step still wins.
+#: Guard: tests/test_typed_agent_asks_again_for_an_unusable_answer.py.
+UNUSABLE_ANSWER_RETRY = RetryPolicy(
+    max_attempts=2,
+    retry_on=("structured_output_invalid", "structured_output_empty"),
+)
+
+
 @register_node(
     name=_NODE_TYPE,
     display_name="Run Typed Agent",
@@ -450,18 +533,69 @@ def _judge_against_goal(
     icon="bot",
     tags=("ai", "agent", "llm", "kinds", "goal"),
     result_version=step_result_version,
+    sample_preflight=lambda ctx, inputs, config: agent_produce_sample_preflight(ctx, inputs, config),
+    retry=UNUSABLE_ANSWER_RETRY,
 )
 async def agent_produce(
     ctx: NodeExecutionContext,
     inputs: AgentProduceInput,
     config: TypedAgentConfig | None = None,
 ) -> NodeResult[AgentProducedOutput]:
+    return await _agent_produce_body(ctx, inputs, config)
+
+
+async def agent_produce_sample_preflight(
+    ctx: NodeExecutionContext,
+    inputs: AgentProduceInput,
+    config: TypedAgentConfig | None = None,
+) -> dict[str, Any] | None:
+    """THE FIREWALL ON A SAMPLED STEP — the same shared check Run Mandate runs
+    (``agent_action.run_sampled_firewall_check``): this step's own body in capture mode, so the
+    request it WOULD send is checked and never sent. No firewall -> None."""
+    return await run_sampled_firewall_check(
+        ctx,
+        step_firewall(inputs),
+        node_type=_NODE_TYPE,
+        job=f"job {_protected_mandate_key(inputs, config, getattr(ctx, 'node_id', None) or '?') or 'direct agent'!r}",
+        body=lambda capture_ctx: _agent_produce_body(
+            capture_ctx, inputs.model_copy(deep=True), config, capture=True
+        ),
+    )
+
+
+async def _agent_produce_body(
+    ctx: NodeExecutionContext,
+    inputs: AgentProduceInput,
+    config: TypedAgentConfig | None,
+    *,
+    capture: bool = False,
+) -> Any:
+    """The step's body. ``capture`` (``agent_produce_sample_preflight`` only): the request is built and
+    run to the transport inside the firewall scope, never sent; returns the scan records."""
     require_agent_host(_NODE_TYPE)
     node_id = getattr(ctx, "node_id", None) or "?"
     kind = _declared_kind(ctx, config)
+    # THE JOB THIS STEP RUNS AS (2026-10-28): the mandate it names, or the one it was converted from.
+    # Every protection keyed by the mandate (pause switch, dispatch guards, contract, spend holds)
+    # follows it — a converted step runs the agent directly, never around the job's walls.
+    protected_as = _protected_mandate_key(inputs, config, node_id)
+    if not capture:  # a capture-mode check spends nothing, so a sampled step's proof still runs
+        await refuse_if_mandate_paused(protected_as)
 
     resolved = await resolve_step_agent_full(inputs, consumer=f"{_NODE_TYPE}:{node_id}")
     _assert_declarations_agree(ctx, kind, resolved.declared_output_kind)
+    # THE HOLDER'S JOB (2026-10-28): the origin field is editable and a unit that runs whatever agent its
+    # caller hands it carries none, so an agent that is the Holder of a guarded / closed-context /
+    # spend-held mandate — or the SOLE holder of any one mandate — runs as that job even when the step
+    # names none: the job's walls below AND its binding (``job_variable_binder``). Only when the step names
+    # none; a named job wins. Several protected jobs refuse (``SeveralProtectedJobs``).
+    held_by = None
+    if protected_as is None and has_ext("holder_protected_mandate"):
+        held_by = await get_ext("holder_protected_mandate")(resolved.agent_id, bool(resolved.is_version))
+        if held_by:
+            protected_as = held_by["mandate_key"]
+            if not capture:
+                await refuse_if_mandate_paused(protected_as)
 
     limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
     inputs.max_iterations = limit.value
@@ -473,7 +607,9 @@ async def agent_produce(
         # ABOVE every other layer: the declaration is this node's contract, and
         # an authored config_overrides must never be able to unbind it.
         top_config_overrides=(
-            {} if kind == TEXT_KIND else {"response_format": await _response_format_for(ctx, kind)}
+            {}
+            if kind in TEXT_SHAPED_KINDS or kind == MEDIA_KIND
+            else {"response_format": await _response_format_for(ctx, kind)}
         ),
         declared_variables=list(getattr(config, "exposed_variables", None) or []),
         variable_sources=dict(getattr(config, "variable_sources", None) or {}),
@@ -482,15 +618,28 @@ async def agent_produce(
     mandate_key = getattr(inputs, "mandate_key", None)
     if mandate_key:
         request = await _apply_mandate_binding(request, resolved, mandate_key, node_id)
-    completed = await run_step_agent(
+    elif protected_as:
+        # THE JOB'S BINDING (2026-10-28): a step that runs AS a job without naming it (a converted step's
+        # ``mandate_key_origin``, or its agent's protected or sole job) gets every variable it left blank filled by
+        # the job's binding, exactly as Run Mandate fills it; the step's own values win. No filler -> refused.
+        bind = await job_variable_binder(protected_as, consumer=f"{_NODE_TYPE}:{node_id}")
+        request.variables = (await bind(getattr(request, "variables", None))) or None
+    if capture and hasattr(request, "store"):
+        request.store = False
+    completed, firewall_records = await run_walled_step_agent(
         ctx,
         resolved.agent_id,
         request,
-        # THE RUN RECORD (runner plan step 1, 2026-10-20): the same stamp the Run
-        # Mandate node passes, so the host records this step's mandate run.
-        mandate_key=mandate_key or None,
+        node_type=_NODE_TYPE,
+        firewall=step_firewall(inputs),
+        capture=capture,
+        mandate_key=protected_as,
+        # THE RUN RECORD (runner plan step 1, 2026-10-20): the same stamp the Run Mandate node
+        # passes, so the host records this step's mandate run (only when it resolved a mandate).
         run_stamp=getattr(resolved, "run_stamp", None) if mandate_key else None,
     )
+    if capture:
+        return firewall_records
 
     # A host agent_runner may hand back an already-normalized result (a
     # compiled Orchestra whose final step IS the agent result).
@@ -506,12 +655,22 @@ async def agent_produce(
         return outcome  # type: ignore[return-value]
 
     normalized = outcome.result
+    # WHO did the job: the doer the database resolved, beside the model - the same fact a Run
+    # Mandate step hands over (a research row records it as agent_id).
+    normalized.metadata["agent_id"] = resolved.agent_id
+    if held_by:
+        # Said, never silent: this step ran as a job its agent holds (``basis``: protected / sole_holder).
+        normalized.metadata["protected_by_holder"] = held_by
+    if firewall_records is not None:
+        normalized.metadata["request_firewall"] = firewall_records
     _record_spend(ctx, normalized)
 
     payload = normalized.structured_output
-    if kind == TEXT_KIND:
+    if kind in TEXT_SHAPED_KINDS:
         text = (normalized.final_text or "").strip()
-        payload = {"__kind": TEXT_KIND, "text": text} if text else None
+        payload = {"__kind": kind, "text": text} if text else None
+    elif kind == MEDIA_KIND:
+        payload = _produced_media(normalized)
     if not isinstance(payload, dict):
         # The richer source wins: a CompletedRequest still knows the request's
         # configured ceiling even when no truncation marker was stamped.
@@ -521,7 +680,7 @@ async def agent_produce(
             what="the structured answer",
             message=(
                 f"The agent was bound to answer in '{kind}' but returned "
-                f"{'a list' if isinstance(payload, list) else 'no structured result'}. "
+                f"{'a list' if isinstance(payload, list) else ('no media' if kind == MEDIA_KIND else 'no structured result')}. "
                 "A kind-bound step has nothing to hand downstream without one."
             ),
             details={

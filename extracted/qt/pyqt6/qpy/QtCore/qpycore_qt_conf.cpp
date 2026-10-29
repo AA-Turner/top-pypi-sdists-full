@@ -95,10 +95,37 @@ bool qpycore_qt_conf()
     if (QFileInfo(qt_dir_name).exists())
     {
         // Get the prefix path with non-native separators.
-        static QByteArray qt_conf = qt_dir_name.toUtf8();
+        QByteArray dir_name = qt_dir_name.toUtf8();
+        static QByteArray qt_conf = dir_name;
 
         qt_conf.prepend("[Paths]\nPrefix = ");
         qt_conf.append("\n");
+
+#if QT_VERSION >= 0x060c00 && defined(Q_OS_MACOS)
+        // Qt v6.12.0 no longer takes 'Prefix' from the qt.conf file and
+        // instead bases it on the application directory.  This breaks things
+        // (at least on macOS).  The fix is to set the individual paths
+        // explicitly.
+        qt_conf.append("Data = ");
+        qt_conf.append(dir_name);
+        qt_conf.append("\n");
+
+        qt_conf.append("Libraries = ");
+        qt_conf.append(dir_name);
+        qt_conf.append("/lib\n");
+
+        qt_conf.append("Plugins = ");
+        qt_conf.append(dir_name);
+        qt_conf.append("/plugins\n");
+
+        qt_conf.append("QmlImports = ");
+        qt_conf.append(dir_name);
+        qt_conf.append("/qml\n");
+
+        qt_conf.append("Translations = ");
+        qt_conf.append(dir_name);
+        qt_conf.append("/translations\n");
+#endif
 
         // Prepend the 4-byte size.
         int size = qt_conf.size();
@@ -110,7 +137,7 @@ bool qpycore_qt_conf()
         }
 
         // Register the structures.
-        qRegisterResourceData(0x01, qt_resource_struct, qt_resource_name,
+        qRegisterResourceData(1, qt_resource_struct, qt_resource_name,
                 (const unsigned char *)qt_conf.constData());
     }
 

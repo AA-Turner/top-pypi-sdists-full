@@ -84,8 +84,24 @@ dp_gold_set_state (dp_gold_state_t *state, const void *blob)
     return rc;
   dp_reader_t r = dp_reader_init (blob, dp_gold_state_bytes (state));
   r.off         = sizeof (dp_state_hdr_t);
-  state->reg_a  = dp_r_u64 (&r);
-  state->reg_b  = dp_r_u64 (&r);
+  uint64_t a    = dp_r_u64 (&r);
+  uint64_t b    = dp_r_u64 (&r);
+  /* A register this configuration cannot hold is refused (doppler#2641). A
+     live register never holds a bit above the length -- the generator masks
+     every shift -- so one that does was not made by this configuration. Zero
+     is a fixed point that leaves the other register's m-sequence alone (the
+     #1640 case), and a register whose taps include the top stage (bit
+     length-1) never reaches it: its step is a bijection on the non-zero
+     states, and create() requires a non-zero seed. Taps without the top
+     stage are not invertible, and a seed create() accepts can shift down to
+     zero (taps 1 on 10 bits from 1 << 9 does in one step), so for that
+     register zero is a state its own blob must restore. */
+  const uint64_t top = (uint64_t)1 << (state->length - 1u);
+  if ((a == 0 && (state->taps_a & top)) || (a & ~state->mask)
+      || (b == 0 && (state->taps_b & top)) || (b & ~state->mask))
+    return DP_ERR_INVALID;
+  state->reg_a = a;
+  state->reg_b = b;
   return DP_OK;
 }
 

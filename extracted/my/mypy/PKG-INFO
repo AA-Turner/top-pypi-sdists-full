@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mypy
-Version: 2.4.0
+Version: 2.4.1
 Summary: Optional static typing for Python
 Author-email: Jukka Lehtosalo <jukka.lehtosalo@iki.fi>
 License-Expression: MIT
@@ -31,7 +31,7 @@ Requires-Dist: mypy_extensions>=1.0.0
 Requires-Dist: pathspec>=1.0.0
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"
 Requires-Dist: librt>=0.16.0; platform_python_implementation != "PyPy"
-Requires-Dist: ast-serialize<1.0.0,>=0.11.2
+Requires-Dist: ast-serialize<1.0.0,>=0.12.1
 Provides-Extra: dmypy
 Requires-Dist: psutil>=4.0; extra == "dmypy"
 Provides-Extra: mypyc

@@ -335,6 +335,12 @@ AdjustmentAction = Literal[
     # not ride (an explicit numeric thinking_budget beats reasoning_effort).
     # Recorded on the losing key — never silent. See CompiledControlsMap.bridge_numbers.
     "overridden",
+    # A ceiling the platform RAISED on purpose: a declared output whose schema cannot
+    # bound its own size (an array, a free-form string) is sent at the model's real
+    # maximum (``config.output_ceiling``, Arman 2026-09-12). Stored with the request
+    # so a row reading "max_output_tokens 3072" next to 19,208 output tokens explains
+    # itself (agent d8901b25, 2026-10-28).
+    "raised",
 ]
 
 

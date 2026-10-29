@@ -305,3 +305,71 @@ async def test_nothing_is_announced_when_nothing_moved(emitter: _RecordingEmitte
 
     assert config.max_output_tokens == 300
     assert emitter.warnings == []
+
+
+# ---------------------------------------------------------------------------
+# STORED, NOT ONLY STREAMED — live 2026-10-28, agent d8901b25 (Brand discovery's
+# detective, a workflow step): the row said ``max_output_tokens: 3072``,
+# ``chat.request a5c8e43a`` recorded 19,208 output tokens (15,993 thinking), and
+# its ``chat.request_snapshot.metadata.settings_adjustments`` named only the effort
+# translation. Nobody reads a workflow step's stream, so the 3072 -> 128,000 raise
+# must sit beside the payload it shaped.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def execution_state():
+    from matrx_ai.orchestrator.execution_state import (
+        ExecutionState,
+        clear_execution_state,
+        set_execution_state,
+    )
+
+    state = ExecutionState()
+    token = set_execution_state(state)
+    yield state
+    clear_execution_state(token)
+
+
+@pytest.mark.asyncio
+async def test_the_raise_is_stored_with_the_request(
+    emitter: _RecordingEmitter, execution_state: Any
+) -> None:
+    config = _config(ceiling=3072, schema=LEDGER_SCHEMA)
+
+    await _send(config)
+
+    rows = [r for r in execution_state.settings_adjustments or [] if r["key"] == "max_output_tokens"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert (row["action"], row["engine_action"]) == ("raise", "raised")
+    assert (row["from"], row["to"]) == (3072, SONNET_5_MAX)
+    assert row["seam"] == "send_boundary"
+    assert "ARRAY" in row["reason"]
+
+
+@pytest.mark.asyncio
+async def test_storage_fails_when_the_record_is_neutered(
+    monkeypatch, emitter: _RecordingEmitter, execution_state: Any
+) -> None:
+    """Falsifiable: without the record step the wire still moves but nothing is stored."""
+    from matrx_ai.config import send_boundary
+
+    monkeypatch.setattr(send_boundary, "_record_ceiling_raise", lambda **_: None)
+    config = _config(ceiling=3072, schema=LEDGER_SCHEMA)
+
+    await _send(config)
+
+    assert config.max_output_tokens == SONNET_5_MAX
+    assert not [r for r in execution_state.settings_adjustments or [] if r["key"] == "max_output_tokens"]
+
+
+@pytest.mark.asyncio
+async def test_nothing_is_stored_when_nothing_moved(
+    emitter: _RecordingEmitter, execution_state: Any
+) -> None:
+    config = _config(ceiling=3072, schema=BOUNDED_SCHEMA)
+
+    await _send(config)
+
+    assert not execution_state.settings_adjustments

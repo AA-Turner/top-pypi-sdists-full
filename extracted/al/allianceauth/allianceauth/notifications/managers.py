@@ -1,4 +1,7 @@
+__lazy_modules__ = ["allianceauth.notifications.models"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.core.cache import cache
@@ -6,13 +9,16 @@ from django.db import models
 
 from allianceauth.authentication.models import User
 
+if TYPE_CHECKING:
+    from allianceauth.notifications.models import Notification  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 
-class NotificationQuerySet(models.QuerySet):
+class NotificationQuerySet(models.QuerySet["Notification"]):
     """Custom QuerySet for Notification model"""
 
-    def update(self, *args, **kwargs):
+    def update(self, *args, **kwargs) -> None:
         """Override update to ensure cache is invalidated on very call."""
         super().update(*args, **kwargs)
         user_pks = set(self.select_related("user").values_list('user__pk', flat=True))
@@ -20,12 +26,12 @@ class NotificationQuerySet(models.QuerySet):
             NotificationManager.invalidate_user_notification_cache(user_pk)
 
 
-class NotificationManager(models.Manager):
+class NotificationManager(models.Manager["Notification"]):
 
     USER_NOTIFICATION_COUNT_PREFIX = 'USER_NOTIFICATION_COUNT'
     USER_NOTIFICATION_COUNT_CACHE_DURATION = 86_400
 
-    def get_queryset(self):
+    def get_queryset(self) -> NotificationQuerySet:
         return NotificationQuerySet(self.model, using=self._db)
 
     def notify_user(

@@ -123,6 +123,10 @@ def test_the_shell_parse_uses_the_same_tables():
     assert ts_raw(COMMANDS, "ENV_ASSIGNMENT_SOURCE") == guard._ENV_ASSIGNMENT.pattern
     assert ts_set(COMMANDS, "WRAPPERS") == guard._WRAPPERS
     assert ts_set(COMMANDS, "WRAPPER_VALUE_OPTS") == guard._WRAPPER_VALUE_OPTS
+    assert ts_set(COMMANDS, "RUNS_ITS_ARGUMENTS") == guard._RUNS_ITS_ARGUMENTS
+    assert ts_raw(COMMANDS, "FD_WORD_SOURCE") == guard._FD_WORD.pattern
+    assert ts_set(COMMANDS, "SHELL_KEYWORDS") == guard._SHELL_KEYWORDS
+    assert ts_set(COMMANDS, "UV_VALUE_OPTS") == guard._UV_VALUE_OPTS
     assert ts_set(COMMANDS, "SHELLS") == guard._SHELLS
     assert ts_raw(COMMANDS, "PYTHONS_SOURCE") == guard._PYTHONS.pattern
     assert ts_set(COMMANDS, "PROBE_MODULES") == guard._PROBE_MODULES

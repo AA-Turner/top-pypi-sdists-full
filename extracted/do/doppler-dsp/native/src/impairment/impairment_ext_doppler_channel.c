@@ -61,8 +61,10 @@ DopplerChannelObj_init (DopplerChannelObject *self, PyObject *args,
                                             doppler_rate_ppm_s);
   if (!self->handle)
     {
-      PyErr_SetString (PyExc_MemoryError,
-                       "dp_doppler_channel_create returned NULL");
+      PyErr_SetString (PyExc_ValueError,
+                       "DopplerChannel: invalid parameter (need fs > 0, a "
+                       "time scale 1 + doppler_ppm * 1e-6 > 0, and an "
+                       "initial rate 1 / scale the resampler accepts)");
       return -1;
     }
   return 0;
@@ -656,13 +658,15 @@ DopplerChannel_getprop_offset_hz (DopplerChannelObject *self,
 }
 
 static PyGetSetDef DopplerChannel_getset[] = {
-  { "fs", (getter)DopplerChannel_getprop_fs, NULL, "Fs.\n", NULL },
+  { "fs", (getter)DopplerChannel_getprop_fs, NULL,
+    "receive sample rate, Hz (config)\n", NULL },
   { "carrier_hz", (getter)DopplerChannel_getprop_carrier_hz, NULL,
-    "Carrier hz.\n", NULL },
+    "RF carrier fc, Hz — drives the offset (config; 0 = clocks only)\n",
+    NULL },
   { "doppler_ppm", (getter)DopplerChannel_getprop_doppler_ppm, NULL,
-    "Doppler ppm.\n", NULL },
+    "d0, ppm of nominal (config)\n", NULL },
   { "doppler_rate_ppm_s", (getter)DopplerChannel_getprop_doppler_rate_ppm_s,
-    NULL, "Doppler rate ppm s.\n", NULL },
+    NULL, "d-dot, ppm/s (config)\n", NULL },
   { "elapsed_s", (getter)DopplerChannel_getprop_elapsed_s, NULL,
     "Receive time in seconds consumed so far, the `t` every Doppler quantity "
     "is evaluated at. Advances by `n/fs` per `execute(x)` call and is zeroed "
@@ -778,11 +782,13 @@ static PyMethodDef DopplerChannelObj_methods[] = {
     "\n"
     "Assumes an input of at most `DOPPLER_CHANNEL_MAX_BLOCK` samples — see\n"
     "that macro for why the bound cannot depend on the actual input length.\n"
+    "The bound uses the smallest time-base scale over the next block, so\n"
+    "with a ramp it changes from call to call; re-query it before each call.\n"
     "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    `DOPPLER_CHANNEL_MAX_BLOCK / min(1+d) + 2` samples.\n" },
   { "execute_profile", (PyCFunction)(void *)DopplerChannelObj_execute_profile,
     METH_VARARGS | METH_KEYWORDS,
     "execute_profile(x, ppm, out) -> ndarray\n"
@@ -1020,9 +1026,41 @@ static PyTypeObject DopplerChannelObjType = {
   .tp_basicsize = sizeof (DopplerChannelObject),
   .tp_dealloc   = (destructor)DopplerChannelObj_dealloc,
   .tp_flags     = Py_TPFLAGS_DEFAULT,
-  .tp_doc       = "DopplerChannel type.\n",
-  .tp_methods   = DopplerChannelObj_methods,
-  .tp_getset    = DopplerChannel_getset,
-  .tp_new       = DopplerChannelObj_new,
-  .tp_init      = (initproc)DopplerChannelObj_init,
+  .tp_doc
+  = "DopplerChannel component.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "fs : float, default 1000000.0\n"
+    "    fs constructor parameter.\n"
+    "carrier_hz : float, default 0.0\n"
+    "    carrier_hz constructor parameter.\n"
+    "doppler_ppm : float, default 0.0\n"
+    "    doppler_ppm constructor parameter.\n"
+    "doppler_rate_ppm_s : float, default 0.0\n"
+    "    doppler_rate_ppm_s constructor parameter.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If construction fails. The exception message is ``DopplerChannel:\n"
+    "    invalid parameter (need fs > 0, a time scale 1 + doppler_ppm * 1e-6 "
+    ">\n"
+    "    0, and an initial rate 1 / scale the resampler accepts)``.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    "Create with defaults:\n"
+    "\n"
+    ">>> from doppler.impairment import DopplerChannel\n"
+    ">>> obj = DopplerChannel(\n"
+    "...     fs=1000000.0,\n"
+    "...     carrier_hz=0.0,\n"
+    "...     doppler_ppm=0.0,\n"
+    "...     doppler_rate_ppm_s=0.0,\n"
+    "... )\n",
+  .tp_methods = DopplerChannelObj_methods,
+  .tp_getset  = DopplerChannel_getset,
+  .tp_new     = DopplerChannelObj_new,
+  .tp_init    = (initproc)DopplerChannelObj_init,
 };

@@ -15,7 +15,7 @@ import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
-from enum import IntEnum
+from enum import Enum
 from itertools import zip_longest
 from types import UnionType
 from typing import (
@@ -42,9 +42,6 @@ import temporalio.types
 if sys.version_info < (3, 11):
     # Python's datetime.fromisoformat doesn't support certain formats pre-3.11
     from dateutil import parser  # type: ignore
-# StrEnum is available in 3.11+
-if sys.version_info >= (3, 11):
-    from enum import StrEnum  # type: ignore[reportUnreachable]
 
 from temporalio.converter._serialization_context import (
     SerializationContext,
@@ -612,13 +609,6 @@ class _TemporalTransferTypePayloadConverter(PayloadConverter, WithSerializationC
             return payload_converter
         return _TemporalTransferTypePayloadConverter(payload_converter)
 
-    @staticmethod
-    def unwrap(payload_converter: PayloadConverter) -> PayloadConverter:
-        """Remove this wrapper from a payload converter, if present."""
-        if isinstance(payload_converter, _TemporalTransferTypePayloadConverter):
-            return payload_converter._inner_payload_converter
-        return payload_converter
-
     def to_payloads(
         self, values: Sequence[Any]
     ) -> list[temporalio.api.common.v1.Payload]:
@@ -961,6 +951,13 @@ def value_to_type(
                     if isinstance(key, str):
                         if key_type is int or key_type is float:
                             key = key_type(key)
+                        elif (
+                            inspect.isclass(key_type)
+                            and issubclass(key_type, Enum)
+                            and issubclass(key_type, int)
+                        ):
+                            # JSON serializes int enum keys as their number
+                            key = int(key)
                         elif key_type is bool:
                             key = {"true": True, "false": False}[key]
                         elif key_type is type(None):
@@ -999,24 +996,37 @@ def value_to_type(
         fields = dataclasses.fields(hint)
         field_hints = get_type_hints(hint)
         field_values = {}
+        non_init_field_values = {}
         for field in fields:
             field_value = value.get(field.name, dataclasses.MISSING)
             # We do not check whether field is required here. Rather, we let the
             # attempted instantiation of the dataclass raise if a field is
             # missing
             if field_value is not dataclasses.MISSING:
+                # Convert init=False fields too, so a mismatched type still
+                # rejects this dataclass when trying union members
                 try:
-                    field_values[field.name] = value_to_type(
+                    converted = value_to_type(
                         field_hints[field.name], field_value, custom_converters
                     )
                 except Exception as err:
                     raise TypeError(
                         f"Failed converting field {field.name} on dataclass {hint}"
                     ) from err
+                if field.init:
+                    field_values[field.name] = converted
+                else:
+                    non_init_field_values[field.name] = converted
         # Simply instantiate the dataclass. This will fail as expected when
         # missing required fields.
         # TODO(cretz): Want way to convert snake case to camel case?
-        return hint(**field_values)
+        obj = hint(**field_values)
+        # init=False fields cannot be passed to __init__ but are serialized, so
+        # restore them afterwards. object.__setattr__ also works on frozen
+        # dataclasses.
+        for name, field_value in non_init_field_values.items():
+            object.__setattr__(obj, name, field_value)
+        return obj
 
     # Pydantic model instance
     # Pydantic users should use Pydantic v2 with
@@ -1034,22 +1044,21 @@ def value_to_type(
             )
         return getattr(hint, "parse_obj")(value)
 
-    # IntEnum
-    if inspect.isclass(hint) and issubclass(hint, IntEnum):
+    # IntEnum, or any enum that mixes in int
+    if inspect.isclass(hint) and issubclass(hint, Enum) and issubclass(hint, int):
         if not isinstance(value, int):
             raise TypeError(
                 f"Cannot convert to enum {hint}, value not an integer, value is {type(value)}"
             )
         return hint(value)
 
-    # StrEnum, available in 3.11+
-    if sys.version_info >= (3, 11):
-        if inspect.isclass(hint) and issubclass(hint, StrEnum):  # type:ignore[reportUnreachable]
-            if not isinstance(value, str):
-                raise TypeError(
-                    f"Cannot convert to enum {hint}, value not a string, value is {type(value)}"
-                )
-            return hint(value)
+    # StrEnum, or any enum that mixes in str
+    if inspect.isclass(hint) and issubclass(hint, Enum) and issubclass(hint, str):
+        if not isinstance(value, str):
+            raise TypeError(
+                f"Cannot convert to enum {hint}, value not a string, value is {type(value)}"
+            )
+        return hint(value)
 
     # UUID
     if inspect.isclass(hint) and issubclass(hint, uuid.UUID):

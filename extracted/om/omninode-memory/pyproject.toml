@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omninode-memory"
-version = "0.18.6"
+version = "0.18.7"
 description = "OmniNode memory primitives — models, protocols, and storage adapters for Qdrant, Memgraph, and PostgreSQL backends."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
@@ -25,7 +25,7 @@ dependencies = [
     "pydantic>=2.13.4,<3.0.0",
 
     # FastAPI web framework for production API
-    "fastapi>=0.136.3,<0.144.0",
+    "fastapi>=0.136.3,<0.163.0",
     "uvicorn[standard]>=0.49.0,<1.0.0",
 
     # Memory and storage components
@@ -47,7 +47,7 @@ dependencies = [
     # qdrant-client is a transitive dep; ceiling at <1.17.0 because 1.17.0 applies
     # PEP 604 union syntax to protobuf EnumTypeWrapper objects, causing TypeError at
     # import time under Python 3.12. Remove ceiling once fixed upstream.
-    "qdrant-client>=1.18.0,<1.20.0",
+    "qdrant-client>=1.18.0,<1.21.0",
 
     # Environment variable management
     "python-dotenv>=1.2.2,<2.0.0",
@@ -84,7 +84,7 @@ dependencies = [
 graph = [
     "neo4j>=5.0.0,<7.0.0",
     # qdrant-client ceiling held at <1.18.0 (see core dep comment re: Python 3.12 TypeError)
-    "qdrant-client>=1.18.0,<1.20.0",
+    "qdrant-client>=1.18.0,<1.21.0",
     "httpx>=0.28.1,<1.0.0",
 ]
 

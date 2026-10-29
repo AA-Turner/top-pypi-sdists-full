@@ -1,3 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
+from typing import TYPE_CHECKING
+
 from django.utils.translation import gettext_lazy as _
 
 from allianceauth import hooks
@@ -6,6 +10,9 @@ from allianceauth.services.hooks import UrlHook
 
 from . import urls
 from .managers import SRPManager
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
 
 
 class SrpMenu(MenuItemHook):
@@ -17,7 +24,7 @@ class SrpMenu(MenuItemHook):
             navactive=['srp:']
         )
 
-    def render(self, request) -> str:
+    def render(self, request: "HttpRequest") -> str:
         if request.user.has_perm('srp.access_srp'):
             app_count = SRPManager.pending_requests_count_for_user(request.user)
             self.count = app_count if app_count and app_count > 0 else None

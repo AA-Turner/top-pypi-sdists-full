@@ -67,22 +67,28 @@ extern "C" {
  * reset().
  */
 typedef struct {
-    float   scale;   /* multiply factor applied before saturation */
-    uint8_t clipped; /* 1 if any sample has been saturated; 0 otherwise */
+    float   scale;   /**< Multiply factor applied before rounding and
+                          saturation (config, set by create(); > 0;
+                          default 2^31 = 2147483648.0). */
+    uint8_t clipped; /**< Sticky saturation flag (running state): 1 once
+                          any sample has saturated, 0 otherwise; written
+                          by step()/steps(), cleared by reset(). */
 } dp_f32_to_i32_state_t;
 
 /**
  * @brief Create a f32_to_i32 instance.
  *
  * Allocates state and stores @p scale.  The @c clipped flag is initialised
- * to 0.  Returns NULL for a non-positive scale, which is the only failure a
- * caller can cause; the allocation itself aborts on exhaustion (dp_xcalloc)
- * rather than handing back an unwind path no test can reach.
+ * to 0.  Returns NULL for a scale that is not positive and finite, which
+ * is the only failure a caller can cause; the allocation itself aborts on
+ * exhaustion (dp_xcalloc) rather than handing back an unwind path no test
+ * can reach.
  *
  * @param scale  Multiply factor applied before rounding and saturation
  *               (default: 2147483648.0f).  Use 2^31 to convert a normalised
  *               `[-1, +1]` signal to the full 32-bit range.
- * @return Heap-allocated state, or NULL if @p scale is not positive.
+ * @return Heap-allocated state, or NULL if @p scale is not positive and
+ *         finite (zero, negative, NaN or infinite).
  * @note Caller must call dp_f32_to_i32_destroy() when done.
  */
 dp_f32_to_i32_state_t *dp_f32_to_i32_create(float scale);
@@ -97,7 +103,7 @@ void dp_f32_to_i32_destroy(dp_f32_to_i32_state_t *state);
  * @brief Clear the sticky clip flag, starting a fresh saturation history.
  *
  * Zeroes @c clipped so a subsequent clipped query reflects only samples seen
- * after this call; the immutable @c scale is preserved. Call it at a buffer or
+ * after this call; @c scale is preserved. Call it at a buffer or
  * segment boundary so a saturation on one block does not leak into the next.
  *
  * @param state  Must be non-NULL.
@@ -130,6 +136,9 @@ void dp_f32_to_i32_reset(dp_f32_to_i32_state_t *state);
  * float32 input still bounds the useful precision at 24 bits; the double is
  * there to make the CLAMP exact, not to invent significance.
  *
+ * A NaN input counts as clipped: it latches @c clipped and returns the
+ * negative full-scale code, -2147483648.
+ *
  * @param state  Must be non-NULL.
  * @param x      Input sample, normally a normalised float in `[-1, +1]`.
  * @return Saturated int32 code in `[-2147483648, 2147483647]`.
@@ -151,10 +160,14 @@ dp_f32_to_i32_step(dp_f32_to_i32_state_t *state, float x)
 {
     double s = (double)state->scale * (double)x;
     /* Detect saturation before clamping; set sticky flag. */
-    state->clipped |= (uint8_t)(s > 2147483647.0 || s < -2147483648.0);
+    /* Written as "not inside" so a NaN, which fails every comparison,
+     * latches the flag too; the lower clamp is spelled the same way so a
+     * NaN leaves as the negative full-scale code rather than reaching
+     * lround(), where it has no defined result. */
+    state->clipped |= (uint8_t)!(s <= 2147483647.0 && s >= -2147483648.0);
     if (s > 2147483647.0)
         s = 2147483647.0;
-    if (s < -2147483648.0)
+    if (!(s >= -2147483648.0))
         s = -2147483648.0;
     return (int32_t)lround(s);
 }
@@ -164,8 +177,9 @@ dp_f32_to_i32_step(dp_f32_to_i32_state_t *state, float x)
  *
  * Applies step() to every element.  The @c clipped flag is updated
  * cumulatively across the block — a single saturating sample raises it
- * for the entire call.  Accepts an optional pre-allocated output array;
- * allocates a fresh one when @p output is NULL.
+ * for the entire call.  In C, @p output must be a caller-owned array of
+ * at least @p n elements (NULL is not accepted).  From Python it is the
+ * optional `out=` array; the binding allocates a fresh one when omitted.
  *
  * @param state   Must be non-NULL.
  * @param input   Input float32 array; must contain at least @p n elements.
@@ -190,10 +204,33 @@ void dp_f32_to_i32_steps(
 /* ── Serializable state (standard bytes interface; see dp_state.h) ──────────
  * Whole-struct POD snapshot (pointer-free); the sticky clip flag resumes exactly into an
  * identically-built instance. */
+/** @brief Envelope magic ("F232") identifying an F32ToI32 state blob. */
 #define F32_TO_I32_STATE_MAGIC DP_FOURCC ('F','2','3','2')
+/** @brief Layout version of the F32ToI32 state blob. */
 #define F32_TO_I32_STATE_VERSION 1u
+/**
+ * @brief Size in bytes of the blob dp_f32_to_i32_get_state() writes.
+ * @param state  Must be non-NULL (the size does not depend on it).
+ * @return `sizeof(dp_state_hdr_t) + sizeof(dp_f32_to_i32_state_t)`.
+ */
 size_t dp_f32_to_i32_state_bytes (const dp_f32_to_i32_state_t *state);
+/**
+ * @brief Serialize the whole state struct (scale and clipped) into @p blob.
+ * @param state  Must be non-NULL.
+ * @param[out] blob  Caller-owned buffer of at least
+ *                   dp_f32_to_i32_state_bytes() bytes.
+ */
 void dp_f32_to_i32_get_state (const dp_f32_to_i32_state_t *state, void *blob);
+/**
+ * @brief Restore the whole state struct (scale and clipped) from @p blob.
+ *
+ * The envelope is validated first; on rejection @p state is unchanged.
+ *
+ * @param state  Must be non-NULL.
+ * @param blob   A blob produced by dp_f32_to_i32_get_state().
+ * @return DP_OK, or DP_ERR_INVALID if the magic, version, endianness or
+ *         size in the envelope does not match.
+ */
 int dp_f32_to_i32_set_state (dp_f32_to_i32_state_t *state, const void *blob);
 
 #ifdef __cplusplus

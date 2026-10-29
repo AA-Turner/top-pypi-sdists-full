@@ -207,18 +207,19 @@ class Deps:
     lost_writes: int = 0
     #: Questions put to the researcher that did not come back yes (`_hold`).
     asked: int = 0
-    #: Summaries this run owes (plan 3.5, write-summary): a project or
-    #: experiment it created, or an experiment whose conclusion it set, keyed
-    #: `kind:ref` as typed (`summary_cli.landing`); `summaries_pushed` holds what
-    #: `probe summary push` landed. The writer's output validator sends the run
-    #: back once for the difference (`agent.SUMMARY_OWED`).
-    summaries_owed: set[str] = field(default_factory=set)
-    summaries_pushed: set[str] = field(default_factory=set)
+    #: What this run owes is the session's owed ledger (`probe.cli.owed`, notes
+    #: parity N3: the CLI keeps it for the daemon and an inline agent alike) read
+    #: from this `seq` on, the daemon's own items only: a summary for a project or
+    #: experiment it created or an experiment it concluded (plan 3.5), a note for
+    #: a run it tagged invalid. The writer's output validator sends the run back
+    #: once for each kind (`agent.SUMMARY_OWED`, `agent.NOTE_OWED`).
+    ledger_from: int = 0
     #: A summary command said the team's summaries are the lane's (mode lane, a
-    #: 503): nothing is owed.
+    #: 503): no summary is owed.
     summaries_off: bool = False
-    #: The run was already sent back once for owed summaries.
+    #: The run was already sent back once for owed summaries, and for owed notes.
     summaries_owed_asked: bool = False
+    notes_owed_asked: bool = False
     #: Experiments whose conclusion this run set (`kind:ref`), what the last
     #: `summary checkout` of each entity said about its tables and charts
     #: ({"eligible", "count"}), and the `visuals set` calls that landed: an
@@ -360,8 +361,8 @@ def task_deps(deps: Deps) -> Deps:
     # outside the working folders, a filter off the safe list), whatever reads_only said.
     return replace(deps, task=True, task_runner=None, bypass=False, blocks={}, sent={}, stopped=None,
                    lost_writes=0, asked=0,
-                   summaries_owed=set(), summaries_pushed=set(), concluded=set(), visuals_state={},
-                   visuals_landed=set(), summaries_owed_asked=True, visuals_owed_asked=True, tally_loaded=True)
+                   concluded=set(), visuals_state={}, visuals_landed=set(), summaries_owed_asked=True,
+                   notes_owed_asked=True, visuals_owed_asked=True, tally_loaded=True)
 
 
 def _logs_lookups(deps: Deps) -> bool:
@@ -674,10 +675,11 @@ AUDIT_SYNC_IS_THE_DAEMONS = ("`probe notes sync` is the daemon's: it pulled the 
 
 
 #: `probe` commands that read the open web, refused to the team-note audit as
-#: their MCP tools are (`agent.AUDIT_REFUSED_TOOLS`): `paper find` is
-#: `find_papers` from the shell, and text anyone can author must not reach an
-#: audit that publishes into every teammate's instructions.
-AUDIT_WEB_COMMANDS = frozenset({"paper find"})
+#: their MCP tools are (`agent.audit_tool_refusal`): `paper find` is
+#: `find_papers` from the shell and `docs` is `search_in=["docs"]`, and text from
+#: outside the team must not reach an audit that publishes into every
+#: teammate's instructions.
+AUDIT_WEB_COMMANDS = frozenset({"paper find", "docs"})
 
 
 def audit_probe_refusal(parsed: "precheck.Parsed") -> str | None:
@@ -2849,15 +2851,12 @@ def _outline(store: Store, *, recorded: bool = False) -> str:
 
 
 
-#: Commands whose landing makes a summary owed (plan 3.5): the entity is new, or
-#: an experiment's question got its answer.
-_OWES_SUMMARY = frozenset({"project create", "experiment create"})
-#: The run's summary and visuals tally (`Deps.summaries_owed` and friends), kept
+#: The run's tally (`Deps.ledger_from`, the visuals sets and the flags), kept
 #: in the store until the run's end stands (`tally_settled`): a run paused after
 #: ROUNDS_BEFORE_YIELD carries on in the next bite with new Deps, and still owes.
 SUMMARY_TALLY = "summary_tally"
-_TALLY_SETS = ("summaries_owed", "summaries_pushed", "concluded", "visuals_landed")
-_TALLY_FLAGS = ("summaries_off", "summaries_owed_asked", "visuals_owed_asked")
+_TALLY_SETS = ("concluded", "visuals_landed")
+_TALLY_FLAGS = ("summaries_off", "summaries_owed_asked", "notes_owed_asked", "visuals_owed_asked")
 
 
 def _tally(deps: Deps) -> None:
@@ -2875,6 +2874,8 @@ def _tally(deps: Deps) -> None:
     state = saved.get("visuals_state")
     if isinstance(state, dict):
         deps.visuals_state.update({k: v for k, v in state.items() if isinstance(v, dict) and k not in deps.visuals_state})
+    if isinstance(saved.get("ledger_from"), int):
+        deps.ledger_from = max(deps.ledger_from, saved["ledger_from"])
 
 
 #: The team's summaries mode as last seen (`{"mode", "at"}`): a checkout's JSON,
@@ -2934,13 +2935,18 @@ def tally_save(deps: Deps) -> None:
         **{name: sorted(getattr(deps, name)) for name in _TALLY_SETS},
         **{name: bool(getattr(deps, name)) for name in _TALLY_FLAGS},
         "visuals_state": deps.visuals_state,
+        "ledger_from": deps.ledger_from,
     })
 
 
 def tally_settled(deps: Deps) -> None:
-    """The run's end stands: the next run starts owing nothing. What the last
-    checkouts said about tables (`visuals_state`) stays for the session."""
-    deps.store.set_fact(SUMMARY_TALLY, {"visuals_state": deps.visuals_state})
+    """The run's end stands: the next run starts owing nothing (it reads the
+    ledger from here on). What the last checkouts said about tables
+    (`visuals_state`) stays for the session."""
+    from probe.cli import owed
+
+    deps.store.set_fact(SUMMARY_TALLY, {"visuals_state": deps.visuals_state,
+                                        "ledger_from": owed.read(deps.session_id)["seq"]})
 
 
 def _flag_key(parsed: Any) -> str | None:
@@ -2984,10 +2990,10 @@ def _lane_said(parsed: Any, stdout: str, stderr: str) -> bool:
 
 
 def note_summary_marks(deps: Deps, parsed: Any, argv: list[str], stdout: str = "", stderr: str = "") -> None:
-    """Keep the run's summary and visuals tally (`Deps.summaries_owed` and
-    friends, saved to the store; plain code, never raises into the write it
-    follows). A push settles a summary only when it landed (`pushed` in its
-    JSON): a merge that asks for another push, a conflict or a refusal do not."""
+    """Keep the run's lane mode and visuals tally (saved to the store; plain
+    code, never raises into the write it follows). What a summary or a note
+    owes is the CLI's own ledger (`probe.cli.owed`), which the command itself
+    kept: a push settles a summary there only when it landed."""
     try:
         _tally(deps)
         from probe.cli import summary_cli
@@ -2996,10 +3002,8 @@ def note_summary_marks(deps: Deps, parsed: Any, argv: list[str], stdout: str = "
             deps.summaries_off = True
             _note_mode(deps, summary_cli.MODE_LANE)
         elif parsed.path == "summary push":
-            key = _flag_key(parsed)
             payload = _json(stdout)
-            if key and payload and payload.get("pushed"):
-                deps.summaries_pushed.add(key)
+            if payload and payload.get("pushed"):
                 _note_mode(deps, "recorder")
         elif parsed.path == "summary checkout":
             key = _flag_key(parsed)
@@ -3015,29 +3019,43 @@ def note_summary_marks(deps: Deps, parsed: Any, argv: list[str], stdout: str = "
                 deps.visuals_landed.add(key)
         else:
             conclusion = precheck._strings(parsed.params.get("conclusion"))
-            concluding = parsed.path == "experiment set" and any(c.strip() for c in conclusion)
-            if not (parsed.path in _OWES_SUMMARY or concluding):
+            if not (parsed.path == "experiment set" and any(c.strip() for c in conclusion)):
                 return
             found = summary_cli.landing(list(argv))
             if found is None:
                 return
-            key = f"{found[0]}:{found[1]}"
-            deps.summaries_owed.add(key)
-            deps.summaries_pushed.discard(key)  # a push before this write does not cover it
-            if concluding:
-                deps.concluded.add(key)
+            deps.concluded.add(f"{found[0]}:{found[1]}")
         tally_save(deps)
     except Exception:  # noqa: BLE001 -- bookkeeping, never a failed write
         return
 
 
+def _owed(deps: Deps, why: str) -> list[str]:
+    """`kind ref` for each `why` the ledger says this run's own commands left
+    owed (`probe.cli.owed`), sorted."""
+    from probe.cli import owed
+
+    _tally(deps)
+    try:
+        items = owed.owed(deps.session_id, by=owed.BY_DAEMON, since=deps.ledger_from, why=why)
+    except Exception:  # noqa: BLE001 -- an unreadable ledger owes nothing
+        return []
+    return sorted(f"{i['kind']} {i['ref']}" for i in items)
+
+
 def summaries_owed(deps: Deps) -> list[str]:
     """`kind ref` for each summary this run owes and did not push; [] when the
     team's summaries are the lane's."""
-    _tally(deps)
-    if deps.summaries_off:
-        return []
-    return [key.replace(":", " ", 1) for key in sorted(deps.summaries_owed - deps.summaries_pushed)]
+    from probe.cli import owed
+
+    return [] if deps.summaries_off else _owed(deps, owed.SUMMARY)
+
+
+def notes_owed(deps: Deps) -> list[str]:
+    """`run ref` for each run this run tagged invalid with no note since."""
+    from probe.cli import owed
+
+    return _owed(deps, owed.NOTE)
 
 
 def visuals_owed(deps: Deps) -> list[str]:

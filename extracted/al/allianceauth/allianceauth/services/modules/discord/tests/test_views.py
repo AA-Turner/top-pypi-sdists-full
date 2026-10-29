@@ -8,6 +8,7 @@ from allianceauth.tests.auth_utils import AuthUtils
 from allianceauth.utils.testing import NoSocketsTestCase
 
 from ..discord_client.tests.factories import TEST_USER_ID, TEST_USER_NAME
+from ..managers import DiscordUserAlreadyLinkedError
 from ..models import DiscordUser
 from ..utils import set_logger_to_file
 from ..views import (
@@ -152,6 +153,20 @@ class TestDiscordCallback(SetupClassMixin, NoSocketsTestCase):
         self, mock_add_user, mock_messages
     ):
         mock_add_user.return_value = False
+        request = self.factory.get(
+            reverse('discord:callback'), data={'code': '1234'}
+        )
+        request.user = self.user
+        response = discord_callback(request)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, self.services_url)
+        self.assertFalse(mock_messages.success.called)
+        self.assertTrue(mock_messages.error.called)
+
+    def test_error_message_when_already_linked_to_other_user(
+        self, mock_add_user, mock_messages
+    ):
+        mock_add_user.side_effect = DiscordUserAlreadyLinkedError
         request = self.factory.get(
             reverse('discord:callback'), data={'code': '1234'}
         )

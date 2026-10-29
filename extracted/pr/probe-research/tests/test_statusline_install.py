@@ -184,6 +184,45 @@ def test_a_failing_predecessor_does_not_take_us_down(claude_home, plugin_root, t
 # -- uninstall --------------------------------------------------------------
 
 
+def test_install_has_claude_code_redraw_an_idle_status_line(claude_home, plugin_root) -> None:
+    """Without `refreshInterval` Claude Code runs the command only on its own
+    events, so an idle session kept "not started" however often its marker
+    was refreshed (2026-10-27)."""
+    statusline.install(plugin_root)
+    assert _settings(claude_home)["statusLine"]["refreshInterval"] == statusline.REFRESH_INTERVAL_S
+
+
+def test_install_keeps_a_refresh_interval_of_the_persons_own(claude_home, plugin_root) -> None:
+    _write_slot(claude_home, "my-prompt")
+    settings = _settings(claude_home)
+    settings["statusLine"]["refreshInterval"] = 3
+    (claude_home / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
+    statusline.install(plugin_root)
+    assert _settings(claude_home)["statusLine"]["refreshInterval"] == 3
+    statusline.uninstall()
+    assert _settings(claude_home)["statusLine"] == {"type": "command", "command": "my-prompt", "refreshInterval": 3}
+
+
+def test_install_over_another_status_line_never_has_it_re_run_unasked(claude_home, plugin_root) -> None:
+    """The interval re-runs the whole slot: a person's own status line would
+    run every few seconds in every idle session."""
+    _write_slot(claude_home, "my-prompt")
+    statusline.install(plugin_root)
+    assert "refreshInterval" not in _settings(claude_home)["statusLine"]
+    statusline.uninstall()
+    assert _settings(claude_home)["statusLine"] == {"type": "command", "command": "my-prompt"}
+
+
+def test_uninstall_keeps_a_persons_own_interval_equal_to_ours(claude_home, plugin_root) -> None:
+    _write_slot(claude_home, "my-prompt")
+    settings = _settings(claude_home)
+    settings["statusLine"]["refreshInterval"] = statusline.REFRESH_INTERVAL_S
+    (claude_home / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
+    statusline.install(plugin_root)
+    statusline.uninstall()
+    assert _settings(claude_home)["statusLine"]["refreshInterval"] == statusline.REFRESH_INTERVAL_S
+
+
 def test_uninstall_restores_the_predecessor_exactly(claude_home, plugin_root) -> None:
     original = "my-prompt --fancy # someone-elses-marker"
     _write_slot(claude_home, original)

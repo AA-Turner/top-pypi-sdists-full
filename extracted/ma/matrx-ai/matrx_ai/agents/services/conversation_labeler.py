@@ -244,7 +244,18 @@ async def _update_conversation_labels(
 
 #: How long after the inline attempt the durable retry may run. The inline call lands in
 #: seconds; the retry exists for the process that died, not for a slow model.
-LABEL_RETRY_DELAY_SECONDS = 180.0
+LABEL_RETRY_DELAY_FEATURE = "agents.conversations"
+LABEL_RETRY_DELAY_KEY = "label_retry_delay_seconds"
+#: KNOB MIRROR of platform.feature_knob "agents.conversations" "label_retry_delay_seconds"
+LABEL_RETRY_DELAY_MIRROR = 180.0
+
+
+def label_retry_delay_seconds() -> float:
+    """The durable retry's delay, live from the host (``agents.conversations.label_retry_delay_seconds``)."""
+    from matrx_ai.knobs import package_knob_number
+
+    return package_knob_number(LABEL_RETRY_DELAY_FEATURE, LABEL_RETRY_DELAY_KEY, LABEL_RETRY_DELAY_MIRROR,
+                               low=30.0, high=3600.0)
 
 
 async def _label_row(conversation_id: str) -> Any | None:
@@ -264,7 +275,7 @@ async def _seed_label_retry(conversation_id: str, payload: dict[str, Any]) -> No
     """Seed the durable retry BEFORE the inline attempt (host seam; none on a standalone host).
 
     A process that dies mid-call leaves this row; the host's drain runs it after
-    ``LABEL_RETRY_DELAY_SECONDS`` and skips it when the inline label landed. A failure to seed
+    ``label_retry_delay_seconds()`` and skips it when the inline label landed. A failure to seed
     is said, never fatal — the inline attempt still runs.
     """
     from matrx_ai._ext import get_system_process_seed
@@ -277,7 +288,7 @@ async def _seed_label_retry(conversation_id: str, payload: dict[str, Any]) -> No
             process_key=LABEL_PROCESS_KEY,
             subject_id=conversation_id,
             payload=payload,
-            delay_seconds=LABEL_RETRY_DELAY_SECONDS,
+            delay_seconds=label_retry_delay_seconds(),
         )
     except Exception as exc:  # noqa: BLE001 — announced; the inline attempt is unaffected
         vcprint(
@@ -400,7 +411,7 @@ async def _run_labeling(
             )
         )
         # The retry is seeded beside the inline attempt, never in front of it: the title must not
-        # wait on the queue's round trips (it is due LABEL_RETRY_DELAY_SECONDS later anyway).
+        # wait on the queue's round trips (it is due label_retry_delay_seconds() later anyway).
         _seeded, (outcome, parsed) = await asyncio.gather(
             _seed_label_retry(conversation_id, retry_payload),
             _label_and_apply(

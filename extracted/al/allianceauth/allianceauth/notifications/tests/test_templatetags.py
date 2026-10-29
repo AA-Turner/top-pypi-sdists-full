@@ -1,7 +1,9 @@
 from unittest.mock import patch
 
+from django.contrib.auth.models import User as DjangoUser
 from django.test import TestCase, override_settings
 
+from allianceauth.authentication.models import User as AaUser
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..templatetags.auth_notifications import notifications_refresh_time, user_unread_notification_count
@@ -38,6 +40,19 @@ class TestUserNotificationCount(TestCase):
         self.assertEqual(result, expected)
         args, kwargs = mock_user_unread_count.call_args
         self.assertEqual(args[0], self.user.pk)
+
+    def test_accepts_django_user(self, mock_user_unread_count):
+        # request.user in templates is a django.contrib.auth User, not AA's proxy
+        mock_user_unread_count.return_value = 0
+
+        result = user_unread_notification_count(DjangoUser.objects.get(pk=self.user.pk))
+        self.assertEqual(result, 0)
+
+    def test_accepts_aa_proxy_user(self, mock_user_unread_count):
+        mock_user_unread_count.return_value = 0
+
+        result = user_unread_notification_count(AaUser.objects.get(pk=self.user.pk))
+        self.assertEqual(result, 0)
 
     def test_return_error_if_non_user(self, mock_user_unread_count):
         unread_count = -1

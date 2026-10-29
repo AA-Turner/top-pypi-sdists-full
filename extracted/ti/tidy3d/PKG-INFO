@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tidy3d
-Version: 2.12.1
+Version: 2.12.2
 Summary: A fast FDTD solver
 Project-URL: Homepage, https://github.com/flexcompute/tidy3d
 Project-URL: Repository, https://github.com/flexcompute/tidy3d
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
 Requires-Dist: autograd<2.0.0,>=1.7.0
 Requires-Dist: boto3<2.0.0,>=1.28.0
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: click<9.0.0,>=8.1.0
 Requires-Dist: cryptography==48.0.1; platform_system == 'Darwin' and platform_machine == 'x86_64'
 Requires-Dist: dask<2027.0.0,>=2025.12.0
@@ -137,7 +138,7 @@ Requires-Dist: sphinx<9.0.0,>=6; extra == 'docs'
 Requires-Dist: sphinxemoji<0.4.0,>=0.3.2; extra == 'docs'
 Requires-Dist: tmm<0.3.0,>=0.2.0; extra == 'docs'
 Provides-Extra: extras
-Requires-Dist: tidy3d-extras==2.12.1; extra == 'extras'
+Requires-Dist: tidy3d-extras==2.12.2; extra == 'extras'
 Provides-Extra: gdstk
 Requires-Dist: gdstk<1.1,>=0.9.49; extra == 'gdstk'
 Provides-Extra: heatcharge

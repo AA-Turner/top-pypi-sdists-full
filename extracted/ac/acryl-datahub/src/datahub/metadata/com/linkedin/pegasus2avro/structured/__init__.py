@@ -12,6 +12,7 @@ from .....schema_classes import PropertyValueClass
 from .....schema_classes import StructuredPropertiesClass
 from .....schema_classes import StructuredPropertyDefinitionClass
 from .....schema_classes import StructuredPropertyKeyClass
+from .....schema_classes import StructuredPropertyScoreClass
 from .....schema_classes import StructuredPropertySettingsClass
 from .....schema_classes import StructuredPropertyValueAssignmentClass
 
@@ -21,6 +22,7 @@ PropertyValue = PropertyValueClass
 StructuredProperties = StructuredPropertiesClass
 StructuredPropertyDefinition = StructuredPropertyDefinitionClass
 StructuredPropertyKey = StructuredPropertyKeyClass
+StructuredPropertyScore = StructuredPropertyScoreClass
 StructuredPropertySettings = StructuredPropertySettingsClass
 StructuredPropertyValueAssignment = StructuredPropertyValueAssignmentClass
 

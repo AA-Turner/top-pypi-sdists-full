@@ -39,26 +39,6 @@ _DEF_CONTAINER_TYPES = {
 }
 
 _IMPLICIT_ENTRYPOINTS = {"main"}
-_IMPLICIT_METHODS = {
-    "clone",
-    "default",
-    "drop",
-    "fmt",
-    "from",
-    "into",
-    "try_from",
-    "as_ref",
-    "as_mut",
-    "deref",
-    "deref_mut",
-    "serialize",
-    "deserialize",
-    "poll",
-    "poll_ready",
-    "call",
-    "call_once",
-    "call_mut",
-}
 
 _ATTR_PATH_REF_RE = re.compile(
     r'(?:default|serialize_with|deserialize_with|with)\s*=\s*"([A-Za-z_][A-Za-z0-9_:]*)"'
@@ -111,6 +91,11 @@ _REGISTRATION_MACROS = {
 }
 
 _RUST_EXTERNAL_TRAIT_IMPORTS = {
+    "Error": {
+        "sources": ("std::error", "core::error"),
+        "methods": ("source",),
+        "associated": (),
+    },
     "Read": {
         "sources": ("std::io",),
         "methods": ("read", "read_exact", "read_to_end", "read_to_string"),
@@ -1099,7 +1084,6 @@ class RustCore:
             self._is_public(node)
             or trait_impl
             or name in _IMPLICIT_ENTRYPOINTS
-            or (current_type is not None and name in _IMPLICIT_METHODS)
             or self._is_test_function(name, attrs, line)
             or self._has_attr_prefix(attrs, ("#[tokio::main", "#[actix_web::main"))
         )
@@ -1209,6 +1193,7 @@ class RustCore:
                 source,
                 local_name=local_name,
                 original_name=original_name,
+                scope_node=node.parent,
             ):
                 self._record_ref(local_name, node.start_byte, current_callable=None)
         self.raw_imports.append({"source": source, "names": names, "line": line})
@@ -1340,6 +1325,7 @@ class RustCore:
         *,
         local_name: str,
         original_name: str,
+        scope_node=None,
     ) -> bool:
         trait_name = original_name if original_name != "_" else local_name
         spec = _RUST_EXTERNAL_TRAIT_IMPORTS.get(trait_name)
@@ -1351,10 +1337,14 @@ class RustCore:
             return False
         if base.split("::", 1)[0] in {"crate", "self", "super"}:
             return False
+        if trait_name == "Error" and base not in spec["sources"]:
+            return False
         if not self._source_matches_trait_spec(base, spec["sources"]):
             return False
 
-        method_names, associated_calls = self._collect_trait_call_usage()
+        method_names, associated_calls = self._collect_trait_call_usage(
+            scope_node if trait_name == "Error" else None
+        )
         if set(spec["methods"]) & method_names:
             return True
 
@@ -1381,8 +1371,10 @@ class RustCore:
             base == source or base.startswith(f"{source}::") for source in sources
         )
 
-    def _collect_trait_call_usage(self) -> tuple[set[str], set[tuple[str, str]]]:
-        if self._trait_call_usage is not None:
+    def _collect_trait_call_usage(
+        self, scope_node=None
+    ) -> tuple[set[str], set[tuple[str, str]]]:
+        if scope_node is None and self._trait_call_usage is not None:
             return self._trait_call_usage
 
         method_names: set[str] = set()
@@ -1392,9 +1384,11 @@ class RustCore:
             self._trait_call_usage = (method_names, associated_calls)
             return self._trait_call_usage
 
-        for node in self._iter_nodes(self.root_node):
+        for node in self._iter_nodes(scope_node or self.root_node):
             method_name = self._trait_method_name_from_node(node)
             if method_name:
+                if scope_node is not None and self._known_inherent_method(node):
+                    continue
                 method_names.add(method_name)
                 continue
 
@@ -1402,8 +1396,34 @@ class RustCore:
             if associated_call is not None:
                 associated_calls.add(associated_call)
 
-        self._trait_call_usage = (method_names, associated_calls)
-        return self._trait_call_usage
+        result = (method_names, associated_calls)
+        if scope_node is None:
+            self._trait_call_usage = result
+        return result
+
+    def _known_inherent_method(self, node) -> bool:
+        enclosing = [
+            (name, declaration)
+            for name, declaration in self._callable_nodes.items()
+            if declaration.start_byte <= node.start_byte < declaration.end_byte
+        ]
+        current = min(
+            enclosing,
+            key=lambda pair: pair[1].end_byte - pair[1].start_byte,
+            default=(None, None),
+        )[0]
+        target = self._qualified_callee(node, current)
+        declaration = self._callable_nodes.get(target)
+        if declaration is None:
+            return False
+        implementation = declaration.parent
+        if implementation is not None and implementation.type == "declaration_list":
+            implementation = implementation.parent
+        return bool(
+            implementation is not None
+            and implementation.type == "impl_item"
+            and not any(child.type == "for" for child in implementation.children)
+        )
 
     def _call_parent(self, node):
         parent = node.parent
@@ -1504,6 +1524,27 @@ class RustCore:
                 current_callable=current_callable,
                 preserve_qualified=True,
             )
+            return
+
+        if node.type == "scoped_identifier":
+            # A qualified function value can be passed to map/map_err, stored
+            # or returned without ever appearing in the callee position.
+            if self._call_parent(node) is not None or (
+                node.parent is not None and node.parent.type == "scoped_identifier"
+            ):
+                return
+            target = self._qualified_callee(node, current_callable)
+            if target is None:
+                target = self._resolve_type_name(
+                    self._node_name_text(node), current_callable
+                )
+            if target:
+                self._add_ref(
+                    target,
+                    node.start_byte,
+                    current_callable=current_callable,
+                    preserve_qualified=True,
+                )
             return
 
         if node.type == "identifier" and self._is_reference_identifier(node):

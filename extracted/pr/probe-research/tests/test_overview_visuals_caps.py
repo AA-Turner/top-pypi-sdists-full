@@ -25,6 +25,10 @@ PROPOSED_LINES = (
     "Never type a number. Name what to show; the server reads the values. `probe visuals options --experiment E` "
     "writes the current list to a file (its `path`): edit it, then `probe visuals set --experiment E`.",
     "- Copy keys, paths and run ids verbatim from `probe visuals options`.",
+    # Summary pages are custom artifacts (2026-10-28): results may show on the page too.
+    "- An experiment's results tables and charts go here, in its Metrics center; its page may also show them "
+    "its own way. A project's tables go here. `[]` only when there is nothing to show yet, or one number the "
+    "page can say.",
 )
 
 
@@ -56,7 +60,7 @@ def test_the_sync_rewrites_only_the_caps_sentence():
 
 
 def test_the_recorder_copy_differs_from_the_lanes_in_the_approved_lines_only():
-    """The two lines the plan changes (§3.8), plus the lane's own front-matter
+    """The lines the plans change (§3.8; custom artifact pages), plus the lane's own front-matter
     flag and its placeholders: everything else is the lane's text."""
     lane = AGENT.parent / "app" / "generation" / "skills" / "overview-visuals" / "SKILL.md"
     if not lane.is_file():

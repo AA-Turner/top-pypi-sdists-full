@@ -7,10 +7,13 @@ use std::str::FromStr;
 use pep508_rs::{Requirement, VerbatimUrl, VersionOrUrl};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{PyAnyMethods, PyModule};
-use pyo3::types::{PyDict, PyDictMethods, PyList, PyListMethods, PyStringMethods, PyTuple};
+use pyo3::types::{
+    IntoPyDict, PyDict, PyDictMethods, PyList, PyListMethods, PyStringMethods, PyTuple,
+};
 use pyo3::{PyResult, Python};
 use serde::{Deserialize, Serialize};
 use tempfile::tempdir;
+use url::Url;
 
 use crate::Error;
 use crate::metadata::{Discovered, Package, ResolvedDeclaration, ResolvedEdge};
@@ -93,15 +96,22 @@ struct Nab {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     constraints: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    build_policy: Option<&'static str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     vcs: Option<VcsPolicy>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     local_sources: Vec<LocalSource>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     vcs_sources: Vec<VcsSource>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    package_rules: Vec<PackageRule>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     indexes: Vec<Index>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "kebab-case")]
+struct PackageRule {
+    r#match: [String; 1],
+    build_policy: &'static str,
 }
 
 #[derive(Debug, Serialize)]
@@ -123,7 +133,7 @@ pub fn resolve(
     let result =
         if requirements.is_empty() && requirement_files.is_empty() && pyproject_files.len() == 1 {
             let path = require_file(&pyproject_files[0])?;
-            resolve_pyproject(py, path, indexes.as_deref())?
+            resolve_pyproject(py, path, indexes.as_deref(), true)?
         } else {
             let mut inputs = Inputs {
                 indexes,
@@ -145,7 +155,10 @@ pub fn resolve(
             let directory = tempdir()?;
             let path = directory.path().join("pyproject.toml");
             fs::write(&path, render_pyproject(&inputs))?;
-            resolve_pyproject(py, &path, None)?
+            // The generated project belongs to no workspace. Its ancestors are the temporary
+            // directory, where any local user may declare one whose members would replace the
+            // index's packages.
+            resolve_pyproject(py, &path, None, false)?
         };
     adapt_result(&result)
 }
@@ -178,7 +191,7 @@ fn resolve_indexes(index_url: Option<&str>, extra_index_urls: &[String]) -> Opti
     if primary.is_none() && extras.is_empty() {
         return None;
     }
-    let mut indexes = vec![primary.map_or_else(
+    let mut indexes = vec![primary.map(without_credentials).map_or_else(
         || Index {
             name: PYPI_NAME.to_string(),
             url: PYPI_URL.to_string(),
@@ -194,9 +207,24 @@ fn resolve_indexes(index_url: Option<&str>, extra_index_urls: &[String]) -> Opti
     )];
     indexes.extend(extras.into_iter().enumerate().map(|(position, url)| Index {
         name: format!("extra-{}", position + 1),
-        url,
+        url: without_credentials(url),
     }));
     Some(indexes)
+}
+
+// Nab sends no credentials from an index URL, but quotes the URL in its error messages, so the
+// user name and password would reach stderr without ever authenticating a request.
+fn without_credentials(url: String) -> String {
+    match Url::parse(&url) {
+        Ok(mut parsed) if !parsed.username().is_empty() || parsed.password().is_some() => {
+            parsed
+                .set_username("")
+                .and_then(|()| parsed.set_password(None))
+                .expect("a URL with credentials has a host");
+            parsed.into()
+        }
+        _ => url,
+    }
 }
 
 fn parse_requirements_file(
@@ -444,13 +472,23 @@ fn render_pyproject(inputs: &Inputs) -> String {
         tool: has_nab.then(|| Tool {
             nab: Nab {
                 constraints: inputs.constraints.clone(),
-                build_policy: has_sources.then_some("build-remote"),
                 vcs: (!inputs.vcs_sources.is_empty()).then_some(VcsPolicy {
                     policy: "allow",
                     allowed_schemes: GIT_SCHEMES,
                 }),
                 local_sources: inputs.local_sources.clone(),
                 vcs_sources: inputs.vcs_sources.clone(),
+                // The resolver's default policy already builds a listed local source. A listed
+                // clone needs build-remote, which, set for the whole resolve, would also run the
+                // backend of every sdist fetched from the index, so only the named clones get it.
+                package_rules: inputs
+                    .vcs_sources
+                    .iter()
+                    .map(|source| PackageRule {
+                        r#match: [source.name.clone()],
+                        build_policy: "build-remote",
+                    })
+                    .collect(),
                 indexes,
             },
         }),
@@ -462,9 +500,10 @@ fn resolve_pyproject<'py>(
     py: Python<'py>,
     path: &Path,
     indexes: Option<&[Index]>,
+    discover_workspace: bool,
 ) -> Result<pyo3::Bound<'py, pyo3::PyAny>, Error> {
     ResolverModules::import(py)?
-        .resolve(py, path, indexes)
+        .resolve(py, path, indexes, discover_workspace)
         .map_err(Error::from)
 }
 
@@ -492,15 +531,17 @@ impl<'py> ResolverModules<'py> {
         py: Python<'py>,
         path: &Path,
         indexes: Option<&[Index]>,
+        discover_workspace: bool,
     ) -> PyResult<pyo3::Bound<'py, pyo3::PyAny>> {
         let pathlib = PyModule::import(py, "pathlib")?;
         let py_path = pathlib
             .getattr("Path")?
             .call1((path.to_string_lossy().as_ref(),))?;
+        let kwargs = [("discover_workspace", discover_workspace)].into_py_dict(py)?;
         let mut config = self
             .config
             .getattr("read_pyproject_config")?
-            .call1((&py_path,))?;
+            .call((&py_path,), Some(&kwargs))?;
         if let Some(indexes) = indexes {
             let index_config = self.multi_index.getattr("IndexConfig")?;
             let configs = PyList::empty(py);
@@ -605,7 +646,7 @@ fn adapt_result(result: &pyo3::Bound<'_, pyo3::PyAny>) -> Result<Discovered, Err
     }
     let packages = versions
         .iter()
-        .map(|(name, version)| Package::synthetic(name.clone(), version.clone(), Vec::new()))
+        .map(|(name, version)| Package::synthetic(name, version, &[]))
         .collect();
     Ok(Discovered {
         packages,

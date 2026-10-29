@@ -45,9 +45,10 @@ def test_caller_workflow_shape() -> None:
     )
     job = data["jobs"]["repo-evidence"]
     assert re.fullmatch(
-        r"OmniNode-ai/omnibase_core/\.github/workflows/receipt-gate\.yml@[0-9a-f]{40}",
+        r"OmniNode-ai/omnibase_core/\.github/workflows/receipt-gate\.yml@"
+        r"dev-\d{14}-[0-9a-f]{12}",
         job["uses"],
-    ), "receipt-gate reusable must be pinned by an immutable full SHA"
+    ), "receipt-gate reusable must be pinned by a dev-merge tag"
     assert job["with"]["evidence-source"] == "caller", (
         "caller evidence mode is required"
     )
@@ -57,6 +58,30 @@ def test_caller_workflow_shape() -> None:
     for key in ("steps", "secrets", "if", "name", "permissions"):
         assert key not in job, f"caller job must not declare {key}"
     assert "secrets: inherit" not in text, "caller must not inherit secrets"
+
+
+_ENV_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*")
+
+
+def _pytest_argv(check_value: str) -> list[str]:
+    """The argv of a `uv run pytest` check, after any leading `env VAR=value` prefix.
+
+    `env PYTHONDONTWRITEBYTECODE=1 uv run pytest ...` runs the same test as
+    `uv run pytest ...`; the verifier accepts both (omnimarket#4317), so the
+    binding check does too. Anything else returns an empty list.
+    """
+    tokens = shlex.split(check_value)
+    if tokens[:1] == ["env"]:
+        tokens = tokens[1:]
+        while tokens and _ENV_ASSIGNMENT.fullmatch(tokens[0]):
+            tokens = tokens[1:]
+    if tokens[:2] != ["uv", "run"]:
+        return []
+    # `uv run --frozen pytest ...` runs the same test: skip uv's own flags.
+    rest = tokens[2:]
+    while rest and rest[0].startswith("-"):
+        rest = rest[1:]
+    return ["uv", "run", *rest] if rest[:1] == ["pytest"] else []
 
 
 def contract_binds_violations(name: str, contract: dict[str, Any]) -> list[str]:
@@ -80,25 +105,22 @@ def contract_binds_violations(name: str, contract: dict[str, Any]) -> list[str]:
         if "binds_ac" not in item:
             continue
         bound.update(item["binds_ac"])
-        checks = [
-            check
+        argvs = [
+            _pytest_argv(check.get("check_value", ""))
             for check in item.get("checks", [])
             if check.get("check_type") == "test_passes"
-            and check.get("check_value", "").startswith("uv run pytest ")
         ]
         selectors = [
             next(
                 (
                     path
-                    for path in (
-                        token.split("::", 1)[0]
-                        for token in shlex.split(check["check_value"])
-                    )
+                    for path in (token.split("::", 1)[0] for token in argv)
                     if path.endswith(".py") or path.endswith("/tests")
                 ),
                 "",
             )
-            for check in checks
+            for argv in argvs
+            if argv
         ]
         # A criterion about a merged PR body is bound to a grep over that
         # body, which exits non-zero when the sentence is absent.
@@ -203,21 +225,65 @@ def test_contract_binds_accepts_an_unbound_command_only_deploy_probe() -> None:
     assert violations == []
 
 
+@pytest.mark.parametrize(
+    ("check_value", "bound"),
+    [
+        (
+            "env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/ci/test_repo_evidence_caller_workflow.py -q",
+            True,
+        ),
+        (
+            "env A=1 B=2 uv run pytest tests/ci/test_repo_evidence_caller_workflow.py",
+            True,
+        ),
+        (
+            "env PYTHONDONTWRITEBYTECODE=1 python -m pytest tests/ci/test_repo_evidence_caller_workflow.py",
+            False,
+        ),
+        ("env uv run pytest tests/ci/no_such_test_file.py", False),
+        (
+            "uv run --frozen pytest tests/ci/test_repo_evidence_caller_workflow.py -q -n 0 --no-cov",
+            True,
+        ),
+        (
+            "uv run --frozen python -m pytest tests/ci/test_repo_evidence_caller_workflow.py",
+            False,
+        ),
+    ],
+)
+def test_contract_binds_reads_through_an_env_prefix(
+    check_value: str, bound: bool
+) -> None:
+    """An `env VAR=value` prefix runs the same pytest; only the runner and file decide."""
+    contract = {
+        "requirements": [{"acceptance": [{"id": "AC1"}]}],
+        "dod_evidence": [
+            {
+                "id": "dod-env-prefixed-test",
+                "binds_ac": ["AC1"],
+                "checks": [{"check_type": "test_passes", "check_value": check_value}],
+            },
+        ],
+    }
+    violations = contract_binds_violations("OMN-0.yaml", contract)
+    assert (violations == []) is bound
+
+
 # OMN-20073: omnibase_core#1884 added the dependency-bot and pin-only writer-app
 # exemption to the caller-evidence dod-verify job. A pin that predates it makes
 # every bot version bump fail for binding no evidence of its own.
 # OMN-20543: omnibase_core#1886, a descendant of #1884, gives that job a
 # Postgres service, the PG16 server tools and INTEGRATION_POSTGRES_*, so a bound
 # test that needs a database runs at the head and in the merge-base control.
-# The pin moved to a descendant (omnibase_core#1912, OMN-17427; then omnibase_core#1914, OMN-20074; then omnibase_core#1932, OMN-20032; then omnibase_core#1986, OMN-21146).
-_EXEMPT_REUSABLE_SHA = "4d16322dae9d62f96089b93421a768fb8dd8c8fe"
+# The pin moved to a descendant (omnibase_core#1912, OMN-17427; then omnibase_core#1914, OMN-20074; then omnibase_core#1932, OMN-20032; then omnibase_core#1986, OMN-21146; then omnibase_core#2079, OMN-19513).
+_EXEMPT_REUSABLE_TAG = "dev-20261022114039-578228977721"
 
 
 def test_caller_pins_a_reusable_with_the_bot_bump_exemption() -> None:
     uses = yaml.safe_load(CALLER_PATH.read_text(encoding="utf-8"))["jobs"][
         "repo-evidence"
     ]["uses"]
-    assert uses.endswith(f"@{_EXEMPT_REUSABLE_SHA}"), (
+    assert uses.endswith(f"@{_EXEMPT_REUSABLE_TAG}"), (
         "pin the omnibase_core reusable at or past omnibase_core#1884"
     )
 
@@ -271,14 +337,14 @@ def test_caller_pins_a_verifier_that_refuses_unbound_criteria() -> None:
 # database test its database. A pin before omnibase_core#1886 runs that test
 # with none, so a contract can only scope it local_done_gate, which the hosted
 # control refuses as a control that did not run (omnimarket#3369).
-# The pin moved to a descendant (omnibase_core#1912, OMN-17427; then omnibase_core#1914, OMN-20074; then omnibase_core#1932, OMN-20032; then omnibase_core#1986, OMN-21146).
-_DATABASE_REUSABLE_SHA = "4d16322dae9d62f96089b93421a768fb8dd8c8fe"
+# The pin moved to a descendant (omnibase_core#1912, OMN-17427; then omnibase_core#1914, OMN-20074; then omnibase_core#1932, OMN-20032; then omnibase_core#1986, OMN-21146; then omnibase_core#2079, OMN-19513).
+_DATABASE_REUSABLE_TAG = "dev-20261022114039-578228977721"
 
 
 def test_caller_pins_a_reusable_that_gives_bound_tests_a_database() -> None:
     uses = yaml.safe_load(CALLER_PATH.read_text(encoding="utf-8"))["jobs"][
         "repo-evidence"
     ]["uses"]
-    assert uses.endswith(f"@{_DATABASE_REUSABLE_SHA}"), (
+    assert uses.endswith(f"@{_DATABASE_REUSABLE_TAG}"), (
         "pin the omnibase_core reusable at or past omnibase_core#1886"
     )

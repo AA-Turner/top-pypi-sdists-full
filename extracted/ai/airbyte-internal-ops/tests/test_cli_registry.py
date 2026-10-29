@@ -1283,6 +1283,72 @@ def test_compile_global_registry_reads_selected_registry_directory(
 
 
 @pytest.mark.unit
+def test_compile_global_registry_drops_renamed_image_sharing_definition_id() -> None:
+    """A renamed connector image wins over the old image's stale `latest/` entry."""
+    store = RegistryStore.parse("coral:dev")
+    base = f"{store.bucket_root}/metadata/airbyte"
+    definition_id = "b2e713cd-cc36-4c0a-b5bd-b47cb8a0561e"
+    old_entry = {
+        "sourceDefinitionId": definition_id,
+        "dockerRepository": "airbyte/source-mongodb-v2",
+        "dockerImageTag": "2.1.1",
+    }
+    new_entry = {
+        "sourceDefinitionId": definition_id,
+        "dockerRepository": "airbyte/source-mongodb",
+        "dockerImageTag": "3.0.0",
+    }
+    fs = InMemoryRegistryFileSystem(
+        {
+            f"{base}/source-mongodb-v2/latest/cloud.json": json.dumps(old_entry),
+            f"{base}/source-mongodb/latest/cloud.json": json.dumps(new_entry),
+        }
+    )
+
+    entries = _compile_global_registry(
+        fs,
+        store=store,
+        latest_versions={"source-mongodb-v2": "2.1.1", "source-mongodb": "3.0.0"},
+        registry_type="cloud",
+    )
+
+    assert entries == [new_entry]
+
+
+@pytest.mark.unit
+def test_compile_global_registry_fails_on_unknown_definition_id_collision() -> None:
+    """An unlisted definition-ID collision fails the compile instead of guessing."""
+    store = RegistryStore.parse("coral:dev")
+    base = f"{store.bucket_root}/metadata/airbyte"
+    fs = InMemoryRegistryFileSystem(
+        {
+            f"{base}/source-a/latest/cloud.json": json.dumps(
+                {
+                    "sourceDefinitionId": "unknown-definition",
+                    "dockerRepository": "airbyte/source-a",
+                    "dockerImageTag": "1.0.0",
+                }
+            ),
+            f"{base}/source-b/latest/cloud.json": json.dumps(
+                {
+                    "sourceDefinitionId": "unknown-definition",
+                    "dockerRepository": "airbyte/source-b",
+                    "dockerImageTag": "1.0.0",
+                }
+            ),
+        }
+    )
+
+    with pytest.raises(ValueError, match="Unhandled definition-ID collision"):
+        _compile_global_registry(
+            fs,
+            store=store,
+            latest_versions={"source-a": "1.0.0", "source-b": "1.0.0"},
+            registry_type="cloud",
+        )
+
+
+@pytest.mark.unit
 def test_requires_pinned_override_synthesis_detects_missing_entries() -> None:
     """Marker-current latest dirs still resync when pinned entries are missing."""
     store = RegistryStore.parse("coral:dev")

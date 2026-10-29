@@ -24,15 +24,23 @@ import collections
 from collections.abc import Callable, Iterable, KeysView
 import operator
 import re
+import sys
 import warnings
-from typing import Any, cast
+from typing import Any, Generic, cast
+
+if sys.version_info >= (3, 13):
+    from typing import TypeVar
+else:
+    from typing_extensions import TypeVar
 
 import abc
 import netaddr
 import rfc3986
 
+T = TypeVar('T')
 
-class ConfigType(metaclass=abc.ABCMeta):
+
+class ConfigType(Generic[T], metaclass=abc.ABCMeta):
     NONE_DEFAULT: str = '<None>'
 
     def __init__(self, type_name: str = 'unknown type') -> None:
@@ -61,36 +69,32 @@ class ConfigType(metaclass=abc.ABCMeta):
             return f'"{str_val}"'
         return cast(str, str_val)
 
-    def __call__(self, value: Any) -> Any:
-        pass
+    def __call__(self, value: Any) -> T:
+        raise NotImplementedError
 
     @abc.abstractmethod
-    def _formatter(self, value: Any) -> Any:
-        pass
+    def _formatter(self, value: Any) -> str: ...
 
 
-class String(ConfigType):
+class String(ConfigType[str]):
     """String type.
 
     String values do not get transformed and are returned as str objects.
 
     :param choices: Optional sequence of either valid values or tuples of valid
         values with descriptions. Mutually exclusive with 'regex'.
-    :param quotes: If True and string is enclosed with single or double
-                   quotes, will strip those quotes. Will signal error if
-                   string have quote at the beginning and no quote at
-                   the end. Turned off by default. Useful if used with
-                   container types like List.
-    :param regex: Optional regular expression (string or compiled
-                  regex) that the value must match on an unanchored
-                  search. Mutually exclusive with 'choices'.
-    :param ignore_case:  If True case differences (uppercase vs. lowercase)
-                         between 'choices' or 'regex' will be ignored;
-                         defaults to False.
-    :param max_length:  Optional integer. If a positive value is specified,
-                        a maximum length of an option value must be less than
-                        or equal to this parameter. Otherwise no length check
-                        will be done.
+    :param quotes: If True and string is enclosed with single or double quotes,
+        will strip those quotes. Will signal error if string have quote at the
+        beginning and no quote at the end. Turned off by default. Useful if
+        used with container types like List.
+    :param regex: Optional regular expression (string or compiled regex) that
+        the value must match on an unanchored search. Mutually exclusive with
+        'choices'.
+    :param ignore_case: If True case differences (uppercase vs. lowercase)
+        between 'choices' or 'regex' will be ignored; defaults to False.
+    :param max_length: Optional integer. If a positive value is specified, a
+        maximum length of an option value must be less than or equal to this
+        parameter. Otherwise no length check will be done.
     :param type_name: Type name to be used in the sample config file.
 
     .. versionchanged:: 2.1
@@ -115,7 +119,7 @@ class String(ConfigType):
         self,
         choices: Any = None,
         quotes: bool = False,
-        regex: Any = None,
+        regex: str | re.Pattern[str] | None = None,
         ignore_case: bool = False,
         max_length: int | None = None,
         type_name: str = 'string value',
@@ -140,8 +144,7 @@ class String(ConfigType):
         if self.choices is not None and self.ignore_case:
             self.lower_case_choices = [c.lower() for c in self.choices]
 
-        self.regex = regex
-        if self.regex is not None:
+        if regex is not None:
             re_flags = re.IGNORECASE if self.ignore_case else 0
 
             # Check if regex is a string or an already compiled regex
@@ -149,6 +152,8 @@ class String(ConfigType):
                 self.regex = re.compile(regex, re_flags)
             else:
                 self.regex = re.compile(regex.pattern, re_flags | regex.flags)
+        else:
+            self.regex = None
 
     def __call__(self, value: Any) -> str:
         str_value: str = str(value)
@@ -243,7 +248,7 @@ class MultiString(String):
         return [self.quote_trailing_and_leading_space(v) for v in value]
 
 
-class Boolean(ConfigType):
+class Boolean(ConfigType[bool]):
     """Boolean type.
 
     Values are case insensitive and can be set using
@@ -284,7 +289,10 @@ class Boolean(ConfigType):
         return str(value).lower()
 
 
-class Number(ConfigType):
+NumberT = TypeVar('NumberT', int, float)
+
+
+class Number(ConfigType[NumberT]):
     """Number class, base for Integer and Float.
 
     :param num_type: the type of number used for casting (i.e int, float)
@@ -292,32 +300,37 @@ class Number(ConfigType):
     :param min: Optional check that value is greater than or equal to min.
     :param max: Optional check that value is less than or equal to max.
     :param sample_min: Optional display value when generating config file,
-                       replacing min.
+        replacing min.
     :param sample_max: Optional display value when generating config file,
-                       replacing max.
+        replacing max.
     :param choices: Optional sequence of either valid values or tuples of valid
         values with descriptions.
 
     .. versionadded:: 3.14
 
     .. versionchanged:: 5.2
+
        The *choices* parameter will now accept a sequence of tuples, where each
        tuple is of form (*choice*, *description*)
 
     .. versionchanged:: 10.7.0
 
        Added sample_min and sample_max,
-
     """
 
-    choices: collections.OrderedDict[int | float, str | None] | None
+    choices: collections.OrderedDict[NumberT, str | None] | None
+    min: NumberT | None
+    max: NumberT | None
+    sample_min: str | None
+    sample_max: str | None
+    num_type: type[NumberT]
 
     def __init__(
         self,
-        num_type: type[int] | type[float],
+        num_type: type[NumberT],
         type_name: str,
-        min: int | float | None = None,
-        max: int | float | None = None,
+        min: NumberT | None = None,
+        max: NumberT | None = None,
         choices: Any = None,
         sample_min: str | None = None,
         sample_max: str | None = None,
@@ -351,14 +364,14 @@ class Number(ConfigType):
         self.sample_max = sample_max
         self.num_type = num_type
 
-    def __call__(self, value: Any) -> int | float | None:
+    def __call__(self, value: Any) -> NumberT | None:  # type: ignore[override]
         if not isinstance(value, self.num_type):
             s = str(value).strip()
             if s == '':
                 return None
             value = self.num_type(value)
 
-        num_value: int | float = value
+        num_value: NumberT = value
         if self.choices is None:
             if self.min is not None and num_value < self.min:
                 raise ValueError(
@@ -409,7 +422,7 @@ class Number(ConfigType):
         return str(value)
 
 
-class Integer(Number):
+class Integer(Number[int]):
     """Integer type.
 
     Converts value to an integer optionally doing range checking.
@@ -421,9 +434,9 @@ class Integer(Number):
     :param choices: Optional sequence of either valid values or tuples of valid
         values with descriptions.
     :param sample_min: Optional display value when generating config file,
-                       replacing min.
+        replacing min.
     :param sample_max: Optional display value when generating config file,
-                       replacing max.
+        replacing max.
 
     .. versionchanged:: 2.4
        The class now honors zero for *min* and *max* parameters.
@@ -468,7 +481,7 @@ class Integer(Number):
         )
 
 
-class Float(Number):
+class Float(Number[float]):
     """Float type.
 
     :param min: Optional check that value is greater than or equal to min.
@@ -534,7 +547,10 @@ class Port(Integer):
         )
 
 
-class List(ConfigType):
+T_item = TypeVar('T_item', default=str)
+
+
+class List(ConfigType[list[T_item]]):
     """List type.
 
     Represent values of other (item) type, separated by commas.
@@ -546,7 +562,7 @@ class List(ConfigType):
     In the later case it will signal validation error.
 
     :param item_type: Type of list items. Should be an instance of
-                      ``ConfigType``.
+        ``ConfigType``.
     :param bounds: if True, value should be inside "[" and "]" pair
     :param type_name: Type name to be used in the sample config file.
 
@@ -559,11 +575,11 @@ class List(ConfigType):
        Added *min_length* parameter.
     """
 
-    item_type: 'ConfigType'
+    item_type: ConfigType[T_item]
 
     def __init__(
         self,
-        item_type: 'ConfigType | None' = None,
+        item_type: ConfigType[T_item] | None = None,
         bounds: bool = False,
         type_name: str = 'list value',
         min_length: int = 0,
@@ -571,7 +587,7 @@ class List(ConfigType):
         super().__init__(type_name=type_name)
 
         if item_type is None:
-            item_type = String()
+            item_type = cast(ConfigType[T_item], String())
 
         if not callable(item_type):
             raise TypeError('item_type must be callable')
@@ -579,7 +595,7 @@ class List(ConfigType):
         self.bounds = bounds
         self.min_length = min_length
 
-    def __call__(self, value: Any) -> list[Any]:
+    def __call__(self, value: Any) -> list[T_item]:
         if isinstance(value, (list, tuple)):
             return list(map(self.item_type, value))
 
@@ -603,7 +619,7 @@ class List(ConfigType):
                 )
             return []
 
-        result: list[Any] = []
+        result: list[T_item] = []
         while values:
             value = values.pop(0)
             while True:
@@ -629,7 +645,7 @@ class List(ConfigType):
         return result
 
     def __repr__(self) -> str:
-        return f'List of {repr(self.item_type)}'
+        return f'List of {self.item_type!r}'
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, List):
@@ -648,7 +664,7 @@ class List(ConfigType):
         return fmtstr.format(self.item_type._formatter(value))
 
 
-class Range(ConfigType):
+class Range(ConfigType[range]):
     """Range type.
 
     Represents a range of integers. A range is identified by an integer both
@@ -656,7 +672,7 @@ class Range(ConfigType):
     valid range.
 
     :param min: Optional check that lower bound is greater than or equal to
-                min.
+        min.
     :param max: Optional check that upper bound is less than or equal to max.
     :param inclusive: True if the right bound is to be included in the range.
     :param type_name: Type name to be used in the sample config file.
@@ -706,11 +722,11 @@ class Range(ConfigType):
             and (self.max == other.max)
         )
 
-    def _formatter(self, value: Any) -> Any:
-        return value
+    def _formatter(self, value: Any) -> str:
+        return str(value)
 
 
-class Dict(ConfigType):
+class Dict(ConfigType[dict[str, T_item]]):
     """Dictionary type.
 
     Dictionary type values are key:value pairs separated by commas.
@@ -735,9 +751,11 @@ class Dict(ConfigType):
        Added *min_length* parameter.
     """
 
+    value_type: ConfigType[T_item]
+
     def __init__(
         self,
-        value_type: 'ConfigType | None' = None,
+        value_type: ConfigType[T_item] | None = None,
         bounds: bool = False,
         type_name: str = 'dict value',
         key_value_separator: str = ':',
@@ -746,7 +764,7 @@ class Dict(ConfigType):
         super().__init__(type_name=type_name)
 
         if value_type is None:
-            value_type = String()
+            value_type = cast(ConfigType[T_item], String())
 
         if not callable(value_type):
             raise TypeError('value_type must be callable')
@@ -759,11 +777,11 @@ class Dict(ConfigType):
         self.key_value_separator = key_value_separator
         self.min_length = min_length
 
-    def __call__(self, value: Any) -> dict[str, Any]:
+    def __call__(self, value: Any) -> dict[str, T_item]:
         if isinstance(value, dict):
             return value
 
-        result: dict[str, Any] = {}
+        result: dict[str, T_item] = {}
         s = value.strip()
 
         if self.bounds:
@@ -827,7 +845,7 @@ class Dict(ConfigType):
         return result
 
     def __repr__(self) -> str:
-        return f'Dict of {repr(self.value_type)}'
+        return f'Dict of {self.value_type!r}'
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Dict):
@@ -841,7 +859,7 @@ class Dict(ConfigType):
         return ','.join(['{}:{}'.format(*i) for i in sorted_items])
 
 
-class IPAddress(ConfigType):
+class IPAddress(ConfigType[str]):
     """IP address type
 
     Represents either ipv4 or ipv6. Without specifying version parameter both
@@ -906,7 +924,7 @@ class IPAddress(ConfigType):
         return cast(str, value)
 
 
-class Hostname(ConfigType):
+class Hostname(ConfigType[str]):
     """Host domain name type.
 
     A hostname refers to a valid DNS or hostname. It must not be longer than
@@ -914,7 +932,6 @@ class Hostname(ConfigType):
     end with a hyphen.
 
     :param type_name: Type name to be used in the sample config file.
-
     """
 
     HOSTNAME_REGEX = '(?!-)[A-Z0-9-]{1,63}(?<!-)$'
@@ -968,7 +985,7 @@ class Hostname(ConfigType):
         return cast(str, value)
 
 
-class HostAddress(ConfigType):
+class HostAddress(ConfigType[str]):
     """Host Address type.
 
     Represents both valid IP addresses and valid host domain names
@@ -976,8 +993,8 @@ class HostAddress(ConfigType):
     Performs strict checks for both IP addresses and valid hostnames,
     matching the opt values to the respective types as per RFC1912.
 
-    :param version: defines which version should be explicitly
-                    checked (4 or 6) in case of an IP address
+    :param version: defines which version should be explicitly checked (4 or 6)
+        in case of an IP address
     :param type_name: Type name to be used in the sample config file.
     """
 
@@ -1024,8 +1041,8 @@ class HostDomain(HostAddress):
 
     Like HostAddress with the support of _ character.
 
-    :param version: defines which version should be explicitly
-                    checked (4 or 6) in case of an IP address
+    :param version: defines which version should be explicitly checked (4 or 6)
+        in case of an IP address
     :param type_name: Type name to be used in the sample config file.
     """
 
@@ -1067,15 +1084,14 @@ class HostDomain(HostAddress):
         return 'HostDomain'
 
 
-class URI(ConfigType):
+class URI(ConfigType[str]):
     """URI type
 
     Represents URI. Value will be validated as RFC 3986.
 
-    :param max_length: Optional integer. If a positive value is specified,
-                       a maximum length of an option value must be less than
-                       or equal to this parameter. Otherwise no length check
-                       will be done.
+    :param max_length: Optional integer. If a positive value is specified, a
+        maximum length of an option value must be less than or equal to this
+        parameter. Otherwise no length check will be done.
     :param schemes: List of valid schemes.
     :param type_name: Type name to be used in the sample config file.
 

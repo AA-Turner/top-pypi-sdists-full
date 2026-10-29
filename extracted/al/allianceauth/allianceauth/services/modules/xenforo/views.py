@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -11,6 +14,9 @@ from .manager import XenForoManager
 from .models import XenforoUser
 from .tasks import XenforoTasks
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 ACCESS_PERM = 'xenforo.access_xenforo'
@@ -18,7 +24,7 @@ ACCESS_PERM = 'xenforo.access_xenforo'
 
 @login_required
 @permission_required(ACCESS_PERM)
-def activate_xenforo_forum(request):
+def activate_xenforo_forum(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"activate_xenforo_forum called by user {request.user}")
     character = request.user.profile.main_character
     logger.debug(f"Adding XenForo user for user {request.user} with main character {character}")
@@ -43,7 +49,7 @@ def activate_xenforo_forum(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def deactivate_xenforo_forum(request):
+def deactivate_xenforo_forum(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"deactivate_xenforo_forum called by user {request.user}")
     if XenforoTasks.delete_user(request.user):
         logger.info(f"Successfully deactivated XenForo for user {request.user}")
@@ -55,7 +61,7 @@ def deactivate_xenforo_forum(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def reset_xenforo_password(request):
+def reset_xenforo_password(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"reset_xenforo_password called by user {request.user}")
     if XenforoTasks.has_account(request.user):
         result = XenForoManager.reset_password(request.user.xenforo.username)
@@ -76,7 +82,7 @@ def reset_xenforo_password(request):
 
 @login_required
 @permission_required(ACCESS_PERM)
-def set_xenforo_password(request):
+def set_xenforo_password(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"set_xenforo_password called by user {request.user}")
     if request.method == 'POST':
         logger.debug("Received POST request with form.")

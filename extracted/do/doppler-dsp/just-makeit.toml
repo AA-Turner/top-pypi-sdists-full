@@ -3,7 +3,7 @@ include = ["objects/*.toml"]
 [project]
 jm_version = "0.112.0"
 name = "doppler"
-version = "0.76.0"
+version = "0.77.0"
 build = "cmake"
 # c_prefix (jm#1591, #1545): every C symbol jm derives carries dp_, so two
 # installed jm libraries that share a component name (fir, fft, agc) link
@@ -351,9 +351,12 @@ nogil = true
 [[module.wfm_plan.methods.args]]
 name = "snr"
 type = "double"
+# uint32_t, not the C signature's uint64_t: every seed a Plan feeds is 32-bit
+# and dp_wfm_plan_at() refuses a larger one (#2645), so the binding refuses it
+# at the parse (OverflowError) instead of returning an empty draw.
 [[module.wfm_plan.methods.args]]
 name = "seed"
-type = "uint64_t"
+type = "uint32_t"
 
 # #1695: a scene with no noise has no floor for an snr to move. at() and a
 # render "snr" return 0 in C; this is the face that says why, raised before
@@ -365,6 +368,20 @@ fn = "dp_wfm_plan_check_snr"
 returns = "int"
 error = "ValueError"
 error_message = "this scene carries no noise, so the Plan has no noise floor for snr to move: give a source a finite snr (below 100 dB) and an snr_mode"
+
+# #2645: an override render() cannot honour (unknown key, a per-source array
+# of the wrong length, a non-number entry, a seed outside 0..2^32-1) renders
+# nothing in C. This is the face that raises, before the draw; the C
+# dp_wfm_plan_check_overrides_why() names the specific reason.
+[[module.wfm_plan.methods]]
+name = "check_overrides"
+fn = "dp_wfm_plan_check_overrides"
+returns = "int"
+error = "ValueError"
+error_message = "overrides refused: only the keys gains, phases, enable (each an array of n_sources numbers; enable may hold bools), snr (a number) and seed (an integer in 0..4294967295)"
+[[module.wfm_plan.methods.args]]
+name = "overrides_json"
+type = "string"
 
 # Scalar introspection (no-arg → scalar): the Python wrapper reads anchor_seed
 # for render()'s default seed and n_sources to size override arrays.
@@ -1066,7 +1083,7 @@ type = "const char *"
 
 [[module.wfm.functions]]
 name = "rrc_taps"
-doc = "Root-raised-cosine pulse-shaping taps (2*span*sps+1 unit-energy cf32 taps)."
+doc = "Root-raised-cosine pulse-shaping taps (2*span*sps+1 unit-energy real float32 taps)."
 out_type = "float"
 variable_output = true
 out_size = "2 * span * sps + 1"
@@ -1085,22 +1102,6 @@ type = "int"
 
 [[module.wfm.functions]]
 name = "_sweep_ends"
-doc = """Start and end frequency of the chirp that sweeps about a center.
-
-A chirp from ``f0`` to ``f_end`` pinned over ``n`` samples has
-instantaneous frequency ``f_mid + rate*u`` Hz at sample ``i``,
-``u = (i - center)/fs`` seconds, so it multiplies a block by
-``exp(j*2*pi*(f_mid*u + rate*u**2/2))`` up to one constant phase. This is
-the single copy of that arithmetic (``dp_wfm_synth_sweep_ends``);
-``doppler.wfm.rotate`` takes it from here.
-
-Examples
---------
->>> from doppler.wfm import _sweep_ends
->>> f0, f_end = _sweep_ends(1.0, 0.0, 1e-4, 1001, 500.0)
->>> round(float(f0), 6), round(float(f_end), 6)
-(-0.04995, 0.05015)
-"""
 out_type = "double"
 variable_output = true
 out_size = "2"
@@ -1688,7 +1689,7 @@ help_section = "BITS"
 json_omit = "default"
 type = "size_t"
 default = "0"
-doc = "Bits of the data source per frame: the data:LEN of the common frame [preamble x reps | sync | data:LEN | crc]. 0 takes a finite source whole, as one frame. A carried frame names its own data field, and this is then 0 or that field's LEN. Continuous dsss has no frame, and refuses it."
+doc = "Bits of the data source per frame: the data:LEN field of the common frame (preamble x reps, sync, data:LEN, crc). 0 takes a finite source whole, as one frame. A carried frame names its own data field, and this is then 0 or that field's LEN. Continuous dsss has no frame, and refuses it."
 
 [[module.wfm_compose.source.fields]]
 name = "fill"
@@ -3575,7 +3576,7 @@ type = "double"
 [[module.ber.functions]]
 name = "ber_lock_symbol"
 doc = "First symbol from which a verify-counted lock flag is SUSTAINED, or -1 for 'never locked'. Sustained means `sustain` consecutive symbols high AND at least `min_frac` of everything after that point high too: the run rejects a single lucky decision, the fraction rejects a detector that declares early then flaps. Dating the lock by the FINAL contiguous run instead is right with no noise and badly wrong with it -- one late dip once moved a reported lock from 415 to 2286 and left no measurement window at all. The -1 is deliberate: it forces the caller to say 'never locked' rather than quietly measure a transient."
-return_type = "int"
+return_type = "int64_t"
 
 [[module.ber.functions.params]]
 name = "flags"
@@ -3626,12 +3627,12 @@ type = "size_t"
 
 [[module.ber.functions.params]]
 name = "timing_lock"
-type = "int"
+type = "int64_t"
 default = "-1"
 
 [[module.ber.functions.params]]
 name = "carrier_lock"
-type = "int"
+type = "int64_t"
 default = "-1"
 [[enum]]
 name = "wfm_type"

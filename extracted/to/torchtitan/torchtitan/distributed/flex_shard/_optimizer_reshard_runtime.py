@@ -192,7 +192,7 @@ class _BufferSlot:
     ) -> tuple[Tensor, Tensor]:
         to_compute = plan.storage_to_compute_schedule
         to_storage = plan.compute_to_storage_schedule
-        reserved = self.buffers[(plan.device, plan.dtype)]
+        reserved = self.buffers[(plan.device, plan.compute_dtype)]
         return (
             _reserved_view(
                 reserved.storage_exchange,
@@ -264,7 +264,8 @@ class _CommunicationContext:
         device: torch.device,
     ) -> _CommunicationContext:
         device_handle = torch.get_device_module(device)
-        transfer_stream = device_handle.Stream(device=device, priority=0)
+        with device_handle.stream(device_handle.current_stream(device)):
+            transfer_stream = device_handle.Stream(priority=0)
 
         def create_slot() -> _PipelineSlot:
             return _PipelineSlot(
@@ -364,10 +365,13 @@ class _BucketedRedistributionRuntime(Generic[_ItemT]):
             redistributed_index += 1
             to_compute = plan.storage_to_compute_schedule
             to_storage = plan.compute_to_storage_schedule
-            plan_requirements = requirements.setdefault(
+            wire_requirements = requirements.setdefault(
+                (plan.device, plan.compute_dtype), _BufferRequirements()
+            )
+            storage_requirements = requirements.setdefault(
                 (plan.device, plan.dtype), _BufferRequirements()
             )
-            plan_requirements.include_communication(
+            wire_requirements.include_communication(
                 storage_exchange_numel=max(
                     to_compute.input_buffer_numel,
                     to_storage.output_buffer_numel,
@@ -380,12 +384,12 @@ class _BucketedRedistributionRuntime(Generic[_ItemT]):
             participant = plan.group.local_participant
             for redistribution_plan in plan.redistribution_plans:
                 storage_partition = redistribution_plan.storage_partition(participant)
-                plan_requirements.include_storage_scratch(
+                storage_requirements.include_storage_scratch(
                     math.prod(storage_partition.tensor_shape)
                 )
                 compute_partition = redistribution_plan.compute_partition(participant)
                 if compute_numel := math.prod(compute_partition.tensor_shape):
-                    plan_requirements.include_compute_scratch(compute_numel)
+                    wire_requirements.include_compute_scratch(compute_numel)
             for item in plan.unredistributed_items:
                 _include_compute_scratch_requirement(
                     requirements,
@@ -684,11 +688,14 @@ def _prepare_redistributed(
         )
         prepare(item, prepared)
         spans = schedule.input_spans_by_parameter[index]
-        for span in spans:
-            packed = storage_buffer[
-                span.buffer_offset : span.buffer_offset + span.numel
-            ]
-            packed.copy_(_tensor_region_view(prepared, span.region).reshape(-1))
+        packed_views = tuple(
+            storage_buffer[span.buffer_offset : span.buffer_offset + span.numel]
+            for span in spans
+        )
+        prepared_views = tuple(
+            _tensor_region_view(prepared, span.region).reshape(-1) for span in spans
+        )
+        _batched_copy_(packed_views, prepared_views)
 
 
 def _compute_redistributed(
@@ -714,24 +721,34 @@ def _compute_redistributed(
         received_spans = to_compute.output_spans_by_parameter[index]
         compute_tensor = slot.compute_buffer(
             partition.tensor_shape,
-            dtype=plan.dtype,
+            dtype=plan.compute_dtype,
             device=plan.device,
         )
-        for span in received_spans:
-            received = work.compute_fragment_buffer[
+        compute_views = tuple(
+            _tensor_region_view(compute_tensor, span.region) for span in received_spans
+        )
+        received_views = tuple(
+            work.compute_fragment_buffer[
                 span.buffer_offset : span.buffer_offset + span.numel
-            ]
-            _tensor_region_view(compute_tensor, span.region).copy_(
-                received.view(span.region.shape)
-            )
+            ].view(span.region.shape)
+            for span in received_spans
+        )
+        _batched_copy_(compute_views, received_views)
 
         compute(item, compute_tensor)
 
-        for span in to_storage.input_spans_by_parameter[index]:
-            packed = work.compute_fragment_buffer[
+        output_spans = to_storage.input_spans_by_parameter[index]
+        packed_views = tuple(
+            work.compute_fragment_buffer[
                 span.buffer_offset : span.buffer_offset + span.numel
             ]
-            packed.copy_(_tensor_region_view(compute_tensor, span.region).reshape(-1))
+            for span in output_spans
+        )
+        compute_output_views = tuple(
+            _tensor_region_view(compute_tensor, span.region).reshape(-1)
+            for span in output_spans
+        )
+        _batched_copy_(packed_views, compute_output_views)
 
 
 def _finalize_redistributed(
@@ -757,14 +774,30 @@ def _finalize_redistributed(
             device=plan.device,
         )
         spans = schedule.output_spans_by_parameter[index]
-        for span in spans:
-            packed = work.storage_buffer[
+        update_views = tuple(_tensor_region_view(update, span.region) for span in spans)
+        packed_views = tuple(
+            work.storage_buffer[
                 span.buffer_offset : span.buffer_offset + span.numel
-            ]
-            _tensor_region_view(update, span.region).copy_(
-                packed.view(span.region.shape)
-            )
+            ].view(span.region.shape)
+            for span in spans
+        )
+        _batched_copy_(update_views, packed_views)
         finalize(item, update)
+
+
+def _batched_copy_(
+    destinations: tuple[Tensor, ...],
+    sources: tuple[Tensor, ...],
+) -> None:
+    """Copy aligned region views with a single foreach launch."""
+    if len(destinations) != len(sources):
+        raise ValueError("destinations and sources must have equal length")
+    if not destinations:
+        return
+    if len(destinations) == 1:
+        destinations[0].copy_(sources[0])
+        return
+    torch._foreach_copy_(destinations, sources)
 
 
 def _tensor_region_view(tensor: Tensor, region: _TensorRegion) -> Tensor:

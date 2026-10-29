@@ -1,6 +1,8 @@
+__lazy_modules__ = ["django.db.models"]
+
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from django.db.models import QuerySet
 from django.test import TestCase
 
 from allianceauth.menu.models import MenuItem
@@ -13,6 +15,9 @@ from .factories import (
     create_menu_item_hook_function,
 )
 from .utils import PACKAGE_PATH
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
 
 
 class TestMenuItemQuerySet(TestCase):

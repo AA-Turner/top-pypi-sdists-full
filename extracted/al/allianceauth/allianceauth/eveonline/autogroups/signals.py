@@ -46,7 +46,9 @@ def pre_delete_config(sender: AutogroupsConfig, instance: AutogroupsConfig, *arg
 
 
 @receiver(post_save, sender=UserProfile)
-def check_groups_on_profile_update(sender: UserProfile, instance: UserProfile, created: bool, *args, **kwargs) -> None:
+def check_groups_on_profile_update(
+    sender: UserProfile, instance: UserProfile, created: bool, *args, **kwargs
+) -> None:
     """
     Trigger check when main character or state changes.
     """
@@ -54,7 +56,16 @@ def check_groups_on_profile_update(sender: UserProfile, instance: UserProfile, c
 
 
 @receiver(m2m_changed, sender=AutogroupsConfig.states.through)
-def autogroups_states_changed(sender, instance, action, reverse, model, pk_set, *args, **kwargs) -> None:
+def autogroups_states_changed(
+    sender: type,
+    instance: AutogroupsConfig,
+    action: str,
+    reverse: bool,
+    model: type,
+    pk_set: set[int] | None,
+    *args,
+    **kwargs,
+) -> None:
     """
     Trigger group membership update when a state is added or removed from
     an autogroup config.
@@ -70,7 +81,9 @@ def autogroups_states_changed(sender, instance, action, reverse, model, pk_set, 
 
 
 @receiver(post_save, sender=EveCharacter)
-def check_groups_on_character_update(sender, instance, created, *args, **kwargs) -> None:
+def check_groups_on_character_update(
+    sender: type[EveCharacter], instance: EveCharacter, created: bool, *args, **kwargs
+) -> None:
     if not created:
         try:
             profile = UserProfile.objects.prefetch_related('user').get(main_character_id=instance.pk)

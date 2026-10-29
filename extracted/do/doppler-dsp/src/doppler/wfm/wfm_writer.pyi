@@ -137,7 +137,8 @@ class Writer:
         Parameters
         ----------
         x : npt.NDArray[np.complex64]
-            Input.
+            Samples at unit full scale (±1.0 per axis), times the gain set by
+            dp_wfm_writer_set_gain() / `headroom`.
 
         Returns
         -------
@@ -239,12 +240,12 @@ class Writer:
 
     def track_clipping(self, on: int = 1) -> None:
         """Enable the per-component clip *counter* (off by default; peak is
-        always on).
+        always on). Only writes made after enabling are counted.
 
         Parameters
         ----------
         on : int
-            Input.
+            Non-zero to count clipped components, 0 to stop.
         """
 
     def add_keyword(
@@ -263,10 +264,12 @@ class Writer:
     @property
     def clip_fraction(self) -> float:
         """Fraction (0..1) of I/Q components that saturated. Always 0.0 unless
-        `track_clipping()` was enabled before writing -- the counter is the one
-        extra per-sample compare, so it is opt-in. `peak_dbfs` is always
-        tracked and is enough to tell you clipping happened; this tells you how
-        much.
+        `track_clipping()` was enabled: only components quantised while it is
+        on count, in the clips and the denominator alike (one per sample for a
+        real type, two for a complex one), so enabling it mid-stream measures
+        what follows -- the counter is the one extra per-sample compare, so it
+        is opt-in. `peak_dbfs` is always tracked and is enough to tell you
+        clipping happened; this tells you how much.
         """
 
     @property
@@ -380,4 +383,33 @@ def write_blue_header(
     bytes carrying the BLUE magic, byte order, data_size (total x
     bytes-per-sample), the type-1000 tag and xdelta = 1/fs. Pair it with a
     detached .det body of raw interleaved I/Q. Raises on a failed write.
+
+    Opens path for writing (truncating it), writes the HCB through
+    dp_wfm_blue_write_hcb(), and closes it. The Python `write_blue_header`
+    function raises when this returns non-zero.
+
+    Parameters
+    ----------
+    path : str | os.PathLike
+        Destination file; created or truncated.
+    fs : float
+        Sample rate (Hz) -> `xdelta = 1/fs`; 0.0 writes `xdelta = 0` (rate
+        unknown).
+    sample_type : str
+        One of ``"cf32"``, ``"cf64"``, ``"ci32"``, ``"ci16"``, ``"ci8"``,
+        ``"f32"``, ``"f64"``, ``"i32"``, ``"i16"``, ``"i8"``.
+    endian : str
+        One of ``"le"``, ``"be"``.
+    fc : float
+        Center frequency (Hz); non-zero adds a `FREQ` keyword in the HCB
+        keyword area.
+    data_start : float
+        `data_start` field: 512 attached, 0 detached.
+    total : int
+        Complex-sample count -> `data_size`.
+    detached : int
+        Non-zero sets the HCB `detached` flag.
+    t0 : float
+        Capture start in UNIX seconds, or ::WFM_TIMECODE_UNSET (0.0) to
+        leave the timecode unset.
     """

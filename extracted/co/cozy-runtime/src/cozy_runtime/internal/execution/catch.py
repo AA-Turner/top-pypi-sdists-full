@@ -20,9 +20,10 @@ import msgspec
 import torch
 from torch import Tensor, nn
 
+import cozy_runtime.internal.execution.sizing as sizing
 from cozy_runtime.author._context import CURRENT as ATTEMPT
 from cozy_runtime.author._errors import Fault, fault
-from cozy_runtime.internal.execution import sizing
+from cozy_runtime.author._model import TRANSPARENT
 from cozy_runtime.internal.residency import Request
 
 type Args = Sequence[object]
@@ -179,8 +180,13 @@ def cut[T](site: str, finest: int, need: sizing.Need, run: Callable[[int], T]) -
         checkpoint()
         scope.ordinals.clear()
         # Stock Torch cannot evict live cached weights inside an allocation. A declared pure
-        # site's predicted cold/warm bytes must be reclaimed before running that site.
-        if not _capturing() and (wanted := need(level, available.granularity)) > available.free:
+        # site's predicted cold/warm bytes must be reclaimed before running that site. Torch's
+        # cached bytes are room too: its activations reuse them first, and returning them at
+        # every call of a step's sites is a device sync each (Krea 2's 2048² DiT stepped 14%
+        # slower beside its resident weights, emptying the cache 28 times a step).
+        if not _capturing() and (wanted := need(level, available.granularity)) > (
+            available.free + available.cached
+        ):
             request.reclaim(wanted)
         try:
             return run(level)
@@ -260,9 +266,9 @@ def wrap(
 
 
 def transparent[F: Callable[..., object]](forward: F) -> F:
-    """`forward` stands in for its module's own (the class's at each call) with its results:
-    marked as TensorFS's wrappers were, which a package's shape check allows (H3's `_plain`)."""
-    vars(forward)["_varena"] = True
+    """`forward` stands in for its module's own (the class's at each call) with its results,
+    which `author.plain_forward` reads as plain."""
+    vars(forward)[TRANSPARENT] = True
     return forward
 
 

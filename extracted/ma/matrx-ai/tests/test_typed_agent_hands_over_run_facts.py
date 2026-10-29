@@ -39,3 +39,13 @@ def test_every_run_mandate_envelope_field_is_offered_and_the_answer_is_not() -> 
     assert {"final_text", "content", "messages", "usage", "conversation_id", "metadata"} <= RUN_ENVELOPE_FIELDS
     assert "structured_output" not in RUN_ENVELOPE_FIELDS
     assert TypedAgentConfig().run_envelope == []
+
+
+def test_the_source_stamps_who_did_the_job_beside_the_model() -> None:
+    """A converted Run Mandate step's readers (`metadata.agent_id`) keep working (2026-10-28)."""
+    import inspect
+
+    from matrx_ai.graph_nodes import agent_produce_action
+
+    source = inspect.getsource(agent_produce_action)
+    assert 'normalized.metadata["agent_id"] = resolved.agent_id' in source

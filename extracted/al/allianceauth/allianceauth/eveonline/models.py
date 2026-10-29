@@ -1,3 +1,5 @@
+__lazy_modules__ = ["allianceauth.authentication.models", "esi.stubs"]
+
 import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, ClassVar
@@ -10,8 +12,9 @@ from esi.exceptions import HTTPNotModified
 from esi.models import Token
 
 if TYPE_CHECKING:
-    from allianceauth.authentication.models import CharacterOwnership
     from esi.stubs import CorporationID
+
+    from allianceauth.authentication.models import CharacterOwnership
 
 from allianceauth.eveonline.evelinks import eveimageserver
 from allianceauth.eveonline.managers import (
@@ -646,7 +649,7 @@ class EveCharacter(models.Model):
         """image URL for the given character ID"""
         return eveimageserver.character_portrait_url(character_id, size)
 
-    def portrait_url(self, size=_DEFAULT_IMAGE_SIZE) -> str:
+    def portrait_url(self, size: int = _DEFAULT_IMAGE_SIZE) -> str:
         """image URL for this character"""
         return self.generic_portrait_url(self.character_id, size)
 
@@ -670,7 +673,7 @@ class EveCharacter(models.Model):
         """image URL for this character"""
         return self.portrait_url(256)
 
-    def corporation_logo_url(self, size=_DEFAULT_IMAGE_SIZE) -> str:
+    def corporation_logo_url(self, size: int = _DEFAULT_IMAGE_SIZE) -> str:
         """image URL for corporation of this character"""
         return EveCorporationInfo.generic_logo_url(self.corporation_id, size)
 
@@ -694,7 +697,7 @@ class EveCharacter(models.Model):
         """image URL for corporation of this character"""
         return self.corporation_logo_url(256)
 
-    def alliance_logo_url(self, size=_DEFAULT_IMAGE_SIZE) -> str:
+    def alliance_logo_url(self, size: int = _DEFAULT_IMAGE_SIZE) -> str:
         """image URL for alliance of this character or empty string"""
         if self.alliance_id:
             return EveAllianceInfo.generic_logo_url(self.alliance_id, size)
@@ -721,7 +724,7 @@ class EveCharacter(models.Model):
         """image URL for alliance of this character or empty string"""
         return self.alliance_logo_url(256)
 
-    def faction_logo_url(self, size=_DEFAULT_IMAGE_SIZE) -> str:
+    def faction_logo_url(self, size: int = _DEFAULT_IMAGE_SIZE) -> str:
         """image URL for alliance of this character or empty string"""
         if self.faction_id:
             return EveFactionInfo.generic_logo_url(self.faction_id, size)

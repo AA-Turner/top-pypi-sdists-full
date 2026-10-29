@@ -27,6 +27,7 @@ if typing.TYPE_CHECKING:
     from .chat_completion_tool import ChatCompletionTool
     from .chat_stream_options import ChatStreamOptions
     from .choice import Choice
+    from .chunk_metrics import ChunkMetrics
     from .completion_event_flag import CompletionEventFlag
     from .completion_tokens_details import CompletionTokensDetails
     from .completion_usage import CompletionUsage
@@ -54,16 +55,54 @@ if typing.TYPE_CHECKING:
     from .detail import Detail
     from .diarized_entry import DiarizedEntry
     from .diarized_transcript import DiarizedTranscript
-    from .doc_ai_digitise_results import DocAiDigitiseResults
-    from .doc_ai_digitise_results_documents_item import DocAiDigitiseResultsDocumentsItem
-    from .doc_ai_digitise_results_documents_item_pages_item import DocAiDigitiseResultsDocumentsItemPagesItem
+    from .doc_ai_batch_document import DocAiBatchDocument
+    from .doc_ai_capabilities_response import DocAiCapabilitiesResponse
+    from .doc_ai_capability_limits import DocAiCapabilityLimits
+    from .doc_ai_classify_category import DocAiClassifyCategory
+    from .doc_ai_classify_config import DocAiClassifyConfig
+    from .doc_ai_classify_config_scope import DocAiClassifyConfigScope
+    from .doc_ai_classify_config_unmatched_behavior import DocAiClassifyConfigUnmatchedBehavior
+    from .doc_ai_classify_decision import DocAiClassifyDecision
+    from .doc_ai_classify_inspection import DocAiClassifyInspection
+    from .doc_ai_classify_inspection_policy import DocAiClassifyInspectionPolicy
+    from .doc_ai_classify_job_request import DocAiClassifyJobRequest
+    from .doc_ai_classify_job_request_reasoning_input import DocAiClassifyJobRequestReasoningInput
+    from .doc_ai_classify_output import DocAiClassifyOutput
+    from .doc_ai_classify_result import DocAiClassifyResult
+    from .doc_ai_classify_result_scope import DocAiClassifyResultScope
+    from .doc_ai_classify_results import DocAiClassifyResults
     from .doc_ai_download_url_response import DocAiDownloadUrlResponse
     from .doc_ai_error_detail import DocAiErrorDetail
     from .doc_ai_error_model import DocAiErrorModel
+    from .doc_ai_evidence import DocAiEvidence
     from .doc_ai_extract_results import DocAiExtractResults
+    from .doc_ai_job_accepted_response import DocAiJobAcceptedResponse
+    from .doc_ai_job_error import DocAiJobError
     from .doc_ai_job_status_response import DocAiJobStatusResponse
+    from .doc_ai_job_usage import DocAiJobUsage
+    from .doc_ai_page_range import DocAiPageRange
+    from .doc_ai_parse_results import DocAiParseResults
+    from .doc_ai_parse_results_documents_item import DocAiParseResultsDocumentsItem
+    from .doc_ai_parse_results_documents_item_pages_item import DocAiParseResultsDocumentsItemPagesItem
     from .doc_ai_presign_upload_response import DocAiPresignUploadResponse
+    from .doc_ai_split_config import DocAiSplitConfig
+    from .doc_ai_split_config_method import DocAiSplitConfigMethod
+    from .doc_ai_split_config_remainder import DocAiSplitConfigRemainder
+    from .doc_ai_split_job_request import DocAiSplitJobRequest
+    from .doc_ai_split_job_request_reasoning_input import DocAiSplitJobRequestReasoningInput
+    from .doc_ai_split_result import DocAiSplitResult
+    from .doc_ai_split_result_summary import DocAiSplitResultSummary
+    from .doc_ai_split_results import DocAiSplitResults
+    from .doc_ai_split_segment import DocAiSplitSegment
+    from .doc_ai_split_trigger import DocAiSplitTrigger
+    from .doc_ai_split_trigger_formats_item import DocAiSplitTriggerFormatsItem
+    from .doc_ai_split_trigger_match import DocAiSplitTriggerMatch
+    from .doc_ai_split_trigger_split_when import DocAiSplitTriggerSplitWhen
+    from .doc_ai_split_trigger_trigger_page import DocAiSplitTriggerTriggerPage
+    from .doc_ai_split_trigger_type import DocAiSplitTriggerType
+    from .doc_ai_split_trigger_where import DocAiSplitTriggerWhere
     from .doc_ai_start_job_response import DocAiStartJobResponse
+    from .doc_ai_suggested_type import DocAiSuggestedType
     from .doc_ai_usage import DocAiUsage
     from .doc_digitization_create_job_response import DocDigitizationCreateJobResponse
     from .doc_digitization_download_files_response import DocDigitizationDownloadFilesResponse
@@ -299,6 +338,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionTool": ".chat_completion_tool",
     "ChatStreamOptions": ".chat_stream_options",
     "Choice": ".choice",
+    "ChunkMetrics": ".chunk_metrics",
     "CompletionEventFlag": ".completion_event_flag",
     "CompletionTokensDetails": ".completion_tokens_details",
     "CompletionUsage": ".completion_usage",
@@ -328,16 +368,54 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Detail": ".detail",
     "DiarizedEntry": ".diarized_entry",
     "DiarizedTranscript": ".diarized_transcript",
-    "DocAiDigitiseResults": ".doc_ai_digitise_results",
-    "DocAiDigitiseResultsDocumentsItem": ".doc_ai_digitise_results_documents_item",
-    "DocAiDigitiseResultsDocumentsItemPagesItem": ".doc_ai_digitise_results_documents_item_pages_item",
+    "DocAiBatchDocument": ".doc_ai_batch_document",
+    "DocAiCapabilitiesResponse": ".doc_ai_capabilities_response",
+    "DocAiCapabilityLimits": ".doc_ai_capability_limits",
+    "DocAiClassifyCategory": ".doc_ai_classify_category",
+    "DocAiClassifyConfig": ".doc_ai_classify_config",
+    "DocAiClassifyConfigScope": ".doc_ai_classify_config_scope",
+    "DocAiClassifyConfigUnmatchedBehavior": ".doc_ai_classify_config_unmatched_behavior",
+    "DocAiClassifyDecision": ".doc_ai_classify_decision",
+    "DocAiClassifyInspection": ".doc_ai_classify_inspection",
+    "DocAiClassifyInspectionPolicy": ".doc_ai_classify_inspection_policy",
+    "DocAiClassifyJobRequest": ".doc_ai_classify_job_request",
+    "DocAiClassifyJobRequestReasoningInput": ".doc_ai_classify_job_request_reasoning_input",
+    "DocAiClassifyOutput": ".doc_ai_classify_output",
+    "DocAiClassifyResult": ".doc_ai_classify_result",
+    "DocAiClassifyResultScope": ".doc_ai_classify_result_scope",
+    "DocAiClassifyResults": ".doc_ai_classify_results",
     "DocAiDownloadUrlResponse": ".doc_ai_download_url_response",
     "DocAiErrorDetail": ".doc_ai_error_detail",
     "DocAiErrorModel": ".doc_ai_error_model",
+    "DocAiEvidence": ".doc_ai_evidence",
     "DocAiExtractResults": ".doc_ai_extract_results",
+    "DocAiJobAcceptedResponse": ".doc_ai_job_accepted_response",
+    "DocAiJobError": ".doc_ai_job_error",
     "DocAiJobStatusResponse": ".doc_ai_job_status_response",
+    "DocAiJobUsage": ".doc_ai_job_usage",
+    "DocAiPageRange": ".doc_ai_page_range",
+    "DocAiParseResults": ".doc_ai_parse_results",
+    "DocAiParseResultsDocumentsItem": ".doc_ai_parse_results_documents_item",
+    "DocAiParseResultsDocumentsItemPagesItem": ".doc_ai_parse_results_documents_item_pages_item",
     "DocAiPresignUploadResponse": ".doc_ai_presign_upload_response",
+    "DocAiSplitConfig": ".doc_ai_split_config",
+    "DocAiSplitConfigMethod": ".doc_ai_split_config_method",
+    "DocAiSplitConfigRemainder": ".doc_ai_split_config_remainder",
+    "DocAiSplitJobRequest": ".doc_ai_split_job_request",
+    "DocAiSplitJobRequestReasoningInput": ".doc_ai_split_job_request_reasoning_input",
+    "DocAiSplitResult": ".doc_ai_split_result",
+    "DocAiSplitResultSummary": ".doc_ai_split_result_summary",
+    "DocAiSplitResults": ".doc_ai_split_results",
+    "DocAiSplitSegment": ".doc_ai_split_segment",
+    "DocAiSplitTrigger": ".doc_ai_split_trigger",
+    "DocAiSplitTriggerFormatsItem": ".doc_ai_split_trigger_formats_item",
+    "DocAiSplitTriggerMatch": ".doc_ai_split_trigger_match",
+    "DocAiSplitTriggerSplitWhen": ".doc_ai_split_trigger_split_when",
+    "DocAiSplitTriggerTriggerPage": ".doc_ai_split_trigger_trigger_page",
+    "DocAiSplitTriggerType": ".doc_ai_split_trigger_type",
+    "DocAiSplitTriggerWhere": ".doc_ai_split_trigger_where",
     "DocAiStartJobResponse": ".doc_ai_start_job_response",
+    "DocAiSuggestedType": ".doc_ai_suggested_type",
     "DocAiUsage": ".doc_ai_usage",
     "DocDigitizationCreateJobResponse": ".doc_digitization_create_job_response",
     "DocDigitizationDownloadFilesResponse": ".doc_digitization_download_files_response",
@@ -589,6 +667,7 @@ __all__ = [
     "ChatCompletionTool",
     "ChatStreamOptions",
     "Choice",
+    "ChunkMetrics",
     "CompletionEventFlag",
     "CompletionTokensDetails",
     "CompletionUsage",
@@ -618,16 +697,54 @@ __all__ = [
     "Detail",
     "DiarizedEntry",
     "DiarizedTranscript",
-    "DocAiDigitiseResults",
-    "DocAiDigitiseResultsDocumentsItem",
-    "DocAiDigitiseResultsDocumentsItemPagesItem",
+    "DocAiBatchDocument",
+    "DocAiCapabilitiesResponse",
+    "DocAiCapabilityLimits",
+    "DocAiClassifyCategory",
+    "DocAiClassifyConfig",
+    "DocAiClassifyConfigScope",
+    "DocAiClassifyConfigUnmatchedBehavior",
+    "DocAiClassifyDecision",
+    "DocAiClassifyInspection",
+    "DocAiClassifyInspectionPolicy",
+    "DocAiClassifyJobRequest",
+    "DocAiClassifyJobRequestReasoningInput",
+    "DocAiClassifyOutput",
+    "DocAiClassifyResult",
+    "DocAiClassifyResultScope",
+    "DocAiClassifyResults",
     "DocAiDownloadUrlResponse",
     "DocAiErrorDetail",
     "DocAiErrorModel",
+    "DocAiEvidence",
     "DocAiExtractResults",
+    "DocAiJobAcceptedResponse",
+    "DocAiJobError",
     "DocAiJobStatusResponse",
+    "DocAiJobUsage",
+    "DocAiPageRange",
+    "DocAiParseResults",
+    "DocAiParseResultsDocumentsItem",
+    "DocAiParseResultsDocumentsItemPagesItem",
     "DocAiPresignUploadResponse",
+    "DocAiSplitConfig",
+    "DocAiSplitConfigMethod",
+    "DocAiSplitConfigRemainder",
+    "DocAiSplitJobRequest",
+    "DocAiSplitJobRequestReasoningInput",
+    "DocAiSplitResult",
+    "DocAiSplitResultSummary",
+    "DocAiSplitResults",
+    "DocAiSplitSegment",
+    "DocAiSplitTrigger",
+    "DocAiSplitTriggerFormatsItem",
+    "DocAiSplitTriggerMatch",
+    "DocAiSplitTriggerSplitWhen",
+    "DocAiSplitTriggerTriggerPage",
+    "DocAiSplitTriggerType",
+    "DocAiSplitTriggerWhere",
     "DocAiStartJobResponse",
+    "DocAiSuggestedType",
     "DocAiUsage",
     "DocDigitizationCreateJobResponse",
     "DocDigitizationDownloadFilesResponse",

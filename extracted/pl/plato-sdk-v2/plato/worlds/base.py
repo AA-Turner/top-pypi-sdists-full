@@ -55,6 +55,7 @@ from plato.worlds.tailscale import (
     build_join_plan,
     join_tailnet,
     leave_tailnet,
+    resolve_auth_key,
 )
 from plato.worlds.testing import run_e2e_tests
 from plato.worlds.workspace import Workspace
@@ -965,7 +966,10 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         if not ts.joins_world:
             return
         try:
-            plan = build_join_plan(ts, session_id=self._tailscale_session_id(), role=WORLD_TAILNET_ROLE)
+            auth_key = await resolve_auth_key(ts, log=self.logger)
+            plan = build_join_plan(
+                ts, session_id=self._tailscale_session_id(), role=WORLD_TAILNET_ROLE, auth_key=auth_key
+            )
             node = await join_tailnet(LocalCommandRunner(), plan, persist_proxy_env=False, log=self.logger)
         except TailscaleError as exc:
             if ts.required:
@@ -991,7 +995,9 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             return
         role = f"{AGENT_TAILNET_ROLE_PREFIX}{info.runtime_id[-AGENT_TAILNET_ID_CHARS:]}"
         try:
-            plan = build_join_plan(ts, session_id=self._tailscale_session_id(), role=role)
+            # Minted on the world VM (here), so only the one-off key crosses SSH to the agent VM.
+            auth_key = await resolve_auth_key(ts, log=self.logger)
+            plan = build_join_plan(ts, session_id=self._tailscale_session_id(), role=role, auth_key=auth_key)
             node = await join_tailnet(SshCommandRunner(info), plan, persist_proxy_env=True, log=self.logger)
         except TailscaleError as exc:
             if ts.required:

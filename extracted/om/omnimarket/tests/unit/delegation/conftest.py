@@ -75,6 +75,23 @@ _CLOUD_SECRET_ENV_VARS = (
 
 
 @pytest.fixture(autouse=True)
+def _fresh_routing_config() -> None:
+    """Route each test on the routing config its own environment resolves.
+
+    The routing reducer caches its parsed tiers in a module global. A test
+    elsewhere in the same process that built it under a temporary contract or
+    tiers file would otherwise decide this suite's tier order.
+    """
+    from omnimarket.nodes.node_delegation_routing_reducer.handlers import (
+        handler_delegation_routing as routing,
+    )
+
+    routing._config = None
+    routing._config_spread_peers = None
+    routing._config_spread_weights = None
+
+
+@pytest.fixture(autouse=True)
 def _isolate_cloud_secret_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make cloud-tier routability independent of ambient LLM credentials."""
     for name in _CLOUD_SECRET_ENV_VARS:
@@ -218,11 +235,25 @@ BIFROST_FRONTIER_UNCONFIGURED = textwrap.dedent(
         tier: cheap_cloud
         timeout_ms: 30000
         capabilities: [documentation]
-      - backend_id: openrouter-nemotron-ultra
+      - backend_id: openrouter-north-mini-code
         provider: openrouter
         endpoint_url: "https://cloud.test/openrouter/v1/chat/completions"
-        model_name: qwen3-coder-480b
+        model_name: cohere/north-mini-code:free
         tier: cheap_frontier
+        placement:
+          tier: cheap_frontier
+          max_context_tokens: 256000
+          use_for:
+            - code_generation
+            - reasoning
+            - review
+            - research
+            - refactor
+            - test
+            - validator_generation
+            - document
+            - documentation
+            - summarization
         timeout_ms: 30000
         capabilities: [code_generation]
       - backend_id: cloud-gemini-2-5-flash

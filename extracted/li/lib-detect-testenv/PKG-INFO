@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lib_detect_testenv
-Version: 3.0.6
+Version: 3.0.7
 Summary: Detect test environment - pytest, doctest, unittest, or regular execution
 Project-URL: Homepage, https://github.com/bitranox/lib_detect_testenv
 Project-URL: Repository, https://github.com/bitranox/lib_detect_testenv.git
@@ -27,6 +27,7 @@ Provides-Extra: dev
 Requires-Dist: bandit<1.9,>=1.8.6; (python_version < '3.10') and extra == 'dev'
 Requires-Dist: bandit>=1.9.4; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
+Requires-Dist: certifi>=2026.10.23; extra == 'dev'
 Requires-Dist: click>=8.5.0; extra == 'dev'
 Requires-Dist: hatchling>=1.32.4; extra == 'dev'
 Requires-Dist: import-linter<2.6,>=2.5.2; (python_version < '3.10') and extra == 'dev'
@@ -34,11 +35,12 @@ Requires-Dist: import-linter>=2.15; (python_version >= '3.10') and extra == 'dev
 Requires-Dist: pip-audit>=2.10.1; extra == 'dev'
 Requires-Dist: pyright[nodejs]>=1.1.414; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
+Requires-Dist: pytest-xdist>=3.8.0; extra == 'dev'
 Requires-Dist: pytest<9,>=8.4.2; (python_version < '3.10') and extra == 'dev'
-Requires-Dist: pytest>=9.1.1; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: pytest>=9.2.0; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: rtoml>=0.14.0; extra == 'dev'
-Requires-Dist: ruff>=0.17.0; extra == 'dev'
-Requires-Dist: setuptools>=84.0.0; extra == 'dev'
+Requires-Dist: ruff>=0.17.3; extra == 'dev'
+Requires-Dist: setuptools>=84.2.1; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Description-Content-Type: text/markdown
@@ -254,7 +256,9 @@ else:
 Returns `True` if any test environment is detected (pytest, doctest, or setup.py test).
 
 **Parameters:**
-- `arg_string` (optional): If `None`, uses `str(sys.argv())`
+- `arg_string` (optional): If `None`, uses `str(sys.argv())`, and a pytest-xdist worker
+  (`PYTEST_XDIST_WORKER` set) counts as pytest: its `sys.argv` does not name pytest. A given
+  `arg_string` is judged on its own.
 
 **Returns:**
 - `True` if test environment is detected
@@ -297,7 +301,9 @@ assert is_doctest_active(arg_string="doctest.py") == True
 Returns `True` if pytest is detected.
 
 **Parameters:**
-- `arg_string` (optional): If `None`, uses `str(sys.argv())`
+- `arg_string` (optional): If `None`, uses `str(sys.argv())`, and a pytest-xdist worker
+  (`PYTEST_XDIST_WORKER` set) counts as pytest: its `sys.argv` does not name pytest. A given
+  `arg_string` is judged on its own.
 
 **Returns:**
 - `True` if pytest is detected

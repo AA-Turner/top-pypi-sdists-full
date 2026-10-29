@@ -105,7 +105,9 @@ CorrObj_init (CorrObject *self, PyObject *args, PyObject *kwds)
   Py_DECREF (ref_arr);
   if (!self->handle)
     {
-      PyErr_SetString (PyExc_MemoryError, "dp_corr_create returned NULL");
+      PyErr_SetString (PyExc_ValueError,
+                       "Corr: invalid parameter (need dwell >= 1, and n_out "
+                       "0 or at least len(ref))");
       return -1;
     }
   return 0;
@@ -529,10 +531,14 @@ static PyMethodDef CorrObj_methods[] = {
     "\n"
     "Maximum output samples per execute call (== n_out).\n"
     "\n"
+    "Size an output buffer with this before calling dp_corr_execute().\n"
+    "\n"
     "Returns\n"
     "-------\n"
     "int\n"
-    "    Output.\n" },
+    "    The configured output length n_out in samples: the reference length\n"
+    "    n for the native path, or the zero-padded length passed to\n"
+    "    dp_corr_create().\n" },
   { "state_bytes", (PyCFunction)CorrObj_state_bytes, METH_NOARGS,
     "Size in bytes of this object's serialized state.\n"
     "\n"
@@ -642,9 +648,9 @@ static PyTypeObject CorrObjType = {
     "ref : NDArray[np.complex64]\n"
     "    Reference signal, CF32, length ref_len.\n"
     "dwell : int, default 1\n"
-    "    Integration depth; must be >= 1. Pass 1 for immediate output on "
-    "every\n"
-    "    call.\n"
+    "    Integration depth; must be >= 1 (0 is refused). Pass 1 for "
+    "immediate\n"
+    "    output on every call.\n"
     "nthreads : int, default 1\n"
     "    Accepted for API compatibility; ignored.\n"
     "n_out : int, default 0\n"
@@ -655,6 +661,12 @@ static PyTypeObject CorrObjType = {
     "finer\n"
     "    length-n_out grid — same peak, sub-bin lag resolution. Native is\n"
     "    bit-exact and allocates no extra buffer.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If construction fails. The exception message is ``Corr: invalid\n"
+    "    parameter (need dwell >= 1, and n_out 0 or at least len(ref))``.\n"
     "\n"
     "Examples\n"
     "--------\n"

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from huggingface_hub import HfApi, constants
 
+from kernels._rust import Oid
 from kernels._system import glibc_version
 from kernels.backends import _select_backend
 from kernels.compat import has_torch, has_tvm_ffi
@@ -29,54 +30,52 @@ def _get_hf_api(user_agent: str | dict | None = None) -> HfApi:
 
     from . import __version__
 
-    user_agent_str = ""
-    if not constants.HF_HUB_DISABLE_TELEMETRY:
-        parts: list[str] = []
+    if constants.HF_HUB_DISABLE_TELEMETRY:
+        return HfApi(library_name="kernels", library_version=__version__, user_agent=None)
 
-        # User-defined info
-        if isinstance(user_agent, dict):
-            parts.extend(f"{k}/{v}" for k, v in user_agent.items())
-        elif isinstance(user_agent, str) and user_agent:
-            parts.append(user_agent)
+    parts: list[str] = []
 
-        # System info
-        python = ".".join(platform.python_version_tuple()[:2])
-        backend = _select_backend(None).variant_str
-        parts.extend(
-            [
-                f"kernels/{__version__}",
-                f"python/{python}",
-                f"backend/{backend}",
-                f"platform/{_platform()}",
-                "file_type/kernel",
-            ]
-        )
+    # User-defined info
+    if isinstance(user_agent, dict):
+        parts.extend(f"{k}/{v}" for k, v in user_agent.items())
+    elif isinstance(user_agent, str) and user_agent:
+        parts.append(user_agent)
 
-        if has_torch:
-            import torch
+    # System info
+    python = ".".join(platform.python_version_tuple()[:2])
+    backend = _select_backend(None).variant_str
+    parts.extend(
+        [
+            f"kernels/{__version__}",
+            f"python/{python}",
+            f"backend/{backend}",
+            f"platform/{_platform()}",
+            "file_type/kernel",
+        ]
+    )
 
-            parts.append(f"torch/{torch.__version__}")
-        if has_tvm_ffi:
-            import tvm_ffi
+    if has_torch:
+        import torch
 
-            parts.append(f"tvm-ffi/{tvm_ffi.__version__}")
+        parts.append(f"torch/{torch.__version__}")
+    if has_tvm_ffi:
+        import tvm_ffi
 
-        # Add glibc version if available
-        glibc = glibc_version()
-        if glibc is not None:
-            parts.append(f"glibc/{glibc}")
+        parts.append(f"tvm-ffi/{tvm_ffi.__version__}")
 
-        user_agent_str = "; ".join(parts)
+    # Add glibc version if available
+    glibc = glibc_version()
+    if glibc is not None:
+        parts.append(f"glibc/{glibc}")
 
-    return HfApi(library_name="kernels", library_version=__version__, user_agent=user_agent_str)
+    return HfApi(library_name="kernels", library_version=__version__, user_agent="; ".join(parts))
 
 
 def _get_cache_dir() -> str | None:
-    """Returns the kernels cache directory."""
+    """The kernels cache directory, or `None` to use the Hub's default.
+
+    This re-reads the envvar on every call, so that we can mock it in tests."""
     return os.environ.get("KERNELS_CACHE", None)
-
-
-CACHE_DIR: str | None = _get_cache_dir()
 
 
 @dataclass(frozen=True)
@@ -87,11 +86,11 @@ class RepoInfo:
     The following fields are available:
 
     - `repo_id` (`str`): the Hub repository containing the kernel.
-    - `revision` (`str`): the specific revision of the kernel.
+    - `revision` (`Oid`): the commit of the kernel.
     """
 
     repo_id: str
-    revision: str
+    revision: Oid
 
 
 def _check_trust_remote_code(repo_id: str, local_files_only: bool, trust_remote_code: bool | list[str]) -> None:
@@ -128,12 +127,12 @@ def _check_trust_remote_code(repo_id: str, local_files_only: bool, trust_remote_
 
     try:
         info = _get_hf_api().get_organization_overview(publisher)
-    except Exception:
+    except Exception as e:
         raise ValueError(
             f"Kernel repository '{repo_id}' could not verify publisher trust status. "
             "Set trust_remote_code=True or add the repository ID to the trust_remote_code allowlist "
             "to allow loading kernels from untrusted sources."
-        )
+        ) from e
 
     if getattr(info, "trustedKernelPublisher", False):
         return

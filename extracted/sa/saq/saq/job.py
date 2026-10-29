@@ -11,7 +11,6 @@ import typing as t
 from saq.types import CtxType
 from saq.utils import exponential_backoff, now, seconds, uuid1
 
-
 if t.TYPE_CHECKING:
     from saq.queue import Queue
     from saq.types import DurationKind, Function
@@ -94,7 +93,8 @@ class Job:
             The second retry will have retry_delay*2. The third retry will have retry_delay*4. And so on.
             This always includes jitter, where the final retry delay is a random number between 0 and the calculated retry delay.
             If retry_backoff is set to a number, that number is the maximum retry delay, in seconds.
-        scheduled (int): epoch seconds for when the job should be scheduled, defaults to 0 (schedule right away)
+        scheduled (int): epoch seconds for when the job should be scheduled, defaults to 0 (schedule right away).
+            Note this one is in seconds, unlike the millisecond timestamps below.
         progress (float): job progress 0.0..1.0
         meta (dict): arbitrary metadata to attach to the job
 
@@ -103,10 +103,10 @@ class Job:
 
     Parameters:
         attempts: number of attempts a job has had
-        completed: job completion time epoch seconds
-        queued: job enqueued time epoch seconds
-        started: job started time epoch seconds
-        touched: job touched/updated time epoch seconds
+        completed: job completion time, epoch milliseconds
+        queued: job enqueued time, epoch milliseconds
+        started: job started time, epoch milliseconds
+        touched: job touched/updated time, epoch milliseconds
         result: payload containing the results, this is the return of the function provided, must be serializable, defaults to json
         error: stack trace if a runtime error occurs
         status: Status Enum, default to Status.New
@@ -139,7 +139,7 @@ class Job:
     meta: dict[t.Any, t.Any] = dataclasses.field(default_factory=dict)
     worker_id: str | None = None
 
-    _EXCLUDE_NON_FULL = {
+    _EXCLUDE_NON_FULL: t.ClassVar[set[str]] = {
         "kwargs",
         "timeout",
         "heartbeat",
@@ -195,7 +195,7 @@ class Job:
     def __hash__(self) -> int:
         return hash(self.key)
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, Job) and self.key == other.key
 
     @property
@@ -207,9 +207,16 @@ class Job:
     def abort_id(self) -> str:
         return f"{ABORT_ID_PREFIX}{self.key}"
 
-    def to_dict(self) -> dict[str, t.Any]:
+    def to_dict(self, safe: bool = False) -> dict[str, t.Any]:
         """
         Serialises the Job to dict
+
+        Args:
+            safe: If True, `kwargs`/`result` are converted to their repr() so the
+                dict is always JSON-serializable regardless of the queue's
+                `dump`/`load` (e.g. pickle-based queues carrying dates, UUIDs,
+                or other non-JSON-native payloads). Use for display/API purposes
+                only — never for round-trip (de)serialization.
         """
         result = {}
         for field in dataclasses.fields(self):
@@ -221,6 +228,8 @@ class Job:
                 continue
             if key == "queue" and value:
                 value = value.name
+            if safe and key in ("kwargs", "result"):
+                value = repr(value)
             result[key] = value
         return result
 
@@ -341,6 +350,13 @@ class Job:
                 "`Job` must be associated with a `Queue` before this operation can proceed"
             )
         return self.queue
+
+
+# None means "not supplied" here, not a value: the worker treats a falsy timeout
+# as "no limit", so falling back to the field default keeps 0 as the opt-out.
+DEFAULTED_FIELDS: t.Final = frozenset(
+    field.name for field in dataclasses.fields(Job) if field.default is not None
+)
 
 
 def _safe_eq(a: object, b: object) -> bool:

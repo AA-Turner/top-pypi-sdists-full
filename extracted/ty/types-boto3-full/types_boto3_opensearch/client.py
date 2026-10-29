@@ -34,6 +34,8 @@ from .type_defs import (
     AddDataSourceResponseTypeDef,
     AddDirectQueryDataSourceRequestTypeDef,
     AddDirectQueryDataSourceResponseTypeDef,
+    AddReplicationPeerRequestTypeDef,
+    AddReplicationPeerResponseTypeDef,
     AddTagsRequestTypeDef,
     AssociatePackageRequestTypeDef,
     AssociatePackageResponseTypeDef,
@@ -47,6 +49,8 @@ from .type_defs import (
     CancelDomainConfigChangeResponseTypeDef,
     CancelServiceSoftwareUpdateRequestTypeDef,
     CancelServiceSoftwareUpdateResponseTypeDef,
+    CompareDomainConfigurationRequestTypeDef,
+    CompareDomainConfigurationResponseTypeDef,
     CreateApplicationRequestTypeDef,
     CreateApplicationResponseTypeDef,
     CreateDomainRequestTypeDef,
@@ -89,6 +93,8 @@ from .type_defs import (
     DescribeDomainHealthResponseTypeDef,
     DescribeDomainNodesRequestTypeDef,
     DescribeDomainNodesResponseTypeDef,
+    DescribeDomainReplicationRequestTypeDef,
+    DescribeDomainReplicationResponseTypeDef,
     DescribeDomainRequestTypeDef,
     DescribeDomainResponseTypeDef,
     DescribeDomainsRequestTypeDef,
@@ -118,6 +124,8 @@ from .type_defs import (
     DissociatePackagesRequestTypeDef,
     DissociatePackagesResponseTypeDef,
     EmptyResponseMetadataTypeDef,
+    FailoverReplicationRequestTypeDef,
+    FailoverReplicationResponseTypeDef,
     GetApplicationRequestTypeDef,
     GetApplicationResponseTypeDef,
     GetCapabilityRequestTypeDef,
@@ -185,6 +193,8 @@ from .type_defs import (
     RegisterCapabilityResponseTypeDef,
     RejectInboundConnectionRequestTypeDef,
     RejectInboundConnectionResponseTypeDef,
+    RemoveReplicationPeerRequestTypeDef,
+    RemoveReplicationPeerResponseTypeDef,
     RemoveTagsRequestTypeDef,
     RevokeVpcEndpointAccessRequestTypeDef,
     RollbackServiceSoftwareUpdateRequestTypeDef,
@@ -195,6 +205,8 @@ from .type_defs import (
     StartMigrationResponseTypeDef,
     StartServiceSoftwareUpdateRequestTypeDef,
     StartServiceSoftwareUpdateResponseTypeDef,
+    SwitchoverReplicationRequestTypeDef,
+    SwitchoverReplicationResponseTypeDef,
     UpdateApplicationRequestTypeDef,
     UpdateApplicationResponseTypeDef,
     UpdateDataSourceRequestTypeDef,
@@ -312,6 +324,16 @@ class OpenSearchServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#add_direct_query_data_source)
         """
 
+    def add_replication_peer(
+        self, **kwargs: Unpack[AddReplicationPeerRequestTypeDef]
+    ) -> AddReplicationPeerResponseTypeDef:
+        """
+        Starts replicating a domain to a peer domain in another AWS Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/add_replication_peer.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#add_replication_peer)
+        """
+
     def add_tags(self, **kwargs: Unpack[AddTagsRequestTypeDef]) -> EmptyResponseMetadataTypeDef:
         """
         Attaches tags to an existing Amazon OpenSearch Service domain, data source, or
@@ -382,6 +404,16 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/cancel_service_software_update.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#cancel_service_software_update)
+        """
+
+    def compare_domain_configuration(
+        self, **kwargs: Unpack[CompareDomainConfigurationRequestTypeDef]
+    ) -> CompareDomainConfigurationResponseTypeDef:
+        """
+        Compares the metadata of two domains and reports where they differ.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/compare_domain_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#compare_domain_configuration)
         """
 
     def create_application(
@@ -626,6 +658,17 @@ class OpenSearchServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#describe_domain_nodes)
         """
 
+    def describe_domain_replication(
+        self, **kwargs: Unpack[DescribeDomainReplicationRequestTypeDef]
+    ) -> DescribeDomainReplicationResponseTypeDef:
+        """
+        Describes the replication arrangement that a domain participates in, including
+        the domain's role and the state of its relationship with each peer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/describe_domain_replication.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#describe_domain_replication)
+        """
+
     def describe_domains(
         self, **kwargs: Unpack[DescribeDomainsRequestTypeDef]
     ) -> DescribeDomainsResponseTypeDef:
@@ -762,6 +805,17 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/dissociate_packages.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#dissociate_packages)
+        """
+
+    def failover_replication(
+        self, **kwargs: Unpack[FailoverReplicationRequestTypeDef]
+    ) -> FailoverReplicationResponseTypeDef:
+        """
+        Promotes a secondary domain to primary without coordinating with the current
+        primary.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/failover_replication.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#failover_replication)
         """
 
     def get_application(
@@ -1121,6 +1175,16 @@ class OpenSearchServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#reject_inbound_connection)
         """
 
+    def remove_replication_peer(
+        self, **kwargs: Unpack[RemoveReplicationPeerRequestTypeDef]
+    ) -> RemoveReplicationPeerResponseTypeDef:
+        """
+        Stops replicating a domain to its peer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/remove_replication_peer.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#remove_replication_peer)
+        """
+
     def remove_tags(
         self, **kwargs: Unpack[RemoveTagsRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1182,6 +1246,17 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/start_service_software_update.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#start_service_software_update)
+        """
+
+    def switchover_replication(
+        self, **kwargs: Unpack[SwitchoverReplicationRequestTypeDef]
+    ) -> SwitchoverReplicationResponseTypeDef:
+        """
+        Promotes a secondary domain to primary, coordinating with the current primary
+        so that no writes are lost.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/switchover_replication.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#switchover_replication)
         """
 
     def update_application(

@@ -184,7 +184,7 @@ def test_the_run_lease_beats_before_the_frontier_is_resolved() -> None:
 
     from matrx_scraper.web_crawl.service import WebCrawlService
 
-    source = stable_source(WebCrawlService.run_prepared)
+    source = stable_source(WebCrawlService._run_prepared)
     beat = source.index("self._heartbeat_run_lease(")
     resolve = source.index("self._resolve_durable_queue(prepared)")
     watcher = source.index("self._watch_for_cancel(")

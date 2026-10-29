@@ -44,11 +44,11 @@ extern "C" {
  * Allocate with dp_uq15_to_f32_create().
  */
 typedef struct {
-    float iscale; /* 1.0f / scale, pre-computed for single-multiply step */
+    float iscale; /**< 1.0f / scale, set once by create(); never changes. */
 } dp_uq15_to_f32_state_t;
 
 /**
- * @brief Create a uq15_to_f32 instance.
+ * @brief Create an offset-binary uint16 (UQ15) to float32 converter.
  *
  * Pre-computes @c iscale = 1.0f / @p scale so the hot step path is a
  * single subtract and multiply.
@@ -56,7 +56,7 @@ typedef struct {
  * @param scale  Denominator applied after offset-binary bias removal
  *               (default: 32768.0f).  Use 32768.0 to recover normalised
  *               `[-1, +1]` floats from UQ15 data written by F32ToUQ15.
- *               Must be > 0; returns NULL otherwise.
+ *               Must be positive and finite; NULL otherwise.
  * @return Heap-allocated state, or NULL on invalid args or allocation failure.
  * @note Caller must call dp_uq15_to_f32_destroy() when done.
  */
@@ -122,8 +122,9 @@ dp_uq15_to_f32_step(const dp_uq15_to_f32_state_t *state, uint16_t x)
  * @brief Process a block of UQ15 samples to float32.
  *
  * Applies step() to every element.  State is not mutated (no clipped flag).
- * Accepts an optional pre-allocated output array; allocates a fresh one when
- * @p output is NULL.
+ * In C, @p output must be a caller-owned array of at least @p n elements
+ * (NULL is not accepted).  From Python it is the optional `out=` array;
+ * the binding allocates a fresh one when omitted.
  *
  * @param state   Must be non-NULL.
  * @param input   Input uint16 offset-binary array; must contain at least

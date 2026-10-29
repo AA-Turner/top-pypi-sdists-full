@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import threading
 from pathlib import Path
 
 import pytest
@@ -266,3 +268,144 @@ def test_two_installs_still_refresh_the_renderer(tmp_path, case):
     hook = _hook_module()
     ledger = json.loads((home / ".claude" / "plugins" / "installed_plugins.json").read_text())
     assert Path(hook.renderer_copy(ledger["plugins"][key])) == wanted
+
+
+# -- an install from before `refreshInterval` --------------------------------
+
+
+def test_the_follow_ups_refresh_interval_marker_and_chain_are_the_installers():
+    assert followup.REFRESH_INTERVAL_S == cli_statusline.REFRESH_INTERVAL_S
+    assert followup.STATUSLINE_MARKER == cli_statusline.MARKER
+    assert followup.CHAIN_OPEN == cli_statusline._OPEN
+
+
+def _settings_file(home: Path, slot: object, **rest) -> Path:
+    path = home / ".claude" / "settings.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"statusLine": slot, **rest}, indent=4))
+    return path
+
+
+def _ours() -> str:
+    return f"_probe_sl_input=$(cat)\nprintf '%s' \"$_probe_sl_input\" | 'py' 'sl.py' {cli_statusline.MARKER}"
+
+
+def _ensure(home: Path, tmp_path: Path, **env) -> bool:
+    return followup.ensure_refresh_interval({"HOME": str(home), **env}, seen_dir=tmp_path / "seen")
+
+
+def test_an_older_probe_status_line_is_given_its_refresh_interval_once(tmp_path):
+    home = tmp_path / "home"
+    path = _settings_file(home, {"type": "command", "command": _ours()}, model="opus", env={"K": "v"}, note="café")
+    path.chmod(0o600)
+    before = path.read_text()
+    assert _ensure(home, tmp_path) is True
+    data = json.loads(path.read_text())
+    assert data == {"statusLine": {"type": "command", "command": _ours(),
+                                   "refreshInterval": cli_statusline.REFRESH_INTERVAL_S},
+                    "model": "opus", "env": {"K": "v"}, "note": "café"}
+    assert "café" in path.read_text(), "nothing else is rewritten as escapes"
+    assert path.stat().st_mode & 0o777 == 0o600, "a settings file kept private stays private"
+    assert (path.parent / "settings.json.probe-backup").read_text() == before, "the pre-edit file is kept"
+    # Removed by the person afterwards: never put back.
+    data["statusLine"].pop("refreshInterval")
+    path.write_text(json.dumps(data))
+    assert _ensure(home, tmp_path) is False
+    assert "refreshInterval" not in json.loads(path.read_text())["statusLine"]
+    assert sorted(p.name for p in path.parent.iterdir()) == ["settings.json", "settings.json.probe-backup"]
+
+
+@pytest.mark.parametrize("case", ["someone-elses", "chained", "own-interval", "no-slot", "not-json",
+                                  "not-an-object", "missing"])
+def test_the_refresh_interval_follow_up_leaves_everything_else_alone(tmp_path, case):
+    home = tmp_path / "home"
+    path = home / ".claude" / "settings.json"
+    if case == "someone-elses":
+        _settings_file(home, {"type": "command", "command": "my-prompt"})
+    elif case == "chained":  # over another status line: it would re-run that one unasked
+        _settings_file(home, {"type": "command", "command": cli_statusline.chain("my-prompt", "x " + cli_statusline.MARKER)})
+    elif case == "own-interval":
+        _settings_file(home, {"type": "command", "command": _ours(), "refreshInterval": 2})
+    elif case == "no-slot":
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps({"model": "opus"}))
+    elif case == "not-json":
+        path.parent.mkdir(parents=True)
+        path.write_text('{"statusLine": {"command": "' + cli_statusline.MARKER + '"')
+    elif case == "not-an-object":
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps([cli_statusline.MARKER]))
+    before = path.read_bytes() if path.exists() else None
+    assert _ensure(home, tmp_path) is False
+    assert (path.read_bytes() if path.exists() else None) == before
+    assert not (path.parent / "settings.json.probe-backup").exists()
+
+
+def test_the_refresh_interval_follow_up_never_waits_on_a_settings_link_to_a_fifo(tmp_path):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    fifo = tmp_path / "pipe"
+    os.mkfifo(fifo)
+    (home / ".claude" / "settings.json").symlink_to(fifo)
+    assert _ensure(home, tmp_path) is False
+
+
+def test_the_refresh_interval_follow_up_writes_through_a_symlink_and_honours_claude_config_dir(tmp_path):
+    dotfiles = tmp_path / "dotfiles" / "settings.json"
+    dotfiles.parent.mkdir()
+    dotfiles.write_text(json.dumps({"statusLine": {"type": "command", "command": _ours()}}))
+    config = tmp_path / "cc"
+    config.mkdir()
+    (config / "settings.json").symlink_to(dotfiles)
+    assert _ensure(tmp_path / "home", tmp_path, CLAUDE_CONFIG_DIR=str(config))
+    assert (config / "settings.json").is_symlink(), "a dotfiles link stays a link"
+    assert json.loads(dotfiles.read_text())["statusLine"]["refreshInterval"] == cli_statusline.REFRESH_INTERVAL_S
+
+
+def test_the_refresh_interval_follow_up_never_overwrites_a_change_made_meanwhile(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    path = _settings_file(home, {"type": "command", "command": _ours()})
+    real = followup._read_settings
+    reads = {"n": 0}
+
+    def read(target):
+        text = real(target)
+        reads["n"] += 1
+        return text + " " if reads["n"] == 2 else text  # Claude Code saved it between our read and our write
+
+    monkeypatch.setattr(followup, "_read_settings", read)
+    before = path.read_text()
+    assert _ensure(home, tmp_path) is False
+    assert path.read_text() == before
+    assert sorted(p.name for p in path.parent.iterdir()) == ["settings.json", "settings.json.probe-backup"], \
+        "no temp file left behind"
+
+
+def test_the_update_follow_up_gives_older_status_lines_their_refresh_interval(tmp_path, monkeypatch):
+    """`Service._follow_update` runs it for each context, once per config folder."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from probe.service import server
+
+    seen: list = []
+    monkeypatch.setattr(followup, "sync_renderer", lambda env: [])
+    monkeypatch.setattr(followup, "ensure_refresh_interval", lambda env, *, seen_dir: seen.append(env) or True)
+    monkeypatch.setattr(server.paths, "home", lambda: tmp_path / "home")
+    monkeypatch.setattr(server.paths, "service_dir", lambda: tmp_path / "service")
+    fake = SimpleNamespace(
+        stop_reason=None, _warming=set(), _interval_folders=set(), _interval_lock=threading.Lock(),
+        recorders=SimpleNamespace(contexts=lambda: [{"env": {"CLAUDE_CONFIG_DIR": "/cc"}, "harness": "claude_code"}]),
+        notes=SimpleNamespace(request=lambda *a, **k: None),
+    )
+    fake._refresh_interval = lambda env: server.Service._refresh_interval(fake, env)
+
+    async def scenario():
+        server.Service._follow_update(fake, tap=False)
+        await asyncio.gather(*list(fake._warming))
+        server.Service._follow_update(fake, tap=False)
+        await asyncio.gather(*list(fake._warming))
+
+    asyncio.run(scenario())
+    assert [env.get("CLAUDE_CONFIG_DIR") for env in seen] == [None, "/cc"], "each context once, never twice"
+    assert all(env["HOME"] == str(tmp_path / "home") for env in seen)

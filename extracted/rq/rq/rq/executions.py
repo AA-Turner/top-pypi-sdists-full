@@ -12,9 +12,12 @@ if TYPE_CHECKING:
 
     from .worker.base import BaseWorker
 
+from .defaults import FORMAT_KEY_PREFIX, RQ_KEY_PREFIX
 from .job import Job
 from .registry import BaseRegistry, StartedJobRegistry
 from .utils import as_text, current_timestamp, now, parse_composite_key
+
+WORKER_EXECUTIONS_KEY_TEMPLATE = FORMAT_KEY_PREFIX + ':worker:{0}:executions'
 
 
 class Execution:
@@ -35,9 +38,12 @@ class Execution:
             return False
         return self.id == other.id
 
+    def __hash__(self) -> int:
+        return hash(self.id)
+
     @property
     def key(self) -> str:
-        return f'rq:execution:{self.composite_key}'
+        return f'{RQ_KEY_PREFIX}:execution:{self.composite_key}'
 
     @property
     def job(self) -> Job:
@@ -49,6 +55,11 @@ class Execution:
     @property
     def composite_key(self):
         return f'{self.job_id}:{self.id}'
+
+    @property
+    def worker_executions_key(self) -> str:
+        """Redis key of the execution index of the worker running this execution."""
+        return WORKER_EXECUTIONS_KEY_TEMPLATE.format(self.worker_name)
 
     @classmethod
     def fetch(cls, id: str, job_id: str, connection: Redis) -> Execution:
@@ -62,6 +73,12 @@ class Execution:
         data = self.connection.hgetall(self.key)
         if not data:
             raise ValueError(f'Execution {self.id} not found in Redis')
+        self.restore(data)
+
+    def restore(self, data: dict):
+        """Restore execution attributes from raw Redis hash data."""
+        # Hashes written before job_id was serialized lack the field; keep the caller-supplied value
+        self.job_id = as_text(data.get(b'job_id', b'')) or self.job_id
         self.created_at = datetime.fromtimestamp(float(data[b'created_at']), tz=timezone.utc)
         self.last_heartbeat = datetime.fromtimestamp(float(data[b'last_heartbeat']), tz=timezone.utc)
         self.worker_name = as_text(data.get(b'worker_name', b''))
@@ -77,9 +94,14 @@ class Execution:
         """Save execution data to Redis."""
         id = uuid4().hex
         execution = cls(id=id, job_id=job.id, connection=job.connection, worker_name=worker_name)
+        execution._job = job
         execution.save(ttl=ttl, pipeline=pipeline)
         ExecutionRegistry(job_id=job.id, connection=pipeline).add(execution=execution, ttl=ttl, pipeline=pipeline)
         job.started_job_registry.add_execution(execution, pipeline=pipeline, ttl=ttl, xx=False)
+        if worker_name:
+            # Register in the worker's execution index; the worker's heartbeat keeps its TTL refreshed
+            pipeline.sadd(execution.worker_executions_key, execution.composite_key)
+            pipeline.expire(execution.worker_executions_key, ttl + 60)
         return execution
 
     def save(self, ttl: int, pipeline: Pipeline | None = None):
@@ -94,10 +116,13 @@ class Execution:
         pipeline.delete(self.key)
         job.started_job_registry.remove_execution(execution=self, pipeline=pipeline)
         ExecutionRegistry(job_id=self.job_id, connection=self.connection).remove(execution=self, pipeline=pipeline)
+        if self.worker_name:
+            pipeline.srem(self.worker_executions_key, self.composite_key)
 
     def serialize(self) -> dict:
         return {
             'id': self.id,
+            'job_id': self.job_id,
             'created_at': self.created_at.timestamp(),
             'last_heartbeat': self.last_heartbeat.timestamp(),
             'worker_name': self.worker_name,
@@ -110,7 +135,9 @@ class Execution:
         pipeline.hset(self.key, 'last_heartbeat', self.last_heartbeat.timestamp())
         pipeline.expire(self.key, ttl)
         started_job_registry.add_execution(self, ttl=ttl, pipeline=pipeline, xx=True)
-        ExecutionRegistry(job_id=self.job_id, connection=pipeline).add(execution=self, ttl=ttl, pipeline=pipeline)
+        ExecutionRegistry(job_id=self.job_id, connection=pipeline).add(
+            execution=self, ttl=ttl, pipeline=pipeline, xx=True
+        )
 
 
 class ExecutionRegistry(BaseRegistry):
@@ -118,7 +145,7 @@ class ExecutionRegistry(BaseRegistry):
     Each job has its own execution registry.
     """
 
-    key_template = 'rq:executions:{0}'
+    key_template = FORMAT_KEY_PREFIX + ':executions:{0}'
 
     def __init__(self, job_id: str, connection: Redis):
         self.connection = connection
@@ -135,19 +162,20 @@ class ExecutionRegistry(BaseRegistry):
         score = timestamp if timestamp is not None else current_timestamp()
         self.connection.zremrangebyscore(self.key, 0, score)
 
-    def add(self, execution: Execution, ttl: int, pipeline: Pipeline) -> Any:  # type: ignore
+    def add(self, execution: Execution, ttl: int, pipeline: Pipeline, xx: bool = False) -> Any:  # type: ignore
         """Register an execution to registry with expiry time of now + ttl, unless it's -1 which is set to +inf
 
         Args:
             execution (Execution): The Execution to add
             ttl (int, optional): The time to live. Defaults to 0.
             pipeline (Optional[Pipeline], optional): The Redis Pipeline. Defaults to None.
+            xx (bool, optional): Only update an existing member, never add one. Defaults to False.
 
         Returns:
             result (int): The ZADD command result
         """
         score = current_timestamp() + ttl
-        pipeline.zadd(self.key, {execution.id: score + 60})
+        pipeline.zadd(self.key, {execution.id: score + 60}, xx=xx)
         # Still unsure how to handle registry TTL, but it should be the same as job TTL
         pipeline.expire(self.key, ttl + 60)
         return
@@ -198,13 +226,14 @@ def prepare_execution(worker: BaseWorker, job: Job) -> Execution:
 
     with worker.connection.pipeline() as pipeline:
         heartbeat_ttl = worker.get_heartbeat_ttl(job)
-        worker.execution = Execution.create(job, heartbeat_ttl, pipeline=pipeline, worker_name=worker.name)
+        execution = Execution.create(job, heartbeat_ttl, pipeline=pipeline, worker_name=worker.name)
+        worker.executions[execution.id] = execution
         worker.set_state(WorkerStatus.BUSY, pipeline=pipeline)
         pipeline.execute()
-    return worker.execution
+    return execution
 
 
-def cleanup_execution(worker: BaseWorker, job: Job, pipeline: Pipeline) -> None:
+def cleanup_execution(worker: BaseWorker, job: Job, pipeline: Pipeline, execution: Execution | None = None) -> None:
     """Cleans up the execution of a job.
     It will remove the job execution record from the StartedJobRegistry and delete the Execution object.
 
@@ -212,9 +241,9 @@ def cleanup_execution(worker: BaseWorker, job: Job, pipeline: Pipeline) -> None:
         worker: The worker to clean up execution for
         job: The job whose execution is being cleaned up
         pipeline: Redis pipeline to use for the cleanup
+        execution: The execution to clean up
     """
     logger.debug('Cleaning up execution of job %s', job.id)
-    worker.set_current_job_id(None, pipeline=pipeline)
-    if worker.execution is not None:
-        worker.execution.delete(job=job, pipeline=pipeline)
-        worker.execution = None
+    if execution:
+        execution.delete(job=job, pipeline=pipeline)
+        worker.executions.pop(execution.id, None)

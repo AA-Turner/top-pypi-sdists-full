@@ -1529,7 +1529,8 @@ def test_one_queue_s_old_backlog_never_makes_another_s_fresh_hold_stuck(tmp_path
     assert (reason, facts["oldest_pending_h"]) == ("held", 4.0)
 
 
-def test_a_session_waiting_an_hour_past_its_last_receipt_is_stalled():
+def test_a_session_seen_waiting_for_an_hour_is_stalled():
+    still: dict = {}
     now = 1_000_000.0
     receipts = {
         "stalled": {"received_at": now - 2 * 3600, "pending_bytes": 1200, "pending_lines": 3},
@@ -1544,9 +1545,11 @@ def test_a_session_waiting_an_hour_past_its_last_receipt_is_stalled():
                     "offline": True},
         "unread": None,
     }
-    found = watch.capture_conditions(receipts, now)
-    assert set(found) == {"stalled", "batch", "uncounted"}
-    assert found["stalled"]["received_h"] == 2.0 and found["stalled"]["pending_bytes"] == 1200
+    assert watch.capture_conditions(receipts, now, still) == {}, "first seen waiting: not yet an hour"
+    found = watch.capture_conditions(receipts, now + watch.CAPTURE_STALL_S, still)
+    assert set(found) == {"stalled", "batch", "uncounted", "recent"}
+    assert found["stalled"]["waiting_h"] == 1.0 and found["stalled"]["received_h"] == 3.0
+    assert found["stalled"]["pending_bytes"] == 1200
 
 
 def test_a_laptop_back_online_is_aged_from_when_it_was_last_offline():
@@ -1560,7 +1563,35 @@ def test_a_laptop_back_online_is_aged_from_when_it_was_last_offline():
     assert watch.capture_conditions({"s": away}, now, still) == {}
     assert watch.capture_conditions({"s": back}, now + 600, still) == {}
     found = watch.capture_conditions({"s": back}, now + watch.CAPTURE_STALL_S, still)
-    assert found["s"]["received_h"] == 1.0
+    assert found["s"]["waiting_h"] == 1.0
+
+
+def test_a_session_used_again_after_hours_idle_is_aged_from_when_it_was_seen_waiting():
+    """10-28, New Workspace (9ef1e310): a session idle 11 h past its last
+    receipt took a new prompt, and its new lines read as waiting 11 h. A
+    receipt says when the last batch landed, not when what waits was written."""
+    still: dict = {}
+    now = 1_000_000.0
+    idle = {"received_at": now - 11 * 3600, "received_bytes": 500, "pending_bytes": 0, "pending_lines": 0}
+    used = {**idle, "pending_bytes": 41_504, "pending_lines": 25}
+    assert watch.capture_conditions({"s": idle}, now, still) == {}
+    assert watch.capture_conditions({"s": used}, now + 300, still) == {}, "minutes-old lines are not 11 h stalled"
+    assert watch.capture_conditions({"s": used}, now + 300 + 3599, still) == {}
+    found = watch.capture_conditions({"s": used}, now + 300 + 3600, still)
+    assert found["s"]["waiting_h"] == 1.0, "still stalled once they wait an hour"
+    landed = {**idle, "received_at": now + 4000, "received_bytes": 42_004}
+    assert watch.capture_conditions({"s": landed}, now + 4000, still) == {}
+
+
+def test_a_session_resumed_after_hours_closed_is_aged_from_when_it_was_seen_waiting():
+    """Reviewer: one that left the live sessions (closed, then resumed) came
+    back with nothing remembered and aged from its receipt again."""
+    still: dict = {}
+    now = 1_000_000.0
+    resumed = {"received_at": now - 11 * 3600, "received_bytes": 500, "pending_bytes": 900, "pending_lines": 3}
+    assert watch.capture_conditions({}, now, still) == {}
+    assert watch.capture_conditions({"s": resumed}, now + 300, still) == {}
+    assert watch.capture_conditions({"s": resumed}, now + 300 + 3600, still)["s"]["waiting_h"] == 1.0
 
 
 def test_a_session_none_of_whose_batches_landed_is_stalled_once_its_cursor_sat_an_hour():
@@ -1630,7 +1661,7 @@ def test_sessions_whose_capture_stalled_on_two_checks_are_one_report_for_the_mac
     rig.state["receipts"] = {f"s-{n}": {"received_at": rig.now - (2 + n) * 3600, "pending_bytes": 9}
                              for n in range(watch.CAPTURE_MAX_SESSIONS + 2)}
     rig.scan()
-    _awake(rig, watch.SLOW_CHECK_S)
+    _awake(rig, watch.CAPTURE_STALL_S + watch.SLOW_CHECK_S)
     assert rig.families() == [(Family.CAPTURE_STALLED, "waiting", None)]
     facts = rig.calls[0]["facts"]
     assert facts["count"] == watch.CAPTURE_MAX_SESSIONS + 2
@@ -1675,11 +1706,14 @@ def test_a_read_that_did_not_answer_drops_no_waiting_report(monkeypatch):
     rig.answer = (0, {"sent": False, "id": None, "skipped": "offline", "path": None})
     try:
         rig.scan()
-        _awake(rig, watch.SLOW_CHECK_S)
+        _awake(rig, watch.CAPTURE_STALL_S + watch.SLOW_CHECK_S)
         assert rig.waiting() == 2, "both waiting for their retry"
         state["hang"] = True
         _awake(rig, watch.SLOW_CHECK_S)
         assert rig.waiting() == 2 and not any("cleared" in line for line in rig.lines)
+        state["hang"] = False
+        _awake(rig, watch.SLOW_CHECK_S)
+        assert rig.waiting() == 2, "a failed read forgets nothing: the stall is still an hour old, not new"
     finally:
         release.set()
 

@@ -511,7 +511,7 @@ static PyObject *pyqtProperty_reset(PyObject *self, PyObject *reset)
 static qpycore_pyqtProperty *clone(qpycore_pyqtProperty *orig)
 {
     qpycore_pyqtProperty *pp = (qpycore_pyqtProperty *)PyType_GenericNew(
-            Py_TYPE(orig), 0, 0);
+            Py_TYPE((PyObject *)orig), 0, 0);
 
     if (pp)
     {

@@ -24,7 +24,7 @@ dependencies = [
     "langgraph>=0.4.10,<2",
     "langgraph-checkpoint>=3.0.1,<5",
     "orjson>=3.9.7",
-    "uvicorn>=0.26.0",
+    "uvicorn>=0.29.0",
     # Required for the protocol v2 WebSocket transport
     # (``WebSocketRoute`` at ``/threads/{thread_id}/stream``). Without a
     # WebSocket library uvicorn falls back to ``Unsupported upgrade

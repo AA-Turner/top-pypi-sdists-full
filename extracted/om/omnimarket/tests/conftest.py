@@ -24,6 +24,9 @@ import pytest_asyncio
 import yaml
 
 from omnimarket.config.env_flags import env_flag
+from omnimarket.routing.task_class_contract_path import (
+    TASK_CLASS_CONTRACT_PACKAGED_DEFAULT_PATH,
+)
 
 # OMN-19987: the --refuse-skips option, for evidence checks that must not pass
 # when their proof skipped. Importing the hooks here loads them for every run.
@@ -138,6 +141,10 @@ def promoted_context_profile_routing(
     entry = {
         "gateway_exposure": "internal",
         "selection": {"priority": 0, "phrases": []},
+        # OMN-21213: a class without its four transition lists refuses to load.
+        "transitions": yaml.safe_load(
+            TASK_CLASS_CONTRACT_PACKAGED_DEFAULT_PATH.read_text(encoding="utf-8")
+        )["transitions_default"],
     }
     path.write_text(
         yaml.safe_dump(
@@ -443,6 +450,10 @@ def _isolate_unit_env(
     # Redirect node-generation-consumer replay state to an isolated tmp dir.
     monkeypatch.setenv("ONEX_STATE_DIR", str(tmp_path / "onex_state"))
     monkeypatch.delenv("ONEX_STATE_ROOT", raising=False)
+    # The hook adapter journals its session barrier under this override when it
+    # is set (OMN-21099); a lane shell exports the host's live journal, which
+    # the resident drainer publishes, so a test falls back to ONEX_STATE_DIR.
+    monkeypatch.delenv("ONEX_HOOK_EMIT_JOURNAL_DIR", raising=False)
 
 
 @pytest.fixture(autouse=True)
@@ -1246,3 +1257,20 @@ def lane_intake_gate(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     monkeypatch.setattr(LaneIntakeGate, "policy", _policy)
     monkeypatch.setattr(LaneIntakeGate, "admit", _admit)
     return admitted
+
+
+@pytest.fixture
+def compaction_bus():
+    """Close every in-memory compaction transport and its worker loop."""
+    from tests.nodes.node_context_compaction_orchestrator.bus_fixture import BusHarness
+
+    harnesses = []
+
+    def factory(pack=None, **kwargs):
+        harness = BusHarness(pack, **kwargs)
+        harnesses.append(harness)
+        return harness
+
+    yield factory
+    for harness in reversed(harnesses):
+        harness.close()

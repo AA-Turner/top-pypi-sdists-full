@@ -51,8 +51,9 @@ from .types.update_accounts_request_terms_of_service import UpdateAccountsReques
 from .types.update_accounts_request_three_ds_level import UpdateAccountsRequestThreeDsLevel
 
 if typing.TYPE_CHECKING:
+    from .customer_tracking.client import AsyncCustomerTrackingClient, CustomerTrackingClient
     from .fees.client import AsyncFeesClient, FeesClient
-    from .financing_applications.client import AsyncFinancingApplicationsClient, FinancingApplicationsClient
+    from .financing_providers.client import AsyncFinancingProvidersClient, FinancingProvidersClient
     from .preferences.client import AsyncPreferencesClient, PreferencesClient
     from .reserves.client import AsyncReservesClient, ReservesClient
 # this is used as the default value for optional parameters
@@ -63,8 +64,9 @@ class AccountsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._raw_client = RawAccountsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._customer_tracking: typing.Optional[CustomerTrackingClient] = None
         self._fees: typing.Optional[FeesClient] = None
-        self._financing_applications: typing.Optional[FinancingApplicationsClient] = None
+        self._financing_providers: typing.Optional[FinancingProvidersClient] = None
         self._preferences: typing.Optional[PreferencesClient] = None
         self._reserves: typing.Optional[ReservesClient] = None
 
@@ -158,7 +160,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -250,7 +252,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -295,7 +297,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -355,7 +357,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -410,7 +412,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -443,7 +445,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -666,7 +668,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -803,7 +805,7 @@ class AccountsClient:
         )
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -893,7 +895,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -926,7 +928,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -944,6 +946,7 @@ class AccountsClient:
         identifier: str,
         as_partner: typing.Optional[bool] = OMIT,
         authorized_user_id: typing.Optional[str] = OMIT,
+        member_id: typing.Optional[str] = OMIT,
         message: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TransferOwnershipAccountsResponse:
@@ -964,6 +967,9 @@ class AccountsClient:
         authorized_user_id : typing.Optional[str]
             Your team membership on the business this referral is made for, prefixed `ausr_`. The referral then credits that team instead of you personally. Requires `as_partner`.
 
+        member_id : typing.Optional[str]
+            Your member record on the business this referral is made for, prefixed `mber_`, when your role there is held on your member record. Send this or `authorized_user_id`, not both. Requires `as_partner`.
+
         message : typing.Optional[str]
             A note from the partner, shown as a quote in the invite email and signed with their name. Requires `as_partner`; sending it on an ordinary transfer is a 400. Omit it and the email sends without a note.
 
@@ -980,7 +986,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -994,10 +1000,19 @@ class AccountsClient:
             identifier=identifier,
             as_partner=as_partner,
             authorized_user_id=authorized_user_id,
+            member_id=member_id,
             message=message,
             request_options=request_options,
         )
         return _response.data
+
+    @property
+    def customer_tracking(self):
+        if self._customer_tracking is None:
+            from .customer_tracking.client import CustomerTrackingClient  # noqa: E402
+
+            self._customer_tracking = CustomerTrackingClient(client_wrapper=self._client_wrapper)
+        return self._customer_tracking
 
     @property
     def fees(self):
@@ -1008,12 +1023,12 @@ class AccountsClient:
         return self._fees
 
     @property
-    def financing_applications(self):
-        if self._financing_applications is None:
-            from .financing_applications.client import FinancingApplicationsClient  # noqa: E402
+    def financing_providers(self):
+        if self._financing_providers is None:
+            from .financing_providers.client import FinancingProvidersClient  # noqa: E402
 
-            self._financing_applications = FinancingApplicationsClient(client_wrapper=self._client_wrapper)
-        return self._financing_applications
+            self._financing_providers = FinancingProvidersClient(client_wrapper=self._client_wrapper)
+        return self._financing_providers
 
     @property
     def preferences(self):
@@ -1036,8 +1051,9 @@ class AsyncAccountsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawAccountsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._customer_tracking: typing.Optional[AsyncCustomerTrackingClient] = None
         self._fees: typing.Optional[AsyncFeesClient] = None
-        self._financing_applications: typing.Optional[AsyncFinancingApplicationsClient] = None
+        self._financing_providers: typing.Optional[AsyncFinancingProvidersClient] = None
         self._preferences: typing.Optional[AsyncPreferencesClient] = None
         self._reserves: typing.Optional[AsyncReservesClient] = None
 
@@ -1133,7 +1149,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1234,7 +1250,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1287,7 +1303,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1355,7 +1371,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1419,7 +1435,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1464,7 +1480,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1695,7 +1711,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1840,7 +1856,7 @@ class AsyncAccountsClient:
         )
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1938,7 +1954,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1979,7 +1995,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -2003,6 +2019,7 @@ class AsyncAccountsClient:
         identifier: str,
         as_partner: typing.Optional[bool] = OMIT,
         authorized_user_id: typing.Optional[str] = OMIT,
+        member_id: typing.Optional[str] = OMIT,
         message: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TransferOwnershipAccountsResponse:
@@ -2023,6 +2040,9 @@ class AsyncAccountsClient:
         authorized_user_id : typing.Optional[str]
             Your team membership on the business this referral is made for, prefixed `ausr_`. The referral then credits that team instead of you personally. Requires `as_partner`.
 
+        member_id : typing.Optional[str]
+            Your member record on the business this referral is made for, prefixed `mber_`, when your role there is held on your member record. Send this or `authorized_user_id`, not both. Requires `as_partner`.
+
         message : typing.Optional[str]
             A note from the partner, shown as a quote in the invite email and signed with their name. Requires `as_partner`; sending it on an ordinary transfer is a 400. Omit it and the email sends without a note.
 
@@ -2041,7 +2061,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-15-1",
+            "2026-10-28",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -2061,10 +2081,19 @@ class AsyncAccountsClient:
             identifier=identifier,
             as_partner=as_partner,
             authorized_user_id=authorized_user_id,
+            member_id=member_id,
             message=message,
             request_options=request_options,
         )
         return _response.data
+
+    @property
+    def customer_tracking(self):
+        if self._customer_tracking is None:
+            from .customer_tracking.client import AsyncCustomerTrackingClient  # noqa: E402
+
+            self._customer_tracking = AsyncCustomerTrackingClient(client_wrapper=self._client_wrapper)
+        return self._customer_tracking
 
     @property
     def fees(self):
@@ -2075,12 +2104,12 @@ class AsyncAccountsClient:
         return self._fees
 
     @property
-    def financing_applications(self):
-        if self._financing_applications is None:
-            from .financing_applications.client import AsyncFinancingApplicationsClient  # noqa: E402
+    def financing_providers(self):
+        if self._financing_providers is None:
+            from .financing_providers.client import AsyncFinancingProvidersClient  # noqa: E402
 
-            self._financing_applications = AsyncFinancingApplicationsClient(client_wrapper=self._client_wrapper)
-        return self._financing_applications
+            self._financing_providers = AsyncFinancingProvidersClient(client_wrapper=self._client_wrapper)
+        return self._financing_providers
 
     @property
     def preferences(self):

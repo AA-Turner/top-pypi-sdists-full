@@ -168,6 +168,7 @@ from .logging_messages import (
     OFFLINE_SENDER_ENDS,
     OFFLINE_SENDER_ENDS_PROCESSING,
     OFFLINE_SENDER_STARTS,
+    OFFLINE_SENDER_UPLOAD_ORIGINAL_FILE_NOT_FOUND,
     OFFLINE_SUCCESS_UPLOADED_EXPERIMENTS,
     OFFLINE_UPLOAD_FAILED_UNEXPECTED_ERROR,
     OFFLINE_UPLOADING_EXPERIMENT_FILE_PROMPT,
@@ -1915,14 +1916,19 @@ class OfflineSender(object):
         if "epoch" in additional_params and additional_params["epoch"] is not None:
             additional_params["epoch"] = int(additional_params["epoch"])
 
+        # The clean flag is False for the original user's file referenced by absolute path
+        # (fallback mode with copy_to_tmp=False), which must not be removed after upload.
+        # Otherwise, the file was extracted from the archive and can be removed.
+        clean = message.get("clean", True)
         file_path = join(self.offline_dir, message["file_path"])
+        if not clean and not os.path.isfile(file_path):
+            LOGGER.warning(OFFLINE_SENDER_UPLOAD_ORIGINAL_FILE_NOT_FOUND, file_path)
+            return
+
         file_size = os.path.getsize(file_path)
 
         # try to collect model name if it is an asset for the model
         self._collect_model_name_if_appropriate(message)
-
-        # Mark message to be cleaned after sending, i.e. to delete all extracted files after upload
-        message["clean"] = True
 
         self.file_upload_manager.upload_file_thread(
             options=FileUploadOptions(
@@ -1933,7 +1939,7 @@ class OfflineSender(object):
                 upload_endpoint=url,
                 api_key=self.api_key,
                 additional_params=additional_params,
-                clean=True,
+                clean=clean,
                 timeout=self.config.get_int(None, "comet.timeout.file_upload"),
                 verify_tls=self.check_tls_certificate,
                 estimated_size=file_size,

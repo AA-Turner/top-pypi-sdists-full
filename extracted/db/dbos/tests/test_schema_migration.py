@@ -3,11 +3,13 @@ import pathlib
 import shutil
 import subprocess
 import tempfile
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import click
 import pytest
 import sqlalchemy as sa
+from sqlalchemy import event
 from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
 
 # Public API
@@ -25,6 +27,13 @@ from dbos._schemas.system_database import SystemSchema
 from dbos._serialization import DefaultSerializer
 from dbos._sys_db import SystemDatabase
 from dbos.cli.migration import print_dbos_migrations, print_dbos_user_role_sql
+
+from .conftest import using_sharding
+
+pytestmark = pytest.mark.skipif(
+    using_sharding(),
+    reason="Tests core's unsharded schema migrations, which a sharded system database replaces",
+)
 
 
 def test_systemdb_migration(
@@ -927,6 +936,69 @@ def test_concurrent_migrations(db_engine: sa.Engine, skip_with_sqlite: None) -> 
         )
 
 
+def test_sqlite_migration_holds_write_lock_before_checking_version(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The version check runs inside the write transaction, not in autocommit."""
+    sys_db = SystemDatabase.create(
+        system_database_url=f"sqlite:///{tmp_path / 'locked.sqlite'}",
+        engine_kwargs={},
+        engine=None,
+        schema=None,
+        executor_id=None,
+        serializer=DefaultSerializer(),
+    )
+    in_transaction_at_check: list[bool] = []
+
+    @event.listens_for(sys_db.engine, "before_cursor_execute")
+    def record(
+        conn: sa.Connection, cursor: object, statement: str, *args: object
+    ) -> None:
+        if "FROM sqlite_master" in statement:
+            raw = conn.connection.driver_connection
+            assert raw is not None
+            in_transaction_at_check.append(raw.in_transaction)
+
+    try:
+        sys_db.run_migrations()
+    finally:
+        sys_db.destroy()
+    assert in_transaction_at_check == [True]
+
+
+def test_sqlite_concurrent_migrations(tmp_path: pathlib.Path) -> None:
+    """Engines that migrate one new SQLite file at once all succeed."""
+    num_instances = 6
+    sys_url = f"sqlite:///{tmp_path / 'concurrent.sqlite'}"
+    barrier = threading.Barrier(num_instances)
+
+    def create_and_migrate(_: int) -> None:
+        sys_db = SystemDatabase.create(
+            system_database_url=sys_url,
+            engine_kwargs={"connect_args": {"check_same_thread": False}},
+            engine=None,
+            schema=None,
+            executor_id=None,
+            serializer=DefaultSerializer(),
+        )
+        try:
+            barrier.wait()
+            sys_db.run_migrations()
+            with sys_db.engine.connect() as conn:
+                rows = conn.execute(
+                    sa.text("SELECT version FROM dbos_migrations")
+                ).fetchall()
+            assert [row[0] for row in rows] == [len(sqlite_migrations)]
+        finally:
+            sys_db.destroy()
+
+    with ThreadPoolExecutor(max_workers=num_instances) as executor:
+        for future in [
+            executor.submit(create_and_migrate, i) for i in range(num_instances)
+        ]:
+            future.result()
+
+
 def test_online_migrations_are_idempotent(
     dbos_dropped_databases: DBOS, skip_with_sqlite: None
 ) -> None:
@@ -1697,3 +1769,68 @@ def test_sqlite_verify_migrations(tmp_path: pathlib.Path) -> None:
         sys_db.verify_migrations()
     finally:
         sys_db.destroy()
+
+
+def test_migrate_print_migrations_refuses_sharding(tmp_path: pathlib.Path) -> None:
+    """Sharded migrations run only live, where they can distribute tables on Citus."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("DBOS")}
+    result = subprocess.run(
+        ["dbos", "migrate", "--print-migrations", "all", "--sharding"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        env=env,
+    )
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "--print-migrations is not supported with --sharding" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "index_name, columns",
+    [
+        ("idx_application_versions_timestamp", ["version_timestamp"]),
+        (
+            "idx_application_versions_owner_timestamp",
+            ["application_name", "version_timestamp"],
+        ),
+    ],
+)
+def test_application_version_indexes(
+    dbos_dropped_databases: DBOS,
+    index_name: str,
+    columns: list[str],
+) -> None:
+    sys_db = dbos_dropped_databases._sys_db
+    sqlite = sys_db.engine.dialect.name == "sqlite"
+    schema = None if sqlite else "dbos"
+    indexes = sa.inspect(sys_db.engine).get_indexes(
+        "application_versions", schema=schema
+    )
+    index = next(index for index in indexes if index["name"] == index_name)
+    assert index["column_names"] == columns
+    assert not index["unique"]
+
+    migrations = (
+        sqlite_migrations
+        if sqlite
+        else get_dbos_migrations(
+            "dbos", True, sys_db.engine.dialect.name == "cockroachdb"
+        )
+    )
+    with sys_db.engine.connect().execution_options(
+        isolation_level="AUTOCOMMIT"
+    ) as conn:
+        for migration in migrations[123:125]:
+            conn.execute(sa.text(migration))
+
+    if sqlite:
+        with sys_db.engine.connect() as conn:
+            key_columns = [
+                (row[2], row[3])
+                for row in conn.execute(sa.text(f'PRAGMA index_xinfo("{index_name}")'))
+                if row[5] == 1
+            ]
+        assert key_columns == [
+            (column, int(column == "version_timestamp")) for column in columns
+        ]

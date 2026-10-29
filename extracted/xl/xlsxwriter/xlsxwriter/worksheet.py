@@ -49,8 +49,11 @@ from xlsxwriter.url import Url, UrlTypes
 from xlsxwriter.utility import (
     _datetime_to_excel_datetime,
     _get_sparkline_style,
+    _has_invalid_name_chars,
     _preserve_whitespace,
     _supported_datetime,
+    _utf16_len,
+    _utf16_truncate,
     quote_sheetname,
     xl_cell_to_rowcol,
     xl_col_to_name,
@@ -445,7 +448,11 @@ class Worksheet(xmlwriter.XMLwriter):
 
         self.row_sizes = {}
         self.col_size_changed = False
-        self.row_size_changed = False
+
+        # The previously calculated (index, pixel offset) used to position
+        # objects, to avoid re-summing the sizes from the first row/col.
+        self.prev_col_offset = (0, 0)
+        self.prev_row_offset = (0, 0)
 
         self.rel_count = 0
         self.hlink_count = 0
@@ -528,7 +535,7 @@ class Worksheet(xmlwriter.XMLwriter):
         if self.strings_to_formulas and token.startswith("="):
             return self._write_formula(row, col, *args)
 
-        if token.startswith("{=") and token.endswith("}"):
+        if self.strings_to_formulas and token.startswith("{=") and token.endswith("}"):
             return self._write_formula(row, col, *args)
 
         # pylint: disable=too-many-boolean-expressions
@@ -694,9 +701,10 @@ class Worksheet(xmlwriter.XMLwriter):
         if self._check_dimensions(row, col):
             return -1
 
-        # Check that the string is < 32767 chars.
-        if len(string) > self.xls_strmax:
-            string = string[: self.xls_strmax]
+        # Check that the string is < 32767 UTF-16 units. A string can't exceed
+        # the limit if it is less than half of it, so skip the slower check.
+        if len(string) > self.xls_strmax // 2 and _utf16_len(string) > self.xls_strmax:
+            string = _utf16_truncate(string, self.xls_strmax)
             str_error = -2
 
         # Write a shared string or an in-line string in constant_memory mode.
@@ -1389,7 +1397,7 @@ class Worksheet(xmlwriter.XMLwriter):
                 url_str = url
                 anchor_str = ""
 
-            if len(url_str) > max_url or len(anchor_str) > max_url:
+            if _utf16_len(url_str) > max_url or _utf16_len(anchor_str) > max_url:
                 warn(
                     f"Ignoring URL '{url}' with link or location/anchor > {max_url} "
                     f"characters since it exceeds Excel's limit for URLs."
@@ -1402,7 +1410,7 @@ class Worksheet(xmlwriter.XMLwriter):
                 url._text = string
 
             if tip is not None:
-                url._tip = tip
+                url.tip = tip
 
         # Check the limit of URLs per worksheet.
         self.hlink_count += 1
@@ -1550,7 +1558,7 @@ class Worksheet(xmlwriter.XMLwriter):
         string = self.rstring.fh.getvalue()
 
         # Check that the string is < 32767 chars.
-        if len(raw_string) > self.xls_strmax:
+        if _utf16_len(raw_string) > self.xls_strmax:
             warn(
                 "String length must be less than or equal to Excel's limit "
                 "of 32,767 characters in write_rich_string()."
@@ -1879,7 +1887,7 @@ class Worksheet(xmlwriter.XMLwriter):
             return -1
 
         # Check that the comment string is < 32767 chars.
-        if len(comment) > self.xls_strmax:
+        if _utf16_len(comment) > self.xls_strmax:
             return -2
 
         self.has_vml = True
@@ -2075,9 +2083,9 @@ class Worksheet(xmlwriter.XMLwriter):
         elif width == 0.0:
             width_pixels = 0
         elif width < 1.0:
-            width_pixels = round(width * (self.max_digit_width + self.cell_padding))
+            width_pixels = int(width * (self.max_digit_width + self.cell_padding) + 0.5)
         else:
-            width_pixels = round(width * self.max_digit_width) + self.cell_padding
+            width_pixels = int(width * self.max_digit_width + 0.5) + self.cell_padding
 
         return self.set_column_pixels(
             first_col, last_col, width_pixels, cell_format, options
@@ -2295,15 +2303,15 @@ class Worksheet(xmlwriter.XMLwriter):
                 # to pre-load a minimum col width.
                 col_info = self.col_info.get(col_num)
                 user_width = col_info.width
-                hidden = col_info.hidden
-                if user_width is not None and not hidden:
+                autofit = col_info.autofit
+                if user_width is not None and not autofit:
                     # Col info is user defined.
                     if width > user_width:
                         self.col_info[col_num].width = width
-                        self.col_info[col_num].hidden = True
+                        self.col_info[col_num].autofit = True
                 else:
                     self.col_info[col_num].width = width
-                    self.col_info[col_num].hidden = True
+                    self.col_info[col_num].autofit = True
             else:
                 self.col_info[col_num] = ColumnInfo(
                     width=width,
@@ -2332,7 +2340,7 @@ class Worksheet(xmlwriter.XMLwriter):
 
         """
         if height is not None:
-            pixel_height = round(height * 4.0 / 3.0)
+            pixel_height = int(height * 4.0 / 3.0 + 0.5)
         else:
             pixel_height = None
 
@@ -2400,9 +2408,6 @@ class Worksheet(xmlwriter.XMLwriter):
             collapsed=collapsed,
         )
 
-        # Store the row change to allow optimizations.
-        self.row_size_changed = True
-
         # Store the row sizes for use when calculating image vertices.
         self.row_sizes[row] = [height, hidden]
 
@@ -2425,11 +2430,9 @@ class Worksheet(xmlwriter.XMLwriter):
         if height is None:
             pixel_height = self.default_row_height
         else:
-            pixel_height = int(round(height * 4.0 / 3.0))  # noqa: RUF046
+            pixel_height = int(height * 4.0 / 3.0 + 0.5)
 
         if pixel_height != self.original_row_height:
-            # Store the row change to allow optimizations.
-            self.row_size_changed = True
             self.default_row_height = pixel_height
 
         if hide_unused_rows:
@@ -2871,7 +2874,7 @@ class Worksheet(xmlwriter.XMLwriter):
                 options["maximum"] = f"{date_time:.16g}"
 
         # Check that the input title doesn't exceed the maximum length.
-        if options.get("input_title") and len(options["input_title"]) > 32:
+        if options.get("input_title") and _utf16_len(options["input_title"]) > 32:
             warn(
                 f"Length of input title '{options['input_title']}' "
                 f"exceeds Excel's limit of 32"
@@ -2879,7 +2882,7 @@ class Worksheet(xmlwriter.XMLwriter):
             return -2
 
         # Check that the error title doesn't exceed the maximum length.
-        if options.get("error_title") and len(options["error_title"]) > 32:
+        if options.get("error_title") and _utf16_len(options["error_title"]) > 32:
             warn(
                 f"Length of error title '{options['error_title']}' "
                 f"exceeds Excel's limit of 32"
@@ -2887,7 +2890,7 @@ class Worksheet(xmlwriter.XMLwriter):
             return -2
 
         # Check that the input message doesn't exceed the maximum length.
-        if options.get("input_message") and len(options["input_message"]) > 255:
+        if options.get("input_message") and _utf16_len(options["input_message"]) > 255:
             warn(
                 f"Length of input message '{options['input_message']}' "
                 f"exceeds Excel's limit of 255"
@@ -2895,7 +2898,7 @@ class Worksheet(xmlwriter.XMLwriter):
             return -2
 
         # Check that the error message doesn't exceed the maximum length.
-        if options.get("error_message") and len(options["error_message"]) > 255:
+        if options.get("error_message") and _utf16_len(options["error_message"]) > 255:
             warn(
                 f"Length of error message '{options['error_message']}' "
                 f"exceeds Excel's limit of 255"
@@ -2905,7 +2908,7 @@ class Worksheet(xmlwriter.XMLwriter):
         # Check that the input list doesn't exceed the maximum length.
         if options["validate"] == "list" and isinstance(options["value"], list):
             formula = self._csv_join(*options["value"])
-            if len(formula) > 255:
+            if _utf16_len(formula) > 255:
                 warn(
                     f"Length of list items '{formula}' exceeds Excel's limit of "
                     f"255, use a formula range instead"
@@ -3230,8 +3233,13 @@ class Worksheet(xmlwriter.XMLwriter):
         # Special handling of text criteria.
         if options["type"] == "text":
             value = options["value"]
-            length = len(value)
             criteria = options["criteria"]
+
+            # Excel string lengths are in UTF-16 units.
+            length = len(value.encode("utf-16-le")) // 2
+
+            # Excel requires that double quotes in formula strings are doubled.
+            value = value.replace('"', '""')
 
             if options["criteria"] == "containsText":
                 options["type"] = "containsText"
@@ -3553,7 +3561,7 @@ class Worksheet(xmlwriter.XMLwriter):
             num_rows -= 1
 
         if num_rows < 0:
-            warn("Must have at least one data row in in add_table()")
+            warn("Must have at least one data row in add_table()")
             return -2
 
         # Set the table options.
@@ -3576,10 +3584,16 @@ class Worksheet(xmlwriter.XMLwriter):
                 return -2
 
             # Warn if the name contains invalid chars as defined by Excel.
-            if not re.match(r"^[\w\\][\w\\.]*$", name, re.UNICODE) or re.match(
-                r"^\d", name
-            ):
+            if _has_invalid_name_chars(name):
                 warn(f"Invalid Excel characters in add_table(): '{name}'")
+                return -2
+
+            # Warn if the name exceeds Excel's maximum length.
+            if _utf16_len(name) > 255:
+                warn(
+                    f"Name '{name}' in add_table() exceeds Excel's limit of 255 "
+                    f"characters"
+                )
                 return -2
 
             # Warn if the name looks like a cell name.
@@ -3627,10 +3641,29 @@ class Worksheet(xmlwriter.XMLwriter):
         if options["autofilter"]:
             table["autofilter"] = table["a_range"]
 
+        # Excel requires unique case insensitive header names. Check the user
+        # defined and default names before any table data is written.
+        seen_names = set()
+        user_columns = options.get("columns", [])
+
+        for col_id in range(1, last_col - first_col + 2):
+            name = "Column" + str(col_id)
+
+            if col_id <= len(user_columns):
+                user_data = user_columns[col_id - 1]
+                if user_data and user_data.get("header"):
+                    name = user_data["header"]
+
+            name = name.lower()
+            if name in seen_names:
+                warn(f"Duplicate header name in add_table(): '{name}'")
+                return -2
+
+            seen_names.add(name)
+
         # Add the table columns.
         col_id = 1
         table["columns"] = []
-        seen_names = {}
 
         for col_num in range(first_col, last_col + 1):
             # Set up the default column data.
@@ -3661,15 +3694,6 @@ class Worksheet(xmlwriter.XMLwriter):
                     # Map user defined values to internal values.
                     if user_data.get("header"):
                         col_data["name"] = user_data["header"]
-
-                    # Excel requires unique case insensitive header names.
-                    header_name = col_data["name"]
-                    name = header_name.lower()
-                    if name in seen_names:
-                        warn(f"Duplicate header name in add_table(): '{name}'")
-                        return -2
-
-                    seen_names[name] = True
 
                     col_data["name_format"] = user_data.get("header_format")
 
@@ -4507,7 +4531,7 @@ class Worksheet(xmlwriter.XMLwriter):
         header_orig = header
         header = header.replace("&[Picture]", "&G")
 
-        if len(header) > 255:
+        if _utf16_len(header) > 255:
             warn("Header string cannot be longer than Excel's limit of 255 characters")
             return
 
@@ -4588,7 +4612,7 @@ class Worksheet(xmlwriter.XMLwriter):
         footer_orig = footer
         footer = footer.replace("&[Picture]", "&G")
 
-        if len(footer) > 255:
+        if _utf16_len(footer) > 255:
             warn("Footer string cannot be longer than Excel's limit of 255 characters")
             return
 
@@ -5740,8 +5764,7 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # Calculate the absolute x offset of the top-left vertex.
         if self.col_size_changed:
-            for col_id in range(col_start):
-                x_abs += self._size_col(col_id)
+            x_abs += self._col_offset(col_start)
         else:
             # Optimization for when the column widths haven't changed.
             x_abs += self.default_col_width * col_start
@@ -5749,11 +5772,10 @@ class Worksheet(xmlwriter.XMLwriter):
         x_abs += x1
 
         # Calculate the absolute y offset of the top-left vertex.
-        if self.row_size_changed:
-            for row_id in range(row_start):
-                y_abs += self._size_row(row_id)
+        if self.row_sizes:
+            y_abs += self._row_offset(row_start)
         else:
-            # Optimization for when the row heights haven't changed.
+            # Optimization for when no individual row heights have changed.
             y_abs += self.default_row_height * row_start
 
         y_abs += y1
@@ -5822,6 +5844,38 @@ class Worksheet(xmlwriter.XMLwriter):
             return height
 
         return self.default_row_height
+
+    def _col_offset(self, col: int):
+        # Get the absolute pixel offset of a column by summing the widths of
+        # the columns before it. Objects are generally positioned in row/col
+        # order so, to avoid re-summing from the first column for each object,
+        # the sum restarts from the previously calculated column and offset.
+        prev_col, offset = self.prev_col_offset
+
+        if col < prev_col:
+            prev_col, offset = 0, 0
+
+        for col_id in range(prev_col, col):
+            offset += self._size_col(col_id)
+
+        self.prev_col_offset = (col, offset)
+
+        return offset
+
+    def _row_offset(self, row: int):
+        # Get the absolute pixel offset of a row by summing the heights of the
+        # rows before it. See _col_offset() above.
+        prev_row, offset = self.prev_row_offset
+
+        if row < prev_row:
+            prev_row, offset = 0, 0
+
+        for row_id in range(prev_row, row):
+            offset += self._size_row(row_id)
+
+        self.prev_row_offset = (row, offset)
+
+        return offset
 
     def _pixels_to_height(self, pixels):
         # Convert the height of a cell from pixels to character units.
@@ -7591,9 +7645,8 @@ class Worksheet(xmlwriter.XMLwriter):
             try:
                 float(formula)
             except ValueError:
-                # Not a number. Remove the formula '=' sign if it exists.
-                if formula.startswith("="):
-                    formula = formula.lstrip("=")
+                # Not a number, treat as a formula.
+                formula = self._prepare_formula(formula, True)
 
         self._xml_data_element("formula1", formula)
 
@@ -7604,9 +7657,8 @@ class Worksheet(xmlwriter.XMLwriter):
         try:
             float(formula)
         except ValueError:
-            # Not a number. Remove the formula '=' sign if it exists.
-            if formula.startswith("="):
-                formula = formula.lstrip("=")
+            # Not a number, treat as a formula.
+            formula = self._prepare_formula(formula, True)
 
         self._xml_data_element("formula2", formula)
 
@@ -7737,9 +7789,8 @@ class Worksheet(xmlwriter.XMLwriter):
         try:
             float(formula)
         except ValueError:
-            # Not a number. Remove the formula '=' sign if it exists.
-            if formula.startswith("="):
-                formula = formula.lstrip("=")
+            # Not a number, treat as a formula.
+            formula = self._prepare_formula(formula, True)
 
         self._xml_data_element("formula", formula)
 

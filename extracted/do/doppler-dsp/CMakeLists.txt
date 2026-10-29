@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(doppler VERSION 0.76.0 LANGUAGES C)
+project(doppler VERSION 0.77.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -1238,6 +1238,15 @@ target_link_libraries(test_dp_once PRIVATE doppler_lib_static Threads::Threads
                                            ${DP_MATH_LIBRARY})
 add_test(NAME test_dp_once COMMAND test_dp_once)
 set_tests_properties(test_dp_once PROPERTIES LABELS threaded)
+
+# dp_thread_sleep_us under a 2 ms SIGALRM storm (doppler#2647): nanosleep
+# returns early on EINTR, and the sleep must still last the time asked for.
+add_executable(test_dp_thread_sleep native/tests/test_dp_thread_sleep.c)
+target_include_directories(test_dp_thread_sleep
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(test_dp_thread_sleep PRIVATE Threads::Threads)
+add_test(NAME test_dp_thread_sleep COMMAND test_dp_thread_sleep)
 
 add_executable(test_dp_state native/tests/test_dp_state.c)
 target_include_directories(test_dp_state

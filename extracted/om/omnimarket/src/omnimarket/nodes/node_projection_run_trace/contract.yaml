@@ -73,6 +73,9 @@ externally_consumed_topics:
 projection_api:
   expose: true
   topic: "onex.snapshot.projection.run-trace.v1" # onex-topic-allow: projection snapshot topics use the onex.snapshot.* prefix by convention
+  topic_config:
+    kafka_config:
+      "cleanup.policy": "compact"
   key_grain: "mutable"
   table: "run_trace"
   schema: "omnidash_analytics"
@@ -108,11 +111,5 @@ projection_api:
   # A read is scoped to the reading tenant by the server, so the page never
   # receives, or filters out, another tenant's steps.
   tenant_column: tenant_id
-  # The Workflow page that reads this exposure is still a draft. The
-  # exposure-reader-coverage gate fails a standing opt-out once a reader exists,
-  # so landing that reader forces this pair out.
-  consumers: none
-  consumers_reason: >-
-    reader pending in omnidash#397 (OMN-19987); remove when it lands
 metadata:
   transport_type: kafka

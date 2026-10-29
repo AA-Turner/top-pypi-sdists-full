@@ -143,6 +143,12 @@ SCM_VERBS: Final[tuple[ModelScmVerb, ...]] = (
         replaces="gh pr view --json state,mergedAt,mergeCommit,headRefOid",
     ),
     ModelScmVerb(
+        verb="pr-threads",
+        node=_G,
+        operation="pr_review_threads",
+        replaces="gh api graphql (pullRequest reviewThreads)",
+    ),
+    ModelScmVerb(
         verb="pr-create", node=_W, operation="pr_create", replaces="gh pr create"
     ),
     ModelScmVerb(verb="pr-edit", node=_W, operation="pr_edit", replaces="gh pr edit"),
@@ -154,6 +160,12 @@ SCM_VERBS: Final[tuple[ModelScmVerb, ...]] = (
     ),
     ModelScmVerb(
         verb="pr-comment", node=_W, operation="pr_comment", replaces="gh pr comment"
+    ),
+    ModelScmVerb(
+        verb="pr-thread-reply",
+        node=_W,
+        operation="pr_thread_reply",
+        replaces="gh api --method POST /repos/{o}/{r}/pulls/{n}/comments/{id}/replies",
     ),
     ModelScmVerb(
         verb="workflow-run",
@@ -289,7 +301,33 @@ class ScmBusCaller:
         timeout_s: float,
     ) -> ModelScmTerminal:
         """Raises ``TimeoutError`` when no terminal names the command in time."""
+        from omnimarket.handlers.scm.handler_scm_consumer_diagnostics import (
+            ScmNoTerminalError,
+            diagnose_scm_timeout,
+        )
+
         topics = load_topics(node)
+        try:
+            return await self.call_topics(
+                topics=topics,
+                request=request,
+                correlation_id=correlation_id,
+                timeout_s=timeout_s,
+            )
+        except TimeoutError:
+            raise ScmNoTerminalError(
+                await diagnose_scm_timeout(self._bus, node, topics.command)
+            ) from None
+
+    async def call_topics(
+        self,
+        *,
+        topics: ModelScmTopics,
+        request: BaseModel,
+        correlation_id: uuid.UUID,
+        timeout_s: float,
+    ) -> ModelScmTerminal:
+        """Shared contract-topic transport for SCM and ticket commands."""
         envelope = ModelEventEnvelope[dict[str, object]](
             payload=request.model_dump(mode="json"),
             correlation_id=correlation_id,

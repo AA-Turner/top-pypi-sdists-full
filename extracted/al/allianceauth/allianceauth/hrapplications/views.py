@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.contrib.auth.models", "django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
 from django.db.models import Q
@@ -9,15 +12,19 @@ from allianceauth.notifications import notify
 from .forms import HRApplicationCommentForm, HRApplicationSearchForm
 from .models import Application, ApplicationComment, ApplicationForm, ApplicationResponse
 
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 
-def create_application_test(user):
+def create_application_test(user: "User") -> bool:
     return bool(user.profile.main_character)
 
 
 @login_required
-def hr_application_management_view(request):
+def hr_application_management_view(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"hr_application_management_view called by user {request.user}")
     corp_applications = []
     finished_corp_applications = []
@@ -46,7 +53,7 @@ def hr_application_management_view(request):
 
 @login_required
 @user_passes_test(create_application_test)
-def hr_application_create_view(request, form_id=None):
+def hr_application_create_view(request: "HttpRequest", form_id: int | None = None) -> "HttpResponse":
     if form_id:
         app_form = get_object_or_404(ApplicationForm, id=form_id)
         if request.method == "POST":
@@ -73,7 +80,7 @@ def hr_application_create_view(request, form_id=None):
 
 
 @login_required
-def hr_application_personal_view(request, app_id):
+def hr_application_personal_view(request: "HttpRequest", app_id: int) -> "HttpResponse":
     logger.debug(f"hr_application_personal_view called by user {request.user} for app id {app_id}")
     app = get_object_or_404(Application, pk=app_id)
     if app.user == request.user:
@@ -91,7 +98,7 @@ def hr_application_personal_view(request, app_id):
 
 
 @login_required
-def hr_application_personal_removal(request, app_id):
+def hr_application_personal_removal(request: "HttpRequest", app_id: int) -> "HttpResponse":
     logger.debug(f"hr_application_personal_removal called by user {request.user} for app id {app_id}")
     app = get_object_or_404(Application, pk=app_id)
     if app.user == request.user:
@@ -107,7 +114,7 @@ def hr_application_personal_removal(request, app_id):
 
 @login_required
 @permission_required('auth.human_resources')
-def hr_application_view(request, app_id):
+def hr_application_view(request: "HttpRequest", app_id: int) -> "HttpResponse":
     logger.debug(f"hr_application_view called by user {request.user} for app id {app_id}")
     try:
         app = Application.objects.prefetch_related('responses', 'comments', 'comments__user').get(pk=app_id)
@@ -144,7 +151,7 @@ def hr_application_view(request, app_id):
 @login_required
 @permission_required('auth.human_resources')
 @permission_required('hrapplications.delete_application')
-def hr_application_remove(request, app_id):
+def hr_application_remove(request: "HttpRequest", app_id: int) -> "HttpResponse":
     logger.debug(f"hr_application_remove called by user {request.user} for app id {app_id}")
     app = get_object_or_404(Application, pk=app_id)
     logger.info(f"User {request.user} deleting {app}")
@@ -156,7 +163,7 @@ def hr_application_remove(request, app_id):
 @login_required
 @permission_required('auth.human_resources')
 @permission_required('hrapplications.approve_application')
-def hr_application_approve(request, app_id):
+def hr_application_approve(request: "HttpRequest", app_id: int) -> "HttpResponse":
     logger.debug(f"hr_application_approve called by user {request.user} for app id {app_id}")
     app = get_object_or_404(Application, pk=app_id)
     if request.user.is_superuser or request.user == app.reviewer:
@@ -172,7 +179,7 @@ def hr_application_approve(request, app_id):
 @login_required
 @permission_required('auth.human_resources')
 @permission_required('hrapplications.reject_application')
-def hr_application_reject(request, app_id):
+def hr_application_reject(request: "HttpRequest", app_id: int) -> "HttpResponse":
     logger.debug(f"hr_application_reject called by user {request.user} for app id {app_id}")
     app = get_object_or_404(Application, pk=app_id)
     if request.user.is_superuser or request.user == app.reviewer:
@@ -187,7 +194,7 @@ def hr_application_reject(request, app_id):
 
 @login_required
 @permission_required('auth.human_resources')
-def hr_application_search(request):
+def hr_application_search(request: "HttpRequest") -> "HttpResponse":
     logger.debug(f"hr_application_search called by user {request.user}")
     if request.method == 'POST':
         form = HRApplicationSearchForm(request.POST)
@@ -230,7 +237,7 @@ def hr_application_search(request):
 
 @login_required
 @permission_required('auth.human_resources')
-def hr_application_mark_in_progress(request, app_id):
+def hr_application_mark_in_progress(request: "HttpRequest", app_id: int) -> "HttpResponse":
     logger.debug(f"hr_application_mark_in_progress called by user {request.user} for app id {app_id}")
     app = get_object_or_404(Application, pk=app_id)
     if not app.reviewer:

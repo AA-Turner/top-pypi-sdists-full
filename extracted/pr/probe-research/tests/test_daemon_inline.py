@@ -123,6 +123,16 @@ def _context(out: str) -> str:
     return json.loads(out)["hookSpecificOutput"]["additionalContext"] if out else ""
 
 
+#: How a part of the skills an inline agent records by begins (notes parity N1).
+SKILLS_HEAD = session_marker.INLINE_SKILLS_PART.split(" (", 1)[0]
+
+
+def _notice(out: str) -> str:
+    """The inline notice in a hook's context, without the skills' part after it."""
+    text = _context(out)
+    return "" if text.startswith(SKILLS_HEAD) else text.split("\n\n" + SKILLS_HEAD, 1)[0]
+
+
 @pytest.mark.parametrize("start,target", [(session_marker.STATE_DAEMON, session_marker.STATE_FULL),
                                           (session_marker.STATE_READ_ONLY, session_marker.STATE_READ_ONLY)])
 def test_quota_handoff_opens_agent_reads_and_preserves_write_choice(guard, daemon_session, monkeypatch, capsys, start, target):
@@ -140,7 +150,7 @@ def test_quota_handoff_opens_agent_reads_and_preserves_write_choice(guard, daemo
         assert "Record nothing new" in text and "track-work/SKILL.md" not in text
     else:
         assert "track-work/SKILL.md" in text
-    assert not _context(_run(guard, monkeypatch, capsys, _prompt("next")))
+    assert not _notice(_run(guard, monkeypatch, capsys, _prompt("next")))
     session_marker.forget_inline_shown(SID)
     assert "allowance is exhausted" in _context(_run(guard, monkeypatch, capsys, _prompt("resume")))
     assert session_marker.state_display(target, daemon=True, inline=True) == (
@@ -433,8 +443,8 @@ def test_a_typed_probe_inline_hands_probe_to_the_agent(guard, monkeypatch, capsy
     for name in session_marker.INLINE_SKILL_FILES:
         path = DAEMON_PLUGIN / "inline" / name
         assert str(path) in notice and path.is_file(), name
-    assert not _context(_run(guard, monkeypatch, capsys, _prompt("carry on"))), "told once"
-    assert not _context(_run(guard, monkeypatch, capsys, _prompt(typed))), "a second sighting says nothing new"
+    assert not _notice(_run(guard, monkeypatch, capsys, _prompt("carry on"))), "told once"
+    assert not _notice(_run(guard, monkeypatch, capsys, _prompt(typed))), "a second sighting says nothing new"
 
 
 def test_kimi_drops_the_typed_line_so_the_next_prompt_tells_the_agent(guard, monkeypatch, capsys):
@@ -457,7 +467,7 @@ def test_codex_hears_it_after_its_next_tool_call(guard, monkeypatch, capsys):
     after = {"hook_event_name": "PostToolUse", "session_id": SID, "tool_name": "Bash",
              "tool_input": {"command": "probe session status"}}
     assert "`on (inline)`" in _context(_run(guard, monkeypatch, capsys, after))
-    assert not _context(_run(guard, monkeypatch, capsys, after)), "told once"
+    assert not _notice(_run(guard, monkeypatch, capsys, after)), "told once"
 
 
 @pytest.mark.parametrize("call", [_skill_call("inline"),
@@ -556,7 +566,7 @@ def test_a_switch_from_a_terminal_reaches_the_agent_on_its_next_prompt(guard, mo
     assert cli.main(["session", "state", "inline", "--session", SID]) in (0, None)
     assert json.loads(capsys.readouterr().out)["label"] == "on (inline)"
     assert "`on (inline)`" in _context(_run(guard, monkeypatch, capsys, _prompt("what next?")))
-    assert not _context(_run(guard, monkeypatch, capsys, _prompt("and now?")))
+    assert not _notice(_run(guard, monkeypatch, capsys, _prompt("and now?")))
 
     session_marker.set_session_state(SID, session_marker.STATE_DAEMON)
     session_marker.switch_to_inline(SID, now=time.time() + 5)
@@ -584,7 +594,7 @@ def test_a_compaction_or_resume_while_inline_tells_the_agent_again(guard, monkey
     with no new prompt) AND re-armed, so a harness whose SessionStart context
     does not land hears it at the next chance."""
     _run(guard, monkeypatch, capsys, _prompt("/probe inline"))
-    assert not _context(_run(guard, monkeypatch, capsys, _prompt("carry on")))
+    assert not _notice(_run(guard, monkeypatch, capsys, _prompt("carry on")))
     hook = _load("_vc_inline", DAEMON_PLUGIN / "hooks" / "version_check.py")
     monkeypatch.setattr(hook, "_daemon_profile_notice", lambda: None)
     monkeypatch.setenv(hook.SESSION_ID_ENV, SID)
@@ -602,7 +612,7 @@ def test_a_fresh_start_rearms_nothing(guard, monkeypatch, capsys):
     hook = _version_check(monkeypatch)
     monkeypatch.setenv(hook.SESSION_SOURCE_ENV, "startup")
     assert "hookSpecificOutput" not in _final(hook, capsys)
-    assert not _context(_run(guard, monkeypatch, capsys, _prompt("carry on")))
+    assert not _notice(_run(guard, monkeypatch, capsys, _prompt("carry on")))
 
 
 @pytest.mark.parametrize(("version", "bridge"), [("0.220.0", True), ("0.231.4", True), ("0.219.9", False),
@@ -615,14 +625,17 @@ def test_the_notice_names_the_read_bridge_only_beside_a_cli_that_has_it(guard, m
     lacks. Both places it is said agree: the guard's prompt and SessionStart."""
     monkeypatch.setenv("PROBE_BIN", _fake_probe(tmp_path, version) if version else str(tmp_path / "missing"))
     reads = session_marker.INLINE_READS if bridge else session_marker.INLINE_READS_OLD_CLI
-    told = _context(_run(guard, monkeypatch, capsys, _prompt("/probe inline")))
+    out = _run(guard, monkeypatch, capsys, _prompt("/probe inline"))
+    told = _notice(out)
     assert told.startswith("Probe is `on (inline)`") and told.endswith(reads)
     assert len(told.encode()) < 2048
+    assert len(_context(out)) < 10_000, "with the skills' first part: under Claude Code's cap"
 
     hook = _version_check(monkeypatch)
     monkeypatch.setenv(hook.SESSION_SOURCE_ENV, "compact")
     assert hook.INLINE_BRIDGE_MIN_CLI == "0.220.0"
-    assert _final(hook, capsys)["hookSpecificOutput"]["additionalContext"].endswith(reads)
+    said = _final(hook, capsys)["hookSpecificOutput"]["additionalContext"]
+    assert said.split("\n\n" + SKILLS_HEAD, 1)[0].endswith(reads)
 
 
 def test_the_notice_fits_a_hook_and_names_files_that_ship():

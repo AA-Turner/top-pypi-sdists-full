@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, ClassVar, final
 from sarj_python_lint.rule_base import (
     AutofixPolicy,
     Diagnostic,
+    DiagnosticSeverity,
     ExampleFile,
     ExampleOutcome,
     Rule,
@@ -271,7 +272,7 @@ def _interface_severity(
     context: PythonFileContext,
     semantics: AnnotationSemantics,
     mutated_members: frozenset[str],
-) -> Severity:
+) -> DiagnosticSeverity:
     if function.name.startswith("__") and function.name.endswith("__"):
         return Severity.WARNING
     if any(
@@ -520,10 +521,13 @@ def _precise_family(family: list[ast.FunctionDef | ast.AsyncFunctionDef], semant
 def _rebound_names(node: ast.AST) -> set[str]:
     if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
         return {node.id}
-    if isinstance(node, ast.ClassDef):
-        return {node.name}
-    if isinstance(node, (ast.Import, ast.ImportFrom)):
-        return scope_bound_names([node])
+    match node:
+        case ast.ClassDef():
+            return {node.name}
+        case ast.Import() | ast.ImportFrom():
+            return scope_bound_names([node])
+        case _:
+            pass
     return set()
 
 

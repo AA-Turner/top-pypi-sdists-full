@@ -272,7 +272,9 @@ def _get_field_schema(field_info) -> Dict[str, Any]:
 
     # Handle choices from CLI metadata
     if field_info.cli_meta and field_info.cli_meta.choices:
-        if "type" in field_schema:
+        if field_schema.get("type") == "array":
+            field_schema["items"]["enum"] = field_info.cli_meta.choices
+        elif "type" in field_schema:
             field_schema["enum"] = field_info.cli_meta.choices
 
     # Add examples from ConfigField

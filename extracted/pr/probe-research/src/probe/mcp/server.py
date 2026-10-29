@@ -369,7 +369,7 @@ _BR_STATUS_DOC = """Filter runs by status: `created` (never started), `running` 
 
 _BR_TAGS_DOC = """Filter runs by tag; repeatable, and a run must carry ALL of them. An empty filtered result never proves absence - list without it to check what exists."""
 
-_BR_REF_DOC = """Where to look, UUID only (slugs go to `entity`). Omit -> every project, flat (children carry `parent_project_id`). `project:<id>` -> its experiments, direct runs and subprojects. `experiment:<id>` -> its runs. mode=runs: `project:<id>` or `experiment:<id>` narrows the run list."""
+_BR_REF_DOC = """Where to look, UUID only (slugs go to `entity`). Omit -> every project, flat. `project:<id>` -> its experiments, direct runs and its parts (projects linked `part_of` it). `experiment:<id>` -> its runs. mode=runs: `project:<id>` or `experiment:<id>` narrows the run list."""
 
 _BR_DEPTH_DOC = """1 lists one level; 2 also expands children; higher is rejected."""
 
@@ -415,7 +415,7 @@ _BR_WORKSPACE_DOC = """Scope the TOP LEVEL to one workspace. What it lists depen
 
 _BR_CURSOR_DOC = """Continue the top-level listing from a prior response's `next_cursor`."""
 
-_BR_SIDE_CURSOR_DOC = """Page one side list: `cursors.runs` / `cursors.subprojects` from a prior response. Project scope only, and only that level is fetched."""
+_BR_SIDE_CURSOR_DOC = """Page one side list: `cursors.runs`, or the parts list's `cursors.subprojects`, from a prior response. Project scope only, and only that level is fetched."""
 
 # -- entity's parameter documentation --------------------------------------
 #
@@ -838,15 +838,15 @@ def _tool(fn: Callable[..., Any]) -> Callable[..., Any]:
 # fragments until 2026-09-06 and rendered to 10,272 characters, so 80% of it
 # never reached a model. `tests/test_mcp_description_budget.py` is what catches
 # a regression now; write to the cap, and cut something to add something.
-MCP_INSTRUCTIONS = """Probe Research holds only what this team recorded of its ML research (training,
-evals, etc) - no outside facts (cloud quotas, GPU pricing, vendor docs). This
-MCP reads it: writes go through the `probe` CLI or the Python SDK (PyPI
-`probe-research`), if installed.
+MCP_INSTRUCTIONS = """Probe Research holds what this team recorded of its ML research (training,
+evals, etc), plus Probe's own docs (`search_in=["docs"]`) - no outside facts
+(cloud quotas, GPU pricing, vendor docs). This MCP reads it: writes go through the `probe` CLI or the Python SDK (PyPI
+`probe-research`).
 
 ### HOW TO READ (in order):
 1. Try to answer from local context first (repo, files, conversation, etc)
 2. Use `browse` as a table of contents to get an overview of the team's work (a fast, deterministic list of projects/experiments/runs) 
-3. Use `search` to do an agentic RAG semantic search over ALL of the team's content (slower search but more thorough, ~10s, use more sparingly); `semantic=false` is a keyword-only search with no model calls
+3. Use `search` to do an agentic RAG semantic search over ALL of the team's content (slower but more thorough, ~10s, use more sparingly); `semantic=false` is a keyword-only search with no model calls
 
 Seperately: Use `query_sql` for read-only SQL scripts - useful to answer questions involving counts, joins, or verifying a number.
 
@@ -1632,7 +1632,7 @@ def create_server(
         1. `query` (required) - a BAG of names, slugs, ids and error strings - not a
            sentence, prose dilutes the ranking
         2. `search_in` - (optional) narrow to specific corpora - naming any value
-           EXCLUDES the rest
+           EXCLUDES the rest; `["docs"]` searches Probe's own docs instead
         3. `top_k` - (default 8) your recall dial, a TOTAL across channels - raise it
            before concluding the lab has nothing
         4. `collapse` - (default one row per experiment) pass null to keep every hit

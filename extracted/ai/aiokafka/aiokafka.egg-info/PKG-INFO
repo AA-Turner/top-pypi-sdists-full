@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiokafka
-Version: 0.14.0
+Version: 0.15.0
 Summary: Kafka integration with asyncio
 Author-email: Andrew Svetlov <andrew.svetlov@gmail.com>
 License-Expression: Apache-2.0
@@ -9,28 +9,26 @@ Project-URL: Source, https://github.com/aio-libs/aiokafka
 Project-URL: Changes, https://github.com/aio-libs/aiokafka/blob/master/CHANGES.rst
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: System :: Networking
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Framework :: AsyncIO
 Classifier: Development Status :: 4 - Beta
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: async-timeout
-Requires-Dist: packaging
-Requires-Dist: typing_extensions>=4.10.0
+Requires-Dist: typing-extensions>=4.6.0; python_version < "3.12"
 Provides-Extra: snappy
 Requires-Dist: cramjam; extra == "snappy"
 Provides-Extra: lz4
 Requires-Dist: cramjam>=2.8.0; extra == "lz4"
 Provides-Extra: zstd
-Requires-Dist: cramjam; extra == "zstd"
+Requires-Dist: cramjam; python_version < "3.14" and extra == "zstd"
 Provides-Extra: gssapi
 Requires-Dist: gssapi; extra == "gssapi"
 Provides-Extra: all
@@ -51,6 +49,8 @@ aiokafka
     :alt: |Chat on Gitter|
 
 asyncio client for Kafka
+
+Python 3.11 or newer is required.
 
 
 AIOKafkaProducer
@@ -84,7 +84,7 @@ AIOKafkaConsumer
 
 AIOKafkaConsumer is a high-level, asynchronous message consumer.
 It interacts with the assigned Kafka Group Coordinator node to allow multiple
-consumers to load balance consumption of topics (requires kafka >= 0.11).
+consumers to load balance consumption of topics (requires kafka >= 1.0).
 
 Example of AIOKafkaConsumer usage:
 
@@ -137,7 +137,7 @@ Running tests with coverage::
 
 To run tests with a specific version of Kafka (default one is 2.8.1) use KAFKA_VERSION variable::
 
-    make cov SCALA_VERSION=2.11 KAFKA_VERSION=0.10.2.1
+    make cov SCALA_VERSION=2.12 KAFKA_VERSION=1.1.1
 
 Test running cheat-sheet:
 
@@ -145,4 +145,3 @@ Test running cheat-sheet:
  * ``make test FLAGS="-k consumer"`` - run only the consumer tests.
  * ``make test FLAGS="-m 'not ssl'"`` - run tests excluding ssl.
  * ``make test FLAGS="--no-pull"`` - do not try to pull new docker image before test run.
-

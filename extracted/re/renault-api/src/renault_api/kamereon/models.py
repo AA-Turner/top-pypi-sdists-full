@@ -312,10 +312,24 @@ _VEHICLE_ENDPOINTS: dict[str, dict[str, EndpointDefinition | None]] = {
         "soc-levels": _DEFAULT_ENDPOINTS["soc-levels"],
     },
     "X071VE": {  # TWINGO III
+        "actions/charge-set-mode": _DEFAULT_ENDPOINTS["actions/charge-set-mode"],
+        "actions/charge-set-schedule": _DEFAULT_ENDPOINTS[
+            "actions/charge-set-schedule"
+        ],
+        "actions/charge-start": _KCM_ENDPOINTS["actions/charge-start"],
+        "actions/charge-stop": None,  # Not supported - use charger to stop
+        "actions/horn-start": None,  # Reason: err.func.wired.forbidden
+        "actions/hvac-set-schedule": _DEFAULT_ENDPOINTS["actions/hvac-set-schedule"],
+        "actions/hvac-start": _DEFAULT_ENDPOINTS["actions/hvac-start"],
+        "actions/hvac-stop": None,  # Not supported
+        "actions/lights-start": None,  # Reason: err.func.wired.forbidden
+        "actions/refresh-location": _DEFAULT_ENDPOINTS["actions/refresh-location"],
+        "alerts": None,  # Reason: "err.func.wired.not-found"
         "battery-status": _DEFAULT_ENDPOINTS["battery-status"],
         "charge-history": None,  # Reason: "err.func.wired.not-found"
         "charge-mode": None,  # Reason: "err.func.vcps.ev.charge-mode.error"
         "charge-schedule": None,  # Reason: "err.func.vcps.ev.charge-schedule.error"
+        "charges": _DEFAULT_ENDPOINTS["charges"],
         "charging-settings": _DEFAULT_ENDPOINTS["charging-settings"],
         "cockpit": _DEFAULT_ENDPOINTS["cockpit"],
         "hvac-history": None,  # Reason: "err.func.wired.not-found"
@@ -327,6 +341,7 @@ _VEHICLE_ENDPOINTS: dict[str, dict[str, EndpointDefinition | None]] = {
         "notification-settings": None,  # Reason: "err.func.vcps.users-helper.get-notification-settings.error"  # noqa: E501
         "pressure": None,  # Reason: "err.func.wired.notFound"
         "res-state": None,  # Reason: "err.func.wired.notFound"
+        "soc-levels": None,  # Reason: "err.func.wired.forbidden"
     },
     "X101VE": {  # ZOE phase 1
         "actions/charge-set-schedule": _DEFAULT_ENDPOINTS[
@@ -767,6 +782,17 @@ _VEHICLE_ENDPOINTS: dict[str, dict[str, EndpointDefinition | None]] = {
 
 _ALREADY_WARNED_VEHICLE: set[str] = set()
 _ALREADY_WARNED_VEHICLE_ENDPOINT: set[str] = set()
+_ALREADY_WARNED_ENUM_VALUE: set[str] = set()
+
+
+def _log_unknown_enum_value(enum_name: str, value: Any) -> None:
+    """Log an unknown enum value, as a warning only the first time."""
+    key = f"{enum_name}:{value}"
+    if key not in _ALREADY_WARNED_ENUM_VALUE:
+        _ALREADY_WARNED_ENUM_VALUE.add(key)
+        _LOGGER.warning("Unable to convert `%s` to %s.", value, enum_name)
+    else:
+        _LOGGER.debug("Unable to convert `%s` to %s.", value, enum_name)
 
 
 def get_model_endpoints(
@@ -1114,7 +1140,7 @@ class KamereonVehicleBatteryStatusData(KamereonVehicleDataAttributes):
                 else None
             )
         except ValueError:
-            _LOGGER.warning("Unable to convert `%s` to PlugState.", self.plugStatus)
+            _log_unknown_enum_value("PlugState", self.plugStatus)
             return None
 
     def get_charging_status(self) -> enums.ChargeState | None:
@@ -1126,9 +1152,7 @@ class KamereonVehicleBatteryStatusData(KamereonVehicleDataAttributes):
                 else None
             )
         except ValueError:
-            _LOGGER.warning(
-                "Unable to convert `%s` to ChargeState.", self.chargingStatus
-            )
+            _log_unknown_enum_value("ChargeState", self.chargingStatus)
             return None
 
 

@@ -19,6 +19,13 @@ class DopplerChannel:
     doppler_rate_ppm_s : float, default 0.0
         doppler_rate_ppm_s constructor parameter.
 
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``DopplerChannel:
+        invalid parameter (need fs > 0, a time scale 1 + doppler_ppm * 1e-6 >
+        0, and an initial rate 1 / scale the resampler accepts)``.
+
     Examples
     --------
     Create with defaults:
@@ -86,11 +93,13 @@ class DopplerChannel:
 
         Assumes an input of at most `DOPPLER_CHANNEL_MAX_BLOCK` samples — see
         that macro for why the bound cannot depend on the actual input length.
+        The bound uses the smallest time-base scale over the next block, so
+        with a ramp it changes from call to call; re-query it before each call.
 
         Returns
         -------
         int
-            Output.
+            `DOPPLER_CHANNEL_MAX_BLOCK / min(1+d) + 2` samples.
         """
 
     def execute_profile(
@@ -297,19 +306,19 @@ class DopplerChannel:
 
     @property
     def fs(self) -> float:
-        """Fs."""
+        """receive sample rate, Hz (config)"""
 
     @property
     def carrier_hz(self) -> float:
-        """Carrier hz."""
+        """RF carrier fc, Hz — drives the offset (config; 0 = clocks only)"""
 
     @property
     def doppler_ppm(self) -> float:
-        """Doppler ppm."""
+        """d0, ppm of nominal (config)"""
 
     @property
     def doppler_rate_ppm_s(self) -> float:
-        """Doppler rate ppm s."""
+        """d-dot, ppm/s (config)"""
 
     @property
     def elapsed_s(self) -> float:

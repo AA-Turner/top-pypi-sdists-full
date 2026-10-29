@@ -20,7 +20,12 @@ from packaging.utils import canonicalize_name
 
 from pipx import paths
 from pipx.colors import bold
-from pipx.commands.common import drop_copies_claimed_elsewhere, exposed_app_names
+from pipx.commands.common import (
+    drop_copies_claimed_elsewhere,
+    drop_links_taken_over,
+    exposed_app_names,
+    get_expected_venv_resource_paths,
+)
 from pipx.commands.inject import (
     InjectionData,
     InjectionPackage,
@@ -39,7 +44,7 @@ from pipx.constants import (
 )
 from pipx.emojis import stars
 from pipx.result import OperationError, OperationResult, OutputLevel, OutputMessage, OutputStream
-from pipx.util import pipx_wrap, safe_unlink
+from pipx.util import pipx_wrap, redact_url_credentials, safe_unlink
 from pipx.venv import Venv
 from pipx.venv_inspect import (
     fetch_info_in_venv,
@@ -156,8 +161,8 @@ def uninject_dep(
     if package_name not in venv.pipx_metadata.injected_packages:
         return _uninject_failure(
             venv.name,
-            package_name,
-            f"{package_name} is not in the {venv.root.name} venv. Skipping.",
+            masked_name := redact_url_credentials(package_name),
+            f"{masked_name} is not in the {venv.root.name} venv. Skipping.",
         )
 
     package: Final[PackageInfo] = venv.package_metadata[package_name]
@@ -192,7 +197,9 @@ def uninject_dep(
         deps_string = ""
 
     if need_app_uninstall:
-        for path in new_resource_paths:
+        # the uninstall dropped this package's record, so what the venv still expects belongs to its other packages
+        expected: Final[set[Path]] = get_expected_venv_resource_paths(venv, local_bin_dir, local_man_dir)
+        for path in drop_links_taken_over(new_resource_paths - expected, venv.root):
             _unlink_injected_resource(path)
 
     return OperationResult(

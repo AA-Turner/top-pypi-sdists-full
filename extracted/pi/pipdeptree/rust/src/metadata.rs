@@ -24,6 +24,9 @@ use editable::{EggLinks, file_url_to_path};
 pub use vcs::reset_caches as reset_vcs_caches;
 
 const MAX_LICENSE_NAME: usize = 64;
+// An installed name and version form the .dist-info directory name, which common file systems cap
+// at 255 bytes, so a package installed on one of them stays within this limit.
+pub const MAX_IDENTITY_LENGTH: usize = 255;
 const ARCHIVE_SUFFIXES: [&str; 5] = ["egg", "pyz", "pyzw", "whl", "zip"];
 
 #[derive(Debug)]
@@ -94,12 +97,16 @@ impl Package {
     // A package resolved from a lock file or index has no on-disk dist-info: metadata() and
     // license() therefore report N/A, and size is seeded to 0 (rather than left lazy) because
     // compute_size has no metadata_dir to read and callers never ask a resolved package for it.
-    pub fn synthetic(name: String, version: String, requires: Vec<String>) -> Self {
+    pub fn synthetic(name: &str, version: &str, requires: &[String]) -> Self {
+        let name = printable(name);
         Self {
             key: canonicalize_name(&name),
             name,
-            version,
-            requires,
+            version: printable(version),
+            requires: requires
+                .iter()
+                .map(|requirement| printable(requirement))
+                .collect(),
             metadata: Headers::default(),
             metadata_dir: None,
             legacy_editable: None,
@@ -193,8 +200,8 @@ impl Package {
                     return vcs::editable_requirement(
                         processes,
                         &location,
-                        &self.name,
-                        &self.version,
+                        &requirement_text(&self.name),
+                        &requirement_text(&self.version),
                     );
                 }
             } else {
@@ -202,13 +209,18 @@ impl Package {
             }
         }
         if let Some(location) = &self.legacy_editable {
-            return vcs::editable_requirement(processes, location, &self.name, &self.version);
+            return vcs::editable_requirement(
+                processes,
+                location,
+                &requirement_text(&self.name),
+                &requirement_text(&self.version),
+            );
         }
         self.regular_specifier()
     }
 
     fn direct_specifier(&self, direct: &DirectUrl) -> String {
-        let mut result = format!("{} @ ", self.name);
+        let mut result = format!("{} @ ", requirement_text(&self.name));
         match &direct.info {
             DirectInfo::Vcs(info) => {
                 result.push_str(&info.vcs);
@@ -237,10 +249,12 @@ impl Package {
     }
 
     fn regular_specifier(&self) -> String {
-        if Version::from_str(&self.version).is_ok() {
-            format!("{}=={}", self.name, self.version)
+        let name = requirement_text(&self.name);
+        let version = requirement_text(&self.version);
+        if Version::from_str(&version).is_ok() {
+            format!("{name}=={version}")
         } else {
-            format!("{}==={}", self.name, self.version)
+            format!("{name}==={version}")
         }
     }
 
@@ -254,6 +268,9 @@ impl Package {
             return Ok(None);
         };
         let version = metadata.first("version").unwrap_or("").to_string();
+        if oversized_identity(&name, &version).is_some() {
+            return Ok(None);
+        }
         let requires = metadata
             .get_all("requires-dist")
             .map_or_else(Vec::new, <[String]>::to_vec);
@@ -279,20 +296,84 @@ impl Package {
             .metadata_dir
             .as_ref()
             .expect("resolved package sizes are initialized at construction");
-        let record = metadata_dir.join("RECORD");
-        let root = metadata_dir.parent().unwrap_or(metadata_dir);
-        let Ok(file) = fs::File::open(record) else {
+        let site = metadata_dir.parent().unwrap_or(metadata_dir);
+        let Ok(file) = fs::File::open(metadata_dir.join("RECORD")) else {
             return 0;
         };
+        // RECORD rows come from whoever built the distribution, so a row counts only when it
+        // resolves to a regular file inside the installation. pip records console scripts and data
+        // files relative to the site directory (`../../../bin/demo`), so the boundary is the prefix
+        // that holds the site directory. A dist-info linked in from elsewhere (Nix profiles,
+        // symlink farms) keeps its files under the prefix of its real location.
+        let prefixes = [
+            site.canonicalize().ok(),
+            metadata_dir
+                .canonicalize()
+                .ok()
+                .and_then(|directory| directory.parent().map(Path::to_path_buf)),
+        ]
+        .into_iter()
+        .flatten()
+        .map(|site| Self::installation_prefix(&site).to_path_buf())
+        .collect::<Vec<_>>();
+        let inside = |path: &Path| prefixes.iter().any(|prefix| path.starts_with(prefix));
+        // A distribution has far fewer directories than files: resolve each directory once and
+        // resolve a file on its own only when it is a link.
+        let mut directories = HashMap::<PathBuf, Option<PathBuf>>::new();
         csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(file)
             .records()
             .filter_map(Result::ok)
-            .filter_map(|row| row.get(0).map(|path| root.join(path)))
-            .filter_map(|path| fs::metadata(path).ok())
+            .filter_map(|row| {
+                let path = site.join(row.get(0)?);
+                let parent = path.parent()?;
+                if !directories.contains_key(parent) {
+                    let resolved = parent
+                        .canonicalize()
+                        .ok()
+                        .filter(|directory| inside(directory));
+                    directories.insert(parent.to_path_buf(), resolved);
+                }
+                let file = directories[parent].as_ref()?.join(path.file_name()?);
+                let metadata = fs::symlink_metadata(&file).ok()?;
+                if metadata.is_symlink() {
+                    fs::metadata(file.canonicalize().ok().filter(|target| inside(target))?).ok()
+                } else {
+                    Some(metadata)
+                }
+            })
+            .filter(fs::Metadata::is_file)
             .map(|metadata| metadata.len())
             .sum()
+    }
+
+    // lib/pythonX.Y/site-packages (POSIX, Debian dist-packages, PyPy, macOS user site),
+    // Lib/site-packages (Windows) and PythonXY/site-packages (Windows user site); any other
+    // directory, such as a --target install, is its own prefix.
+    fn installation_prefix(site: &Path) -> &Path {
+        let [own, parent, grandparent] = [0, 1, 2].map(|level| {
+            site.ancestors()
+                .nth(level)
+                .and_then(Path::file_name)
+                .map_or_else(String::new, |name| {
+                    name.to_string_lossy().to_ascii_lowercase()
+                })
+        });
+        let levels = if !matches!(own.as_str(), "site-packages" | "dist-packages") {
+            0
+        } else if (parent.starts_with("python") || parent.starts_with("pypy"))
+            && grandparent.starts_with("lib")
+        {
+            3
+        } else if parent == "lib" {
+            2
+        } else {
+            usize::from(parent.starts_with("python"))
+        };
+        site.ancestors()
+            .nth(levels)
+            .expect("every matched name has a parent directory")
     }
 }
 
@@ -306,7 +387,7 @@ impl Headers {
                 if let Some((header, index)) = current {
                     let value = &mut headers[header].values[index];
                     value.push(' ');
-                    value.push_str(line.trim());
+                    value.push_str(&printable(line.trim()));
                 }
                 continue;
             }
@@ -334,7 +415,7 @@ impl Headers {
                     });
                     headers.len() - 1
                 });
-            headers[position].values.push(value.trim().to_string());
+            headers[position].values.push(printable(value.trim()));
             current = Some((position, headers[position].values.len() - 1));
         }
         Self(headers)
@@ -487,7 +568,8 @@ fn classify(
     let kind = fs::metadata(entry).ok()?.file_type();
     let name = entry.file_name()?.to_string_lossy();
     if kind.is_file() && name.ends_with(".egg-link") {
-        return Some(Found::EggLink(search, entry.to_path_buf()));
+        // Its first line reaches the freeze output: through a link, that of any readable file.
+        return (!entry.is_symlink()).then(|| Found::EggLink(search, entry.to_path_buf()));
     }
     let (metadata_file, package_metadata_dir) = if kind.is_dir() && name.ends_with(".dist-info") {
         (entry.join("METADATA"), entry.to_path_buf())
@@ -582,6 +664,54 @@ fn read_headers(path: &Path) -> Result<String, Error> {
             headers.push('\n');
         }
     }
+}
+
+// Warnings and reverse renderers copy a package's name and version once per requirement or edge,
+// so an unbounded one makes the output grow with the product of its length and the edge count.
+pub const fn oversized_identity(name: &str, version: &str) -> Option<&'static str> {
+    if name.len() > MAX_IDENTITY_LENGTH {
+        Some("name")
+    } else if version.len() > MAX_IDENTITY_LENGTH {
+        Some("version")
+    } else {
+        None
+    }
+}
+
+// Package strings reach terminals, which act on ESC, BEL, CR and C1 sequences, and `dot`, which
+// stops reading a line at NUL. U+FFFD keeps the tampering visible where dropping the character
+// would hide it.
+pub fn printable(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_control() && character != '\t' {
+                char::REPLACEMENT_CHARACTER
+            } else {
+                character
+            }
+        })
+        .collect()
+}
+
+// Freeze output is a pip requirements file, read line by line: a line break starts a new line, a
+// leading '-' an option and '#' a comment, and a "coding:" in a comment on the first two lines
+// makes pip decode the whole file with that codec (PEP 263). Valid project names and versions use
+// none of these characters, so '?' replaces anything outside their alphabet and a leading
+// non-alphanumeric.
+fn requirement_text(value: &str) -> String {
+    value
+        .char_indices()
+        .map(|(index, character)| {
+            if character.is_ascii_alphanumeric()
+                || (index > 0 && matches!(character, '.' | '_' | '-' | '!' | '+'))
+            {
+                character
+            } else {
+                '?'
+            }
+        })
+        .collect()
 }
 
 // PEP 503: collapse each separator run to '-' and lowercase, keeping boundary separators.

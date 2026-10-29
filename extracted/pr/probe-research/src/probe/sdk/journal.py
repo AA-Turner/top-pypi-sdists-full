@@ -74,9 +74,11 @@ import os
 import re
 import shutil
 import time
+import unicodedata
 import uuid
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from contextlib import closing, contextmanager, suppress
 from dataclasses import dataclass, field
 from probe._compat import StrEnum
@@ -98,6 +100,9 @@ from .durable import (
 )
 from .hashing import fingerprint
 from .session_marker import WIZARD_HINT
+# At module load, not inside the drain: a module first imported while a script
+# exits clears its pending KeyboardInterrupt (tests/test_ctrlc_exit_code.py).
+from . import unstorable, upload_many
 from .secret_gate import (
     CredentialBlocked,
     check_upload,
@@ -5730,7 +5735,7 @@ def _upload_workers() -> int:
             return max(1, min(int(raw), 32))
         except ValueError:
             pass
-    return 4
+    return 8
 
 
 #: Ops looked at per parallel window, as a multiple of the worker count. Bounded
@@ -5738,6 +5743,12 @@ def _upload_workers() -> int:
 #: still decides everything -- a larger window buys nothing once the link is
 #: saturated, and costs re-work when the pass stops early.
 UPLOAD_WINDOW_FACTOR = 4
+#: Ops a window may look past to fill itself, as a multiple of its size. A run
+#: queue of metric points holds no upload to find, and scanning the rest of it
+#: at every window cost a drain of 6,000 such ops 565,504 op reads.
+UPLOAD_WINDOW_SCAN_FACTOR = 4
+#: Many-file presign requests a window has in flight at once.
+MANY_IN_FLIGHT = 4
 #: Op-file bytes whose parsed ops a journal keeps between drain passes (see
 #: `Journal._scan_ops`): about 4,300 one-point `log()` writes. Parsed, an op
 #: takes 4-7x its file size; uncapped, 20k queued one-point ops held 58 MB in
@@ -5746,31 +5757,136 @@ UPLOAD_WINDOW_FACTOR = 4
 SCAN_CACHE_MAX_BYTES = 2 * 1024 * 1024
 
 
-def _prefetch_uploads(journal, entries, client_for, workers, run_ref) -> dict:
+def _prefetch_uploads(
+    journal, entries, client_for, workers, run_ref, *, skips=None, already=frozenset()
+) -> dict:
     """Do the NETWORK half of several upload operations at once.
 
     Every file is presign -> PUT -> confirm, three round trips, and the drain
     did them one file after another. On a hundred thousand small files that is
     hours of latency no bandwidth can fix.
 
-    WHAT IS PARALLEL IS DELIBERATELY NARROW. Only uploads, and only ones
-    carrying a correlation -- the backfill/receipt lane, where identity is
+    WHAT IS PARALLEL IS DELIBERATELY NARROW. Only uploads. In the backfill/
+    receipt lane, ones carrying a correlation, where identity is
     content-addressed and the server is idempotent per correlation, so order
-    between two of them cannot matter. Plain HTTP operations keep their strict
-    FIFO, because their order IS their meaning.
+    between two of them cannot matter. In a run's outbox, only the uploads at
+    the head of each run's queue (`_run_window`): an upload never moves past an
+    op it could depend on. Plain HTTP operations keep their strict FIFO,
+    because their order IS their meaning.
+
+    A run's small uploads go together (`upload_many`): one presign and one
+    confirm request for the window instead of one each per file, the PUTs in
+    parallel. The rest, and every file of a server without those doors, go one
+    op per worker, as before.
 
     NOTHING IS DECIDED HERE. Workers return a result or raise, and that is all.
     Saving the receipt, deleting the op file, classifying the failure, parking
     the queue, breaking on auth -- every one of those still happens exactly
     once, in order, on the drain's own thread. A worker that fails simply
     leaves its op for the serial pass to handle the way it always has.
-    """
-    from contextvars import copy_context
 
+    ``skips(path, op)`` names the ops the serial pass would not attempt now
+    (a stalled or held run, a barrier's other ops); ``already`` the ops an
+    earlier window delivered.
+    """
+    from .transport import attribution_scope  # loaded by every Client already
+
+    limit = workers * UPLOAD_WINDOW_FACTOR
+    if journal.receipt_enabled:
+        candidates = _receipt_window(journal, entries, client_for, limit, run_ref, already)
+    else:
+        candidates = _run_window(entries, client_for, limit, run_ref, skips, already)
+    if len(candidates) < 2:
+        return {}
+
+    def run_one(item):
+        path, op, client = item
+        with attribution_scope(op.get("attribution", "ambient")):
+            # Its own run_ids map: petname resolution is a per-op cache, and
+            # sharing a dict across threads would be a race for no benefit.
+            # A window's run upload asks for a direct-to-storage link
+            # (`upload_many.direct_wanted`); the serial pass never does.
+            return _execute(journal, client, path, op, {}, direct=upload_many.direct_wanted(client))
+
+    groups: dict[tuple, list] = {}
+    alone = []
+    for item in candidates:
+        many = _many_item(journal, item[1], item[2])
+        if many is None:
+            alone.append(item)
+        else:
+            upload = item[1]["upload"]
+            key = (id(item[2]), str(upload["anchor_id"]), item[1].get("attribution", "ambient"))
+            groups.setdefault(key, []).append((item, many))
+    for key in [k for k, members in groups.items() if len(members) < 2]:
+        alone.extend(item for item, _ in groups.pop(key))
+
+    done = {}
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            _send_window(pool, alone, groups, workers, run_one, done)
+    except RuntimeError:
+        # "cannot schedule new futures after interpreter shutdown": the close a
+        # script's exit runs. Nothing was sent; the serial pass sends it all.
+        return {}
+    return done
+
+
+def _send_window(pool, alone, groups, workers, run_one, done) -> None:
+    """`_prefetch_uploads`' network half on ``pool``: every lone op on a
+    worker, each run's small uploads through `upload_many`; ``done`` gets path
+    -> result for what landed."""
+    from .transport import attribution_scope
+
+    futures = {
+        pool.submit(copy_context().run, run_one, item): item[0] for item in alone
+    }
+    # A request presigns only what goes right after it (links are short-lived),
+    # and a window's requests go at once: the server presigns a request's files
+    # one after another, so 32 files as four requests of 8 in flight take a
+    # quarter of the time of two of 16 in turn (prod, 2026-10-29).
+    chunk_size = min(upload_many.MANY_MAX, max(2, workers))
+    chunks = []
+    for (_client, run_id, attribution), members in groups.items():
+        client = members[0][0][2]
+        for start in range(0, len(members), chunk_size):
+            chunks.append((client, run_id, attribution, members[start : start + chunk_size]))
+
+    def send_chunk(chunk):
+        client, run_id, attribution, members = chunk
+        with attribution_scope(attribution):
+            return upload_many.send(client, run_id, [many for _, many in members], pool)
+
+    if chunks:
+        # Its own threads: each waits on its files' checks and PUTs in `pool`,
+        # so running them IN `pool` could leave every worker waiting on work
+        # queued behind it.
+        with ThreadPoolExecutor(max_workers=min(len(chunks), MANY_IN_FLIGHT)) as senders:
+            sent = list(senders.map(lambda c: copy_context().run(send_chunk, c), chunks))
+        for (_client, _run, _attr, members), landed in zip(chunks, sent):
+            if landed is None:
+                # The server has no such doors: these go one op per worker.
+                for item, _ in members:
+                    futures[pool.submit(copy_context().run, run_one, item)] = item[0]
+                continue
+            for index, artifact in landed.items():
+                done[members[index][0][0]] = artifact
+    for future in as_completed(futures):
+        try:
+            done[futures[future]] = future.result()
+        except Exception:  # noqa: BLE001 -- left for the serial pass
+            pass
+
+
+def _receipt_window(journal, entries, client_for, limit, run_ref, already) -> list:
+    """The backfill/receipt lane's parallel window: uploads carrying a
+    correlation and no receipt yet."""
     candidates = []
     for path, op in entries:
-        if len(candidates) >= workers * UPLOAD_WINDOW_FACTOR:
+        if len(candidates) >= limit:
             break
+        if path in already:
+            continue
         if op.get("kind") != "upload" or not op.get("correlation"):
             continue
         if run_ref is not None and op.get("run_ref") != run_ref:
@@ -5784,30 +5900,121 @@ def _prefetch_uploads(journal, entries, client_for, workers, run_ref) -> dict:
         except Exception:  # noqa: BLE001 -- the serial pass will report it
             continue
         candidates.append((path, op, client))
-    if len(candidates) < 2:
-        return {}
+    return candidates
 
-    def run_one(item):
-        from .transport import attribution_scope
 
-        path, op, client = item
-        with attribution_scope(op.get("attribution", "ambient")):
-            # Its own run_ids map: petname resolution is a per-op cache, and
-            # sharing a dict across threads would be a race for no benefit --
-            # these ops are anchored on projects, not runs.
-            return _execute(journal, client, path, op, {})
+def _passes_uploads(op: dict) -> bool:
+    """An op an upload may go ahead of: a metric write. No file depends on a
+    metric point and no metric point on a file."""
+    return (
+        op.get("kind") == "http"
+        and op.get("method") == "POST"
+        and not op.get("correlation")
+        and _METRICS_ROUTE.fullmatch(op.get("path") or "") is not None
+    )
 
-    done = {}
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {
-            pool.submit(copy_context().run, run_one, item): item[0] for item in candidates
+
+def _run_window(entries, client_for, limit, run_ref, skips, already) -> list:
+    """The uploads of a run's outbox that may move ahead of the serial pass.
+
+    Per run, the uploads at the head of its queue, passing only metric writes
+    (`_passes_uploads`), each file name once. Anything else in a run ends that
+    run's window: a span its upload cites, a reference row of the same name,
+    another version of the same file, an op that failed before (it goes alone,
+    and its successors wait), an op the serial pass would not attempt now, and
+    the run's close. So an upload never lands before an op it could depend on,
+    and two versions of a file land in the order they were queued."""
+    candidates = []
+    ended: set = set()
+    names: dict = {}
+    for path, op in entries:
+        if len(candidates) >= limit:
+            break
+        if not isinstance(op, dict) or path in already:
+            continue  # already landed: nothing behind it waits for it
+        lane = _lane_of(op)
+        if lane in ended:
+            continue
+        if op.get("kind") != "upload":
+            if not _passes_uploads(op):
+                ended.add(lane)
+            continue
+        upload = op.get("upload") if isinstance(op.get("upload"), dict) else {}
+        # The anchor's KIND and the name as the server keys it (NFC), not its
+        # id: one run's file can be queued under its uuid and under its petname,
+        # or under two encodings of one name, and those must not race.
+        name = (upload.get("anchor"), unicodedata.normalize("NFC", str(upload.get("name") or "")))
+        seen = names.setdefault(lane, set())
+        if (
+            name in seen
+            or _attempts(op) > 0
+            or str(op.get("run_ref") or "").startswith("local:")
+            or (run_ref is not None and op.get("run_ref") != run_ref)
+            or (skips is not None and skips(path, op))
+        ):
+            ended.add(lane)
+            continue
+        seen.add(name)
+        try:
+            client = client_for(op.get("context"), op_credential(op)[1], op=op)
+        except Exception:  # noqa: BLE001 -- the serial pass will report it
+            ended.add(lane)
+            continue
+        candidates.append((path, op, client))
+    return candidates
+
+
+def _many_item(journal, op: dict, client: Any):
+    """``op`` as an `upload_many.Item` -- a small, hashed upload to a run named
+    by its id, on a server with the many-file doors -- or None to send it alone.
+    Its fields pass the same NUL check and scrub `_execute` applies first."""
+    if not upload_many.enabled():
+        return None
+    upload = op.get("upload") if isinstance(op.get("upload"), dict) else {}
+    digest, size = upload.get("blob"), upload.get("size_bytes")
+    if (
+        upload.get("anchor") != "run"
+        or not _is_uuid(str(upload.get("anchor_id") or ""))
+        or not upload.get("name")
+        or not upload.get("src_path")
+        or not isinstance(digest, str)
+        or not isinstance(size, int)
+        or size > upload_many.ITEM_MAX_BYTES
+        or not upload_many.available(client)
+    ):
+        return None
+    source = journal.blob_path(op) or Path(upload["src_path"])
+    try:
+        if not source.is_file():
+            return None
+        view = json.loads(json.dumps(op))
+        for value in view.values():
+            unstorable.has_nul(value)
+        view.update(scrub_op(view))
+        sent = view["upload"]
+        # The per-row presign's `UploadRequest` body, built without importing
+        # the models: this can run in a script's exit, where a first import
+        # clears a pending KeyboardInterrupt (tests/test_ctrlc_exit_code.py).
+        fields = {
+            "name": sent["name"],
+            "content_hash": digest,
+            "size_bytes": size,
+            "content_type": sent.get("content_type"),
+            "span_id": sent.get("span_id"),
+            "step_index": sent.get("step_index"),
+            "kind": sent.get("kind"),
+            "meta": sent.get("meta") or None,
         }
-        for future in as_completed(futures):
-            try:
-                done[futures[future]] = future.result()
-            except Exception:  # noqa: BLE001 -- left for the serial pass
-                pass
-    return done
+        body = {key: value for key, value in fields.items() if value is not None}
+    except Exception:  # noqa: BLE001 -- alone, `_execute` meets it and decides
+        return None
+    return upload_many.Item(
+        path=str(source),
+        digest=digest,
+        size=size,
+        content_type=sent.get("content_type"),
+        body=body,
+    )
 
 
 #: The key a takeover barrier (`Client._hold_status_writes`) stamps on a status
@@ -6386,8 +6593,22 @@ def drain(
         except Exception:  # noqa: BLE001 -- quarantine is best-effort hygiene
             pass
         workers = _upload_workers()
-        parallel = workers > 1 and journal.receipt_enabled
+        parallel = workers > 1
         prefetched: dict = {}
+
+        def window_skips(path: Path, op: dict) -> bool:
+            """What the serial pass below would not attempt now, for
+            `_run_window`: such an op ends its run's parallel window."""
+            lane = _lane_of(op)
+            return (
+                (only_ops is not None and op.get("op_id") not in only_ops)
+                or lane in skip
+                or lane in stalled
+                or lane in held_runs
+                or lane in credential_lanes
+                or path.name > held_back.get(lane, path.name)
+            )
+
         # The window REFILLS as the serial loop advances. A single fetch was
         # worse than it looked: it took the first `workers * FACTOR` operations
         # and every one after them went back to being uploaded alone, so a
@@ -6672,10 +6893,30 @@ def drain(
             if path in consumed:
                 continue  # delivered inside an earlier op's batch
             if parallel and path not in prefetched and cursor <= position:
-                prefetched.update(
-                    _prefetch_uploads(journal, queued[position:], client_for, workers, run_ref)
+                ahead = queued[
+                    position : position + workers * UPLOAD_WINDOW_FACTOR * UPLOAD_WINDOW_SCAN_FACTOR
+                ]
+                landed = _prefetch_uploads(
+                    journal,
+                    ahead,
+                    client_for,
+                    workers,
+                    run_ref,
+                    skips=window_skips,
+                    already=prefetched.keys(),
                 )
-                cursor = position + workers * UPLOAD_WINDOW_FACTOR
+                prefetched.update(landed)
+                if landed or not any(
+                    isinstance(o, dict) and o.get("kind") == "upload" and p not in prefetched
+                    for p, o in ahead
+                ):
+                    cursor = position + workers * UPLOAD_WINDOW_FACTOR
+                else:
+                    # Uploads ahead, none of them free to go yet: an op in front
+                    # of them (a run's metadata, a span) goes first. Look again
+                    # right after it, not a whole window later -- a run's first
+                    # 30 uploads used to go one by one behind its first write.
+                    cursor = position + 1
             if only_ops is not None and op.get("op_id") not in only_ops:
                 continue
             if run_ref is not None and op.get("run_ref") != run_ref:
@@ -7224,6 +7465,8 @@ def _execute(
     op_path: Path,
     op: dict,
     run_ids: dict[str, str] | None = None,
+    *,
+    direct: bool = False,
 ) -> dict | None:
     """Deliver one op. Raises the transport/client error on failure. Field
     guards raise ValidationError (permanent -> dead letter): a KeyError here
@@ -7399,6 +7642,7 @@ def _execute(
             # sent (files no longer carry notes), and the op replays as usual.
             span_id=upload.get("span_id"),
             step_index=upload.get("step_index"),
+            **({"direct": True} if direct and upload["anchor"] == "run" else {}),
         )
 
     try:

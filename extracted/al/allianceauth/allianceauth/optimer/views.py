@@ -1,4 +1,7 @@
+__lazy_modules__ = ["django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -10,6 +13,9 @@ from django.utils.translation import gettext_lazy as _
 from .form import OpForm
 from .models import OpTimer, OpTimerType
 
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
 logger = logging.getLogger(__name__)
 
 OPS_VIEW_PERMISSION = 'auth.optimer_view'
@@ -17,7 +23,7 @@ OPS_MANAGE_PERMISSION = 'auth.optimer_management'
 
 @login_required
 @permission_required(OPS_VIEW_PERMISSION)
-def optimer_view(request):
+def optimer_view(request: "HttpRequest") -> "HttpResponse":
     """
     View for the optimer management page
 
@@ -40,7 +46,7 @@ def optimer_view(request):
 
 @login_required
 @permission_required(OPS_MANAGE_PERMISSION)
-def add_optimer_view(request):
+def add_optimer_view(request: "HttpRequest") -> "HttpResponse":
     """
     View for the add optimer page
 
@@ -99,7 +105,7 @@ def add_optimer_view(request):
 
 @login_required
 @permission_required(OPS_MANAGE_PERMISSION)
-def remove_optimer(request, optimer_id):
+def remove_optimer(request: "HttpRequest", optimer_id: int) -> "HttpResponse":
     """
     Remove optimer
 
@@ -122,7 +128,7 @@ def remove_optimer(request, optimer_id):
 
 @login_required
 @permission_required(OPS_MANAGE_PERMISSION)
-def edit_optimer(request, optimer_id):
+def edit_optimer(request: "HttpRequest", optimer_id: int) -> "HttpResponse":
     """
     Edit optimer
 
@@ -183,7 +189,7 @@ def edit_optimer(request, optimer_id):
     return render(request, 'optimer/update.html', context={'form': form})
 
 
-def dashboard_ops(request):
+def dashboard_ops(request: "HttpRequest") -> str:
     """
     Returns the next five upcoming ops for the dashboard
 

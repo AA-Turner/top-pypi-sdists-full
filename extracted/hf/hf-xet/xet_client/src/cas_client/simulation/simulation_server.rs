@@ -4,7 +4,6 @@
 //! test servers that wrap `LocalServer` and provide easy access to both
 //! `RemoteSimulationClient` (for HTTP interactions) and `DirectAccessClient` (for direct state access).
 
-use std::net::TcpListener as StdTcpListener;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,7 +12,9 @@ use async_trait::async_trait;
 use http::header::{self, HeaderMap, HeaderValue};
 #[cfg(unix)]
 use tempfile::TempDir;
+use tokio::net::TcpListener;
 use tokio::sync::oneshot;
+use xet_core_structures::merklehash::MerkleHash;
 use xet_runtime::core::XetContext;
 
 use super::super::RemoteClient;
@@ -229,7 +230,8 @@ impl LocalTestServerBuilder {
                 (lc, Some(dc))
             };
 
-        let port = LocalTestServer::find_available_port();
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind test server");
+        let port = listener.local_addr().expect("Failed to read test server address").port();
         let host = "127.0.0.1".to_string();
         let tcp_endpoint = format!("http://{}:{}", host, port);
         let server_host_port = format!("{}:{}", host, port);
@@ -259,7 +261,9 @@ impl LocalTestServerBuilder {
         let telemetry_docs = server.telemetry_docs_handle();
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         tokio::spawn(async move {
-            let _ = server.run_until_stopped(shutdown_rx).await;
+            if let Err(e) = server.serve_until_stopped(listener, shutdown_rx).await {
+                tracing::error!(error = %e, "test server failed");
+            }
         });
         tokio::time::sleep(Duration::from_millis(50)).await;
 
@@ -488,10 +492,6 @@ impl LocalTestServer {
             None => Ok(()),
         }
     }
-
-    fn find_available_port() -> u16 {
-        StdTcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
-    }
 }
 
 #[async_trait]
@@ -558,7 +558,7 @@ impl Client for LocalTestServer {
         shard_data: bytes::Bytes,
         upload_permit: super::super::adaptive_concurrency::ConnectionPermit,
         progress_callback: Option<super::super::interface::ShardUploadProgressCallback>,
-    ) -> Result<()> {
+    ) -> Result<Option<MerkleHash>> {
         self.remote_simulation_client
             .upload_shard(shard_data, upload_permit, progress_callback)
             .await

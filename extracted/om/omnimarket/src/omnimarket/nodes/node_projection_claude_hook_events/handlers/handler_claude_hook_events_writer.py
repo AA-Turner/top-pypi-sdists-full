@@ -15,8 +15,8 @@ not declare in-process dispatch. Both are pinned by tests.
 
 Idempotency, by construction rather than by assumption:
 
-* the event row is keyed on the producer's deterministic ``event_id`` and
-  inserted ``ON CONFLICT DO NOTHING``, so a redelivery writes nothing new;
+* the event row is keyed on the producer's deterministic ``event_id``. A
+  redelivery only fills a missing producer sequence from before OMN-21334;
 * the span is an upsert whose ``tool_call_count`` is RECOUNTED from the event
   table in the same statement, never incremented, so a redelivered
   ``PostToolUse`` cannot count twice;
@@ -60,7 +60,7 @@ _SELECT_PARENT_CALL = f"""
 """
 
 _INSERT_EVENT = f"""
-    INSERT INTO {TABLE_EVENTS} (
+    INSERT INTO {TABLE_EVENTS} AS existing (
         event_id, session_id, agent_id, is_subagent, agent_type,
         parent_tool_use_id, parent_agent_id, workflow_run_id, spawn_depth,
         hook_event_name, tool_use_id, tool_name, prompt_id, turn_id,
@@ -68,15 +68,18 @@ _INSERT_EVENT = f"""
         source_topic, goal_id, parent_goal_id, lane, model, host, exit_code,
         guard, refusal_reason, input_tokens, output_tokens,
         cache_creation_input_tokens, cache_read_input_tokens,
-        assistant_message_count, ingested_at
+        assistant_message_count, producer_seq, ingested_at
     )
     VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
         $15, $16, $17, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26,
-        $27, $28, $29, $30, $31, $32, $33, NOW()
+        $27, $28, $29, $30, $31, $32, $33, $34, NOW()
     )
-    ON CONFLICT (event_id) DO NOTHING
-    RETURNING event_id, projection_cursor, ingested_at
+    ON CONFLICT (event_id) DO UPDATE SET
+        producer_seq = EXCLUDED.producer_seq
+    WHERE existing.producer_seq IS NULL AND EXCLUDED.producer_seq IS NOT NULL
+    RETURNING event_id, projection_cursor, ingested_at,
+              (xmax = 0) AS event_inserted
 """
 
 # Recount, never increment: the count is a function of the event rows, so
@@ -181,6 +184,7 @@ def _event_params(row: ModelClaudeHookEventRow) -> tuple[Any, ...]:
         row.cache_creation_input_tokens,
         row.cache_read_input_tokens,
         row.assistant_message_count,
+        row.producer_seq,
     )
 
 
@@ -266,20 +270,45 @@ class ClaudeHookEventsProjectionWriter(BaseProjectionRunner):
         guard reads: a redelivered main-thread event writes nothing and says
         so, rather than acknowledging a write that did not happen.
         """
-        await self.db.connect()
+        db = self._message_db()
+        await db.connect()
         try:
-            return await self._project(topic, data)
+            return await self._project(db, topic, data)
         finally:
-            await self.db.close()
+            await db.close()
+
+    def _message_db(self) -> Any:
+        """The adapter that one runtime-dispatched message writes through.
+
+        The contract declares ``consume_concurrency``, so the runtime may run
+        several messages at once, each in its own thread and event loop. A
+        pool belongs to the loop that opened it. When concurrent messages
+        shared the writer's adapter, they closed each other's pool in the
+        middle of a statement. On the dev lane on 2026-10-22 this showed
+        as ``call connect() first`` and ``pool is closed`` (OMN-19513).
+        Each message therefore gets its own adapter on the DSN the runtime
+        bound. It has one connection, because its statements run one after
+        another. A test double is not an ``AsyncpgAdapter`` and is used as
+        given.
+        """
+        # Lazy import, as in BaseProjectionRunner (OMN-15800 AC6).
+        from omnimarket.adapters.asyncpg_adapter import AsyncpgAdapter
+
+        db = self.db
+        if isinstance(db, AsyncpgAdapter):
+            return AsyncpgAdapter(dsn=db.dsn, min_size=1, max_size=1)
+        return db
 
     async def project_event(
         self, topic: str, data: dict[str, Any], meta: MessageMeta
     ) -> bool:
         """Standalone-runner entrypoint: project one message, report success."""
-        await self._project(topic, data)
+        await self._project(self.db, topic, data)
         return True
 
-    async def _project(self, topic: str, data: dict[str, Any]) -> dict[str, Any]:
+    async def _project(
+        self, db: Any, topic: str, data: dict[str, Any]
+    ) -> dict[str, Any]:
         # A malformed event raises ValidationError here, before any write. The
         # runtime classifies that as POISON and routes the raw message to the
         # contract's DLQ; it is never logged and dropped.
@@ -288,7 +317,7 @@ class ClaudeHookEventsProjectionWriter(BaseProjectionRunner):
         known: tuple[ModelKnownParentToolCall, ...] = ()
         parent_tool_use_id = event.lineage.parent_tool_use_id
         if parent_tool_use_id is not None:
-            found = await self.db.execute(
+            found = await db.execute(
                 _SELECT_PARENT_CALL, event.lineage.session_id, parent_tool_use_id
             )
             known = tuple(
@@ -308,31 +337,29 @@ class ClaudeHookEventsProjectionWriter(BaseProjectionRunner):
             )
         )
 
-        inserted = await self.db.execute(
-            _INSERT_EVENT, *_event_params(result.event_row)
-        )
+        inserted = await db.execute(_INSERT_EVENT, *_event_params(result.event_row))
         rows_upserted = len(inserted)
 
         span_row: dict[str, Any] | None = None
         if result.span_update is not None:
-            returned = await self.db.execute(
-                _UPSERT_SPAN, *_span_params(result.span_update)
-            )
+            returned = await db.execute(_UPSERT_SPAN, *_span_params(result.span_update))
             rows_upserted += len(returned)
             span_row = dict(returned[0]) if returned else None
 
         repaired_spans = 0
         if result.resolves_children is not None:
             params = _repair_params(result.resolves_children)
-            spans = await self.db.execute(_REPAIR_CHILD_SPANS, *params)
-            events = await self.db.execute(_REPAIR_CHILD_EVENTS, *params[:3])
+            spans = await db.execute(_REPAIR_CHILD_SPANS, *params)
+            events = await db.execute(_REPAIR_CHILD_EVENTS, *params[:3])
             repaired_spans = len(spans)
             rows_upserted += len(spans) + len(events)
 
         row = result.event_row
         return {
             "rows_upserted": rows_upserted,
-            "event_inserted": bool(inserted),
+            "event_inserted": bool(
+                inserted and inserted[0].get("event_inserted", True)
+            ),
             "event_id": str(row.event_id),
             "session_id": row.session_id,
             "agent_id": row.agent_id,

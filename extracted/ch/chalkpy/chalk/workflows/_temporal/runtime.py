@@ -12,8 +12,9 @@ from temporalio import workflow as temporal_workflow
 from temporalio.client import Client, WorkflowExecutionStatus, WorkflowHandle
 from temporalio.common import RetryPolicy
 from temporalio.worker import Worker
+from temporalio.workflow import ParentClosePolicy
 
-from chalk.workflows._context import TaskHandle, current_orchestrator_var
+from chalk.workflows._context import ChildWorkflowHandle, TaskHandle, current_orchestrator_var
 from chalk.workflows._definitions import TASK_REGISTRY, WORKFLOW_REGISTRY, TaskDefinition, WorkflowDefinition
 from chalk.workflows._messages import (
     WORKFLOW_MESSAGE_SIGNAL,
@@ -70,6 +71,23 @@ def _start_task_activity(
     )
 
 
+# A child is cancelled, not terminated, when its parent closes first, so its `finally` blocks
+# can still release what it holds (e.g. a sandbox). Abandoning it would leave it running with
+# no one to await or message it.
+_CHILD_PARENT_CLOSE_POLICY = ParentClosePolicy.REQUEST_CANCEL
+
+
+def _workflow_message_envelope(name: str, payload: Any) -> dict[str, Any]:
+    # The envelope go-api-server's SendWorkflowMessage writes, but with a sender the sending
+    # workflow declares itself: workflow-to-workflow signals do not pass through the API server.
+    return {
+        "name": name,
+        "payload": payload,
+        "sender": {"kind": "workflow", "id": temporal_workflow.info().workflow_id},
+        "sent_at": temporal_workflow.now().isoformat(),
+    }
+
+
 class _TemporalOrchestrator:
     """Routes task invocations made inside a compiled workflow to Temporal activities."""
 
@@ -94,6 +112,47 @@ class _TemporalOrchestrator:
             except asyncio.TimeoutError:
                 raise WorkflowMessageTimeoutError(f"No {name!r} message arrived within {timeout}") from None
         return message_from_envelope(queue.popleft())
+
+    async def start_child(
+        self,
+        workflow: WorkflowDefinition[Any, Any] | str,
+        kwargs: Mapping[str, Any],
+        workflow_id: str | None,
+    ) -> ChildWorkflowHandle[Any]:
+        name = workflow if isinstance(workflow, str) else workflow.name
+        info = temporal_workflow.info()
+        handle = await temporal_workflow.start_child_workflow(
+            name,
+            dict(kwargs),
+            # uuid4 is replay-safe: it is seeded from the workflow's history.
+            id=(
+                workflow_id
+                if workflow_id is not None
+                else f"{info.workflow_id}.{name}.{temporal_workflow.uuid4().hex[:12]}"
+            ),
+            task_queue=info.task_queue,
+            retry_policy=_NO_WORKFLOW_RETRIES,
+            parent_close_policy=_CHILD_PARENT_CLOSE_POLICY,
+        )
+
+        async def send(message_name: str, payload: Any) -> None:
+            await handle.signal(WORKFLOW_MESSAGE_SIGNAL, _workflow_message_envelope(message_name, payload))
+
+        return ChildWorkflowHandle(handle.id, handle, send)
+
+    async def send_message(self, workflow_id: str, name: str, payload: Any) -> None:
+        # A signal sent by this workflow (not a client signal) is recorded in its history as
+        # SignalExternalWorkflowExecutionInitiated, which the lineage view draws as a message edge.
+        await temporal_workflow.get_external_workflow_handle(workflow_id).signal(
+            WORKFLOW_MESSAGE_SIGNAL, _workflow_message_envelope(name, payload)
+        )
+
+    def current_workflow_id(self) -> str:
+        return temporal_workflow.info().workflow_id
+
+    def parent_workflow_id(self) -> str | None:
+        parent = temporal_workflow.info().parent
+        return parent.workflow_id if parent is not None else None
 
     def _start(self, task: TaskDefinition[Any, Any], args: Sequence[Any], kwargs: Mapping[str, Any]) -> Any:
         if task.task_queue is None:

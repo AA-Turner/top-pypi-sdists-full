@@ -7,7 +7,10 @@ import typing
 import pydantic
 import typing_extensions
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from ...types.doc_ai_digitise_results_documents_item import DocAiDigitiseResultsDocumentsItem
+from ...types.doc_ai_classify_result import DocAiClassifyResult
+from ...types.doc_ai_job_usage import DocAiJobUsage
+from ...types.doc_ai_parse_results_documents_item import DocAiParseResultsDocumentsItem
+from ...types.doc_ai_split_result import DocAiSplitResult
 from ...types.doc_ai_usage import DocAiUsage
 
 
@@ -30,12 +33,51 @@ class DocAiGetResultsResponse_Extract(UniversalBaseModel):
             extra = pydantic.Extra.allow
 
 
-class DocAiGetResultsResponse_Digitise(UniversalBaseModel):
-    type: typing.Literal["digitise"] = "digitise"
+class DocAiGetResultsResponse_Parse(UniversalBaseModel):
+    type: typing.Literal["parse"] = "parse"
     job_id: str
     status: str
     usage: DocAiUsage
-    documents: typing.List[DocAiDigitiseResultsDocumentsItem]
+    documents: typing.List[DocAiParseResultsDocumentsItem]
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class DocAiGetResultsResponse_Classify(UniversalBaseModel):
+    type: typing.Literal["classify"] = "classify"
+    job_id: str
+    status: str
+    result_revision: typing.Optional[int] = None
+    usage: typing.Optional[DocAiJobUsage] = None
+    result: DocAiClassifyResult
+    pagination: typing.Optional[typing.Dict[str, typing.Any]] = None
+    provenance: typing.Optional[typing.Dict[str, typing.Any]] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class DocAiGetResultsResponse_Split(UniversalBaseModel):
+    type: typing.Literal["split"] = "split"
+    job_id: str
+    status: str
+    result_revision: typing.Optional[int] = None
+    usage: typing.Optional[DocAiJobUsage] = None
+    result: DocAiSplitResult
+    pagination: typing.Optional[typing.Dict[str, typing.Any]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -48,6 +90,11 @@ class DocAiGetResultsResponse_Digitise(UniversalBaseModel):
 
 
 DocAiGetResultsResponse = typing_extensions.Annotated[
-    typing.Union[DocAiGetResultsResponse_Extract, DocAiGetResultsResponse_Digitise],
+    typing.Union[
+        DocAiGetResultsResponse_Extract,
+        DocAiGetResultsResponse_Parse,
+        DocAiGetResultsResponse_Classify,
+        DocAiGetResultsResponse_Split,
+    ],
     pydantic.Field(discriminator="type"),
 ]

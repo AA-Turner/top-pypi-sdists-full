@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.billing_interval_pb2
+import sentry_protos.billing.v1.common.v1.billing_type_pb2
 import sentry_protos.billing.v1.common.v1.flexible_price_pb2
 import sentry_protos.billing.v1.common.v1.line_item_details_pb2
 import sentry_protos.billing.v1.common.v1.pricing_tier_pb2
@@ -32,6 +33,7 @@ class LineItemConfig(google.protobuf.message.Message):
     IS_UNLIMITED_TRIAL_FIELD_NUMBER: builtins.int
     NUM_TRIAL_UNITS_FIELD_NUMBER: builtins.int
     CAN_PRODUCT_TRIAL_FIELD_NUMBER: builtins.int
+    BILLING_TYPE_FIELD_NUMBER: builtins.int
     base_price_cents: builtins.int
     """Base price for the line item (upgraded reserved volumes or add-on activation fees)"""
     is_unlimited: builtins.bool
@@ -43,6 +45,7 @@ class LineItemConfig(google.protobuf.message.Message):
     num_trial_units: builtins.int
     can_product_trial: builtins.bool
     """Whether this LineItem is eligible for a product trial."""
+    billing_type: sentry_protos.billing.v1.common.v1.billing_type_pb2.BillingType.ValueType
     @property
     def payg_rate(self) -> sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate: ...
     @property
@@ -69,9 +72,10 @@ class LineItemConfig(google.protobuf.message.Message):
         is_unlimited_trial: builtins.bool = ...,
         num_trial_units: builtins.int = ...,
         can_product_trial: builtins.bool = ...,
+        billing_type: sentry_protos.billing.v1.common.v1.billing_type_pb2.BillingType.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["included_reserved_units", b"included_reserved_units", "is_unlimited", b"is_unlimited", "is_unlimited_trial", b"is_unlimited_trial", "line_item", b"line_item", "num_reserved_units", b"num_reserved_units", "num_trial_units", b"num_trial_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "trial_units", b"trial_units", "uncapped_rate", b"uncapped_rate"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "can_product_trial", b"can_product_trial", "included_reserved_units", b"included_reserved_units", "is_optional_add_on", b"is_optional_add_on", "is_unlimited", b"is_unlimited", "is_unlimited_trial", b"is_unlimited_trial", "line_item", b"line_item", "num_reserved_units", b"num_reserved_units", "num_trial_units", b"num_trial_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "trial_units", b"trial_units", "uncapped_rate", b"uncapped_rate"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "billing_type", b"billing_type", "can_product_trial", b"can_product_trial", "included_reserved_units", b"included_reserved_units", "is_optional_add_on", b"is_optional_add_on", "is_unlimited", b"is_unlimited", "is_unlimited_trial", b"is_unlimited_trial", "line_item", b"line_item", "num_reserved_units", b"num_reserved_units", "num_trial_units", b"num_trial_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "trial_units", b"trial_units", "uncapped_rate", b"uncapped_rate"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["included_reserved_units", b"included_reserved_units"]) -> typing.Literal["is_unlimited", "num_reserved_units"] | None: ...
     @typing.overload

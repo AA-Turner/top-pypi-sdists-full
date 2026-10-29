@@ -4,7 +4,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "scvi-tools"
-version = "1.5.1"
+version = "1.5.2"
 description = "Deep probabilistic analysis of single-cell omics data."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -26,6 +26,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
@@ -40,7 +41,7 @@ dependencies = [
   "pandas",
   "pyro-ppl",
   "rich",
-  "scanpy[skmisc]>=1.10",
+  "scanpy[skmisc]>=1.11",
   "scikit-learn",
   "scipy",
   "sparse>=0.14",
@@ -73,7 +74,7 @@ optional-dependencies.cuda13 = [
 ]
 # for custom dataloaders
 optional-dependencies.dataloaders = [
-  "annbatch[zarrs]>=0.2",
+  "annbatch[zarrs]>=0.3",
   "cellxgene-census",
   "lamindb>=1.12.1",
   "tiledbsoma",

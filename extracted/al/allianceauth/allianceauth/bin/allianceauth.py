@@ -1,14 +1,22 @@
 #!/usr/bin/env python
+
+__lazy_modules__ = ["argparse", "optparse"]
+
 import os
 import shutil
 from optparse import OptionParser
+from typing import TYPE_CHECKING
 
 from django.core.management import call_command
 from django.core.management.commands.startproject import Command as BaseStartProject
 
+if TYPE_CHECKING:
+    from argparse import ArgumentParser
+    from optparse import Values
+
 
 class StartProject(BaseStartProject):
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: "ArgumentParser") -> None:
         super().add_arguments(parser)
         parser.add_argument('--python', help='The path to the python executable.')
         parser.add_argument('--celery', help='The path to the celery executable.')
@@ -17,7 +25,7 @@ class StartProject(BaseStartProject):
         parser.add_argument('--venv_directory', help='The path to the virtual environment directory.')
 
 
-def create_project(parser, options, args):
+def create_project(parser: OptionParser, options: "Values", args: list[str]) -> None:
     # Validate args
     if len(args) < 2:
         parser.error("Please specify a name for your Alliance Auth installation.")
@@ -49,7 +57,7 @@ def create_project(parser, options, args):
     print(f"Success! {args[0]} has been created.")
 
 
-def update_settings(parser, options, args):
+def update_settings(parser: OptionParser, options: "Values", args: list[str]) -> None:
     if len(args) < 2:
         parser.error("Please specify the path to your Alliance Auth installation.")
     elif len(args) > 2:
@@ -86,7 +94,7 @@ COMMANDS = {
 }
 
 
-def main():
+def main() -> None:
     # Parse options
     parser = OptionParser(usage="Usage: %prog [start|update] project_name [directory]")
     (options, args) = parser.parse_args()

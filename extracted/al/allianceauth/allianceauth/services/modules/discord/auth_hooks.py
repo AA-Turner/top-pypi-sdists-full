@@ -1,9 +1,11 @@
+__lazy_modules__ = ["allianceauth.authentication.models", "django.http"]
+
 import logging
+from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
 
 from allianceauth import hooks
-from allianceauth.authentication.models import User
 from allianceauth.services.hooks import ServicesHook
 
 from . import __title__, tasks
@@ -12,6 +14,11 @@ from .core import server_name, user_formatted_nick
 from .models import DiscordUser
 from .urls import urlpatterns
 from .utils import LoggerAddTag
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
+
+    from allianceauth.authentication.models import User
 
 logger = LoggerAddTag(logging.getLogger(__name__), __title__)
 
@@ -22,7 +29,7 @@ SINGLE_TASK_PRIORITY = 3
 class DiscordService(ServicesHook):
     """Service for managing a Discord server with Auth"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         ServicesHook.__init__(self)
         self.urlpatterns = urlpatterns
         self.name = 'discord'
@@ -53,7 +60,7 @@ class DiscordService(ServicesHook):
 
         return discord_username
 
-    def delete_user(self, user: User, notify_user: bool = False) -> None:
+    def delete_user(self, user: "User", notify_user: bool = False) -> None:
         if self.user_has_account(user):
             logger.debug('Deleting user %s %s account', user, self.name)
             tasks.delete_user.apply_async(
@@ -61,7 +68,7 @@ class DiscordService(ServicesHook):
                 priority=SINGLE_TASK_PRIORITY
             )
 
-    def render_services_ctrl(self, request):
+    def render_services_ctrl(self, request: "HttpRequest") -> str:
         if self.user_has_account(request.user):
             user_has_account = True
             username = request.user.discord.username
@@ -92,12 +99,12 @@ class DiscordService(ServicesHook):
             request=request
         )
 
-    def service_active_for_user(self, user):
+    def service_active_for_user(self, user: "User") -> bool:
         has_perms = user.has_perm(self.access_perm)
         logger.debug("User %s has service permission: %s", user, has_perms)
         return has_perms
 
-    def sync_nickname(self, user):
+    def sync_nickname(self, user: "User") -> None:
         if DISCORD_SYNC_NAMES:
             logger.debug('Syncing %s nickname for user %s', self.name, user)
             if self.user_has_account(user):
@@ -111,7 +118,7 @@ class DiscordService(ServicesHook):
                     priority=SINGLE_TASK_PRIORITY
                 )
 
-    def sync_nicknames_bulk(self, users: list):
+    def sync_nicknames_bulk(self, users: list) -> None:
         """Sync nickname for a list of users in bulk.
         Preferred over sync_nickname(), because it will not break the rate limit
         """
@@ -121,11 +128,11 @@ class DiscordService(ServicesHook):
         user_pks = [user.pk for user in users]
         tasks.update_nicknames_bulk.delay(user_pks)
 
-    def update_all_groups(self):
+    def update_all_groups(self) -> None:
         logger.debug('Update all %s groups called', self.name)
         tasks.update_all_groups.delay()
 
-    def update_groups(self, user):
+    def update_groups(self, user: "User") -> None:
         logger.debug('Processing %s groups for %s', self.name, user)
         if self.user_has_account(user):
             tasks.update_groups.apply_async(
@@ -138,7 +145,7 @@ class DiscordService(ServicesHook):
                 priority=SINGLE_TASK_PRIORITY
             )
 
-    def update_groups_bulk(self, users: list):
+    def update_groups_bulk(self, users: list) -> None:
         """Updates groups for a list of users in bulk.
         Preferred over update_groups(), because it will not break the rate limit
         """
@@ -149,7 +156,7 @@ class DiscordService(ServicesHook):
         tasks.update_groups_bulk.delay(user_pks)
 
     @staticmethod
-    def user_has_account(user: User) -> bool:
+    def user_has_account(user: "User") -> bool:
         result = DiscordUser.objects.user_has_account(user)
         if result:
             logger.debug('User %s has a Discord account', user)
@@ -157,12 +164,12 @@ class DiscordService(ServicesHook):
             logger.debug('User %s does not have a Discord account', user)
         return result
 
-    def validate_user(self, user):
+    def validate_user(self, user: "User") -> None:
         logger.debug('Validating user %s %s account', user, self.name)
         if self.user_has_account(user) and not self.service_active_for_user(user):
             self.delete_user(user, notify_user=True)
 
 
 @hooks.register('services_hook')
-def register_service():
+def register_service() -> DiscordService:
     return DiscordService()

@@ -30,6 +30,7 @@ from ha_mcp._vendor.fastmcp.tools import tool
 from ..errors import ErrorCode, create_error_response
 from .auto_backup import with_auto_backup
 from .component_api import ComponentCaps, get_component_caps
+from .config_entry_flow import COMPONENT_DOMAIN as MCP_TOOLS_DOMAIN
 from .helpers import (
     exception_to_structured_error,
     log_tool_usage,
@@ -43,9 +44,6 @@ logger = logging.getLogger(__name__)
 
 # Feature flag - disabled by default for safety
 FEATURE_FLAG = "HAMCP_ENABLE_FILESYSTEM_TOOLS"
-
-# Domain for the custom component
-MCP_TOOLS_DOMAIN = "ha_mcp_tools"
 
 # Caller-token auth (mirrors custom_components/ha_mcp_tools).
 # The custom component's handlers reject every call that doesn't present
@@ -213,10 +211,10 @@ def _raise_tools_entry_not_set_up() -> NoReturn:
                 + "this ha-mcp server does not need)",
                 "If the HA-MCP integration is not listed there, install it "
                 + 'first: ha_manage_hacs(action="add_repository", '
-                + 'repository="homeassistant-ai/ha-mcp-integration", '
+                + 'repository="homeassistant-ai/ha-mcp", '
                 + 'category="integration"), then ha_manage_hacs('
                 + 'action="download", '
-                + 'repository_id="homeassistant-ai/ha-mcp-integration"), '
+                + 'repository_id="homeassistant-ai/ha-mcp"), '
                 + "then restart Home Assistant (ha_restart)",
                 "Then retry the operation",
             ],
@@ -704,17 +702,17 @@ class FilesystemTools:
         EXAMPLE: ha_read_file(path="packages/alert2.yaml", yaml_path="alert2")
         """
         try:
-            # Check if custom component is available
-            await _assert_mcp_tools_available(self._client)
+            from .config_file_visibility import refuse_reading_hidden_definitions
 
-            # Build service data
+            await _assert_mcp_tools_available(self._client)
+            await refuse_reading_hidden_definitions(
+                self._client, "ha_read_file", [path]
+            )
             service_data: dict[str, Any] = {"path": path}
             if tail_lines is not None:
                 service_data["tail_lines"] = tail_lines
             if yaml_path is not None:
                 service_data["yaml_path"] = yaml_path
-
-            # Call the custom component service
             result = await call_mcp_tools_service(
                 self._client,
                 "read_file",

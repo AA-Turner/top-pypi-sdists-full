@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 MAX_MANIFEST_BYTES = 32 * 1024 * 1024
 MAX_ROW_BYTES = 256 * 1024
 #: `notes` is the importer's line about the file. It is never uploaded (files
-#: carry no notes); the project's draft reads it (`backfill_reconstruction._note`).
+#: carry no notes); the project's record pass reads it (`backfill_record._note`).
 _FIELDS = frozenset({"path", "name", "notes", "reference", "allow_missing"})
 
 

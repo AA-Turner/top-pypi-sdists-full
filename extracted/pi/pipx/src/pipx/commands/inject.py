@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Final
 from packaging.utils import canonicalize_name
 
 from pipx import paths
-from pipx.backends import assert_not_pip_under_uv
+from pipx.backends import UV, assert_not_pip_under_uv
 from pipx.colors import bold
 from pipx.commands.common import (
     get_expected_venv_resource_paths,
@@ -35,7 +35,7 @@ from pipx.commands.common import (
 from pipx.commands.transaction import marked_unfinished, preserve_venv
 from pipx.constants import EXIT_CODE_INJECT_ERROR, EXIT_CODE_OK
 from pipx.emojis import hazard, stars
-from pipx.package_specifier import get_extras
+from pipx.package_specifier import add_extras, get_extras, source_without_extras, trusted_recorded_pip_args
 from pipx.result import (
     OperationData,
     OperationError,
@@ -72,6 +72,7 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
     include_dependencies: bool,
     include_resources_from: Sequence[str],
     force: bool,
+    force_reinstall: bool = True,
     suffix: bool = False,
     backend: str | None = None,
     env_backend: str | None = None,
@@ -126,7 +127,11 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
     assert_not_pip_under_uv(canonicalize_name(package_name), venv.backend_name)
 
     is_main_package = canonicalize_name(package_name) == canonicalize_name(venv.main_package_name)
-    if not force and venv.has_package(package_name) and (not is_main_package or not get_extras(package_spec)):
+    already_installed: Final[bool] = not force and venv.has_package(package_name)
+    main_spec: Final[str | None] = (
+        _main_spec_with_extras(venv, package_spec) if already_installed and is_main_package else None
+    )
+    if already_installed and main_spec is None:
         _LOGGER.info("Package %s is already installed", package_name)
         return _finish_inject(
             OperationResult(
@@ -150,9 +155,10 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
             emit_output=emit_output,
         )
 
+    package_spec = main_spec or package_spec
     if is_main_package:
         main_package = venv.pipx_metadata.main_package
-        pip_args = pip_args or main_package.pip_args
+        pip_args = pip_args or trusted_recorded_pip_args(main_package.pip_args, venv_dir)
         include_dependencies = main_package.include_dependencies
         include_resources_from = main_package.include_resources_from
         include_apps = main_package.include_apps
@@ -165,6 +171,13 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
     previous_resource_paths: Final[set[Path]] = get_expected_venv_resource_paths(
         venv, paths.ctx.bin_dir, paths.ctx.man_dir
     )
+    # pip's --force-reinstall covers the whole resolution, so it also refetches the main package by name from this
+    # package's index when this package depends on it; uv can limit the reinstall to this package
+    reinstall_args: Final[list[str] | None] = (
+        (["--reinstall-package", package_name] if venv.backend_name == UV else ["--force-reinstall"])
+        if force and force_reinstall and venv.has_package(package_name)
+        else None
+    )
     messages: Final[list[OutputMessage]] = []
     # like install, a package without the apps --include-apps asked for leaves the venv as it was
     with (
@@ -176,7 +189,7 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
                 venv.install_package,
                 package_or_url=package_spec,
                 pip_args=pip_args,
-                install_only_pip_args=["--force-reinstall"] if force else None,
+                install_only_pip_args=reinstall_args,
                 include_dependencies=include_dependencies,
                 include_resources_from=include_resources_from,
                 include_apps=include_apps,
@@ -228,6 +241,25 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
     )
 
 
+def _main_spec_with_extras(venv: Venv, package_spec: str) -> str | None:
+    # without --force only extras may change, so naming the package cannot swap the recorded path or URL for the index's
+    if not (extras := get_extras(package_spec)) or (recorded := venv.pipx_metadata.main_package.package_or_url) is None:
+        return None
+    try:
+        recorded_source: Final[str] = source_without_extras(recorded)
+    except PipxError as error:
+        msg = (
+            f"The recorded source {redact_url_credentials(recorded)} of {venv.name!r} no longer exists. "
+            f"Pass '--force' to install {redact_url_credentials(package_spec)!r} in its place."
+        )
+        raise PipxError(msg) from error
+    name: Final[str] = canonicalize_name(venv.main_package_name)
+    # NAME[extra] @ URL names the same source as a bare recorded URL
+    if source_without_extras(package_spec) not in {name, recorded_source, f"{name} @ {recorded_source}"}:
+        return None
+    return add_extras(recorded, venv.main_package_name, extras)
+
+
 def _install_under_installed_name(install: Callable[[str], VenvMetadata], package_name: str) -> str:
     try:
         install(package_name)
@@ -266,7 +298,7 @@ def inject(  # ruff:ignore[too-many-arguments]  # inject mirrors inject_dep's fl
             _inject_failure(venv_dir.name, None, "No packages have been specified."),
             emit_output=emit_output,
         )
-    _LOGGER.info("Injecting packages: %r", packages)
+    _LOGGER.info("Injecting packages: %r", [redact_url_credentials(package) for package in packages])
 
     expose_apps: Final[bool] = include_apps or include_dependencies or bool(include_resources_from)
     changed: Final[list[InjectionPackage]] = []
@@ -293,7 +325,7 @@ def inject(  # ruff:ignore[too-many-arguments]  # inject mirrors inject_dep's fl
                 emit_output=False,
             )
         except PipxError as error:
-            failures.append(InjectionFailure(venv_dir.name, dependency, error.raw_message))
+            failures.append(InjectionFailure(venv_dir.name, redact_url_credentials(dependency), error.raw_message))
             messages.append(OutputMessage(str(error), stream=OutputStream.STDERR, level=OutputLevel.ERROR))
             break
         changed.extend(result.data.packages)
